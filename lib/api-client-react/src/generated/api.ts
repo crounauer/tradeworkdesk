@@ -2549,6 +2549,82 @@ export function useGetServiceRecordByJob<
 }
 
 /**
+ * @summary List all commissioning records
+ */
+export const getListCommissioningRecordsUrl = () => {
+  return `/api/commissioning-records`;
+};
+
+export const listCommissioningRecords = async (
+  options?: RequestInit,
+): Promise<CommissioningRecord[]> => {
+  return customFetch<CommissioningRecord[]>(getListCommissioningRecordsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCommissioningRecordsQueryKey = () => {
+  return [`/api/commissioning-records`] as const;
+};
+
+export const getListCommissioningRecordsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCommissioningRecords>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissioningRecords>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCommissioningRecordsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCommissioningRecords>>
+  > = ({ signal }) => listCommissioningRecords({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissioningRecords>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCommissioningRecordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCommissioningRecords>>
+>;
+export type ListCommissioningRecordsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all commissioning records
+ */
+
+export function useListCommissioningRecords<
+  TData = Awaited<ReturnType<typeof listCommissioningRecords>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCommissioningRecords>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCommissioningRecordsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Create a commissioning record
  */
 export const getCreateCommissioningRecordUrl = () => {

@@ -23,6 +23,22 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
+router.get("/commissioning-records", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  let query = supabaseAdmin.from("commissioning_records").select("*").order("created_at", { ascending: false });
+
+  if (req.userRole === "technician") {
+    const { data: techJobs } = await supabaseAdmin
+      .from("jobs").select("id").eq("assigned_technician_id", req.userId!);
+    const jobIds = (techJobs || []).map((j: { id: string }) => j.id);
+    if (jobIds.length === 0) { res.json([]); return; }
+    query = query.in("job_id", jobIds);
+  }
+
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
 router.post("/commissioning-records", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateCommissioningRecordBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
