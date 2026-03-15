@@ -437,7 +437,7 @@ CREATE POLICY "auth_read_photos" ON storage.objects FOR SELECT TO authenticated
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
   ));
 CREATE POLICY "auth_delete_photos" ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'service-photos' AND (owner = auth.uid()::text OR get_user_role(auth.uid()) = 'admin'));
+  USING (bucket_id = 'service-photos' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
 
 CREATE POLICY "auth_upload_docs" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'service-documents');
 CREATE POLICY "auth_read_docs" ON storage.objects FOR SELECT TO authenticated
@@ -446,7 +446,7 @@ CREATE POLICY "auth_read_docs" ON storage.objects FOR SELECT TO authenticated
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
   ));
 CREATE POLICY "auth_delete_docs" ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'service-documents' AND (owner = auth.uid()::text OR get_user_role(auth.uid()) = 'admin'));
+  USING (bucket_id = 'service-documents' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
 
 CREATE POLICY "auth_upload_sigs" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'signatures');
 CREATE POLICY "auth_read_sigs" ON storage.objects FOR SELECT TO authenticated
