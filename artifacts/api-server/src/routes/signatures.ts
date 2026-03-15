@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateSignatureBody,
   GetJobSignaturesParams,
@@ -17,7 +17,9 @@ interface SignatureRow {
 }
 
 async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: job } = await q.single();
   if (!job) return { allowed: false, error: "Job not found" };
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     return { allowed: false, error: "Not authorized to access signatures for this job" };
@@ -27,7 +29,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
 
 const router: IRouter = Router();
 
-router.post("/signatures", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/signatures", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateSignatureBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -51,6 +53,7 @@ router.post("/signatures", requireAuth, async (req: AuthenticatedRequest, res): 
       signer_type: parsed.data.signer_type,
       signer_name: parsed.data.signer_name,
       storage_path: storagePath,
+      tenant_id: req.tenantId,
     })
     .select()
     .single();
@@ -61,7 +64,7 @@ router.post("/signatures", requireAuth, async (req: AuthenticatedRequest, res): 
   res.status(201).json({ ...data, signed_url: urlData?.signedUrl || null });
 });
 
-router.get("/signatures/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/signatures/job/:jobId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetJobSignaturesParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

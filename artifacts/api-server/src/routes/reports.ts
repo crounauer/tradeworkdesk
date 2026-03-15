@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   GetUpcomingServicesResponse,
   GetOverdueServicesResponse,
@@ -46,11 +46,11 @@ interface TechGroup {
 
 const router: IRouter = Router();
 
-router.get("/reports/upcoming-services", requireAuth, requireRole("admin", "office_staff"), async (_req, res): Promise<void> => {
+router.get("/reports/upcoming-services", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const thirtyDays = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
 
-  const { data, error } = await supabaseAdmin
+  let q = supabaseAdmin
     .from("appliances")
     .select("id, manufacturer, model, serial_number, next_service_due, properties(id, address_line1, customer_id, customers(id, first_name, last_name))")
     .eq("is_active", true)
@@ -59,6 +59,9 @@ router.get("/reports/upcoming-services", requireAuth, requireRole("admin", "offi
     .lte("next_service_due", thirtyDays)
     .order("next_service_due");
 
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+
+  const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const mapped = ((data || []) as unknown as ServiceReportRow[]).map((a) => ({
@@ -76,10 +79,10 @@ router.get("/reports/upcoming-services", requireAuth, requireRole("admin", "offi
   res.json(GetUpcomingServicesResponse.parse(mapped));
 });
 
-router.get("/reports/overdue-services", requireAuth, requireRole("admin", "office_staff"), async (_req, res): Promise<void> => {
+router.get("/reports/overdue-services", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
 
-  const { data, error } = await supabaseAdmin
+  let q = supabaseAdmin
     .from("appliances")
     .select("id, manufacturer, model, serial_number, next_service_due, properties(id, address_line1, customer_id, customers(id, first_name, last_name))")
     .eq("is_active", true)
@@ -87,6 +90,9 @@ router.get("/reports/overdue-services", requireAuth, requireRole("admin", "offic
     .lt("next_service_due", today)
     .order("next_service_due");
 
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+
+  const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const mapped = ((data || []) as unknown as ServiceReportRow[]).map((a) => ({
@@ -104,7 +110,7 @@ router.get("/reports/overdue-services", requireAuth, requireRole("admin", "offic
   res.json(GetOverdueServicesResponse.parse(mapped));
 });
 
-router.get("/reports/completed-by-technician", requireAuth, requireRole("admin", "office_staff"), async (req, res): Promise<void> => {
+router.get("/reports/completed-by-technician", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = GetCompletedByTechnicianQueryParams.safeParse(req.query);
 
   let q = supabaseAdmin
@@ -113,6 +119,8 @@ router.get("/reports/completed-by-technician", requireAuth, requireRole("admin",
     .eq("status", "completed")
     .eq("is_active", true)
     .not("assigned_technician_id", "is", null);
+
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
   if (query.success) {
     if (query.data.date_from) q = q.gte("scheduled_date", query.data.date_from);

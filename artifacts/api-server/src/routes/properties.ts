@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   ListPropertiesQueryParams,
   ListPropertiesResponse,
@@ -45,9 +45,11 @@ interface PropertyJobRow {
 
 const router: IRouter = Router();
 
-router.get("/properties", requireAuth, async (req, res): Promise<void> => {
+router.get("/properties", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListPropertiesQueryParams.safeParse(req.query);
   let q = supabaseAdmin.from("properties").select("*, customers(first_name, last_name)").eq("is_active", true).order("address_line1");
+
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
   if (query.success) {
     if (query.data.customer_id) q = q.eq("customer_id", query.data.customer_id);
@@ -69,21 +71,22 @@ router.get("/properties", requireAuth, async (req, res): Promise<void> => {
   res.json(ListPropertiesResponse.parse(mapped));
 });
 
-router.post("/properties", requireAuth, requireRole("admin", "office_staff"), async (req, res): Promise<void> => {
+router.post("/properties", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreatePropertyBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { data, error } = await supabaseAdmin.from("properties").insert(parsed.data).select().single();
+  const { data, error } = await supabaseAdmin.from("properties").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(data);
 });
 
-router.get("/properties/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/properties/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetPropertyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data: property, error } = await supabaseAdmin
-    .from("properties").select("*").eq("id", params.data.id).single();
+  let q = supabaseAdmin.from("properties").select("*").eq("id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: property, error } = await q.single();
   if (error || !property) { res.status(404).json({ error: "Property not found" }); return; }
 
   const { data: customer } = await supabaseAdmin
@@ -111,23 +114,26 @@ router.get("/properties/:id", requireAuth, async (req, res): Promise<void> => {
   }));
 });
 
-router.patch("/properties/:id", requireAuth, requireRole("admin", "office_staff"), async (req, res): Promise<void> => {
+router.patch("/properties/:id", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdatePropertyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdatePropertyBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const { data, error } = await supabaseAdmin
-    .from("properties").update(body.data).eq("id", params.data.id).select().single();
+  let q = supabaseAdmin.from("properties").update(body.data).eq("id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Property not found" }); return; }
   res.json(UpdatePropertyResponse.parse(data));
 });
 
-router.delete("/properties/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/properties/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = DeletePropertyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  await supabaseAdmin.from("properties").update({ is_active: false }).eq("id", params.data.id);
+  let q = supabaseAdmin.from("properties").update({ is_active: false }).eq("id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  await q;
   res.sendStatus(204);
 });
 

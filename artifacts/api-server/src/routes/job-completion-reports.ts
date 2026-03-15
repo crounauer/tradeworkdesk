@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateJobCompletionReportBody,
   GetJobCompletionReportParams,
@@ -15,7 +15,9 @@ import {
 const router: IRouter = Router();
 
 async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: job } = await q.single();
   if (!job) return { allowed: false, error: "Job not found" };
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     return { allowed: false, error: "You can only access records for jobs assigned to you" };
@@ -23,7 +25,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.post("/job-completion-reports", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/job-completion-reports", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateJobCompletionReportBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -35,7 +37,7 @@ router.post("/job-completion-reports", requireAuth, async (req: AuthenticatedReq
   res.status(201).json(GetJobCompletionReportResponse.parse(data));
 });
 
-router.get("/job-completion-reports/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/job-completion-reports/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetJobCompletionReportParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -48,7 +50,7 @@ router.get("/job-completion-reports/:id", requireAuth, async (req: Authenticated
   res.json(GetJobCompletionReportResponse.parse(data));
 });
 
-router.patch("/job-completion-reports/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/job-completion-reports/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateJobCompletionReportParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateJobCompletionReportBody.safeParse(req.body);
@@ -66,7 +68,7 @@ router.patch("/job-completion-reports/:id", requireAuth, async (req: Authenticat
   res.json(UpdateJobCompletionReportResponse.parse(data));
 });
 
-router.get("/job-completion-reports/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/job-completion-reports/job/:jobId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetJobCompletionReportByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { GlobalSearchQueryParams, GlobalSearchResponse } from "@workspace/api-zod";
 
 interface ApplianceSearchRow {
@@ -33,11 +33,30 @@ interface JobSearchRow {
 
 const router: IRouter = Router();
 
-router.get("/search", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/search", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = GlobalSearchQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
   const s = `%${query.data.q}%`;
+  const tid = req.tenantId;
+
+  let customersQ = supabaseAdmin
+    .from("customers").select("*").eq("is_active", true)
+    .or(`first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},postcode.ilike.${s}`)
+    .limit(10);
+  if (tid) customersQ = customersQ.eq("tenant_id", tid);
+
+  let propertiesQ = supabaseAdmin
+    .from("properties").select("*").eq("is_active", true)
+    .or(`address_line1.ilike.${s},city.ilike.${s},postcode.ilike.${s}`)
+    .limit(10);
+  if (tid) propertiesQ = propertiesQ.eq("tenant_id", tid);
+
+  let appliancesQ = supabaseAdmin
+    .from("appliances").select("*, properties(address_line1)").eq("is_active", true)
+    .or(`manufacturer.ilike.${s},model.ilike.${s},serial_number.ilike.${s}`)
+    .limit(10);
+  if (tid) appliancesQ = appliancesQ.eq("tenant_id", tid);
 
   let jobsQuery = supabaseAdmin
     .from("jobs")
@@ -45,31 +64,14 @@ router.get("/search", requireAuth, async (req: AuthenticatedRequest, res): Promi
     .eq("is_active", true)
     .or(`description.ilike.${s},notes.ilike.${s}`)
     .limit(10);
+  if (tid) jobsQuery = jobsQuery.eq("tenant_id", tid);
 
   if (req.userRole === "technician") {
     jobsQuery = jobsQuery.eq("assigned_technician_id", req.userId!);
   }
 
   const [customersRes, propertiesRes, appliancesRes, jobsRes] = await Promise.all([
-    supabaseAdmin
-      .from("customers")
-      .select("*")
-      .eq("is_active", true)
-      .or(`first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},postcode.ilike.${s}`)
-      .limit(10),
-    supabaseAdmin
-      .from("properties")
-      .select("*")
-      .eq("is_active", true)
-      .or(`address_line1.ilike.${s},city.ilike.${s},postcode.ilike.${s}`)
-      .limit(10),
-    supabaseAdmin
-      .from("appliances")
-      .select("*, properties(address_line1)")
-      .eq("is_active", true)
-      .or(`manufacturer.ilike.${s},model.ilike.${s},serial_number.ilike.${s}`)
-      .limit(10),
-    jobsQuery,
+    customersQ, propertiesQ, appliancesQ, jobsQuery,
   ]);
 
   const mappedAppliances = (appliancesRes.data as ApplianceSearchRow[] || []).map((a) => ({

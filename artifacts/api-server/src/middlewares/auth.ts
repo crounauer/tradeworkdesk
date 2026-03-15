@@ -5,6 +5,7 @@ export interface AuthenticatedRequest extends Request {
   userId?: string;
   userRole?: string;
   userEmail?: string;
+  tenantId?: string;
 }
 
 export async function requireAuth(
@@ -32,18 +33,16 @@ export async function requireAuth(
 
   let { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("role, tenant_id")
     .eq("id", user.id)
     .single();
 
   if (!profile) {
-    // Auto-provision a profile for users who signed up before the DB trigger ran.
     const fullName =
       user.user_metadata?.full_name ||
       user.email?.split("@")[0] ||
       "User";
 
-    // Check whether any admin already exists so we know what role to assign.
     const { count: adminCount } = await supabaseAdmin
       .from("profiles")
       .select("id", { count: "exact", head: true })
@@ -54,14 +53,11 @@ export async function requireAuth(
     const { data: created } = await supabaseAdmin
       .from("profiles")
       .insert({ id: user.id, email: user.email, full_name: fullName, role })
-      .select("role")
+      .select("role, tenant_id")
       .single();
 
     profile = created;
   } else if (profile.role === "technician") {
-    // If this user is a technician but NO admin exists yet, promote them.
-    // This handles the case where the Supabase sign-up trigger assigned the
-    // default 'technician' role before anyone manually set an admin account.
     const { count: adminCount } = await supabaseAdmin
       .from("profiles")
       .select("id", { count: "exact", head: true })
@@ -79,6 +75,7 @@ export async function requireAuth(
   req.userId = user.id;
   req.userRole = profile?.role || "technician";
   req.userEmail = user.email;
+  req.tenantId = profile?.tenant_id || undefined;
 
   next();
 }
@@ -95,4 +92,32 @@ export function requireRole(...roles: string[]) {
     }
     next();
   };
+}
+
+export function requireSuperAdmin(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (req.userRole !== "super_admin") {
+    res.status(403).json({ error: "Super admin access required" });
+    return;
+  }
+  next();
+}
+
+export function requireTenant(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (req.userRole === "super_admin") {
+    next();
+    return;
+  }
+  if (!req.tenantId) {
+    res.status(403).json({ error: "No tenant associated with this account" });
+    return;
+  }
+  next();
 }

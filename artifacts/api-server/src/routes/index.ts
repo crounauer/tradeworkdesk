@@ -24,6 +24,7 @@ import signaturesRouter from "./signatures";
 import searchRouter from "./search";
 import reportsRouter from "./reports";
 import dashboardRouter from "./dashboard";
+import platformRouter from "./platform";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(signaturesRouter);
 router.use(searchRouter);
 router.use(reportsRouter);
 router.use(dashboardRouter);
+router.use(platformRouter);
 
 export default router;

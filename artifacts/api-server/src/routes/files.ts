@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   ListFilesQueryParams,
   ListFilesResponse,
@@ -26,7 +26,9 @@ interface FileRow {
 async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string, entityId: string): Promise<{ allowed: boolean; error?: string }> {
   if (req.userRole !== "technician") return { allowed: true };
   if (entityType === "job") {
-    const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", entityId).single();
+    let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", entityId);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    const { data: job } = await q.single();
     if (!job) return { allowed: false, error: "Job not found" };
     if (job.assigned_technician_id !== req.userId) return { allowed: false, error: "Not authorized" };
   }
@@ -36,7 +38,7 @@ async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string,
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const router: IRouter = Router();
 
-router.get("/files", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/files", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListFilesQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
@@ -63,7 +65,7 @@ router.get("/files", requireAuth, async (req: AuthenticatedRequest, res): Promis
   res.json(ListFilesResponse.parse(filesWithUrls));
 });
 
-router.post("/files/upload", requireAuth, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const file = req.file;
   if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
 
@@ -99,6 +101,7 @@ router.post("/files/upload", requireAuth, upload.single("file"), async (req: Aut
       entity_id: entityId,
       uploaded_by: req.userId,
       description,
+      tenant_id: req.tenantId,
     })
     .select()
     .single();
@@ -109,12 +112,13 @@ router.post("/files/upload", requireAuth, upload.single("file"), async (req: Aut
   res.status(201).json({ ...data, signed_url: urlData?.signedUrl || null });
 });
 
-router.delete("/files/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/files/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = DeleteFileParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data: file } = await supabaseAdmin
-    .from("file_attachments").select("*").eq("id", params.data.id).single();
+  let q = supabaseAdmin.from("file_attachments").select("*").eq("id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: file } = await q.single();
   if (!file) { res.status(404).json({ error: "File not found" }); return; }
 
   const fileRow = file as FileRow;
@@ -129,12 +133,13 @@ router.delete("/files/:id", requireAuth, async (req: AuthenticatedRequest, res):
   res.sendStatus(204);
 });
 
-router.get("/files/:id/url", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/files/:id/url", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetFileUrlParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data: file } = await supabaseAdmin
-    .from("file_attachments").select("*").eq("id", params.data.id).single();
+  let q = supabaseAdmin.from("file_attachments").select("*").eq("id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: file } = await q.single();
   if (!file) { res.status(404).json({ error: "File not found" }); return; }
 
   const fileRow = file as FileRow;

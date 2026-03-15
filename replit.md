@@ -63,7 +63,9 @@ For `installation` job types, a commissioning record form is available. This cap
 ## Architecture
 
 - **Authentication**: Supabase Auth with email/password. Frontend uses `@supabase/supabase-js` client. API server verifies JWT tokens via `supabaseAdmin.auth.getUser()`.
-- **Authorization**: Role-based (admin, office_staff, technician). Roles stored in `profiles` table. Backend middleware `requireRole()` enforces access. Technicians can only access jobs assigned to them (enforced server-side via ownership checks).
+- **Authorization**: Role-based (admin, office_staff, technician, super_admin). Roles stored in `profiles` table. Backend middleware `requireRole()` enforces access. Technicians can only access jobs assigned to them (enforced server-side via ownership checks).
+- **Multi-tenancy**: All data tables have `tenant_id` FK to `tenants` table. Auth middleware extracts tenant from user profile. All routes scope queries by `tenant_id`. Super_admin bypasses tenant scoping. `requireTenant` middleware blocks requests without tenant context.
+- **Platform Admin**: Super_admin users access `/platform/*` routes for tenant/plan/announcement/audit management. Platform pages: Dashboard, Tenants list, Tenant detail, Plans, Announcements, Audit Log.
 - **File Storage**: Supabase Storage with 3 buckets: `service-photos`, `service-documents`, `signatures`. Files uploaded via multer, stored in Supabase, signed URLs generated for access.
 - **Row Level Security**: Database has RLS policies. API server uses service role key to bypass RLS for backend operations, but enforces authorization checks at the route handler level.
 
@@ -105,9 +107,9 @@ artifacts-monorepo/
 
 Express 5 API server. All routes under `/api`.
 
-- Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, commissioning-records, oil-tank-inspections, oil-tank-risk-assessments, combustion-analysis-records, burner-setup-records, fire-valve-test-records, oil-line-vacuum-tests, job-completion-reports, notes, files, signatures, search, reports, dashboard
+- Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, commissioning-records, oil-tank-inspections, oil-tank-risk-assessments, combustion-analysis-records, burner-setup-records, fire-valve-test-records, oil-line-vacuum-tests, job-completion-reports, notes, files, signatures, search, reports, dashboard, platform
 - Uses `supabaseAdmin` (service role) for all DB/storage operations
-- Auth middleware: `requireAuth` validates JWT, `requireRole` checks user role
+- Auth middleware: `requireAuth` validates JWT + extracts tenantId, `requireRole` checks user role, `requireSuperAdmin` enforces super_admin role, `requireTenant` ensures tenant context
 - Resource-level authorization: technicians restricted to assigned jobs across all job-related endpoints (detail, service records, breakdown reports, files, signatures, notes)
 - File uploads: multer with memory storage, 10MB limit
 - Centralized error handling middleware
@@ -118,7 +120,7 @@ React + Vite frontend with Tailwind CSS and shadcn/ui components.
 
 - Auth: Supabase client-side auth with `useAuth` hook
 - Fetch interceptor: automatically attaches Supabase JWT to `/api/` requests
-- Pages: Login, Dashboard, Customers, Customer Detail, Properties, Property Detail, Appliances, Appliance Detail, Jobs, Job Detail, Service Record Form, Breakdown Report Form, Commissioning Record Form, Oil Tank Inspection Form, Oil Tank Risk Assessment Form, Combustion Analysis Form, Burner Setup Form, Fire Valve Test Form, Oil Line Vacuum Test Form, Job Completion Report Form, Job Files, Job Signatures, Search, Reports
+- Pages: Login, Register (self-service company sign-up + invite code), Dashboard, Customers, Customer Detail, Properties, Property Detail, Appliances, Appliance Detail, Jobs, Job Detail, Service Record Form, Breakdown Report Form, Commissioning Record Form, Oil Tank Inspection Form, Oil Tank Risk Assessment Form, Combustion Analysis Form, Burner Setup Form, Fire Valve Test Form, Oil Line Vacuum Test Form, Job Completion Report Form, Job Files, Job Signatures, Search, Reports, Platform Dashboard, Platform Tenants, Platform Tenant Detail, Platform Plans, Platform Announcements, Platform Audit Log
 - Routing: wouter with protected routes
 - API calls: Generated React Query hooks from `@workspace/api-client-react`
 - PDF export: client-side PDF generation for service records via jsPDF
@@ -142,9 +144,9 @@ Drizzle ORM schema definitions matching the Supabase database tables. Exports ty
 
 ## Database
 
-The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, commissioning_records, breakdown_reports, oil_tank_inspections, oil_tank_risk_assessments, combustion_analysis_records, burner_setup_records, fire_valve_test_records, oil_line_vacuum_tests, job_completion_reports, job_notes, file_attachments, signatures. Includes RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`.
+The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, commissioning_records, breakdown_reports, oil_tank_inspections, oil_tank_risk_assessments, combustion_analysis_records, burner_setup_records, fire_valve_test_records, oil_line_vacuum_tests, job_completion_reports, job_notes, file_attachments, signatures, plans, tenants, platform_announcements, platform_audit_log. Includes RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`. Platform migration in `supabase/patch-005-platform-admin.sql` (must be run in Supabase SQL Editor).
 
-Schema enums: user_role, job_status, job_type (service/breakdown/installation/inspection/follow_up), priority_level, property_type, occupancy_type, fuel_type, boiler_type, system_type.
+Schema enums: user_role (admin/office_staff/technician/super_admin), tenant_status (trial/active/suspended/cancelled), job_status, job_type (service/breakdown/installation/inspection/follow_up), priority_level, property_type, occupancy_type, fuel_type, boiler_type, system_type.
 
 ## Codegen Notes
 

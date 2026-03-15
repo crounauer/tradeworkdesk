@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateOilTankRiskAssessmentBody,
   GetOilTankRiskAssessmentParams,
@@ -15,7 +15,9 @@ import {
 const router: IRouter = Router();
 
 async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: job } = await q.single();
   if (!job) return { allowed: false, error: "Job not found" };
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     return { allowed: false, error: "You can only access records for jobs assigned to you" };
@@ -23,7 +25,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.post("/oil-tank-risk-assessments", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/oil-tank-risk-assessments", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateOilTankRiskAssessmentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -35,7 +37,7 @@ router.post("/oil-tank-risk-assessments", requireAuth, async (req: Authenticated
   res.status(201).json(GetOilTankRiskAssessmentResponse.parse(data));
 });
 
-router.get("/oil-tank-risk-assessments/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/oil-tank-risk-assessments/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetOilTankRiskAssessmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -48,7 +50,7 @@ router.get("/oil-tank-risk-assessments/:id", requireAuth, async (req: Authentica
   res.json(GetOilTankRiskAssessmentResponse.parse(data));
 });
 
-router.patch("/oil-tank-risk-assessments/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/oil-tank-risk-assessments/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateOilTankRiskAssessmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateOilTankRiskAssessmentBody.safeParse(req.body);
@@ -66,7 +68,7 @@ router.patch("/oil-tank-risk-assessments/:id", requireAuth, async (req: Authenti
   res.json(UpdateOilTankRiskAssessmentResponse.parse(data));
 });
 
-router.get("/oil-tank-risk-assessments/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/oil-tank-risk-assessments/job/:jobId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetOilTankRiskAssessmentByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateCommissioningRecordBody,
   GetCommissioningRecordParams,
@@ -15,7 +15,9 @@ import {
 const router: IRouter = Router();
 
 async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: job } = await q.single();
   if (!job) return { allowed: false, error: "Job not found" };
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     return { allowed: false, error: "You can only modify commissioning records for jobs assigned to you" };
@@ -23,12 +25,15 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.get("/commissioning-records", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/commissioning-records", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   let query = supabaseAdmin.from("commissioning_records").select("*").order("created_at", { ascending: false });
 
+  if (req.tenantId) query = query.eq("tenant_id", req.tenantId);
+
   if (req.userRole === "technician") {
-    const { data: techJobs } = await supabaseAdmin
-      .from("jobs").select("id").eq("assigned_technician_id", req.userId!);
+    let jobQ = supabaseAdmin.from("jobs").select("id").eq("assigned_technician_id", req.userId!);
+    if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+    const { data: techJobs } = await jobQ;
     const jobIds = (techJobs || []).map((j: { id: string }) => j.id);
     if (jobIds.length === 0) { res.json([]); return; }
     query = query.in("job_id", jobIds);
@@ -39,20 +44,20 @@ router.get("/commissioning-records", requireAuth, async (req: AuthenticatedReque
   res.json(data || []);
 });
 
-router.post("/commissioning-records", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/commissioning-records", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateCommissioningRecordBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const access = await verifyJobAccess(req, parsed.data.job_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("commissioning_records").insert(parsed.data).select().single();
+  const { data, error } = await supabaseAdmin.from("commissioning_records").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   res.status(201).json(GetCommissioningRecordResponse.parse(data));
 });
 
-router.get("/commissioning-records/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/commissioning-records/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCommissioningRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -65,7 +70,7 @@ router.get("/commissioning-records/:id", requireAuth, async (req: AuthenticatedR
   res.json(GetCommissioningRecordResponse.parse(data));
 });
 
-router.put("/commissioning-records/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.put("/commissioning-records/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateCommissioningRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateCommissioningRecordBody.safeParse(req.body);
@@ -83,7 +88,7 @@ router.put("/commissioning-records/:id", requireAuth, async (req: AuthenticatedR
   res.json(UpdateCommissioningRecordResponse.parse(data));
 });
 
-router.get("/jobs/:jobId/commissioning-record", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:jobId/commissioning-record", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCommissioningRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

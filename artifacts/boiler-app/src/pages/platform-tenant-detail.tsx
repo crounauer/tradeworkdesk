@@ -1,0 +1,225 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useParams, useLocation } from "wouter";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Building2, Users, Briefcase, Save } from "lucide-react";
+import { Link } from "wouter";
+
+const STATUS_OPTIONS = ["trial", "active", "suspended", "cancelled"];
+
+export default function PlatformTenantDetail() {
+  const params = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
+
+  const { data: tenant, isLoading } = useQuery({
+    queryKey: ["platform-tenant", params.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}`);
+      if (!res.ok) throw new Error("Tenant not found");
+      return res.json();
+    },
+    enabled: !!params.id,
+  });
+
+  const { data: plans } = useQuery({
+    queryKey: ["platform-plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/plans");
+      if (!res.ok) throw new Error("Failed to load plans");
+      return res.json();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (updates: Record<string, unknown>) => {
+      const res = await fetch(`/api/platform/tenants/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
+      queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
+      toast({ title: "Tenant updated" });
+      setEditing(false);
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading) {
+    return <div className="animate-pulse space-y-4"><div className="h-8 w-64 bg-slate-100 rounded" /><div className="h-48 bg-slate-100 rounded" /></div>;
+  }
+
+  if (!tenant) {
+    return <div className="text-center py-8 text-muted-foreground">Tenant not found</div>;
+  }
+
+  const startEdit = () => {
+    setForm({
+      company_name: tenant.company_name || "",
+      contact_name: tenant.contact_name || "",
+      contact_email: tenant.contact_email || "",
+      contact_phone: tenant.contact_phone || "",
+      status: tenant.status || "trial",
+      plan_id: tenant.plan_id || "",
+      notes: tenant.notes || "",
+    });
+    setEditing(true);
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(form);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/platform/tenants")}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-display font-bold">{tenant.company_name}</h1>
+          <p className="text-muted-foreground text-sm">Tenant ID: {tenant.id}</p>
+        </div>
+        {!editing ? (
+          <Button onClick={startEdit}>Edit</Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={updateMutation.isPending}>
+              <Save className="w-4 h-4 mr-2" />Save
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card><CardContent className="p-4 flex items-center gap-3">
+          <Building2 className="w-5 h-5 text-blue-500" />
+          <div><p className="text-sm text-muted-foreground">Status</p>
+          <Badge variant="secondary" className={
+            tenant.status === "active" ? "bg-green-100 text-green-700" :
+            tenant.status === "trial" ? "bg-amber-100 text-amber-700" :
+            tenant.status === "suspended" ? "bg-red-100 text-red-700" : ""
+          }>{tenant.status}</Badge></div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center gap-3">
+          <Users className="w-5 h-5 text-purple-500" />
+          <div><p className="text-sm text-muted-foreground">Users</p>
+          <p className="font-bold">{tenant.users?.length || 0}</p></div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center gap-3">
+          <Briefcase className="w-5 h-5 text-green-500" />
+          <div><p className="text-sm text-muted-foreground">Customers / Jobs</p>
+          <p className="font-bold">{tenant.customer_count || 0} / {tenant.job_count || 0}</p></div>
+        </CardContent></Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {editing ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Company Name</Label>
+                <Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Contact Name</Label>
+                <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Contact Email</Label>
+                <Input value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Contact Phone</Label>
+                <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                >
+                  {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Plan</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.plan_id}
+                  onChange={(e) => setForm({ ...form, plan_id: e.target.value })}
+                >
+                  <option value="">No plan</option>
+                  {(plans || []).map((p: { id: string; name: string }) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Notes</Label>
+                <textarea
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div><span className="text-muted-foreground">Company:</span> {tenant.company_name}</div>
+              <div><span className="text-muted-foreground">Contact:</span> {tenant.contact_name}</div>
+              <div><span className="text-muted-foreground">Email:</span> {tenant.contact_email}</div>
+              <div><span className="text-muted-foreground">Phone:</span> {tenant.contact_phone || "—"}</div>
+              <div><span className="text-muted-foreground">Plan:</span> {tenant.plans?.name || "No plan"}</div>
+              <div><span className="text-muted-foreground">Created:</span> {new Date(tenant.created_at).toLocaleDateString()}</div>
+              {tenant.trial_ends_at && (
+                <div><span className="text-muted-foreground">Trial Ends:</span> {new Date(tenant.trial_ends_at).toLocaleDateString()}</div>
+              )}
+              {tenant.notes && (
+                <div className="md:col-span-2"><span className="text-muted-foreground">Notes:</span> {tenant.notes}</div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {tenant.users && tenant.users.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Users ({tenant.users.length})</CardTitle></CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {tenant.users.map((u: { id: string; full_name: string; email: string; role: string; created_at: string }) => (
+                <div key={u.id} className="py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold">
+                    {u.full_name?.charAt(0) || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{u.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <Badge variant="outline" className="capitalize">{u.role.replace("_", " ")}</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

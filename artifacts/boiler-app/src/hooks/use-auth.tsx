@@ -4,10 +4,19 @@ import { User, Session } from "@supabase/supabase-js";
 import { useGetProfile } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+type Profile = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  phone?: string | null;
+  tenant_id?: string | null;
+};
+
 type AuthContextType = {
   session: Session | null;
   user: User | null;
-  profile: { id: string; email: string; full_name: string; role: string; phone?: string | null } | null | undefined;
+  profile: Profile | null | undefined;
   isLoading: boolean;
   signOut: () => Promise<void>;
 };
@@ -30,12 +39,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      // Clear all cached query data when auth state changes to prevent
-      // stale data from being refetched with an old/wrong role.
       queryClient.clear();
 
-      // If a pending invite code was stored during sign-up (email verification flow),
-      // apply it now that the user has an active session.
       if (event === "SIGNED_IN" && session?.access_token) {
         const pendingCode = localStorage.getItem("pending_invite_code");
         if (pendingCode) {
@@ -62,7 +67,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile: profile as Profile | null | undefined, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

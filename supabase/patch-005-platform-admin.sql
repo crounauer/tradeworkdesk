@@ -1,0 +1,291 @@
+-- Patch 005: Platform Admin — Multi-tenant SaaS Foundation
+-- Run this in your Supabase SQL Editor for existing databases
+
+-- ─── 1. Extend user_role enum ──────────────────────────────────────────────────
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin';
+
+-- ─── 2. Tenant status enum ────────────────────────────────────────────────────
+DO $$ BEGIN
+  CREATE TYPE tenant_status AS ENUM ('trial', 'active', 'suspended', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ─── 3. Plans table ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  monthly_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  annual_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  max_users INTEGER NOT NULL DEFAULT 5,
+  max_jobs_per_month INTEGER NOT NULL DEFAULT 100,
+  features JSONB NOT NULL DEFAULT '{
+    "heat_pump_forms": true,
+    "combustion_analysis": true,
+    "reports": true,
+    "api_access": false
+  }'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  stripe_price_id TEXT,
+  stripe_price_id_annual TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON plans
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ─── 4. Tenants table ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tenants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_name TEXT NOT NULL,
+  contact_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  address_line1 TEXT,
+  address_line2 TEXT,
+  city TEXT,
+  county TEXT,
+  postcode TEXT,
+  country TEXT DEFAULT 'United Kingdom',
+  status tenant_status NOT NULL DEFAULT 'trial',
+  plan_id UUID REFERENCES plans(id) ON DELETE SET NULL,
+  trial_ends_at TIMESTAMPTZ,
+  subscription_started_at TIMESTAMPTZ,
+  subscription_renewal_at TIMESTAMPTZ,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON tenants
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ─── 5. Platform Announcements ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS platform_announcements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'critical')),
+  starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ends_at TIMESTAMPTZ,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON platform_announcements
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ─── 6. Platform Audit Log ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS platform_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  actor_email TEXT,
+  event_type TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id UUID,
+  detail JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON platform_audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_event ON platform_audit_log(event_type);
+
+-- ─── 7. Add tenant_id to all existing data tables ──────────────────────────────
+
+-- Create a default seed tenant so existing data isn't orphaned
+INSERT INTO plans (id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, sort_order)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Starter', 'Basic plan for small companies', 29.99, 299.99, 5, 100, 1)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plans (id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, sort_order, features)
+VALUES ('00000000-0000-0000-0000-000000000002', 'Professional', 'For growing businesses', 59.99, 599.99, 15, 500, 2, '{"heat_pump_forms": true, "combustion_analysis": true, "reports": true, "api_access": false}')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO plans (id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, sort_order, features)
+VALUES ('00000000-0000-0000-0000-000000000003', 'Enterprise', 'Unlimited access for large operations', 99.99, 999.99, 50, 9999, 3, '{"heat_pump_forms": true, "combustion_analysis": true, "reports": true, "api_access": true}')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO tenants (id, company_name, contact_name, status, plan_id)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'Default Company',
+  'Admin',
+  'active',
+  '00000000-0000-0000-0000-000000000001'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Add tenant_id columns (nullable first, then backfill, then make NOT NULL)
+DO $$ BEGIN
+  ALTER TABLE profiles ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE customers ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE properties ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE appliances ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE jobs ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE service_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE commissioning_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE heat_pump_service_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE heat_pump_commissioning_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE breakdown_reports ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE job_notes ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE file_attachments ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE signatures ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE invite_codes ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE company_settings ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- Backfill existing rows with the default tenant
+UPDATE profiles SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE customers SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE properties SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE appliances SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE jobs SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE service_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE commissioning_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE heat_pump_service_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE heat_pump_commissioning_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE breakdown_reports SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE job_notes SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE file_attachments SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE signatures SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE invite_codes SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE company_settings SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
+-- Create indexes for tenant_id on all data tables
+CREATE INDEX IF NOT EXISTS idx_profiles_tenant ON profiles(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_customers_tenant ON customers(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_properties_tenant ON properties(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_appliances_tenant ON appliances(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_tenant ON jobs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_service_records_tenant ON service_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_commissioning_records_tenant ON commissioning_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_heat_pump_service_records_tenant ON heat_pump_service_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_heat_pump_commissioning_records_tenant ON heat_pump_commissioning_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_breakdown_reports_tenant ON breakdown_reports(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_job_notes_tenant ON job_notes(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_file_attachments_tenant ON file_attachments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_signatures_tenant ON signatures(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_tenant ON invite_codes(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_company_settings_tenant ON company_settings(tenant_id);
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'company_settings_singleton_tenant_uniq'
+  ) THEN
+    ALTER TABLE company_settings DROP CONSTRAINT IF EXISTS company_settings_singleton_id_key;
+    ALTER TABLE company_settings ADD CONSTRAINT company_settings_singleton_tenant_uniq UNIQUE (singleton_id, tenant_id);
+  END IF;
+END $$;
+
+-- ─── 8. Helper function to get user tenant_id ──────────────────────────────────
+CREATE OR REPLACE FUNCTION get_user_tenant_id(user_id UUID)
+RETURNS UUID AS $$
+  SELECT tenant_id FROM profiles WHERE id = user_id;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ─── 9. Update handle_new_user trigger to support tenant_id from metadata ──────
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  assigned_role user_role;
+  assigned_tenant_id UUID;
+BEGIN
+  IF NEW.raw_user_meta_data->>'role' IS NOT NULL THEN
+    assigned_role := (NEW.raw_user_meta_data->>'role')::user_role;
+  ELSIF NOT EXISTS (SELECT 1 FROM profiles WHERE role = 'admin') THEN
+    assigned_role := 'admin';
+  ELSE
+    assigned_role := 'technician';
+  END IF;
+
+  IF NEW.raw_user_meta_data->>'tenant_id' IS NOT NULL THEN
+    assigned_tenant_id := (NEW.raw_user_meta_data->>'tenant_id')::UUID;
+  ELSE
+    assigned_tenant_id := NULL;
+  END IF;
+
+  INSERT INTO profiles (id, email, full_name, role, tenant_id)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    assigned_role,
+    assigned_tenant_id
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ─── 10. RLS for new tables ────────────────────────────────────────────────────
+ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_audit_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "plans_select" ON plans FOR SELECT TO authenticated USING (true);
+CREATE POLICY "plans_admin" ON plans FOR ALL TO authenticated
+  USING (get_user_role(auth.uid()) = 'super_admin');
+
+CREATE POLICY "tenants_super_admin" ON tenants FOR ALL TO authenticated
+  USING (get_user_role(auth.uid()) = 'super_admin');
+CREATE POLICY "tenants_own" ON tenants FOR SELECT TO authenticated
+  USING (id = get_user_tenant_id(auth.uid()));
+
+CREATE POLICY "announcements_select" ON platform_announcements FOR SELECT TO authenticated USING (true);
+CREATE POLICY "announcements_admin" ON platform_announcements FOR ALL TO authenticated
+  USING (get_user_role(auth.uid()) = 'super_admin');
+
+CREATE POLICY "audit_log_admin" ON platform_audit_log FOR SELECT TO authenticated
+  USING (get_user_role(auth.uid()) = 'super_admin');
+CREATE POLICY "audit_log_insert" ON platform_audit_log FOR INSERT TO authenticated WITH CHECK (true);
+
+-- ─── 11. Seed default plans ────────────────────────────────────────────────────
+-- (Already inserted above in step 7)

@@ -37,6 +37,12 @@ import AdminInviteCodes from "@/pages/admin-invite-codes";
 import AdminLookupOptions from "@/pages/admin-lookup-options";
 import AdminCompanySettings from "@/pages/admin-company-settings";
 import Register from "@/pages/register";
+import PlatformDashboard from "@/pages/platform-dashboard";
+import PlatformTenants from "@/pages/platform-tenants";
+import PlatformTenantDetail from "@/pages/platform-tenant-detail";
+import PlatformPlans from "@/pages/platform-plans";
+import PlatformAnnouncements from "@/pages/platform-announcements";
+import PlatformAuditLog from "@/pages/platform-audit-log";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -124,6 +130,13 @@ function AppRouter() {
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
       <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
       <Route path="/admin/lookup-options" component={() => <ProtectedRoute component={AdminLookupOptions} />} />
+
+      <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} />} />
+      <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} />} />
+      <Route path="/platform/tenants" component={() => <ProtectedRoute component={PlatformTenants} />} />
+      <Route path="/platform/plans" component={() => <ProtectedRoute component={PlatformPlans} />} />
+      <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} />} />
+      <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} />} />
 
       <Route component={() => session ? <Layout><NotFound /></Layout> : <Redirect to="/login" />} />
     </Switch>

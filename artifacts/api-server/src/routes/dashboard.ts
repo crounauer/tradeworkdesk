@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { GetDashboardResponse } from "@workspace/api-zod";
 
 interface DashboardJobRow {
@@ -35,7 +35,7 @@ interface OverdueApplianceRow {
 
 const router: IRouter = Router();
 
-router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
@@ -47,6 +47,28 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Pr
       .from("jobs")
       .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
       .eq("is_active", true);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (techFilter) q = q.eq("assigned_technician_id", techFilter);
+    return q;
+  };
+
+  const buildApplianceQuery = () => {
+    let q = supabaseAdmin.from("appliances")
+      .select("id, manufacturer, model, serial_number, next_service_due, properties(id, address_line1, customer_id, customers(id, first_name, last_name))")
+      .eq("is_active", true);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    return q;
+  };
+
+  const buildCustomerCountQuery = () => {
+    let q = supabaseAdmin.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    return q;
+  };
+
+  const buildCompletedCountQuery = () => {
+    let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").eq("is_active", true).gte("scheduled_date", weekAgo);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
     return q;
   };
@@ -56,23 +78,16 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Pr
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
     buildJobQuery().eq("status", "completed").order("updated_at", { ascending: false }).limit(5),
     buildJobQuery().eq("status", "requires_follow_up").order("scheduled_date").limit(10),
-    supabaseAdmin
-      .from("appliances")
-      .select("id, manufacturer, model, serial_number, next_service_due, properties(id, address_line1, customer_id, customers(id, first_name, last_name))")
-      .eq("is_active", true)
+    buildApplianceQuery()
       .not("next_service_due", "is", null)
       .lt("next_service_due", today)
       .order("next_service_due")
       .limit(10),
     Promise.all([
-      supabaseAdmin.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
+      buildCustomerCountQuery(),
       buildJobQuery().eq("scheduled_date", today).neq("status", "cancelled"),
-      supabaseAdmin.from("appliances").select("id", { count: "exact", head: true }).eq("is_active", true).not("next_service_due", "is", null).lt("next_service_due", today),
-      (() => {
-        let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").eq("is_active", true).gte("scheduled_date", weekAgo);
-        if (techFilter) q = q.eq("assigned_technician_id", techFilter);
-        return q;
-      })(),
+      buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today),
+      buildCompletedCountQuery(),
     ]),
   ]);
 

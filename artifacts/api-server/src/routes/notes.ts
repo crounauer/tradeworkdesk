@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   ListJobNotesParams,
   ListJobNotesResponse,
@@ -19,11 +19,13 @@ interface NoteRow {
 
 const router: IRouter = Router();
 
-router.get("/jobs/:jobId/notes", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:jobId/notes", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = ListJobNotesParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", params.data.jobId).single();
+  let jobQ = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", params.data.jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job } = await jobQ.single();
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     res.status(403).json({ error: "Not authorized" }); return;
@@ -46,13 +48,15 @@ router.get("/jobs/:jobId/notes", requireAuth, async (req: AuthenticatedRequest, 
   res.json(ListJobNotesResponse.parse(mapped));
 });
 
-router.post("/jobs/:jobId/notes", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:jobId/notes", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = CreateJobNoteParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = CreateJobNoteBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", params.data.jobId).single();
+  let jobQ = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", params.data.jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job } = await jobQ.single();
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     res.status(403).json({ error: "Not authorized" }); return;
@@ -60,7 +64,7 @@ router.post("/jobs/:jobId/notes", requireAuth, async (req: AuthenticatedRequest,
 
   const { data, error } = await supabaseAdmin
     .from("job_notes")
-    .insert({ job_id: params.data.jobId, author_id: req.userId!, content: body.data.content })
+    .insert({ job_id: params.data.jobId, author_id: req.userId!, content: body.data.content, tenant_id: req.tenantId })
     .select("*, profiles(full_name)")
     .single();
 

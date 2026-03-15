@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateHeatPumpCommissioningRecordBody,
   UpdateHeatPumpCommissioningRecordBody,
@@ -13,7 +13,9 @@ import {
 const router: IRouter = Router();
 
 async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: job } = await q.single();
   if (!job) return { allowed: false, error: "Job not found" };
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     return { allowed: false, error: "You can only modify records for jobs assigned to you" };
@@ -21,8 +23,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-// GET /jobs/:jobId/heat-pump-commissioning — fetch existing record
-router.get("/jobs/:jobId/heat-pump-commissioning", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:jobId/heat-pump-commissioning", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetHeatPumpCommissioningRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -36,8 +37,7 @@ router.get("/jobs/:jobId/heat-pump-commissioning", requireAuth, async (req: Auth
   res.json(GetHeatPumpCommissioningRecordByJobResponse.parse(data));
 });
 
-// POST /jobs/:jobId/heat-pump-commissioning — create record
-router.post("/jobs/:jobId/heat-pump-commissioning", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:jobId/heat-pump-commissioning", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetHeatPumpCommissioningRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -52,13 +52,12 @@ router.post("/jobs/:jobId/heat-pump-commissioning", requireAuth, async (req: Aut
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const { data, error } = await supabaseAdmin
-    .from("heat_pump_commissioning_records").insert(parsed.data).select().single();
+    .from("heat_pump_commissioning_records").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(GetHeatPumpCommissioningRecordResponse.parse(data));
 });
 
-// PATCH /jobs/:jobId/heat-pump-commissioning — update existing record
-router.patch("/jobs/:jobId/heat-pump-commissioning", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:jobId/heat-pump-commissioning", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetHeatPumpCommissioningRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

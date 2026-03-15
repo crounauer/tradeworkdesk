@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateBreakdownReportBody,
   GetBreakdownReportParams,
@@ -15,7 +15,9 @@ import {
 const router: IRouter = Router();
 
 async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: job } = await q.single();
   if (!job) return { allowed: false, error: "Job not found" };
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     return { allowed: false, error: "You can only access breakdown reports for jobs assigned to you" };
@@ -23,19 +25,19 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.post("/breakdown-reports", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/breakdown-reports", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateBreakdownReportBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const access = await verifyJobAccess(req, parsed.data.job_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("breakdown_reports").insert(parsed.data).select().single();
+  const { data, error } = await supabaseAdmin.from("breakdown_reports").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(GetBreakdownReportResponse.parse(data));
 });
 
-router.get("/breakdown-reports/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/breakdown-reports/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetBreakdownReportParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -48,7 +50,7 @@ router.get("/breakdown-reports/:id", requireAuth, async (req: AuthenticatedReque
   res.json(GetBreakdownReportResponse.parse(data));
 });
 
-router.patch("/breakdown-reports/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/breakdown-reports/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateBreakdownReportParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateBreakdownReportBody.safeParse(req.body);
@@ -66,7 +68,7 @@ router.patch("/breakdown-reports/:id", requireAuth, async (req: AuthenticatedReq
   res.json(UpdateBreakdownReportResponse.parse(data));
 });
 
-router.get("/breakdown-reports/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/breakdown-reports/job/:jobId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetBreakdownReportByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
