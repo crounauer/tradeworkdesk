@@ -454,3 +454,5 @@ CREATE POLICY "auth_read_sigs" ON storage.objects FOR SELECT TO authenticated
     get_user_role(auth.uid()) IN ('admin', 'office_staff')
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
   ));
+CREATE POLICY "auth_delete_sigs" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'signatures' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
