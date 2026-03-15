@@ -282,4 +282,62 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
   res.json(data);
 });
 
+router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!req.tenantId) { res.json(null); return; }
+
+  const { data, error } = await supabaseAdmin
+    .from("tenants")
+    .select("id, company_name, status, trial_ends_at, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
+    .eq("id", req.tenantId)
+    .single();
+
+  if (error || !data) { res.json(null); return; }
+
+  const { data: subscription } = await supabaseAdmin
+    .from("tenant_subscriptions")
+    .select("*")
+    .eq("tenant_id", req.tenantId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  res.json({ ...data, subscription: subscription || null });
+});
+
+router.get("/platform/stats/mrr", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const { data: tenants } = await supabaseAdmin
+    .from("tenants")
+    .select("id, plan_id, status, plans(monthly_price)")
+    .in("status", ["active", "trial"]);
+
+  const mrr = (tenants || []).reduce((sum: number, t: { plans?: { monthly_price?: number } | null }) => {
+    return sum + (t.plans?.monthly_price || 0);
+  }, 0);
+
+  res.json({ mrr });
+});
+
+router.get("/platform/stats/signups", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const { data } = await supabaseAdmin
+    .from("tenants")
+    .select("created_at")
+    .order("created_at", { ascending: true });
+
+  const months: Record<string, number> = {};
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    months[key] = 0;
+  }
+
+  (data || []).forEach((t: { created_at: string }) => {
+    const d = new Date(t.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (key in months) months[key]++;
+  });
+
+  res.json(Object.entries(months).map(([month, count]) => ({ month, count })));
+});
+
 export default router;

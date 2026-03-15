@@ -485,10 +485,94 @@ router.post("/auth/register-company", async (req, res): Promise<void> => {
     detail: { company_name },
   });
 
+  const { data: sessionData } = await supabaseAdmin.auth.admin.generateLink({
+    type: "magiclink",
+    email: contact_email,
+  });
+
   res.status(201).json({
     tenant_id: tenant.id,
     user_id: authData.user.id,
-    message: "Company registered successfully. Please sign in.",
+    email: contact_email,
+    password_hint: true,
+    message: "Company registered successfully.",
+  });
+});
+
+router.post("/auth/register", async (req, res): Promise<void> => {
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id } = req.body;
+
+  if (!company_name || !contact_email || !password || !contact_name) {
+    res.status(400).json({ error: "company_name, contact_name, contact_email, and password are required." });
+    return;
+  }
+
+  if (password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters." });
+    return;
+  }
+
+  const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString();
+
+  const { data: tenant, error: tenantError } = await supabaseAdmin
+    .from("tenants")
+    .insert({
+      company_name,
+      contact_name,
+      contact_email,
+      contact_phone: contact_phone || null,
+      status: "trial",
+      plan_id: plan_id || "00000000-0000-0000-0000-000000000001",
+      trial_ends_at: trialEnds,
+    })
+    .select()
+    .single();
+
+  if (tenantError) { res.status(500).json({ error: tenantError.message }); return; }
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email: contact_email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: contact_name,
+      role: "admin",
+      tenant_id: tenant.id,
+    },
+  });
+
+  if (authError) {
+    await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+    res.status(400).json({ error: authError.message });
+    return;
+  }
+
+  await supabaseAdmin
+    .from("profiles")
+    .update({ tenant_id: tenant.id, role: "admin" })
+    .eq("id", authData.user.id);
+
+  await supabaseAdmin.from("company_settings").insert({
+    singleton_id: "default",
+    tenant_id: tenant.id,
+    name: company_name,
+  });
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: authData.user.id,
+    actor_email: contact_email,
+    event_type: "company_registered",
+    entity_type: "tenant",
+    entity_id: tenant.id,
+    detail: { company_name },
+  });
+
+  res.status(201).json({
+    tenant_id: tenant.id,
+    user_id: authData.user.id,
+    email: contact_email,
+    password_hint: true,
+    message: "Company registered successfully.",
   });
 });
 

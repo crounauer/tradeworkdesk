@@ -497,5 +497,137 @@ CREATE POLICY "heat_pump_commissioning_records_tenant" ON heat_pump_commissionin
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
--- ─── 12. Seed default plans ────────────────────────────────────────────────────
+-- RLS for oil form sub-record tables
+ALTER TABLE oil_tank_inspections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE oil_tank_risk_assessments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE combustion_analysis_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE burner_setup_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fire_valve_test_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE oil_line_vacuum_tests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_completion_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lookup_options ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+CREATE POLICY "oil_tank_inspections_tenant" ON oil_tank_inspections FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "oil_tank_risk_assessments_tenant" ON oil_tank_risk_assessments FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "combustion_analysis_records_tenant" ON combustion_analysis_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "burner_setup_records_tenant" ON burner_setup_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "fire_valve_test_records_tenant" ON fire_valve_test_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "oil_line_vacuum_tests_tenant" ON oil_line_vacuum_tests FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "job_completion_reports_tenant" ON job_completion_reports FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "lookup_options_tenant" ON lookup_options FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- ─── 12. Tenant subscriptions table ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tenant_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES plans(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','past_due','cancelled','trialing')),
+  current_period_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+  current_period_end TIMESTAMPTZ,
+  cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_subscriptions_tenant ON tenant_subscriptions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_subscriptions_plan ON tenant_subscriptions(plan_id);
+
+ALTER TABLE tenant_subscriptions ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+CREATE POLICY "tenant_subscriptions_super_admin" ON tenant_subscriptions FOR ALL TO authenticated
+  USING (get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "tenant_subscriptions_own" ON tenant_subscriptions FOR SELECT TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- ─── 13. Fix handle_new_user trigger for NULL tenant_id ──────────────────────────
+-- Profiles.tenant_id must allow NULL for initial signup before tenant assignment
+-- The NOT NULL constraint is too strict - invite-based signups via Supabase Auth
+-- may not have tenant_id in metadata. Use default tenant as fallback.
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  assigned_role user_role;
+  assigned_tenant_id UUID;
+BEGIN
+  IF NEW.raw_user_meta_data->>'role' IS NOT NULL THEN
+    assigned_role := (NEW.raw_user_meta_data->>'role')::user_role;
+  ELSIF NOT EXISTS (SELECT 1 FROM profiles WHERE role = 'admin') THEN
+    assigned_role := 'admin';
+  ELSE
+    assigned_role := 'technician';
+  END IF;
+
+  IF NEW.raw_user_meta_data->>'tenant_id' IS NOT NULL THEN
+    assigned_tenant_id := (NEW.raw_user_meta_data->>'tenant_id')::UUID;
+  ELSE
+    assigned_tenant_id := '00000000-0000-0000-0000-000000000001';
+  END IF;
+
+  INSERT INTO profiles (id, email, full_name, role, tenant_id)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    assigned_role,
+    assigned_tenant_id
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ─── 14. Seed default plans ─────────────────────────────────────────────────────
 -- (Already inserted above in step 7)

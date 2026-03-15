@@ -196,9 +196,17 @@ export function Layout({ children }: { children: ReactNode }) {
             {trialDaysLeft <= 7 ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Info className="w-4 h-4 shrink-0" />}
             <span>
               {trialDaysLeft === 0
-                ? "Your trial has expired. Contact your administrator to upgrade."
-                : <>Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>. Contact your administrator to upgrade.</>}
+                ? "Your trial has expired."
+                : <>Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.</>}
             </span>
+            {isAdmin && (
+              <Link href="/admin/company-settings">
+                <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="ml-2 h-7 text-xs">
+                  <CreditCard className="w-3 h-3 mr-1" />
+                  Upgrade Plan
+                </Button>
+              </Link>
+            )}
           </div>
         )}
 

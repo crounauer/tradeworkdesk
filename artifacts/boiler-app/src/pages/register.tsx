@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, CheckCircle2, AlertCircle, Building2 } from "lucide-react";
+import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ type RegisterMode = "invite" | "company";
 
 export default function Register() {
   const [mode, setMode] = useState<RegisterMode>(() => getCodeFromUrl() ? "invite" : "company");
+  const [step, setStep] = useState(1);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -126,7 +127,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register-company", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,8 +143,18 @@ export default function Register() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      toast({ title: "Company registered!", description: "Please sign in with your credentials." });
-      navigate("/login");
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        toast({ title: "Company registered!", description: "Please sign in with your credentials." });
+        navigate("/login");
+      } else {
+        toast({ title: "Welcome to BoilerTech!", description: "Your company account is ready." });
+        navigate("/");
+      }
     } catch (err) {
       toast({ title: "Registration failed", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -156,6 +167,9 @@ export default function Register() {
     office_staff: "Office Staff",
     technician: "Technician",
   };
+
+  const canAdvanceStep1 = companyName.trim().length > 0 && fullName.trim().length > 0 && email.trim().length > 0;
+  const canAdvanceStep2 = true;
 
   if (done) {
     return (
@@ -173,6 +187,21 @@ export default function Register() {
       </div>
     );
   }
+
+  const stepIndicator = (
+    <div className="flex items-center justify-center gap-2 mb-5">
+      {[1, 2, 3].map((s) => (
+        <div key={s} className="flex items-center gap-2">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+            s < step ? "bg-primary text-white" : s === step ? "bg-primary/10 text-primary border-2 border-primary" : "bg-slate-100 text-slate-400"
+          }`}>
+            {s < step ? <Check className="w-4 h-4" /> : s}
+          </div>
+          {s < 3 && <div className={`w-8 h-0.5 ${s < step ? "bg-primary" : "bg-slate-200"}`} />}
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50">
@@ -193,7 +222,7 @@ export default function Register() {
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
           <button
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === "company" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
-            onClick={() => setMode("company")}
+            onClick={() => { setMode("company"); setStep(1); }}
           >
             <Building2 className="w-4 h-4 inline mr-1.5 -mt-0.5" />New Company
           </button>
@@ -250,53 +279,105 @@ export default function Register() {
             </Button>
           </form>
         ) : (
-          <form onSubmit={handleCompanySubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Company Name</Label>
-              <Input placeholder="Acme Heating Ltd" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Your Full Name</Label>
-              <Input placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Email Address</Label>
-                <Input type="email" placeholder="jane@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone (optional)</Label>
-                <Input placeholder="07xxx" value={phone} onChange={e => setPhone(e.target.value)} />
-              </div>
-            </div>
-            {plans && plans.length > 0 && (
-              <div className="space-y-2">
-                <Label>Plan</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={selectedPlan}
-                  onChange={(e) => setSelectedPlan(e.target.value)}
-                >
-                  <option value="">Select a plan...</option>
-                  {plans.filter((p: { is_active: boolean }) => p.is_active).map((p: { id: string; name: string; monthly_price: number }) => (
-                    <option key={p.id} value={p.id}>{p.name} - £{Number(p.monthly_price).toFixed(2)}/mo</option>
-                  ))}
-                </select>
+          <>
+            {stepIndicator}
+
+            {step === 1 && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center">Company & contact details</p>
+                <div className="space-y-2">
+                  <Label>Company Name</Label>
+                  <Input placeholder="Acme Heating Ltd" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Your Full Name</Label>
+                  <Input placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Email Address</Label>
+                    <Input type="email" placeholder="jane@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone (optional)</Label>
+                    <Input placeholder="07xxx" value={phone} onChange={e => setPhone(e.target.value)} />
+                  </div>
+                </div>
+                <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
+                  Next: Choose Plan <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
               </div>
             )}
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Confirm Password</Label>
-              <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
-            </div>
-            <Button type="submit" className="w-full h-12 text-base mt-2" disabled={loading}>
-              {loading ? "Setting up your company..." : "Start 14-Day Free Trial"}
-            </Button>
-            <p className="text-xs text-center text-muted-foreground">No credit card required. 14-day free trial.</p>
-          </form>
+
+            {step === 2 && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center">Select your plan</p>
+                {plans && plans.length > 0 ? (
+                  <div className="space-y-3">
+                    {plans.filter((p: { is_active: boolean }) => p.is_active).map((p: { id: string; name: string; monthly_price: number; max_users?: number; max_jobs_per_month?: number }) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                          selectedPlan === p.id
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-border hover:border-primary/30 hover:bg-slate-50"
+                        }`}
+                        onClick={() => setSelectedPlan(p.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-base">{p.name}</span>
+                          <span className="text-lg font-bold text-primary">${Number(p.monthly_price).toFixed(2)}<span className="text-xs text-muted-foreground font-normal">/mo</span></span>
+                        </div>
+                        <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                          {p.max_users && <span>{p.max_users} users</span>}
+                          {p.max_jobs_per_month && <span>{p.max_jobs_per_month} jobs/mo</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">Loading plans...</p>
+                )}
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(1)}>
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                  </Button>
+                  <Button className="flex-1 h-12" disabled={!canAdvanceStep2} onClick={() => setStep(3)}>
+                    Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+                <p className="text-xs text-center text-muted-foreground">You can skip plan selection for a default trial.</p>
+              </div>
+            )}
+
+            {step === 3 && (
+              <form onSubmit={handleCompanySubmit} className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center">Set your login credentials</p>
+                <div className="p-3 rounded-lg bg-slate-50 border text-sm">
+                  <p className="font-medium">{companyName}</p>
+                  <p className="text-xs text-muted-foreground">{fullName} &middot; {email}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Confirm Password</Label>
+                  <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(2)}>
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                  </Button>
+                  <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
+                    {loading ? "Setting up..." : "Start Free Trial"}
+                  </Button>
+                </div>
+                <p className="text-xs text-center text-muted-foreground">No credit card required. 14-day free trial.</p>
+              </form>
+            )}
+          </>
         )}
 
         <p className="text-center text-sm text-muted-foreground mt-4">
