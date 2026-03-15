@@ -5,6 +5,7 @@
  * Boiler Service Technician API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateServiceRecordBodyApplianceClassification } from "./createServiceRecordBodyApplianceClassification";
 
 export interface CreateServiceRecordBody {
   job_id: string;
@@ -64,7 +65,7 @@ export interface CreateServiceRecordBody {
   gas_safe_engineer_id?: string;
   cp12_certificate_number?: string;
   landlord_certificate?: boolean;
-  appliance_classification?: string;
+  appliance_classification?: CreateServiceRecordBodyApplianceClassification;
   warning_notice_issued?: boolean;
   warning_notice_type?: string;
   warning_notice_details?: string;

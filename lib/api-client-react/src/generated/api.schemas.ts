@@ -361,6 +361,20 @@ export interface UpdateApplianceBody {
   is_active?: boolean;
 }
 
+/**
+ * @nullable
+ */
+export type ServiceRecordApplianceClassification =
+  | (typeof ServiceRecordApplianceClassification)[keyof typeof ServiceRecordApplianceClassification]
+  | null;
+
+export const ServiceRecordApplianceClassification = {
+  safe: "safe",
+  at_risk: "at_risk",
+  immediately_dangerous: "immediately_dangerous",
+  not_to_current_standards: "not_to_current_standards",
+} as const;
+
 export interface ServiceRecord {
   id: string;
   job_id: string;
@@ -453,7 +467,7 @@ export interface ServiceRecord {
   cp12_certificate_number?: string | null;
   landlord_certificate?: boolean;
   /** @nullable */
-  appliance_classification?: string | null;
+  appliance_classification?: ServiceRecordApplianceClassification;
   warning_notice_issued?: boolean;
   /** @nullable */
   warning_notice_type?: string | null;
@@ -646,6 +660,16 @@ export interface UpdateJobBody {
   notes?: string | null;
 }
 
+export type CreateServiceRecordBodyApplianceClassification =
+  (typeof CreateServiceRecordBodyApplianceClassification)[keyof typeof CreateServiceRecordBodyApplianceClassification];
+
+export const CreateServiceRecordBodyApplianceClassification = {
+  safe: "safe",
+  at_risk: "at_risk",
+  immediately_dangerous: "immediately_dangerous",
+  not_to_current_standards: "not_to_current_standards",
+} as const;
+
 export interface CreateServiceRecordBody {
   job_id: string;
   technician_id: string;
@@ -704,7 +728,7 @@ export interface CreateServiceRecordBody {
   gas_safe_engineer_id?: string;
   cp12_certificate_number?: string;
   landlord_certificate?: boolean;
-  appliance_classification?: string;
+  appliance_classification?: CreateServiceRecordBodyApplianceClassification;
   warning_notice_issued?: boolean;
   warning_notice_type?: string;
   warning_notice_details?: string;
@@ -715,6 +739,20 @@ export interface CreateServiceRecordBody {
   ignition_checked?: boolean;
   gas_pressure_checked?: boolean;
 }
+
+/**
+ * @nullable
+ */
+export type UpdateServiceRecordBodyApplianceClassification =
+  | (typeof UpdateServiceRecordBodyApplianceClassification)[keyof typeof UpdateServiceRecordBodyApplianceClassification]
+  | null;
+
+export const UpdateServiceRecordBodyApplianceClassification = {
+  safe: "safe",
+  at_risk: "at_risk",
+  immediately_dangerous: "immediately_dangerous",
+  not_to_current_standards: "not_to_current_standards",
+} as const;
 
 export interface UpdateServiceRecordBody {
   /** @nullable */
@@ -805,7 +843,7 @@ export interface UpdateServiceRecordBody {
   cp12_certificate_number?: string | null;
   landlord_certificate?: boolean;
   /** @nullable */
-  appliance_classification?: string | null;
+  appliance_classification?: UpdateServiceRecordBodyApplianceClassification;
   warning_notice_issued?: boolean;
   /** @nullable */
   warning_notice_type?: string | null;

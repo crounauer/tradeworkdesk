@@ -1114,7 +1114,15 @@ export const GetJobResponse = zod
           gas_safe_engineer_id: zod.string().nullish(),
           cp12_certificate_number: zod.string().nullish(),
           landlord_certificate: zod.boolean().optional(),
-          appliance_classification: zod.string().nullish(),
+          appliance_classification: zod
+            .union([
+              zod.literal("safe"),
+              zod.literal("at_risk"),
+              zod.literal("immediately_dangerous"),
+              zod.literal("not_to_current_standards"),
+              zod.literal(null),
+            ])
+            .nullish(),
           warning_notice_issued: zod.boolean().optional(),
           warning_notice_type: zod.string().nullish(),
           warning_notice_details: zod.string().nullish(),
@@ -1326,7 +1334,14 @@ export const CreateServiceRecordBody = zod.object({
   gas_safe_engineer_id: zod.string().optional(),
   cp12_certificate_number: zod.string().optional(),
   landlord_certificate: zod.boolean().optional(),
-  appliance_classification: zod.string().optional(),
+  appliance_classification: zod
+    .enum([
+      "safe",
+      "at_risk",
+      "immediately_dangerous",
+      "not_to_current_standards",
+    ])
+    .optional(),
   warning_notice_issued: zod.boolean().optional(),
   warning_notice_type: zod.string().optional(),
   warning_notice_details: zod.string().optional(),
@@ -1404,7 +1419,15 @@ export const GetServiceRecordResponse = zod.object({
   gas_safe_engineer_id: zod.string().nullish(),
   cp12_certificate_number: zod.string().nullish(),
   landlord_certificate: zod.boolean().optional(),
-  appliance_classification: zod.string().nullish(),
+  appliance_classification: zod
+    .union([
+      zod.literal("safe"),
+      zod.literal("at_risk"),
+      zod.literal("immediately_dangerous"),
+      zod.literal("not_to_current_standards"),
+      zod.literal(null),
+    ])
+    .nullish(),
   warning_notice_issued: zod.boolean().optional(),
   warning_notice_type: zod.string().nullish(),
   warning_notice_details: zod.string().nullish(),
@@ -1481,7 +1504,15 @@ export const UpdateServiceRecordBody = zod.object({
   gas_safe_engineer_id: zod.string().nullish(),
   cp12_certificate_number: zod.string().nullish(),
   landlord_certificate: zod.boolean().optional(),
-  appliance_classification: zod.string().nullish(),
+  appliance_classification: zod
+    .union([
+      zod.literal("safe"),
+      zod.literal("at_risk"),
+      zod.literal("immediately_dangerous"),
+      zod.literal("not_to_current_standards"),
+      zod.literal(null),
+    ])
+    .nullish(),
   warning_notice_issued: zod.boolean().optional(),
   warning_notice_type: zod.string().nullish(),
   warning_notice_details: zod.string().nullish(),
@@ -1552,7 +1583,15 @@ export const UpdateServiceRecordResponse = zod.object({
   gas_safe_engineer_id: zod.string().nullish(),
   cp12_certificate_number: zod.string().nullish(),
   landlord_certificate: zod.boolean().optional(),
-  appliance_classification: zod.string().nullish(),
+  appliance_classification: zod
+    .union([
+      zod.literal("safe"),
+      zod.literal("at_risk"),
+      zod.literal("immediately_dangerous"),
+      zod.literal("not_to_current_standards"),
+      zod.literal(null),
+    ])
+    .nullish(),
   warning_notice_issued: zod.boolean().optional(),
   warning_notice_type: zod.string().nullish(),
   warning_notice_details: zod.string().nullish(),
@@ -1632,7 +1671,15 @@ export const GetServiceRecordByJobResponse = zod.object({
   gas_safe_engineer_id: zod.string().nullish(),
   cp12_certificate_number: zod.string().nullish(),
   landlord_certificate: zod.boolean().optional(),
-  appliance_classification: zod.string().nullish(),
+  appliance_classification: zod
+    .union([
+      zod.literal("safe"),
+      zod.literal("at_risk"),
+      zod.literal("immediately_dangerous"),
+      zod.literal("not_to_current_standards"),
+      zod.literal(null),
+    ])
+    .nullish(),
   warning_notice_issued: zod.boolean().optional(),
   warning_notice_type: zod.string().nullish(),
   warning_notice_details: zod.string().nullish(),

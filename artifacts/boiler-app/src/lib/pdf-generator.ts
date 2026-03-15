@@ -371,7 +371,7 @@ export function generateCp12Pdf(data: Cp12PdfData): void {
   const classificationLabel = (c?: string) => {
     switch (c) {
       case "safe": return "SAFE";
-      case "not_to_current_standard": return "NOT TO CURRENT STANDARD (NCS)";
+      case "not_to_current_standards": return "NOT TO CURRENT STANDARDS (NCS)";
       case "at_risk": return "AT RISK (AR)";
       case "immediately_dangerous": return "IMMEDIATELY DANGEROUS (ID)";
       default: return c || "N/A";

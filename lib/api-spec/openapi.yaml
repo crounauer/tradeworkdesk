@@ -1679,6 +1679,7 @@ components:
           type: boolean
         appliance_classification:
           type: ["string", "null"]
+          enum: ["safe", "at_risk", "immediately_dangerous", "not_to_current_standards", null]
         warning_notice_issued:
           type: boolean
         warning_notice_type:
@@ -1829,6 +1830,7 @@ components:
           type: boolean
         appliance_classification:
           type: string
+          enum: ["safe", "at_risk", "immediately_dangerous", "not_to_current_standards"]
         warning_notice_issued:
           type: boolean
         warning_notice_type:
@@ -1966,6 +1968,7 @@ components:
           type: boolean
         appliance_classification:
           type: ["string", "null"]
+          enum: ["safe", "at_risk", "immediately_dangerous", "not_to_current_standards", null]
         warning_notice_issued:
           type: boolean
         warning_notice_type:

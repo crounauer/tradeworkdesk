@@ -5,6 +5,7 @@
  * Boiler Service Technician API
  * OpenAPI spec version: 0.1.0
  */
+import type { ServiceRecordApplianceClassification } from "./serviceRecordApplianceClassification";
 
 export interface ServiceRecord {
   id: string;
@@ -98,7 +99,7 @@ export interface ServiceRecord {
   cp12_certificate_number?: string | null;
   landlord_certificate?: boolean;
   /** @nullable */
-  appliance_classification?: string | null;
+  appliance_classification?: ServiceRecordApplianceClassification;
   warning_notice_issued?: boolean;
   /** @nullable */
   warning_notice_type?: string | null;

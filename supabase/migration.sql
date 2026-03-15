@@ -174,7 +174,7 @@ CREATE TABLE service_records (
   gas_safe_engineer_id TEXT,
   cp12_certificate_number TEXT,
   landlord_certificate BOOLEAN DEFAULT false,
-  appliance_classification TEXT,
+  appliance_classification TEXT CHECK (appliance_classification IN ('safe', 'at_risk', 'immediately_dangerous', 'not_to_current_standards')),
   warning_notice_issued BOOLEAN DEFAULT false,
   warning_notice_type TEXT,
   warning_notice_details TEXT,

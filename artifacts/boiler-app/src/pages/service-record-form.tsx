@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useMemo } from "react";
 import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob } from "@workspace/api-client-react";
+import type { CreateServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,7 @@ interface ServiceRecordFormData {
   gas_safe_engineer_id: string;
   cp12_certificate_number: string;
   landlord_certificate: boolean;
-  appliance_classification: string;
+  appliance_classification: "safe" | "at_risk" | "immediately_dangerous" | "not_to_current_standards" | "";
   warning_notice_issued: boolean;
   warning_notice_type: string;
   warning_notice_details: string;
@@ -95,8 +96,7 @@ export default function ServiceRecordForm() {
   const { register, handleSubmit, getValues, reset, watch } = useForm<ServiceRecordFormData>();
 
   const fuelType = useMemo(() => {
-    const ft = (job?.appliance as unknown as Record<string, unknown> | undefined)?.fuel_type as string | undefined;
-    return ft || "oil";
+    return job?.appliance?.fuel_type || "oil";
   }, [job]);
 
   const isGas = fuelType === "gas" || fuelType === "lpg";
@@ -163,7 +163,7 @@ export default function ServiceRecordForm() {
         gas_safe_engineer_id: existingRecord.gas_safe_engineer_id || "",
         cp12_certificate_number: existingRecord.cp12_certificate_number || "",
         landlord_certificate: existingRecord.landlord_certificate ?? false,
-        appliance_classification: existingRecord.appliance_classification || "",
+        appliance_classification: (existingRecord.appliance_classification as ServiceRecordFormData["appliance_classification"]) || "",
         warning_notice_issued: existingRecord.warning_notice_issued ?? false,
         warning_notice_type: existingRecord.warning_notice_type || "",
         warning_notice_details: existingRecord.warning_notice_details || "",
@@ -180,7 +180,7 @@ export default function ServiceRecordForm() {
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
 
-    const payload: Record<string, unknown> = {
+    const payload: CreateServiceRecordBody = {
       job_id: jobId!,
       technician_id: user.id,
       arrival_time: data.arrival_time || undefined,
@@ -213,55 +213,54 @@ export default function ServiceRecordForm() {
       follow_up_notes: data.follow_up_notes || undefined,
       next_service_due: data.next_service_due || undefined,
       additional_notes: data.additional_notes || undefined,
+      ...(isOil ? {
+        smoke_test: data.smoke_test || undefined,
+        smoke_number: data.smoke_number || undefined,
+        nozzle_checked: data.nozzle_checked,
+        nozzle_replaced: data.nozzle_replaced,
+        nozzle_size_fitted: data.nozzle_size_fitted || undefined,
+        electrodes_checked: data.electrodes_checked,
+        electrodes_replaced: data.electrodes_replaced,
+        filter_checked: data.filter_checked,
+        filter_cleaned: data.filter_cleaned,
+        filter_replaced: data.filter_replaced,
+        oil_line_checked: data.oil_line_checked,
+        fire_valve_checked: data.fire_valve_checked,
+      } : {}),
+      ...(isGas ? {
+        gas_tightness_pass: data.gas_tightness_pass,
+        gas_standing_pressure: data.gas_standing_pressure || undefined,
+        gas_working_pressure: data.gas_working_pressure || undefined,
+        gas_operating_pressure: data.gas_operating_pressure || undefined,
+        gas_burner_pressure: data.gas_burner_pressure || undefined,
+        gas_heat_input: data.gas_heat_input || undefined,
+        co_co2_ratio: data.co_co2_ratio || undefined,
+        flue_spillage_test: data.flue_spillage_test || undefined,
+        ventilation_adequate: data.ventilation_adequate,
+        gas_meter_type: data.gas_meter_type || undefined,
+        gas_safe_engineer_id: data.gas_safe_engineer_id || undefined,
+        cp12_certificate_number: data.cp12_certificate_number || undefined,
+        landlord_certificate: data.landlord_certificate,
+        appliance_classification: data.appliance_classification || undefined,
+        warning_notice_issued: data.warning_notice_issued,
+        warning_notice_type: data.warning_notice_type || undefined,
+        warning_notice_details: data.warning_notice_details || undefined,
+        customer_warned: data.customer_warned,
+        gas_valve_checked: data.gas_valve_checked,
+        injectors_checked: data.injectors_checked,
+        pilot_checked: data.pilot_checked,
+        ignition_checked: data.ignition_checked,
+        gas_pressure_checked: data.gas_pressure_checked,
+      } : {}),
     };
-
-    if (isOil) {
-      payload.smoke_test = data.smoke_test || undefined;
-      payload.smoke_number = data.smoke_number || undefined;
-      payload.nozzle_checked = data.nozzle_checked;
-      payload.nozzle_replaced = data.nozzle_replaced;
-      payload.nozzle_size_fitted = data.nozzle_size_fitted || undefined;
-      payload.electrodes_checked = data.electrodes_checked;
-      payload.electrodes_replaced = data.electrodes_replaced;
-      payload.filter_checked = data.filter_checked;
-      payload.filter_cleaned = data.filter_cleaned;
-      payload.filter_replaced = data.filter_replaced;
-      payload.oil_line_checked = data.oil_line_checked;
-      payload.fire_valve_checked = data.fire_valve_checked;
-    }
-
-    if (isGas) {
-      payload.gas_tightness_pass = data.gas_tightness_pass;
-      payload.gas_standing_pressure = data.gas_standing_pressure || undefined;
-      payload.gas_working_pressure = data.gas_working_pressure || undefined;
-      payload.gas_operating_pressure = data.gas_operating_pressure || undefined;
-      payload.gas_burner_pressure = data.gas_burner_pressure || undefined;
-      payload.gas_heat_input = data.gas_heat_input || undefined;
-      payload.co_co2_ratio = data.co_co2_ratio || undefined;
-      payload.flue_spillage_test = data.flue_spillage_test || undefined;
-      payload.ventilation_adequate = data.ventilation_adequate;
-      payload.gas_meter_type = data.gas_meter_type || undefined;
-      payload.gas_safe_engineer_id = data.gas_safe_engineer_id || undefined;
-      payload.cp12_certificate_number = data.cp12_certificate_number || undefined;
-      payload.landlord_certificate = data.landlord_certificate;
-      payload.appliance_classification = data.appliance_classification || undefined;
-      payload.warning_notice_issued = data.warning_notice_issued;
-      payload.warning_notice_type = data.warning_notice_type || undefined;
-      payload.warning_notice_details = data.warning_notice_details || undefined;
-      payload.customer_warned = data.customer_warned;
-      payload.gas_valve_checked = data.gas_valve_checked;
-      payload.injectors_checked = data.injectors_checked;
-      payload.pilot_checked = data.pilot_checked;
-      payload.ignition_checked = data.ignition_checked;
-      payload.gas_pressure_checked = data.gas_pressure_checked;
-    }
 
     try {
       if (existingRecord) {
-        await updateMutation.mutateAsync({ id: existingRecord.id, data: payload as never });
+        const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
+        await updateMutation.mutateAsync({ id: existingRecord.id, data: updatePayload });
         toast({ title: "Updated", description: "Service record updated successfully" });
       } else {
-        await createMutation.mutateAsync({ data: payload as never });
+        await createMutation.mutateAsync({ data: payload });
         toast({ title: "Success", description: "Service record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);
@@ -545,7 +544,7 @@ export default function ServiceRecordForm() {
                 <select {...register("appliance_classification")} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background">
                   <option value="">Select classification...</option>
                   <option value="safe">Safe</option>
-                  <option value="not_to_current_standard">Not to Current Standard (NCS)</option>
+                  <option value="not_to_current_standards">Not to Current Standards (NCS)</option>
                   <option value="at_risk">At Risk (AR)</option>
                   <option value="immediately_dangerous">Immediately Dangerous (ID)</option>
                 </select>
