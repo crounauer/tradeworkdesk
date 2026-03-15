@@ -177,6 +177,32 @@ export const serviceRecords = pgTable("service_records", {
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const commissioningRecords = pgTable("commissioning_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  gas_safe_engineer_id: text("gas_safe_engineer_id"),
+  standing_pressure: text("standing_pressure"),
+  working_pressure: text("working_pressure"),
+  operating_pressure: text("operating_pressure"),
+  gas_rate_measured: text("gas_rate_measured"),
+  combustion_co: text("combustion_co"),
+  combustion_co2: text("combustion_co2"),
+  flue_temp: text("flue_temp"),
+  ignition_tested: boolean("ignition_tested").default(false),
+  controls_tested: boolean("controls_tested").default(false),
+  thermostats_tested: boolean("thermostats_tested").default(false),
+  pressure_relief_tested: boolean("pressure_relief_tested").default(false),
+  expansion_vessel_checked: boolean("expansion_vessel_checked").default(false),
+  system_flushed: boolean("system_flushed").default(false),
+  inhibitor_added: boolean("inhibitor_added").default(false),
+  customer_instructions_given: boolean("customer_instructions_given").default(false),
+  customer_name_signed: text("customer_name_signed"),
+  notes: text("notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const breakdownReports = pgTable("breakdown_reports", {
   id: uuid("id").primaryKey().defaultRandom(),
   job_id: uuid("job_id").notNull().references(() => jobs.id),
@@ -233,6 +259,7 @@ export type Property = typeof properties.$inferSelect;
 export type Appliance = typeof appliances.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type ServiceRecord = typeof serviceRecords.$inferSelect;
+export type CommissioningRecord = typeof commissioningRecords.$inferSelect;
 export type BreakdownReport = typeof breakdownReports.$inferSelect;
 export type JobNote = typeof jobNotes.$inferSelect;
 export type FileAttachment = typeof fileAttachments.$inferSelect;

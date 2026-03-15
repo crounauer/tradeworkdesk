@@ -21,6 +21,8 @@ tags:
     description: Job management
   - name: serviceRecords
     description: Service record management
+  - name: commissioningRecords
+    description: Commissioning record management
   - name: breakdownReports
     description: Breakdown report management
   - name: notes
@@ -613,6 +615,89 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ServiceRecord"
+
+  /commissioning-records:
+    post:
+      operationId: createCommissioningRecord
+      tags: [commissioningRecords]
+      summary: Create a commissioning record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommissioningRecordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissioningRecord"
+
+  /commissioning-records/{id}:
+    get:
+      operationId: getCommissioningRecord
+      tags: [commissioningRecords]
+      summary: Get commissioning record by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Commissioning record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissioningRecord"
+    patch:
+      operationId: updateCommissioningRecord
+      tags: [commissioningRecords]
+      summary: Update commissioning record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommissioningRecordBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissioningRecord"
+
+  /commissioning-records/job/{jobId}:
+    get:
+      operationId: getCommissioningRecordByJob
+      tags: [commissioningRecords]
+      summary: Get commissioning record by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Commissioning record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissioningRecord"
 
   /breakdown-reports:
     post:
@@ -1987,6 +2072,149 @@ components:
           type: boolean
         gas_pressure_checked:
           type: boolean
+
+    CommissioningRecord:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        gas_safe_engineer_id:
+          type: ["string", "null"]
+        standing_pressure:
+          type: ["string", "null"]
+        working_pressure:
+          type: ["string", "null"]
+        operating_pressure:
+          type: ["string", "null"]
+        gas_rate_measured:
+          type: ["string", "null"]
+        combustion_co:
+          type: ["string", "null"]
+        combustion_co2:
+          type: ["string", "null"]
+        flue_temp:
+          type: ["string", "null"]
+        ignition_tested:
+          type: boolean
+        controls_tested:
+          type: boolean
+        thermostats_tested:
+          type: boolean
+        pressure_relief_tested:
+          type: boolean
+        expansion_vessel_checked:
+          type: boolean
+        system_flushed:
+          type: boolean
+        inhibitor_added:
+          type: boolean
+        customer_instructions_given:
+          type: boolean
+        customer_name_signed:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCommissioningRecordBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        gas_safe_engineer_id:
+          type: string
+        standing_pressure:
+          type: string
+        working_pressure:
+          type: string
+        operating_pressure:
+          type: string
+        gas_rate_measured:
+          type: string
+        combustion_co:
+          type: string
+        combustion_co2:
+          type: string
+        flue_temp:
+          type: string
+        ignition_tested:
+          type: boolean
+        controls_tested:
+          type: boolean
+        thermostats_tested:
+          type: boolean
+        pressure_relief_tested:
+          type: boolean
+        expansion_vessel_checked:
+          type: boolean
+        system_flushed:
+          type: boolean
+        inhibitor_added:
+          type: boolean
+        customer_instructions_given:
+          type: boolean
+        customer_name_signed:
+          type: string
+        notes:
+          type: string
+
+    UpdateCommissioningRecordBody:
+      type: object
+      properties:
+        gas_safe_engineer_id:
+          type: ["string", "null"]
+        standing_pressure:
+          type: ["string", "null"]
+        working_pressure:
+          type: ["string", "null"]
+        operating_pressure:
+          type: ["string", "null"]
+        gas_rate_measured:
+          type: ["string", "null"]
+        combustion_co:
+          type: ["string", "null"]
+        combustion_co2:
+          type: ["string", "null"]
+        flue_temp:
+          type: ["string", "null"]
+        ignition_tested:
+          type: boolean
+        controls_tested:
+          type: boolean
+        thermostats_tested:
+          type: boolean
+        pressure_relief_tested:
+          type: boolean
+        expansion_vessel_checked:
+          type: boolean
+        system_flushed:
+          type: boolean
+        inhibitor_added:
+          type: boolean
+        customer_instructions_given:
+          type: boolean
+        customer_name_signed:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
 
     BreakdownReport:
       type: object

@@ -857,6 +857,96 @@ export interface UpdateServiceRecordBody {
   gas_pressure_checked?: boolean;
 }
 
+export interface CommissioningRecord {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  gas_safe_engineer_id?: string | null;
+  /** @nullable */
+  standing_pressure?: string | null;
+  /** @nullable */
+  working_pressure?: string | null;
+  /** @nullable */
+  operating_pressure?: string | null;
+  /** @nullable */
+  gas_rate_measured?: string | null;
+  /** @nullable */
+  combustion_co?: string | null;
+  /** @nullable */
+  combustion_co2?: string | null;
+  /** @nullable */
+  flue_temp?: string | null;
+  ignition_tested?: boolean;
+  controls_tested?: boolean;
+  thermostats_tested?: boolean;
+  pressure_relief_tested?: boolean;
+  expansion_vessel_checked?: boolean;
+  system_flushed?: boolean;
+  inhibitor_added?: boolean;
+  customer_instructions_given?: boolean;
+  /** @nullable */
+  customer_name_signed?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCommissioningRecordBody {
+  job_id: string;
+  technician_id: string;
+  gas_safe_engineer_id?: string;
+  standing_pressure?: string;
+  working_pressure?: string;
+  operating_pressure?: string;
+  gas_rate_measured?: string;
+  combustion_co?: string;
+  combustion_co2?: string;
+  flue_temp?: string;
+  ignition_tested?: boolean;
+  controls_tested?: boolean;
+  thermostats_tested?: boolean;
+  pressure_relief_tested?: boolean;
+  expansion_vessel_checked?: boolean;
+  system_flushed?: boolean;
+  inhibitor_added?: boolean;
+  customer_instructions_given?: boolean;
+  customer_name_signed?: string;
+  notes?: string;
+}
+
+export interface UpdateCommissioningRecordBody {
+  /** @nullable */
+  gas_safe_engineer_id?: string | null;
+  /** @nullable */
+  standing_pressure?: string | null;
+  /** @nullable */
+  working_pressure?: string | null;
+  /** @nullable */
+  operating_pressure?: string | null;
+  /** @nullable */
+  gas_rate_measured?: string | null;
+  /** @nullable */
+  combustion_co?: string | null;
+  /** @nullable */
+  combustion_co2?: string | null;
+  /** @nullable */
+  flue_temp?: string | null;
+  ignition_tested?: boolean;
+  controls_tested?: boolean;
+  thermostats_tested?: boolean;
+  pressure_relief_tested?: boolean;
+  expansion_vessel_checked?: boolean;
+  system_flushed?: boolean;
+  inhibitor_added?: boolean;
+  customer_instructions_given?: boolean;
+  /** @nullable */
+  customer_name_signed?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export interface CreateBreakdownReportBody {
   job_id: string;
   technician_id: string;

@@ -1694,6 +1694,152 @@ export const GetServiceRecordByJobResponse = zod.object({
 });
 
 /**
+ * @summary Create a commissioning record
+ */
+export const CreateCommissioningRecordBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  gas_safe_engineer_id: zod.string().optional(),
+  standing_pressure: zod.string().optional(),
+  working_pressure: zod.string().optional(),
+  operating_pressure: zod.string().optional(),
+  gas_rate_measured: zod.string().optional(),
+  combustion_co: zod.string().optional(),
+  combustion_co2: zod.string().optional(),
+  flue_temp: zod.string().optional(),
+  ignition_tested: zod.boolean().optional(),
+  controls_tested: zod.boolean().optional(),
+  thermostats_tested: zod.boolean().optional(),
+  pressure_relief_tested: zod.boolean().optional(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get commissioning record by ID
+ */
+export const GetCommissioningRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetCommissioningRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  gas_safe_engineer_id: zod.string().nullish(),
+  standing_pressure: zod.string().nullish(),
+  working_pressure: zod.string().nullish(),
+  operating_pressure: zod.string().nullish(),
+  gas_rate_measured: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  flue_temp: zod.string().nullish(),
+  ignition_tested: zod.boolean().optional(),
+  controls_tested: zod.boolean().optional(),
+  thermostats_tested: zod.boolean().optional(),
+  pressure_relief_tested: zod.boolean().optional(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  created_at: zod.coerce.date(),
+  updated_at: zod.coerce.date(),
+});
+
+/**
+ * @summary Update commissioning record
+ */
+export const UpdateCommissioningRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateCommissioningRecordBody = zod.object({
+  gas_safe_engineer_id: zod.string().nullish(),
+  standing_pressure: zod.string().nullish(),
+  working_pressure: zod.string().nullish(),
+  operating_pressure: zod.string().nullish(),
+  gas_rate_measured: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  flue_temp: zod.string().nullish(),
+  ignition_tested: zod.boolean().optional(),
+  controls_tested: zod.boolean().optional(),
+  thermostats_tested: zod.boolean().optional(),
+  pressure_relief_tested: zod.boolean().optional(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateCommissioningRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  gas_safe_engineer_id: zod.string().nullish(),
+  standing_pressure: zod.string().nullish(),
+  working_pressure: zod.string().nullish(),
+  operating_pressure: zod.string().nullish(),
+  gas_rate_measured: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  flue_temp: zod.string().nullish(),
+  ignition_tested: zod.boolean().optional(),
+  controls_tested: zod.boolean().optional(),
+  thermostats_tested: zod.boolean().optional(),
+  pressure_relief_tested: zod.boolean().optional(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  created_at: zod.coerce.date(),
+  updated_at: zod.coerce.date(),
+});
+
+/**
+ * @summary Get commissioning record by job ID
+ */
+export const GetCommissioningRecordByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetCommissioningRecordByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  gas_safe_engineer_id: zod.string().nullish(),
+  standing_pressure: zod.string().nullish(),
+  working_pressure: zod.string().nullish(),
+  operating_pressure: zod.string().nullish(),
+  gas_rate_measured: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  flue_temp: zod.string().nullish(),
+  ignition_tested: zod.boolean().optional(),
+  controls_tested: zod.boolean().optional(),
+  thermostats_tested: zod.boolean().optional(),
+  pressure_relief_tested: zod.boolean().optional(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  created_at: zod.coerce.date(),
+  updated_at: zod.coerce.date(),
+});
+
+/**
  * @summary Create a breakdown report
  */
 export const CreateBreakdownReportBody = zod.object({

@@ -188,6 +188,33 @@ CREATE TABLE service_records (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Commissioning Records table
+CREATE TABLE commissioning_records (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  technician_id UUID NOT NULL REFERENCES profiles(id),
+  gas_safe_engineer_id TEXT,
+  standing_pressure TEXT,
+  working_pressure TEXT,
+  operating_pressure TEXT,
+  gas_rate_measured TEXT,
+  combustion_co TEXT,
+  combustion_co2 TEXT,
+  flue_temp TEXT,
+  ignition_tested BOOLEAN DEFAULT false,
+  controls_tested BOOLEAN DEFAULT false,
+  thermostats_tested BOOLEAN DEFAULT false,
+  pressure_relief_tested BOOLEAN DEFAULT false,
+  expansion_vessel_checked BOOLEAN DEFAULT false,
+  system_flushed BOOLEAN DEFAULT false,
+  inhibitor_added BOOLEAN DEFAULT false,
+  customer_instructions_given BOOLEAN DEFAULT false,
+  customer_name_signed TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Breakdown Reports table
 CREATE TABLE breakdown_reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -258,6 +285,7 @@ CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_scheduled ON jobs(scheduled_date);
 CREATE INDEX idx_jobs_type ON jobs(job_type);
 CREATE INDEX idx_service_records_job ON service_records(job_id);
+CREATE INDEX idx_commissioning_records_job ON commissioning_records(job_id);
 CREATE INDEX idx_breakdown_reports_job ON breakdown_reports(job_id);
 CREATE INDEX idx_job_notes_job ON job_notes(job_id);
 CREATE INDEX idx_file_attachments_entity ON file_attachments(entity_type, entity_id);
@@ -279,6 +307,7 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON properties FOR EACH ROW EXECUTE F
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON appliances FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON service_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON commissioning_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON breakdown_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON job_notes FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -308,6 +337,7 @@ ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appliances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE commissioning_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE breakdown_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE file_attachments ENABLE ROW LEVEL SECURITY;
@@ -355,6 +385,13 @@ CREATE POLICY "service_records_select" ON service_records FOR SELECT TO authenti
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 CREATE POLICY "service_records_insert" ON service_records FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "service_records_update" ON service_records FOR UPDATE TO authenticated
+  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+
+-- Commissioning Records: same as service records
+CREATE POLICY "commissioning_records_select" ON commissioning_records FOR SELECT TO authenticated
+  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+CREATE POLICY "commissioning_records_insert" ON commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "commissioning_records_update" ON commissioning_records FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Breakdown Reports: same as service records

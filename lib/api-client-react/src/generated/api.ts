@@ -20,8 +20,10 @@ import type {
   Appliance,
   ApplianceDetail,
   BreakdownReport,
+  CommissioningRecord,
   CreateApplianceBody,
   CreateBreakdownReportBody,
+  CreateCommissioningRecordBody,
   CreateCustomerBody,
   CreateJobBody,
   CreateJobNoteBody,
@@ -55,6 +57,7 @@ import type {
   UpcomingService,
   UpdateApplianceBody,
   UpdateBreakdownReportBody,
+  UpdateCommissioningRecordBody,
   UpdateCustomerBody,
   UpdateJobBody,
   UpdateProfileBody,
@@ -2537,6 +2540,364 @@ export function useGetServiceRecordByJob<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetServiceRecordByJobQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a commissioning record
+ */
+export const getCreateCommissioningRecordUrl = () => {
+  return `/api/commissioning-records`;
+};
+
+export const createCommissioningRecord = async (
+  createCommissioningRecordBody: CreateCommissioningRecordBody,
+  options?: RequestInit,
+): Promise<CommissioningRecord> => {
+  return customFetch<CommissioningRecord>(getCreateCommissioningRecordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCommissioningRecordBody),
+  });
+};
+
+export const getCreateCommissioningRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCommissioningRecord>>,
+    TError,
+    { data: BodyType<CreateCommissioningRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCommissioningRecord>>,
+  TError,
+  { data: BodyType<CreateCommissioningRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["createCommissioningRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCommissioningRecord>>,
+    { data: BodyType<CreateCommissioningRecordBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCommissioningRecord(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCommissioningRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCommissioningRecord>>
+>;
+export type CreateCommissioningRecordMutationBody =
+  BodyType<CreateCommissioningRecordBody>;
+export type CreateCommissioningRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a commissioning record
+ */
+export const useCreateCommissioningRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCommissioningRecord>>,
+    TError,
+    { data: BodyType<CreateCommissioningRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCommissioningRecord>>,
+  TError,
+  { data: BodyType<CreateCommissioningRecordBody> },
+  TContext
+> => {
+  return useMutation(getCreateCommissioningRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get commissioning record by ID
+ */
+export const getGetCommissioningRecordUrl = (id: string) => {
+  return `/api/commissioning-records/${id}`;
+};
+
+export const getCommissioningRecord = async (
+  id: string,
+  options?: RequestInit,
+): Promise<CommissioningRecord> => {
+  return customFetch<CommissioningRecord>(getGetCommissioningRecordUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCommissioningRecordQueryKey = (id: string) => {
+  return [`/api/commissioning-records/${id}`] as const;
+};
+
+export const getGetCommissioningRecordQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCommissioningRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCommissioningRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCommissioningRecordQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCommissioningRecord>>
+  > = ({ signal }) => getCommissioningRecord(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCommissioningRecord>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCommissioningRecordQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCommissioningRecord>>
+>;
+export type GetCommissioningRecordQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get commissioning record by ID
+ */
+
+export function useGetCommissioningRecord<
+  TData = Awaited<ReturnType<typeof getCommissioningRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCommissioningRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCommissioningRecordQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update commissioning record
+ */
+export const getUpdateCommissioningRecordUrl = (id: string) => {
+  return `/api/commissioning-records/${id}`;
+};
+
+export const updateCommissioningRecord = async (
+  id: string,
+  updateCommissioningRecordBody: UpdateCommissioningRecordBody,
+  options?: RequestInit,
+): Promise<CommissioningRecord> => {
+  return customFetch<CommissioningRecord>(getUpdateCommissioningRecordUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCommissioningRecordBody),
+  });
+};
+
+export const getUpdateCommissioningRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCommissioningRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateCommissioningRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCommissioningRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateCommissioningRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCommissioningRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCommissioningRecord>>,
+    { id: string; data: BodyType<UpdateCommissioningRecordBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCommissioningRecord(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCommissioningRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCommissioningRecord>>
+>;
+export type UpdateCommissioningRecordMutationBody =
+  BodyType<UpdateCommissioningRecordBody>;
+export type UpdateCommissioningRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update commissioning record
+ */
+export const useUpdateCommissioningRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCommissioningRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateCommissioningRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCommissioningRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateCommissioningRecordBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCommissioningRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get commissioning record by job ID
+ */
+export const getGetCommissioningRecordByJobUrl = (jobId: string) => {
+  return `/api/commissioning-records/job/${jobId}`;
+};
+
+export const getCommissioningRecordByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<CommissioningRecord> => {
+  return customFetch<CommissioningRecord>(
+    getGetCommissioningRecordByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCommissioningRecordByJobQueryKey = (jobId: string) => {
+  return [`/api/commissioning-records/job/${jobId}`] as const;
+};
+
+export const getGetCommissioningRecordByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCommissioningRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCommissioningRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCommissioningRecordByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCommissioningRecordByJob>>
+  > = ({ signal }) =>
+    getCommissioningRecordByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCommissioningRecordByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCommissioningRecordByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCommissioningRecordByJob>>
+>;
+export type GetCommissioningRecordByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get commissioning record by job ID
+ */
+
+export function useGetCommissioningRecordByJob<
+  TData = Awaited<ReturnType<typeof getCommissioningRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCommissioningRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCommissioningRecordByJobQueryOptions(
+    jobId,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

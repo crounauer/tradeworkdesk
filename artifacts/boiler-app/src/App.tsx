@@ -18,6 +18,7 @@ import Jobs from "@/pages/jobs";
 import JobDetail from "@/pages/job-detail";
 import ServiceRecordForm from "@/pages/service-record-form";
 import BreakdownReportForm from "@/pages/breakdown-report-form";
+import CommissioningRecordForm from "@/pages/commissioning-record-form";
 import JobFiles from "@/pages/job-files";
 import JobSignatures from "@/pages/job-signatures";
 import Reports from "@/pages/reports";
@@ -72,6 +73,7 @@ function AppRouter() {
       <Route path="/jobs/:id" component={() => <ProtectedRoute component={JobDetail} />} />
       <Route path="/jobs/:jobId/service-record" component={() => <ProtectedRoute component={ServiceRecordForm} />} />
       <Route path="/jobs/:jobId/breakdown-report" component={() => <ProtectedRoute component={BreakdownReportForm} />} />
+      <Route path="/jobs/:jobId/commissioning" component={() => <ProtectedRoute component={CommissioningRecordForm} />} />
       <Route path="/jobs/:jobId/files" component={() => <ProtectedRoute component={JobFiles} />} />
       <Route path="/jobs/:jobId/signatures" component={() => <ProtectedRoute component={JobSignatures} />} />
 

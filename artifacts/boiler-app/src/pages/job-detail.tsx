@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -120,6 +120,18 @@ export default function JobDetail() {
                   </div>
                 </Card>
               </Link>
+
+              {job.job_type === "installation" && (
+                <Link href={`/jobs/${job.id}/commissioning`}>
+                  <Card className="p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-emerald-50/50 to-white">
+                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><ClipboardCheck className="w-6 h-6"/></div>
+                    <div>
+                      <h4 className="font-bold">Commissioning Record</h4>
+                      <p className="text-sm text-muted-foreground">New installation commissioning</p>
+                    </div>
+                  </Card>
+                </Link>
+              )}
             </div>
           </div>
 

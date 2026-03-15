@@ -18,7 +18,7 @@ BoilerTech - Boiler service technician management web app. pnpm workspace monore
 - **Validation**: Zod, Orval-generated schemas
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle for API server), Vite (frontend)
-- **PDF generation**: jsPDF (client-side) — Oil Service Record PDF + CP12 Gas Safety Certificate PDF
+- **PDF generation**: jsPDF (client-side) — Oil Service Record PDF + CP12 Gas Safety Certificate PDF + Commissioning Record PDF
 - **Signature capture**: react-signature-canvas
 
 ## Gas vs Oil Differentiation
@@ -43,6 +43,22 @@ The service record form detects the appliance's `fuel_type` from the job's linke
 - Arrival/departure, visual inspection, combustion readings
 - Burner, heat exchanger, seals, controls, thermostat, safety devices
 - Safety & defects, work summary, follow-up
+
+## Commissioning Records
+
+For `installation` job types, a commissioning record form is available. This captures:
+- Gas Safe engineer ID
+- Gas supply & pressure readings (standing, working, operating, gas rate)
+- Combustion readings (CO, CO2, flue temp)
+- Functional tests (ignition, controls, thermostats, pressure relief, expansion vessel, system flush, inhibitor)
+- Customer handover (instructions given, name signed)
+- Notes
+
+**DB table**: `commissioning_records` (in `supabase/migration.sql`)
+**Backend**: `artifacts/api-server/src/routes/commissioning-records.ts` (CRUD + job lookup)
+**Frontend**: `artifacts/boiler-app/src/pages/commissioning-record-form.tsx`
+**Route**: `/jobs/:jobId/commissioning` (only shown for installation jobs on job-detail page)
+**PDF**: `generateCommissioningPdf()` in `artifacts/boiler-app/src/lib/pdf-generator.ts`
 
 ## Architecture
 
