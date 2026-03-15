@@ -182,6 +182,38 @@ DO $$ BEGIN
   ALTER TABLE company_settings ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
+DO $$ BEGIN
+  ALTER TABLE oil_tank_inspections ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE oil_tank_risk_assessments ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE combustion_analysis_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE burner_setup_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE fire_valve_test_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE oil_line_vacuum_tests ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE job_completion_reports ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE lookup_options ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
+
 -- Backfill existing rows with the default tenant
 UPDATE profiles SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE customers SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
@@ -198,6 +230,39 @@ UPDATE file_attachments SET tenant_id = '00000000-0000-0000-0000-000000000001' W
 UPDATE signatures SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE invite_codes SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE company_settings SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE oil_tank_inspections SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE oil_tank_risk_assessments SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE combustion_analysis_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE burner_setup_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE fire_valve_test_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE oil_line_vacuum_tests SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE job_completion_reports SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+UPDATE lookup_options SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
+-- Enforce NOT NULL on tenant_id for all data tables
+ALTER TABLE profiles ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE customers ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE properties ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE appliances ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE jobs ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE service_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE commissioning_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE heat_pump_service_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE heat_pump_commissioning_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE breakdown_reports ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE job_notes ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE file_attachments ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE signatures ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE invite_codes ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE company_settings ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE oil_tank_inspections ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE oil_tank_risk_assessments ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE combustion_analysis_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE burner_setup_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE fire_valve_test_records ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE oil_line_vacuum_tests ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE job_completion_reports ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE lookup_options ALTER COLUMN tenant_id SET NOT NULL;
 
 -- Create indexes for tenant_id on all data tables
 CREATE INDEX IF NOT EXISTS idx_profiles_tenant ON profiles(tenant_id);
@@ -215,6 +280,14 @@ CREATE INDEX IF NOT EXISTS idx_file_attachments_tenant ON file_attachments(tenan
 CREATE INDEX IF NOT EXISTS idx_signatures_tenant ON signatures(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_invite_codes_tenant ON invite_codes(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_company_settings_tenant ON company_settings(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_oil_tank_inspections_tenant ON oil_tank_inspections(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_oil_tank_risk_assessments_tenant ON oil_tank_risk_assessments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_combustion_analysis_records_tenant ON combustion_analysis_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_burner_setup_records_tenant ON burner_setup_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_fire_valve_test_records_tenant ON fire_valve_test_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_oil_line_vacuum_tests_tenant ON oil_line_vacuum_tests(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_job_completion_reports_tenant ON job_completion_reports(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_lookup_options_tenant ON lookup_options(tenant_id);
 
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -287,5 +360,142 @@ CREATE POLICY "audit_log_admin" ON platform_audit_log FOR SELECT TO authenticate
   USING (get_user_role(auth.uid()) = 'super_admin');
 CREATE POLICY "audit_log_insert" ON platform_audit_log FOR INSERT TO authenticated WITH CHECK (true);
 
--- ─── 11. Seed default plans ────────────────────────────────────────────────────
+-- ─── 11. Tenant-aware RLS policies for existing data tables ───────────────────
+-- Drop old broad policies and replace with tenant-scoped ones
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "profiles_select" ON profiles;
+DROP POLICY IF EXISTS "profiles_update" ON profiles;
+CREATE POLICY "profiles_tenant_select" ON profiles FOR SELECT TO authenticated
+  USING (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  );
+CREATE POLICY "profiles_tenant_update" ON profiles FOR UPDATE TO authenticated
+  USING (
+    id = auth.uid()
+    OR (get_user_role(auth.uid()) = 'admin' AND tenant_id = get_user_tenant_id(auth.uid()))
+    OR get_user_role(auth.uid()) = 'super_admin'
+  );
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "customers_all" ON customers;
+CREATE POLICY "customers_tenant" ON customers FOR ALL TO authenticated
+  USING (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  ) WITH CHECK (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  );
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "properties_all" ON properties;
+CREATE POLICY "properties_tenant" ON properties FOR ALL TO authenticated
+  USING (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  ) WITH CHECK (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  );
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "appliances_all" ON appliances;
+CREATE POLICY "appliances_tenant" ON appliances FOR ALL TO authenticated
+  USING (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  ) WITH CHECK (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  );
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "jobs_all" ON jobs;
+CREATE POLICY "jobs_tenant" ON jobs FOR ALL TO authenticated
+  USING (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  ) WITH CHECK (
+    tenant_id = get_user_tenant_id(auth.uid())
+    OR get_user_role(auth.uid()) = 'super_admin'
+  );
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "service_records_all" ON service_records;
+CREATE POLICY "service_records_tenant" ON service_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+DROP POLICY IF EXISTS "commissioning_records_all" ON commissioning_records;
+CREATE POLICY "commissioning_records_tenant" ON commissioning_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "job_notes_tenant" ON job_notes FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "file_attachments_tenant" ON file_attachments FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "signatures_tenant" ON signatures FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "invite_codes_tenant" ON invite_codes FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "breakdown_reports_tenant" ON breakdown_reports FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "heat_pump_service_records_tenant" ON heat_pump_service_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$ BEGIN
+CREATE POLICY "heat_pump_commissioning_records_tenant" ON heat_pump_commissioning_records FOR ALL TO authenticated
+  USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- ─── 12. Seed default plans ────────────────────────────────────────────────────
 -- (Already inserted above in step 7)

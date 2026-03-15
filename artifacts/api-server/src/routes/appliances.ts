@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import {
   ListAppliancesQueryParams,
   ListAppliancesResponse,
@@ -85,6 +86,11 @@ router.post("/appliances", requireAuth, requireTenant, async (req: Authenticated
   const parsed = CreateApplianceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const { valid, failedTable } = await verifyMultipleTenantOwnership(
+    [{ table: "properties", id: parsed.data.property_id }], req.tenantId
+  );
+  if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
+
   const { data, error } = await supabaseAdmin.from("appliances").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(data);
@@ -128,6 +134,13 @@ router.patch("/appliances/:id", requireAuth, requireTenant, async (req: Authenti
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateApplianceBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  if (body.data.property_id) {
+    const { valid, failedTable } = await verifyMultipleTenantOwnership(
+      [{ table: "properties", id: body.data.property_id }], req.tenantId
+    );
+    if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
+  }
 
   let q = supabaseAdmin.from("appliances").update(body.data).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);

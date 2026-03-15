@@ -32,7 +32,7 @@ router.post("/oil-tank-inspections", requireAuth, requireTenant, async (req: Aut
   const access = await verifyJobAccess(req, parsed.data.job_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("oil_tank_inspections").insert(parsed.data).select().single();
+  const { data, error } = await supabaseAdmin.from("oil_tank_inspections").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(GetOilTankInspectionResponse.parse(data));
 });

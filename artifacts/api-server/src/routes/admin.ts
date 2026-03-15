@@ -181,7 +181,7 @@ const ALLOWED_LOOKUP_CATEGORIES = new Set([
   "fuel_type",
 ]);
 
-router.get("/lookup-options", requireAuth, async (req, res): Promise<void> => {
+router.get("/lookup-options", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { category } = req.query as { category?: string };
 
   let query = supabaseAdmin
@@ -190,6 +190,8 @@ router.get("/lookup-options", requireAuth, async (req, res): Promise<void> => {
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
+
+  if (req.tenantId) query = query.eq("tenant_id", req.tenantId);
 
   if (category) {
     if (!ALLOWED_LOOKUP_CATEGORIES.has(category)) {
@@ -224,7 +226,7 @@ router.get("/admin/lookup-options", requireAuth, requireRole("admin"), async (re
   res.json(data || []);
 });
 
-router.post("/admin/lookup-options", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.post("/admin/lookup-options", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { category, value, label, sort_order } = req.body;
   if (!category || !value || !label) {
     res.status(400).json({ error: "category, value, and label are required." }); return;
@@ -243,7 +245,7 @@ router.post("/admin/lookup-options", requireAuth, requireRole("admin"), async (r
 
   const { data, error } = await supabaseAdmin
     .from("lookup_options")
-    .insert({ category, value: valueStr, label: labelStr, sort_order: sort_order ?? 0 })
+    .insert({ category, value: valueStr, label: labelStr, sort_order: sort_order ?? 0, tenant_id: req.tenantId })
     .select()
     .single();
 
@@ -251,7 +253,7 @@ router.post("/admin/lookup-options", requireAuth, requireRole("admin"), async (r
   res.status(201).json(data);
 });
 
-router.put("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.put("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const { label, sort_order, is_active } = req.body;
 
@@ -266,25 +268,27 @@ router.put("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async
   if (sort_order !== undefined) updates.sort_order = sort_order;
   if (is_active !== undefined) updates.is_active = Boolean(is_active);
 
-  const { data, error } = await supabaseAdmin
+  let q = supabaseAdmin
     .from("lookup_options")
     .update(updates)
-    .eq("id", id)
-    .select()
-    .single();
+    .eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q.select().single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data);
 });
 
-router.delete("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
-  const { error } = await supabaseAdmin
+  let delQ = supabaseAdmin
     .from("lookup_options")
     .delete()
     .eq("id", id);
+  if (req.tenantId) delQ = delQ.eq("tenant_id", req.tenantId);
 
+  const { error } = await delQ;
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(204).send();
 });

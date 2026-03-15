@@ -67,7 +67,8 @@ For `installation` job types, a commissioning record form is available. This cap
 - **Multi-tenancy**: All data tables have `tenant_id` FK to `tenants` table. Auth middleware extracts tenant from user profile. All routes scope queries by `tenant_id`. Super_admin bypasses tenant scoping. `requireTenant` middleware blocks requests without tenant context.
 - **Platform Admin**: Super_admin users access `/platform/*` routes for tenant/plan/announcement/audit management. Platform pages: Dashboard, Tenants list, Tenant detail, Plans, Announcements, Audit Log.
 - **File Storage**: Supabase Storage with 3 buckets: `service-photos`, `service-documents`, `signatures`. Files uploaded via multer, stored in Supabase, signed URLs generated for access.
-- **Row Level Security**: Database has RLS policies. API server uses service role key to bypass RLS for backend operations, but enforces authorization checks at the route handler level.
+- **Row Level Security**: Database has RLS policies with tenant predicates on all data tables (select/insert/update/delete scoped to user's tenant_id, super_admin bypasses). API server uses service role key to bypass RLS for backend operations, but enforces authorization checks at the route handler level.
+- **FK Ownership Validation**: Write routes validate that referenced foreign keys (customer_id, property_id, appliance_id, assigned_technician_id) belong to the requesting user's tenant before insert/update. Uses `verifyMultipleTenantOwnership()` utility in `artifacts/api-server/src/lib/tenant-validation.ts`.
 
 ## Environment Variables
 

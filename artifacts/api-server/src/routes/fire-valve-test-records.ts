@@ -32,7 +32,7 @@ router.post("/fire-valve-test-records", requireAuth, requireTenant, async (req: 
   const access = await verifyJobAccess(req, parsed.data.job_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("fire_valve_test_records").insert(parsed.data).select().single();
+  const { data, error } = await supabaseAdmin.from("fire_valve_test_records").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(GetFireValveTestRecordResponse.parse(data));
 });

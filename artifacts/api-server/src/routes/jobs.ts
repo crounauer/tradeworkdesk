@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import {
   ListJobsQueryParams,
   ListJobsResponse,
@@ -80,6 +81,15 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
 router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateJobBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const fkChecks: Array<{ table: string; id: string | undefined | null }> = [
+    { table: "customers", id: parsed.data.customer_id },
+    { table: "properties", id: parsed.data.property_id },
+    { table: "appliances", id: parsed.data.appliance_id },
+    { table: "profiles", id: parsed.data.assigned_technician_id },
+  ];
+  const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
+  if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
   const { data, error } = await supabaseAdmin.from("jobs").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
@@ -183,6 +193,15 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateJobBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const fkChecks: Array<{ table: string; id: string | undefined | null }> = [
+    { table: "customers", id: body.data.customer_id },
+    { table: "properties", id: body.data.property_id },
+    { table: "appliances", id: body.data.appliance_id },
+    { table: "profiles", id: body.data.assigned_technician_id },
+  ];
+  const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
+  if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
   let q = supabaseAdmin.from("jobs").update(body.data).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
