@@ -18,8 +18,31 @@ BoilerTech - Boiler service technician management web app. pnpm workspace monore
 - **Validation**: Zod, Orval-generated schemas
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle for API server), Vite (frontend)
-- **PDF generation**: jsPDF (client-side)
+- **PDF generation**: jsPDF (client-side) — Oil Service Record PDF + CP12 Gas Safety Certificate PDF
 - **Signature capture**: react-signature-canvas
+
+## Gas vs Oil Differentiation
+
+The service record form detects the appliance's `fuel_type` from the job's linked appliance. Gas/LPG appliances show a CP12-style Gas Safety Record form; oil appliances show the traditional oil service record form.
+
+**Gas-specific sections** (shown only for gas/lpg):
+- CP12 / Gas Safe Details (engineer ID, certificate number, landlord cert)
+- Gas Tightness Test (standing/working pressure, meter type, pass/fail)
+- Gas Pressure Readings (operating, burner, heat input)
+- Combustion extras (CO/CO2 ratio, flue spillage test, ventilation check)
+- Gas-specific checks (gas valve, injectors, pilot, ignition, gas pressure)
+- Appliance Classification (Safe / NCS / At Risk / Immediately Dangerous)
+- Warning Notice panel (conditionally shown when AR or ID selected)
+
+**Oil-specific sections** (shown only for oil):
+- Smoke test + smoke number
+- Nozzle check/replace + nozzle size fitted
+- Electrodes, filters, oil line, fire valve checks
+
+**Common sections** (shown for both):
+- Arrival/departure, visual inspection, combustion readings
+- Burner, heat exchanger, seals, controls, thermostat, safety devices
+- Safety & defects, work summary, follow-up
 
 ## Architecture
 

@@ -429,6 +429,42 @@ export interface ServiceRecord {
   next_service_due?: string | null;
   /** @nullable */
   additional_notes?: string | null;
+  gas_tightness_pass?: boolean;
+  /** @nullable */
+  gas_standing_pressure?: string | null;
+  /** @nullable */
+  gas_working_pressure?: string | null;
+  /** @nullable */
+  gas_operating_pressure?: string | null;
+  /** @nullable */
+  gas_burner_pressure?: string | null;
+  /** @nullable */
+  gas_heat_input?: string | null;
+  /** @nullable */
+  co_co2_ratio?: string | null;
+  /** @nullable */
+  flue_spillage_test?: string | null;
+  ventilation_adequate?: boolean;
+  /** @nullable */
+  gas_meter_type?: string | null;
+  /** @nullable */
+  gas_safe_engineer_id?: string | null;
+  /** @nullable */
+  cp12_certificate_number?: string | null;
+  landlord_certificate?: boolean;
+  /** @nullable */
+  appliance_classification?: string | null;
+  warning_notice_issued?: boolean;
+  /** @nullable */
+  warning_notice_type?: string | null;
+  /** @nullable */
+  warning_notice_details?: string | null;
+  customer_warned?: boolean;
+  gas_valve_checked?: boolean;
+  injectors_checked?: boolean;
+  pilot_checked?: boolean;
+  ignition_checked?: boolean;
+  gas_pressure_checked?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -655,6 +691,29 @@ export interface CreateServiceRecordBody {
   follow_up_notes?: string;
   next_service_due?: string;
   additional_notes?: string;
+  gas_tightness_pass?: boolean;
+  gas_standing_pressure?: string;
+  gas_working_pressure?: string;
+  gas_operating_pressure?: string;
+  gas_burner_pressure?: string;
+  gas_heat_input?: string;
+  co_co2_ratio?: string;
+  flue_spillage_test?: string;
+  ventilation_adequate?: boolean;
+  gas_meter_type?: string;
+  gas_safe_engineer_id?: string;
+  cp12_certificate_number?: string;
+  landlord_certificate?: boolean;
+  appliance_classification?: string;
+  warning_notice_issued?: boolean;
+  warning_notice_type?: string;
+  warning_notice_details?: string;
+  customer_warned?: boolean;
+  gas_valve_checked?: boolean;
+  injectors_checked?: boolean;
+  pilot_checked?: boolean;
+  ignition_checked?: boolean;
+  gas_pressure_checked?: boolean;
 }
 
 export interface UpdateServiceRecordBody {
@@ -722,6 +781,42 @@ export interface UpdateServiceRecordBody {
   next_service_due?: string | null;
   /** @nullable */
   additional_notes?: string | null;
+  gas_tightness_pass?: boolean;
+  /** @nullable */
+  gas_standing_pressure?: string | null;
+  /** @nullable */
+  gas_working_pressure?: string | null;
+  /** @nullable */
+  gas_operating_pressure?: string | null;
+  /** @nullable */
+  gas_burner_pressure?: string | null;
+  /** @nullable */
+  gas_heat_input?: string | null;
+  /** @nullable */
+  co_co2_ratio?: string | null;
+  /** @nullable */
+  flue_spillage_test?: string | null;
+  ventilation_adequate?: boolean;
+  /** @nullable */
+  gas_meter_type?: string | null;
+  /** @nullable */
+  gas_safe_engineer_id?: string | null;
+  /** @nullable */
+  cp12_certificate_number?: string | null;
+  landlord_certificate?: boolean;
+  /** @nullable */
+  appliance_classification?: string | null;
+  warning_notice_issued?: boolean;
+  /** @nullable */
+  warning_notice_type?: string | null;
+  /** @nullable */
+  warning_notice_details?: string | null;
+  customer_warned?: boolean;
+  gas_valve_checked?: boolean;
+  injectors_checked?: boolean;
+  pilot_checked?: boolean;
+  ignition_checked?: boolean;
+  gas_pressure_checked?: boolean;
 }
 
 export interface CreateBreakdownReportBody {

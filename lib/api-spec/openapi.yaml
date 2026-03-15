@@ -1651,6 +1651,52 @@ components:
           format: date
         additional_notes:
           type: ["string", "null"]
+        gas_tightness_pass:
+          type: boolean
+        gas_standing_pressure:
+          type: ["string", "null"]
+        gas_working_pressure:
+          type: ["string", "null"]
+        gas_operating_pressure:
+          type: ["string", "null"]
+        gas_burner_pressure:
+          type: ["string", "null"]
+        gas_heat_input:
+          type: ["string", "null"]
+        co_co2_ratio:
+          type: ["string", "null"]
+        flue_spillage_test:
+          type: ["string", "null"]
+        ventilation_adequate:
+          type: boolean
+        gas_meter_type:
+          type: ["string", "null"]
+        gas_safe_engineer_id:
+          type: ["string", "null"]
+        cp12_certificate_number:
+          type: ["string", "null"]
+        landlord_certificate:
+          type: boolean
+        appliance_classification:
+          type: ["string", "null"]
+        warning_notice_issued:
+          type: boolean
+        warning_notice_type:
+          type: ["string", "null"]
+        warning_notice_details:
+          type: ["string", "null"]
+        customer_warned:
+          type: boolean
+        gas_valve_checked:
+          type: boolean
+        injectors_checked:
+          type: boolean
+        pilot_checked:
+          type: boolean
+        ignition_checked:
+          type: boolean
+        gas_pressure_checked:
+          type: boolean
         created_at:
           type: string
           format: date-time
@@ -1755,6 +1801,52 @@ components:
           format: date
         additional_notes:
           type: string
+        gas_tightness_pass:
+          type: boolean
+        gas_standing_pressure:
+          type: string
+        gas_working_pressure:
+          type: string
+        gas_operating_pressure:
+          type: string
+        gas_burner_pressure:
+          type: string
+        gas_heat_input:
+          type: string
+        co_co2_ratio:
+          type: string
+        flue_spillage_test:
+          type: string
+        ventilation_adequate:
+          type: boolean
+        gas_meter_type:
+          type: string
+        gas_safe_engineer_id:
+          type: string
+        cp12_certificate_number:
+          type: string
+        landlord_certificate:
+          type: boolean
+        appliance_classification:
+          type: string
+        warning_notice_issued:
+          type: boolean
+        warning_notice_type:
+          type: string
+        warning_notice_details:
+          type: string
+        customer_warned:
+          type: boolean
+        gas_valve_checked:
+          type: boolean
+        injectors_checked:
+          type: boolean
+        pilot_checked:
+          type: boolean
+        ignition_checked:
+          type: boolean
+        gas_pressure_checked:
+          type: boolean
 
     UpdateServiceRecordBody:
       type: object
@@ -1846,6 +1938,52 @@ components:
           format: date
         additional_notes:
           type: ["string", "null"]
+        gas_tightness_pass:
+          type: boolean
+        gas_standing_pressure:
+          type: ["string", "null"]
+        gas_working_pressure:
+          type: ["string", "null"]
+        gas_operating_pressure:
+          type: ["string", "null"]
+        gas_burner_pressure:
+          type: ["string", "null"]
+        gas_heat_input:
+          type: ["string", "null"]
+        co_co2_ratio:
+          type: ["string", "null"]
+        flue_spillage_test:
+          type: ["string", "null"]
+        ventilation_adequate:
+          type: boolean
+        gas_meter_type:
+          type: ["string", "null"]
+        gas_safe_engineer_id:
+          type: ["string", "null"]
+        cp12_certificate_number:
+          type: ["string", "null"]
+        landlord_certificate:
+          type: boolean
+        appliance_classification:
+          type: ["string", "null"]
+        warning_notice_issued:
+          type: boolean
+        warning_notice_type:
+          type: ["string", "null"]
+        warning_notice_details:
+          type: ["string", "null"]
+        customer_warned:
+          type: boolean
+        gas_valve_checked:
+          type: boolean
+        injectors_checked:
+          type: boolean
+        pilot_checked:
+          type: boolean
+        ignition_checked:
+          type: boolean
+        gas_pressure_checked:
+          type: boolean
 
     BreakdownReport:
       type: object

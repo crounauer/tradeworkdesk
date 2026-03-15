@@ -51,4 +51,27 @@ export interface CreateServiceRecordBody {
   follow_up_notes?: string;
   next_service_due?: Date;
   additional_notes?: string;
+  gas_tightness_pass?: boolean;
+  gas_standing_pressure?: string;
+  gas_working_pressure?: string;
+  gas_operating_pressure?: string;
+  gas_burner_pressure?: string;
+  gas_heat_input?: string;
+  co_co2_ratio?: string;
+  flue_spillage_test?: string;
+  ventilation_adequate?: boolean;
+  gas_meter_type?: string;
+  gas_safe_engineer_id?: string;
+  cp12_certificate_number?: string;
+  landlord_certificate?: boolean;
+  appliance_classification?: string;
+  warning_notice_issued?: boolean;
+  warning_notice_type?: string;
+  warning_notice_details?: string;
+  customer_warned?: boolean;
+  gas_valve_checked?: boolean;
+  injectors_checked?: boolean;
+  pilot_checked?: boolean;
+  ignition_checked?: boolean;
+  gas_pressure_checked?: boolean;
 }

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle } from "lucide-react";
+import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle, Flame, Gauge } from "lucide-react";
 import { Link } from "wouter";
-import { generateServiceRecordPdf } from "@/lib/pdf-generator";
+import { generateServiceRecordPdf, generateCp12Pdf } from "@/lib/pdf-generator";
 
 interface ServiceRecordFormData {
   arrival_time: string;
@@ -55,6 +55,29 @@ interface ServiceRecordFormData {
   follow_up_notes: string;
   next_service_due: string;
   additional_notes: string;
+  gas_tightness_pass: boolean;
+  gas_standing_pressure: string;
+  gas_working_pressure: string;
+  gas_operating_pressure: string;
+  gas_burner_pressure: string;
+  gas_heat_input: string;
+  co_co2_ratio: string;
+  flue_spillage_test: string;
+  ventilation_adequate: boolean;
+  gas_meter_type: string;
+  gas_safe_engineer_id: string;
+  cp12_certificate_number: string;
+  landlord_certificate: boolean;
+  appliance_classification: string;
+  warning_notice_issued: boolean;
+  warning_notice_type: string;
+  warning_notice_details: string;
+  customer_warned: boolean;
+  gas_valve_checked: boolean;
+  injectors_checked: boolean;
+  pilot_checked: boolean;
+  ignition_checked: boolean;
+  gas_pressure_checked: boolean;
 }
 
 export default function ServiceRecordForm() {
@@ -69,7 +92,18 @@ export default function ServiceRecordForm() {
   const createMutation = useCreateServiceRecord();
   const updateMutation = useUpdateServiceRecord();
 
-  const { register, handleSubmit, getValues, reset } = useForm<ServiceRecordFormData>();
+  const { register, handleSubmit, getValues, reset, watch } = useForm<ServiceRecordFormData>();
+
+  const fuelType = useMemo(() => {
+    const ft = (job?.appliance as unknown as Record<string, unknown> | undefined)?.fuel_type as string | undefined;
+    return ft || "oil";
+  }, [job]);
+
+  const isGas = fuelType === "gas" || fuelType === "lpg";
+  const isOil = !isGas;
+
+  const watchClassification = watch("appliance_classification");
+  const showWarningNotice = watchClassification === "at_risk" || watchClassification === "immediately_dangerous";
 
   useEffect(() => {
     if (existingRecord) {
@@ -116,6 +150,29 @@ export default function ServiceRecordForm() {
         follow_up_notes: existingRecord.follow_up_notes || "",
         next_service_due: existingRecord.next_service_due || "",
         additional_notes: existingRecord.additional_notes || "",
+        gas_tightness_pass: existingRecord.gas_tightness_pass ?? false,
+        gas_standing_pressure: existingRecord.gas_standing_pressure || "",
+        gas_working_pressure: existingRecord.gas_working_pressure || "",
+        gas_operating_pressure: existingRecord.gas_operating_pressure || "",
+        gas_burner_pressure: existingRecord.gas_burner_pressure || "",
+        gas_heat_input: existingRecord.gas_heat_input || "",
+        co_co2_ratio: existingRecord.co_co2_ratio || "",
+        flue_spillage_test: existingRecord.flue_spillage_test || "",
+        ventilation_adequate: existingRecord.ventilation_adequate ?? false,
+        gas_meter_type: existingRecord.gas_meter_type || "",
+        gas_safe_engineer_id: existingRecord.gas_safe_engineer_id || "",
+        cp12_certificate_number: existingRecord.cp12_certificate_number || "",
+        landlord_certificate: existingRecord.landlord_certificate ?? false,
+        appliance_classification: existingRecord.appliance_classification || "",
+        warning_notice_issued: existingRecord.warning_notice_issued ?? false,
+        warning_notice_type: existingRecord.warning_notice_type || "",
+        warning_notice_details: existingRecord.warning_notice_details || "",
+        customer_warned: existingRecord.customer_warned ?? false,
+        gas_valve_checked: existingRecord.gas_valve_checked ?? false,
+        injectors_checked: existingRecord.injectors_checked ?? false,
+        pilot_checked: existingRecord.pilot_checked ?? false,
+        ignition_checked: existingRecord.ignition_checked ?? false,
+        gas_pressure_checked: existingRecord.gas_pressure_checked ?? false,
       });
     }
   }, [existingRecord, reset]);
@@ -123,7 +180,7 @@ export default function ServiceRecordForm() {
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       job_id: jobId!,
       technician_id: user.id,
       arrival_time: data.arrival_time || undefined,
@@ -136,20 +193,8 @@ export default function ServiceRecordForm() {
       combustion_o2: data.combustion_o2 || undefined,
       combustion_temp: data.combustion_temp || undefined,
       combustion_efficiency: data.combustion_efficiency || undefined,
-      smoke_test: data.smoke_test || undefined,
-      smoke_number: data.smoke_number || undefined,
       burner_cleaned: data.burner_cleaned,
       heat_exchanger_cleaned: data.heat_exchanger_cleaned,
-      nozzle_checked: data.nozzle_checked,
-      nozzle_replaced: data.nozzle_replaced,
-      nozzle_size_fitted: data.nozzle_size_fitted || undefined,
-      electrodes_checked: data.electrodes_checked,
-      electrodes_replaced: data.electrodes_replaced,
-      filter_checked: data.filter_checked,
-      filter_cleaned: data.filter_cleaned,
-      filter_replaced: data.filter_replaced,
-      oil_line_checked: data.oil_line_checked,
-      fire_valve_checked: data.fire_valve_checked,
       seals_gaskets_checked: data.seals_gaskets_checked,
       seals_gaskets_replaced: data.seals_gaskets_replaced,
       controls_checked: data.controls_checked,
@@ -170,12 +215,53 @@ export default function ServiceRecordForm() {
       additional_notes: data.additional_notes || undefined,
     };
 
+    if (isOil) {
+      payload.smoke_test = data.smoke_test || undefined;
+      payload.smoke_number = data.smoke_number || undefined;
+      payload.nozzle_checked = data.nozzle_checked;
+      payload.nozzle_replaced = data.nozzle_replaced;
+      payload.nozzle_size_fitted = data.nozzle_size_fitted || undefined;
+      payload.electrodes_checked = data.electrodes_checked;
+      payload.electrodes_replaced = data.electrodes_replaced;
+      payload.filter_checked = data.filter_checked;
+      payload.filter_cleaned = data.filter_cleaned;
+      payload.filter_replaced = data.filter_replaced;
+      payload.oil_line_checked = data.oil_line_checked;
+      payload.fire_valve_checked = data.fire_valve_checked;
+    }
+
+    if (isGas) {
+      payload.gas_tightness_pass = data.gas_tightness_pass;
+      payload.gas_standing_pressure = data.gas_standing_pressure || undefined;
+      payload.gas_working_pressure = data.gas_working_pressure || undefined;
+      payload.gas_operating_pressure = data.gas_operating_pressure || undefined;
+      payload.gas_burner_pressure = data.gas_burner_pressure || undefined;
+      payload.gas_heat_input = data.gas_heat_input || undefined;
+      payload.co_co2_ratio = data.co_co2_ratio || undefined;
+      payload.flue_spillage_test = data.flue_spillage_test || undefined;
+      payload.ventilation_adequate = data.ventilation_adequate;
+      payload.gas_meter_type = data.gas_meter_type || undefined;
+      payload.gas_safe_engineer_id = data.gas_safe_engineer_id || undefined;
+      payload.cp12_certificate_number = data.cp12_certificate_number || undefined;
+      payload.landlord_certificate = data.landlord_certificate;
+      payload.appliance_classification = data.appliance_classification || undefined;
+      payload.warning_notice_issued = data.warning_notice_issued;
+      payload.warning_notice_type = data.warning_notice_type || undefined;
+      payload.warning_notice_details = data.warning_notice_details || undefined;
+      payload.customer_warned = data.customer_warned;
+      payload.gas_valve_checked = data.gas_valve_checked;
+      payload.injectors_checked = data.injectors_checked;
+      payload.pilot_checked = data.pilot_checked;
+      payload.ignition_checked = data.ignition_checked;
+      payload.gas_pressure_checked = data.gas_pressure_checked;
+    }
+
     try {
       if (existingRecord) {
-        await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await updateMutation.mutateAsync({ id: existingRecord.id, data: payload as never });
         toast({ title: "Updated", description: "Service record updated successfully" });
       } else {
-        await createMutation.mutateAsync({ data: payload });
+        await createMutation.mutateAsync({ data: payload as never });
         toast({ title: "Success", description: "Service record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);
@@ -191,18 +277,32 @@ export default function ServiceRecordForm() {
     const property = job?.property;
     const appliance = job?.appliance;
     const technician = job?.technician;
-    generateServiceRecordPdf({
+
+    const commonData = {
       jobId: jobId!,
       customerName: customer ? `${customer.first_name} ${customer.last_name}` : "N/A",
       propertyAddress: property?.address_line1 || "N/A",
       applianceName: appliance ? `${appliance.manufacturer || ""} ${appliance.model || ""}`.trim() || "N/A" : "N/A",
       technicianName: technician?.full_name || user?.email || "N/A",
       scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
-      serviceRecord: vals,
-    });
+    };
+
+    if (isGas) {
+      generateCp12Pdf({
+        ...commonData,
+        serviceRecord: vals,
+      });
+    } else {
+      generateServiceRecordPdf({
+        ...commonData,
+        serviceRecord: vals,
+      });
+    }
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;
+
+  const fuelLabel = isGas ? (fuelType === "lpg" ? "LPG" : "Gas") : "Oil";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in">
@@ -212,17 +312,46 @@ export default function ServiceRecordForm() {
 
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-display font-bold">Service Record</h1>
-          <p className="text-muted-foreground mt-1">Complete all mandatory inspection sections.</p>
+          <h1 className="text-3xl font-display font-bold">
+            {isGas ? "Gas Safety Record (CP12)" : "Oil Service Record"}
+          </h1>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${isGas ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-800"}`}>
+              <Flame className="w-3 h-3" /> {fuelLabel} Appliance
+            </span>
+            <p className="text-muted-foreground">Complete all mandatory inspection sections.</p>
+          </div>
         </div>
         {existingRecord && (
           <Button variant="outline" onClick={handleExportPdf}>
-            <FileDown className="w-4 h-4 mr-2" /> Export PDF
+            <FileDown className="w-4 h-4 mr-2" /> Export {isGas ? "CP12" : "PDF"}
           </Button>
         )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {isGas && (
+          <Card className="p-6 shadow-sm border-blue-200 bg-blue-50/30">
+            <h2 className="font-bold text-lg mb-4 text-blue-700 flex items-center gap-2"><Shield className="w-5 h-5"/> CP12 / Gas Safe Details</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Gas Safe Engineer ID</Label>
+                <Input {...register("gas_safe_engineer_id")} placeholder="e.g. 123456" />
+              </div>
+              <div className="space-y-2">
+                <Label>CP12 Certificate Number</Label>
+                <Input {...register("cp12_certificate_number")} placeholder="Certificate ref..." />
+              </div>
+              <div className="space-y-2 flex items-end">
+                <label className="flex items-center gap-2 p-3 border rounded-xl bg-white hover:bg-blue-50 cursor-pointer transition-colors text-sm w-full">
+                  <input type="checkbox" {...register("landlord_certificate")} className="w-4 h-4 accent-blue-600 rounded" />
+                  <span className="font-medium">Landlord Certificate</span>
+                </label>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Clock className="w-5 h-5"/> Arrival & Departure</h2>
           <div className="grid md:grid-cols-2 gap-4">
@@ -255,6 +384,52 @@ export default function ServiceRecordForm() {
           </div>
         </Card>
 
+        {isGas && (
+          <Card className="p-6 shadow-sm border-blue-200 bg-blue-50/30">
+            <h2 className="font-bold text-lg mb-4 text-blue-700 flex items-center gap-2"><Gauge className="w-5 h-5"/> Gas Tightness Test</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Standing Pressure (mbar)</Label>
+                <Input {...register("gas_standing_pressure")} placeholder="e.g. 21" />
+              </div>
+              <div className="space-y-2">
+                <Label>Working Pressure (mbar)</Label>
+                <Input {...register("gas_working_pressure")} placeholder="e.g. 19.5" />
+              </div>
+              <div className="space-y-2">
+                <Label>Gas Meter Type</Label>
+                <Input {...register("gas_meter_type")} placeholder="e.g. U6, E6" />
+              </div>
+              <div className="space-y-2 flex items-end">
+                <label className="flex items-center gap-2 p-3 border rounded-xl bg-white hover:bg-emerald-50 cursor-pointer transition-colors text-sm w-full">
+                  <input type="checkbox" {...register("gas_tightness_pass")} className="w-5 h-5 accent-emerald-600 rounded" />
+                  <span className="font-medium">Tightness Test Pass</span>
+                </label>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {isGas && (
+          <Card className="p-6 shadow-sm border-blue-200 bg-blue-50/30">
+            <h2 className="font-bold text-lg mb-4 text-blue-700 flex items-center gap-2"><Gauge className="w-5 h-5"/> Gas Pressure Readings</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Operating Pressure (mbar)</Label>
+                <Input {...register("gas_operating_pressure")} placeholder="e.g. 12.5" />
+              </div>
+              <div className="space-y-2">
+                <Label>Burner Pressure (mbar)</Label>
+                <Input {...register("gas_burner_pressure")} placeholder="e.g. 36" />
+              </div>
+              <div className="space-y-2">
+                <Label>Heat Input (kW)</Label>
+                <Input {...register("gas_heat_input")} placeholder="e.g. 24" />
+              </div>
+            </div>
+          </Card>
+        )}
+
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/> Combustion Readings</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -279,56 +454,129 @@ export default function ServiceRecordForm() {
               <Input {...register("combustion_efficiency")} />
             </div>
           </div>
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <div className="space-y-2">
-              <Label>Smoke Test Result</Label>
-              <Input {...register("smoke_test")} placeholder="Pass / Fail / Details" />
+          {isGas && (
+            <div className="grid md:grid-cols-3 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label>CO/CO2 Ratio</Label>
+                <Input {...register("co_co2_ratio")} placeholder="e.g. 0.004" />
+              </div>
+              <div className="space-y-2">
+                <Label>Flue Spillage Test</Label>
+                <Input {...register("flue_spillage_test")} placeholder="Pass / Fail / N/A" />
+              </div>
+              <div className="space-y-2 flex items-end">
+                <label className="flex items-center gap-2 p-3 border rounded-xl hover:bg-emerald-50 cursor-pointer transition-colors text-sm w-full">
+                  <input type="checkbox" {...register("ventilation_adequate")} className="w-4 h-4 accent-emerald-600 rounded" />
+                  <span className="font-medium">Ventilation Adequate</span>
+                </label>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Smoke Number</Label>
-              <Input {...register("smoke_number")} />
+          )}
+          {isOil && (
+            <div className="grid md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label>Smoke Test Result</Label>
+                <Input {...register("smoke_test")} placeholder="Pass / Fail / Details" />
+              </div>
+              <div className="space-y-2">
+                <Label>Smoke Number</Label>
+                <Input {...register("smoke_number")} />
+              </div>
             </div>
-          </div>
+          )}
         </Card>
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Wrench className="w-5 h-5"/> Checks & Cleaning</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {([
-              ["burner_cleaned", "Burner Cleaned"],
-              ["heat_exchanger_cleaned", "Heat Exchanger Cleaned"],
-              ["nozzle_checked", "Nozzle Checked"],
-              ["nozzle_replaced", "Nozzle Replaced"],
-              ["electrodes_checked", "Electrodes Checked"],
-              ["electrodes_replaced", "Electrodes Replaced"],
-              ["filter_checked", "Filter Checked"],
-              ["filter_cleaned", "Filter Cleaned"],
-              ["filter_replaced", "Filter Replaced"],
-              ["oil_line_checked", "Oil Line Checked"],
-              ["fire_valve_checked", "Fire Valve Checked"],
-              ["seals_gaskets_checked", "Seals/Gaskets Checked"],
-              ["seals_gaskets_replaced", "Seals/Gaskets Replaced"],
-              ["controls_checked", "Controls Checked"],
-              ["thermostat_checked", "Thermostat Checked"],
-              ["safety_devices_checked", "Safety Devices Checked"],
-            ] as const).map(([name, label]) => (
+              ["burner_cleaned", "Burner Cleaned", true],
+              ["heat_exchanger_cleaned", "Heat Exchanger Cleaned", true],
+              ["seals_gaskets_checked", "Seals/Gaskets Checked", true],
+              ["seals_gaskets_replaced", "Seals/Gaskets Replaced", true],
+              ["controls_checked", "Controls Checked", true],
+              ["thermostat_checked", "Thermostat Checked", true],
+              ["safety_devices_checked", "Safety Devices Checked", true],
+              ...(isOil ? [
+                ["nozzle_checked", "Nozzle Checked", true],
+                ["nozzle_replaced", "Nozzle Replaced", true],
+                ["electrodes_checked", "Electrodes Checked", true],
+                ["electrodes_replaced", "Electrodes Replaced", true],
+                ["filter_checked", "Filter Checked", true],
+                ["filter_cleaned", "Filter Cleaned", true],
+                ["filter_replaced", "Filter Replaced", true],
+                ["oil_line_checked", "Oil Line Checked", true],
+                ["fire_valve_checked", "Fire Valve Checked", true],
+              ] : []),
+              ...(isGas ? [
+                ["gas_valve_checked", "Gas Valve Checked", true],
+                ["injectors_checked", "Injectors Checked", true],
+                ["pilot_checked", "Pilot Checked", true],
+                ["ignition_checked", "Ignition Checked", true],
+                ["gas_pressure_checked", "Gas Pressure Checked", true],
+              ] : []),
+            ] as [string, string, boolean][]).map(([name, label]) => (
               <label key={name} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors text-sm">
-                <input type="checkbox" {...register(name)} className="w-4 h-4 accent-primary rounded" />
+                <input type="checkbox" {...register(name as keyof ServiceRecordFormData)} className="w-4 h-4 accent-primary rounded" />
                 <span className="font-medium">{label}</span>
               </label>
             ))}
           </div>
           <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <div className="space-y-2">
-              <Label>Nozzle Size Fitted</Label>
-              <Input {...register("nozzle_size_fitted")} placeholder="e.g. 0.50 USG 60S" />
-            </div>
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Nozzle Size Fitted</Label>
+                <Input {...register("nozzle_size_fitted")} placeholder="e.g. 0.50 USG 60S" />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Safety Devices Notes</Label>
               <Input {...register("safety_devices_notes")} placeholder="Any notes on safety devices..." />
             </div>
           </div>
         </Card>
+
+        {isGas && (
+          <Card className={`p-6 shadow-sm ${showWarningNotice ? "border-red-300 bg-red-50/50" : "border-border/50"}`}>
+            <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Appliance Classification</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Classification</Label>
+                <select {...register("appliance_classification")} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background">
+                  <option value="">Select classification...</option>
+                  <option value="safe">Safe</option>
+                  <option value="not_to_current_standard">Not to Current Standard (NCS)</option>
+                  <option value="at_risk">At Risk (AR)</option>
+                  <option value="immediately_dangerous">Immediately Dangerous (ID)</option>
+                </select>
+              </div>
+              {showWarningNotice && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-red-700 font-semibold">Warning Notice Type</Label>
+                    <select {...register("warning_notice_type")} className="w-full border border-red-300 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="">Select type...</option>
+                      <option value="at_risk">At Risk (AR)</option>
+                      <option value="immediately_dangerous">Immediately Dangerous (ID)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="text-red-700 font-semibold">Warning Notice Details</Label>
+                    <textarea className="w-full border border-red-300 rounded-lg px-3 py-2 text-sm bg-white min-h-[80px]" {...register("warning_notice_details")} placeholder="Describe the danger/risk and advice given..." />
+                  </div>
+                  <label className="flex items-center gap-3 p-3 border border-red-300 rounded-xl bg-white hover:bg-red-50 cursor-pointer transition-colors">
+                    <input type="checkbox" {...register("warning_notice_issued")} className="w-5 h-5 accent-red-600 rounded" />
+                    <span className="font-medium text-red-700">Warning Notice Issued</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 border border-red-300 rounded-xl bg-white hover:bg-red-50 cursor-pointer transition-colors">
+                    <input type="checkbox" {...register("customer_warned")} className="w-5 h-5 accent-red-600 rounded" />
+                    <span className="font-medium text-red-700">Customer Warned &amp; Acknowledged</span>
+                  </label>
+                </>
+              )}
+            </div>
+          </Card>
+        )}
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Shield className="w-5 h-5"/> Safety & Defects</h2>
@@ -340,7 +588,7 @@ export default function ServiceRecordForm() {
               </label>
               <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-rose-50 cursor-pointer transition-colors">
                 <input type="checkbox" {...register("leaks_found")} className="w-5 h-5 accent-rose-600 rounded" />
-                <span className="font-medium">Leaks Found</span>
+                <span className="font-medium">{isGas ? "Gas Leaks Found" : "Oil Leaks Found"}</span>
               </label>
               <div className="space-y-2">
                 <Label>Leak Details</Label>

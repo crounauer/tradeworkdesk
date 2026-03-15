@@ -74,6 +74,42 @@ export interface ServiceRecord {
   next_service_due?: Date | null;
   /** @nullable */
   additional_notes?: string | null;
+  gas_tightness_pass?: boolean;
+  /** @nullable */
+  gas_standing_pressure?: string | null;
+  /** @nullable */
+  gas_working_pressure?: string | null;
+  /** @nullable */
+  gas_operating_pressure?: string | null;
+  /** @nullable */
+  gas_burner_pressure?: string | null;
+  /** @nullable */
+  gas_heat_input?: string | null;
+  /** @nullable */
+  co_co2_ratio?: string | null;
+  /** @nullable */
+  flue_spillage_test?: string | null;
+  ventilation_adequate?: boolean;
+  /** @nullable */
+  gas_meter_type?: string | null;
+  /** @nullable */
+  gas_safe_engineer_id?: string | null;
+  /** @nullable */
+  cp12_certificate_number?: string | null;
+  landlord_certificate?: boolean;
+  /** @nullable */
+  appliance_classification?: string | null;
+  warning_notice_issued?: boolean;
+  /** @nullable */
+  warning_notice_type?: string | null;
+  /** @nullable */
+  warning_notice_details?: string | null;
+  customer_warned?: boolean;
+  gas_valve_checked?: boolean;
+  injectors_checked?: boolean;
+  pilot_checked?: boolean;
+  ignition_checked?: boolean;
+  gas_pressure_checked?: boolean;
   created_at: Date;
   updated_at: Date;
 }
