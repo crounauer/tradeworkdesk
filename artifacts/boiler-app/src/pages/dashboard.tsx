@@ -2,7 +2,7 @@ import { useGetDashboard } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Users, Briefcase, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default function Dashboard() {
   const { data, isLoading } = useGetDashboard();
@@ -56,7 +56,7 @@ export default function Dashboard() {
                     <span className="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700 capitalize">{job.job_type}</span>
                   </div>
                   <p className="text-sm text-muted-foreground mb-1">{job.property_address}</p>
-                  <p className="text-sm font-medium">{formatDateTime(job.scheduled_date + (job.scheduled_time ? `T${job.scheduled_time}` : 'T00:00:00'))}</p>
+                  <p className="text-sm font-medium">{(() => { const d = String(job.scheduled_date).slice(0, 10); return job.scheduled_time ? formatDateTime(`${d}T${job.scheduled_time}`) : formatDate(d); })()}</p>
                 </Link>
               ))
             )}

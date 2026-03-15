@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette, ClipboardList } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -79,7 +79,12 @@ export default function JobDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Calendar className="w-4 h-4"/> Scheduled</p>
                   <p className="font-medium text-foreground">
-                    {formatDateTime(job.scheduled_date + (job.scheduled_time ? `T${job.scheduled_time}` : 'T00:00:00'))}
+                    {(() => {
+                      const dateOnly = String(job.scheduled_date).slice(0, 10);
+                      return job.scheduled_time
+                        ? formatDateTime(`${dateOnly}T${job.scheduled_time}`)
+                        : formatDate(dateOnly);
+                    })()}
                   </p>
                 </div>
                 <div>

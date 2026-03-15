@@ -120,7 +120,12 @@ export default function Jobs() {
                 <div className="flex sm:flex-col items-center sm:items-end gap-4 sm:gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 sm:border-l border-border/50 sm:pl-5">
                   <div className="flex items-center gap-1.5 text-foreground font-medium bg-slate-50 px-3 py-1.5 rounded-lg w-full sm:w-auto justify-center">
                     <Calendar className="w-4 h-4 text-primary" />
-                    {formatDateTime(job.scheduled_date + (job.scheduled_time ? `T${job.scheduled_time}` : 'T00:00:00'))}
+                    {(() => {
+                      const dateOnly = String(job.scheduled_date).slice(0, 10);
+                      return job.scheduled_time
+                        ? formatDateTime(`${dateOnly}T${job.scheduled_time}`)
+                        : formatDate(dateOnly);
+                    })()}
                   </div>
                   {job.technician_name && (
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
