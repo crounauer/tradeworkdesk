@@ -82,6 +82,8 @@ export interface Property {
   /** @nullable */
   access_notes?: string | null;
   /** @nullable */
+  parking_notes?: string | null;
+  /** @nullable */
   boiler_location?: string | null;
   /** @nullable */
   flue_location?: string | null;
@@ -262,6 +264,7 @@ export interface CreatePropertyBody {
   property_type?: string;
   occupancy_type?: string;
   access_notes?: string;
+  parking_notes?: string;
   boiler_location?: string;
   flue_location?: string;
   tank_location?: string;
@@ -284,6 +287,8 @@ export interface UpdatePropertyBody {
   occupancy_type?: string | null;
   /** @nullable */
   access_notes?: string | null;
+  /** @nullable */
+  parking_notes?: string | null;
   /** @nullable */
   boiler_location?: string | null;
   /** @nullable */

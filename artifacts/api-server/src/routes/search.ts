@@ -5,10 +5,11 @@ import { GlobalSearchQueryParams, GlobalSearchResponse } from "@workspace/api-zo
 
 interface ApplianceSearchRow {
   id: string;
-  manufacturer: string;
-  model: string;
+  manufacturer: string | null;
+  model: string | null;
   serial_number: string | null;
-  appliance_type: string;
+  boiler_type: string | null;
+  fuel_type: string | null;
   is_active: boolean;
   property_id: string;
   properties?: { address_line1: string } | null;

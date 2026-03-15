@@ -16,14 +16,22 @@ import {
 interface ApplianceRow {
   id: string;
   property_id: string;
-  appliance_type: string;
-  manufacturer: string;
-  model: string;
+  manufacturer: string | null;
+  model: string | null;
   serial_number: string | null;
-  gc_number: string | null;
+  boiler_type: string | null;
+  fuel_type: string | null;
+  system_type: string | null;
   installation_date: string | null;
+  warranty_expiry: string | null;
+  burner_make: string | null;
+  burner_model: string | null;
+  nozzle_size: string | null;
+  pump_pressure: string | null;
+  controls: string | null;
   last_service_date: string | null;
   next_service_due: string | null;
+  notes: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

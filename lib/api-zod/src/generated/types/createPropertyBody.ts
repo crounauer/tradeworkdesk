@@ -16,6 +16,7 @@ export interface CreatePropertyBody {
   property_type?: string;
   occupancy_type?: string;
   access_notes?: string;
+  parking_notes?: string;
   boiler_location?: string;
   flue_location?: string;
   tank_location?: string;

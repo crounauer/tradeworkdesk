@@ -99,6 +99,14 @@ Drizzle ORM schema definitions matching the Supabase database tables. Exports ty
 
 The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, breakdown_reports, job_notes, file_attachments, signatures. Includes RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`.
 
+Schema enums: user_role, job_status, job_type (service/breakdown/installation/inspection/follow_up), priority_level, property_type, occupancy_type, fuel_type, boiler_type, system_type.
+
+## Codegen Notes
+
+After regenerating API client via Orval, two manual fixups are required in `lib/api-zod/src/generated/api.ts`:
+1. Replace all `zod.date()` with `zod.coerce.date()` (Supabase returns ISO strings, not Date objects)
+2. Replace `zod.instanceof(File)` with `zod.any()` (File type unavailable in Node.js)
+
 ## Root Scripts
 
 - `pnpm run build` — typecheck + build all packages

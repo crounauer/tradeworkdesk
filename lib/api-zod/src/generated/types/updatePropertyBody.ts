@@ -23,6 +23,8 @@ export interface UpdatePropertyBody {
   /** @nullable */
   access_notes?: string | null;
   /** @nullable */
+  parking_notes?: string | null;
+  /** @nullable */
   boiler_location?: string | null;
   /** @nullable */
   flue_location?: string | null;

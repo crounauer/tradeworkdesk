@@ -1,12 +1,28 @@
-import { useGetCustomer } from "@workspace/api-client-react";
+import { useGetCustomer, useCreateProperty } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
+
+type PropertyFormData = {
+  address_line1: string;
+  address_line2?: string;
+  city?: string;
+  county?: string;
+  postcode: string;
+  property_type?: string;
+  access_notes?: string;
+  parking_notes?: string;
+};
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: customer, isLoading } = useGetCustomer(id);
+  const [showPropertyForm, setShowPropertyForm] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
@@ -29,15 +45,11 @@ export default function CustomerDetail() {
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
-        <Button variant="outline">
-          <Edit className="w-4 h-4 mr-2" /> Edit Details
-        </Button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="p-6 lg:col-span-1 border border-border/50 shadow-sm space-y-4">
           <h3 className="font-bold text-lg border-b border-border/50 pb-2">Contact Info</h3>
-          
           {customer.phone && (
             <div className="flex items-start gap-3">
               <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
@@ -47,7 +59,15 @@ export default function CustomerDetail() {
               </div>
             </div>
           )}
-          
+          {customer.mobile && (
+            <div className="flex items-start gap-3">
+              <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Mobile</p>
+                <p className="text-foreground">{customer.mobile}</p>
+              </div>
+            </div>
+          )}
           {customer.email && (
             <div className="flex items-start gap-3">
               <Mail className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
@@ -57,7 +77,6 @@ export default function CustomerDetail() {
               </div>
             </div>
           )}
-
           {(customer.address_line1 || customer.postcode) && (
             <div className="flex items-start gap-3">
               <MapPin className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
@@ -76,9 +95,15 @@ export default function CustomerDetail() {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-display font-bold">Properties</h2>
-            <Button size="sm" variant="secondary"><Plus className="w-4 h-4 mr-2"/> Add Property</Button>
+            <Button size="sm" variant="secondary" onClick={() => setShowPropertyForm(!showPropertyForm)}>
+              {showPropertyForm ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Plus className="w-4 h-4 mr-2"/> Add Property</>}
+            </Button>
           </div>
-          
+
+          {showPropertyForm && (
+            <AddPropertyForm customerId={customer.id} onClose={() => setShowPropertyForm(false)} />
+          )}
+
           {customer.properties?.length === 0 ? (
             <Card className="p-8 text-center border-dashed">
               <Home className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -109,5 +134,56 @@ export default function CustomerDetail() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AddPropertyForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const create = useCreateProperty();
+  const { register, handleSubmit } = useForm<PropertyFormData>();
+
+  const onSubmit = async (data: PropertyFormData) => {
+    await create.mutateAsync({
+      data: {
+        customer_id: customerId,
+        address_line1: data.address_line1,
+        address_line2: data.address_line2 || undefined,
+        city: data.city || undefined,
+        county: data.county || undefined,
+        postcode: data.postcode,
+        property_type: data.property_type || undefined,
+        access_notes: data.access_notes || undefined,
+        parking_notes: data.parking_notes || undefined,
+      }
+    });
+    qc.invalidateQueries({ queryKey: [`/api/customers/${customerId}`] });
+    onClose();
+  };
+
+  return (
+    <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">
+      <h3 className="font-bold text-lg mb-4">Add New Property</h3>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input placeholder="Address Line 1 *" required {...register("address_line1")} />
+        <Input placeholder="Address Line 2" {...register("address_line2")} />
+        <Input placeholder="City" {...register("city")} />
+        <Input placeholder="County" {...register("county")} />
+        <Input placeholder="Postcode *" required {...register("postcode")} />
+        <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("property_type")}>
+          <option value="">Property Type...</option>
+          <option value="residential">Residential</option>
+          <option value="commercial">Commercial</option>
+          <option value="industrial">Industrial</option>
+        </select>
+        <Input placeholder="Access Notes" {...register("access_notes")} />
+        <Input placeholder="Parking Notes" {...register("parking_notes")} />
+        <div className="md:col-span-2 flex gap-3">
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? "Adding..." : "Add Property"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        </div>
+      </form>
+    </Card>
   );
 }

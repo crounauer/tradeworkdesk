@@ -1134,6 +1134,8 @@ components:
           type: ["string", "null"]
         access_notes:
           type: ["string", "null"]
+        parking_notes:
+          type: ["string", "null"]
         boiler_location:
           type: ["string", "null"]
         flue_location:
@@ -1192,6 +1194,8 @@ components:
           type: string
         access_notes:
           type: string
+        parking_notes:
+          type: string
         boiler_location:
           type: string
         flue_location:
@@ -1222,6 +1226,8 @@ components:
         occupancy_type:
           type: ["string", "null"]
         access_notes:
+          type: ["string", "null"]
+        parking_notes:
           type: ["string", "null"]
         boiler_location:
           type: ["string", "null"]
