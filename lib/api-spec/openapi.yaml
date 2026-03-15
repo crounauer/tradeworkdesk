@@ -1,22 +1,47 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Boiler Service Technician API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: customers
+    description: Customer management
+  - name: properties
+    description: Property management
+  - name: appliances
+    description: Appliance management
+  - name: jobs
+    description: Job management
+  - name: serviceRecords
+    description: Service record management
+  - name: breakdownReports
+    description: Breakdown report management
+  - name: notes
+    description: Job notes
+  - name: files
+    description: File attachments
+  - name: signatures
+    description: Signature management
+  - name: search
+    description: Global search
+  - name: reports
+    description: Reports and analytics
+  - name: dashboard
+    description: Dashboard data
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +49,913 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/profile:
+    get:
+      operationId: getProfile
+      tags: [auth]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    patch:
+      operationId: updateProfile
+      tags: [auth]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /auth/profiles:
+    get:
+      operationId: listProfiles
+      tags: [auth]
+      summary: List all user profiles (technicians)
+      responses:
+        "200":
+          description: List of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard data
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardData"
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customers
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Customer list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomerBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerDetail"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomerBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Soft-delete customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /properties:
+    get:
+      operationId: listProperties
+      tags: [properties]
+      summary: List properties
+      parameters:
+        - name: customer_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Property list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Property"
+    post:
+      operationId: createProperty
+      tags: [properties]
+      summary: Create a property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePropertyBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+
+  /properties/{id}:
+    get:
+      operationId: getProperty
+      tags: [properties]
+      summary: Get property by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Property details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetail"
+    patch:
+      operationId: updateProperty
+      tags: [properties]
+      summary: Update property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePropertyBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+    delete:
+      operationId: deleteProperty
+      tags: [properties]
+      summary: Soft-delete property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /appliances:
+    get:
+      operationId: listAppliances
+      tags: [appliances]
+      summary: List appliances
+      parameters:
+        - name: property_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appliance list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appliance"
+    post:
+      operationId: createAppliance
+      tags: [appliances]
+      summary: Create an appliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApplianceBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appliance"
+
+  /appliances/{id}:
+    get:
+      operationId: getAppliance
+      tags: [appliances]
+      summary: Get appliance by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Appliance details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplianceDetail"
+    patch:
+      operationId: updateAppliance
+      tags: [appliances]
+      summary: Update appliance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApplianceBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appliance"
+    delete:
+      operationId: deleteAppliance
+      tags: [appliances]
+      summary: Soft-delete appliance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List jobs
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: job_type
+          in: query
+          schema:
+            type: string
+        - name: technician_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: customer_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: property_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobListItem"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Create a job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobDetail"
+    patch:
+      operationId: updateJob
+      tags: [jobs]
+      summary: Update job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJobBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Soft-delete job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /service-records:
+    post:
+      operationId: createServiceRecord
+      tags: [serviceRecords]
+      summary: Create a service record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRecordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecord"
+
+  /service-records/{id}:
+    get:
+      operationId: getServiceRecord
+      tags: [serviceRecords]
+      summary: Get service record by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Service record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecord"
+    patch:
+      operationId: updateServiceRecord
+      tags: [serviceRecords]
+      summary: Update service record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRecordBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecord"
+
+  /service-records/job/{jobId}:
+    get:
+      operationId: getServiceRecordByJob
+      tags: [serviceRecords]
+      summary: Get service record by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Service record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRecord"
+
+  /breakdown-reports:
+    post:
+      operationId: createBreakdownReport
+      tags: [breakdownReports]
+      summary: Create a breakdown report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBreakdownReportBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakdownReport"
+
+  /breakdown-reports/{id}:
+    get:
+      operationId: getBreakdownReport
+      tags: [breakdownReports]
+      summary: Get breakdown report by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Breakdown report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakdownReport"
+    patch:
+      operationId: updateBreakdownReport
+      tags: [breakdownReports]
+      summary: Update breakdown report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBreakdownReportBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakdownReport"
+
+  /breakdown-reports/job/{jobId}:
+    get:
+      operationId: getBreakdownReportByJob
+      tags: [breakdownReports]
+      summary: Get breakdown report by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Breakdown report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakdownReport"
+
+  /jobs/{jobId}/notes:
+    get:
+      operationId: listJobNotes
+      tags: [notes]
+      summary: List notes for a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notes list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobNote"
+    post:
+      operationId: createJobNote
+      tags: [notes]
+      summary: Create a job note
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobNoteBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobNote"
+
+  /files:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List file attachments
+      parameters:
+        - name: entity_type
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: entity_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: File list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileAttachment"
+
+  /files/upload:
+    post:
+      operationId: uploadFile
+      tags: [files]
+      summary: Upload a file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - entity_type
+                - entity_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                entity_type:
+                  type: string
+                entity_id:
+                  type: string
+                  format: uuid
+                description:
+                  type: string
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileAttachment"
+
+  /files/{id}:
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file attachment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /files/{id}/url:
+    get:
+      operationId: getFileUrl
+      tags: [files]
+      summary: Get signed download URL for file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Signed URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUrl"
+
+  /signatures:
+    post:
+      operationId: createSignature
+      tags: [signatures]
+      summary: Upload a signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSignatureBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signature"
+
+  /signatures/job/{jobId}:
+    get:
+      operationId: getJobSignatures
+      tags: [signatures]
+      summary: Get signatures for a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Signatures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Signature"
+
+  /search:
+    get:
+      operationId: globalSearch
+      tags: [search]
+      summary: Global search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
+  /reports/upcoming-services:
+    get:
+      operationId: getUpcomingServices
+      tags: [reports]
+      summary: Get upcoming service due dates
+      responses:
+        "200":
+          description: Upcoming services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UpcomingService"
+
+  /reports/overdue-services:
+    get:
+      operationId: getOverdueServices
+      tags: [reports]
+      summary: Get overdue services
+      responses:
+        "200":
+          description: Overdue services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UpcomingService"
+
+  /reports/completed-by-technician:
+    get:
+      operationId: getCompletedByTechnician
+      tags: [reports]
+      summary: Get completed jobs grouped by technician
+      parameters:
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Completed jobs by technician
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TechnicianStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +966,1186 @@ components:
       required:
         - status
 
+    Profile:
+      type: object
+      required: [id, email, full_name, role, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [admin, office_staff, technician]
+        phone:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateProfileBody:
+      type: object
+      properties:
+        full_name:
+          type: string
+        phone:
+          type: ["string", "null"]
+
+    Customer:
+      type: object
+      required: [id, first_name, last_name, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: ["string", "null"]
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        mobile:
+          type: ["string", "null"]
+        address_line1:
+          type: ["string", "null"]
+        address_line2:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        county:
+          type: ["string", "null"]
+        postcode:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CustomerDetail:
+      allOf:
+        - $ref: "#/components/schemas/Customer"
+        - type: object
+          properties:
+            properties:
+              type: array
+              items:
+                $ref: "#/components/schemas/Property"
+
+    CreateCustomerBody:
+      type: object
+      required: [first_name, last_name]
+      properties:
+        title:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        mobile:
+          type: string
+        address_line1:
+          type: string
+        address_line2:
+          type: string
+        city:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        notes:
+          type: string
+
+    UpdateCustomerBody:
+      type: object
+      properties:
+        title:
+          type: ["string", "null"]
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        mobile:
+          type: ["string", "null"]
+        address_line1:
+          type: ["string", "null"]
+        address_line2:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        county:
+          type: ["string", "null"]
+        postcode:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+
+    Property:
+      type: object
+      required: [id, customer_id, address_line1, postcode, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        address_line1:
+          type: string
+        address_line2:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        county:
+          type: ["string", "null"]
+        postcode:
+          type: string
+        property_type:
+          type: ["string", "null"]
+        occupancy_type:
+          type: ["string", "null"]
+        access_notes:
+          type: ["string", "null"]
+        boiler_location:
+          type: ["string", "null"]
+        flue_location:
+          type: ["string", "null"]
+        tank_location:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        customer_name:
+          type: ["string", "null"]
+
+    PropertyDetail:
+      allOf:
+        - $ref: "#/components/schemas/Property"
+        - type: object
+          properties:
+            customer:
+              $ref: "#/components/schemas/Customer"
+            appliances:
+              type: array
+              items:
+                $ref: "#/components/schemas/Appliance"
+            recent_jobs:
+              type: array
+              items:
+                $ref: "#/components/schemas/JobListItem"
+
+    CreatePropertyBody:
+      type: object
+      required: [customer_id, address_line1, postcode]
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        address_line1:
+          type: string
+        address_line2:
+          type: string
+        city:
+          type: string
+        county:
+          type: string
+        postcode:
+          type: string
+        property_type:
+          type: string
+        occupancy_type:
+          type: string
+        access_notes:
+          type: string
+        boiler_location:
+          type: string
+        flue_location:
+          type: string
+        tank_location:
+          type: string
+        notes:
+          type: string
+
+    UpdatePropertyBody:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        address_line1:
+          type: string
+        address_line2:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        county:
+          type: ["string", "null"]
+        postcode:
+          type: string
+        property_type:
+          type: ["string", "null"]
+        occupancy_type:
+          type: ["string", "null"]
+        access_notes:
+          type: ["string", "null"]
+        boiler_location:
+          type: ["string", "null"]
+        flue_location:
+          type: ["string", "null"]
+        tank_location:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+
+    Appliance:
+      type: object
+      required: [id, property_id, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        manufacturer:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        serial_number:
+          type: ["string", "null"]
+        boiler_type:
+          type: ["string", "null"]
+        fuel_type:
+          type: ["string", "null"]
+        system_type:
+          type: ["string", "null"]
+        installation_date:
+          type: ["string", "null"]
+          format: date
+        warranty_expiry:
+          type: ["string", "null"]
+          format: date
+        burner_make:
+          type: ["string", "null"]
+        burner_model:
+          type: ["string", "null"]
+        nozzle_size:
+          type: ["string", "null"]
+        pump_pressure:
+          type: ["string", "null"]
+        controls:
+          type: ["string", "null"]
+        last_service_date:
+          type: ["string", "null"]
+          format: date
+        next_service_due:
+          type: ["string", "null"]
+          format: date
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        property_address:
+          type: ["string", "null"]
+
+    ApplianceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Appliance"
+        - type: object
+          properties:
+            property:
+              $ref: "#/components/schemas/Property"
+            recent_jobs:
+              type: array
+              items:
+                $ref: "#/components/schemas/JobListItem"
+
+    CreateApplianceBody:
+      type: object
+      required: [property_id]
+      properties:
+        property_id:
+          type: string
+          format: uuid
+        manufacturer:
+          type: string
+        model:
+          type: string
+        serial_number:
+          type: string
+        boiler_type:
+          type: string
+        fuel_type:
+          type: string
+        system_type:
+          type: string
+        installation_date:
+          type: string
+          format: date
+        warranty_expiry:
+          type: string
+          format: date
+        burner_make:
+          type: string
+        burner_model:
+          type: string
+        nozzle_size:
+          type: string
+        pump_pressure:
+          type: string
+        controls:
+          type: string
+        last_service_date:
+          type: string
+          format: date
+        next_service_due:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    UpdateApplianceBody:
+      type: object
+      properties:
+        manufacturer:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        serial_number:
+          type: ["string", "null"]
+        boiler_type:
+          type: ["string", "null"]
+        fuel_type:
+          type: ["string", "null"]
+        system_type:
+          type: ["string", "null"]
+        installation_date:
+          type: ["string", "null"]
+        warranty_expiry:
+          type: ["string", "null"]
+        burner_make:
+          type: ["string", "null"]
+        burner_model:
+          type: ["string", "null"]
+        nozzle_size:
+          type: ["string", "null"]
+        pump_pressure:
+          type: ["string", "null"]
+        controls:
+          type: ["string", "null"]
+        last_service_date:
+          type: ["string", "null"]
+        next_service_due:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+
+    Job:
+      type: object
+      required: [id, customer_id, property_id, job_type, status, priority, scheduled_date, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        appliance_id:
+          type: ["string", "null"]
+          format: uuid
+        assigned_technician_id:
+          type: ["string", "null"]
+          format: uuid
+        job_type:
+          type: string
+          enum: [service, breakdown, installation, inspection, follow_up]
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled, requires_follow_up]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        scheduled_date:
+          type: string
+          format: date
+        scheduled_time:
+          type: ["string", "null"]
+        estimated_duration:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    JobListItem:
+      allOf:
+        - $ref: "#/components/schemas/Job"
+        - type: object
+          properties:
+            customer_name:
+              type: ["string", "null"]
+            property_address:
+              type: ["string", "null"]
+            technician_name:
+              type: ["string", "null"]
+
+    JobDetail:
+      allOf:
+        - $ref: "#/components/schemas/Job"
+        - type: object
+          properties:
+            customer:
+              $ref: "#/components/schemas/Customer"
+            property:
+              $ref: "#/components/schemas/Property"
+            appliance:
+              $ref: "#/components/schemas/Appliance"
+            technician:
+              $ref: "#/components/schemas/Profile"
+            service_record:
+              $ref: "#/components/schemas/ServiceRecord"
+            breakdown_report:
+              $ref: "#/components/schemas/BreakdownReport"
+            notes:
+              type: array
+              items:
+                $ref: "#/components/schemas/JobNote"
+            files:
+              type: array
+              items:
+                $ref: "#/components/schemas/FileAttachment"
+            signatures:
+              type: array
+              items:
+                $ref: "#/components/schemas/Signature"
+
+    CreateJobBody:
+      type: object
+      required: [customer_id, property_id, job_type, scheduled_date]
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        appliance_id:
+          type: string
+          format: uuid
+        assigned_technician_id:
+          type: string
+          format: uuid
+        job_type:
+          type: string
+          enum: [service, breakdown, installation, inspection, follow_up]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        scheduled_date:
+          type: string
+          format: date
+        scheduled_time:
+          type: string
+        estimated_duration:
+          type: integer
+        description:
+          type: string
+        notes:
+          type: string
+
+    UpdateJobBody:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        appliance_id:
+          type: ["string", "null"]
+          format: uuid
+        assigned_technician_id:
+          type: ["string", "null"]
+          format: uuid
+        job_type:
+          type: string
+          enum: [service, breakdown, installation, inspection, follow_up]
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled, requires_follow_up]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        scheduled_date:
+          type: string
+          format: date
+        scheduled_time:
+          type: ["string", "null"]
+        estimated_duration:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ServiceRecord:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        arrival_time:
+          type: ["string", "null"]
+          format: date-time
+        departure_time:
+          type: ["string", "null"]
+          format: date-time
+        visual_inspection:
+          type: ["string", "null"]
+        appliance_condition:
+          type: ["string", "null"]
+        flue_inspection:
+          type: ["string", "null"]
+        combustion_co2:
+          type: ["string", "null"]
+        combustion_co:
+          type: ["string", "null"]
+        combustion_o2:
+          type: ["string", "null"]
+        combustion_temp:
+          type: ["string", "null"]
+        combustion_efficiency:
+          type: ["string", "null"]
+        smoke_test:
+          type: ["string", "null"]
+        smoke_number:
+          type: ["string", "null"]
+        burner_cleaned:
+          type: boolean
+        heat_exchanger_cleaned:
+          type: boolean
+        nozzle_checked:
+          type: boolean
+        nozzle_replaced:
+          type: boolean
+        nozzle_size_fitted:
+          type: ["string", "null"]
+        electrodes_checked:
+          type: boolean
+        electrodes_replaced:
+          type: boolean
+        filter_checked:
+          type: boolean
+        filter_cleaned:
+          type: boolean
+        filter_replaced:
+          type: boolean
+        oil_line_checked:
+          type: boolean
+        fire_valve_checked:
+          type: boolean
+        seals_gaskets_checked:
+          type: boolean
+        seals_gaskets_replaced:
+          type: boolean
+        controls_checked:
+          type: boolean
+        thermostat_checked:
+          type: boolean
+        safety_devices_checked:
+          type: boolean
+        safety_devices_notes:
+          type: ["string", "null"]
+        leaks_found:
+          type: boolean
+        leaks_details:
+          type: ["string", "null"]
+        defects_found:
+          type: boolean
+        defects_details:
+          type: ["string", "null"]
+        advisories:
+          type: ["string", "null"]
+        parts_required:
+          type: ["string", "null"]
+        work_completed:
+          type: ["string", "null"]
+        appliance_safe:
+          type: boolean
+        follow_up_required:
+          type: boolean
+        follow_up_notes:
+          type: ["string", "null"]
+        next_service_due:
+          type: ["string", "null"]
+          format: date
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateServiceRecordBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        arrival_time:
+          type: string
+          format: date-time
+        departure_time:
+          type: string
+          format: date-time
+        visual_inspection:
+          type: string
+        appliance_condition:
+          type: string
+        flue_inspection:
+          type: string
+        combustion_co2:
+          type: string
+        combustion_co:
+          type: string
+        combustion_o2:
+          type: string
+        combustion_temp:
+          type: string
+        combustion_efficiency:
+          type: string
+        smoke_test:
+          type: string
+        smoke_number:
+          type: string
+        burner_cleaned:
+          type: boolean
+        heat_exchanger_cleaned:
+          type: boolean
+        nozzle_checked:
+          type: boolean
+        nozzle_replaced:
+          type: boolean
+        nozzle_size_fitted:
+          type: string
+        electrodes_checked:
+          type: boolean
+        electrodes_replaced:
+          type: boolean
+        filter_checked:
+          type: boolean
+        filter_cleaned:
+          type: boolean
+        filter_replaced:
+          type: boolean
+        oil_line_checked:
+          type: boolean
+        fire_valve_checked:
+          type: boolean
+        seals_gaskets_checked:
+          type: boolean
+        seals_gaskets_replaced:
+          type: boolean
+        controls_checked:
+          type: boolean
+        thermostat_checked:
+          type: boolean
+        safety_devices_checked:
+          type: boolean
+        safety_devices_notes:
+          type: string
+        leaks_found:
+          type: boolean
+        leaks_details:
+          type: string
+        defects_found:
+          type: boolean
+        defects_details:
+          type: string
+        advisories:
+          type: string
+        parts_required:
+          type: string
+        work_completed:
+          type: string
+        appliance_safe:
+          type: boolean
+        follow_up_required:
+          type: boolean
+        follow_up_notes:
+          type: string
+        next_service_due:
+          type: string
+          format: date
+        additional_notes:
+          type: string
+
+    UpdateServiceRecordBody:
+      type: object
+      properties:
+        arrival_time:
+          type: ["string", "null"]
+          format: date-time
+        departure_time:
+          type: ["string", "null"]
+          format: date-time
+        visual_inspection:
+          type: ["string", "null"]
+        appliance_condition:
+          type: ["string", "null"]
+        flue_inspection:
+          type: ["string", "null"]
+        combustion_co2:
+          type: ["string", "null"]
+        combustion_co:
+          type: ["string", "null"]
+        combustion_o2:
+          type: ["string", "null"]
+        combustion_temp:
+          type: ["string", "null"]
+        combustion_efficiency:
+          type: ["string", "null"]
+        smoke_test:
+          type: ["string", "null"]
+        smoke_number:
+          type: ["string", "null"]
+        burner_cleaned:
+          type: boolean
+        heat_exchanger_cleaned:
+          type: boolean
+        nozzle_checked:
+          type: boolean
+        nozzle_replaced:
+          type: boolean
+        nozzle_size_fitted:
+          type: ["string", "null"]
+        electrodes_checked:
+          type: boolean
+        electrodes_replaced:
+          type: boolean
+        filter_checked:
+          type: boolean
+        filter_cleaned:
+          type: boolean
+        filter_replaced:
+          type: boolean
+        oil_line_checked:
+          type: boolean
+        fire_valve_checked:
+          type: boolean
+        seals_gaskets_checked:
+          type: boolean
+        seals_gaskets_replaced:
+          type: boolean
+        controls_checked:
+          type: boolean
+        thermostat_checked:
+          type: boolean
+        safety_devices_checked:
+          type: boolean
+        safety_devices_notes:
+          type: ["string", "null"]
+        leaks_found:
+          type: boolean
+        leaks_details:
+          type: ["string", "null"]
+        defects_found:
+          type: boolean
+        defects_details:
+          type: ["string", "null"]
+        advisories:
+          type: ["string", "null"]
+        parts_required:
+          type: ["string", "null"]
+        work_completed:
+          type: ["string", "null"]
+        appliance_safe:
+          type: boolean
+        follow_up_required:
+          type: boolean
+        follow_up_notes:
+          type: ["string", "null"]
+        next_service_due:
+          type: ["string", "null"]
+          format: date
+        additional_notes:
+          type: ["string", "null"]
+
+    BreakdownReport:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        reported_fault:
+          type: ["string", "null"]
+        symptoms:
+          type: ["string", "null"]
+        diagnostics_performed:
+          type: ["string", "null"]
+        findings:
+          type: ["string", "null"]
+        parts_required:
+          type: ["string", "null"]
+        temporary_fix:
+          type: ["string", "null"]
+        permanent_fix:
+          type: ["string", "null"]
+        appliance_safe:
+          type: boolean
+        return_visit_required:
+          type: boolean
+        return_visit_notes:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateBreakdownReportBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        reported_fault:
+          type: string
+        symptoms:
+          type: string
+        diagnostics_performed:
+          type: string
+        findings:
+          type: string
+        parts_required:
+          type: string
+        temporary_fix:
+          type: string
+        permanent_fix:
+          type: string
+        appliance_safe:
+          type: boolean
+        return_visit_required:
+          type: boolean
+        return_visit_notes:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateBreakdownReportBody:
+      type: object
+      properties:
+        reported_fault:
+          type: ["string", "null"]
+        symptoms:
+          type: ["string", "null"]
+        diagnostics_performed:
+          type: ["string", "null"]
+        findings:
+          type: ["string", "null"]
+        parts_required:
+          type: ["string", "null"]
+        temporary_fix:
+          type: ["string", "null"]
+        permanent_fix:
+          type: ["string", "null"]
+        appliance_safe:
+          type: boolean
+        return_visit_required:
+          type: boolean
+        return_visit_notes:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    JobNote:
+      type: object
+      required: [id, job_id, author_id, content, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        author_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        author_name:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateJobNoteBody:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+
+    FileAttachment:
+      type: object
+      required: [id, file_name, file_type, storage_path, entity_type, entity_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+        file_type:
+          type: string
+        file_size:
+          type: ["integer", "null"]
+        storage_path:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+          format: uuid
+        uploaded_by:
+          type: ["string", "null"]
+          format: uuid
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        signed_url:
+          type: ["string", "null"]
+
+    FileUrl:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+
+    Signature:
+      type: object
+      required: [id, job_id, signer_type, signer_name, storage_path, signed_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        signer_type:
+          type: string
+          enum: [technician, customer]
+        signer_name:
+          type: string
+        storage_path:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        signed_url:
+          type: ["string", "null"]
+
+    CreateSignatureBody:
+      type: object
+      required: [job_id, signer_type, signer_name, image_data]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        signer_type:
+          type: string
+          enum: [technician, customer]
+        signer_name:
+          type: string
+        image_data:
+          type: string
+
+    SearchResults:
+      type: object
+      properties:
+        customers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/Property"
+        appliances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Appliance"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+
+    UpcomingService:
+      type: object
+      required: [appliance_id, next_service_due]
+      properties:
+        appliance_id:
+          type: string
+          format: uuid
+        manufacturer:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        serial_number:
+          type: ["string", "null"]
+        next_service_due:
+          type: string
+          format: date
+        property_address:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        customer_id:
+          type: ["string", "null"]
+          format: uuid
+        property_id:
+          type: ["string", "null"]
+          format: uuid
+
+    TechnicianStats:
+      type: object
+      required: [technician_id, technician_name, completed_count]
+      properties:
+        technician_id:
+          type: string
+          format: uuid
+        technician_name:
+          type: string
+        completed_count:
+          type: integer
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+
+    DashboardData:
+      type: object
+      properties:
+        todays_jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+        upcoming_jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+        overdue_services:
+          type: array
+          items:
+            $ref: "#/components/schemas/UpcomingService"
+        recent_completed:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+        follow_up_required:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+        stats:
+          type: object
+          properties:
+            total_customers:
+              type: integer
+            total_jobs_today:
+              type: integer
+            overdue_count:
+              type: integer
+            completed_this_week:
+              type: integer

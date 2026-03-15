@@ -1,0 +1,68 @@
+import { Router, type IRouter } from "express";
+import { supabaseAdmin } from "../lib/supabase";
+import { requireAuth } from "../middlewares/auth";
+import {
+  CreateServiceRecordBody,
+  GetServiceRecordParams,
+  GetServiceRecordResponse,
+  UpdateServiceRecordParams,
+  UpdateServiceRecordBody,
+  UpdateServiceRecordResponse,
+  GetServiceRecordByJobParams,
+  GetServiceRecordByJobResponse,
+} from "@workspace/api-zod";
+
+const router: IRouter = Router();
+
+router.post("/service-records", requireAuth, async (req, res): Promise<void> => {
+  const parsed = CreateServiceRecordBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const { data, error } = await supabaseAdmin.from("service_records").insert(parsed.data).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  if (parsed.data.next_service_due) {
+    const { data: job } = await supabaseAdmin.from("jobs").select("appliance_id").eq("id", parsed.data.job_id).single();
+    if (job?.appliance_id) {
+      await supabaseAdmin.from("appliances").update({
+        last_service_date: new Date().toISOString().split("T")[0],
+        next_service_due: parsed.data.next_service_due,
+      }).eq("id", job.appliance_id);
+    }
+  }
+
+  res.status(201).json(GetServiceRecordResponse.parse(data));
+});
+
+router.get("/service-records/:id", requireAuth, async (req, res): Promise<void> => {
+  const params = GetServiceRecordParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const { data, error } = await supabaseAdmin.from("service_records").select("*").eq("id", params.data.id).single();
+  if (error || !data) { res.status(404).json({ error: "Service record not found" }); return; }
+  res.json(GetServiceRecordResponse.parse(data));
+});
+
+router.patch("/service-records/:id", requireAuth, async (req, res): Promise<void> => {
+  const params = UpdateServiceRecordParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const body = UpdateServiceRecordBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { data, error } = await supabaseAdmin
+    .from("service_records").update(body.data).eq("id", params.data.id).select().single();
+  if (error || !data) { res.status(404).json({ error: "Service record not found" }); return; }
+  res.json(UpdateServiceRecordResponse.parse(data));
+});
+
+router.get("/service-records/job/:jobId", requireAuth, async (req, res): Promise<void> => {
+  const params = GetServiceRecordByJobParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const { data, error } = await supabaseAdmin.from("service_records").select("*").eq("job_id", params.data.jobId).maybeSingle();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "No service record for this job" }); return; }
+  res.json(GetServiceRecordByJobResponse.parse(data));
+});
+
+export default router;

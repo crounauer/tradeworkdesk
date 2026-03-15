@@ -1,0 +1,24 @@
+packages:
+  "@supabase/supabase-js": "Authentication and client"
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod validation for forms"
+  "date-fns": "Date formatting"
+  "recharts": "Dashboard charts"
+  "react-signature-canvas": "Signature capture"
+  "@types/react-signature-canvas": "Types for signature"
+  "jspdf": "PDF generation"
+  "jspdf-autotable": "Tables in PDF"
+  "clsx": "Class merging"
+  "tailwind-merge": "Class merging"
+
+images:
+  - path: "artifacts/boiler-app/public/images/login-bg.png"
+    description: "Abstract premium minimal background with blue and slate gradients, technical schematic faint overlay"
+    aspect_ratio: "16:9"
+  - path: "artifacts/boiler-app/public/images/logo-icon.png"
+    description: "Minimalist blue flame or drop icon, modern flat vector"
+    aspect_ratio: "1:1"
+
+notes:
+  - Global fetch is intercepted to inject Supabase Auth token for /api requests
+  - Uses standard REST hooks generated in @workspace/api-client-react
