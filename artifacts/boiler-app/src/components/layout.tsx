@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -15,7 +15,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { profile, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(new Set());
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("dismissed_announcements");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("dismissed_announcements", JSON.stringify([...dismissedAnnouncements]));
+  }, [dismissedAnnouncements]);
 
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
@@ -40,8 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchInterval: 5 * 60 * 1000,
   });
 
-  const isTrialExpiringSoon = tenantInfo?.status === "trial" && tenantInfo?.trial_ends_at &&
-    new Date(tenantInfo.trial_ends_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
+  const isTrial = tenantInfo?.status === "trial";
 
   const trialDaysLeft = tenantInfo?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(tenantInfo.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
@@ -180,12 +188,16 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col">
-        {isTrialExpiringSoon && trialDaysLeft !== null && (
-          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-2 text-sm text-amber-800">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+        {isTrial && trialDaysLeft !== null && (
+          <div className={cn(
+            "border-b px-4 py-2.5 flex items-center justify-center gap-2 text-sm",
+            trialDaysLeft <= 7 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-200 text-blue-800"
+          )}>
+            {trialDaysLeft <= 7 ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Info className="w-4 h-4 shrink-0" />}
             <span>
-              Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.
-              Contact your administrator to upgrade.
+              {trialDaysLeft === 0
+                ? "Your trial has expired. Contact your administrator to upgrade."
+                : <>Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>. Contact your administrator to upgrade.</>}
             </span>
           </div>
         )}

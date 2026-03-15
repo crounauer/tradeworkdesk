@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   GetProfileResponse,
   UpdateProfileBody,
@@ -47,12 +47,16 @@ router.patch("/auth/profile", requireAuth, async (req: AuthenticatedRequest, res
   res.json(UpdateProfileResponse.parse(data));
 });
 
-router.get("/auth/profiles", requireAuth, async (_req, res): Promise<void> => {
-  const { data, error } = await supabaseAdmin
+router.get("/auth/profiles", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  let q = supabaseAdmin
     .from("profiles")
     .select("*")
     .eq("is_active", true)
     .order("full_name");
+
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+
+  const { data, error } = await q;
 
   if (error) {
     res.status(500).json({ error: error.message });
