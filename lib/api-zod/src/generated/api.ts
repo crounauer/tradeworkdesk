@@ -966,7 +966,6 @@ export const GetJobResponse = zod
     scheduled_time: zod.string().nullish(),
     estimated_duration: zod.number().nullish(),
     description: zod.string().nullish(),
-    notes: zod.string().nullish(),
     is_active: zod.boolean(),
     created_at: zod.coerce.date(),
     updated_at: zod.coerce.date(),
