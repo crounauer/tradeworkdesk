@@ -2813,7 +2813,7 @@ export const updateCommissioningRecord = async (
 ): Promise<CommissioningRecord> => {
   return customFetch<CommissioningRecord>(getUpdateCommissioningRecordUrl(id), {
     ...options,
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(updateCommissioningRecordBody),
   });
@@ -2891,7 +2891,7 @@ export const useUpdateCommissioningRecord = <
  * @summary Get commissioning record by job ID
  */
 export const getGetCommissioningRecordByJobUrl = (jobId: string) => {
-  return `/api/commissioning-records/job/${jobId}`;
+  return `/api/jobs/${jobId}/commissioning-record`;
 };
 
 export const getCommissioningRecordByJob = async (
@@ -2908,7 +2908,7 @@ export const getCommissioningRecordByJob = async (
 };
 
 export const getGetCommissioningRecordByJobQueryKey = (jobId: string) => {
-  return [`/api/commissioning-records/job/${jobId}`] as const;
+  return [`/api/jobs/${jobId}/commissioning-record`] as const;
 };
 
 export const getGetCommissioningRecordByJobQueryOptions = <

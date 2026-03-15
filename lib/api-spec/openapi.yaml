@@ -667,7 +667,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CommissioningRecord"
-    patch:
+    put:
       operationId: updateCommissioningRecord
       tags: [commissioningRecords]
       summary: Update commissioning record
@@ -692,7 +692,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CommissioningRecord"
 
-  /commissioning-records/job/{jobId}:
+  /jobs/{jobId}/commissioning-record:
     get:
       operationId: getCommissioningRecordByJob
       tags: [commissioningRecords]

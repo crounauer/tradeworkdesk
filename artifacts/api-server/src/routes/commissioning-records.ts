@@ -65,7 +65,7 @@ router.get("/commissioning-records/:id", requireAuth, async (req: AuthenticatedR
   res.json(GetCommissioningRecordResponse.parse(data));
 });
 
-router.patch("/commissioning-records/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.put("/commissioning-records/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateCommissioningRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateCommissioningRecordBody.safeParse(req.body);
@@ -83,7 +83,7 @@ router.patch("/commissioning-records/:id", requireAuth, async (req: Authenticate
   res.json(UpdateCommissioningRecordResponse.parse(data));
 });
 
-router.get("/commissioning-records/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:jobId/commissioning-record", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCommissioningRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
