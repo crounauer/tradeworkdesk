@@ -1,17 +1,38 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateSignatureBody,
   GetJobSignaturesParams,
   GetJobSignaturesResponse,
 } from "@workspace/api-zod";
 
+interface SignatureRow {
+  id: string;
+  job_id: string;
+  signer_type: string;
+  signer_name: string;
+  storage_path: string;
+  created_at: string;
+}
+
+async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
+  const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId).single();
+  if (!job) return { allowed: false, error: "Job not found" };
+  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+    return { allowed: false, error: "Not authorized to access signatures for this job" };
+  }
+  return { allowed: true };
+}
+
 const router: IRouter = Router();
 
-router.post("/signatures", requireAuth, async (req, res): Promise<void> => {
+router.post("/signatures", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateSignatureBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const access = await verifyJobAccess(req, parsed.data.job_id);
+  if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
   const base64Data = parsed.data.image_data.replace(/^data:image\/\w+;base64,/, "");
   const buffer = Buffer.from(base64Data, "base64");
@@ -40,9 +61,12 @@ router.post("/signatures", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json({ ...data, signed_url: urlData?.signedUrl || null });
 });
 
-router.get("/signatures/job/:jobId", requireAuth, async (req, res): Promise<void> => {
+router.get("/signatures/job/:jobId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetJobSignaturesParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const access = await verifyJobAccess(req, params.data.jobId);
+  if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
   const { data, error } = await supabaseAdmin
     .from("signatures")
@@ -53,7 +77,7 @@ router.get("/signatures/job/:jobId", requireAuth, async (req, res): Promise<void
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const withUrls = await Promise.all(
-    (data || []).map(async (s: any) => {
+    (data as SignatureRow[] || []).map(async (s) => {
       const { data: urlData } = await supabaseAdmin.storage.from("signatures").createSignedUrl(s.storage_path, 3600);
       return { ...s, signed_url: urlData?.signedUrl || null };
     })

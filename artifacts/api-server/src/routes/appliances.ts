@@ -13,6 +13,38 @@ import {
   DeleteApplianceParams,
 } from "@workspace/api-zod";
 
+interface ApplianceRow {
+  id: string;
+  property_id: string;
+  appliance_type: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string | null;
+  gc_number: string | null;
+  installation_date: string | null;
+  last_service_date: string | null;
+  next_service_due: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  properties?: { address_line1: string } | null;
+}
+
+interface ApplianceJobRow {
+  id: string;
+  customer_id: string;
+  property_id: string;
+  status: string;
+  job_type: string;
+  scheduled_date: string;
+  description: string | null;
+  assigned_technician_id: string | null;
+  customers?: { first_name: string; last_name: string } | null;
+  properties?: { address_line1: string } | null;
+  profiles?: { full_name: string } | null;
+  [key: string]: unknown;
+}
+
 const router: IRouter = Router();
 
 router.get("/appliances", requireAuth, async (req, res): Promise<void> => {
@@ -30,7 +62,7 @@ router.get("/appliances", requireAuth, async (req, res): Promise<void> => {
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data || []).map((a: any) => ({
+  const mapped = (data as ApplianceRow[] || []).map((a) => ({
     ...a,
     property_address: a.properties?.address_line1 || null,
     properties: undefined,
@@ -63,7 +95,7 @@ router.get("/appliances/:id", requireAuth, async (req, res): Promise<void> => {
     .from("jobs").select("*, customers(first_name, last_name), profiles(full_name), properties(address_line1)")
     .eq("appliance_id", params.data.id).eq("is_active", true).order("scheduled_date", { ascending: false }).limit(10);
 
-  const mappedJobs = (jobs || []).map((j: any) => ({
+  const mappedJobs = (jobs as ApplianceJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,

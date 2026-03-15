@@ -13,6 +13,28 @@ import {
   DeleteJobParams,
 } from "@workspace/api-zod";
 
+interface SupabaseJobRow {
+  id: string;
+  customer_id: string;
+  property_id: string;
+  appliance_id: string | null;
+  assigned_technician_id: string | null;
+  job_type: string;
+  status: string;
+  priority: string;
+  description: string | null;
+  notes: string | null;
+  scheduled_date: string;
+  scheduled_time: string | null;
+  estimated_duration: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  customers?: { first_name: string; last_name: string } | null;
+  properties?: { address_line1: string } | null;
+  profiles?: { full_name: string } | null;
+}
+
 const router: IRouter = Router();
 
 router.get("/jobs", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -40,7 +62,7 @@ router.get("/jobs", requireAuth, async (req: AuthenticatedRequest, res): Promise
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data || []).map((j: any) => ({
+  const mapped = (data as SupabaseJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
@@ -62,13 +84,49 @@ router.post("/jobs", requireAuth, requireRole("admin", "office_staff"), async (r
   res.status(201).json(data);
 });
 
-router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/jobs/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
   const { data: job, error } = await supabaseAdmin
     .from("jobs").select("*").eq("id", params.data.id).single();
   if (error || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+    res.status(403).json({ error: "You can only view jobs assigned to you" });
+    return;
+  }
+
+  interface NoteRow {
+    id: string;
+    job_id: string;
+    author_id: string;
+    content: string;
+    created_at: string;
+    profiles?: { full_name: string } | null;
+  }
+
+  interface FileRow {
+    id: string;
+    file_name: string;
+    file_type: string;
+    file_size: number;
+    storage_path: string;
+    entity_type: string;
+    entity_id: string;
+    uploaded_by: string;
+    description: string | null;
+    created_at: string;
+  }
+
+  interface SignatureRow {
+    id: string;
+    job_id: string;
+    signer_type: string;
+    signer_name: string;
+    storage_path: string;
+    created_at: string;
+  }
 
   const [customerRes, propertyRes, applianceRes, techRes, srRes, brRes, notesRes, filesRes, sigsRes] = await Promise.all([
     supabaseAdmin.from("customers").select("*").eq("id", job.customer_id).single(),
@@ -82,14 +140,14 @@ router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
     supabaseAdmin.from("signatures").select("*").eq("job_id", params.data.id),
   ]);
 
-  const mappedNotes = (notesRes.data || []).map((n: any) => ({
+  const mappedNotes = (notesRes.data as NoteRow[] || []).map((n) => ({
     ...n,
     author_name: n.profiles?.full_name || null,
     profiles: undefined,
   }));
 
   const filesWithUrls = await Promise.all(
-    (filesRes.data || []).map(async (f: any) => {
+    (filesRes.data as FileRow[] || []).map(async (f) => {
       const bucket = f.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
       const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(f.storage_path, 3600);
       return { ...f, signed_url: urlData?.signedUrl || null };
@@ -97,7 +155,7 @@ router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
   );
 
   const sigsWithUrls = await Promise.all(
-    (sigsRes.data || []).map(async (s: any) => {
+    (sigsRes.data as SignatureRow[] || []).map(async (s) => {
       const { data: urlData } = await supabaseAdmin.storage.from("signatures").createSignedUrl(s.storage_path, 3600);
       return { ...s, signed_url: urlData?.signedUrl || null };
     })

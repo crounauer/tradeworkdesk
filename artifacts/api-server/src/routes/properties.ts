@@ -13,6 +13,36 @@ import {
   DeletePropertyParams,
 } from "@workspace/api-zod";
 
+interface PropertyRow {
+  id: string;
+  customer_id: string;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  county: string | null;
+  postcode: string;
+  access_notes: string | null;
+  parking_notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  customers?: { first_name: string; last_name: string } | null;
+}
+
+interface PropertyJobRow {
+  id: string;
+  customer_id: string;
+  property_id: string;
+  status: string;
+  job_type: string;
+  scheduled_date: string;
+  description: string | null;
+  assigned_technician_id: string | null;
+  customers?: { first_name: string; last_name: string } | null;
+  profiles?: { full_name: string } | null;
+  [key: string]: unknown;
+}
+
 const router: IRouter = Router();
 
 router.get("/properties", requireAuth, async (req, res): Promise<void> => {
@@ -30,7 +60,7 @@ router.get("/properties", requireAuth, async (req, res): Promise<void> => {
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data || []).map((p: any) => ({
+  const mapped = (data as PropertyRow[] || []).map((p) => ({
     ...p,
     customer_name: p.customers ? `${p.customers.first_name} ${p.customers.last_name}` : null,
     customers: undefined,
@@ -64,7 +94,7 @@ router.get("/properties/:id", requireAuth, async (req, res): Promise<void> => {
     .from("jobs").select("*, customers(first_name, last_name), profiles(full_name)")
     .eq("property_id", params.data.id).eq("is_active", true).order("scheduled_date", { ascending: false }).limit(10);
 
-  const mappedJobs = (jobs || []).map((j: any) => ({
+  const mappedJobs = (jobs as PropertyJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: property.address_line1,

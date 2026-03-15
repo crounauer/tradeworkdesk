@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   ListFilesQueryParams,
   ListFilesResponse,
@@ -10,12 +10,38 @@ import {
   GetFileUrlResponse,
 } from "@workspace/api-zod";
 
+interface FileRow {
+  id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  storage_path: string;
+  entity_type: string;
+  entity_id: string;
+  uploaded_by: string;
+  description: string | null;
+  created_at: string;
+}
+
+async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string, entityId: string): Promise<{ allowed: boolean; error?: string }> {
+  if (req.userRole !== "technician") return { allowed: true };
+  if (entityType === "job") {
+    const { data: job } = await supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", entityId).single();
+    if (!job) return { allowed: false, error: "Job not found" };
+    if (job.assigned_technician_id !== req.userId) return { allowed: false, error: "Not authorized" };
+  }
+  return { allowed: true };
+}
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const router: IRouter = Router();
 
-router.get("/files", requireAuth, async (req, res): Promise<void> => {
+router.get("/files", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListFilesQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
+
+  const access = await verifyEntityAccess(req, query.data.entity_type, query.data.entity_id);
+  if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
   const { data, error } = await supabaseAdmin
     .from("file_attachments")
@@ -27,7 +53,7 @@ router.get("/files", requireAuth, async (req, res): Promise<void> => {
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const filesWithUrls = await Promise.all(
-    (data || []).map(async (f: any) => {
+    (data as FileRow[] || []).map(async (f) => {
       const bucket = f.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
       const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(f.storage_path, 3600);
       return { ...f, signed_url: urlData?.signedUrl || null };
@@ -49,6 +75,9 @@ router.post("/files/upload", requireAuth, upload.single("file"), async (req: Aut
     res.status(400).json({ error: "entity_type and entity_id are required" });
     return;
   }
+
+  const access = await verifyEntityAccess(req, entityType, entityId);
+  if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
   const bucket = file.mimetype.startsWith("image/") ? "service-photos" : "service-documents";
   const storagePath = `${entityType}/${entityId}/${Date.now()}-${file.originalname}`;
@@ -88,18 +117,19 @@ router.delete("/files/:id", requireAuth, async (req: AuthenticatedRequest, res):
     .from("file_attachments").select("*").eq("id", params.data.id).single();
   if (!file) { res.status(404).json({ error: "File not found" }); return; }
 
-  if (file.uploaded_by !== req.userId && req.userRole !== "admin") {
+  const fileRow = file as FileRow;
+  if (fileRow.uploaded_by !== req.userId && req.userRole !== "admin") {
     res.status(403).json({ error: "Not authorized to delete this file" });
     return;
   }
 
-  const bucket = file.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
-  await supabaseAdmin.storage.from(bucket).remove([file.storage_path]);
+  const bucket = fileRow.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
+  await supabaseAdmin.storage.from(bucket).remove([fileRow.storage_path]);
   await supabaseAdmin.from("file_attachments").delete().eq("id", params.data.id);
   res.sendStatus(204);
 });
 
-router.get("/files/:id/url", requireAuth, async (req, res): Promise<void> => {
+router.get("/files/:id/url", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetFileUrlParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -107,8 +137,13 @@ router.get("/files/:id/url", requireAuth, async (req, res): Promise<void> => {
     .from("file_attachments").select("*").eq("id", params.data.id).single();
   if (!file) { res.status(404).json({ error: "File not found" }); return; }
 
-  const bucket = file.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
-  const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(file.storage_path, 3600);
+  const fileRow = file as FileRow;
+
+  const access = await verifyEntityAccess(req, fileRow.entity_type, fileRow.entity_id);
+  if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
+
+  const bucket = fileRow.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
+  const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(fileRow.storage_path, 3600);
   if (!urlData) { res.status(500).json({ error: "Failed to generate URL" }); return; }
 
   res.json(GetFileUrlResponse.parse({ url: urlData.signedUrl }));

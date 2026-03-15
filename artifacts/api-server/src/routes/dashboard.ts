@@ -3,6 +3,36 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { GetDashboardResponse } from "@workspace/api-zod";
 
+interface DashboardJobRow {
+  id: string;
+  customer_id: string;
+  property_id: string;
+  status: string;
+  job_type: string;
+  scheduled_date: string;
+  scheduled_time: string | null;
+  description: string | null;
+  assigned_technician_id: string | null;
+  customers?: { first_name: string; last_name: string } | null;
+  properties?: { address_line1: string } | null;
+  profiles?: { full_name: string } | null;
+  [key: string]: unknown;
+}
+
+interface OverdueApplianceRow {
+  id: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string | null;
+  next_service_due: string;
+  properties?: {
+    id: string;
+    address_line1: string;
+    customer_id: string;
+    customers?: { id: string; first_name: string; last_name: string } | null;
+  } | null;
+}
+
 const router: IRouter = Router();
 
 router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -46,7 +76,7 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Pr
     ]),
   ]);
 
-  const mapJob = (j: any) => ({
+  const mapJob = (j: DashboardJobRow) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
@@ -56,7 +86,7 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Pr
     properties: undefined,
   });
 
-  const mappedOverdue = (overdueRes.data || []).map((a: any) => ({
+  const mappedOverdue = (overdueRes.data as OverdueApplianceRow[] || []).map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,
@@ -69,11 +99,11 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Pr
   }));
 
   res.json(GetDashboardResponse.parse({
-    todays_jobs: (todaysRes.data || []).map(mapJob),
-    upcoming_jobs: (upcomingRes.data || []).map(mapJob),
+    todays_jobs: (todaysRes.data as DashboardJobRow[] || []).map(mapJob),
+    upcoming_jobs: (upcomingRes.data as DashboardJobRow[] || []).map(mapJob),
     overdue_services: mappedOverdue,
-    recent_completed: (recentRes.data || []).map(mapJob),
-    follow_up_required: (followUpRes.data || []).map(mapJob),
+    recent_completed: (recentRes.data as DashboardJobRow[] || []).map(mapJob),
+    follow_up_required: (followUpRes.data as DashboardJobRow[] || []).map(mapJob),
     stats: {
       total_customers: statsRes[0].count || 0,
       total_jobs_today: (statsRes[1].data || []).length,

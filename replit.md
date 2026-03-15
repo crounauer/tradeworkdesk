@@ -18,13 +18,15 @@ BoilerTech - Boiler service technician management web app. pnpm workspace monore
 - **Validation**: Zod, Orval-generated schemas
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle for API server), Vite (frontend)
+- **PDF generation**: jsPDF (client-side)
+- **Signature capture**: react-signature-canvas
 
 ## Architecture
 
 - **Authentication**: Supabase Auth with email/password. Frontend uses `@supabase/supabase-js` client. API server verifies JWT tokens via `supabaseAdmin.auth.getUser()`.
-- **Authorization**: Role-based (admin, office_staff, technician). Roles stored in `profiles` table. Backend middleware `requireRole()` enforces access.
+- **Authorization**: Role-based (admin, office_staff, technician). Roles stored in `profiles` table. Backend middleware `requireRole()` enforces access. Technicians can only access jobs assigned to them (enforced server-side via ownership checks).
 - **File Storage**: Supabase Storage with 3 buckets: `service-photos`, `service-documents`, `signatures`. Files uploaded via multer, stored in Supabase, signed URLs generated for access.
-- **Row Level Security**: Database has RLS policies. API server uses service role key to bypass RLS for backend operations.
+- **Row Level Security**: Database has RLS policies. API server uses service role key to bypass RLS for backend operations, but enforces authorization checks at the route handler level.
 
 ## Environment Variables
 
@@ -45,9 +47,10 @@ artifacts-monorepo/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema (not used - using Supabase directly)
+│   └── db/                 # Drizzle ORM schema definitions
 ├── supabase/
-│   └── migration.sql       # Full database schema (run in Supabase SQL editor)
+│   ├── migration.sql       # Full database schema (run in Supabase SQL editor)
+│   └── seed.sql            # Sample data for testing
 └── package.json
 ```
 
@@ -60,7 +63,9 @@ Express 5 API server. All routes under `/api`.
 - Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, notes, files, signatures, search, reports, dashboard
 - Uses `supabaseAdmin` (service role) for all DB/storage operations
 - Auth middleware: `requireAuth` validates JWT, `requireRole` checks user role
+- Resource-level authorization: technicians restricted to assigned jobs across all job-related endpoints (detail, service records, breakdown reports, files, signatures, notes)
 - File uploads: multer with memory storage, 10MB limit
+- Centralized error handling middleware
 
 ### `artifacts/boiler-app` (`@workspace/boiler-app`)
 
@@ -68,9 +73,11 @@ React + Vite frontend with Tailwind CSS and shadcn/ui components.
 
 - Auth: Supabase client-side auth with `useAuth` hook
 - Fetch interceptor: automatically attaches Supabase JWT to `/api/` requests
-- Pages: Login, Dashboard, Customers, Customer Detail, Properties, Appliances, Jobs, Job Detail, Service Record Form, Search, Reports
+- Pages: Login, Dashboard, Customers, Customer Detail, Properties, Property Detail, Appliances, Appliance Detail, Jobs, Job Detail, Service Record Form, Breakdown Report Form, Job Files, Job Signatures, Search, Reports
 - Routing: wouter with protected routes
 - API calls: Generated React Query hooks from `@workspace/api-client-react`
+- PDF export: client-side PDF generation for service records via jsPDF
+- Signature capture: react-signature-canvas for customer/technician signatures
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
@@ -82,11 +89,15 @@ Generated Zod schemas. Used by api-server for request/response validation.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
-Generated React Query hooks. Used by boiler-app for API calls.
+Generated React Query hooks. Used by boiler-app for API calls. Also exports `customFetch` for manual API calls (e.g., file uploads).
+
+### `lib/db` (`@workspace/db`)
+
+Drizzle ORM schema definitions matching the Supabase database tables. Exports typed table definitions and inferred TypeScript types for all entities.
 
 ## Database
 
-The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, breakdown_reports, job_notes, file_attachments, signatures. Includes RLS policies and storage bucket setup.
+The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, breakdown_reports, job_notes, file_attachments, signatures. Includes RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`.
 
 ## Root Scripts
 

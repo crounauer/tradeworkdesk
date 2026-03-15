@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import {
   GetUpcomingServicesResponse,
   GetOverdueServicesResponse,
@@ -8,9 +8,45 @@ import {
   GetCompletedByTechnicianResponse,
 } from "@workspace/api-zod";
 
+interface ServiceReportRow {
+  id: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string | null;
+  next_service_due: string;
+  properties?: {
+    id: string;
+    address_line1: string;
+    customer_id: string;
+    customers?: { id: string; first_name: string; last_name: string } | null;
+  } | null;
+}
+
+interface CompletedJobRow {
+  id: string;
+  customer_id: string;
+  property_id: string;
+  status: string;
+  job_type: string;
+  scheduled_date: string;
+  description: string | null;
+  assigned_technician_id: string | null;
+  customers?: { first_name: string; last_name: string } | null;
+  properties?: { address_line1: string } | null;
+  profiles?: { id: string; full_name: string } | null;
+  [key: string]: unknown;
+}
+
+interface TechGroup {
+  technician_id: string;
+  technician_name: string;
+  completed_count: number;
+  jobs: Record<string, unknown>[];
+}
+
 const router: IRouter = Router();
 
-router.get("/reports/upcoming-services", requireAuth, async (_req, res): Promise<void> => {
+router.get("/reports/upcoming-services", requireAuth, requireRole("admin", "office_staff"), async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const thirtyDays = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
 
@@ -25,7 +61,7 @@ router.get("/reports/upcoming-services", requireAuth, async (_req, res): Promise
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data || []).map((a: any) => ({
+  const mapped = (data as ServiceReportRow[] || []).map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,
@@ -40,7 +76,7 @@ router.get("/reports/upcoming-services", requireAuth, async (_req, res): Promise
   res.json(GetUpcomingServicesResponse.parse(mapped));
 });
 
-router.get("/reports/overdue-services", requireAuth, async (_req, res): Promise<void> => {
+router.get("/reports/overdue-services", requireAuth, requireRole("admin", "office_staff"), async (_req, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
 
   const { data, error } = await supabaseAdmin
@@ -53,7 +89,7 @@ router.get("/reports/overdue-services", requireAuth, async (_req, res): Promise<
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data || []).map((a: any) => ({
+  const mapped = (data as ServiceReportRow[] || []).map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,
@@ -68,7 +104,7 @@ router.get("/reports/overdue-services", requireAuth, async (_req, res): Promise<
   res.json(GetOverdueServicesResponse.parse(mapped));
 });
 
-router.get("/reports/completed-by-technician", requireAuth, async (req, res): Promise<void> => {
+router.get("/reports/completed-by-technician", requireAuth, requireRole("admin", "office_staff"), async (req, res): Promise<void> => {
   const query = GetCompletedByTechnicianQueryParams.safeParse(req.query);
 
   let q = supabaseAdmin
@@ -86,9 +122,9 @@ router.get("/reports/completed-by-technician", requireAuth, async (req, res): Pr
   const { data, error } = await q.order("scheduled_date", { ascending: false });
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const grouped: Record<string, any> = {};
-  for (const j of data || []) {
-    const tech = (j as any).profiles;
+  const grouped: Record<string, TechGroup> = {};
+  for (const j of (data as CompletedJobRow[]) || []) {
+    const tech = j.profiles;
     if (!tech) continue;
     const tid = tech.id;
     if (!grouped[tid]) {
@@ -97,8 +133,8 @@ router.get("/reports/completed-by-technician", requireAuth, async (req, res): Pr
     grouped[tid].completed_count++;
     grouped[tid].jobs.push({
       ...j,
-      customer_name: (j as any).customers ? `${(j as any).customers.first_name} ${(j as any).customers.last_name}` : null,
-      property_address: (j as any).properties?.address_line1 || null,
+      customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
+      property_address: j.properties?.address_line1 || null,
       technician_name: tech.full_name,
       customers: undefined,
       profiles: undefined,
