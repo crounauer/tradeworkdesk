@@ -26,6 +26,8 @@ import BurnerSetupForm from "@/pages/burner-setup-form";
 import FireValveTestForm from "@/pages/fire-valve-test-form";
 import OilLineVacuumTestForm from "@/pages/oil-line-vacuum-test-form";
 import JobCompletionReportForm from "@/pages/job-completion-report-form";
+import HeatPumpServiceForm from "@/pages/heat-pump-service-form";
+import HeatPumpCommissioningForm from "@/pages/heat-pump-commissioning-form";
 import JobFiles from "@/pages/job-files";
 import JobSignatures from "@/pages/job-signatures";
 import Reports from "@/pages/reports";
@@ -109,6 +111,8 @@ function AppRouter() {
       <Route path="/jobs/:jobId/fire-valve-test" component={() => <ProtectedRoute component={FireValveTestForm} />} />
       <Route path="/jobs/:jobId/oil-line-vacuum-test" component={() => <ProtectedRoute component={OilLineVacuumTestForm} />} />
       <Route path="/jobs/:jobId/job-completion" component={() => <ProtectedRoute component={JobCompletionReportForm} />} />
+      <Route path="/jobs/:jobId/heat-pump-service" component={() => <ProtectedRoute component={HeatPumpServiceForm} />} />
+      <Route path="/jobs/:jobId/heat-pump-commissioning" component={() => <ProtectedRoute component={HeatPumpCommissioningForm} />} />
       <Route path="/jobs/:jobId/files" component={() => <ProtectedRoute component={JobFiles} />} />
       <Route path="/jobs/:jobId/signatures" component={() => <ProtectedRoute component={JobSignatures} />} />
 

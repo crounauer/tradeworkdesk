@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette, ClipboardList } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette, ClipboardList, Wind } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -148,6 +148,32 @@ export default function JobDetail() {
                 </Card>
               </Link>
             </div>
+
+            {(job.appliance as unknown as { fuel_type?: string })?.fuel_type === "heat_pump" && (
+              <>
+                <h3 className="font-display font-bold text-xl mt-8 mb-4">Heat Pump Records</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Link href={`/jobs/${job.id}/heat-pump-service`}>
+                    <Card className="p-5 flex items-center gap-4 hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-cyan-50/50 to-white">
+                      <div className="p-3 bg-cyan-100 text-cyan-600 rounded-xl"><Wind className="w-6 h-6"/></div>
+                      <div>
+                        <h4 className="font-bold">Heat Pump Service</h4>
+                        <p className="text-sm text-muted-foreground">Refrigerant, temps & COP readings</p>
+                      </div>
+                    </Card>
+                  </Link>
+                  <Link href={`/jobs/${job.id}/heat-pump-commissioning`}>
+                    <Card className="p-5 flex items-center gap-4 hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-cyan-50/50 to-white">
+                      <div className="p-3 bg-cyan-100 text-cyan-600 rounded-xl"><ClipboardCheck className="w-6 h-6"/></div>
+                      <div>
+                        <h4 className="font-bold">Heat Pump Commissioning</h4>
+                        <p className="text-sm text-muted-foreground">MCS-style commissioning record</p>
+                      </div>
+                    </Card>
+                  </Link>
+                </div>
+              </>
+            )}
 
             <h3 className="font-display font-bold text-xl mt-8 mb-4">Oil Service Records</h3>
             <div className="grid sm:grid-cols-2 gap-4">

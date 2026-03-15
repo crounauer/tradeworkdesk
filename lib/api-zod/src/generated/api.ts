@@ -3198,3 +3198,188 @@ export const GetCompletedByTechnicianResponseItem = zod.object({
 export const GetCompletedByTechnicianResponse = zod.array(
   GetCompletedByTechnicianResponseItem,
 );
+
+// ─── Heat Pump Service Records ────────────────────────────────────────────────
+
+export const HeatPumpServiceRecordBase = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  refrigerant_type: zod.string().nullish(),
+  refrigerant_pressure_high: zod.string().nullish(),
+  refrigerant_pressure_low: zod.string().nullish(),
+  flow_temp: zod.string().nullish(),
+  return_temp: zod.string().nullish(),
+  delta_t: zod.string().nullish(),
+  cop_reading: zod.string().nullish(),
+  compressor_amps: zod.string().nullish(),
+  outdoor_unit_condition: zod.string().nullish(),
+  indoor_unit_condition: zod.string().nullish(),
+  controls_checked: zod.boolean().optional(),
+  filter_condition: zod.string().nullish(),
+  dhw_cylinder_checked: zod.boolean().optional(),
+  dhw_cylinder_temp: zod.string().nullish(),
+  defects_found: zod.boolean().optional(),
+  defects_details: zod.string().nullish(),
+  advisories: zod.string().nullish(),
+  appliance_safe: zod.boolean().optional(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().nullish(),
+  customer_name_signed: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.coerce.date(),
+  updated_at: zod.coerce.date(),
+});
+
+export const GetHeatPumpServiceRecordResponse = HeatPumpServiceRecordBase;
+export const GetHeatPumpServiceRecordByJobResponse = HeatPumpServiceRecordBase;
+export const UpdateHeatPumpServiceRecordResponse = HeatPumpServiceRecordBase;
+
+export const GetHeatPumpServiceRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetHeatPumpServiceRecordByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const CreateHeatPumpServiceRecordBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  refrigerant_type: zod.string().optional(),
+  refrigerant_pressure_high: zod.string().optional(),
+  refrigerant_pressure_low: zod.string().optional(),
+  flow_temp: zod.string().optional(),
+  return_temp: zod.string().optional(),
+  delta_t: zod.string().optional(),
+  cop_reading: zod.string().optional(),
+  compressor_amps: zod.string().optional(),
+  outdoor_unit_condition: zod.string().optional(),
+  indoor_unit_condition: zod.string().optional(),
+  controls_checked: zod.boolean().optional(),
+  filter_condition: zod.string().optional(),
+  dhw_cylinder_checked: zod.boolean().optional(),
+  dhw_cylinder_temp: zod.string().optional(),
+  defects_found: zod.boolean().optional(),
+  defects_details: zod.string().optional(),
+  advisories: zod.string().optional(),
+  appliance_safe: zod.boolean().optional(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().optional(),
+  customer_name_signed: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+export const UpdateHeatPumpServiceRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateHeatPumpServiceRecordBody = zod.object({
+  refrigerant_type: zod.string().nullish(),
+  refrigerant_pressure_high: zod.string().nullish(),
+  refrigerant_pressure_low: zod.string().nullish(),
+  flow_temp: zod.string().nullish(),
+  return_temp: zod.string().nullish(),
+  delta_t: zod.string().nullish(),
+  cop_reading: zod.string().nullish(),
+  compressor_amps: zod.string().nullish(),
+  outdoor_unit_condition: zod.string().nullish(),
+  indoor_unit_condition: zod.string().nullish(),
+  controls_checked: zod.boolean().optional(),
+  filter_condition: zod.string().nullish(),
+  dhw_cylinder_checked: zod.boolean().optional(),
+  dhw_cylinder_temp: zod.string().nullish(),
+  defects_found: zod.boolean().optional(),
+  defects_details: zod.string().nullish(),
+  advisories: zod.string().nullish(),
+  appliance_safe: zod.boolean().optional(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().nullish(),
+  customer_name_signed: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+// ─── Heat Pump Commissioning Records ─────────────────────────────────────────
+
+export const HeatPumpCommissioningRecordBase = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  heat_loss_kwh: zod.string().nullish(),
+  design_flow_temp: zod.string().nullish(),
+  refrigerant_type: zod.string().nullish(),
+  refrigerant_charge_weight: zod.string().nullish(),
+  commissioning_pressure_high: zod.string().nullish(),
+  commissioning_pressure_low: zod.string().nullish(),
+  measured_cop: zod.string().nullish(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  safety_devices_checked: zod.boolean().optional(),
+  controls_commissioned: zod.boolean().optional(),
+  buffer_tank_checked: zod.boolean().optional(),
+  cylinder_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  created_at: zod.coerce.date(),
+  updated_at: zod.coerce.date(),
+});
+
+export const GetHeatPumpCommissioningRecordResponse = HeatPumpCommissioningRecordBase;
+export const GetHeatPumpCommissioningRecordByJobResponse = HeatPumpCommissioningRecordBase;
+export const UpdateHeatPumpCommissioningRecordResponse = HeatPumpCommissioningRecordBase;
+
+export const GetHeatPumpCommissioningRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetHeatPumpCommissioningRecordByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const CreateHeatPumpCommissioningRecordBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  heat_loss_kwh: zod.string().optional(),
+  design_flow_temp: zod.string().optional(),
+  refrigerant_type: zod.string().optional(),
+  refrigerant_charge_weight: zod.string().optional(),
+  commissioning_pressure_high: zod.string().optional(),
+  commissioning_pressure_low: zod.string().optional(),
+  measured_cop: zod.string().optional(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  safety_devices_checked: zod.boolean().optional(),
+  controls_commissioned: zod.boolean().optional(),
+  buffer_tank_checked: zod.boolean().optional(),
+  cylinder_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+export const UpdateHeatPumpCommissioningRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateHeatPumpCommissioningRecordBody = zod.object({
+  heat_loss_kwh: zod.string().nullish(),
+  design_flow_temp: zod.string().nullish(),
+  refrigerant_type: zod.string().nullish(),
+  refrigerant_charge_weight: zod.string().nullish(),
+  commissioning_pressure_high: zod.string().nullish(),
+  commissioning_pressure_low: zod.string().nullish(),
+  measured_cop: zod.string().nullish(),
+  expansion_vessel_checked: zod.boolean().optional(),
+  safety_devices_checked: zod.boolean().optional(),
+  controls_commissioned: zod.boolean().optional(),
+  buffer_tank_checked: zod.boolean().optional(),
+  cylinder_checked: zod.boolean().optional(),
+  system_flushed: zod.boolean().optional(),
+  inhibitor_added: zod.boolean().optional(),
+  customer_instructions_given: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});

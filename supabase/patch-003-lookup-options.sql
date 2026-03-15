@@ -24,12 +24,15 @@ INSERT INTO lookup_options (category, value, label, sort_order) VALUES
   ('boiler_type', 'system', 'System', 2),
   ('boiler_type', 'regular', 'Regular', 3),
   ('boiler_type', 'back_boiler', 'Back Boiler', 4),
-  ('boiler_type', 'heat_pump', 'Heat Pump', 5),
-  ('boiler_type', 'other', 'Other', 6),
+  ('boiler_type', 'ashp', 'Air Source Heat Pump (ASHP)', 5),
+  ('boiler_type', 'gshp', 'Ground Source Heat Pump (GSHP)', 6),
+  ('boiler_type', 'wshp', 'Water Source Heat Pump (WSHP)', 7),
+  ('boiler_type', 'other', 'Other', 8),
   ('fuel_type', 'oil', 'Oil', 1),
   ('fuel_type', 'gas', 'Gas', 2),
   ('fuel_type', 'lpg', 'LPG', 3),
   ('fuel_type', 'electric', 'Electric', 4),
   ('fuel_type', 'solid_fuel', 'Solid Fuel', 5),
-  ('fuel_type', 'other', 'Other', 6)
+  ('fuel_type', 'heat_pump', 'Heat Pump', 6),
+  ('fuel_type', 'other', 'Other', 7)
 ON CONFLICT (category, value) DO NOTHING;

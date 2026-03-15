@@ -1700,3 +1700,111 @@ export type GetCompletedByTechnicianParams = {
   date_from?: string;
   date_to?: string;
 };
+
+export type HeatPumpServiceRecord = {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  refrigerant_type?: string | null;
+  refrigerant_pressure_high?: string | null;
+  refrigerant_pressure_low?: string | null;
+  flow_temp?: string | null;
+  return_temp?: string | null;
+  delta_t?: string | null;
+  cop_reading?: string | null;
+  compressor_amps?: string | null;
+  outdoor_unit_condition?: string | null;
+  indoor_unit_condition?: string | null;
+  controls_checked?: boolean;
+  filter_condition?: string | null;
+  dhw_cylinder_checked?: boolean;
+  dhw_cylinder_temp?: string | null;
+  defects_found?: boolean;
+  defects_details?: string | null;
+  advisories?: string | null;
+  appliance_safe?: boolean;
+  follow_up_required?: boolean;
+  follow_up_notes?: string | null;
+  customer_name_signed?: string | null;
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateHeatPumpServiceRecordBody = {
+  job_id: string;
+  technician_id: string;
+  refrigerant_type?: string;
+  refrigerant_pressure_high?: string;
+  refrigerant_pressure_low?: string;
+  flow_temp?: string;
+  return_temp?: string;
+  delta_t?: string;
+  cop_reading?: string;
+  compressor_amps?: string;
+  outdoor_unit_condition?: string;
+  indoor_unit_condition?: string;
+  controls_checked?: boolean;
+  filter_condition?: string;
+  dhw_cylinder_checked?: boolean;
+  dhw_cylinder_temp?: string;
+  defects_found?: boolean;
+  defects_details?: string;
+  advisories?: string;
+  appliance_safe?: boolean;
+  follow_up_required?: boolean;
+  follow_up_notes?: string;
+  customer_name_signed?: string;
+  additional_notes?: string;
+};
+
+export type UpdateHeatPumpServiceRecordBody = Omit<CreateHeatPumpServiceRecordBody, 'job_id' | 'technician_id'>;
+
+export type HeatPumpCommissioningRecord = {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  heat_loss_kwh?: string | null;
+  design_flow_temp?: string | null;
+  refrigerant_type?: string | null;
+  refrigerant_charge_weight?: string | null;
+  commissioning_pressure_high?: string | null;
+  commissioning_pressure_low?: string | null;
+  measured_cop?: string | null;
+  expansion_vessel_checked?: boolean;
+  safety_devices_checked?: boolean;
+  controls_commissioned?: boolean;
+  buffer_tank_checked?: boolean;
+  cylinder_checked?: boolean;
+  system_flushed?: boolean;
+  inhibitor_added?: boolean;
+  customer_instructions_given?: boolean;
+  customer_name_signed?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateHeatPumpCommissioningRecordBody = {
+  job_id: string;
+  technician_id: string;
+  heat_loss_kwh?: string;
+  design_flow_temp?: string;
+  refrigerant_type?: string;
+  refrigerant_charge_weight?: string;
+  commissioning_pressure_high?: string;
+  commissioning_pressure_low?: string;
+  measured_cop?: string;
+  expansion_vessel_checked?: boolean;
+  safety_devices_checked?: boolean;
+  controls_commissioned?: boolean;
+  buffer_tank_checked?: boolean;
+  cylinder_checked?: boolean;
+  system_flushed?: boolean;
+  inhibitor_added?: boolean;
+  customer_instructions_given?: boolean;
+  customer_name_signed?: string;
+  notes?: string;
+};
+
+export type UpdateHeatPumpCommissioningRecordBody = Omit<CreateHeatPumpCommissioningRecordBody, 'job_id' | 'technician_id'>;

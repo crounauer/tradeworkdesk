@@ -85,6 +85,12 @@ import type {
   UpdatePropertyBody,
   UpdateServiceRecordBody,
   UploadFileBody,
+  HeatPumpServiceRecord,
+  CreateHeatPumpServiceRecordBody,
+  UpdateHeatPumpServiceRecordBody,
+  HeatPumpCommissioningRecord,
+  CreateHeatPumpCommissioningRecordBody,
+  UpdateHeatPumpCommissioningRecordBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -6925,4 +6931,178 @@ export function useGetCompletedByTechnician<
   };
 
   return { ...query, queryKey: queryOptions.queryKey };
+}
+
+// ─── Heat Pump Service Records ────────────────────────────────────────────────
+
+export const getListHeatPumpServiceRecordsUrl = () => `/api/heat-pump-service-records`;
+
+export const listHeatPumpServiceRecords = async (options?: RequestInit): Promise<HeatPumpServiceRecord[]> => {
+  return customFetch<HeatPumpServiceRecord[]>(getListHeatPumpServiceRecordsUrl(), { ...options, method: "GET" });
+};
+
+export const getListHeatPumpServiceRecordsQueryKey = () => [`/api/heat-pump-service-records`] as const;
+
+export function useListHeatPumpServiceRecords<TData = HeatPumpServiceRecord[], TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<HeatPumpServiceRecord[], TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListHeatPumpServiceRecordsQueryKey();
+  const queryFn: QueryFunction<HeatPumpServiceRecord[]> = ({ signal }) => listHeatPumpServiceRecords({ signal, ...requestOptions });
+  const query = useQuery({ queryKey, queryFn, ...queryOptions }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey };
+}
+
+export const getCreateHeatPumpServiceRecordUrl = () => `/api/heat-pump-service-records`;
+
+export const createHeatPumpServiceRecord = async (body: CreateHeatPumpServiceRecordBody, options?: RequestInit): Promise<HeatPumpServiceRecord> => {
+  return customFetch<HeatPumpServiceRecord>(getCreateHeatPumpServiceRecordUrl(), {
+    ...options, method: "POST", headers: { "Content-Type": "application/json", ...options?.headers }, body: JSON.stringify(body),
+  });
+};
+
+export const getCreateHeatPumpServiceRecordMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpServiceRecord, TError, { data: BodyType<CreateHeatPumpServiceRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<HeatPumpServiceRecord, TError, { data: BodyType<CreateHeatPumpServiceRecordBody> }, TContext> => {
+  const mutationKey = ["createHeatPumpServiceRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey ? options : { ...options, mutation: { ...options.mutation, mutationKey } } : { mutation: { mutationKey }, request: undefined };
+  const mutationFn: MutationFunction<HeatPumpServiceRecord, { data: BodyType<CreateHeatPumpServiceRecordBody> }> = ({ data }) => createHeatPumpServiceRecord(data, requestOptions);
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useCreateHeatPumpServiceRecord<TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpServiceRecord, TError, { data: BodyType<CreateHeatPumpServiceRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<HeatPumpServiceRecord, TError, { data: BodyType<CreateHeatPumpServiceRecordBody> }, TContext> {
+  const mutationOptions = getCreateHeatPumpServiceRecordMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const getUpdateHeatPumpServiceRecordUrl = (id: string) => `/api/heat-pump-service-records/${id}`;
+
+export const updateHeatPumpServiceRecord = async (id: string, body: UpdateHeatPumpServiceRecordBody, options?: RequestInit): Promise<HeatPumpServiceRecord> => {
+  return customFetch<HeatPumpServiceRecord>(getUpdateHeatPumpServiceRecordUrl(id), {
+    ...options, method: "PUT", headers: { "Content-Type": "application/json", ...options?.headers }, body: JSON.stringify(body),
+  });
+};
+
+export const getUpdateHeatPumpServiceRecordMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpServiceRecord, TError, { id: string; data: BodyType<UpdateHeatPumpServiceRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<HeatPumpServiceRecord, TError, { id: string; data: BodyType<UpdateHeatPumpServiceRecordBody> }, TContext> => {
+  const mutationKey = ["updateHeatPumpServiceRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey ? options : { ...options, mutation: { ...options.mutation, mutationKey } } : { mutation: { mutationKey }, request: undefined };
+  const mutationFn: MutationFunction<HeatPumpServiceRecord, { id: string; data: BodyType<UpdateHeatPumpServiceRecordBody> }> = ({ id, data }) => updateHeatPumpServiceRecord(id, data, requestOptions);
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useUpdateHeatPumpServiceRecord<TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpServiceRecord, TError, { id: string; data: BodyType<UpdateHeatPumpServiceRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<HeatPumpServiceRecord, TError, { id: string; data: BodyType<UpdateHeatPumpServiceRecordBody> }, TContext> {
+  const mutationOptions = getUpdateHeatPumpServiceRecordMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const getGetHeatPumpServiceRecordByJobUrl = (jobId: string) => `/api/jobs/${jobId}/heat-pump-service-record`;
+
+export const getHeatPumpServiceRecordByJob = async (jobId: string, options?: RequestInit): Promise<HeatPumpServiceRecord> => {
+  return customFetch<HeatPumpServiceRecord>(getGetHeatPumpServiceRecordByJobUrl(jobId), { ...options, method: "GET" });
+};
+
+export const getGetHeatPumpServiceRecordByJobQueryKey = (jobId: string) => [`/api/jobs/${jobId}/heat-pump-service-record`] as const;
+
+export function useGetHeatPumpServiceRecordByJob<TData = HeatPumpServiceRecord, TError = ErrorType<unknown>>(
+  jobId: string,
+  options?: { query?: UseQueryOptions<HeatPumpServiceRecord, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetHeatPumpServiceRecordByJobQueryKey(jobId);
+  const queryFn: QueryFunction<HeatPumpServiceRecord> = ({ signal }) => getHeatPumpServiceRecordByJob(jobId, { signal, ...requestOptions });
+  const query = useQuery({ queryKey, queryFn, enabled: !!jobId, retry: (count, err: unknown) => { const e = err as { status?: number }; if (e?.status === 404) return false; return count < 2; }, ...queryOptions }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey };
+}
+
+// ─── Heat Pump Commissioning Records ─────────────────────────────────────────
+
+export const getListHeatPumpCommissioningRecordsUrl = () => `/api/heat-pump-commissioning-records`;
+
+export const listHeatPumpCommissioningRecords = async (options?: RequestInit): Promise<HeatPumpCommissioningRecord[]> => {
+  return customFetch<HeatPumpCommissioningRecord[]>(getListHeatPumpCommissioningRecordsUrl(), { ...options, method: "GET" });
+};
+
+export const getListHeatPumpCommissioningRecordsQueryKey = () => [`/api/heat-pump-commissioning-records`] as const;
+
+export function useListHeatPumpCommissioningRecords<TData = HeatPumpCommissioningRecord[], TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<HeatPumpCommissioningRecord[], TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListHeatPumpCommissioningRecordsQueryKey();
+  const queryFn: QueryFunction<HeatPumpCommissioningRecord[]> = ({ signal }) => listHeatPumpCommissioningRecords({ signal, ...requestOptions });
+  const query = useQuery({ queryKey, queryFn, ...queryOptions }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey };
+}
+
+export const getCreateHeatPumpCommissioningRecordUrl = () => `/api/heat-pump-commissioning-records`;
+
+export const createHeatPumpCommissioningRecord = async (body: CreateHeatPumpCommissioningRecordBody, options?: RequestInit): Promise<HeatPumpCommissioningRecord> => {
+  return customFetch<HeatPumpCommissioningRecord>(getCreateHeatPumpCommissioningRecordUrl(), {
+    ...options, method: "POST", headers: { "Content-Type": "application/json", ...options?.headers }, body: JSON.stringify(body),
+  });
+};
+
+export const getCreateHeatPumpCommissioningRecordMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpCommissioningRecord, TError, { data: BodyType<CreateHeatPumpCommissioningRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<HeatPumpCommissioningRecord, TError, { data: BodyType<CreateHeatPumpCommissioningRecordBody> }, TContext> => {
+  const mutationKey = ["createHeatPumpCommissioningRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey ? options : { ...options, mutation: { ...options.mutation, mutationKey } } : { mutation: { mutationKey }, request: undefined };
+  const mutationFn: MutationFunction<HeatPumpCommissioningRecord, { data: BodyType<CreateHeatPumpCommissioningRecordBody> }> = ({ data }) => createHeatPumpCommissioningRecord(data, requestOptions);
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useCreateHeatPumpCommissioningRecord<TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpCommissioningRecord, TError, { data: BodyType<CreateHeatPumpCommissioningRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<HeatPumpCommissioningRecord, TError, { data: BodyType<CreateHeatPumpCommissioningRecordBody> }, TContext> {
+  const mutationOptions = getCreateHeatPumpCommissioningRecordMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const getUpdateHeatPumpCommissioningRecordUrl = (id: string) => `/api/heat-pump-commissioning-records/${id}`;
+
+export const updateHeatPumpCommissioningRecord = async (id: string, body: UpdateHeatPumpCommissioningRecordBody, options?: RequestInit): Promise<HeatPumpCommissioningRecord> => {
+  return customFetch<HeatPumpCommissioningRecord>(getUpdateHeatPumpCommissioningRecordUrl(id), {
+    ...options, method: "PUT", headers: { "Content-Type": "application/json", ...options?.headers }, body: JSON.stringify(body),
+  });
+};
+
+export const getUpdateHeatPumpCommissioningRecordMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpCommissioningRecord, TError, { id: string; data: BodyType<UpdateHeatPumpCommissioningRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<HeatPumpCommissioningRecord, TError, { id: string; data: BodyType<UpdateHeatPumpCommissioningRecordBody> }, TContext> => {
+  const mutationKey = ["updateHeatPumpCommissioningRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey ? options : { ...options, mutation: { ...options.mutation, mutationKey } } : { mutation: { mutationKey }, request: undefined };
+  const mutationFn: MutationFunction<HeatPumpCommissioningRecord, { id: string; data: BodyType<UpdateHeatPumpCommissioningRecordBody> }> = ({ id, data }) => updateHeatPumpCommissioningRecord(id, data, requestOptions);
+  return { mutationFn, ...mutationOptions };
+};
+
+export function useUpdateHeatPumpCommissioningRecord<TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<HeatPumpCommissioningRecord, TError, { id: string; data: BodyType<UpdateHeatPumpCommissioningRecordBody> }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<HeatPumpCommissioningRecord, TError, { id: string; data: BodyType<UpdateHeatPumpCommissioningRecordBody> }, TContext> {
+  const mutationOptions = getUpdateHeatPumpCommissioningRecordMutationOptions(options);
+  return useMutation(mutationOptions);
+}
+
+export const getGetHeatPumpCommissioningRecordByJobUrl = (jobId: string) => `/api/jobs/${jobId}/heat-pump-commissioning-record`;
+
+export const getHeatPumpCommissioningRecordByJob = async (jobId: string, options?: RequestInit): Promise<HeatPumpCommissioningRecord> => {
+  return customFetch<HeatPumpCommissioningRecord>(getGetHeatPumpCommissioningRecordByJobUrl(jobId), { ...options, method: "GET" });
+};
+
+export const getGetHeatPumpCommissioningRecordByJobQueryKey = (jobId: string) => [`/api/jobs/${jobId}/heat-pump-commissioning-record`] as const;
+
+export function useGetHeatPumpCommissioningRecordByJob<TData = HeatPumpCommissioningRecord, TError = ErrorType<unknown>>(
+  jobId: string,
+  options?: { query?: UseQueryOptions<HeatPumpCommissioningRecord, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetHeatPumpCommissioningRecordByJobQueryKey(jobId);
+  const queryFn: QueryFunction<HeatPumpCommissioningRecord> = ({ signal }) => getHeatPumpCommissioningRecordByJob(jobId, { signal, ...requestOptions });
+  const query = useQuery({ queryKey, queryFn, enabled: !!jobId, retry: (count, err: unknown) => { const e = err as { status?: number }; if (e?.status === 404) return false; return count < 2; }, ...queryOptions }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey };
 }

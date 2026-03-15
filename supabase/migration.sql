@@ -11,8 +11,8 @@ CREATE TYPE job_type AS ENUM ('service', 'breakdown', 'installation', 'inspectio
 CREATE TYPE priority_level AS ENUM ('low', 'medium', 'high', 'urgent');
 CREATE TYPE property_type AS ENUM ('residential', 'commercial', 'industrial');
 CREATE TYPE occupancy_type AS ENUM ('owner_occupied', 'tenant', 'landlord', 'vacant', 'holiday_let');
-CREATE TYPE fuel_type AS ENUM ('oil', 'gas', 'lpg', 'electric', 'solid_fuel', 'other');
-CREATE TYPE boiler_type AS ENUM ('combi', 'system', 'regular', 'back_boiler', 'other');
+CREATE TYPE fuel_type AS ENUM ('oil', 'gas', 'lpg', 'electric', 'solid_fuel', 'heat_pump', 'other');
+CREATE TYPE boiler_type AS ENUM ('combi', 'system', 'regular', 'back_boiler', 'ashp', 'gshp', 'wshp', 'other');
 CREATE TYPE system_type AS ENUM ('open_vented', 'sealed', 'gravity_fed', 'pressurised', 'other');
 
 -- Profiles table (extends Supabase auth.users)
@@ -215,6 +215,63 @@ CREATE TABLE commissioning_records (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Heat Pump Service Records table
+CREATE TABLE heat_pump_service_records (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  technician_id UUID NOT NULL REFERENCES profiles(id),
+  refrigerant_type TEXT,
+  refrigerant_pressure_high TEXT,
+  refrigerant_pressure_low TEXT,
+  flow_temp TEXT,
+  return_temp TEXT,
+  delta_t TEXT,
+  cop_reading TEXT,
+  compressor_amps TEXT,
+  outdoor_unit_condition TEXT,
+  indoor_unit_condition TEXT,
+  controls_checked BOOLEAN DEFAULT false,
+  filter_condition TEXT,
+  dhw_cylinder_checked BOOLEAN DEFAULT false,
+  dhw_cylinder_temp TEXT,
+  defects_found BOOLEAN DEFAULT false,
+  defects_details TEXT,
+  advisories TEXT,
+  appliance_safe BOOLEAN DEFAULT true,
+  follow_up_required BOOLEAN DEFAULT false,
+  follow_up_notes TEXT,
+  customer_name_signed TEXT,
+  additional_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Heat Pump Commissioning Records table
+CREATE TABLE heat_pump_commissioning_records (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  technician_id UUID NOT NULL REFERENCES profiles(id),
+  heat_loss_kwh TEXT,
+  design_flow_temp TEXT,
+  refrigerant_type TEXT,
+  refrigerant_charge_weight TEXT,
+  commissioning_pressure_high TEXT,
+  commissioning_pressure_low TEXT,
+  measured_cop TEXT,
+  expansion_vessel_checked BOOLEAN DEFAULT false,
+  safety_devices_checked BOOLEAN DEFAULT false,
+  controls_commissioned BOOLEAN DEFAULT false,
+  buffer_tank_checked BOOLEAN DEFAULT false,
+  cylinder_checked BOOLEAN DEFAULT false,
+  system_flushed BOOLEAN DEFAULT false,
+  inhibitor_added BOOLEAN DEFAULT false,
+  customer_instructions_given BOOLEAN DEFAULT false,
+  customer_name_signed TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Breakdown Reports table
 CREATE TABLE breakdown_reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -286,6 +343,8 @@ CREATE INDEX idx_jobs_scheduled ON jobs(scheduled_date);
 CREATE INDEX idx_jobs_type ON jobs(job_type);
 CREATE INDEX idx_service_records_job ON service_records(job_id);
 CREATE INDEX idx_commissioning_records_job ON commissioning_records(job_id);
+CREATE INDEX idx_heat_pump_service_records_job ON heat_pump_service_records(job_id);
+CREATE INDEX idx_heat_pump_commissioning_records_job ON heat_pump_commissioning_records(job_id);
 CREATE INDEX idx_breakdown_reports_job ON breakdown_reports(job_id);
 CREATE INDEX idx_job_notes_job ON job_notes(job_id);
 CREATE INDEX idx_file_attachments_entity ON file_attachments(entity_type, entity_id);
@@ -308,6 +367,8 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON appliances FOR EACH ROW EXECUTE F
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON service_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON commissioning_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON heat_pump_service_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON heat_pump_commissioning_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON breakdown_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON job_notes FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -364,6 +425,8 @@ ALTER TABLE appliances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE commissioning_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heat_pump_service_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heat_pump_commissioning_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE breakdown_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE file_attachments ENABLE ROW LEVEL SECURITY;
@@ -418,6 +481,20 @@ CREATE POLICY "commissioning_records_select" ON commissioning_records FOR SELECT
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 CREATE POLICY "commissioning_records_insert" ON commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "commissioning_records_update" ON commissioning_records FOR UPDATE TO authenticated
+  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+
+-- Heat Pump Service Records: same as service records
+CREATE POLICY "heat_pump_service_records_select" ON heat_pump_service_records FOR SELECT TO authenticated
+  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+CREATE POLICY "heat_pump_service_records_insert" ON heat_pump_service_records FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "heat_pump_service_records_update" ON heat_pump_service_records FOR UPDATE TO authenticated
+  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+
+-- Heat Pump Commissioning Records: same as service records
+CREATE POLICY "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records FOR SELECT TO authenticated
+  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+CREATE POLICY "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Breakdown Reports: same as service records
