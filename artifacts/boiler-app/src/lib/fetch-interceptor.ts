@@ -21,10 +21,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     
     if (token) {
       init = init || {};
-      init.headers = {
-        ...init.headers,
-        'Authorization': `Bearer ${token}`
-      };
+      // Use Headers API to safely merge — spreading a Headers object loses all entries
+      const merged = new Headers(init.headers);
+      merged.set('Authorization', `Bearer ${token}`);
+      init.headers = merged;
     }
   }
 
