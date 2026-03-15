@@ -253,14 +253,15 @@ router.delete("/platform/announcements/:id", requireAuth, requireSuperAdmin, asy
 });
 
 router.get("/platform/audit-log", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const { event_type, limit: limitStr } = req.query as { event_type?: string; limit?: string };
+  const { event_type, limit: limitStr, offset: offsetStr } = req.query as { event_type?: string; limit?: string; offset?: string };
   const lim = Math.min(parseInt(limitStr || "50", 10) || 50, 200);
+  const offset = Math.max(parseInt(offsetStr || "0", 10) || 0, 0);
 
   let q = supabaseAdmin
     .from("platform_audit_log")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(lim);
+    .range(offset, offset + lim - 1);
 
   if (event_type) q = q.eq("event_type", event_type);
 

@@ -30,9 +30,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
 
   const { data: tenantInfo } = useQuery({
-    queryKey: ["tenant-info"],
+    queryKey: ["me-tenant"],
     queryFn: async () => {
-      const res = await fetch("/api/platform/tenant-info");
+      const res = await fetch("/api/me/tenant");
       if (!res.ok) return null;
       return res.json();
     },
@@ -199,8 +199,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 ? "Your trial has expired."
                 : <>Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.</>}
             </span>
-            {isAdmin && (
-              <Link href="/admin/company-settings">
+            {isAdmin && !isSuperAdmin && (
+              <Link href="/platform/plans">
                 <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="ml-2 h-7 text-xs">
                   <CreditCard className="w-3 h-3 mr-1" />
                   Upgrade Plan
@@ -210,7 +210,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {visibleAnnouncements.map((a: { id: string; title: string; body: string; severity: string }) => (
+        {!isSuperAdmin && visibleAnnouncements.map((a: { id: string; title: string; body: string; severity: string }) => (
           <div key={a.id} className={cn("border-b px-4 py-2.5 flex items-center gap-2 text-sm", severityClass(a.severity))}>
             {severityIcon(a.severity)}
             <span className="flex-1"><strong>{a.title}:</strong> {a.body}</span>

@@ -33,6 +33,7 @@ export default function PlatformAuditLog() {
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("limit", String(PAGE_SIZE + 1));
+      params.set("offset", String(page * PAGE_SIZE));
       if (eventFilter) params.set("event_type", eventFilter);
       const res = await fetch(`/api/platform/audit-log?${params}`);
       if (!res.ok) throw new Error("Failed");
@@ -95,7 +96,7 @@ export default function PlatformAuditLog() {
           </div>
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {displayEntries.length} entries
+              Page {page + 1} &middot; Showing {displayEntries.length} entries
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>

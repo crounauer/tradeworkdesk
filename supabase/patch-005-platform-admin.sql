@@ -449,6 +449,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "job_notes_all" ON job_notes;
+DROP POLICY IF EXISTS "job_notes_select" ON job_notes;
+DROP POLICY IF EXISTS "job_notes_insert" ON job_notes;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON job_notes;
 CREATE POLICY "job_notes_tenant" ON job_notes FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -456,6 +460,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "file_attachments_all" ON file_attachments;
+DROP POLICY IF EXISTS "file_attachments_select" ON file_attachments;
+DROP POLICY IF EXISTS "file_attachments_insert" ON file_attachments;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON file_attachments;
 CREATE POLICY "file_attachments_tenant" ON file_attachments FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -463,6 +471,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "signatures_all" ON signatures;
+DROP POLICY IF EXISTS "signatures_select" ON signatures;
+DROP POLICY IF EXISTS "signatures_insert" ON signatures;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON signatures;
 CREATE POLICY "signatures_tenant" ON signatures FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -470,6 +482,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "invite_codes_all" ON invite_codes;
+DROP POLICY IF EXISTS "invite_codes_select" ON invite_codes;
+DROP POLICY IF EXISTS "invite_codes_insert" ON invite_codes;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON invite_codes;
 CREATE POLICY "invite_codes_tenant" ON invite_codes FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -477,6 +493,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "breakdown_reports_all" ON breakdown_reports;
+DROP POLICY IF EXISTS "breakdown_reports_select" ON breakdown_reports;
+DROP POLICY IF EXISTS "breakdown_reports_insert" ON breakdown_reports;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON breakdown_reports;
 CREATE POLICY "breakdown_reports_tenant" ON breakdown_reports FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -484,6 +504,9 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "heat_pump_service_records_all" ON heat_pump_service_records;
+DROP POLICY IF EXISTS "heat_pump_service_records_select" ON heat_pump_service_records;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON heat_pump_service_records;
 CREATE POLICY "heat_pump_service_records_tenant" ON heat_pump_service_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -491,6 +514,9 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "heat_pump_commissioning_records_all" ON heat_pump_commissioning_records;
+DROP POLICY IF EXISTS "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON heat_pump_commissioning_records;
 CREATE POLICY "heat_pump_commissioning_records_tenant" ON heat_pump_commissioning_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -508,6 +534,10 @@ ALTER TABLE job_completion_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lookup_options ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "oil_tank_inspections_all" ON oil_tank_inspections;
+DROP POLICY IF EXISTS "oil_tank_inspections_select" ON oil_tank_inspections;
+DROP POLICY IF EXISTS "oil_tank_inspections_insert" ON oil_tank_inspections;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_inspections;
 CREATE POLICY "oil_tank_inspections_tenant" ON oil_tank_inspections FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -515,6 +545,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "oil_tank_risk_assessments_all" ON oil_tank_risk_assessments;
+DROP POLICY IF EXISTS "oil_tank_risk_assessments_select" ON oil_tank_risk_assessments;
+DROP POLICY IF EXISTS "oil_tank_risk_assessments_insert" ON oil_tank_risk_assessments;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_risk_assessments;
 CREATE POLICY "oil_tank_risk_assessments_tenant" ON oil_tank_risk_assessments FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -522,6 +556,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "combustion_analysis_records_all" ON combustion_analysis_records;
+DROP POLICY IF EXISTS "combustion_analysis_records_select" ON combustion_analysis_records;
+DROP POLICY IF EXISTS "combustion_analysis_records_insert" ON combustion_analysis_records;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON combustion_analysis_records;
 CREATE POLICY "combustion_analysis_records_tenant" ON combustion_analysis_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -529,6 +567,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "burner_setup_records_all" ON burner_setup_records;
+DROP POLICY IF EXISTS "burner_setup_records_select" ON burner_setup_records;
+DROP POLICY IF EXISTS "burner_setup_records_insert" ON burner_setup_records;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON burner_setup_records;
 CREATE POLICY "burner_setup_records_tenant" ON burner_setup_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -536,6 +578,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "fire_valve_test_records_all" ON fire_valve_test_records;
+DROP POLICY IF EXISTS "fire_valve_test_records_select" ON fire_valve_test_records;
+DROP POLICY IF EXISTS "fire_valve_test_records_insert" ON fire_valve_test_records;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON fire_valve_test_records;
 CREATE POLICY "fire_valve_test_records_tenant" ON fire_valve_test_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -543,6 +589,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "oil_line_vacuum_tests_all" ON oil_line_vacuum_tests;
+DROP POLICY IF EXISTS "oil_line_vacuum_tests_select" ON oil_line_vacuum_tests;
+DROP POLICY IF EXISTS "oil_line_vacuum_tests_insert" ON oil_line_vacuum_tests;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_line_vacuum_tests;
 CREATE POLICY "oil_line_vacuum_tests_tenant" ON oil_line_vacuum_tests FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -550,6 +600,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "job_completion_reports_all" ON job_completion_reports;
+DROP POLICY IF EXISTS "job_completion_reports_select" ON job_completion_reports;
+DROP POLICY IF EXISTS "job_completion_reports_insert" ON job_completion_reports;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON job_completion_reports;
 CREATE POLICY "job_completion_reports_tenant" ON job_completion_reports FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -557,6 +611,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "lookup_options_all" ON lookup_options;
+DROP POLICY IF EXISTS "lookup_options_select" ON lookup_options;
+DROP POLICY IF EXISTS "lookup_options_insert" ON lookup_options;
+DROP POLICY IF EXISTS "Enable access for authenticated users" ON lookup_options;
 CREATE POLICY "lookup_options_tenant" ON lookup_options FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
