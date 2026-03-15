@@ -168,4 +168,123 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
   res.json({ success: true, role: inv.role });
 });
 
+// ─── Lookup Options (public read, admin write) ────────────────────────────────
+
+const ALLOWED_LOOKUP_CATEGORIES = new Set([
+  "property_type",
+  "occupancy_type",
+  "boiler_type",
+  "fuel_type",
+]);
+
+// Public: active options only (used by all forms)
+router.get("/lookup-options", requireAuth, async (req, res): Promise<void> => {
+  const { category } = req.query as { category?: string };
+
+  let query = supabaseAdmin
+    .from("lookup_options")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("label", { ascending: true });
+
+  if (category) {
+    if (!ALLOWED_LOOKUP_CATEGORIES.has(category)) {
+      res.status(400).json({ error: "Invalid category." }); return;
+    }
+    query = query.eq("category", category);
+  }
+
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+// Admin: all options including inactive (used by admin management page)
+router.get("/admin/lookup-options", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const { category } = req.query as { category?: string };
+
+  let query = supabaseAdmin
+    .from("lookup_options")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("label", { ascending: true });
+
+  if (category) {
+    if (!ALLOWED_LOOKUP_CATEGORIES.has(category)) {
+      res.status(400).json({ error: "Invalid category." }); return;
+    }
+    query = query.eq("category", category);
+  }
+
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/admin/lookup-options", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const { category, value, label, sort_order } = req.body;
+  if (!category || !value || !label) {
+    res.status(400).json({ error: "category, value, and label are required." }); return;
+  }
+  if (!ALLOWED_LOOKUP_CATEGORIES.has(category)) {
+    res.status(400).json({ error: `category must be one of: ${[...ALLOWED_LOOKUP_CATEGORIES].join(", ")}.` }); return;
+  }
+  const valueStr = String(value).trim();
+  const labelStr = String(label).trim();
+  if (!/^[a-z0-9_]+$/.test(valueStr)) {
+    res.status(400).json({ error: "value must contain only lowercase letters, numbers, and underscores." }); return;
+  }
+  if (labelStr.length > 100) {
+    res.status(400).json({ error: "label must be 100 characters or fewer." }); return;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("lookup_options")
+    .insert({ category, value: valueStr, label: labelStr, sort_order: sort_order ?? 0 })
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(201).json(data);
+});
+
+router.put("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const { id } = req.params;
+  const { label, sort_order, is_active } = req.body;
+
+  const updates: Record<string, unknown> = {};
+  if (label !== undefined) {
+    const labelStr = String(label).trim();
+    if (labelStr.length === 0 || labelStr.length > 100) {
+      res.status(400).json({ error: "label must be between 1 and 100 characters." }); return;
+    }
+    updates.label = labelStr;
+  }
+  if (sort_order !== undefined) updates.sort_order = sort_order;
+  if (is_active !== undefined) updates.is_active = Boolean(is_active);
+
+  const { data, error } = await supabaseAdmin
+    .from("lookup_options")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.delete("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { error } = await supabaseAdmin
+    .from("lookup_options")
+    .delete()
+    .eq("id", id);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(204).send();
+});
+
 export default router;

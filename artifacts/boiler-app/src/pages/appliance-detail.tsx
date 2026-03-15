@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLookupOptions } from "@/hooks/use-lookup-options";
 
 type ApplianceEditData = {
   manufacturer?: string;
@@ -48,7 +49,9 @@ export default function ApplianceDetail() {
           </div>
           <div>
             <h1 className="text-3xl font-display font-bold">{appliance.manufacturer} {appliance.model}</h1>
-            <p className="text-muted-foreground font-mono mt-1">SN: {appliance.serial_number || "N/A"}</p>
+            {appliance.serial_number && (
+              <p className="text-muted-foreground font-mono mt-1">SN: {appliance.serial_number}</p>
+            )}
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
@@ -127,6 +130,8 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
   const update = useUpdateAppliance();
   const { toast } = useToast();
   const { register, handleSubmit, reset } = useForm<ApplianceEditData>();
+  const { data: boilerTypes } = useLookupOptions("boiler_type");
+  const { data: fuelTypes } = useLookupOptions("fuel_type");
 
   useEffect(() => {
     reset({
@@ -198,23 +203,18 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
             <Label>Boiler Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("boiler_type")}>
               <option value="">Select...</option>
-              <option value="combi">Combi</option>
-              <option value="system">System</option>
-              <option value="regular">Regular</option>
-              <option value="back_boiler">Back Boiler</option>
-              <option value="other">Other</option>
+              {(boilerTypes || []).map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
           <div className="space-y-2">
             <Label>Fuel Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_type")}>
               <option value="">Select...</option>
-              <option value="oil">Oil</option>
-              <option value="gas">Gas</option>
-              <option value="lpg">LPG</option>
-              <option value="electric">Electric</option>
-              <option value="solid_fuel">Solid Fuel</option>
-              <option value="other">Other</option>
+              {(fuelTypes || []).map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
           <div className="space-y-2">

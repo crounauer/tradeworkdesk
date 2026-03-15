@@ -10,11 +10,11 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLookupOptions } from "@/hooks/use-lookup-options";
 
 type ApplianceFormData = {
   manufacturer: string;
   model: string;
-  serial_number?: string;
   boiler_type?: string;
   fuel_type?: string;
   installation_date?: string;
@@ -134,7 +134,6 @@ export default function PropertyDetail() {
                     <Link key={app.id} href={`/appliances/${app.id}`}>
                       <Card className="p-5 border border-border/50 hover:border-orange-500/30 transition-colors cursor-pointer">
                         <h4 className="font-bold">{app.manufacturer} {app.model}</h4>
-                        <p className="text-sm text-muted-foreground font-mono mt-1">SN: {app.serial_number || "N/A"}</p>
                         {app.boiler_type && <p className="text-sm text-muted-foreground capitalize mt-1">{app.boiler_type} - {app.fuel_type}</p>}
                         {app.next_service_due && (
                           <p className="text-sm mt-2">
@@ -184,6 +183,8 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
   const update = useUpdateProperty();
   const { toast } = useToast();
   const { register, handleSubmit, reset } = useForm<PropertyEditData>();
+  const { data: propertyTypes } = useLookupOptions("property_type");
+  const { data: occupancyTypes } = useLookupOptions("occupancy_type");
 
   useEffect(() => {
     reset({
@@ -261,20 +262,18 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
             <Label>Property Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("property_type")}>
               <option value="">Select...</option>
-              <option value="residential">Residential</option>
-              <option value="commercial">Commercial</option>
-              <option value="industrial">Industrial</option>
+              {(propertyTypes || []).map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
           <div className="space-y-2">
             <Label>Occupancy Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("occupancy_type")}>
               <option value="">Select...</option>
-              <option value="owner_occupied">Owner Occupied</option>
-              <option value="tenant">Tenant</option>
-              <option value="landlord">Landlord</option>
-              <option value="vacant">Vacant</option>
-              <option value="holiday_let">Holiday Let</option>
+              {(occupancyTypes || []).map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -318,22 +317,30 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
 function AddApplianceForm({ propertyId, onClose }: { propertyId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateAppliance();
+  const { toast } = useToast();
   const { register, handleSubmit } = useForm<ApplianceFormData>();
+  const { data: boilerTypes } = useLookupOptions("boiler_type");
+  const { data: fuelTypes } = useLookupOptions("fuel_type");
 
   const onSubmit = async (data: ApplianceFormData) => {
-    await create.mutateAsync({
-      data: {
-        property_id: propertyId,
-        manufacturer: data.manufacturer || undefined,
-        model: data.model || undefined,
-        serial_number: data.serial_number || undefined,
-        boiler_type: data.boiler_type || undefined,
-        fuel_type: data.fuel_type || undefined,
-        installation_date: data.installation_date || undefined,
-      }
-    });
-    qc.invalidateQueries({ queryKey: [`/api/properties/${propertyId}`] });
-    onClose();
+    try {
+      await create.mutateAsync({
+        data: {
+          property_id: propertyId,
+          manufacturer: data.manufacturer || undefined,
+          model: data.model || undefined,
+          boiler_type: data.boiler_type || undefined,
+          fuel_type: data.fuel_type || undefined,
+          installation_date: data.installation_date || undefined,
+        }
+      });
+      qc.invalidateQueries({ queryKey: [`/api/properties/${propertyId}`] });
+      toast({ title: "Added", description: "Appliance added successfully" });
+      onClose();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
   };
 
   return (
@@ -342,23 +349,17 @@ function AddApplianceForm({ propertyId, onClose }: { propertyId: string; onClose
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input placeholder="Manufacturer" {...register("manufacturer")} />
         <Input placeholder="Model" {...register("model")} />
-        <Input placeholder="Serial Number" {...register("serial_number")} />
         <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("boiler_type")}>
           <option value="">Boiler Type...</option>
-          <option value="combi">Combi</option>
-          <option value="system">System</option>
-          <option value="regular">Regular</option>
-          <option value="back_boiler">Back Boiler</option>
-          <option value="other">Other</option>
+          {(boilerTypes || []).map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
         <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_type")}>
           <option value="">Fuel Type...</option>
-          <option value="oil">Oil</option>
-          <option value="gas">Gas</option>
-          <option value="lpg">LPG</option>
-          <option value="electric">Electric</option>
-          <option value="solid_fuel">Solid Fuel</option>
-          <option value="other">Other</option>
+          {(fuelTypes || []).map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
         <div>
           <label className="text-sm text-muted-foreground mb-1 block">Installation Date</label>

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { 
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
-  ShieldCheck, UserPlus
+  ShieldCheck, UserPlus, Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -27,6 +27,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const adminNavItems = [
     { href: "/admin/users", label: "Team", icon: ShieldCheck },
     { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
+    { href: "/admin/lookup-options", label: "Lookup Options", icon: Settings2 },
   ];
 
   const visibleNavItems = navItems.filter(item => 

@@ -1,4 +1,5 @@
 import { useGetCustomer, useCreateProperty, useUpdateCustomer } from "@workspace/api-client-react";
+import { useLookupOptions } from "@/hooks/use-lookup-options";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -291,24 +292,32 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
 function AddPropertyForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateProperty();
+  const { toast } = useToast();
   const { register, handleSubmit } = useForm<PropertyFormData>();
+  const { data: propertyTypes } = useLookupOptions("property_type");
 
   const onSubmit = async (data: PropertyFormData) => {
-    await create.mutateAsync({
-      data: {
-        customer_id: customerId,
-        address_line1: data.address_line1,
-        address_line2: data.address_line2 || undefined,
-        city: data.city || undefined,
-        county: data.county || undefined,
-        postcode: data.postcode,
-        property_type: data.property_type || undefined,
-        access_notes: data.access_notes || undefined,
-        parking_notes: data.parking_notes || undefined,
-      }
-    });
-    qc.invalidateQueries({ queryKey: [`/api/customers/${customerId}`] });
-    onClose();
+    try {
+      await create.mutateAsync({
+        data: {
+          customer_id: customerId,
+          address_line1: data.address_line1,
+          address_line2: data.address_line2 || undefined,
+          city: data.city || undefined,
+          county: data.county || undefined,
+          postcode: data.postcode,
+          property_type: data.property_type || undefined,
+          access_notes: data.access_notes || undefined,
+          parking_notes: data.parking_notes || undefined,
+        }
+      });
+      qc.invalidateQueries({ queryKey: [`/api/customers/${customerId}`] });
+      toast({ title: "Added", description: "Property added successfully" });
+      onClose();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
   };
 
   return (
@@ -322,9 +331,9 @@ function AddPropertyForm({ customerId, onClose }: { customerId: string; onClose:
         <Input placeholder="Postcode *" required {...register("postcode")} />
         <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("property_type")}>
           <option value="">Property Type...</option>
-          <option value="residential">Residential</option>
-          <option value="commercial">Commercial</option>
-          <option value="industrial">Industrial</option>
+          {(propertyTypes || []).map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
         <Input placeholder="Access Notes" {...register("access_notes")} />
         <Input placeholder="Parking Notes" {...register("parking_notes")} />
