@@ -103,7 +103,9 @@ export default function ServiceRecordForm() {
   const isOil = !isGas;
 
   const watchClassification = watch("appliance_classification");
-  const showWarningNotice = watchClassification === "at_risk" || watchClassification === "immediately_dangerous";
+  const isAtRisk = watchClassification === "at_risk";
+  const isImmediatelyDangerous = watchClassification === "immediately_dangerous";
+  const showWarningNotice = isAtRisk || isImmediatelyDangerous;
 
   useEffect(() => {
     if (existingRecord) {
@@ -536,7 +538,7 @@ export default function ServiceRecordForm() {
         </Card>
 
         {isGas && (
-          <Card className={`p-6 shadow-sm ${showWarningNotice ? "border-red-300 bg-red-50/50" : "border-border/50"}`}>
+          <Card className={`p-6 shadow-sm ${isImmediatelyDangerous ? "border-red-300 bg-red-50/50" : isAtRisk ? "border-amber-300 bg-amber-50/50" : "border-border/50"}`}>
             <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Appliance Classification</h2>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
