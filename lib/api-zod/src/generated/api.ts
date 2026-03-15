@@ -24,8 +24,8 @@ export const GetProfileResponse = zod.object({
   role: zod.enum(["admin", "office_staff", "technician"]),
   phone: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -43,8 +43,8 @@ export const UpdateProfileResponse = zod.object({
   role: zod.enum(["admin", "office_staff", "technician"]),
   phone: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -57,8 +57,8 @@ export const ListProfilesResponseItem = zod.object({
   role: zod.enum(["admin", "office_staff", "technician"]),
   phone: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 export const ListProfilesResponse = zod.array(ListProfilesResponseItem);
 
@@ -90,14 +90,14 @@ export const GetDashboardResponse = zod.object({
             "requires_follow_up",
           ]),
           priority: zod.enum(["low", "medium", "high", "urgent"]),
-          scheduled_date: zod.coerce.date(),
+          scheduled_date: zod.date(),
           scheduled_time: zod.string().nullish(),
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .and(
           zod.object({
@@ -132,14 +132,14 @@ export const GetDashboardResponse = zod.object({
             "requires_follow_up",
           ]),
           priority: zod.enum(["low", "medium", "high", "urgent"]),
-          scheduled_date: zod.coerce.date(),
+          scheduled_date: zod.date(),
           scheduled_time: zod.string().nullish(),
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .and(
           zod.object({
@@ -157,7 +157,7 @@ export const GetDashboardResponse = zod.object({
         manufacturer: zod.string().nullish(),
         model: zod.string().nullish(),
         serial_number: zod.string().nullish(),
-        next_service_due: zod.coerce.date(),
+        next_service_due: zod.date(),
         property_address: zod.string().nullish(),
         customer_name: zod.string().nullish(),
         customer_id: zod.string().uuid().nullish(),
@@ -189,14 +189,14 @@ export const GetDashboardResponse = zod.object({
             "requires_follow_up",
           ]),
           priority: zod.enum(["low", "medium", "high", "urgent"]),
-          scheduled_date: zod.coerce.date(),
+          scheduled_date: zod.date(),
           scheduled_time: zod.string().nullish(),
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .and(
           zod.object({
@@ -231,14 +231,14 @@ export const GetDashboardResponse = zod.object({
             "requires_follow_up",
           ]),
           priority: zod.enum(["low", "medium", "high", "urgent"]),
-          scheduled_date: zod.coerce.date(),
+          scheduled_date: zod.date(),
           scheduled_time: zod.string().nullish(),
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .and(
           zod.object({
@@ -282,8 +282,8 @@ export const ListCustomersResponseItem = zod.object({
   postcode: zod.string().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 export const ListCustomersResponse = zod.array(ListCustomersResponseItem);
 
@@ -328,8 +328,8 @@ export const GetCustomerResponse = zod
     postcode: zod.string().nullish(),
     notes: zod.string().nullish(),
     is_active: zod.boolean(),
-    created_at: zod.coerce.date(),
-    updated_at: zod.coerce.date(),
+    created_at: zod.date(),
+    updated_at: zod.date(),
   })
   .and(
     zod.object({
@@ -352,8 +352,8 @@ export const GetCustomerResponse = zod
             tank_location: zod.string().nullish(),
             notes: zod.string().nullish(),
             is_active: zod.boolean(),
-            created_at: zod.coerce.date(),
-            updated_at: zod.coerce.date(),
+            created_at: zod.date(),
+            updated_at: zod.date(),
             customer_name: zod.string().nullish(),
           }),
         )
@@ -399,8 +399,8 @@ export const UpdateCustomerResponse = zod.object({
   postcode: zod.string().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -435,8 +435,8 @@ export const ListPropertiesResponseItem = zod.object({
   tank_location: zod.string().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
   customer_name: zod.string().nullish(),
 });
 export const ListPropertiesResponse = zod.array(ListPropertiesResponseItem);
@@ -486,8 +486,8 @@ export const GetPropertyResponse = zod
     tank_location: zod.string().nullish(),
     notes: zod.string().nullish(),
     is_active: zod.boolean(),
-    created_at: zod.coerce.date(),
-    updated_at: zod.coerce.date(),
+    created_at: zod.date(),
+    updated_at: zod.date(),
     customer_name: zod.string().nullish(),
   })
   .and(
@@ -508,8 +508,8 @@ export const GetPropertyResponse = zod
           postcode: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .optional(),
       appliances: zod
@@ -523,19 +523,19 @@ export const GetPropertyResponse = zod
             boiler_type: zod.string().nullish(),
             fuel_type: zod.string().nullish(),
             system_type: zod.string().nullish(),
-            installation_date: zod.coerce.date().nullish(),
-            warranty_expiry: zod.coerce.date().nullish(),
+            installation_date: zod.date().nullish(),
+            warranty_expiry: zod.date().nullish(),
             burner_make: zod.string().nullish(),
             burner_model: zod.string().nullish(),
             nozzle_size: zod.string().nullish(),
             pump_pressure: zod.string().nullish(),
             controls: zod.string().nullish(),
-            last_service_date: zod.coerce.date().nullish(),
-            next_service_due: zod.coerce.date().nullish(),
+            last_service_date: zod.date().nullish(),
+            next_service_due: zod.date().nullish(),
             notes: zod.string().nullish(),
             is_active: zod.boolean(),
-            created_at: zod.coerce.date(),
-            updated_at: zod.coerce.date(),
+            created_at: zod.date(),
+            updated_at: zod.date(),
             property_address: zod.string().nullish(),
           }),
         )
@@ -564,14 +564,14 @@ export const GetPropertyResponse = zod
                 "requires_follow_up",
               ]),
               priority: zod.enum(["low", "medium", "high", "urgent"]),
-              scheduled_date: zod.coerce.date(),
+              scheduled_date: zod.date(),
               scheduled_time: zod.string().nullish(),
               estimated_duration: zod.number().nullish(),
               description: zod.string().nullish(),
               notes: zod.string().nullish(),
               is_active: zod.boolean(),
-              created_at: zod.coerce.date(),
-              updated_at: zod.coerce.date(),
+              created_at: zod.date(),
+              updated_at: zod.date(),
             })
             .and(
               zod.object({
@@ -627,8 +627,8 @@ export const UpdatePropertyResponse = zod.object({
   tank_location: zod.string().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
   customer_name: zod.string().nullish(),
 });
 
@@ -656,19 +656,19 @@ export const ListAppliancesResponseItem = zod.object({
   boiler_type: zod.string().nullish(),
   fuel_type: zod.string().nullish(),
   system_type: zod.string().nullish(),
-  installation_date: zod.coerce.date().nullish(),
-  warranty_expiry: zod.coerce.date().nullish(),
+  installation_date: zod.date().nullish(),
+  warranty_expiry: zod.date().nullish(),
   burner_make: zod.string().nullish(),
   burner_model: zod.string().nullish(),
   nozzle_size: zod.string().nullish(),
   pump_pressure: zod.string().nullish(),
   controls: zod.string().nullish(),
-  last_service_date: zod.coerce.date().nullish(),
-  next_service_due: zod.coerce.date().nullish(),
+  last_service_date: zod.date().nullish(),
+  next_service_due: zod.date().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
   property_address: zod.string().nullish(),
 });
 export const ListAppliancesResponse = zod.array(ListAppliancesResponseItem);
@@ -684,15 +684,15 @@ export const CreateApplianceBody = zod.object({
   boiler_type: zod.string().optional(),
   fuel_type: zod.string().optional(),
   system_type: zod.string().optional(),
-  installation_date: zod.coerce.date().optional(),
-  warranty_expiry: zod.coerce.date().optional(),
+  installation_date: zod.date().optional(),
+  warranty_expiry: zod.date().optional(),
   burner_make: zod.string().optional(),
   burner_model: zod.string().optional(),
   nozzle_size: zod.string().optional(),
   pump_pressure: zod.string().optional(),
   controls: zod.string().optional(),
-  last_service_date: zod.coerce.date().optional(),
-  next_service_due: zod.coerce.date().optional(),
+  last_service_date: zod.date().optional(),
+  next_service_due: zod.date().optional(),
   notes: zod.string().optional(),
 });
 
@@ -713,19 +713,19 @@ export const GetApplianceResponse = zod
     boiler_type: zod.string().nullish(),
     fuel_type: zod.string().nullish(),
     system_type: zod.string().nullish(),
-    installation_date: zod.coerce.date().nullish(),
-    warranty_expiry: zod.coerce.date().nullish(),
+    installation_date: zod.date().nullish(),
+    warranty_expiry: zod.date().nullish(),
     burner_make: zod.string().nullish(),
     burner_model: zod.string().nullish(),
     nozzle_size: zod.string().nullish(),
     pump_pressure: zod.string().nullish(),
     controls: zod.string().nullish(),
-    last_service_date: zod.coerce.date().nullish(),
-    next_service_due: zod.coerce.date().nullish(),
+    last_service_date: zod.date().nullish(),
+    next_service_due: zod.date().nullish(),
     notes: zod.string().nullish(),
     is_active: zod.boolean(),
-    created_at: zod.coerce.date(),
-    updated_at: zod.coerce.date(),
+    created_at: zod.date(),
+    updated_at: zod.date(),
     property_address: zod.string().nullish(),
   })
   .and(
@@ -748,8 +748,8 @@ export const GetApplianceResponse = zod
           tank_location: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
           customer_name: zod.string().nullish(),
         })
         .optional(),
@@ -777,14 +777,14 @@ export const GetApplianceResponse = zod
                 "requires_follow_up",
               ]),
               priority: zod.enum(["low", "medium", "high", "urgent"]),
-              scheduled_date: zod.coerce.date(),
+              scheduled_date: zod.date(),
               scheduled_time: zod.string().nullish(),
               estimated_duration: zod.number().nullish(),
               description: zod.string().nullish(),
               notes: zod.string().nullish(),
               is_active: zod.boolean(),
-              created_at: zod.coerce.date(),
-              updated_at: zod.coerce.date(),
+              created_at: zod.date(),
+              updated_at: zod.date(),
             })
             .and(
               zod.object({
@@ -834,19 +834,19 @@ export const UpdateApplianceResponse = zod.object({
   boiler_type: zod.string().nullish(),
   fuel_type: zod.string().nullish(),
   system_type: zod.string().nullish(),
-  installation_date: zod.coerce.date().nullish(),
-  warranty_expiry: zod.coerce.date().nullish(),
+  installation_date: zod.date().nullish(),
+  warranty_expiry: zod.date().nullish(),
   burner_make: zod.string().nullish(),
   burner_model: zod.string().nullish(),
   nozzle_size: zod.string().nullish(),
   pump_pressure: zod.string().nullish(),
   controls: zod.string().nullish(),
-  last_service_date: zod.coerce.date().nullish(),
-  next_service_due: zod.coerce.date().nullish(),
+  last_service_date: zod.date().nullish(),
+  next_service_due: zod.date().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
   property_address: zod.string().nullish(),
 });
 
@@ -864,8 +864,8 @@ export const ListJobsQueryParams = zod.object({
   status: zod.coerce.string().optional(),
   job_type: zod.coerce.string().optional(),
   technician_id: zod.coerce.string().uuid().optional(),
-  date_from: zod.coerce.date().optional(),
-  date_to: zod.coerce.date().optional(),
+  date_from: zod.date().optional(),
+  date_to: zod.date().optional(),
   customer_id: zod.coerce.string().uuid().optional(),
   property_id: zod.coerce.string().uuid().optional(),
 });
@@ -892,14 +892,14 @@ export const ListJobsResponseItem = zod
       "requires_follow_up",
     ]),
     priority: zod.enum(["low", "medium", "high", "urgent"]),
-    scheduled_date: zod.coerce.date(),
+    scheduled_date: zod.date(),
     scheduled_time: zod.string().nullish(),
     estimated_duration: zod.number().nullish(),
     description: zod.string().nullish(),
     notes: zod.string().nullish(),
     is_active: zod.boolean(),
-    created_at: zod.coerce.date(),
-    updated_at: zod.coerce.date(),
+    created_at: zod.date(),
+    updated_at: zod.date(),
   })
   .and(
     zod.object({
@@ -926,7 +926,7 @@ export const CreateJobBody = zod.object({
     "follow_up",
   ]),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
-  scheduled_date: zod.coerce.date(),
+  scheduled_date: zod.date(),
   scheduled_time: zod.string().optional(),
   estimated_duration: zod.number().optional(),
   description: zod.string().optional(),
@@ -962,14 +962,14 @@ export const GetJobResponse = zod
       "requires_follow_up",
     ]),
     priority: zod.enum(["low", "medium", "high", "urgent"]),
-    scheduled_date: zod.coerce.date(),
+    scheduled_date: zod.date(),
     scheduled_time: zod.string().nullish(),
     estimated_duration: zod.number().nullish(),
     description: zod.string().nullish(),
     notes: zod.string().nullish(),
     is_active: zod.boolean(),
-    created_at: zod.coerce.date(),
-    updated_at: zod.coerce.date(),
+    created_at: zod.date(),
+    updated_at: zod.date(),
   })
   .and(
     zod.object({
@@ -989,8 +989,8 @@ export const GetJobResponse = zod
           postcode: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .optional(),
       property: zod
@@ -1011,8 +1011,8 @@ export const GetJobResponse = zod
           tank_location: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
           customer_name: zod.string().nullish(),
         })
         .optional(),
@@ -1026,19 +1026,19 @@ export const GetJobResponse = zod
           boiler_type: zod.string().nullish(),
           fuel_type: zod.string().nullish(),
           system_type: zod.string().nullish(),
-          installation_date: zod.coerce.date().nullish(),
-          warranty_expiry: zod.coerce.date().nullish(),
+          installation_date: zod.date().nullish(),
+          warranty_expiry: zod.date().nullish(),
           burner_make: zod.string().nullish(),
           burner_model: zod.string().nullish(),
           nozzle_size: zod.string().nullish(),
           pump_pressure: zod.string().nullish(),
           controls: zod.string().nullish(),
-          last_service_date: zod.coerce.date().nullish(),
-          next_service_due: zod.coerce.date().nullish(),
+          last_service_date: zod.date().nullish(),
+          next_service_due: zod.date().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
           property_address: zod.string().nullish(),
         })
         .optional(),
@@ -1050,8 +1050,8 @@ export const GetJobResponse = zod
           role: zod.enum(["admin", "office_staff", "technician"]),
           phone: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .optional(),
       service_record: zod
@@ -1059,8 +1059,8 @@ export const GetJobResponse = zod
           id: zod.string().uuid(),
           job_id: zod.string().uuid(),
           technician_id: zod.string().uuid(),
-          arrival_time: zod.coerce.date().nullish(),
-          departure_time: zod.coerce.date().nullish(),
+          arrival_time: zod.date().nullish(),
+          departure_time: zod.date().nullish(),
           visual_inspection: zod.string().nullish(),
           appliance_condition: zod.string().nullish(),
           flue_inspection: zod.string().nullish(),
@@ -1099,7 +1099,7 @@ export const GetJobResponse = zod
           appliance_safe: zod.boolean().optional(),
           follow_up_required: zod.boolean().optional(),
           follow_up_notes: zod.string().nullish(),
-          next_service_due: zod.coerce.date().nullish(),
+          next_service_due: zod.date().nullish(),
           additional_notes: zod.string().nullish(),
           gas_tightness_pass: zod.boolean().optional(),
           gas_standing_pressure: zod.string().nullish(),
@@ -1132,8 +1132,8 @@ export const GetJobResponse = zod
           pilot_checked: zod.boolean().optional(),
           ignition_checked: zod.boolean().optional(),
           gas_pressure_checked: zod.boolean().optional(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .optional(),
       breakdown_report: zod
@@ -1152,8 +1152,8 @@ export const GetJobResponse = zod
           return_visit_required: zod.boolean().optional(),
           return_visit_notes: zod.string().nullish(),
           additional_notes: zod.string().nullish(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .optional(),
       notes: zod
@@ -1164,8 +1164,8 @@ export const GetJobResponse = zod
             author_id: zod.string().uuid(),
             content: zod.string(),
             author_name: zod.string().nullish(),
-            created_at: zod.coerce.date(),
-            updated_at: zod.coerce.date(),
+            created_at: zod.date(),
+            updated_at: zod.date(),
           }),
         )
         .optional(),
@@ -1181,7 +1181,7 @@ export const GetJobResponse = zod
             entity_id: zod.string().uuid(),
             uploaded_by: zod.string().uuid().nullish(),
             description: zod.string().nullish(),
-            created_at: zod.coerce.date(),
+            created_at: zod.date(),
             signed_url: zod.string().nullish(),
           }),
         )
@@ -1194,8 +1194,8 @@ export const GetJobResponse = zod
             signer_type: zod.enum(["technician", "customer"]),
             signer_name: zod.string(),
             storage_path: zod.string(),
-            signed_at: zod.coerce.date(),
-            created_at: zod.coerce.date(),
+            signed_at: zod.date(),
+            created_at: zod.date(),
             signed_url: zod.string().nullish(),
           }),
         )
@@ -1228,7 +1228,7 @@ export const UpdateJobBody = zod.object({
     ])
     .optional(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
-  scheduled_date: zod.coerce.date().optional(),
+  scheduled_date: zod.date().optional(),
   scheduled_time: zod.string().nullish(),
   estimated_duration: zod.number().nullish(),
   description: zod.string().nullish(),
@@ -1256,14 +1256,14 @@ export const UpdateJobResponse = zod.object({
     "requires_follow_up",
   ]),
   priority: zod.enum(["low", "medium", "high", "urgent"]),
-  scheduled_date: zod.coerce.date(),
+  scheduled_date: zod.date(),
   scheduled_time: zod.string().nullish(),
   estimated_duration: zod.number().nullish(),
   description: zod.string().nullish(),
   notes: zod.string().nullish(),
   is_active: zod.boolean(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1279,8 +1279,8 @@ export const DeleteJobParams = zod.object({
 export const CreateServiceRecordBody = zod.object({
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
-  arrival_time: zod.coerce.date().optional(),
-  departure_time: zod.coerce.date().optional(),
+  arrival_time: zod.date().optional(),
+  departure_time: zod.date().optional(),
   visual_inspection: zod.string().optional(),
   appliance_condition: zod.string().optional(),
   flue_inspection: zod.string().optional(),
@@ -1319,7 +1319,7 @@ export const CreateServiceRecordBody = zod.object({
   appliance_safe: zod.boolean().optional(),
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().optional(),
-  next_service_due: zod.coerce.date().optional(),
+  next_service_due: zod.date().optional(),
   additional_notes: zod.string().optional(),
   gas_tightness_pass: zod.boolean().optional(),
   gas_standing_pressure: zod.string().optional(),
@@ -1364,8 +1364,8 @@ export const GetServiceRecordResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
-  arrival_time: zod.coerce.date().nullish(),
-  departure_time: zod.coerce.date().nullish(),
+  arrival_time: zod.date().nullish(),
+  departure_time: zod.date().nullish(),
   visual_inspection: zod.string().nullish(),
   appliance_condition: zod.string().nullish(),
   flue_inspection: zod.string().nullish(),
@@ -1404,7 +1404,7 @@ export const GetServiceRecordResponse = zod.object({
   appliance_safe: zod.boolean().optional(),
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().nullish(),
-  next_service_due: zod.coerce.date().nullish(),
+  next_service_due: zod.date().nullish(),
   additional_notes: zod.string().nullish(),
   gas_tightness_pass: zod.boolean().optional(),
   gas_standing_pressure: zod.string().nullish(),
@@ -1437,8 +1437,8 @@ export const GetServiceRecordResponse = zod.object({
   pilot_checked: zod.boolean().optional(),
   ignition_checked: zod.boolean().optional(),
   gas_pressure_checked: zod.boolean().optional(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1449,8 +1449,8 @@ export const UpdateServiceRecordParams = zod.object({
 });
 
 export const UpdateServiceRecordBody = zod.object({
-  arrival_time: zod.coerce.date().nullish(),
-  departure_time: zod.coerce.date().nullish(),
+  arrival_time: zod.date().nullish(),
+  departure_time: zod.date().nullish(),
   visual_inspection: zod.string().nullish(),
   appliance_condition: zod.string().nullish(),
   flue_inspection: zod.string().nullish(),
@@ -1489,7 +1489,7 @@ export const UpdateServiceRecordBody = zod.object({
   appliance_safe: zod.boolean().optional(),
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().nullish(),
-  next_service_due: zod.coerce.date().nullish(),
+  next_service_due: zod.date().nullish(),
   additional_notes: zod.string().nullish(),
   gas_tightness_pass: zod.boolean().optional(),
   gas_standing_pressure: zod.string().nullish(),
@@ -1528,8 +1528,8 @@ export const UpdateServiceRecordResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
-  arrival_time: zod.coerce.date().nullish(),
-  departure_time: zod.coerce.date().nullish(),
+  arrival_time: zod.date().nullish(),
+  departure_time: zod.date().nullish(),
   visual_inspection: zod.string().nullish(),
   appliance_condition: zod.string().nullish(),
   flue_inspection: zod.string().nullish(),
@@ -1568,7 +1568,7 @@ export const UpdateServiceRecordResponse = zod.object({
   appliance_safe: zod.boolean().optional(),
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().nullish(),
-  next_service_due: zod.coerce.date().nullish(),
+  next_service_due: zod.date().nullish(),
   additional_notes: zod.string().nullish(),
   gas_tightness_pass: zod.boolean().optional(),
   gas_standing_pressure: zod.string().nullish(),
@@ -1601,8 +1601,8 @@ export const UpdateServiceRecordResponse = zod.object({
   pilot_checked: zod.boolean().optional(),
   ignition_checked: zod.boolean().optional(),
   gas_pressure_checked: zod.boolean().optional(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1616,8 +1616,8 @@ export const GetServiceRecordByJobResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
-  arrival_time: zod.coerce.date().nullish(),
-  departure_time: zod.coerce.date().nullish(),
+  arrival_time: zod.date().nullish(),
+  departure_time: zod.date().nullish(),
   visual_inspection: zod.string().nullish(),
   appliance_condition: zod.string().nullish(),
   flue_inspection: zod.string().nullish(),
@@ -1656,7 +1656,7 @@ export const GetServiceRecordByJobResponse = zod.object({
   appliance_safe: zod.boolean().optional(),
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().nullish(),
-  next_service_due: zod.coerce.date().nullish(),
+  next_service_due: zod.date().nullish(),
   additional_notes: zod.string().nullish(),
   gas_tightness_pass: zod.boolean().optional(),
   gas_standing_pressure: zod.string().nullish(),
@@ -1689,8 +1689,8 @@ export const GetServiceRecordByJobResponse = zod.object({
   pilot_checked: zod.boolean().optional(),
   ignition_checked: zod.boolean().optional(),
   gas_pressure_checked: zod.boolean().optional(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1718,8 +1718,8 @@ export const ListCommissioningRecordsResponseItem = zod.object({
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 export const ListCommissioningRecordsResponse = zod.array(
   ListCommissioningRecordsResponseItem,
@@ -1780,8 +1780,8 @@ export const GetCommissioningRecordResponse = zod.object({
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1834,8 +1834,8 @@ export const UpdateCommissioningRecordResponse = zod.object({
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1867,8 +1867,8 @@ export const GetCommissioningRecordByJobResponse = zod.object({
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1912,8 +1912,8 @@ export const GetBreakdownReportResponse = zod.object({
   return_visit_required: zod.boolean().optional(),
   return_visit_notes: zod.string().nullish(),
   additional_notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1952,8 +1952,8 @@ export const UpdateBreakdownReportResponse = zod.object({
   return_visit_required: zod.boolean().optional(),
   return_visit_notes: zod.string().nullish(),
   additional_notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1978,8 +1978,895 @@ export const GetBreakdownReportByJobResponse = zod.object({
   return_visit_required: zod.boolean().optional(),
   return_visit_notes: zod.string().nullish(),
   additional_notes: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create an oil tank inspection
+ */
+export const CreateOilTankInspectionBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  tank_type: zod.string().optional(),
+  tank_size: zod.string().optional(),
+  tank_material: zod.string().optional(),
+  tank_location: zod.string().optional(),
+  tank_age: zod.string().optional(),
+  bunding_type: zod.string().optional(),
+  bunding_condition: zod.string().optional(),
+  sight_gauge_condition: zod.string().optional(),
+  fill_point_condition: zod.string().optional(),
+  vent_condition: zod.string().optional(),
+  filter_condition: zod.string().optional(),
+  pipework_condition: zod.string().optional(),
+  supports_condition: zod.string().optional(),
+  overall_condition: zod.string().optional(),
+  leaks_found: zod.boolean().optional(),
+  leaks_details: zod.string().optional(),
+  remedial_actions: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get oil tank inspection by ID
+ */
+export const GetOilTankInspectionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetOilTankInspectionResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  tank_type: zod.string().nullish(),
+  tank_size: zod.string().nullish(),
+  tank_material: zod.string().nullish(),
+  tank_location: zod.string().nullish(),
+  tank_age: zod.string().nullish(),
+  bunding_type: zod.string().nullish(),
+  bunding_condition: zod.string().nullish(),
+  sight_gauge_condition: zod.string().nullish(),
+  fill_point_condition: zod.string().nullish(),
+  vent_condition: zod.string().nullish(),
+  filter_condition: zod.string().nullish(),
+  pipework_condition: zod.string().nullish(),
+  supports_condition: zod.string().nullish(),
+  overall_condition: zod.string().nullish(),
+  leaks_found: zod.boolean().optional(),
+  leaks_details: zod.string().nullish(),
+  remedial_actions: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update oil tank inspection
+ */
+export const UpdateOilTankInspectionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateOilTankInspectionBody = zod.object({
+  tank_type: zod.string().nullish(),
+  tank_size: zod.string().nullish(),
+  tank_material: zod.string().nullish(),
+  tank_location: zod.string().nullish(),
+  tank_age: zod.string().nullish(),
+  bunding_type: zod.string().nullish(),
+  bunding_condition: zod.string().nullish(),
+  sight_gauge_condition: zod.string().nullish(),
+  fill_point_condition: zod.string().nullish(),
+  vent_condition: zod.string().nullish(),
+  filter_condition: zod.string().nullish(),
+  pipework_condition: zod.string().nullish(),
+  supports_condition: zod.string().nullish(),
+  overall_condition: zod.string().nullish(),
+  leaks_found: zod.boolean().optional(),
+  leaks_details: zod.string().nullish(),
+  remedial_actions: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateOilTankInspectionResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  tank_type: zod.string().nullish(),
+  tank_size: zod.string().nullish(),
+  tank_material: zod.string().nullish(),
+  tank_location: zod.string().nullish(),
+  tank_age: zod.string().nullish(),
+  bunding_type: zod.string().nullish(),
+  bunding_condition: zod.string().nullish(),
+  sight_gauge_condition: zod.string().nullish(),
+  fill_point_condition: zod.string().nullish(),
+  vent_condition: zod.string().nullish(),
+  filter_condition: zod.string().nullish(),
+  pipework_condition: zod.string().nullish(),
+  supports_condition: zod.string().nullish(),
+  overall_condition: zod.string().nullish(),
+  leaks_found: zod.boolean().optional(),
+  leaks_details: zod.string().nullish(),
+  remedial_actions: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get oil tank inspection by job ID
+ */
+export const GetOilTankInspectionByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetOilTankInspectionByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  tank_type: zod.string().nullish(),
+  tank_size: zod.string().nullish(),
+  tank_material: zod.string().nullish(),
+  tank_location: zod.string().nullish(),
+  tank_age: zod.string().nullish(),
+  bunding_type: zod.string().nullish(),
+  bunding_condition: zod.string().nullish(),
+  sight_gauge_condition: zod.string().nullish(),
+  fill_point_condition: zod.string().nullish(),
+  vent_condition: zod.string().nullish(),
+  filter_condition: zod.string().nullish(),
+  pipework_condition: zod.string().nullish(),
+  supports_condition: zod.string().nullish(),
+  overall_condition: zod.string().nullish(),
+  leaks_found: zod.boolean().optional(),
+  leaks_details: zod.string().nullish(),
+  remedial_actions: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create an oil tank risk assessment
+ */
+export const CreateOilTankRiskAssessmentBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  site_hazards: zod.string().optional(),
+  environmental_risks: zod.string().optional(),
+  fire_risk: zod.string().optional(),
+  access_risk: zod.string().optional(),
+  likelihood_rating: zod.string().optional(),
+  severity_rating: zod.string().optional(),
+  overall_risk_rating: zod.string().optional(),
+  control_measures: zod.string().optional(),
+  further_actions_required: zod.string().optional(),
+  assessor_name: zod.string().optional(),
+  assessor_qualification: zod.string().optional(),
+  assessment_date: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get oil tank risk assessment by ID
+ */
+export const GetOilTankRiskAssessmentParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetOilTankRiskAssessmentResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  site_hazards: zod.string().nullish(),
+  environmental_risks: zod.string().nullish(),
+  fire_risk: zod.string().nullish(),
+  access_risk: zod.string().nullish(),
+  likelihood_rating: zod.string().nullish(),
+  severity_rating: zod.string().nullish(),
+  overall_risk_rating: zod.string().nullish(),
+  control_measures: zod.string().nullish(),
+  further_actions_required: zod.string().nullish(),
+  assessor_name: zod.string().nullish(),
+  assessor_qualification: zod.string().nullish(),
+  assessment_date: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update oil tank risk assessment
+ */
+export const UpdateOilTankRiskAssessmentParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateOilTankRiskAssessmentBody = zod.object({
+  site_hazards: zod.string().nullish(),
+  environmental_risks: zod.string().nullish(),
+  fire_risk: zod.string().nullish(),
+  access_risk: zod.string().nullish(),
+  likelihood_rating: zod.string().nullish(),
+  severity_rating: zod.string().nullish(),
+  overall_risk_rating: zod.string().nullish(),
+  control_measures: zod.string().nullish(),
+  further_actions_required: zod.string().nullish(),
+  assessor_name: zod.string().nullish(),
+  assessor_qualification: zod.string().nullish(),
+  assessment_date: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateOilTankRiskAssessmentResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  site_hazards: zod.string().nullish(),
+  environmental_risks: zod.string().nullish(),
+  fire_risk: zod.string().nullish(),
+  access_risk: zod.string().nullish(),
+  likelihood_rating: zod.string().nullish(),
+  severity_rating: zod.string().nullish(),
+  overall_risk_rating: zod.string().nullish(),
+  control_measures: zod.string().nullish(),
+  further_actions_required: zod.string().nullish(),
+  assessor_name: zod.string().nullish(),
+  assessor_qualification: zod.string().nullish(),
+  assessment_date: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get oil tank risk assessment by job ID
+ */
+export const GetOilTankRiskAssessmentByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetOilTankRiskAssessmentByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  site_hazards: zod.string().nullish(),
+  environmental_risks: zod.string().nullish(),
+  fire_risk: zod.string().nullish(),
+  access_risk: zod.string().nullish(),
+  likelihood_rating: zod.string().nullish(),
+  severity_rating: zod.string().nullish(),
+  overall_risk_rating: zod.string().nullish(),
+  control_measures: zod.string().nullish(),
+  further_actions_required: zod.string().nullish(),
+  assessor_name: zod.string().nullish(),
+  assessor_qualification: zod.string().nullish(),
+  assessment_date: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create a combustion analysis record
+ */
+export const CreateCombustionAnalysisRecordBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  co2_reading: zod.string().optional(),
+  co_reading: zod.string().optional(),
+  o2_reading: zod.string().optional(),
+  flue_temperature: zod.string().optional(),
+  ambient_temperature: zod.string().optional(),
+  efficiency: zod.string().optional(),
+  excess_air: zod.string().optional(),
+  smoke_number: zod.string().optional(),
+  ambient_co: zod.string().optional(),
+  draft_reading: zod.string().optional(),
+  instrument_make: zod.string().optional(),
+  instrument_model: zod.string().optional(),
+  instrument_serial: zod.string().optional(),
+  calibration_date: zod.string().optional(),
+  pass_fail: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get combustion analysis record by ID
+ */
+export const GetCombustionAnalysisRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetCombustionAnalysisRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  co2_reading: zod.string().nullish(),
+  co_reading: zod.string().nullish(),
+  o2_reading: zod.string().nullish(),
+  flue_temperature: zod.string().nullish(),
+  ambient_temperature: zod.string().nullish(),
+  efficiency: zod.string().nullish(),
+  excess_air: zod.string().nullish(),
+  smoke_number: zod.string().nullish(),
+  ambient_co: zod.string().nullish(),
+  draft_reading: zod.string().nullish(),
+  instrument_make: zod.string().nullish(),
+  instrument_model: zod.string().nullish(),
+  instrument_serial: zod.string().nullish(),
+  calibration_date: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update combustion analysis record
+ */
+export const UpdateCombustionAnalysisRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateCombustionAnalysisRecordBody = zod.object({
+  co2_reading: zod.string().nullish(),
+  co_reading: zod.string().nullish(),
+  o2_reading: zod.string().nullish(),
+  flue_temperature: zod.string().nullish(),
+  ambient_temperature: zod.string().nullish(),
+  efficiency: zod.string().nullish(),
+  excess_air: zod.string().nullish(),
+  smoke_number: zod.string().nullish(),
+  ambient_co: zod.string().nullish(),
+  draft_reading: zod.string().nullish(),
+  instrument_make: zod.string().nullish(),
+  instrument_model: zod.string().nullish(),
+  instrument_serial: zod.string().nullish(),
+  calibration_date: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateCombustionAnalysisRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  co2_reading: zod.string().nullish(),
+  co_reading: zod.string().nullish(),
+  o2_reading: zod.string().nullish(),
+  flue_temperature: zod.string().nullish(),
+  ambient_temperature: zod.string().nullish(),
+  efficiency: zod.string().nullish(),
+  excess_air: zod.string().nullish(),
+  smoke_number: zod.string().nullish(),
+  ambient_co: zod.string().nullish(),
+  draft_reading: zod.string().nullish(),
+  instrument_make: zod.string().nullish(),
+  instrument_model: zod.string().nullish(),
+  instrument_serial: zod.string().nullish(),
+  calibration_date: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get combustion analysis record by job ID
+ */
+export const GetCombustionAnalysisRecordByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetCombustionAnalysisRecordByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  co2_reading: zod.string().nullish(),
+  co_reading: zod.string().nullish(),
+  o2_reading: zod.string().nullish(),
+  flue_temperature: zod.string().nullish(),
+  ambient_temperature: zod.string().nullish(),
+  efficiency: zod.string().nullish(),
+  excess_air: zod.string().nullish(),
+  smoke_number: zod.string().nullish(),
+  ambient_co: zod.string().nullish(),
+  draft_reading: zod.string().nullish(),
+  instrument_make: zod.string().nullish(),
+  instrument_model: zod.string().nullish(),
+  instrument_serial: zod.string().nullish(),
+  calibration_date: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create a burner setup record
+ */
+export const CreateBurnerSetupRecordBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  burner_manufacturer: zod.string().optional(),
+  burner_model: zod.string().optional(),
+  burner_serial_number: zod.string().optional(),
+  nozzle_size: zod.string().optional(),
+  nozzle_type: zod.string().optional(),
+  nozzle_angle: zod.string().optional(),
+  pump_pressure: zod.string().optional(),
+  pump_vacuum: zod.string().optional(),
+  electrode_gap: zod.string().optional(),
+  electrode_position: zod.string().optional(),
+  air_damper_setting: zod.string().optional(),
+  head_setting: zod.string().optional(),
+  combustion_co2: zod.string().optional(),
+  combustion_co: zod.string().optional(),
+  combustion_smoke: zod.string().optional(),
+  combustion_efficiency: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get burner setup record by ID
+ */
+export const GetBurnerSetupRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetBurnerSetupRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  burner_manufacturer: zod.string().nullish(),
+  burner_model: zod.string().nullish(),
+  burner_serial_number: zod.string().nullish(),
+  nozzle_size: zod.string().nullish(),
+  nozzle_type: zod.string().nullish(),
+  nozzle_angle: zod.string().nullish(),
+  pump_pressure: zod.string().nullish(),
+  pump_vacuum: zod.string().nullish(),
+  electrode_gap: zod.string().nullish(),
+  electrode_position: zod.string().nullish(),
+  air_damper_setting: zod.string().nullish(),
+  head_setting: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_smoke: zod.string().nullish(),
+  combustion_efficiency: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update burner setup record
+ */
+export const UpdateBurnerSetupRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateBurnerSetupRecordBody = zod.object({
+  burner_manufacturer: zod.string().nullish(),
+  burner_model: zod.string().nullish(),
+  burner_serial_number: zod.string().nullish(),
+  nozzle_size: zod.string().nullish(),
+  nozzle_type: zod.string().nullish(),
+  nozzle_angle: zod.string().nullish(),
+  pump_pressure: zod.string().nullish(),
+  pump_vacuum: zod.string().nullish(),
+  electrode_gap: zod.string().nullish(),
+  electrode_position: zod.string().nullish(),
+  air_damper_setting: zod.string().nullish(),
+  head_setting: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_smoke: zod.string().nullish(),
+  combustion_efficiency: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateBurnerSetupRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  burner_manufacturer: zod.string().nullish(),
+  burner_model: zod.string().nullish(),
+  burner_serial_number: zod.string().nullish(),
+  nozzle_size: zod.string().nullish(),
+  nozzle_type: zod.string().nullish(),
+  nozzle_angle: zod.string().nullish(),
+  pump_pressure: zod.string().nullish(),
+  pump_vacuum: zod.string().nullish(),
+  electrode_gap: zod.string().nullish(),
+  electrode_position: zod.string().nullish(),
+  air_damper_setting: zod.string().nullish(),
+  head_setting: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_smoke: zod.string().nullish(),
+  combustion_efficiency: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get burner setup record by job ID
+ */
+export const GetBurnerSetupRecordByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetBurnerSetupRecordByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  burner_manufacturer: zod.string().nullish(),
+  burner_model: zod.string().nullish(),
+  burner_serial_number: zod.string().nullish(),
+  nozzle_size: zod.string().nullish(),
+  nozzle_type: zod.string().nullish(),
+  nozzle_angle: zod.string().nullish(),
+  pump_pressure: zod.string().nullish(),
+  pump_vacuum: zod.string().nullish(),
+  electrode_gap: zod.string().nullish(),
+  electrode_position: zod.string().nullish(),
+  air_damper_setting: zod.string().nullish(),
+  head_setting: zod.string().nullish(),
+  combustion_co2: zod.string().nullish(),
+  combustion_co: zod.string().nullish(),
+  combustion_smoke: zod.string().nullish(),
+  combustion_efficiency: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create a fire valve test record
+ */
+export const CreateFireValveTestRecordBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  valve_location: zod.string().optional(),
+  valve_type: zod.string().optional(),
+  valve_manufacturer: zod.string().optional(),
+  test_date: zod.string().optional(),
+  test_method: zod.string().optional(),
+  test_result: zod.string().optional(),
+  response_time: zod.string().optional(),
+  reset_successful: zod.boolean().optional(),
+  remedial_action: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get fire valve test record by ID
+ */
+export const GetFireValveTestRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetFireValveTestRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  valve_location: zod.string().nullish(),
+  valve_type: zod.string().nullish(),
+  valve_manufacturer: zod.string().nullish(),
+  test_date: zod.string().nullish(),
+  test_method: zod.string().nullish(),
+  test_result: zod.string().nullish(),
+  response_time: zod.string().nullish(),
+  reset_successful: zod.boolean().optional(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update fire valve test record
+ */
+export const UpdateFireValveTestRecordParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateFireValveTestRecordBody = zod.object({
+  valve_location: zod.string().nullish(),
+  valve_type: zod.string().nullish(),
+  valve_manufacturer: zod.string().nullish(),
+  test_date: zod.string().nullish(),
+  test_method: zod.string().nullish(),
+  test_result: zod.string().nullish(),
+  response_time: zod.string().nullish(),
+  reset_successful: zod.boolean().optional(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateFireValveTestRecordResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  valve_location: zod.string().nullish(),
+  valve_type: zod.string().nullish(),
+  valve_manufacturer: zod.string().nullish(),
+  test_date: zod.string().nullish(),
+  test_method: zod.string().nullish(),
+  test_result: zod.string().nullish(),
+  response_time: zod.string().nullish(),
+  reset_successful: zod.boolean().optional(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get fire valve test record by job ID
+ */
+export const GetFireValveTestRecordByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetFireValveTestRecordByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  valve_location: zod.string().nullish(),
+  valve_type: zod.string().nullish(),
+  valve_manufacturer: zod.string().nullish(),
+  test_date: zod.string().nullish(),
+  test_method: zod.string().nullish(),
+  test_result: zod.string().nullish(),
+  response_time: zod.string().nullish(),
+  reset_successful: zod.boolean().optional(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create an oil line vacuum test
+ */
+export const CreateOilLineVacuumTestBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  pipe_size: zod.string().optional(),
+  pipe_material: zod.string().optional(),
+  pipe_length: zod.string().optional(),
+  number_of_joints: zod.string().optional(),
+  initial_vacuum: zod.string().optional(),
+  vacuum_after_5_min: zod.string().optional(),
+  vacuum_after_10_min: zod.string().optional(),
+  allowable_drop: zod.string().optional(),
+  actual_drop: zod.string().optional(),
+  pass_fail: zod.string().optional(),
+  remedial_action: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get oil line vacuum test by ID
+ */
+export const GetOilLineVacuumTestParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetOilLineVacuumTestResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  pipe_size: zod.string().nullish(),
+  pipe_material: zod.string().nullish(),
+  pipe_length: zod.string().nullish(),
+  number_of_joints: zod.string().nullish(),
+  initial_vacuum: zod.string().nullish(),
+  vacuum_after_5_min: zod.string().nullish(),
+  vacuum_after_10_min: zod.string().nullish(),
+  allowable_drop: zod.string().nullish(),
+  actual_drop: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update oil line vacuum test
+ */
+export const UpdateOilLineVacuumTestParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateOilLineVacuumTestBody = zod.object({
+  pipe_size: zod.string().nullish(),
+  pipe_material: zod.string().nullish(),
+  pipe_length: zod.string().nullish(),
+  number_of_joints: zod.string().nullish(),
+  initial_vacuum: zod.string().nullish(),
+  vacuum_after_5_min: zod.string().nullish(),
+  vacuum_after_10_min: zod.string().nullish(),
+  allowable_drop: zod.string().nullish(),
+  actual_drop: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateOilLineVacuumTestResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  pipe_size: zod.string().nullish(),
+  pipe_material: zod.string().nullish(),
+  pipe_length: zod.string().nullish(),
+  number_of_joints: zod.string().nullish(),
+  initial_vacuum: zod.string().nullish(),
+  vacuum_after_5_min: zod.string().nullish(),
+  vacuum_after_10_min: zod.string().nullish(),
+  allowable_drop: zod.string().nullish(),
+  actual_drop: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get oil line vacuum test by job ID
+ */
+export const GetOilLineVacuumTestByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetOilLineVacuumTestByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  pipe_size: zod.string().nullish(),
+  pipe_material: zod.string().nullish(),
+  pipe_length: zod.string().nullish(),
+  number_of_joints: zod.string().nullish(),
+  initial_vacuum: zod.string().nullish(),
+  vacuum_after_5_min: zod.string().nullish(),
+  vacuum_after_10_min: zod.string().nullish(),
+  allowable_drop: zod.string().nullish(),
+  actual_drop: zod.string().nullish(),
+  pass_fail: zod.string().nullish(),
+  remedial_action: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Create a job completion report
+ */
+export const CreateJobCompletionReportBody = zod.object({
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  work_completed: zod.string().optional(),
+  parts_fitted: zod.string().optional(),
+  parts_serial_numbers: zod.string().optional(),
+  outstanding_items: zod.string().optional(),
+  defects_found: zod.string().optional(),
+  advisories: zod.string().optional(),
+  customer_advised: zod.boolean().optional(),
+  customer_sign_off: zod.boolean().optional(),
+  customer_name_signed: zod.string().optional(),
+  next_service_date: zod.string().optional(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().optional(),
+  additional_notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get job completion report by ID
+ */
+export const GetJobCompletionReportParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetJobCompletionReportResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  work_completed: zod.string().nullish(),
+  parts_fitted: zod.string().nullish(),
+  parts_serial_numbers: zod.string().nullish(),
+  outstanding_items: zod.string().nullish(),
+  defects_found: zod.string().nullish(),
+  advisories: zod.string().nullish(),
+  customer_advised: zod.boolean().optional(),
+  customer_sign_off: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  next_service_date: zod.string().nullish(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Update job completion report
+ */
+export const UpdateJobCompletionReportParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateJobCompletionReportBody = zod.object({
+  work_completed: zod.string().nullish(),
+  parts_fitted: zod.string().nullish(),
+  parts_serial_numbers: zod.string().nullish(),
+  outstanding_items: zod.string().nullish(),
+  defects_found: zod.string().nullish(),
+  advisories: zod.string().nullish(),
+  customer_advised: zod.boolean().optional(),
+  customer_sign_off: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  next_service_date: zod.string().nullish(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+});
+
+export const UpdateJobCompletionReportResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  work_completed: zod.string().nullish(),
+  parts_fitted: zod.string().nullish(),
+  parts_serial_numbers: zod.string().nullish(),
+  outstanding_items: zod.string().nullish(),
+  defects_found: zod.string().nullish(),
+  advisories: zod.string().nullish(),
+  customer_advised: zod.boolean().optional(),
+  customer_sign_off: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  next_service_date: zod.string().nullish(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
+});
+
+/**
+ * @summary Get job completion report by job ID
+ */
+export const GetJobCompletionReportByJobParams = zod.object({
+  jobId: zod.coerce.string().uuid(),
+});
+
+export const GetJobCompletionReportByJobResponse = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  technician_id: zod.string().uuid(),
+  work_completed: zod.string().nullish(),
+  parts_fitted: zod.string().nullish(),
+  parts_serial_numbers: zod.string().nullish(),
+  outstanding_items: zod.string().nullish(),
+  defects_found: zod.string().nullish(),
+  advisories: zod.string().nullish(),
+  customer_advised: zod.boolean().optional(),
+  customer_sign_off: zod.boolean().optional(),
+  customer_name_signed: zod.string().nullish(),
+  next_service_date: zod.string().nullish(),
+  follow_up_required: zod.boolean().optional(),
+  follow_up_notes: zod.string().nullish(),
+  additional_notes: zod.string().nullish(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 
 /**
@@ -1995,8 +2882,8 @@ export const ListJobNotesResponseItem = zod.object({
   author_id: zod.string().uuid(),
   content: zod.string(),
   author_name: zod.string().nullish(),
-  created_at: zod.coerce.date(),
-  updated_at: zod.coerce.date(),
+  created_at: zod.date(),
+  updated_at: zod.date(),
 });
 export const ListJobNotesResponse = zod.array(ListJobNotesResponseItem);
 
@@ -2029,7 +2916,7 @@ export const ListFilesResponseItem = zod.object({
   entity_id: zod.string().uuid(),
   uploaded_by: zod.string().uuid().nullish(),
   description: zod.string().nullish(),
-  created_at: zod.coerce.date(),
+  created_at: zod.date(),
   signed_url: zod.string().nullish(),
 });
 export const ListFilesResponse = zod.array(ListFilesResponseItem);
@@ -2038,7 +2925,7 @@ export const ListFilesResponse = zod.array(ListFilesResponseItem);
  * @summary Upload a file
  */
 export const UploadFileBody = zod.object({
-  file: zod.any(),
+  file: zod.instanceof(File),
   entity_type: zod.string(),
   entity_id: zod.string().uuid(),
   description: zod.string().optional(),
@@ -2085,8 +2972,8 @@ export const GetJobSignaturesResponseItem = zod.object({
   signer_type: zod.enum(["technician", "customer"]),
   signer_name: zod.string(),
   storage_path: zod.string(),
-  signed_at: zod.coerce.date(),
-  created_at: zod.coerce.date(),
+  signed_at: zod.date(),
+  created_at: zod.date(),
   signed_url: zod.string().nullish(),
 });
 export const GetJobSignaturesResponse = zod.array(GetJobSignaturesResponseItem);
@@ -2116,8 +3003,8 @@ export const GlobalSearchResponse = zod.object({
         postcode: zod.string().nullish(),
         notes: zod.string().nullish(),
         is_active: zod.boolean(),
-        created_at: zod.coerce.date(),
-        updated_at: zod.coerce.date(),
+        created_at: zod.date(),
+        updated_at: zod.date(),
       }),
     )
     .optional(),
@@ -2140,8 +3027,8 @@ export const GlobalSearchResponse = zod.object({
         tank_location: zod.string().nullish(),
         notes: zod.string().nullish(),
         is_active: zod.boolean(),
-        created_at: zod.coerce.date(),
-        updated_at: zod.coerce.date(),
+        created_at: zod.date(),
+        updated_at: zod.date(),
         customer_name: zod.string().nullish(),
       }),
     )
@@ -2157,19 +3044,19 @@ export const GlobalSearchResponse = zod.object({
         boiler_type: zod.string().nullish(),
         fuel_type: zod.string().nullish(),
         system_type: zod.string().nullish(),
-        installation_date: zod.coerce.date().nullish(),
-        warranty_expiry: zod.coerce.date().nullish(),
+        installation_date: zod.date().nullish(),
+        warranty_expiry: zod.date().nullish(),
         burner_make: zod.string().nullish(),
         burner_model: zod.string().nullish(),
         nozzle_size: zod.string().nullish(),
         pump_pressure: zod.string().nullish(),
         controls: zod.string().nullish(),
-        last_service_date: zod.coerce.date().nullish(),
-        next_service_due: zod.coerce.date().nullish(),
+        last_service_date: zod.date().nullish(),
+        next_service_due: zod.date().nullish(),
         notes: zod.string().nullish(),
         is_active: zod.boolean(),
-        created_at: zod.coerce.date(),
-        updated_at: zod.coerce.date(),
+        created_at: zod.date(),
+        updated_at: zod.date(),
         property_address: zod.string().nullish(),
       }),
     )
@@ -2198,14 +3085,14 @@ export const GlobalSearchResponse = zod.object({
             "requires_follow_up",
           ]),
           priority: zod.enum(["low", "medium", "high", "urgent"]),
-          scheduled_date: zod.coerce.date(),
+          scheduled_date: zod.date(),
           scheduled_time: zod.string().nullish(),
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .and(
           zod.object({
@@ -2226,7 +3113,7 @@ export const GetUpcomingServicesResponseItem = zod.object({
   manufacturer: zod.string().nullish(),
   model: zod.string().nullish(),
   serial_number: zod.string().nullish(),
-  next_service_due: zod.coerce.date(),
+  next_service_due: zod.date(),
   property_address: zod.string().nullish(),
   customer_name: zod.string().nullish(),
   customer_id: zod.string().uuid().nullish(),
@@ -2244,7 +3131,7 @@ export const GetOverdueServicesResponseItem = zod.object({
   manufacturer: zod.string().nullish(),
   model: zod.string().nullish(),
   serial_number: zod.string().nullish(),
-  next_service_due: zod.coerce.date(),
+  next_service_due: zod.date(),
   property_address: zod.string().nullish(),
   customer_name: zod.string().nullish(),
   customer_id: zod.string().uuid().nullish(),
@@ -2258,8 +3145,8 @@ export const GetOverdueServicesResponse = zod.array(
  * @summary Get completed jobs grouped by technician
  */
 export const GetCompletedByTechnicianQueryParams = zod.object({
-  date_from: zod.coerce.date().optional(),
-  date_to: zod.coerce.date().optional(),
+  date_from: zod.date().optional(),
+  date_to: zod.date().optional(),
 });
 
 export const GetCompletedByTechnicianResponseItem = zod.object({
@@ -2290,14 +3177,14 @@ export const GetCompletedByTechnicianResponseItem = zod.object({
             "requires_follow_up",
           ]),
           priority: zod.enum(["low", "medium", "high", "urgent"]),
-          scheduled_date: zod.coerce.date(),
+          scheduled_date: zod.date(),
           scheduled_time: zod.string().nullish(),
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
           is_active: zod.boolean(),
-          created_at: zod.coerce.date(),
-          updated_at: zod.coerce.date(),
+          created_at: zod.date(),
+          updated_at: zod.date(),
         })
         .and(
           zod.object({

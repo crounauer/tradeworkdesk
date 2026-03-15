@@ -1058,6 +1058,603 @@ export interface DashboardData {
   stats?: DashboardDataStats;
 }
 
+export interface OilTankInspection {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  tank_type?: string | null;
+  /** @nullable */
+  tank_size?: string | null;
+  /** @nullable */
+  tank_material?: string | null;
+  /** @nullable */
+  tank_location?: string | null;
+  /** @nullable */
+  tank_age?: string | null;
+  /** @nullable */
+  bunding_type?: string | null;
+  /** @nullable */
+  bunding_condition?: string | null;
+  /** @nullable */
+  sight_gauge_condition?: string | null;
+  /** @nullable */
+  fill_point_condition?: string | null;
+  /** @nullable */
+  vent_condition?: string | null;
+  /** @nullable */
+  filter_condition?: string | null;
+  /** @nullable */
+  pipework_condition?: string | null;
+  /** @nullable */
+  supports_condition?: string | null;
+  /** @nullable */
+  overall_condition?: string | null;
+  leaks_found?: boolean;
+  /** @nullable */
+  leaks_details?: string | null;
+  /** @nullable */
+  remedial_actions?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOilTankInspectionBody {
+  job_id: string;
+  technician_id: string;
+  tank_type?: string;
+  tank_size?: string;
+  tank_material?: string;
+  tank_location?: string;
+  tank_age?: string;
+  bunding_type?: string;
+  bunding_condition?: string;
+  sight_gauge_condition?: string;
+  fill_point_condition?: string;
+  vent_condition?: string;
+  filter_condition?: string;
+  pipework_condition?: string;
+  supports_condition?: string;
+  overall_condition?: string;
+  leaks_found?: boolean;
+  leaks_details?: string;
+  remedial_actions?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateOilTankInspectionBody {
+  /** @nullable */
+  tank_type?: string | null;
+  /** @nullable */
+  tank_size?: string | null;
+  /** @nullable */
+  tank_material?: string | null;
+  /** @nullable */
+  tank_location?: string | null;
+  /** @nullable */
+  tank_age?: string | null;
+  /** @nullable */
+  bunding_type?: string | null;
+  /** @nullable */
+  bunding_condition?: string | null;
+  /** @nullable */
+  sight_gauge_condition?: string | null;
+  /** @nullable */
+  fill_point_condition?: string | null;
+  /** @nullable */
+  vent_condition?: string | null;
+  /** @nullable */
+  filter_condition?: string | null;
+  /** @nullable */
+  pipework_condition?: string | null;
+  /** @nullable */
+  supports_condition?: string | null;
+  /** @nullable */
+  overall_condition?: string | null;
+  leaks_found?: boolean;
+  /** @nullable */
+  leaks_details?: string | null;
+  /** @nullable */
+  remedial_actions?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
+export interface OilTankRiskAssessment {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  site_hazards?: string | null;
+  /** @nullable */
+  environmental_risks?: string | null;
+  /** @nullable */
+  fire_risk?: string | null;
+  /** @nullable */
+  access_risk?: string | null;
+  /** @nullable */
+  likelihood_rating?: string | null;
+  /** @nullable */
+  severity_rating?: string | null;
+  /** @nullable */
+  overall_risk_rating?: string | null;
+  /** @nullable */
+  control_measures?: string | null;
+  /** @nullable */
+  further_actions_required?: string | null;
+  /** @nullable */
+  assessor_name?: string | null;
+  /** @nullable */
+  assessor_qualification?: string | null;
+  /** @nullable */
+  assessment_date?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOilTankRiskAssessmentBody {
+  job_id: string;
+  technician_id: string;
+  site_hazards?: string;
+  environmental_risks?: string;
+  fire_risk?: string;
+  access_risk?: string;
+  likelihood_rating?: string;
+  severity_rating?: string;
+  overall_risk_rating?: string;
+  control_measures?: string;
+  further_actions_required?: string;
+  assessor_name?: string;
+  assessor_qualification?: string;
+  assessment_date?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateOilTankRiskAssessmentBody {
+  /** @nullable */
+  site_hazards?: string | null;
+  /** @nullable */
+  environmental_risks?: string | null;
+  /** @nullable */
+  fire_risk?: string | null;
+  /** @nullable */
+  access_risk?: string | null;
+  /** @nullable */
+  likelihood_rating?: string | null;
+  /** @nullable */
+  severity_rating?: string | null;
+  /** @nullable */
+  overall_risk_rating?: string | null;
+  /** @nullable */
+  control_measures?: string | null;
+  /** @nullable */
+  further_actions_required?: string | null;
+  /** @nullable */
+  assessor_name?: string | null;
+  /** @nullable */
+  assessor_qualification?: string | null;
+  /** @nullable */
+  assessment_date?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
+export interface CombustionAnalysisRecord {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  co2_reading?: string | null;
+  /** @nullable */
+  co_reading?: string | null;
+  /** @nullable */
+  o2_reading?: string | null;
+  /** @nullable */
+  flue_temperature?: string | null;
+  /** @nullable */
+  ambient_temperature?: string | null;
+  /** @nullable */
+  efficiency?: string | null;
+  /** @nullable */
+  excess_air?: string | null;
+  /** @nullable */
+  smoke_number?: string | null;
+  /** @nullable */
+  ambient_co?: string | null;
+  /** @nullable */
+  draft_reading?: string | null;
+  /** @nullable */
+  instrument_make?: string | null;
+  /** @nullable */
+  instrument_model?: string | null;
+  /** @nullable */
+  instrument_serial?: string | null;
+  /** @nullable */
+  calibration_date?: string | null;
+  /** @nullable */
+  pass_fail?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCombustionAnalysisRecordBody {
+  job_id: string;
+  technician_id: string;
+  co2_reading?: string;
+  co_reading?: string;
+  o2_reading?: string;
+  flue_temperature?: string;
+  ambient_temperature?: string;
+  efficiency?: string;
+  excess_air?: string;
+  smoke_number?: string;
+  ambient_co?: string;
+  draft_reading?: string;
+  instrument_make?: string;
+  instrument_model?: string;
+  instrument_serial?: string;
+  calibration_date?: string;
+  pass_fail?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateCombustionAnalysisRecordBody {
+  /** @nullable */
+  co2_reading?: string | null;
+  /** @nullable */
+  co_reading?: string | null;
+  /** @nullable */
+  o2_reading?: string | null;
+  /** @nullable */
+  flue_temperature?: string | null;
+  /** @nullable */
+  ambient_temperature?: string | null;
+  /** @nullable */
+  efficiency?: string | null;
+  /** @nullable */
+  excess_air?: string | null;
+  /** @nullable */
+  smoke_number?: string | null;
+  /** @nullable */
+  ambient_co?: string | null;
+  /** @nullable */
+  draft_reading?: string | null;
+  /** @nullable */
+  instrument_make?: string | null;
+  /** @nullable */
+  instrument_model?: string | null;
+  /** @nullable */
+  instrument_serial?: string | null;
+  /** @nullable */
+  calibration_date?: string | null;
+  /** @nullable */
+  pass_fail?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
+export interface BurnerSetupRecord {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  burner_manufacturer?: string | null;
+  /** @nullable */
+  burner_model?: string | null;
+  /** @nullable */
+  burner_serial_number?: string | null;
+  /** @nullable */
+  nozzle_size?: string | null;
+  /** @nullable */
+  nozzle_type?: string | null;
+  /** @nullable */
+  nozzle_angle?: string | null;
+  /** @nullable */
+  pump_pressure?: string | null;
+  /** @nullable */
+  pump_vacuum?: string | null;
+  /** @nullable */
+  electrode_gap?: string | null;
+  /** @nullable */
+  electrode_position?: string | null;
+  /** @nullable */
+  air_damper_setting?: string | null;
+  /** @nullable */
+  head_setting?: string | null;
+  /** @nullable */
+  combustion_co2?: string | null;
+  /** @nullable */
+  combustion_co?: string | null;
+  /** @nullable */
+  combustion_smoke?: string | null;
+  /** @nullable */
+  combustion_efficiency?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateBurnerSetupRecordBody {
+  job_id: string;
+  technician_id: string;
+  burner_manufacturer?: string;
+  burner_model?: string;
+  burner_serial_number?: string;
+  nozzle_size?: string;
+  nozzle_type?: string;
+  nozzle_angle?: string;
+  pump_pressure?: string;
+  pump_vacuum?: string;
+  electrode_gap?: string;
+  electrode_position?: string;
+  air_damper_setting?: string;
+  head_setting?: string;
+  combustion_co2?: string;
+  combustion_co?: string;
+  combustion_smoke?: string;
+  combustion_efficiency?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateBurnerSetupRecordBody {
+  /** @nullable */
+  burner_manufacturer?: string | null;
+  /** @nullable */
+  burner_model?: string | null;
+  /** @nullable */
+  burner_serial_number?: string | null;
+  /** @nullable */
+  nozzle_size?: string | null;
+  /** @nullable */
+  nozzle_type?: string | null;
+  /** @nullable */
+  nozzle_angle?: string | null;
+  /** @nullable */
+  pump_pressure?: string | null;
+  /** @nullable */
+  pump_vacuum?: string | null;
+  /** @nullable */
+  electrode_gap?: string | null;
+  /** @nullable */
+  electrode_position?: string | null;
+  /** @nullable */
+  air_damper_setting?: string | null;
+  /** @nullable */
+  head_setting?: string | null;
+  /** @nullable */
+  combustion_co2?: string | null;
+  /** @nullable */
+  combustion_co?: string | null;
+  /** @nullable */
+  combustion_smoke?: string | null;
+  /** @nullable */
+  combustion_efficiency?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
+export interface FireValveTestRecord {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  valve_location?: string | null;
+  /** @nullable */
+  valve_type?: string | null;
+  /** @nullable */
+  valve_manufacturer?: string | null;
+  /** @nullable */
+  test_date?: string | null;
+  /** @nullable */
+  test_method?: string | null;
+  /** @nullable */
+  test_result?: string | null;
+  /** @nullable */
+  response_time?: string | null;
+  reset_successful?: boolean;
+  /** @nullable */
+  remedial_action?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFireValveTestRecordBody {
+  job_id: string;
+  technician_id: string;
+  valve_location?: string;
+  valve_type?: string;
+  valve_manufacturer?: string;
+  test_date?: string;
+  test_method?: string;
+  test_result?: string;
+  response_time?: string;
+  reset_successful?: boolean;
+  remedial_action?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateFireValveTestRecordBody {
+  /** @nullable */
+  valve_location?: string | null;
+  /** @nullable */
+  valve_type?: string | null;
+  /** @nullable */
+  valve_manufacturer?: string | null;
+  /** @nullable */
+  test_date?: string | null;
+  /** @nullable */
+  test_method?: string | null;
+  /** @nullable */
+  test_result?: string | null;
+  /** @nullable */
+  response_time?: string | null;
+  reset_successful?: boolean;
+  /** @nullable */
+  remedial_action?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
+export interface OilLineVacuumTest {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  pipe_size?: string | null;
+  /** @nullable */
+  pipe_material?: string | null;
+  /** @nullable */
+  pipe_length?: string | null;
+  /** @nullable */
+  number_of_joints?: string | null;
+  /** @nullable */
+  initial_vacuum?: string | null;
+  /** @nullable */
+  vacuum_after_5_min?: string | null;
+  /** @nullable */
+  vacuum_after_10_min?: string | null;
+  /** @nullable */
+  allowable_drop?: string | null;
+  /** @nullable */
+  actual_drop?: string | null;
+  /** @nullable */
+  pass_fail?: string | null;
+  /** @nullable */
+  remedial_action?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOilLineVacuumTestBody {
+  job_id: string;
+  technician_id: string;
+  pipe_size?: string;
+  pipe_material?: string;
+  pipe_length?: string;
+  number_of_joints?: string;
+  initial_vacuum?: string;
+  vacuum_after_5_min?: string;
+  vacuum_after_10_min?: string;
+  allowable_drop?: string;
+  actual_drop?: string;
+  pass_fail?: string;
+  remedial_action?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateOilLineVacuumTestBody {
+  /** @nullable */
+  pipe_size?: string | null;
+  /** @nullable */
+  pipe_material?: string | null;
+  /** @nullable */
+  pipe_length?: string | null;
+  /** @nullable */
+  number_of_joints?: string | null;
+  /** @nullable */
+  initial_vacuum?: string | null;
+  /** @nullable */
+  vacuum_after_5_min?: string | null;
+  /** @nullable */
+  vacuum_after_10_min?: string | null;
+  /** @nullable */
+  allowable_drop?: string | null;
+  /** @nullable */
+  actual_drop?: string | null;
+  /** @nullable */
+  pass_fail?: string | null;
+  /** @nullable */
+  remedial_action?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
+export interface JobCompletionReport {
+  id: string;
+  job_id: string;
+  technician_id: string;
+  /** @nullable */
+  work_completed?: string | null;
+  /** @nullable */
+  parts_fitted?: string | null;
+  /** @nullable */
+  parts_serial_numbers?: string | null;
+  /** @nullable */
+  outstanding_items?: string | null;
+  /** @nullable */
+  defects_found?: string | null;
+  /** @nullable */
+  advisories?: string | null;
+  customer_advised?: boolean;
+  customer_sign_off?: boolean;
+  /** @nullable */
+  customer_name_signed?: string | null;
+  /** @nullable */
+  next_service_date?: string | null;
+  follow_up_required?: boolean;
+  /** @nullable */
+  follow_up_notes?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateJobCompletionReportBody {
+  job_id: string;
+  technician_id: string;
+  work_completed?: string;
+  parts_fitted?: string;
+  parts_serial_numbers?: string;
+  outstanding_items?: string;
+  defects_found?: string;
+  advisories?: string;
+  customer_advised?: boolean;
+  customer_sign_off?: boolean;
+  customer_name_signed?: string;
+  next_service_date?: string;
+  follow_up_required?: boolean;
+  follow_up_notes?: string;
+  additional_notes?: string;
+}
+
+export interface UpdateJobCompletionReportBody {
+  /** @nullable */
+  work_completed?: string | null;
+  /** @nullable */
+  parts_fitted?: string | null;
+  /** @nullable */
+  parts_serial_numbers?: string | null;
+  /** @nullable */
+  outstanding_items?: string | null;
+  /** @nullable */
+  defects_found?: string | null;
+  /** @nullable */
+  advisories?: string | null;
+  customer_advised?: boolean;
+  customer_sign_off?: boolean;
+  /** @nullable */
+  customer_name_signed?: string | null;
+  /** @nullable */
+  next_service_date?: string | null;
+  follow_up_required?: boolean;
+  /** @nullable */
+  follow_up_notes?: string | null;
+  /** @nullable */
+  additional_notes?: string | null;
+}
+
 export type ListCustomersParams = {
   search?: string;
   is_active?: boolean;

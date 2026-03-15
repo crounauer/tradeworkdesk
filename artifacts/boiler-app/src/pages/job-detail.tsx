@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette, ClipboardList } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -132,6 +132,79 @@ export default function JobDetail() {
                   </Card>
                 </Link>
               )}
+
+              <Link href={`/jobs/${job.id}/job-completion`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-emerald-50/50 to-white">
+                  <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><ClipboardList className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Job Completion Report</h4>
+                    <p className="text-sm text-muted-foreground">Summarise work & sign-off</p>
+                  </div>
+                </Card>
+              </Link>
+            </div>
+
+            <h3 className="font-display font-bold text-xl mt-8 mb-4">Oil Service Records</h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Link href={`/jobs/${job.id}/oil-tank-inspection`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-blue-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-blue-50/50 to-white">
+                  <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Droplets className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Oil Tank Inspection</h4>
+                    <p className="text-sm text-muted-foreground">Tank details & condition</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href={`/jobs/${job.id}/oil-tank-risk-assessment`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-orange-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-orange-50/50 to-white">
+                  <div className="p-3 bg-orange-100 text-orange-600 rounded-xl"><ShieldAlert className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Oil Tank Risk Assessment</h4>
+                    <p className="text-sm text-muted-foreground">Hazards & risk ratings</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href={`/jobs/${job.id}/combustion-analysis`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-indigo-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-indigo-50/50 to-white">
+                  <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><Gauge className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Combustion Analysis</h4>
+                    <p className="text-sm text-muted-foreground">Flue gas readings & efficiency</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href={`/jobs/${job.id}/burner-setup`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-orange-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-amber-50/50 to-white">
+                  <div className="p-3 bg-amber-100 text-amber-600 rounded-xl"><Settings className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Burner Setup Record</h4>
+                    <p className="text-sm text-muted-foreground">Nozzle, pressure & electrodes</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href={`/jobs/${job.id}/fire-valve-test`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-red-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-red-50/50 to-white">
+                  <div className="p-3 bg-red-100 text-red-600 rounded-xl"><ShieldCheck className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Fire Valve Test</h4>
+                    <p className="text-sm text-muted-foreground">Test result & remedial action</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href={`/jobs/${job.id}/oil-line-vacuum-test`}>
+                <Card className="p-5 flex items-center gap-4 hover:border-teal-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-teal-50/50 to-white">
+                  <div className="p-3 bg-teal-100 text-teal-600 rounded-xl"><Pipette className="w-6 h-6"/></div>
+                  <div>
+                    <h4 className="font-bold">Oil Line Vacuum Test</h4>
+                    <p className="text-sm text-muted-foreground">Pipework & vacuum readings</p>
+                  </div>
+                </Card>
+              </Link>
             </div>
           </div>
 

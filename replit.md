@@ -105,7 +105,7 @@ artifacts-monorepo/
 
 Express 5 API server. All routes under `/api`.
 
-- Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, notes, files, signatures, search, reports, dashboard
+- Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, commissioning-records, oil-tank-inspections, oil-tank-risk-assessments, combustion-analysis-records, burner-setup-records, fire-valve-test-records, oil-line-vacuum-tests, job-completion-reports, notes, files, signatures, search, reports, dashboard
 - Uses `supabaseAdmin` (service role) for all DB/storage operations
 - Auth middleware: `requireAuth` validates JWT, `requireRole` checks user role
 - Resource-level authorization: technicians restricted to assigned jobs across all job-related endpoints (detail, service records, breakdown reports, files, signatures, notes)
@@ -118,7 +118,7 @@ React + Vite frontend with Tailwind CSS and shadcn/ui components.
 
 - Auth: Supabase client-side auth with `useAuth` hook
 - Fetch interceptor: automatically attaches Supabase JWT to `/api/` requests
-- Pages: Login, Dashboard, Customers, Customer Detail, Properties, Property Detail, Appliances, Appliance Detail, Jobs, Job Detail, Service Record Form, Breakdown Report Form, Job Files, Job Signatures, Search, Reports
+- Pages: Login, Dashboard, Customers, Customer Detail, Properties, Property Detail, Appliances, Appliance Detail, Jobs, Job Detail, Service Record Form, Breakdown Report Form, Commissioning Record Form, Oil Tank Inspection Form, Oil Tank Risk Assessment Form, Combustion Analysis Form, Burner Setup Form, Fire Valve Test Form, Oil Line Vacuum Test Form, Job Completion Report Form, Job Files, Job Signatures, Search, Reports
 - Routing: wouter with protected routes
 - API calls: Generated React Query hooks from `@workspace/api-client-react`
 - PDF export: client-side PDF generation for service records via jsPDF
@@ -142,7 +142,7 @@ Drizzle ORM schema definitions matching the Supabase database tables. Exports ty
 
 ## Database
 
-The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, breakdown_reports, job_notes, file_attachments, signatures. Includes RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`.
+The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, commissioning_records, breakdown_reports, oil_tank_inspections, oil_tank_risk_assessments, combustion_analysis_records, burner_setup_records, fire_valve_test_records, oil_line_vacuum_tests, job_completion_reports, job_notes, file_attachments, signatures. Includes RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`.
 
 Schema enums: user_role, job_status, job_type (service/breakdown/installation/inspection/follow_up), priority_level, property_type, occupancy_type, fuel_type, boiler_type, system_type.
 

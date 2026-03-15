@@ -25,6 +25,20 @@ tags:
     description: Commissioning record management
   - name: breakdownReports
     description: Breakdown report management
+  - name: oilTankInspections
+    description: Oil tank installation/inspection management
+  - name: oilTankRiskAssessments
+    description: Oil tank risk assessment management
+  - name: combustionAnalysis
+    description: Combustion analysis record management
+  - name: burnerSetup
+    description: Burner setup record management
+  - name: fireValveTests
+    description: Fire valve test record management
+  - name: oilLineVacuumTests
+    description: Oil line vacuum test record management
+  - name: jobCompletionReports
+    description: Job completion report management
   - name: notes
     description: Job notes
   - name: files
@@ -794,6 +808,587 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BreakdownReport"
+
+  /oil-tank-inspections:
+    post:
+      operationId: createOilTankInspection
+      tags: [oilTankInspections]
+      summary: Create an oil tank inspection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOilTankInspectionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankInspection"
+
+  /oil-tank-inspections/{id}:
+    get:
+      operationId: getOilTankInspection
+      tags: [oilTankInspections]
+      summary: Get oil tank inspection by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oil tank inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankInspection"
+    patch:
+      operationId: updateOilTankInspection
+      tags: [oilTankInspections]
+      summary: Update oil tank inspection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOilTankInspectionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankInspection"
+
+  /oil-tank-inspections/job/{jobId}:
+    get:
+      operationId: getOilTankInspectionByJob
+      tags: [oilTankInspections]
+      summary: Get oil tank inspection by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oil tank inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankInspection"
+
+  /oil-tank-risk-assessments:
+    post:
+      operationId: createOilTankRiskAssessment
+      tags: [oilTankRiskAssessments]
+      summary: Create an oil tank risk assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOilTankRiskAssessmentBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankRiskAssessment"
+
+  /oil-tank-risk-assessments/{id}:
+    get:
+      operationId: getOilTankRiskAssessment
+      tags: [oilTankRiskAssessments]
+      summary: Get oil tank risk assessment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oil tank risk assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankRiskAssessment"
+    patch:
+      operationId: updateOilTankRiskAssessment
+      tags: [oilTankRiskAssessments]
+      summary: Update oil tank risk assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOilTankRiskAssessmentBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankRiskAssessment"
+
+  /oil-tank-risk-assessments/job/{jobId}:
+    get:
+      operationId: getOilTankRiskAssessmentByJob
+      tags: [oilTankRiskAssessments]
+      summary: Get oil tank risk assessment by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oil tank risk assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilTankRiskAssessment"
+
+  /combustion-analysis-records:
+    post:
+      operationId: createCombustionAnalysisRecord
+      tags: [combustionAnalysis]
+      summary: Create a combustion analysis record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCombustionAnalysisRecordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CombustionAnalysisRecord"
+
+  /combustion-analysis-records/{id}:
+    get:
+      operationId: getCombustionAnalysisRecord
+      tags: [combustionAnalysis]
+      summary: Get combustion analysis record by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Combustion analysis record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CombustionAnalysisRecord"
+    patch:
+      operationId: updateCombustionAnalysisRecord
+      tags: [combustionAnalysis]
+      summary: Update combustion analysis record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCombustionAnalysisRecordBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CombustionAnalysisRecord"
+
+  /combustion-analysis-records/job/{jobId}:
+    get:
+      operationId: getCombustionAnalysisRecordByJob
+      tags: [combustionAnalysis]
+      summary: Get combustion analysis record by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Combustion analysis record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CombustionAnalysisRecord"
+
+  /burner-setup-records:
+    post:
+      operationId: createBurnerSetupRecord
+      tags: [burnerSetup]
+      summary: Create a burner setup record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBurnerSetupRecordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BurnerSetupRecord"
+
+  /burner-setup-records/{id}:
+    get:
+      operationId: getBurnerSetupRecord
+      tags: [burnerSetup]
+      summary: Get burner setup record by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Burner setup record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BurnerSetupRecord"
+    patch:
+      operationId: updateBurnerSetupRecord
+      tags: [burnerSetup]
+      summary: Update burner setup record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBurnerSetupRecordBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BurnerSetupRecord"
+
+  /burner-setup-records/job/{jobId}:
+    get:
+      operationId: getBurnerSetupRecordByJob
+      tags: [burnerSetup]
+      summary: Get burner setup record by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Burner setup record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BurnerSetupRecord"
+
+  /fire-valve-test-records:
+    post:
+      operationId: createFireValveTestRecord
+      tags: [fireValveTests]
+      summary: Create a fire valve test record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFireValveTestRecordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FireValveTestRecord"
+
+  /fire-valve-test-records/{id}:
+    get:
+      operationId: getFireValveTestRecord
+      tags: [fireValveTests]
+      summary: Get fire valve test record by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Fire valve test record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FireValveTestRecord"
+    patch:
+      operationId: updateFireValveTestRecord
+      tags: [fireValveTests]
+      summary: Update fire valve test record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFireValveTestRecordBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FireValveTestRecord"
+
+  /fire-valve-test-records/job/{jobId}:
+    get:
+      operationId: getFireValveTestRecordByJob
+      tags: [fireValveTests]
+      summary: Get fire valve test record by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Fire valve test record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FireValveTestRecord"
+
+  /oil-line-vacuum-tests:
+    post:
+      operationId: createOilLineVacuumTest
+      tags: [oilLineVacuumTests]
+      summary: Create an oil line vacuum test
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOilLineVacuumTestBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilLineVacuumTest"
+
+  /oil-line-vacuum-tests/{id}:
+    get:
+      operationId: getOilLineVacuumTest
+      tags: [oilLineVacuumTests]
+      summary: Get oil line vacuum test by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oil line vacuum test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilLineVacuumTest"
+    patch:
+      operationId: updateOilLineVacuumTest
+      tags: [oilLineVacuumTests]
+      summary: Update oil line vacuum test
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOilLineVacuumTestBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilLineVacuumTest"
+
+  /oil-line-vacuum-tests/job/{jobId}:
+    get:
+      operationId: getOilLineVacuumTestByJob
+      tags: [oilLineVacuumTests]
+      summary: Get oil line vacuum test by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oil line vacuum test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OilLineVacuumTest"
+
+  /job-completion-reports:
+    post:
+      operationId: createJobCompletionReport
+      tags: [jobCompletionReports]
+      summary: Create a job completion report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobCompletionReportBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCompletionReport"
+
+  /job-completion-reports/{id}:
+    get:
+      operationId: getJobCompletionReport
+      tags: [jobCompletionReports]
+      summary: Get job completion report by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job completion report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCompletionReport"
+    patch:
+      operationId: updateJobCompletionReport
+      tags: [jobCompletionReports]
+      summary: Update job completion report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJobCompletionReportBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCompletionReport"
+
+  /job-completion-reports/job/{jobId}:
+    get:
+      operationId: getJobCompletionReportByJob
+      tags: [jobCompletionReports]
+      summary: Get job completion report by job ID
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job completion report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCompletionReport"
 
   /jobs/{jobId}/notes:
     get:
@@ -2537,3 +3132,842 @@ components:
               type: integer
             completed_this_week:
               type: integer
+
+    OilTankInspection:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        tank_type:
+          type: ["string", "null"]
+        tank_size:
+          type: ["string", "null"]
+        tank_material:
+          type: ["string", "null"]
+        tank_location:
+          type: ["string", "null"]
+        tank_age:
+          type: ["string", "null"]
+        bunding_type:
+          type: ["string", "null"]
+        bunding_condition:
+          type: ["string", "null"]
+        sight_gauge_condition:
+          type: ["string", "null"]
+        fill_point_condition:
+          type: ["string", "null"]
+        vent_condition:
+          type: ["string", "null"]
+        filter_condition:
+          type: ["string", "null"]
+        pipework_condition:
+          type: ["string", "null"]
+        supports_condition:
+          type: ["string", "null"]
+        overall_condition:
+          type: ["string", "null"]
+        leaks_found:
+          type: boolean
+        leaks_details:
+          type: ["string", "null"]
+        remedial_actions:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateOilTankInspectionBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        tank_type:
+          type: string
+        tank_size:
+          type: string
+        tank_material:
+          type: string
+        tank_location:
+          type: string
+        tank_age:
+          type: string
+        bunding_type:
+          type: string
+        bunding_condition:
+          type: string
+        sight_gauge_condition:
+          type: string
+        fill_point_condition:
+          type: string
+        vent_condition:
+          type: string
+        filter_condition:
+          type: string
+        pipework_condition:
+          type: string
+        supports_condition:
+          type: string
+        overall_condition:
+          type: string
+        leaks_found:
+          type: boolean
+        leaks_details:
+          type: string
+        remedial_actions:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateOilTankInspectionBody:
+      type: object
+      properties:
+        tank_type:
+          type: ["string", "null"]
+        tank_size:
+          type: ["string", "null"]
+        tank_material:
+          type: ["string", "null"]
+        tank_location:
+          type: ["string", "null"]
+        tank_age:
+          type: ["string", "null"]
+        bunding_type:
+          type: ["string", "null"]
+        bunding_condition:
+          type: ["string", "null"]
+        sight_gauge_condition:
+          type: ["string", "null"]
+        fill_point_condition:
+          type: ["string", "null"]
+        vent_condition:
+          type: ["string", "null"]
+        filter_condition:
+          type: ["string", "null"]
+        pipework_condition:
+          type: ["string", "null"]
+        supports_condition:
+          type: ["string", "null"]
+        overall_condition:
+          type: ["string", "null"]
+        leaks_found:
+          type: boolean
+        leaks_details:
+          type: ["string", "null"]
+        remedial_actions:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    OilTankRiskAssessment:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        site_hazards:
+          type: ["string", "null"]
+        environmental_risks:
+          type: ["string", "null"]
+        fire_risk:
+          type: ["string", "null"]
+        access_risk:
+          type: ["string", "null"]
+        likelihood_rating:
+          type: ["string", "null"]
+        severity_rating:
+          type: ["string", "null"]
+        overall_risk_rating:
+          type: ["string", "null"]
+        control_measures:
+          type: ["string", "null"]
+        further_actions_required:
+          type: ["string", "null"]
+        assessor_name:
+          type: ["string", "null"]
+        assessor_qualification:
+          type: ["string", "null"]
+        assessment_date:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateOilTankRiskAssessmentBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        site_hazards:
+          type: string
+        environmental_risks:
+          type: string
+        fire_risk:
+          type: string
+        access_risk:
+          type: string
+        likelihood_rating:
+          type: string
+        severity_rating:
+          type: string
+        overall_risk_rating:
+          type: string
+        control_measures:
+          type: string
+        further_actions_required:
+          type: string
+        assessor_name:
+          type: string
+        assessor_qualification:
+          type: string
+        assessment_date:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateOilTankRiskAssessmentBody:
+      type: object
+      properties:
+        site_hazards:
+          type: ["string", "null"]
+        environmental_risks:
+          type: ["string", "null"]
+        fire_risk:
+          type: ["string", "null"]
+        access_risk:
+          type: ["string", "null"]
+        likelihood_rating:
+          type: ["string", "null"]
+        severity_rating:
+          type: ["string", "null"]
+        overall_risk_rating:
+          type: ["string", "null"]
+        control_measures:
+          type: ["string", "null"]
+        further_actions_required:
+          type: ["string", "null"]
+        assessor_name:
+          type: ["string", "null"]
+        assessor_qualification:
+          type: ["string", "null"]
+        assessment_date:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    CombustionAnalysisRecord:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        co2_reading:
+          type: ["string", "null"]
+        co_reading:
+          type: ["string", "null"]
+        o2_reading:
+          type: ["string", "null"]
+        flue_temperature:
+          type: ["string", "null"]
+        ambient_temperature:
+          type: ["string", "null"]
+        efficiency:
+          type: ["string", "null"]
+        excess_air:
+          type: ["string", "null"]
+        smoke_number:
+          type: ["string", "null"]
+        ambient_co:
+          type: ["string", "null"]
+        draft_reading:
+          type: ["string", "null"]
+        instrument_make:
+          type: ["string", "null"]
+        instrument_model:
+          type: ["string", "null"]
+        instrument_serial:
+          type: ["string", "null"]
+        calibration_date:
+          type: ["string", "null"]
+        pass_fail:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCombustionAnalysisRecordBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        co2_reading:
+          type: string
+        co_reading:
+          type: string
+        o2_reading:
+          type: string
+        flue_temperature:
+          type: string
+        ambient_temperature:
+          type: string
+        efficiency:
+          type: string
+        excess_air:
+          type: string
+        smoke_number:
+          type: string
+        ambient_co:
+          type: string
+        draft_reading:
+          type: string
+        instrument_make:
+          type: string
+        instrument_model:
+          type: string
+        instrument_serial:
+          type: string
+        calibration_date:
+          type: string
+        pass_fail:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateCombustionAnalysisRecordBody:
+      type: object
+      properties:
+        co2_reading:
+          type: ["string", "null"]
+        co_reading:
+          type: ["string", "null"]
+        o2_reading:
+          type: ["string", "null"]
+        flue_temperature:
+          type: ["string", "null"]
+        ambient_temperature:
+          type: ["string", "null"]
+        efficiency:
+          type: ["string", "null"]
+        excess_air:
+          type: ["string", "null"]
+        smoke_number:
+          type: ["string", "null"]
+        ambient_co:
+          type: ["string", "null"]
+        draft_reading:
+          type: ["string", "null"]
+        instrument_make:
+          type: ["string", "null"]
+        instrument_model:
+          type: ["string", "null"]
+        instrument_serial:
+          type: ["string", "null"]
+        calibration_date:
+          type: ["string", "null"]
+        pass_fail:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    BurnerSetupRecord:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        burner_manufacturer:
+          type: ["string", "null"]
+        burner_model:
+          type: ["string", "null"]
+        burner_serial_number:
+          type: ["string", "null"]
+        nozzle_size:
+          type: ["string", "null"]
+        nozzle_type:
+          type: ["string", "null"]
+        nozzle_angle:
+          type: ["string", "null"]
+        pump_pressure:
+          type: ["string", "null"]
+        pump_vacuum:
+          type: ["string", "null"]
+        electrode_gap:
+          type: ["string", "null"]
+        electrode_position:
+          type: ["string", "null"]
+        air_damper_setting:
+          type: ["string", "null"]
+        head_setting:
+          type: ["string", "null"]
+        combustion_co2:
+          type: ["string", "null"]
+        combustion_co:
+          type: ["string", "null"]
+        combustion_smoke:
+          type: ["string", "null"]
+        combustion_efficiency:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateBurnerSetupRecordBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        burner_manufacturer:
+          type: string
+        burner_model:
+          type: string
+        burner_serial_number:
+          type: string
+        nozzle_size:
+          type: string
+        nozzle_type:
+          type: string
+        nozzle_angle:
+          type: string
+        pump_pressure:
+          type: string
+        pump_vacuum:
+          type: string
+        electrode_gap:
+          type: string
+        electrode_position:
+          type: string
+        air_damper_setting:
+          type: string
+        head_setting:
+          type: string
+        combustion_co2:
+          type: string
+        combustion_co:
+          type: string
+        combustion_smoke:
+          type: string
+        combustion_efficiency:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateBurnerSetupRecordBody:
+      type: object
+      properties:
+        burner_manufacturer:
+          type: ["string", "null"]
+        burner_model:
+          type: ["string", "null"]
+        burner_serial_number:
+          type: ["string", "null"]
+        nozzle_size:
+          type: ["string", "null"]
+        nozzle_type:
+          type: ["string", "null"]
+        nozzle_angle:
+          type: ["string", "null"]
+        pump_pressure:
+          type: ["string", "null"]
+        pump_vacuum:
+          type: ["string", "null"]
+        electrode_gap:
+          type: ["string", "null"]
+        electrode_position:
+          type: ["string", "null"]
+        air_damper_setting:
+          type: ["string", "null"]
+        head_setting:
+          type: ["string", "null"]
+        combustion_co2:
+          type: ["string", "null"]
+        combustion_co:
+          type: ["string", "null"]
+        combustion_smoke:
+          type: ["string", "null"]
+        combustion_efficiency:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    FireValveTestRecord:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        valve_location:
+          type: ["string", "null"]
+        valve_type:
+          type: ["string", "null"]
+        valve_manufacturer:
+          type: ["string", "null"]
+        test_date:
+          type: ["string", "null"]
+        test_method:
+          type: ["string", "null"]
+        test_result:
+          type: ["string", "null"]
+        response_time:
+          type: ["string", "null"]
+        reset_successful:
+          type: boolean
+        remedial_action:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateFireValveTestRecordBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        valve_location:
+          type: string
+        valve_type:
+          type: string
+        valve_manufacturer:
+          type: string
+        test_date:
+          type: string
+        test_method:
+          type: string
+        test_result:
+          type: string
+        response_time:
+          type: string
+        reset_successful:
+          type: boolean
+        remedial_action:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateFireValveTestRecordBody:
+      type: object
+      properties:
+        valve_location:
+          type: ["string", "null"]
+        valve_type:
+          type: ["string", "null"]
+        valve_manufacturer:
+          type: ["string", "null"]
+        test_date:
+          type: ["string", "null"]
+        test_method:
+          type: ["string", "null"]
+        test_result:
+          type: ["string", "null"]
+        response_time:
+          type: ["string", "null"]
+        reset_successful:
+          type: boolean
+        remedial_action:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    OilLineVacuumTest:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        pipe_size:
+          type: ["string", "null"]
+        pipe_material:
+          type: ["string", "null"]
+        pipe_length:
+          type: ["string", "null"]
+        number_of_joints:
+          type: ["string", "null"]
+        initial_vacuum:
+          type: ["string", "null"]
+        vacuum_after_5_min:
+          type: ["string", "null"]
+        vacuum_after_10_min:
+          type: ["string", "null"]
+        allowable_drop:
+          type: ["string", "null"]
+        actual_drop:
+          type: ["string", "null"]
+        pass_fail:
+          type: ["string", "null"]
+        remedial_action:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateOilLineVacuumTestBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        pipe_size:
+          type: string
+        pipe_material:
+          type: string
+        pipe_length:
+          type: string
+        number_of_joints:
+          type: string
+        initial_vacuum:
+          type: string
+        vacuum_after_5_min:
+          type: string
+        vacuum_after_10_min:
+          type: string
+        allowable_drop:
+          type: string
+        actual_drop:
+          type: string
+        pass_fail:
+          type: string
+        remedial_action:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateOilLineVacuumTestBody:
+      type: object
+      properties:
+        pipe_size:
+          type: ["string", "null"]
+        pipe_material:
+          type: ["string", "null"]
+        pipe_length:
+          type: ["string", "null"]
+        number_of_joints:
+          type: ["string", "null"]
+        initial_vacuum:
+          type: ["string", "null"]
+        vacuum_after_5_min:
+          type: ["string", "null"]
+        vacuum_after_10_min:
+          type: ["string", "null"]
+        allowable_drop:
+          type: ["string", "null"]
+        actual_drop:
+          type: ["string", "null"]
+        pass_fail:
+          type: ["string", "null"]
+        remedial_action:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+
+    JobCompletionReport:
+      type: object
+      required: [id, job_id, technician_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        work_completed:
+          type: ["string", "null"]
+        parts_fitted:
+          type: ["string", "null"]
+        parts_serial_numbers:
+          type: ["string", "null"]
+        outstanding_items:
+          type: ["string", "null"]
+        defects_found:
+          type: ["string", "null"]
+        advisories:
+          type: ["string", "null"]
+        customer_advised:
+          type: boolean
+        customer_sign_off:
+          type: boolean
+        customer_name_signed:
+          type: ["string", "null"]
+        next_service_date:
+          type: ["string", "null"]
+        follow_up_required:
+          type: boolean
+        follow_up_notes:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateJobCompletionReportBody:
+      type: object
+      required: [job_id, technician_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        technician_id:
+          type: string
+          format: uuid
+        work_completed:
+          type: string
+        parts_fitted:
+          type: string
+        parts_serial_numbers:
+          type: string
+        outstanding_items:
+          type: string
+        defects_found:
+          type: string
+        advisories:
+          type: string
+        customer_advised:
+          type: boolean
+        customer_sign_off:
+          type: boolean
+        customer_name_signed:
+          type: string
+        next_service_date:
+          type: string
+        follow_up_required:
+          type: boolean
+        follow_up_notes:
+          type: string
+        additional_notes:
+          type: string
+
+    UpdateJobCompletionReportBody:
+      type: object
+      properties:
+        work_completed:
+          type: ["string", "null"]
+        parts_fitted:
+          type: ["string", "null"]
+        parts_serial_numbers:
+          type: ["string", "null"]
+        outstanding_items:
+          type: ["string", "null"]
+        defects_found:
+          type: ["string", "null"]
+        advisories:
+          type: ["string", "null"]
+        customer_advised:
+          type: boolean
+        customer_sign_off:
+          type: boolean
+        customer_name_signed:
+          type: ["string", "null"]
+        next_service_date:
+          type: ["string", "null"]
+        follow_up_required:
+          type: boolean
+        follow_up_notes:
+          type: ["string", "null"]
+        additional_notes:
+          type: ["string", "null"]

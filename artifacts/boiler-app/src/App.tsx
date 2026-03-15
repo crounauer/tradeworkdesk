@@ -19,6 +19,13 @@ import JobDetail from "@/pages/job-detail";
 import ServiceRecordForm from "@/pages/service-record-form";
 import BreakdownReportForm from "@/pages/breakdown-report-form";
 import CommissioningRecordForm from "@/pages/commissioning-record-form";
+import OilTankInspectionForm from "@/pages/oil-tank-inspection-form";
+import OilTankRiskAssessmentForm from "@/pages/oil-tank-risk-assessment-form";
+import CombustionAnalysisForm from "@/pages/combustion-analysis-form";
+import BurnerSetupForm from "@/pages/burner-setup-form";
+import FireValveTestForm from "@/pages/fire-valve-test-form";
+import OilLineVacuumTestForm from "@/pages/oil-line-vacuum-test-form";
+import JobCompletionReportForm from "@/pages/job-completion-report-form";
 import JobFiles from "@/pages/job-files";
 import JobSignatures from "@/pages/job-signatures";
 import Reports from "@/pages/reports";
@@ -74,6 +81,13 @@ function AppRouter() {
       <Route path="/jobs/:jobId/service-record" component={() => <ProtectedRoute component={ServiceRecordForm} />} />
       <Route path="/jobs/:jobId/breakdown-report" component={() => <ProtectedRoute component={BreakdownReportForm} />} />
       <Route path="/jobs/:jobId/commissioning" component={() => <ProtectedRoute component={CommissioningRecordForm} />} />
+      <Route path="/jobs/:jobId/oil-tank-inspection" component={() => <ProtectedRoute component={OilTankInspectionForm} />} />
+      <Route path="/jobs/:jobId/oil-tank-risk-assessment" component={() => <ProtectedRoute component={OilTankRiskAssessmentForm} />} />
+      <Route path="/jobs/:jobId/combustion-analysis" component={() => <ProtectedRoute component={CombustionAnalysisForm} />} />
+      <Route path="/jobs/:jobId/burner-setup" component={() => <ProtectedRoute component={BurnerSetupForm} />} />
+      <Route path="/jobs/:jobId/fire-valve-test" component={() => <ProtectedRoute component={FireValveTestForm} />} />
+      <Route path="/jobs/:jobId/oil-line-vacuum-test" component={() => <ProtectedRoute component={OilLineVacuumTestForm} />} />
+      <Route path="/jobs/:jobId/job-completion" component={() => <ProtectedRoute component={JobCompletionReportForm} />} />
       <Route path="/jobs/:jobId/files" component={() => <ProtectedRoute component={JobFiles} />} />
       <Route path="/jobs/:jobId/signatures" component={() => <ProtectedRoute component={JobSignatures} />} />
 

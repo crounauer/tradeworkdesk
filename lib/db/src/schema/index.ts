@@ -222,6 +222,161 @@ export const breakdownReports = pgTable("breakdown_reports", {
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const oilTankInspections = pgTable("oil_tank_inspections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  tank_type: text("tank_type"),
+  tank_size: text("tank_size"),
+  tank_material: text("tank_material"),
+  tank_location: text("tank_location"),
+  tank_age: text("tank_age"),
+  bunding_type: text("bunding_type"),
+  bunding_condition: text("bunding_condition"),
+  sight_gauge_condition: text("sight_gauge_condition"),
+  fill_point_condition: text("fill_point_condition"),
+  vent_condition: text("vent_condition"),
+  filter_condition: text("filter_condition"),
+  pipework_condition: text("pipework_condition"),
+  supports_condition: text("supports_condition"),
+  overall_condition: text("overall_condition"),
+  leaks_found: boolean("leaks_found").default(false),
+  leaks_details: text("leaks_details"),
+  remedial_actions: text("remedial_actions"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const oilTankRiskAssessments = pgTable("oil_tank_risk_assessments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  site_hazards: text("site_hazards"),
+  environmental_risks: text("environmental_risks"),
+  fire_risk: text("fire_risk"),
+  access_risk: text("access_risk"),
+  likelihood_rating: text("likelihood_rating"),
+  severity_rating: text("severity_rating"),
+  overall_risk_rating: text("overall_risk_rating"),
+  control_measures: text("control_measures"),
+  further_actions_required: text("further_actions_required"),
+  assessor_name: text("assessor_name"),
+  assessor_qualification: text("assessor_qualification"),
+  assessment_date: date("assessment_date"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const combustionAnalysisRecords = pgTable("combustion_analysis_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  co2_reading: text("co2_reading"),
+  co_reading: text("co_reading"),
+  o2_reading: text("o2_reading"),
+  flue_temperature: text("flue_temperature"),
+  ambient_temperature: text("ambient_temperature"),
+  efficiency: text("efficiency"),
+  excess_air: text("excess_air"),
+  smoke_number: text("smoke_number"),
+  ambient_co: text("ambient_co"),
+  draft_reading: text("draft_reading"),
+  instrument_make: text("instrument_make"),
+  instrument_model: text("instrument_model"),
+  instrument_serial: text("instrument_serial"),
+  calibration_date: date("calibration_date"),
+  pass_fail: text("pass_fail"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const burnerSetupRecords = pgTable("burner_setup_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  burner_manufacturer: text("burner_manufacturer"),
+  burner_model: text("burner_model"),
+  burner_serial_number: text("burner_serial_number"),
+  nozzle_size: text("nozzle_size"),
+  nozzle_type: text("nozzle_type"),
+  nozzle_angle: text("nozzle_angle"),
+  pump_pressure: text("pump_pressure"),
+  pump_vacuum: text("pump_vacuum"),
+  electrode_gap: text("electrode_gap"),
+  electrode_position: text("electrode_position"),
+  air_damper_setting: text("air_damper_setting"),
+  head_setting: text("head_setting"),
+  combustion_co2: text("combustion_co2"),
+  combustion_co: text("combustion_co"),
+  combustion_smoke: text("combustion_smoke"),
+  combustion_efficiency: text("combustion_efficiency"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const fireValveTestRecords = pgTable("fire_valve_test_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  valve_location: text("valve_location"),
+  valve_type: text("valve_type"),
+  valve_manufacturer: text("valve_manufacturer"),
+  test_date: date("test_date"),
+  test_method: text("test_method"),
+  test_result: text("test_result"),
+  response_time: text("response_time"),
+  reset_successful: boolean("reset_successful").default(false),
+  remedial_action: text("remedial_action"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const oilLineVacuumTests = pgTable("oil_line_vacuum_tests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  pipe_size: text("pipe_size"),
+  pipe_material: text("pipe_material"),
+  pipe_length: text("pipe_length"),
+  number_of_joints: text("number_of_joints"),
+  initial_vacuum: text("initial_vacuum"),
+  vacuum_after_5_min: text("vacuum_after_5_min"),
+  vacuum_after_10_min: text("vacuum_after_10_min"),
+  allowable_drop: text("allowable_drop"),
+  actual_drop: text("actual_drop"),
+  pass_fail: text("pass_fail"),
+  remedial_action: text("remedial_action"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const jobCompletionReports = pgTable("job_completion_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  technician_id: uuid("technician_id").notNull().references(() => profiles.id),
+  work_completed: text("work_completed"),
+  parts_fitted: text("parts_fitted"),
+  parts_serial_numbers: text("parts_serial_numbers"),
+  outstanding_items: text("outstanding_items"),
+  defects_found: text("defects_found"),
+  advisories: text("advisories"),
+  customer_advised: boolean("customer_advised").default(false),
+  customer_sign_off: boolean("customer_sign_off").default(false),
+  customer_name_signed: text("customer_name_signed"),
+  next_service_date: date("next_service_date"),
+  follow_up_required: boolean("follow_up_required").default(false),
+  follow_up_notes: text("follow_up_notes"),
+  additional_notes: text("additional_notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const jobNotes = pgTable("job_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
   job_id: uuid("job_id").notNull().references(() => jobs.id),
@@ -261,6 +416,13 @@ export type Job = typeof jobs.$inferSelect;
 export type ServiceRecord = typeof serviceRecords.$inferSelect;
 export type CommissioningRecord = typeof commissioningRecords.$inferSelect;
 export type BreakdownReport = typeof breakdownReports.$inferSelect;
+export type OilTankInspection = typeof oilTankInspections.$inferSelect;
+export type OilTankRiskAssessment = typeof oilTankRiskAssessments.$inferSelect;
+export type CombustionAnalysisRecord = typeof combustionAnalysisRecords.$inferSelect;
+export type BurnerSetupRecord = typeof burnerSetupRecords.$inferSelect;
+export type FireValveTestRecord = typeof fireValveTestRecords.$inferSelect;
+export type OilLineVacuumTest = typeof oilLineVacuumTests.$inferSelect;
+export type JobCompletionReport = typeof jobCompletionReports.$inferSelect;
 export type JobNote = typeof jobNotes.$inferSelect;
 export type FileAttachment = typeof fileAttachments.$inferSelect;
 export type Signature = typeof signatures.$inferSelect;

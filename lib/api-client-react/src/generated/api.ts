@@ -20,13 +20,22 @@ import type {
   Appliance,
   ApplianceDetail,
   BreakdownReport,
+  BurnerSetupRecord,
+  CombustionAnalysisRecord,
   CommissioningRecord,
   CreateApplianceBody,
   CreateBreakdownReportBody,
+  CreateBurnerSetupRecordBody,
+  CreateCombustionAnalysisRecordBody,
   CreateCommissioningRecordBody,
   CreateCustomerBody,
+  CreateFireValveTestRecordBody,
   CreateJobBody,
+  CreateJobCompletionReportBody,
   CreateJobNoteBody,
+  CreateOilLineVacuumTestBody,
+  CreateOilTankInspectionBody,
+  CreateOilTankRiskAssessmentBody,
   CreatePropertyBody,
   CreateServiceRecordBody,
   CreateSignatureBody,
@@ -35,10 +44,12 @@ import type {
   DashboardData,
   FileAttachment,
   FileUrl,
+  FireValveTestRecord,
   GetCompletedByTechnicianParams,
   GlobalSearchParams,
   HealthStatus,
   Job,
+  JobCompletionReport,
   JobDetail,
   JobListItem,
   JobNote,
@@ -47,6 +58,9 @@ import type {
   ListFilesParams,
   ListJobsParams,
   ListPropertiesParams,
+  OilLineVacuumTest,
+  OilTankInspection,
+  OilTankRiskAssessment,
   Profile,
   Property,
   PropertyDetail,
@@ -57,9 +71,16 @@ import type {
   UpcomingService,
   UpdateApplianceBody,
   UpdateBreakdownReportBody,
+  UpdateBurnerSetupRecordBody,
+  UpdateCombustionAnalysisRecordBody,
   UpdateCommissioningRecordBody,
   UpdateCustomerBody,
+  UpdateFireValveTestRecordBody,
   UpdateJobBody,
+  UpdateJobCompletionReportBody,
+  UpdateOilLineVacuumTestBody,
+  UpdateOilTankInspectionBody,
+  UpdateOilTankRiskAssessmentBody,
   UpdateProfileBody,
   UpdatePropertyBody,
   UpdateServiceRecordBody,
@@ -3325,6 +3346,2524 @@ export function useGetBreakdownReportByJob<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetBreakdownReportByJobQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an oil tank inspection
+ */
+export const getCreateOilTankInspectionUrl = () => {
+  return `/api/oil-tank-inspections`;
+};
+
+export const createOilTankInspection = async (
+  createOilTankInspectionBody: CreateOilTankInspectionBody,
+  options?: RequestInit,
+): Promise<OilTankInspection> => {
+  return customFetch<OilTankInspection>(getCreateOilTankInspectionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOilTankInspectionBody),
+  });
+};
+
+export const getCreateOilTankInspectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOilTankInspection>>,
+    TError,
+    { data: BodyType<CreateOilTankInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOilTankInspection>>,
+  TError,
+  { data: BodyType<CreateOilTankInspectionBody> },
+  TContext
+> => {
+  const mutationKey = ["createOilTankInspection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOilTankInspection>>,
+    { data: BodyType<CreateOilTankInspectionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOilTankInspection(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOilTankInspectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOilTankInspection>>
+>;
+export type CreateOilTankInspectionMutationBody =
+  BodyType<CreateOilTankInspectionBody>;
+export type CreateOilTankInspectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an oil tank inspection
+ */
+export const useCreateOilTankInspection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOilTankInspection>>,
+    TError,
+    { data: BodyType<CreateOilTankInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOilTankInspection>>,
+  TError,
+  { data: BodyType<CreateOilTankInspectionBody> },
+  TContext
+> => {
+  return useMutation(getCreateOilTankInspectionMutationOptions(options));
+};
+
+/**
+ * @summary Get oil tank inspection by ID
+ */
+export const getGetOilTankInspectionUrl = (id: string) => {
+  return `/api/oil-tank-inspections/${id}`;
+};
+
+export const getOilTankInspection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OilTankInspection> => {
+  return customFetch<OilTankInspection>(getGetOilTankInspectionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOilTankInspectionQueryKey = (id: string) => {
+  return [`/api/oil-tank-inspections/${id}`] as const;
+};
+
+export const getGetOilTankInspectionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOilTankInspection>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankInspection>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOilTankInspectionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOilTankInspection>>
+  > = ({ signal }) => getOilTankInspection(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOilTankInspection>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOilTankInspectionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOilTankInspection>>
+>;
+export type GetOilTankInspectionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get oil tank inspection by ID
+ */
+
+export function useGetOilTankInspection<
+  TData = Awaited<ReturnType<typeof getOilTankInspection>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankInspection>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOilTankInspectionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update oil tank inspection
+ */
+export const getUpdateOilTankInspectionUrl = (id: string) => {
+  return `/api/oil-tank-inspections/${id}`;
+};
+
+export const updateOilTankInspection = async (
+  id: string,
+  updateOilTankInspectionBody: UpdateOilTankInspectionBody,
+  options?: RequestInit,
+): Promise<OilTankInspection> => {
+  return customFetch<OilTankInspection>(getUpdateOilTankInspectionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateOilTankInspectionBody),
+  });
+};
+
+export const getUpdateOilTankInspectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOilTankInspection>>,
+    TError,
+    { id: string; data: BodyType<UpdateOilTankInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOilTankInspection>>,
+  TError,
+  { id: string; data: BodyType<UpdateOilTankInspectionBody> },
+  TContext
+> => {
+  const mutationKey = ["updateOilTankInspection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOilTankInspection>>,
+    { id: string; data: BodyType<UpdateOilTankInspectionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateOilTankInspection(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOilTankInspectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOilTankInspection>>
+>;
+export type UpdateOilTankInspectionMutationBody =
+  BodyType<UpdateOilTankInspectionBody>;
+export type UpdateOilTankInspectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update oil tank inspection
+ */
+export const useUpdateOilTankInspection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOilTankInspection>>,
+    TError,
+    { id: string; data: BodyType<UpdateOilTankInspectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOilTankInspection>>,
+  TError,
+  { id: string; data: BodyType<UpdateOilTankInspectionBody> },
+  TContext
+> => {
+  return useMutation(getUpdateOilTankInspectionMutationOptions(options));
+};
+
+/**
+ * @summary Get oil tank inspection by job ID
+ */
+export const getGetOilTankInspectionByJobUrl = (jobId: string) => {
+  return `/api/oil-tank-inspections/job/${jobId}`;
+};
+
+export const getOilTankInspectionByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<OilTankInspection> => {
+  return customFetch<OilTankInspection>(
+    getGetOilTankInspectionByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetOilTankInspectionByJobQueryKey = (jobId: string) => {
+  return [`/api/oil-tank-inspections/job/${jobId}`] as const;
+};
+
+export const getGetOilTankInspectionByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOilTankInspectionByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankInspectionByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOilTankInspectionByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOilTankInspectionByJob>>
+  > = ({ signal }) =>
+    getOilTankInspectionByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOilTankInspectionByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOilTankInspectionByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOilTankInspectionByJob>>
+>;
+export type GetOilTankInspectionByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get oil tank inspection by job ID
+ */
+
+export function useGetOilTankInspectionByJob<
+  TData = Awaited<ReturnType<typeof getOilTankInspectionByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankInspectionByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOilTankInspectionByJobQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an oil tank risk assessment
+ */
+export const getCreateOilTankRiskAssessmentUrl = () => {
+  return `/api/oil-tank-risk-assessments`;
+};
+
+export const createOilTankRiskAssessment = async (
+  createOilTankRiskAssessmentBody: CreateOilTankRiskAssessmentBody,
+  options?: RequestInit,
+): Promise<OilTankRiskAssessment> => {
+  return customFetch<OilTankRiskAssessment>(
+    getCreateOilTankRiskAssessmentUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createOilTankRiskAssessmentBody),
+    },
+  );
+};
+
+export const getCreateOilTankRiskAssessmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOilTankRiskAssessment>>,
+    TError,
+    { data: BodyType<CreateOilTankRiskAssessmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOilTankRiskAssessment>>,
+  TError,
+  { data: BodyType<CreateOilTankRiskAssessmentBody> },
+  TContext
+> => {
+  const mutationKey = ["createOilTankRiskAssessment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOilTankRiskAssessment>>,
+    { data: BodyType<CreateOilTankRiskAssessmentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOilTankRiskAssessment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOilTankRiskAssessmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOilTankRiskAssessment>>
+>;
+export type CreateOilTankRiskAssessmentMutationBody =
+  BodyType<CreateOilTankRiskAssessmentBody>;
+export type CreateOilTankRiskAssessmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an oil tank risk assessment
+ */
+export const useCreateOilTankRiskAssessment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOilTankRiskAssessment>>,
+    TError,
+    { data: BodyType<CreateOilTankRiskAssessmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOilTankRiskAssessment>>,
+  TError,
+  { data: BodyType<CreateOilTankRiskAssessmentBody> },
+  TContext
+> => {
+  return useMutation(getCreateOilTankRiskAssessmentMutationOptions(options));
+};
+
+/**
+ * @summary Get oil tank risk assessment by ID
+ */
+export const getGetOilTankRiskAssessmentUrl = (id: string) => {
+  return `/api/oil-tank-risk-assessments/${id}`;
+};
+
+export const getOilTankRiskAssessment = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OilTankRiskAssessment> => {
+  return customFetch<OilTankRiskAssessment>(
+    getGetOilTankRiskAssessmentUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetOilTankRiskAssessmentQueryKey = (id: string) => {
+  return [`/api/oil-tank-risk-assessments/${id}`] as const;
+};
+
+export const getGetOilTankRiskAssessmentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOilTankRiskAssessment>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankRiskAssessment>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOilTankRiskAssessmentQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOilTankRiskAssessment>>
+  > = ({ signal }) =>
+    getOilTankRiskAssessment(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOilTankRiskAssessment>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOilTankRiskAssessmentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOilTankRiskAssessment>>
+>;
+export type GetOilTankRiskAssessmentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get oil tank risk assessment by ID
+ */
+
+export function useGetOilTankRiskAssessment<
+  TData = Awaited<ReturnType<typeof getOilTankRiskAssessment>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankRiskAssessment>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOilTankRiskAssessmentQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update oil tank risk assessment
+ */
+export const getUpdateOilTankRiskAssessmentUrl = (id: string) => {
+  return `/api/oil-tank-risk-assessments/${id}`;
+};
+
+export const updateOilTankRiskAssessment = async (
+  id: string,
+  updateOilTankRiskAssessmentBody: UpdateOilTankRiskAssessmentBody,
+  options?: RequestInit,
+): Promise<OilTankRiskAssessment> => {
+  return customFetch<OilTankRiskAssessment>(
+    getUpdateOilTankRiskAssessmentUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateOilTankRiskAssessmentBody),
+    },
+  );
+};
+
+export const getUpdateOilTankRiskAssessmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOilTankRiskAssessment>>,
+    TError,
+    { id: string; data: BodyType<UpdateOilTankRiskAssessmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOilTankRiskAssessment>>,
+  TError,
+  { id: string; data: BodyType<UpdateOilTankRiskAssessmentBody> },
+  TContext
+> => {
+  const mutationKey = ["updateOilTankRiskAssessment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOilTankRiskAssessment>>,
+    { id: string; data: BodyType<UpdateOilTankRiskAssessmentBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateOilTankRiskAssessment(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOilTankRiskAssessmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOilTankRiskAssessment>>
+>;
+export type UpdateOilTankRiskAssessmentMutationBody =
+  BodyType<UpdateOilTankRiskAssessmentBody>;
+export type UpdateOilTankRiskAssessmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update oil tank risk assessment
+ */
+export const useUpdateOilTankRiskAssessment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOilTankRiskAssessment>>,
+    TError,
+    { id: string; data: BodyType<UpdateOilTankRiskAssessmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOilTankRiskAssessment>>,
+  TError,
+  { id: string; data: BodyType<UpdateOilTankRiskAssessmentBody> },
+  TContext
+> => {
+  return useMutation(getUpdateOilTankRiskAssessmentMutationOptions(options));
+};
+
+/**
+ * @summary Get oil tank risk assessment by job ID
+ */
+export const getGetOilTankRiskAssessmentByJobUrl = (jobId: string) => {
+  return `/api/oil-tank-risk-assessments/job/${jobId}`;
+};
+
+export const getOilTankRiskAssessmentByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<OilTankRiskAssessment> => {
+  return customFetch<OilTankRiskAssessment>(
+    getGetOilTankRiskAssessmentByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetOilTankRiskAssessmentByJobQueryKey = (jobId: string) => {
+  return [`/api/oil-tank-risk-assessments/job/${jobId}`] as const;
+};
+
+export const getGetOilTankRiskAssessmentByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOilTankRiskAssessmentByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>
+  > = ({ signal }) =>
+    getOilTankRiskAssessmentByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOilTankRiskAssessmentByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>
+>;
+export type GetOilTankRiskAssessmentByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get oil tank risk assessment by job ID
+ */
+
+export function useGetOilTankRiskAssessmentByJob<
+  TData = Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilTankRiskAssessmentByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOilTankRiskAssessmentByJobQueryOptions(
+    jobId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a combustion analysis record
+ */
+export const getCreateCombustionAnalysisRecordUrl = () => {
+  return `/api/combustion-analysis-records`;
+};
+
+export const createCombustionAnalysisRecord = async (
+  createCombustionAnalysisRecordBody: CreateCombustionAnalysisRecordBody,
+  options?: RequestInit,
+): Promise<CombustionAnalysisRecord> => {
+  return customFetch<CombustionAnalysisRecord>(
+    getCreateCombustionAnalysisRecordUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCombustionAnalysisRecordBody),
+    },
+  );
+};
+
+export const getCreateCombustionAnalysisRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCombustionAnalysisRecord>>,
+    TError,
+    { data: BodyType<CreateCombustionAnalysisRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCombustionAnalysisRecord>>,
+  TError,
+  { data: BodyType<CreateCombustionAnalysisRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["createCombustionAnalysisRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCombustionAnalysisRecord>>,
+    { data: BodyType<CreateCombustionAnalysisRecordBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCombustionAnalysisRecord(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCombustionAnalysisRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCombustionAnalysisRecord>>
+>;
+export type CreateCombustionAnalysisRecordMutationBody =
+  BodyType<CreateCombustionAnalysisRecordBody>;
+export type CreateCombustionAnalysisRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a combustion analysis record
+ */
+export const useCreateCombustionAnalysisRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCombustionAnalysisRecord>>,
+    TError,
+    { data: BodyType<CreateCombustionAnalysisRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCombustionAnalysisRecord>>,
+  TError,
+  { data: BodyType<CreateCombustionAnalysisRecordBody> },
+  TContext
+> => {
+  return useMutation(getCreateCombustionAnalysisRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get combustion analysis record by ID
+ */
+export const getGetCombustionAnalysisRecordUrl = (id: string) => {
+  return `/api/combustion-analysis-records/${id}`;
+};
+
+export const getCombustionAnalysisRecord = async (
+  id: string,
+  options?: RequestInit,
+): Promise<CombustionAnalysisRecord> => {
+  return customFetch<CombustionAnalysisRecord>(
+    getGetCombustionAnalysisRecordUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCombustionAnalysisRecordQueryKey = (id: string) => {
+  return [`/api/combustion-analysis-records/${id}`] as const;
+};
+
+export const getGetCombustionAnalysisRecordQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCombustionAnalysisRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCombustionAnalysisRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCombustionAnalysisRecordQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCombustionAnalysisRecord>>
+  > = ({ signal }) =>
+    getCombustionAnalysisRecord(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCombustionAnalysisRecord>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCombustionAnalysisRecordQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCombustionAnalysisRecord>>
+>;
+export type GetCombustionAnalysisRecordQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get combustion analysis record by ID
+ */
+
+export function useGetCombustionAnalysisRecord<
+  TData = Awaited<ReturnType<typeof getCombustionAnalysisRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCombustionAnalysisRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCombustionAnalysisRecordQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update combustion analysis record
+ */
+export const getUpdateCombustionAnalysisRecordUrl = (id: string) => {
+  return `/api/combustion-analysis-records/${id}`;
+};
+
+export const updateCombustionAnalysisRecord = async (
+  id: string,
+  updateCombustionAnalysisRecordBody: UpdateCombustionAnalysisRecordBody,
+  options?: RequestInit,
+): Promise<CombustionAnalysisRecord> => {
+  return customFetch<CombustionAnalysisRecord>(
+    getUpdateCombustionAnalysisRecordUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateCombustionAnalysisRecordBody),
+    },
+  );
+};
+
+export const getUpdateCombustionAnalysisRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCombustionAnalysisRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateCombustionAnalysisRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCombustionAnalysisRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateCombustionAnalysisRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCombustionAnalysisRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCombustionAnalysisRecord>>,
+    { id: string; data: BodyType<UpdateCombustionAnalysisRecordBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCombustionAnalysisRecord(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCombustionAnalysisRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCombustionAnalysisRecord>>
+>;
+export type UpdateCombustionAnalysisRecordMutationBody =
+  BodyType<UpdateCombustionAnalysisRecordBody>;
+export type UpdateCombustionAnalysisRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update combustion analysis record
+ */
+export const useUpdateCombustionAnalysisRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCombustionAnalysisRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateCombustionAnalysisRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCombustionAnalysisRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateCombustionAnalysisRecordBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCombustionAnalysisRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get combustion analysis record by job ID
+ */
+export const getGetCombustionAnalysisRecordByJobUrl = (jobId: string) => {
+  return `/api/combustion-analysis-records/job/${jobId}`;
+};
+
+export const getCombustionAnalysisRecordByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<CombustionAnalysisRecord> => {
+  return customFetch<CombustionAnalysisRecord>(
+    getGetCombustionAnalysisRecordByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCombustionAnalysisRecordByJobQueryKey = (jobId: string) => {
+  return [`/api/combustion-analysis-records/job/${jobId}`] as const;
+};
+
+export const getGetCombustionAnalysisRecordByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetCombustionAnalysisRecordByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>
+  > = ({ signal }) =>
+    getCombustionAnalysisRecordByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCombustionAnalysisRecordByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>
+>;
+export type GetCombustionAnalysisRecordByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get combustion analysis record by job ID
+ */
+
+export function useGetCombustionAnalysisRecordByJob<
+  TData = Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCombustionAnalysisRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCombustionAnalysisRecordByJobQueryOptions(
+    jobId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a burner setup record
+ */
+export const getCreateBurnerSetupRecordUrl = () => {
+  return `/api/burner-setup-records`;
+};
+
+export const createBurnerSetupRecord = async (
+  createBurnerSetupRecordBody: CreateBurnerSetupRecordBody,
+  options?: RequestInit,
+): Promise<BurnerSetupRecord> => {
+  return customFetch<BurnerSetupRecord>(getCreateBurnerSetupRecordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBurnerSetupRecordBody),
+  });
+};
+
+export const getCreateBurnerSetupRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBurnerSetupRecord>>,
+    TError,
+    { data: BodyType<CreateBurnerSetupRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBurnerSetupRecord>>,
+  TError,
+  { data: BodyType<CreateBurnerSetupRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["createBurnerSetupRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBurnerSetupRecord>>,
+    { data: BodyType<CreateBurnerSetupRecordBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBurnerSetupRecord(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBurnerSetupRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBurnerSetupRecord>>
+>;
+export type CreateBurnerSetupRecordMutationBody =
+  BodyType<CreateBurnerSetupRecordBody>;
+export type CreateBurnerSetupRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a burner setup record
+ */
+export const useCreateBurnerSetupRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBurnerSetupRecord>>,
+    TError,
+    { data: BodyType<CreateBurnerSetupRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBurnerSetupRecord>>,
+  TError,
+  { data: BodyType<CreateBurnerSetupRecordBody> },
+  TContext
+> => {
+  return useMutation(getCreateBurnerSetupRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get burner setup record by ID
+ */
+export const getGetBurnerSetupRecordUrl = (id: string) => {
+  return `/api/burner-setup-records/${id}`;
+};
+
+export const getBurnerSetupRecord = async (
+  id: string,
+  options?: RequestInit,
+): Promise<BurnerSetupRecord> => {
+  return customFetch<BurnerSetupRecord>(getGetBurnerSetupRecordUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBurnerSetupRecordQueryKey = (id: string) => {
+  return [`/api/burner-setup-records/${id}`] as const;
+};
+
+export const getGetBurnerSetupRecordQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBurnerSetupRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBurnerSetupRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetBurnerSetupRecordQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBurnerSetupRecord>>
+  > = ({ signal }) => getBurnerSetupRecord(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBurnerSetupRecord>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBurnerSetupRecordQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBurnerSetupRecord>>
+>;
+export type GetBurnerSetupRecordQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get burner setup record by ID
+ */
+
+export function useGetBurnerSetupRecord<
+  TData = Awaited<ReturnType<typeof getBurnerSetupRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBurnerSetupRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBurnerSetupRecordQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update burner setup record
+ */
+export const getUpdateBurnerSetupRecordUrl = (id: string) => {
+  return `/api/burner-setup-records/${id}`;
+};
+
+export const updateBurnerSetupRecord = async (
+  id: string,
+  updateBurnerSetupRecordBody: UpdateBurnerSetupRecordBody,
+  options?: RequestInit,
+): Promise<BurnerSetupRecord> => {
+  return customFetch<BurnerSetupRecord>(getUpdateBurnerSetupRecordUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateBurnerSetupRecordBody),
+  });
+};
+
+export const getUpdateBurnerSetupRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBurnerSetupRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateBurnerSetupRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateBurnerSetupRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateBurnerSetupRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["updateBurnerSetupRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateBurnerSetupRecord>>,
+    { id: string; data: BodyType<UpdateBurnerSetupRecordBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateBurnerSetupRecord(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateBurnerSetupRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateBurnerSetupRecord>>
+>;
+export type UpdateBurnerSetupRecordMutationBody =
+  BodyType<UpdateBurnerSetupRecordBody>;
+export type UpdateBurnerSetupRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update burner setup record
+ */
+export const useUpdateBurnerSetupRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBurnerSetupRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateBurnerSetupRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateBurnerSetupRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateBurnerSetupRecordBody> },
+  TContext
+> => {
+  return useMutation(getUpdateBurnerSetupRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get burner setup record by job ID
+ */
+export const getGetBurnerSetupRecordByJobUrl = (jobId: string) => {
+  return `/api/burner-setup-records/job/${jobId}`;
+};
+
+export const getBurnerSetupRecordByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<BurnerSetupRecord> => {
+  return customFetch<BurnerSetupRecord>(
+    getGetBurnerSetupRecordByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetBurnerSetupRecordByJobQueryKey = (jobId: string) => {
+  return [`/api/burner-setup-records/job/${jobId}`] as const;
+};
+
+export const getGetBurnerSetupRecordByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetBurnerSetupRecordByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>
+  > = ({ signal }) =>
+    getBurnerSetupRecordByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBurnerSetupRecordByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>
+>;
+export type GetBurnerSetupRecordByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get burner setup record by job ID
+ */
+
+export function useGetBurnerSetupRecordByJob<
+  TData = Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBurnerSetupRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBurnerSetupRecordByJobQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a fire valve test record
+ */
+export const getCreateFireValveTestRecordUrl = () => {
+  return `/api/fire-valve-test-records`;
+};
+
+export const createFireValveTestRecord = async (
+  createFireValveTestRecordBody: CreateFireValveTestRecordBody,
+  options?: RequestInit,
+): Promise<FireValveTestRecord> => {
+  return customFetch<FireValveTestRecord>(getCreateFireValveTestRecordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFireValveTestRecordBody),
+  });
+};
+
+export const getCreateFireValveTestRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFireValveTestRecord>>,
+    TError,
+    { data: BodyType<CreateFireValveTestRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFireValveTestRecord>>,
+  TError,
+  { data: BodyType<CreateFireValveTestRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["createFireValveTestRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFireValveTestRecord>>,
+    { data: BodyType<CreateFireValveTestRecordBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createFireValveTestRecord(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFireValveTestRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFireValveTestRecord>>
+>;
+export type CreateFireValveTestRecordMutationBody =
+  BodyType<CreateFireValveTestRecordBody>;
+export type CreateFireValveTestRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a fire valve test record
+ */
+export const useCreateFireValveTestRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFireValveTestRecord>>,
+    TError,
+    { data: BodyType<CreateFireValveTestRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFireValveTestRecord>>,
+  TError,
+  { data: BodyType<CreateFireValveTestRecordBody> },
+  TContext
+> => {
+  return useMutation(getCreateFireValveTestRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get fire valve test record by ID
+ */
+export const getGetFireValveTestRecordUrl = (id: string) => {
+  return `/api/fire-valve-test-records/${id}`;
+};
+
+export const getFireValveTestRecord = async (
+  id: string,
+  options?: RequestInit,
+): Promise<FireValveTestRecord> => {
+  return customFetch<FireValveTestRecord>(getGetFireValveTestRecordUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFireValveTestRecordQueryKey = (id: string) => {
+  return [`/api/fire-valve-test-records/${id}`] as const;
+};
+
+export const getGetFireValveTestRecordQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFireValveTestRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFireValveTestRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFireValveTestRecordQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFireValveTestRecord>>
+  > = ({ signal }) => getFireValveTestRecord(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFireValveTestRecord>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFireValveTestRecordQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFireValveTestRecord>>
+>;
+export type GetFireValveTestRecordQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get fire valve test record by ID
+ */
+
+export function useGetFireValveTestRecord<
+  TData = Awaited<ReturnType<typeof getFireValveTestRecord>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFireValveTestRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFireValveTestRecordQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update fire valve test record
+ */
+export const getUpdateFireValveTestRecordUrl = (id: string) => {
+  return `/api/fire-valve-test-records/${id}`;
+};
+
+export const updateFireValveTestRecord = async (
+  id: string,
+  updateFireValveTestRecordBody: UpdateFireValveTestRecordBody,
+  options?: RequestInit,
+): Promise<FireValveTestRecord> => {
+  return customFetch<FireValveTestRecord>(getUpdateFireValveTestRecordUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateFireValveTestRecordBody),
+  });
+};
+
+export const getUpdateFireValveTestRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFireValveTestRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateFireValveTestRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateFireValveTestRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateFireValveTestRecordBody> },
+  TContext
+> => {
+  const mutationKey = ["updateFireValveTestRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateFireValveTestRecord>>,
+    { id: string; data: BodyType<UpdateFireValveTestRecordBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateFireValveTestRecord(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateFireValveTestRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateFireValveTestRecord>>
+>;
+export type UpdateFireValveTestRecordMutationBody =
+  BodyType<UpdateFireValveTestRecordBody>;
+export type UpdateFireValveTestRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update fire valve test record
+ */
+export const useUpdateFireValveTestRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateFireValveTestRecord>>,
+    TError,
+    { id: string; data: BodyType<UpdateFireValveTestRecordBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateFireValveTestRecord>>,
+  TError,
+  { id: string; data: BodyType<UpdateFireValveTestRecordBody> },
+  TContext
+> => {
+  return useMutation(getUpdateFireValveTestRecordMutationOptions(options));
+};
+
+/**
+ * @summary Get fire valve test record by job ID
+ */
+export const getGetFireValveTestRecordByJobUrl = (jobId: string) => {
+  return `/api/fire-valve-test-records/job/${jobId}`;
+};
+
+export const getFireValveTestRecordByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<FireValveTestRecord> => {
+  return customFetch<FireValveTestRecord>(
+    getGetFireValveTestRecordByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFireValveTestRecordByJobQueryKey = (jobId: string) => {
+  return [`/api/fire-valve-test-records/job/${jobId}`] as const;
+};
+
+export const getGetFireValveTestRecordByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFireValveTestRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFireValveTestRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFireValveTestRecordByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFireValveTestRecordByJob>>
+  > = ({ signal }) =>
+    getFireValveTestRecordByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFireValveTestRecordByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFireValveTestRecordByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFireValveTestRecordByJob>>
+>;
+export type GetFireValveTestRecordByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get fire valve test record by job ID
+ */
+
+export function useGetFireValveTestRecordByJob<
+  TData = Awaited<ReturnType<typeof getFireValveTestRecordByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFireValveTestRecordByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFireValveTestRecordByJobQueryOptions(
+    jobId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an oil line vacuum test
+ */
+export const getCreateOilLineVacuumTestUrl = () => {
+  return `/api/oil-line-vacuum-tests`;
+};
+
+export const createOilLineVacuumTest = async (
+  createOilLineVacuumTestBody: CreateOilLineVacuumTestBody,
+  options?: RequestInit,
+): Promise<OilLineVacuumTest> => {
+  return customFetch<OilLineVacuumTest>(getCreateOilLineVacuumTestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOilLineVacuumTestBody),
+  });
+};
+
+export const getCreateOilLineVacuumTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOilLineVacuumTest>>,
+    TError,
+    { data: BodyType<CreateOilLineVacuumTestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOilLineVacuumTest>>,
+  TError,
+  { data: BodyType<CreateOilLineVacuumTestBody> },
+  TContext
+> => {
+  const mutationKey = ["createOilLineVacuumTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOilLineVacuumTest>>,
+    { data: BodyType<CreateOilLineVacuumTestBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOilLineVacuumTest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOilLineVacuumTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOilLineVacuumTest>>
+>;
+export type CreateOilLineVacuumTestMutationBody =
+  BodyType<CreateOilLineVacuumTestBody>;
+export type CreateOilLineVacuumTestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an oil line vacuum test
+ */
+export const useCreateOilLineVacuumTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOilLineVacuumTest>>,
+    TError,
+    { data: BodyType<CreateOilLineVacuumTestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOilLineVacuumTest>>,
+  TError,
+  { data: BodyType<CreateOilLineVacuumTestBody> },
+  TContext
+> => {
+  return useMutation(getCreateOilLineVacuumTestMutationOptions(options));
+};
+
+/**
+ * @summary Get oil line vacuum test by ID
+ */
+export const getGetOilLineVacuumTestUrl = (id: string) => {
+  return `/api/oil-line-vacuum-tests/${id}`;
+};
+
+export const getOilLineVacuumTest = async (
+  id: string,
+  options?: RequestInit,
+): Promise<OilLineVacuumTest> => {
+  return customFetch<OilLineVacuumTest>(getGetOilLineVacuumTestUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOilLineVacuumTestQueryKey = (id: string) => {
+  return [`/api/oil-line-vacuum-tests/${id}`] as const;
+};
+
+export const getGetOilLineVacuumTestQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOilLineVacuumTest>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilLineVacuumTest>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOilLineVacuumTestQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOilLineVacuumTest>>
+  > = ({ signal }) => getOilLineVacuumTest(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOilLineVacuumTest>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOilLineVacuumTestQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOilLineVacuumTest>>
+>;
+export type GetOilLineVacuumTestQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get oil line vacuum test by ID
+ */
+
+export function useGetOilLineVacuumTest<
+  TData = Awaited<ReturnType<typeof getOilLineVacuumTest>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilLineVacuumTest>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOilLineVacuumTestQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update oil line vacuum test
+ */
+export const getUpdateOilLineVacuumTestUrl = (id: string) => {
+  return `/api/oil-line-vacuum-tests/${id}`;
+};
+
+export const updateOilLineVacuumTest = async (
+  id: string,
+  updateOilLineVacuumTestBody: UpdateOilLineVacuumTestBody,
+  options?: RequestInit,
+): Promise<OilLineVacuumTest> => {
+  return customFetch<OilLineVacuumTest>(getUpdateOilLineVacuumTestUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateOilLineVacuumTestBody),
+  });
+};
+
+export const getUpdateOilLineVacuumTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOilLineVacuumTest>>,
+    TError,
+    { id: string; data: BodyType<UpdateOilLineVacuumTestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOilLineVacuumTest>>,
+  TError,
+  { id: string; data: BodyType<UpdateOilLineVacuumTestBody> },
+  TContext
+> => {
+  const mutationKey = ["updateOilLineVacuumTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOilLineVacuumTest>>,
+    { id: string; data: BodyType<UpdateOilLineVacuumTestBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateOilLineVacuumTest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOilLineVacuumTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOilLineVacuumTest>>
+>;
+export type UpdateOilLineVacuumTestMutationBody =
+  BodyType<UpdateOilLineVacuumTestBody>;
+export type UpdateOilLineVacuumTestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update oil line vacuum test
+ */
+export const useUpdateOilLineVacuumTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOilLineVacuumTest>>,
+    TError,
+    { id: string; data: BodyType<UpdateOilLineVacuumTestBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOilLineVacuumTest>>,
+  TError,
+  { id: string; data: BodyType<UpdateOilLineVacuumTestBody> },
+  TContext
+> => {
+  return useMutation(getUpdateOilLineVacuumTestMutationOptions(options));
+};
+
+/**
+ * @summary Get oil line vacuum test by job ID
+ */
+export const getGetOilLineVacuumTestByJobUrl = (jobId: string) => {
+  return `/api/oil-line-vacuum-tests/job/${jobId}`;
+};
+
+export const getOilLineVacuumTestByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<OilLineVacuumTest> => {
+  return customFetch<OilLineVacuumTest>(
+    getGetOilLineVacuumTestByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetOilLineVacuumTestByJobQueryKey = (jobId: string) => {
+  return [`/api/oil-line-vacuum-tests/job/${jobId}`] as const;
+};
+
+export const getGetOilLineVacuumTestByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOilLineVacuumTestByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>
+  > = ({ signal }) =>
+    getOilLineVacuumTestByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOilLineVacuumTestByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>
+>;
+export type GetOilLineVacuumTestByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get oil line vacuum test by job ID
+ */
+
+export function useGetOilLineVacuumTestByJob<
+  TData = Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOilLineVacuumTestByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOilLineVacuumTestByJobQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a job completion report
+ */
+export const getCreateJobCompletionReportUrl = () => {
+  return `/api/job-completion-reports`;
+};
+
+export const createJobCompletionReport = async (
+  createJobCompletionReportBody: CreateJobCompletionReportBody,
+  options?: RequestInit,
+): Promise<JobCompletionReport> => {
+  return customFetch<JobCompletionReport>(getCreateJobCompletionReportUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createJobCompletionReportBody),
+  });
+};
+
+export const getCreateJobCompletionReportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createJobCompletionReport>>,
+    TError,
+    { data: BodyType<CreateJobCompletionReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createJobCompletionReport>>,
+  TError,
+  { data: BodyType<CreateJobCompletionReportBody> },
+  TContext
+> => {
+  const mutationKey = ["createJobCompletionReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createJobCompletionReport>>,
+    { data: BodyType<CreateJobCompletionReportBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createJobCompletionReport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateJobCompletionReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createJobCompletionReport>>
+>;
+export type CreateJobCompletionReportMutationBody =
+  BodyType<CreateJobCompletionReportBody>;
+export type CreateJobCompletionReportMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a job completion report
+ */
+export const useCreateJobCompletionReport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createJobCompletionReport>>,
+    TError,
+    { data: BodyType<CreateJobCompletionReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createJobCompletionReport>>,
+  TError,
+  { data: BodyType<CreateJobCompletionReportBody> },
+  TContext
+> => {
+  return useMutation(getCreateJobCompletionReportMutationOptions(options));
+};
+
+/**
+ * @summary Get job completion report by ID
+ */
+export const getGetJobCompletionReportUrl = (id: string) => {
+  return `/api/job-completion-reports/${id}`;
+};
+
+export const getJobCompletionReport = async (
+  id: string,
+  options?: RequestInit,
+): Promise<JobCompletionReport> => {
+  return customFetch<JobCompletionReport>(getGetJobCompletionReportUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetJobCompletionReportQueryKey = (id: string) => {
+  return [`/api/job-completion-reports/${id}`] as const;
+};
+
+export const getGetJobCompletionReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getJobCompletionReport>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getJobCompletionReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetJobCompletionReportQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getJobCompletionReport>>
+  > = ({ signal }) => getJobCompletionReport(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getJobCompletionReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetJobCompletionReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getJobCompletionReport>>
+>;
+export type GetJobCompletionReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get job completion report by ID
+ */
+
+export function useGetJobCompletionReport<
+  TData = Awaited<ReturnType<typeof getJobCompletionReport>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getJobCompletionReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetJobCompletionReportQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update job completion report
+ */
+export const getUpdateJobCompletionReportUrl = (id: string) => {
+  return `/api/job-completion-reports/${id}`;
+};
+
+export const updateJobCompletionReport = async (
+  id: string,
+  updateJobCompletionReportBody: UpdateJobCompletionReportBody,
+  options?: RequestInit,
+): Promise<JobCompletionReport> => {
+  return customFetch<JobCompletionReport>(getUpdateJobCompletionReportUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateJobCompletionReportBody),
+  });
+};
+
+export const getUpdateJobCompletionReportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateJobCompletionReport>>,
+    TError,
+    { id: string; data: BodyType<UpdateJobCompletionReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateJobCompletionReport>>,
+  TError,
+  { id: string; data: BodyType<UpdateJobCompletionReportBody> },
+  TContext
+> => {
+  const mutationKey = ["updateJobCompletionReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateJobCompletionReport>>,
+    { id: string; data: BodyType<UpdateJobCompletionReportBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateJobCompletionReport(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateJobCompletionReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateJobCompletionReport>>
+>;
+export type UpdateJobCompletionReportMutationBody =
+  BodyType<UpdateJobCompletionReportBody>;
+export type UpdateJobCompletionReportMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update job completion report
+ */
+export const useUpdateJobCompletionReport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateJobCompletionReport>>,
+    TError,
+    { id: string; data: BodyType<UpdateJobCompletionReportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateJobCompletionReport>>,
+  TError,
+  { id: string; data: BodyType<UpdateJobCompletionReportBody> },
+  TContext
+> => {
+  return useMutation(getUpdateJobCompletionReportMutationOptions(options));
+};
+
+/**
+ * @summary Get job completion report by job ID
+ */
+export const getGetJobCompletionReportByJobUrl = (jobId: string) => {
+  return `/api/job-completion-reports/job/${jobId}`;
+};
+
+export const getJobCompletionReportByJob = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<JobCompletionReport> => {
+  return customFetch<JobCompletionReport>(
+    getGetJobCompletionReportByJobUrl(jobId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetJobCompletionReportByJobQueryKey = (jobId: string) => {
+  return [`/api/job-completion-reports/job/${jobId}`] as const;
+};
+
+export const getGetJobCompletionReportByJobQueryOptions = <
+  TData = Awaited<ReturnType<typeof getJobCompletionReportByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getJobCompletionReportByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetJobCompletionReportByJobQueryKey(jobId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getJobCompletionReportByJob>>
+  > = ({ signal }) =>
+    getJobCompletionReportByJob(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getJobCompletionReportByJob>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetJobCompletionReportByJobQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getJobCompletionReportByJob>>
+>;
+export type GetJobCompletionReportByJobQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get job completion report by job ID
+ */
+
+export function useGetJobCompletionReportByJob<
+  TData = Awaited<ReturnType<typeof getJobCompletionReportByJob>>,
+  TError = ErrorType<unknown>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getJobCompletionReportByJob>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetJobCompletionReportByJobQueryOptions(
+    jobId,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
