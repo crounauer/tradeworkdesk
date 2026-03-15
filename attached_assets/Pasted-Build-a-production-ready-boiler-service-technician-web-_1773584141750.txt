@@ -1,0 +1,158 @@
+Build a production-ready boiler service technician web app using Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, and Supabase from the beginning.
+
+Important architecture requirements:
+- Use Supabase immediately for authentication, PostgreSQL database, and file storage.
+- Do not use mock data except where absolutely necessary for placeholders.
+- The app must be structured so it can be developed on Replit and later deployed to Vercel for the frontend and Supabase for backend/database/storage with minimal changes.
+- Use environment variables for Supabase URL and anon key.
+- Keep the codebase clean, modular, and ready for production.
+- Use Next.js App Router, server components where appropriate, and server actions / route handlers for secure mutations where sensible.
+- Implement role-based access for admin, office staff, and technician users.
+- Design database tables and relationships properly from the start.
+- Use Supabase Row Level Security policies so users only access permitted data.
+- Use Supabase Storage for uploaded files such as service PDFs, certificates, and photos.
+
+App purpose:
+This app is for boiler service technicians to manage customers, properties, appliances, service visits, breakdowns, notes, photos, documents, and service records.
+
+Create these core areas:
+
+1. Authentication
+- Login
+- Logout
+- Protected routes
+- User profile
+- Role support: admin, office_staff, technician
+
+2. Dashboard
+- Today’s jobs
+- Upcoming jobs
+- Overdue services
+- Recent completed jobs
+- Jobs requiring follow-up
+- Quick stats cards
+
+3. Customers
+- Customer list with search and filters
+- Add/edit customer form
+- Customer detail page
+- Customer notes
+- Link customers to properties
+
+4. Properties
+- Property list and detail page
+- Add/edit property form
+- Fields: address, property type, occupancy type, access notes, boiler location, flue location, tank location
+- Link property to customer
+- Show service history for each property
+
+5. Appliances / Boilers
+- Add/edit appliance form
+- Fields: manufacturer, model, serial number, boiler type, fuel type, installation date, warranty dates, burner details, nozzle, pump pressure, controls, system type, last service date, next due date
+- Link appliance to property
+- Appliance detail page with service history
+
+6. Jobs / Visits
+- Job list with filters by status, technician, date, job type
+- Add/edit booking form
+- Fields: customer, property, appliance, job type, scheduled date/time, assigned technician, notes, priority, status
+- Job detail page
+
+7. Service Record Form
+Create a structured service form with sections for:
+- arrival and departure times
+- visual inspection
+- appliance condition
+- flue inspection
+- combustion readings
+- smoke test
+- burner cleaning
+- heat exchanger cleaning
+- nozzle check/replacement
+- electrodes check
+- filter check/clean
+- oil line check
+- fire valve check
+- seals/gaskets
+- controls/thermostats
+- safety devices
+- leaks found
+- defects/advisories
+- parts required
+- work completed
+- appliance left safe yes/no
+- follow-up required yes/no
+- next service due date
+
+8. Breakdown Report Form
+- reported fault
+- symptoms
+- diagnostics performed
+- findings
+- parts required
+- temporary fix
+- permanent fix
+- unsafe flag
+- return visit required
+
+9. Documents and Photos
+- Upload and manage photos, PDFs, and service documents via Supabase Storage
+- Attach files to jobs, appliances, and customers where relevant
+- Show uploaded files in the relevant detail pages
+
+10. PDF output
+- Generate a professional service report PDF from completed service records
+- Include customer details, property, appliance, readings, work completed, advisories, signatures, and date
+
+11. Signatures
+- Capture technician and customer signatures and store them securely
+
+12. Search and reporting
+- Global search for customers, properties, appliances, serial numbers, and jobs
+- Basic reports: upcoming services, overdue services, completed jobs by technician
+
+Database design:
+Create sensible Supabase/Postgres tables with foreign keys and timestamps, including at minimum:
+- profiles
+- customers
+- properties
+- appliances
+- jobs
+- service_records
+- breakdown_reports
+- job_notes
+- file_attachments
+- signatures
+
+Also include:
+- created_at / updated_at timestamps
+- soft-delete strategy where sensible
+- enum-like constraints or controlled values for statuses and job types where appropriate
+
+UI requirements:
+- Clean, professional field-service style interface
+- Responsive for desktop, tablet, and mobile
+- Technician-friendly mobile workflow
+- Clear navigation sidebar/topbar
+- Tables with filters and search
+- Form validation and helpful error messages
+
+Technical requirements:
+- Use TypeScript throughout
+- Use reusable components
+- Add loading and empty states
+- Seed with a small amount of realistic example data only if needed
+- Add README setup instructions for local/Replit development and later Vercel deployment
+- Include SQL/schema setup or migration files for Supabase
+- Organize code so Supabase integration is not tied to Replit-specific features
+
+Please generate:
+1. project structure
+2. Supabase schema design
+3. key pages and components
+4. initial UI
+5. authentication flow
+6. example RLS approach
+7. file upload flow
+8. PDF generation approach
+9. deployment notes for Vercel + Supabase
