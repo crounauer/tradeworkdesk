@@ -314,13 +314,25 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON job_notes FOR EACH ROW EXECUTE FU
 -- Auto-create profile on user signup
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  assigned_role user_role;
 BEGIN
+  -- If a role was explicitly passed in metadata, use it.
+  -- Otherwise: first user in the system becomes admin; everyone else technician.
+  IF NEW.raw_user_meta_data->>'role' IS NOT NULL THEN
+    assigned_role := (NEW.raw_user_meta_data->>'role')::user_role;
+  ELSIF NOT EXISTS (SELECT 1 FROM profiles WHERE role = 'admin') THEN
+    assigned_role := 'admin';
+  ELSE
+    assigned_role := 'technician';
+  END IF;
+
   INSERT INTO profiles (id, email, full_name, role)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'technician')
+    assigned_role
   );
   RETURN NEW;
 END;

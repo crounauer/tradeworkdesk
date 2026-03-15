@@ -38,16 +38,18 @@ export async function requireAuth(
 
   if (!profile) {
     // Auto-provision a profile for users who signed up before the DB trigger ran.
-    // First user in the system becomes admin; everyone else gets technician.
-    const { count } = await supabaseAdmin
-      .from("profiles")
-      .select("id", { count: "exact", head: true });
-
-    const role = (count ?? 0) === 0 ? "admin" : "technician";
     const fullName =
       user.user_metadata?.full_name ||
       user.email?.split("@")[0] ||
       "User";
+
+    // Check whether any admin already exists so we know what role to assign.
+    const { count: adminCount } = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    const role = (adminCount ?? 0) === 0 ? "admin" : "technician";
 
     const { data: created } = await supabaseAdmin
       .from("profiles")
@@ -56,6 +58,22 @@ export async function requireAuth(
       .single();
 
     profile = created;
+  } else if (profile.role === "technician") {
+    // If this user is a technician but NO admin exists yet, promote them.
+    // This handles the case where the Supabase sign-up trigger assigned the
+    // default 'technician' role before anyone manually set an admin account.
+    const { count: adminCount } = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    if ((adminCount ?? 0) === 0) {
+      await supabaseAdmin
+        .from("profiles")
+        .update({ role: "admin" })
+        .eq("id", user.id);
+      profile = { ...profile, role: "admin" };
+    }
   }
 
   req.userId = user.id;
