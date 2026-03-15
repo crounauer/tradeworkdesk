@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
 import { useGetProfile } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 type AuthContextType = {
   session: Session | null;
@@ -17,6 +18,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -28,10 +30,13 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      // Clear all cached query data when auth state changes to prevent
+      // stale data from being refetched with an old/wrong role.
+      queryClient.clear();
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   const { data: profile } = useGetProfile();
 

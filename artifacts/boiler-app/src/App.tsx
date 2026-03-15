@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -33,6 +33,14 @@ import SearchPage from "@/pages/search";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    // Global error handler — catches errors from background refetches of cached
+    // queries that have no mounted observer, preventing unhandled rejections.
+    onError: (_error) => {
+      // Errors are handled per-component via isError state.
+      // This handler prevents the error from bubbling as an unhandled rejection.
+    },
+  }),
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
