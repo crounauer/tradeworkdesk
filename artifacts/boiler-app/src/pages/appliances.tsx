@@ -36,7 +36,7 @@ export default function Appliances() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {appliances?.map(app => (
-            <Link key={app.id} href={`/properties/${app.property_id}`}>
+            <Link key={app.id} href={`/appliances/${app.id}`}>
               <Card className="p-5 border border-border/50 hover:shadow-md hover:border-orange-500/30 transition-all cursor-pointer h-full">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
