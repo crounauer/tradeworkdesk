@@ -342,6 +342,20 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
+-- Invite codes (admin creates, new users consume to register)
+CREATE TABLE invite_codes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code        TEXT UNIQUE NOT NULL,
+  role        user_role NOT NULL DEFAULT 'technician',
+  created_by  UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at  TIMESTAMPTZ,
+  used_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  used_at     TIMESTAMPTZ,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  note        TEXT
+);
+
 -- Row Level Security Policies
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;

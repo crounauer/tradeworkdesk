@@ -30,6 +30,9 @@ import JobFiles from "@/pages/job-files";
 import JobSignatures from "@/pages/job-signatures";
 import Reports from "@/pages/reports";
 import SearchPage from "@/pages/search";
+import AdminUsers from "@/pages/admin-users";
+import AdminInviteCodes from "@/pages/admin-invite-codes";
+import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -78,6 +81,10 @@ function AppRouter() {
         {session ? <Redirect to="/" /> : <Login />}
       </Route>
 
+      <Route path="/register">
+        {session ? <Redirect to="/" /> : <Register />}
+      </Route>
+
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
 
       <Route path="/customers" component={() => <ProtectedRoute component={Customers} />} />
@@ -106,6 +113,9 @@ function AppRouter() {
 
       <Route path="/search" component={() => <ProtectedRoute component={SearchPage} />} />
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
+
+      <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
+      <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
 
       <Route component={() => session ? <Layout><NotFound /></Layout> : <Redirect to="/login" />} />
     </Switch>

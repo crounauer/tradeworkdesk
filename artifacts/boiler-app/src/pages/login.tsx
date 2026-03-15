@@ -46,6 +46,7 @@ export default function Login() {
           </div>
           <h1 className="text-3xl font-display font-bold text-foreground">BoilerTech</h1>
           <p className="text-muted-foreground mt-2 text-center">Sign in to access your field service dashboard.</p>
+          <p className="text-xs text-muted-foreground mt-1 text-center">Have an invite link? <a href="/register" className="text-primary hover:underline font-medium">Create an account</a></p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">

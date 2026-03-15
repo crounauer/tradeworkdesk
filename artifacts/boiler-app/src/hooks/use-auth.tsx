@@ -27,12 +27,29 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       // Clear all cached query data when auth state changes to prevent
       // stale data from being refetched with an old/wrong role.
       queryClient.clear();
+
+      // If a pending invite code was stored during sign-up (email verification flow),
+      // apply it now that the user has an active session.
+      if (event === "SIGNED_IN" && session?.access_token) {
+        const pendingCode = localStorage.getItem("pending_invite_code");
+        if (pendingCode) {
+          localStorage.removeItem("pending_invite_code");
+          fetch("/api/auth/use-invite", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: pendingCode }),
+          }).catch(() => {});
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
