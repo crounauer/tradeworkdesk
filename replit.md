@@ -30,11 +30,17 @@ BoilerTech - Boiler service technician management web app. pnpm workspace monore
 
 ## Environment Variables
 
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anon/public key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-side only)
-- `VITE_SUPABASE_URL` - Frontend Supabase URL
-- `VITE_SUPABASE_ANON_KEY` - Frontend Supabase anon key
+- `SUPABASE_URL` - Supabase project URL (required: backend + frontend)
+- `SUPABASE_ANON_KEY` - Supabase anon/public key (required: backend + frontend)
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (required: backend only)
+- `VITE_SUPABASE_URL` - Frontend Supabase URL (auto-set from SUPABASE_URL)
+- `VITE_SUPABASE_ANON_KEY` - Frontend Supabase anon key (auto-set from SUPABASE_ANON_KEY)
+- `PORT` - Server port (auto-assigned per artifact by Replit)
+- `BASE_PATH` - URL base path prefix (auto-assigned per artifact by Replit)
+
+## Seed Data
+
+Seed data in `supabase/seed.sql` includes 12 customers, 13 properties, and 14 appliances that can be inserted directly. Job/service record/breakdown report seed entries are provided as commented SQL and require substituting real Supabase Auth user UUIDs for the `assigned_technician_id` / `technician_id` columns before running.
 
 ## Structure
 
