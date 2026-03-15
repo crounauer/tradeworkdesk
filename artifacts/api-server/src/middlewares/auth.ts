@@ -30,11 +30,33 @@ export async function requireAuth(
     return;
   }
 
-  const { data: profile } = await supabaseAdmin
+  let { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
+
+  if (!profile) {
+    // Auto-provision a profile for users who signed up before the DB trigger ran.
+    // First user in the system becomes admin; everyone else gets technician.
+    const { count } = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true });
+
+    const role = (count ?? 0) === 0 ? "admin" : "technician";
+    const fullName =
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "User";
+
+    const { data: created } = await supabaseAdmin
+      .from("profiles")
+      .insert({ id: user.id, email: user.email, full_name: fullName, role })
+      .select("role")
+      .single();
+
+    profile = created;
+  }
 
   req.userId = user.id;
   req.userRole = profile?.role || "technician";

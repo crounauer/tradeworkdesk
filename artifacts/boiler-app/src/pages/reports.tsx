@@ -1,15 +1,32 @@
 import { useGetUpcomingServices, useGetOverdueServices, useGetCompletedByTechnician } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { AlertTriangle, Clock, CheckCircle, Users } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Users, Lock } from "lucide-react";
 
 export default function Reports() {
-  const { data: upcoming, isLoading: loadingUpcoming } = useGetUpcomingServices();
-  const { data: overdue, isLoading: loadingOverdue } = useGetOverdueServices();
-  const { data: completedByTech, isLoading: loadingCompleted } = useGetCompletedByTechnician();
+  const { data: upcoming, isLoading: loadingUpcoming, isError: errorUpcoming } = useGetUpcomingServices();
+  const { data: overdue, isLoading: loadingOverdue, isError: errorOverdue } = useGetOverdueServices();
+  const { data: completedByTech, isLoading: loadingCompleted, isError: errorCompleted } = useGetCompletedByTechnician();
 
   const isLoading = loadingUpcoming || loadingOverdue || loadingCompleted;
+  const isPermissionError = errorUpcoming || errorOverdue || errorCompleted;
+
   if (isLoading) return <div className="p-8">Loading reports...</div>;
+
+  if (isPermissionError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <div className="p-4 bg-slate-100 rounded-full">
+          <Lock className="w-8 h-8 text-slate-400" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground">Access Restricted</h2>
+        <p className="text-muted-foreground max-w-sm">
+          Reports & Analytics are only available to admin and office staff accounts.
+          Contact your administrator if you need access.
+        </p>
+      </div>
+    );
+  }
 
   const techChartData = completedByTech?.map(t => ({
     name: t.technician_name || "Unknown",
