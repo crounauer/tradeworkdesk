@@ -35,6 +35,7 @@ import SearchPage from "@/pages/search";
 import AdminUsers from "@/pages/admin-users";
 import AdminInviteCodes from "@/pages/admin-invite-codes";
 import AdminLookupOptions from "@/pages/admin-lookup-options";
+import AdminCompanySettings from "@/pages/admin-company-settings";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 
@@ -119,6 +120,7 @@ function AppRouter() {
       <Route path="/search" component={() => <ProtectedRoute component={SearchPage} />} />
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
 
+      <Route path="/admin/company-settings" component={() => <ProtectedRoute component={AdminCompanySettings} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
       <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
       <Route path="/admin/lookup-options" component={() => <ProtectedRoute component={AdminLookupOptions} />} />

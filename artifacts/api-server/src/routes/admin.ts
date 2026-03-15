@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import crypto from "crypto";
@@ -287,4 +288,125 @@ router.delete("/admin/lookup-options/:id", requireAuth, requireRole("admin"), as
   res.status(204).send();
 });
 
+// ─── Company Settings ─────────────────────────────────────────────────────────
+
+const SINGLETON_ID = "default";
+
+router.get("/company-settings", requireAuth, async (_req, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("singleton_id", SINGLETON_ID)
+    .maybeSingle();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "No company settings configured yet." }); return; }
+  res.json(data);
+});
+
+router.get("/admin/company-settings", requireAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("singleton_id", SINGLETON_ID)
+    .maybeSingle();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data ?? {});
+});
+
+router.put("/admin/company-settings", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+  const allowed = [
+    "name", "trading_name",
+    "address_line1", "address_line2", "city", "county", "postcode", "country",
+    "phone", "email", "website",
+    "gas_safe_number", "oftec_number", "vat_number", "company_number",
+  ];
+
+  const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID };
+  for (const key of allowed) {
+    if (key in req.body) updates[key] = req.body[key] ?? null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("company_settings")
+    .upsert(updates, { onConflict: "singleton_id" })
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      cb(new Error("Only image files are allowed."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+router.post("/admin/company-settings/logo", requireAuth, requireRole("admin"), logoUpload.single("logo"), async (req, res): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: "No file uploaded." }); return; }
+
+  const ext = req.file.originalname.split(".").pop()?.toLowerCase() || "png";
+  const storagePath = `logo.${ext}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("company-logos")
+    .upload(storagePath, req.file.buffer, {
+      contentType: req.file.mimetype,
+      upsert: true,
+    });
+
+  if (uploadError) { res.status(500).json({ error: uploadError.message }); return; }
+
+  const { data: urlData } = supabaseAdmin.storage
+    .from("company-logos")
+    .getPublicUrl(storagePath);
+
+  const logoUrl = urlData.publicUrl;
+
+  const { data, error } = await supabaseAdmin
+    .from("company_settings")
+    .upsert(
+      { singleton_id: SINGLETON_ID, logo_url: logoUrl, logo_storage_path: storagePath },
+      { onConflict: "singleton_id" }
+    )
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ logo_url: data.logo_url, logo_storage_path: data.logo_storage_path });
+});
+
+router.delete("/admin/company-settings/logo", requireAuth, requireRole("admin"), async (_req, res): Promise<void> => {
+  const { data: current } = await supabaseAdmin
+    .from("company_settings")
+    .select("logo_storage_path")
+    .eq("singleton_id", SINGLETON_ID)
+    .maybeSingle();
+
+  if (current?.logo_storage_path) {
+    await supabaseAdmin.storage.from("company-logos").remove([current.logo_storage_path]);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("company_settings")
+    .upsert(
+      { singleton_id: SINGLETON_ID, logo_url: null, logo_storage_path: null },
+      { onConflict: "singleton_id" }
+    )
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
 export default router;
+

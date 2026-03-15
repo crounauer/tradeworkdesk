@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle, Flame, Gauge } from "lucide-react";
 import { Link } from "wouter";
 import { generateServiceRecordPdf, generateCp12Pdf } from "@/lib/pdf-generator";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface ServiceRecordFormData {
   arrival_time: string;
@@ -90,6 +91,7 @@ export default function ServiceRecordForm() {
   const { data: existingRecord, isLoading: isLoadingExisting } = useGetServiceRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
 
+  const { data: company } = useCompanySettings();
   const createMutation = useCreateServiceRecord();
   const updateMutation = useUpdateServiceRecord();
 
@@ -292,12 +294,12 @@ export default function ServiceRecordForm() {
       generateCp12Pdf({
         ...commonData,
         serviceRecord: vals,
-      });
+      }, company ?? undefined);
     } else {
       generateServiceRecordPdf({
         ...commonData,
         serviceRecord: vals,
-      });
+      }, company ?? undefined);
     }
   };
 

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, ArrowLeft, FileDown, Shield, Gauge, ClipboardCheck, UserCheck } from "lucide-react";
 import { Link } from "wouter";
 import { generateCommissioningPdf } from "@/lib/pdf-generator";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface CommissioningFormData {
   gas_safe_engineer_id: string;
@@ -43,6 +44,7 @@ export default function CommissioningRecordForm() {
   const { data: existingRecord, isLoading: isLoadingExisting } = useGetCommissioningRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
 
+  const { data: company } = useCompanySettings();
   const createMutation = useCreateCommissioningRecord();
   const updateMutation = useUpdateCommissioningRecord();
 
@@ -130,7 +132,7 @@ export default function CommissioningRecordForm() {
       technicianName: technician?.full_name || user?.email || "N/A",
       scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
       record: vals,
-    });
+    }, company ?? undefined);
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;

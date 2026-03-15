@@ -561,3 +561,64 @@ CREATE POLICY "auth_read_sigs" ON storage.objects FOR SELECT TO authenticated
   ));
 CREATE POLICY "auth_delete_sigs" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'signatures' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
+
+-- ─── Company Settings ──────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS company_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  singleton_id TEXT NOT NULL DEFAULT 'default',
+  name TEXT,
+  trading_name TEXT,
+  address_line1 TEXT,
+  address_line2 TEXT,
+  city TEXT,
+  county TEXT,
+  postcode TEXT,
+  country TEXT DEFAULT 'United Kingdom',
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  gas_safe_number TEXT,
+  oftec_number TEXT,
+  vat_number TEXT,
+  company_number TEXT,
+  logo_url TEXT,
+  logo_storage_path TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT company_settings_singleton UNIQUE (singleton_id)
+);
+
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON company_settings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "company_settings_select" ON company_settings
+  FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "company_settings_insert" ON company_settings
+  FOR INSERT TO authenticated
+  WITH CHECK (get_user_role(auth.uid()) = 'admin');
+
+CREATE POLICY "company_settings_update" ON company_settings
+  FOR UPDATE TO authenticated
+  USING (get_user_role(auth.uid()) = 'admin');
+
+-- Public bucket for company logos
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('company-logos', 'company-logos', true)
+ON CONFLICT DO NOTHING;
+
+CREATE POLICY "company_logos_upload" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'company-logos' AND get_user_role(auth.uid()) = 'admin');
+
+CREATE POLICY "company_logos_read" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'company-logos');
+
+CREATE POLICY "company_logos_delete" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'company-logos' AND get_user_role(auth.uid()) = 'admin');

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileDown, Thermometer, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { generateHeatPumpServicePdf } from "@/lib/pdf-generator";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface HeatPumpServiceFormData {
   refrigerant_type: string;
@@ -48,6 +49,7 @@ export default function HeatPumpServiceForm() {
   const { data: existingRecord, isLoading: isLoadingExisting } = useGetHeatPumpServiceRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
 
+  const { data: company } = useCompanySettings();
   const createMutation = useCreateHeatPumpServiceRecord();
   const updateMutation = useUpdateHeatPumpServiceRecord();
 
@@ -142,7 +144,7 @@ export default function HeatPumpServiceForm() {
       technicianName: job?.technician?.full_name || user?.email || "N/A",
       scheduledDate: job?.scheduled_date ? new Date(String(job.scheduled_date).slice(0, 10)).toLocaleDateString() : new Date().toLocaleDateString(),
       record: vals,
-    });
+    }, company ?? undefined);
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;

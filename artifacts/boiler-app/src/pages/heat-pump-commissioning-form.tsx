@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileDown, Wind, Gauge, ClipboardCheck, UserCheck, Settings } from "lucide-react";
 import { Link } from "wouter";
 import { generateHeatPumpCommissioningPdf } from "@/lib/pdf-generator";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface HeatPumpCommissioningFormData {
   heat_loss_kwh: string;
@@ -43,6 +44,7 @@ export default function HeatPumpCommissioningForm() {
   const { data: existingRecord, isLoading: isLoadingExisting } = useGetHeatPumpCommissioningRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
 
+  const { data: company } = useCompanySettings();
   const createMutation = useCreateHeatPumpCommissioningRecord();
   const updateMutation = useUpdateHeatPumpCommissioningRecord();
 
@@ -125,7 +127,7 @@ export default function HeatPumpCommissioningForm() {
       technicianName: job?.technician?.full_name || user?.email || "N/A",
       scheduledDate: job?.scheduled_date ? new Date(String(job.scheduled_date).slice(0, 10)).toLocaleDateString() : new Date().toLocaleDateString(),
       record: vals,
-    });
+    }, company ?? undefined);
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;
