@@ -17,6 +17,9 @@ import Jobs from "@/pages/jobs";
 import JobDetail from "@/pages/job-detail";
 import ServiceRecordForm from "@/pages/service-record-form";
 import Reports from "@/pages/reports";
+import SearchPage from "@/pages/search";
+import PropertyDetail from "@/pages/property-detail";
+import ApplianceDetail from "@/pages/appliance-detail";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -59,12 +62,15 @@ function Router() {
       <Route path="/customers/:id" component={() => <ProtectedRoute component={CustomerDetail} />} />
       
       <Route path="/properties" component={() => <ProtectedRoute component={Properties} />} />
+      <Route path="/properties/:id" component={() => <ProtectedRoute component={PropertyDetail} />} />
       <Route path="/appliances" component={() => <ProtectedRoute component={Appliances} />} />
+      <Route path="/appliances/:id" component={() => <ProtectedRoute component={ApplianceDetail} />} />
       
       <Route path="/jobs" component={() => <ProtectedRoute component={Jobs} />} />
       <Route path="/jobs/:id" component={() => <ProtectedRoute component={JobDetail} />} />
       <Route path="/jobs/:jobId/service-record" component={() => <ProtectedRoute component={ServiceRecordForm} />} />
       
+      <Route path="/search" component={() => <ProtectedRoute component={SearchPage} />} />
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
       
       <Route component={() => session ? <Layout><NotFound /></Layout> : <Redirect to="/login" />} />

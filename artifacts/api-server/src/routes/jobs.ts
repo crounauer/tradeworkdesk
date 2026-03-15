@@ -117,7 +117,7 @@ router.get("/jobs/:id", requireAuth, async (req, res): Promise<void> => {
   }));
 });
 
-router.patch("/jobs/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id", requireAuth, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateJobBody.safeParse(req.body);

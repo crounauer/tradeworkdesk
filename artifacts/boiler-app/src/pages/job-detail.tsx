@@ -2,7 +2,7 @@ import { useGetJob } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, AlertTriangle, FileSignature } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, AlertTriangle, FileSignature, Flame } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 
 export default function JobDetail() {

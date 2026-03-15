@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import {
   CreateBreakdownReportBody,
   GetBreakdownReportParams,
@@ -32,7 +32,7 @@ router.get("/breakdown-reports/:id", requireAuth, async (req, res): Promise<void
   res.json(GetBreakdownReportResponse.parse(data));
 });
 
-router.patch("/breakdown-reports/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/breakdown-reports/:id", requireAuth, requireRole("admin", "office_staff", "technician"), async (req, res): Promise<void> => {
   const params = UpdateBreakdownReportParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateBreakdownReportBody.safeParse(req.body);
