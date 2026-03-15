@@ -61,7 +61,7 @@ router.get("/reports/upcoming-services", requireAuth, requireRole("admin", "offi
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data as ServiceReportRow[] || []).map((a) => ({
+  const mapped = ((data || []) as unknown as ServiceReportRow[]).map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,
@@ -89,7 +89,7 @@ router.get("/reports/overdue-services", requireAuth, requireRole("admin", "offic
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data as ServiceReportRow[] || []).map((a) => ({
+  const mapped = ((data || []) as unknown as ServiceReportRow[]).map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,

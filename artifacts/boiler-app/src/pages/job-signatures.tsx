@@ -19,9 +19,7 @@ export default function JobSignatures() {
   const [signerType, setSignerType] = useState<"customer" | "technician">("customer");
   const [saving, setSaving] = useState(false);
 
-  const { data: signatures, isLoading } = useGetJobSignatures(jobId!, {
-    query: { enabled: !!jobId }
-  });
+  const { data: signatures, isLoading } = useGetJobSignatures(jobId!);
 
   const createMutation = useCreateSignature();
 
@@ -77,7 +75,7 @@ export default function JobSignatures() {
         <div className="space-y-4">
           <h2 className="font-bold text-lg">Existing Signatures</h2>
           <div className="grid sm:grid-cols-2 gap-4">
-            {signatures.map((sig: { id: string; signer_name: string; signer_type: string; signed_url?: string | null; created_at: string }) => (
+            {signatures.map((sig) => (
               <Card key={sig.id} className="p-4 border border-border/50">
                 <div className="flex items-center gap-2 mb-2">
                   <Check className="w-4 h-4 text-emerald-500" />

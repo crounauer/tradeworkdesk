@@ -6,7 +6,7 @@ import { useGetProfile } from "@workspace/api-client-react";
 type AuthContextType = {
   session: Session | null;
   user: User | null;
-  profile: any | null;
+  profile: { id: string; email: string; full_name: string; role: string; phone?: string | null } | null | undefined;
   isLoading: boolean;
   signOut: () => Promise<void>;
 };
@@ -33,12 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const { data: profile } = useGetProfile({
-    query: {
-      enabled: !!user,
-      retry: false
-    }
-  });
+  const { data: profile } = useGetProfile();
 
   const signOut = async () => {
     await supabase.auth.signOut();

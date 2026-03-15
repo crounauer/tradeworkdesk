@@ -8,8 +8,7 @@ import { Search as SearchIcon, Users, Home, Flame, Briefcase } from "lucide-reac
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const { data, isLoading } = useGlobalSearch(
-    { q: query },
-    { query: { enabled: query.length >= 2 } }
+    { q: query || "  " },
   );
 
   const totalResults =
@@ -54,7 +53,7 @@ export default function SearchPage() {
                     <Users className="w-5 h-5 text-blue-500" /> Customers ({data.customers.length})
                   </h2>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.customers.map((c: any) => (
+                    {data.customers.map((c) => (
                       <Link key={c.id} href={`/customers/${c.id}`}>
                         <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                           <p className="font-bold">{c.first_name} {c.last_name}</p>
@@ -72,7 +71,7 @@ export default function SearchPage() {
                     <Home className="w-5 h-5 text-emerald-500" /> Properties ({data.properties.length})
                   </h2>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.properties.map((p: any) => (
+                    {data.properties.map((p) => (
                       <Link key={p.id} href={`/properties/${p.id}`}>
                         <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                           <p className="font-bold">{p.address_line1}</p>
@@ -90,7 +89,7 @@ export default function SearchPage() {
                     <Flame className="w-5 h-5 text-orange-500" /> Appliances ({data.appliances.length})
                   </h2>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.appliances.map((a: any) => (
+                    {data.appliances.map((a) => (
                       <Link key={a.id} href={`/appliances/${a.id}`}>
                         <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                           <p className="font-bold">{a.manufacturer} {a.model}</p>
@@ -108,7 +107,7 @@ export default function SearchPage() {
                     <Briefcase className="w-5 h-5 text-purple-500" /> Jobs ({data.jobs.length})
                   </h2>
                   <div className="space-y-3">
-                    {data.jobs.map((j: any) => (
+                    {data.jobs.map((j) => (
                       <Link key={j.id} href={`/jobs/${j.id}`}>
                         <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                           <div className="flex justify-between items-start">

@@ -31,10 +31,10 @@ export default function ApplianceDetail() {
         <Card className="p-6 border border-border/50 shadow-sm">
           <h3 className="font-bold text-lg border-b border-border/50 pb-2 mb-4">Specifications</h3>
           <div className="space-y-3 text-sm">
-            <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{appliance.appliance_type || "N/A"}</span></div>
+            <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{appliance.boiler_type || "N/A"}</span></div>
             <div><span className="text-muted-foreground">Fuel:</span> <span className="font-medium capitalize">{appliance.fuel_type || "N/A"}</span></div>
-            {appliance.gc_number && <div><span className="text-muted-foreground">GC No:</span> <span className="font-medium">{appliance.gc_number}</span></div>}
-            {appliance.install_date && <div><span className="text-muted-foreground">Installed:</span> <span className="font-medium">{formatDate(appliance.install_date)}</span></div>}
+            {appliance.burner_make && <div><span className="text-muted-foreground">Burner:</span> <span className="font-medium">{appliance.burner_make} {appliance.burner_model}</span></div>}
+            {appliance.installation_date && <div><span className="text-muted-foreground">Installed:</span> <span className="font-medium">{formatDate(appliance.installation_date)}</span></div>}
             <div className="pt-3 border-t border-border/50">
               <span className="text-muted-foreground">Last Service:</span> <span className="font-medium">{formatDate(appliance.last_service_date)}</span>
             </div>
@@ -61,7 +61,7 @@ export default function ApplianceDetail() {
             <div>
               <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-purple-500" /> Service History</h2>
               <div className="space-y-3">
-                {appliance.recent_jobs.map((job: any) => (
+                {appliance.recent_jobs.map((job) => (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                       <div className="flex justify-between items-start">

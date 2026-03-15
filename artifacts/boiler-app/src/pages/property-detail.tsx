@@ -33,14 +33,11 @@ export default function PropertyDetail() {
         <Card className="p-6 border border-border/50 shadow-sm">
           <h3 className="font-bold text-lg border-b border-border/50 pb-2 mb-4">Details</h3>
           <div className="space-y-3 text-sm">
-            {property.property_type && (
-              <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{property.property_type}</span></div>
-            )}
             {property.address_line2 && (
               <div><span className="text-muted-foreground">Address Line 2:</span> <span className="font-medium">{property.address_line2}</span></div>
             )}
-            {property.access_instructions && (
-              <div><span className="text-muted-foreground">Access:</span> <span className="font-medium">{property.access_instructions}</span></div>
+            {property.access_notes && (
+              <div><span className="text-muted-foreground">Access:</span> <span className="font-medium">{property.access_notes}</span></div>
             )}
             {property.customer && (
               <div className="pt-3 border-t border-border/50">
@@ -63,7 +60,7 @@ export default function PropertyDetail() {
               </Card>
             ) : (
               <div className="grid sm:grid-cols-2 gap-4">
-                {property.appliances.map((app: any) => (
+                {property.appliances.map((app) => (
                   <Card key={app.id} className="p-5 border border-border/50 hover:border-orange-500/30 transition-colors">
                     <h4 className="font-bold">{app.manufacturer} {app.model}</h4>
                     <p className="text-sm text-muted-foreground font-mono mt-1">SN: {app.serial_number || "N/A"}</p>
@@ -84,7 +81,7 @@ export default function PropertyDetail() {
             <div>
               <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-purple-500" /> Recent Jobs</h2>
               <div className="space-y-3">
-                {property.recent_jobs.map((job: any) => (
+                {property.recent_jobs.map((job) => (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                       <div className="flex justify-between items-start">

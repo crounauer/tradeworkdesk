@@ -86,7 +86,7 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res): Pr
     properties: undefined,
   });
 
-  const mappedOverdue = (overdueRes.data as OverdueApplianceRow[] || []).map((a) => ({
+  const mappedOverdue = ((overdueRes.data || []) as unknown as OverdueApplianceRow[]).map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,

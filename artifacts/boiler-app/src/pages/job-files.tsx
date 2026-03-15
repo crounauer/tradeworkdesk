@@ -16,8 +16,7 @@ export default function JobFiles() {
   const [uploading, setUploading] = useState(false);
 
   const { data: files, isLoading } = useListFiles(
-    { entity_type: "job", entity_id: jobId! },
-    { query: { enabled: !!jobId } }
+    { entity_type: "job", entity_id: jobId! }
   );
 
   const deleteMutation = useDeleteFile();
@@ -91,7 +90,7 @@ export default function JobFiles() {
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {files.map((file: { id: string; file_name: string; file_type: string; file_size: number; signed_url?: string | null }) => (
+          {files.map((file) => (
             <Card key={file.id} className="p-4 border border-border/50 hover:shadow-md transition-all">
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-slate-100 rounded-lg">
@@ -103,7 +102,7 @@ export default function JobFiles() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{file.file_name}</p>
-                  <p className="text-xs text-muted-foreground">{(file.file_size / 1024).toFixed(1)} KB</p>
+                  <p className="text-xs text-muted-foreground">{((file.file_size || 0) / 1024).toFixed(1)} KB</p>
                 </div>
               </div>
               <div className="flex gap-2 mt-3">

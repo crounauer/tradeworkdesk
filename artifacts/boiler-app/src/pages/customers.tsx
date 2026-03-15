@@ -88,8 +88,8 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const create = useCreateCustomer();
   const { register, handleSubmit } = useForm();
 
-  const onSubmit = async (data: any) => {
-    await create.mutateAsync({ data });
+  const onSubmit = async (data: Record<string, unknown>) => {
+    await create.mutateAsync({ data: data as { first_name: string; last_name: string } });
     qc.invalidateQueries({ queryKey: ["/api/customers"] });
     onClose();
   };

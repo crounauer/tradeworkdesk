@@ -30,9 +30,7 @@ export default function BreakdownReportForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingReport, isLoading: isLoadingExisting } = useGetBreakdownReportByJob(jobId!, {
-    query: { retry: false }
-  });
+  const { data: existingReport, isLoading: isLoadingExisting } = useGetBreakdownReportByJob(jobId!);
 
   const createMutation = useCreateBreakdownReport();
   const updateMutation = useUpdateBreakdownReport();

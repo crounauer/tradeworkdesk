@@ -33,9 +33,8 @@ export default function ServiceRecordForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetServiceRecordByJob(jobId!, {
-    query: { retry: false }
-  });
+  const { data: existingRecord, isLoading: isLoadingExisting, queryKey } = useGetServiceRecordByJob(jobId!);
+  void queryKey;
 
   const createMutation = useCreateServiceRecord();
   const updateMutation = useUpdateServiceRecord();
