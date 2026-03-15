@@ -30,6 +30,7 @@ interface HeatPumpCommissioningFormData {
   inhibitor_added: boolean;
   customer_instructions_given: boolean;
   customer_name_signed: string;
+  technician_name_signed: string;
   notes: string;
 }
 
@@ -66,16 +67,17 @@ export default function HeatPumpCommissioningForm() {
         inhibitor_added: existingRecord.inhibitor_added ?? false,
         customer_instructions_given: existingRecord.customer_instructions_given ?? false,
         customer_name_signed: existingRecord.customer_name_signed || "",
+        technician_name_signed: existingRecord.technician_name_signed || "",
         notes: existingRecord.notes || "",
       });
     }
   }, [existingRecord, reset]);
 
   const onSubmit = async (data: HeatPumpCommissioningFormData) => {
-    if (!user?.id) return;
+    if (!user?.id || !jobId) return;
 
     const payload: CreateHeatPumpCommissioningRecordBody = {
-      job_id: jobId!,
+      job_id: jobId,
       technician_id: user.id,
       heat_loss_kwh: data.heat_loss_kwh || undefined,
       design_flow_temp: data.design_flow_temp || undefined,
@@ -93,16 +95,17 @@ export default function HeatPumpCommissioningForm() {
       inhibitor_added: data.inhibitor_added,
       customer_instructions_given: data.customer_instructions_given,
       customer_name_signed: data.customer_name_signed || undefined,
+      technician_name_signed: data.technician_name_signed || undefined,
       notes: data.notes || undefined,
     };
 
     try {
       if (existingRecord) {
         const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
-        await updateMutation.mutateAsync({ id: existingRecord.id, data: updatePayload });
+        await updateMutation.mutateAsync({ jobId, data: updatePayload });
         toast({ title: "Updated", description: "Heat pump commissioning record updated successfully" });
       } else {
-        await createMutation.mutateAsync({ data: payload });
+        await createMutation.mutateAsync({ jobId, data: payload });
         toast({ title: "Success", description: "Heat pump commissioning record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);
@@ -214,12 +217,18 @@ export default function HeatPumpCommissioningForm() {
         </Card>
 
         <Card className="p-6 shadow-sm border-border/50">
-          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><UserCheck className="w-5 h-5"/> Customer Handover</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            <label className="flex items-center gap-2 p-3 border rounded-xl hover:bg-cyan-50 cursor-pointer transition-colors text-sm">
+          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><UserCheck className="w-5 h-5"/> Customer Handover & Sign-off</h2>
+          <div className="mb-4">
+            <label className="flex items-center gap-2 p-3 border rounded-xl hover:bg-cyan-50 cursor-pointer transition-colors text-sm w-fit">
               <input type="checkbox" {...register("customer_instructions_given")} className="w-5 h-5 accent-cyan-600 rounded" />
               <span className="font-medium">Customer shown how to operate system</span>
             </label>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Technician Name (printed)</Label>
+              <Input {...register("technician_name_signed")} placeholder="Technician name..." />
+            </div>
             <div className="space-y-2">
               <Label>Customer Name (printed)</Label>
               <Input {...register("customer_name_signed")} placeholder="Customer name..." />

@@ -35,10 +35,14 @@ CREATE TABLE IF NOT EXISTS heat_pump_service_records (
   follow_up_required BOOLEAN DEFAULT false,
   follow_up_notes TEXT,
   customer_name_signed TEXT,
+  technician_name_signed TEXT,
   additional_notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add technician_name_signed if table already existed
+ALTER TABLE heat_pump_service_records ADD COLUMN IF NOT EXISTS technician_name_signed TEXT;
 
 -- Heat Pump Commissioning Records table
 CREATE TABLE IF NOT EXISTS heat_pump_commissioning_records (
@@ -61,10 +65,14 @@ CREATE TABLE IF NOT EXISTS heat_pump_commissioning_records (
   inhibitor_added BOOLEAN DEFAULT false,
   customer_instructions_given BOOLEAN DEFAULT false,
   customer_name_signed TEXT,
+  technician_name_signed TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add technician_name_signed if table already existed
+ALTER TABLE heat_pump_commissioning_records ADD COLUMN IF NOT EXISTS technician_name_signed TEXT;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_heat_pump_service_records_job ON heat_pump_service_records(job_id);
@@ -99,14 +107,61 @@ END $$;
 ALTER TABLE heat_pump_service_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heat_pump_commissioning_records ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "heat_pump_service_records_select" ON heat_pump_service_records FOR SELECT TO authenticated
-  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "heat_pump_service_records_insert" ON heat_pump_service_records FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "heat_pump_service_records_update" ON heat_pump_service_records FOR UPDATE TO authenticated
-  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+-- RLS Policies (idempotent via DO blocks)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'heat_pump_service_records' AND policyname = 'heat_pump_service_records_select'
+  ) THEN
+    CREATE POLICY "heat_pump_service_records_select" ON heat_pump_service_records FOR SELECT TO authenticated
+      USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records FOR SELECT TO authenticated
-  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records FOR UPDATE TO authenticated
-  USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'heat_pump_service_records' AND policyname = 'heat_pump_service_records_insert'
+  ) THEN
+    CREATE POLICY "heat_pump_service_records_insert" ON heat_pump_service_records FOR INSERT TO authenticated WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'heat_pump_service_records' AND policyname = 'heat_pump_service_records_update'
+  ) THEN
+    CREATE POLICY "heat_pump_service_records_update" ON heat_pump_service_records FOR UPDATE TO authenticated
+      USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'heat_pump_commissioning_records' AND policyname = 'heat_pump_commissioning_records_select'
+  ) THEN
+    CREATE POLICY "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records FOR SELECT TO authenticated
+      USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'heat_pump_commissioning_records' AND policyname = 'heat_pump_commissioning_records_insert'
+  ) THEN
+    CREATE POLICY "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'heat_pump_commissioning_records' AND policyname = 'heat_pump_commissioning_records_update'
+  ) THEN
+    CREATE POLICY "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records FOR UPDATE TO authenticated
+      USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+  END IF;
+END $$;

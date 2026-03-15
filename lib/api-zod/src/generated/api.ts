@@ -3226,6 +3226,7 @@ export const HeatPumpServiceRecordBase = zod.object({
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().nullish(),
   customer_name_signed: zod.string().nullish(),
+  technician_name_signed: zod.string().nullish(),
   additional_notes: zod.string().nullish(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
@@ -3267,6 +3268,7 @@ export const CreateHeatPumpServiceRecordBody = zod.object({
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().optional(),
   customer_name_signed: zod.string().optional(),
+  technician_name_signed: zod.string().optional(),
   additional_notes: zod.string().optional(),
 });
 
@@ -3296,6 +3298,7 @@ export const UpdateHeatPumpServiceRecordBody = zod.object({
   follow_up_required: zod.boolean().optional(),
   follow_up_notes: zod.string().nullish(),
   customer_name_signed: zod.string().nullish(),
+  technician_name_signed: zod.string().nullish(),
   additional_notes: zod.string().nullish(),
 });
 
@@ -3321,6 +3324,7 @@ export const HeatPumpCommissioningRecordBase = zod.object({
   inhibitor_added: zod.boolean().optional(),
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().nullish(),
+  technician_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
@@ -3357,6 +3361,7 @@ export const CreateHeatPumpCommissioningRecordBody = zod.object({
   inhibitor_added: zod.boolean().optional(),
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().optional(),
+  technician_name_signed: zod.string().optional(),
   notes: zod.string().optional(),
 });
 
@@ -3381,5 +3386,6 @@ export const UpdateHeatPumpCommissioningRecordBody = zod.object({
   inhibitor_added: zod.boolean().optional(),
   customer_instructions_given: zod.boolean().optional(),
   customer_name_signed: zod.string().nullish(),
+  technician_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
 });

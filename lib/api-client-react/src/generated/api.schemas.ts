@@ -1726,6 +1726,7 @@ export type HeatPumpServiceRecord = {
   follow_up_required?: boolean;
   follow_up_notes?: string | null;
   customer_name_signed?: string | null;
+  technician_name_signed?: string | null;
   additional_notes?: string | null;
   created_at: string;
   updated_at: string;
@@ -1755,6 +1756,7 @@ export type CreateHeatPumpServiceRecordBody = {
   follow_up_required?: boolean;
   follow_up_notes?: string;
   customer_name_signed?: string;
+  technician_name_signed?: string;
   additional_notes?: string;
 };
 
@@ -1780,6 +1782,7 @@ export type HeatPumpCommissioningRecord = {
   inhibitor_added?: boolean;
   customer_instructions_given?: boolean;
   customer_name_signed?: string | null;
+  technician_name_signed?: string | null;
   notes?: string | null;
   created_at: string;
   updated_at: string;
@@ -1804,6 +1807,7 @@ export type CreateHeatPumpCommissioningRecordBody = {
   inhibitor_added?: boolean;
   customer_instructions_given?: boolean;
   customer_name_signed?: string;
+  technician_name_signed?: string;
   notes?: string;
 };
 

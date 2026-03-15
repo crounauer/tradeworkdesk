@@ -35,6 +35,7 @@ interface HeatPumpServiceFormData {
   follow_up_required: boolean;
   follow_up_notes: string;
   customer_name_signed: string;
+  technician_name_signed: string;
   additional_notes: string;
 }
 
@@ -78,16 +79,17 @@ export default function HeatPumpServiceForm() {
         follow_up_required: existingRecord.follow_up_required ?? false,
         follow_up_notes: existingRecord.follow_up_notes || "",
         customer_name_signed: existingRecord.customer_name_signed || "",
+        technician_name_signed: existingRecord.technician_name_signed || "",
         additional_notes: existingRecord.additional_notes || "",
       });
     }
   }, [existingRecord, reset]);
 
   const onSubmit = async (data: HeatPumpServiceFormData) => {
-    if (!user?.id) return;
+    if (!user?.id || !jobId) return;
 
     const payload: CreateHeatPumpServiceRecordBody = {
-      job_id: jobId!,
+      job_id: jobId,
       technician_id: user.id,
       refrigerant_type: data.refrigerant_type || undefined,
       refrigerant_pressure_high: data.refrigerant_pressure_high || undefined,
@@ -110,16 +112,17 @@ export default function HeatPumpServiceForm() {
       follow_up_required: data.follow_up_required,
       follow_up_notes: data.follow_up_notes || undefined,
       customer_name_signed: data.customer_name_signed || undefined,
+      technician_name_signed: data.technician_name_signed || undefined,
       additional_notes: data.additional_notes || undefined,
     };
 
     try {
       if (existingRecord) {
         const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
-        await updateMutation.mutateAsync({ id: existingRecord.id, data: updatePayload });
+        await updateMutation.mutateAsync({ jobId, data: updatePayload });
         toast({ title: "Updated", description: "Heat pump service record updated successfully" });
       } else {
-        await createMutation.mutateAsync({ data: payload });
+        await createMutation.mutateAsync({ jobId, data: payload });
         toast({ title: "Success", description: "Heat pump service record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);
@@ -297,11 +300,17 @@ export default function HeatPumpServiceForm() {
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><UserCheck className="w-5 h-5"/> Sign-off</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
             <label className="flex items-center gap-2 p-3 border rounded-xl hover:bg-emerald-50 cursor-pointer transition-colors text-sm">
               <input type="checkbox" {...register("appliance_safe")} className="w-5 h-5 accent-emerald-600 rounded" />
               <span className="font-medium">Appliance Safe to Use</span>
             </label>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Technician Name (printed)</Label>
+              <Input {...register("technician_name_signed")} placeholder="Technician name..." />
+            </div>
             <div className="space-y-2">
               <Label>Customer Name (printed)</Label>
               <Input {...register("customer_name_signed")} placeholder="Customer name..." />

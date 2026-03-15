@@ -591,6 +591,7 @@ interface HeatPumpServicePdfData {
     follow_up_required?: boolean;
     follow_up_notes?: string;
     customer_name_signed?: string;
+    technician_name_signed?: string;
     additional_notes?: string;
   };
 }
@@ -659,6 +660,7 @@ export function generateHeatPumpServicePdf(data: HeatPumpServicePdfData): void {
 
   y = addSection(y, "Sign-off", [
     ["Appliance Safe", bool(r.appliance_safe)],
+    ["Technician Name", r.technician_name_signed || ""],
     ["Customer Name", r.customer_name_signed || ""],
     ["Additional Notes", r.additional_notes || ""],
   ], [6, 182, 212]);
@@ -706,6 +708,7 @@ interface HeatPumpCommissioningPdfData {
     inhibitor_added?: boolean;
     customer_instructions_given?: boolean;
     customer_name_signed?: string;
+    technician_name_signed?: string;
     notes?: string;
   };
 }
@@ -764,8 +767,9 @@ export function generateHeatPumpCommissioningPdf(data: HeatPumpCommissioningPdfD
     ["Inhibitor Added", bool(r.inhibitor_added)],
   ], [6, 182, 212]);
 
-  y = addSection(y, "Customer Handover", [
+  y = addSection(y, "Customer Handover & Sign-off", [
     ["Instructions Given", bool(r.customer_instructions_given)],
+    ["Technician Name", r.technician_name_signed || ""],
     ["Customer Name", r.customer_name_signed || ""],
     ["Notes", r.notes || ""],
   ], [6, 182, 212]);

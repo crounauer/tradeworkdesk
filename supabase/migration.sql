@@ -241,6 +241,7 @@ CREATE TABLE heat_pump_service_records (
   follow_up_required BOOLEAN DEFAULT false,
   follow_up_notes TEXT,
   customer_name_signed TEXT,
+  technician_name_signed TEXT,
   additional_notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -267,6 +268,7 @@ CREATE TABLE heat_pump_commissioning_records (
   inhibitor_added BOOLEAN DEFAULT false,
   customer_instructions_given BOOLEAN DEFAULT false,
   customer_name_signed TEXT,
+  technician_name_signed TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
