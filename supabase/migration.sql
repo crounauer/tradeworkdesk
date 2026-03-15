@@ -59,6 +59,7 @@ CREATE TABLE properties (
   property_type property_type DEFAULT 'residential',
   occupancy_type occupancy_type,
   access_notes TEXT,
+  parking_notes TEXT,
   boiler_location TEXT,
   flue_location TEXT,
   tank_location TEXT,
@@ -346,13 +347,21 @@ CREATE POLICY "job_notes_insert" ON job_notes FOR INSERT TO authenticated WITH C
 CREATE POLICY "job_notes_update" ON job_notes FOR UPDATE TO authenticated USING (author_id = auth.uid());
 CREATE POLICY "job_notes_delete" ON job_notes FOR DELETE TO authenticated USING (author_id = auth.uid() OR get_user_role(auth.uid()) = 'admin');
 
--- File Attachments: all authenticated can read and upload
-CREATE POLICY "file_attachments_select" ON file_attachments FOR SELECT TO authenticated USING (true);
+-- File Attachments: admin/office can see all, technicians only see files for their assigned jobs
+CREATE POLICY "file_attachments_select" ON file_attachments FOR SELECT TO authenticated
+  USING (
+    get_user_role(auth.uid()) IN ('admin', 'office_staff')
+    OR (entity_type = 'job' AND EXISTS (SELECT 1 FROM jobs WHERE jobs.id = entity_id AND jobs.assigned_technician_id = auth.uid()))
+  );
 CREATE POLICY "file_attachments_insert" ON file_attachments FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "file_attachments_delete" ON file_attachments FOR DELETE TO authenticated USING (uploaded_by = auth.uid() OR get_user_role(auth.uid()) = 'admin');
 
--- Signatures: all authenticated can read and create
-CREATE POLICY "signatures_select" ON signatures FOR SELECT TO authenticated USING (true);
+-- Signatures: admin/office can see all, technicians only see signatures for their assigned jobs
+CREATE POLICY "signatures_select" ON signatures FOR SELECT TO authenticated
+  USING (
+    get_user_role(auth.uid()) IN ('admin', 'office_staff')
+    OR EXISTS (SELECT 1 FROM jobs WHERE jobs.id = job_id AND jobs.assigned_technician_id = auth.uid())
+  );
 CREATE POLICY "signatures_insert" ON signatures FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Create storage buckets
@@ -360,14 +369,28 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('service-photos', 'servic
 INSERT INTO storage.buckets (id, name, public) VALUES ('service-documents', 'service-documents', false) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('signatures', 'signatures', false) ON CONFLICT DO NOTHING;
 
--- Storage policies
+-- Storage policies - scoped by role: admin/office have full access, technicians restricted to their job paths
 CREATE POLICY "auth_upload_photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'service-photos');
-CREATE POLICY "auth_read_photos" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'service-photos');
-CREATE POLICY "auth_delete_photos" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'service-photos');
+CREATE POLICY "auth_read_photos" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'service-photos' AND (
+    get_user_role(auth.uid()) IN ('admin', 'office_staff')
+    OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
+  ));
+CREATE POLICY "auth_delete_photos" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'service-photos' AND (owner = auth.uid()::text OR get_user_role(auth.uid()) = 'admin'));
 
 CREATE POLICY "auth_upload_docs" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'service-documents');
-CREATE POLICY "auth_read_docs" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'service-documents');
-CREATE POLICY "auth_delete_docs" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'service-documents');
+CREATE POLICY "auth_read_docs" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'service-documents' AND (
+    get_user_role(auth.uid()) IN ('admin', 'office_staff')
+    OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
+  ));
+CREATE POLICY "auth_delete_docs" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'service-documents' AND (owner = auth.uid()::text OR get_user_role(auth.uid()) = 'admin'));
 
 CREATE POLICY "auth_upload_sigs" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'signatures');
-CREATE POLICY "auth_read_sigs" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'signatures');
+CREATE POLICY "auth_read_sigs" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'signatures' AND (
+    get_user_role(auth.uid()) IN ('admin', 'office_staff')
+    OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
+  ));

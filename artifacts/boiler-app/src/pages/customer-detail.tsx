@@ -1,12 +1,14 @@
-import { useGetCustomer, useCreateProperty } from "@workspace/api-client-react";
+import { useGetCustomer, useCreateProperty, useUpdateCustomer } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { Label } from "@/components/ui/label";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 type PropertyFormData = {
   address_line1: string;
@@ -19,10 +21,26 @@ type PropertyFormData = {
   parking_notes?: string;
 };
 
+type CustomerEditData = {
+  title?: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  county?: string;
+  postcode?: string;
+  notes?: string;
+};
+
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: customer, isLoading } = useGetCustomer(id);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
@@ -45,95 +63,228 @@ export default function CustomerDetail() {
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+          {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
+        </Button>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="p-6 lg:col-span-1 border border-border/50 shadow-sm space-y-4">
-          <h3 className="font-bold text-lg border-b border-border/50 pb-2">Contact Info</h3>
-          {customer.phone && (
-            <div className="flex items-start gap-3">
-              <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Phone</p>
-                <p className="text-foreground">{customer.phone}</p>
+      {editing ? (
+        <EditCustomerForm customer={customer} onClose={() => setEditing(false)} />
+      ) : (
+        <div className="grid lg:grid-cols-3 gap-6">
+          <Card className="p-6 lg:col-span-1 border border-border/50 shadow-sm space-y-4">
+            <h3 className="font-bold text-lg border-b border-border/50 pb-2">Contact Info</h3>
+            {customer.phone && (
+              <div className="flex items-start gap-3">
+                <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Phone</p>
+                  <p className="text-foreground">{customer.phone}</p>
+                </div>
               </div>
-            </div>
-          )}
-          {customer.mobile && (
-            <div className="flex items-start gap-3">
-              <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Mobile</p>
-                <p className="text-foreground">{customer.mobile}</p>
+            )}
+            {customer.mobile && (
+              <div className="flex items-start gap-3">
+                <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Mobile</p>
+                  <p className="text-foreground">{customer.mobile}</p>
+                </div>
               </div>
-            </div>
-          )}
-          {customer.email && (
-            <div className="flex items-start gap-3">
-              <Mail className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Email</p>
-                <p className="text-foreground">{customer.email}</p>
+            )}
+            {customer.email && (
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Email</p>
+                  <p className="text-foreground">{customer.email}</p>
+                </div>
               </div>
-            </div>
-          )}
-          {(customer.address_line1 || customer.postcode) && (
-            <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium">Billing Address</p>
-                <p className="text-foreground text-sm leading-relaxed">
-                  {customer.address_line1}<br/>
-                  {customer.address_line2 && <>{customer.address_line2}<br/></>}
-                  {customer.city}{customer.city && customer.postcode ? ', ' : ''}{customer.postcode}
-                </p>
+            )}
+            {(customer.address_line1 || customer.postcode) && (
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">Billing Address</p>
+                  <p className="text-foreground text-sm leading-relaxed">
+                    {customer.address_line1}<br/>
+                    {customer.address_line2 && <>{customer.address_line2}<br/></>}
+                    {customer.city}{customer.city && customer.postcode ? ', ' : ''}{customer.postcode}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-        </Card>
+            )}
+            {customer.notes && (
+              <div className="pt-3 border-t border-border/50">
+                <p className="text-sm font-medium text-muted-foreground">Notes</p>
+                <p className="text-foreground text-sm mt-1">{customer.notes}</p>
+              </div>
+            )}
+          </Card>
 
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-display font-bold">Properties</h2>
-            <Button size="sm" variant="secondary" onClick={() => setShowPropertyForm(!showPropertyForm)}>
-              {showPropertyForm ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Plus className="w-4 h-4 mr-2"/> Add Property</>}
-            </Button>
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-display font-bold">Properties</h2>
+              <Button size="sm" variant="secondary" onClick={() => setShowPropertyForm(!showPropertyForm)}>
+                {showPropertyForm ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Plus className="w-4 h-4 mr-2"/> Add Property</>}
+              </Button>
+            </div>
+
+            {showPropertyForm && (
+              <AddPropertyForm customerId={customer.id} onClose={() => setShowPropertyForm(false)} />
+            )}
+
+            {customer.properties?.length === 0 ? (
+              <Card className="p-8 text-center border-dashed">
+                <Home className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-muted-foreground">No properties linked to this customer.</p>
+              </Card>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {customer.properties?.map(prop => (
+                  <Link key={prop.id} href={`/properties/${prop.id}`}>
+                    <Card className="p-5 border border-border/50 hover:border-primary/50 transition-colors cursor-pointer">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
+                          <Home className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">{prop.address_line1}</p>
+                          <p className="text-sm text-muted-foreground">{prop.postcode}</p>
+                          <span className="inline-block mt-2 text-xs font-medium bg-slate-100 px-2 py-1 rounded-md text-slate-600 capitalize">
+                            {prop.property_type || 'Property'}
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-
-          {showPropertyForm && (
-            <AddPropertyForm customerId={customer.id} onClose={() => setShowPropertyForm(false)} />
-          )}
-
-          {customer.properties?.length === 0 ? (
-            <Card className="p-8 text-center border-dashed">
-              <Home className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-muted-foreground">No properties linked to this customer.</p>
-            </Card>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {customer.properties?.map(prop => (
-                <Link key={prop.id} href={`/properties/${prop.id}`}>
-                  <Card className="p-5 border border-border/50 hover:border-primary/50 transition-colors cursor-pointer">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
-                        <Home className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-foreground">{prop.address_line1}</p>
-                        <p className="text-sm text-muted-foreground">{prop.postcode}</p>
-                        <span className="inline-block mt-2 text-xs font-medium bg-slate-100 px-2 py-1 rounded-md text-slate-600 capitalize">
-                          {prop.property_type || 'Property'}
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
-      </div>
+      )}
     </div>
+  );
+}
+
+function EditCustomerForm({ customer, onClose }: { customer: { id: string; title?: string | null; first_name: string; last_name: string; email?: string | null; phone?: string | null; mobile?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; notes?: string | null }; onClose: () => void }) {
+  const qc = useQueryClient();
+  const update = useUpdateCustomer();
+  const { toast } = useToast();
+  const { register, handleSubmit, reset } = useForm<CustomerEditData>();
+
+  useEffect(() => {
+    reset({
+      title: customer.title || "",
+      first_name: customer.first_name,
+      last_name: customer.last_name,
+      email: customer.email || "",
+      phone: customer.phone || "",
+      mobile: customer.mobile || "",
+      address_line1: customer.address_line1 || "",
+      address_line2: customer.address_line2 || "",
+      city: customer.city || "",
+      county: customer.county || "",
+      postcode: customer.postcode || "",
+      notes: customer.notes || "",
+    });
+  }, [customer, reset]);
+
+  const onSubmit = async (data: CustomerEditData) => {
+    try {
+      await update.mutateAsync({
+        id: customer.id,
+        data: {
+          title: data.title || undefined,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email || undefined,
+          phone: data.phone || undefined,
+          mobile: data.mobile || undefined,
+          address_line1: data.address_line1 || undefined,
+          address_line2: data.address_line2 || undefined,
+          city: data.city || undefined,
+          county: data.county || undefined,
+          postcode: data.postcode || undefined,
+          notes: data.notes || undefined,
+        },
+      });
+      qc.invalidateQueries({ queryKey: [`/api/customers/${customer.id}`] });
+      toast({ title: "Updated", description: "Customer updated successfully" });
+      onClose();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="p-6 border-primary/20 shadow-lg">
+      <h3 className="font-bold text-lg mb-4">Edit Customer</h3>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Title</Label>
+            <Input {...register("title")} placeholder="Mr / Mrs / Ms..." />
+          </div>
+          <div className="space-y-2">
+            <Label>First Name *</Label>
+            <Input {...register("first_name")} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Last Name *</Label>
+            <Input {...register("last_name")} required />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input type="email" {...register("email")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Phone</Label>
+            <Input {...register("phone")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Mobile</Label>
+            <Input {...register("mobile")} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Address Line 1</Label>
+            <Input {...register("address_line1")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Address Line 2</Label>
+            <Input {...register("address_line2")} />
+          </div>
+          <div className="space-y-2">
+            <Label>City</Label>
+            <Input {...register("city")} />
+          </div>
+          <div className="space-y-2">
+            <Label>County</Label>
+            <Input {...register("county")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Postcode</Label>
+            <Input {...register("postcode")} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Notes</Label>
+          <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("notes")} />
+        </div>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={update.isPending}>
+            <Check className="w-4 h-4 mr-2" /> {update.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
