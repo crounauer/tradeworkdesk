@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { Search, Plus, MapPin, Phone, Mail } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Customers() {
   const [search, setSearch] = useState("");
@@ -87,11 +88,18 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateCustomer();
   const { register, handleSubmit } = useForm();
+  const { toast } = useToast();
 
   const onSubmit = async (data: Record<string, unknown>) => {
-    await create.mutateAsync({ data: data as { first_name: string; last_name: string } });
-    qc.invalidateQueries({ queryKey: ["/api/customers"] });
-    onClose();
+    try {
+      await create.mutateAsync({ data: data as { first_name: string; last_name: string } });
+      qc.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Customer saved", description: `${data.first_name} ${data.last_name} has been added.` });
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not save customer. Please try again.";
+      toast({ title: "Failed to save customer", description: message, variant: "destructive" });
+    }
   };
 
   return (

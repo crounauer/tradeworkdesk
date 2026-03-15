@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 type JobFormData = {
   customer_id: string;
@@ -143,25 +144,32 @@ function AddJobForm({ onClose }: { onClose: () => void }) {
   const { data: properties } = useListProperties();
   const { data: technicians } = useListProfiles();
   const { register, handleSubmit, watch } = useForm<JobFormData>();
+  const { toast } = useToast();
   const selectedCustomerId = watch("customer_id");
 
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
 
   const onSubmit = async (data: JobFormData) => {
-    await createJob.mutateAsync({
-      data: {
-        customer_id: data.customer_id,
-        property_id: data.property_id,
-        job_type: data.job_type as "service" | "breakdown" | "installation" | "inspection" | "follow_up",
-        priority: data.priority as "low" | "medium" | "high" | "urgent",
-        scheduled_date: data.scheduled_date,
-        scheduled_time: data.scheduled_time || undefined,
-        description: data.description || undefined,
-        assigned_technician_id: data.assigned_technician_id || undefined,
-      }
-    });
-    qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-    onClose();
+    try {
+      await createJob.mutateAsync({
+        data: {
+          customer_id: data.customer_id,
+          property_id: data.property_id,
+          job_type: data.job_type as "service" | "breakdown" | "installation" | "inspection" | "follow_up",
+          priority: data.priority as "low" | "medium" | "high" | "urgent",
+          scheduled_date: data.scheduled_date,
+          scheduled_time: data.scheduled_time || undefined,
+          description: data.description || undefined,
+          assigned_technician_id: data.assigned_technician_id || undefined,
+        }
+      });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job created successfully" });
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not create job. Please try again.";
+      toast({ title: "Failed to create job", description: message, variant: "destructive" });
+    }
   };
 
   return (
