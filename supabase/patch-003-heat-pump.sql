@@ -165,3 +165,13 @@ BEGIN
       USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
   END IF;
 END $$;
+
+-- Seed lookup_options for heat pump appliance types
+-- (idempotent — safe to run even if already seeded)
+INSERT INTO lookup_options (category, value, label, sort_order)
+VALUES
+  ('boiler_type', 'ashp', 'Air Source Heat Pump (ASHP)', 5),
+  ('boiler_type', 'gshp', 'Ground Source Heat Pump (GSHP)', 6),
+  ('boiler_type', 'wshp', 'Water Source Heat Pump (WSHP)', 7),
+  ('fuel_type', 'heat_pump', 'Heat Pump', 6)
+ON CONFLICT (category, value) DO NOTHING;
