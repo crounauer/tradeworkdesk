@@ -168,6 +168,31 @@ router.patch("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req: 
   res.json(data);
 });
 
+router.delete("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { count } = await supabaseAdmin
+    .from("tenants").select("id", { count: "exact", head: true }).eq("plan_id", id);
+  if (count && count > 0) {
+    res.status(409).json({ error: `Cannot delete plan: ${count} tenant(s) are currently using it.` });
+    return;
+  }
+
+  const { error } = await supabaseAdmin.from("plans").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "plan_deleted",
+    entity_type: "plan",
+    entity_id: id,
+    detail: {},
+  });
+
+  res.sendStatus(204);
+});
+
 router.get("/platform/announcements", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("platform_announcements").select("*").order("created_at", { ascending: false });

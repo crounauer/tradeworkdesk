@@ -45,12 +45,15 @@ router.get("/files", requireAuth, requireTenant, async (req: AuthenticatedReques
   const access = await verifyEntityAccess(req, query.data.entity_type, query.data.entity_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin
+  let q = supabaseAdmin
     .from("file_attachments")
     .select("*")
     .eq("entity_type", query.data.entity_type)
     .eq("entity_id", query.data.entity_id)
     .order("created_at", { ascending: false });
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+
+  const { data, error } = await q;
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 

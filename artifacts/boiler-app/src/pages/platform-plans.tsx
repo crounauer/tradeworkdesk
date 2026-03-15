@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, X, Save, CreditCard } from "lucide-react";
+import { Plus, Pencil, X, Save, CreditCard, Trash2 } from "lucide-react";
 
 interface Plan {
   id: string;
@@ -70,6 +70,21 @@ export default function PlatformPlans() {
       queryClient.invalidateQueries({ queryKey: ["platform-plans"] });
       toast({ title: "Plan updated" });
       setEditingId(null);
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/platform/plans/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete plan");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-plans"] });
+      toast({ title: "Plan deleted" });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -162,9 +177,16 @@ export default function PlatformPlans() {
                     </CardTitle>
                     {plan.description && <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>}
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => startEdit(plan)}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => startEdit(plan)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
+                      if (confirm("Delete this plan? This cannot be undone.")) deleteMutation.mutate(plan.id);
+                    }}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
