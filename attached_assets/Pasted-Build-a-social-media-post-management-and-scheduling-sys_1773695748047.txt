@@ -1,0 +1,30 @@
+Build a social media post management and scheduling system for an admin dashboard. It should work as follows:
+
+Database tables (PostgreSQL / Drizzle ORM):
+
+social_accounts — stores connected platform credentials: platform (enum: x, facebook, instagram, pinterest, linkedin, tiktok, youtube), accessToken, refreshToken, pageId, pageName, instagramBusinessId, profileName, expiresAt, isActive (bool), autoPost (bool). Encrypt tokens with AES-256-GCM before storing.
+social_posts — stores posts: platform, content (text), linkUrl, imageUrl, videoUrl, scheduledFor (timestamp), status (enum: draft, scheduled, posted, failed, dismissed), postId (external ID returned by the platform), postUrl, error, entityType (product/category/article), entityId.
+Backend API endpoints:
+
+POST /api/admin/social/post — immediately publish or schedule a post. Accepts platform, content, imageUrl, videoUrl, linkUrl, scheduledFor.
+POST /api/admin/social/bulk-schedule — accepts an array of post objects and an interval (e.g. 60 mins), schedules them sequentially spaced by that interval.
+GET /api/admin/social/suggestions — queries recent products/articles/categories that haven't been shared yet and returns AI-generated draft post content for each.
+POST /api/admin/social/generate-image — calls an AI image generation API and returns a URL for a square social media banner image.
+Scheduling cron:
+
+A background task runs every 60 seconds, queries social_posts where status = 'scheduled' and scheduledFor <= now(), and dispatches each to the appropriate platform posting function. Updates the record to posted (with the returned postId/postUrl) or failed (with the error message).
+Platform integrations:
+
+X (Twitter): OAuth 1.0a with HMAC-SHA1 signatures. Use Twitter API v2 to create tweets (POST /2/tweets). For image posts, first upload media to upload.twitter.com/1.1/media/upload.json (multipart, supports up to 5MB), get the media_id, then attach to the tweet.
+Facebook: Facebook Graph API. Post to a Page's feed via POST /{pageId}/feed with message and optional link. Use a Page Access Token.
+Instagram: Via Facebook Graph API. Create a media container (POST /{instagramBusinessId}/media with image_url + caption), then publish it (POST /{instagramBusinessId}/media_publish with the container ID).
+Admin UI (React):
+
+A social media admin page at /admin/social with tabs: Posts (list of all posts with status badges), Suggestions (AI-generated drafts), Accounts (connected platform list).
+A "Create Post" dialog with: platform selector (multi-select checkboxes), text area for content, image URL input + "Generate Image" button (calls the AI image endpoint), optional scheduling toggle with a date/time picker.
+A "Bulk Schedule" button on the Suggestions tab: select multiple suggestions, set an interval in minutes, and schedule them all in one click.
+Post list shows: platform icon, content preview, status badge (draft/scheduled/posted/failed), scheduled/posted time, and a link to the live post if available.
+AI content generation:
+
+The suggestions endpoint uses GPT (gpt-4o-mini) to generate platform-appropriate post copy for each piece of unshared content. Include relevant emojis and 2–3 hashtags. Keep Twitter posts under 280 characters.
+Use Node.js/Express for the backend, React + TanStack Query for the frontend, Drizzle ORM with PostgreSQL, and shadcn/ui for components.
