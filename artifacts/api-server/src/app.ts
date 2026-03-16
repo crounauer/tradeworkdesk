@@ -5,6 +5,16 @@ import router from "./routes";
 const app: Express = express();
 
 app.use(cors());
+
+app.use(
+  "/api/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  (req: Request & { rawBody?: Buffer }, _res: Response, next: NextFunction) => {
+    req.rawBody = req.body as Buffer;
+    next();
+  }
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 

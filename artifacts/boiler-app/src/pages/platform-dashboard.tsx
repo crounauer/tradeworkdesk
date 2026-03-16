@@ -1,9 +1,27 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 
+const EMAIL_TEMPLATES = [
+  { value: "welcome", label: "Welcome (new account)" },
+  { value: "invoice", label: "Invoice / payment received" },
+  { value: "trial_expiry", label: "Trial expiry reminder" },
+  { value: "renewal_reminder", label: "Renewal reminder" },
+  { value: "payment_failed", label: "Payment failed" },
+];
+
 export default function PlatformDashboard() {
+  const { toast } = useToast();
+  const [emailTemplate, setEmailTemplate] = useState("welcome");
+  const [emailRecipient, setEmailRecipient] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ["platform-stats"],
     queryFn: async () => {
@@ -38,6 +56,28 @@ export default function PlatformDashboard() {
       if (!res.ok) throw new Error("Failed to load audit log");
       return res.json();
     },
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: async () => {
+      if (!emailRecipient) throw new Error("Recipient email is required");
+      const res = await fetch("/api/platform/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template: emailTemplate, to: emailRecipient }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send email");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setEmailSent(true);
+      toast({ title: "Test email sent", description: `Sent "${emailTemplate}" template to ${emailRecipient}` });
+      setTimeout(() => setEmailSent(false), 3000);
+    },
+    onError: (e) => toast({ title: "Failed to send", description: e.message, variant: "destructive" }),
   });
 
   const maxSignups = Math.max(1, ...(signupData || []).map((d: { count: number }) => d.count));
@@ -166,30 +206,80 @@ export default function PlatformDashboard() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!recentAudit || recentAudit.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No recent activity</p>
-          ) : (
-            <div className="space-y-3">
-              {recentAudit.slice(0, 8).map((entry: { id: string; event_type: string; actor_email: string; created_at: string; detail?: Record<string, unknown> }) => (
-                <div key={entry.id} className="flex items-start gap-3 text-sm">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{entry.event_type.replace(/_/g, " ")}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {entry.actor_email} &middot; {new Date(entry.created_at).toLocaleDateString()}
-                    </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!recentAudit || recentAudit.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recent activity</p>
+            ) : (
+              <div className="space-y-3">
+                {recentAudit.slice(0, 8).map((entry: { id: string; event_type: string; actor_email: string; created_at: string; detail?: Record<string, unknown> }) => (
+                  <div key={entry.id} className="flex items-start gap-3 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{entry.event_type.replace(/_/g, " ")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.actor_email} &middot; {new Date(entry.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              Send Test Email
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Template</Label>
+              <select
+                value={emailTemplate}
+                onChange={(e) => setEmailTemplate(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {EMAIL_TEMPLATES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label className="text-xs">Recipient email</Label>
+              <Input
+                type="email"
+                placeholder="test@example.com"
+                value={emailRecipient}
+                onChange={(e) => setEmailRecipient(e.target.value)}
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => sendEmailMutation.mutate()}
+              disabled={sendEmailMutation.isPending || !emailRecipient || emailSent}
+            >
+              {sendEmailMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</>
+              ) : emailSent ? (
+                <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Sent!</>
+              ) : (
+                <><Mail className="w-4 h-4 mr-2" />Send Test Email</>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Sends a sample email using the selected template. Uses placeholder data.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

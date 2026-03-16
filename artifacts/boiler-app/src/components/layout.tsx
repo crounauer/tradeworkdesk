@@ -70,6 +70,7 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
 
   const adminNavItems = [
+    { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
     { href: "/admin/users", label: "Team", icon: ShieldCheck },
     { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
@@ -204,6 +205,21 @@ export function Layout({ children }: { children: ReactNode }) {
                 <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="ml-2 h-7 text-xs">
                   <CreditCard className="w-3 h-3 mr-1" />
                   Upgrade Plan
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+
+        {tenantInfo?.status === "suspended" && !isSuperAdmin && (
+          <div className="border-b border-red-200 bg-red-50 px-4 py-2.5 flex items-center justify-center gap-2 text-sm text-red-800">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span><strong>Account suspended.</strong> A payment may have failed. Please update your payment method to restore access.</span>
+            {isAdmin && (
+              <Link href="/billing">
+                <Button size="sm" variant="destructive" className="ml-2 h-7 text-xs">
+                  <CreditCard className="w-3 h-3 mr-1" />
+                  Update Payment
                 </Button>
               </Link>
             )}

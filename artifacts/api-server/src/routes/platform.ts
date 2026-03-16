@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
+import { sendWelcomeEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -134,6 +135,12 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     entity_id: tenant.id,
     detail: { company_name, created_by: "super_admin" },
   });
+
+  if (contact_email && trialEnds) {
+    sendWelcomeEmail(contact_email, company_name, trialEnds).catch((e) =>
+      console.error("[email] Welcome email failed:", e)
+    );
+  }
 
   res.status(201).json(tenant);
 });
@@ -409,6 +416,51 @@ router.get("/platform/stats/signups", requireAuth, requireSuperAdmin, async (_re
   });
 
   res.json(Object.entries(months).map(([month, count]) => ({ month, count })));
+});
+
+router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { template, to } = req.body;
+  if (!template || !to) { res.status(400).json({ error: "template and to are required" }); return; }
+
+  const { sendWelcomeEmail: wel, sendInvoiceEmail: inv, sendTrialExpiryReminder: trial, sendRenewalReminder: ren, sendPaymentFailedEmail: fail } = await import("../lib/email");
+
+  const BILLING = process.env.APP_URL ? `${process.env.APP_URL}/billing` : "https://boilertech.app/billing";
+  const futureDate = new Date(Date.now() + 14 * 86400000).toISOString();
+
+  try {
+    switch (template) {
+      case "welcome":
+        await wel(to, "Test Company Ltd", futureDate);
+        break;
+      case "invoice":
+        await inv(to, "Test Company Ltd", 5999, "gbp", futureDate, "https://invoice.stripe.com/test");
+        break;
+      case "trial_expiry":
+        await trial(to, "Test Company Ltd", 7, BILLING);
+        break;
+      case "renewal_reminder":
+        await ren(to, "Test Company Ltd", futureDate, 5999, "gbp", BILLING);
+        break;
+      case "payment_failed":
+        await fail(to, "Test Company Ltd", 5999, "gbp", BILLING);
+        break;
+      default:
+        res.status(400).json({ error: `Unknown template: ${template}` });
+        return;
+    }
+    await supabaseAdmin.from("platform_audit_log").insert({
+      actor_id: req.userId,
+      actor_email: req.userEmail,
+      event_type: "test_email_sent",
+      entity_type: null,
+      entity_id: null,
+      detail: { template, to },
+    });
+    res.json({ ok: true, template, to });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ error: message });
+  }
 });
 
 export default router;

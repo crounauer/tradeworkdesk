@@ -25,6 +25,9 @@ import searchRouter from "./search";
 import reportsRouter from "./reports";
 import dashboardRouter from "./dashboard";
 import platformRouter from "./platform";
+import billingRouter from "./billing";
+import webhooksRouter from "./webhooks";
+import internalRouter from "./internal";
 
 const router: IRouter = Router();
 
@@ -54,5 +57,8 @@ router.use(searchRouter);
 router.use(reportsRouter);
 router.use(dashboardRouter);
 router.use(platformRouter);
+router.use(billingRouter);
+router.use(webhooksRouter);
+router.use(internalRouter);
 
 export default router;

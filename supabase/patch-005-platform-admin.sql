@@ -152,11 +152,11 @@ EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE heat_pump_service_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE heat_pump_commissioning_records ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE breakdown_reports ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
@@ -215,6 +215,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN NULL; WHEN undefined_table THEN NULL; END $$;
 
 -- Backfill existing rows with the default tenant
+-- Required tables (always exist)
 UPDATE profiles SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE customers SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE properties SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
@@ -222,24 +223,49 @@ UPDATE appliances SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE t
 UPDATE jobs SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE service_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE commissioning_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE heat_pump_service_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE heat_pump_commissioning_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE breakdown_reports SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE job_notes SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE file_attachments SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 UPDATE signatures SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE invite_codes SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE company_settings SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE oil_tank_inspections SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE oil_tank_risk_assessments SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE combustion_analysis_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE burner_setup_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE fire_valve_test_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE oil_line_vacuum_tests SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE job_completion_reports SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
-UPDATE lookup_options SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 
--- Enforce NOT NULL on tenant_id for all data tables
+-- Optional tables (may not exist if earlier patches were not run)
+DO $$ BEGIN UPDATE invite_codes SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE company_settings SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE heat_pump_service_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE heat_pump_commissioning_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE oil_tank_inspections SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE oil_tank_risk_assessments SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE combustion_analysis_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE burner_setup_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE fire_valve_test_records SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE oil_line_vacuum_tests SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE job_completion_reports SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN UPDATE lookup_options SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+-- Enforce NOT NULL on tenant_id for required tables
 ALTER TABLE profiles ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE customers ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE properties ALTER COLUMN tenant_id SET NOT NULL;
@@ -247,24 +273,49 @@ ALTER TABLE appliances ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE jobs ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE service_records ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE commissioning_records ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE heat_pump_service_records ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE heat_pump_commissioning_records ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE breakdown_reports ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE job_notes ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE file_attachments ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE signatures ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE invite_codes ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE company_settings ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE oil_tank_inspections ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE oil_tank_risk_assessments ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE combustion_analysis_records ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE burner_setup_records ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE fire_valve_test_records ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE oil_line_vacuum_tests ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE job_completion_reports ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE lookup_options ALTER COLUMN tenant_id SET NOT NULL;
 
--- Create indexes for tenant_id on all data tables
+-- Enforce NOT NULL on optional tables (safe — skips if table does not exist)
+DO $$ BEGIN ALTER TABLE invite_codes ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE company_settings ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE heat_pump_service_records ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE heat_pump_commissioning_records ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE oil_tank_inspections ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE oil_tank_risk_assessments ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE combustion_analysis_records ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE burner_setup_records ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE fire_valve_test_records ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE oil_line_vacuum_tests ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE job_completion_reports ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+DO $$ BEGIN ALTER TABLE lookup_options ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN undefined_table THEN NULL; WHEN others THEN NULL; END $$;
+
+-- Create indexes for required tables
 CREATE INDEX IF NOT EXISTS idx_profiles_tenant ON profiles(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_customers_tenant ON customers(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_properties_tenant ON properties(tenant_id);
@@ -272,22 +323,47 @@ CREATE INDEX IF NOT EXISTS idx_appliances_tenant ON appliances(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_tenant ON jobs(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_service_records_tenant ON service_records(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_commissioning_records_tenant ON commissioning_records(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_heat_pump_service_records_tenant ON heat_pump_service_records(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_heat_pump_commissioning_records_tenant ON heat_pump_commissioning_records(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_breakdown_reports_tenant ON breakdown_reports(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_job_notes_tenant ON job_notes(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_file_attachments_tenant ON file_attachments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_signatures_tenant ON signatures(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_invite_codes_tenant ON invite_codes(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_company_settings_tenant ON company_settings(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_oil_tank_inspections_tenant ON oil_tank_inspections(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_oil_tank_risk_assessments_tenant ON oil_tank_risk_assessments(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_combustion_analysis_records_tenant ON combustion_analysis_records(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_burner_setup_records_tenant ON burner_setup_records(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_fire_valve_test_records_tenant ON fire_valve_test_records(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_oil_line_vacuum_tests_tenant ON oil_line_vacuum_tests(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_job_completion_reports_tenant ON job_completion_reports(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_lookup_options_tenant ON lookup_options(tenant_id);
+
+-- Create indexes for optional tables (safe — skips if table does not exist)
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_invite_codes_tenant ON invite_codes(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_company_settings_tenant ON company_settings(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_heat_pump_service_records_tenant ON heat_pump_service_records(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_heat_pump_commissioning_records_tenant ON heat_pump_commissioning_records(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_oil_tank_inspections_tenant ON oil_tank_inspections(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_oil_tank_risk_assessments_tenant ON oil_tank_risk_assessments(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_combustion_analysis_records_tenant ON combustion_analysis_records(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_burner_setup_records_tenant ON burner_setup_records(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_fire_valve_test_records_tenant ON fire_valve_test_records(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_oil_line_vacuum_tests_tenant ON oil_line_vacuum_tests(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_job_completion_reports_tenant ON job_completion_reports(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_lookup_options_tenant ON lookup_options(tenant_id);
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (

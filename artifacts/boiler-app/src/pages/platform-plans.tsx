@@ -27,6 +27,7 @@ interface Plan {
   is_active: boolean;
   sort_order: number;
   stripe_price_id: string | null;
+  stripe_price_id_annual: string | null;
 }
 
 const DEFAULT_FEATURES: PlanFeatures = {
@@ -52,6 +53,8 @@ interface PlanFormState {
   max_jobs_per_month: number | string;
   is_active: boolean;
   features: PlanFeatures;
+  stripe_price_id: string;
+  stripe_price_id_annual: string;
 }
 
 const EMPTY_FORM: PlanFormState = {
@@ -63,6 +66,8 @@ const EMPTY_FORM: PlanFormState = {
   max_jobs_per_month: "",
   is_active: true,
   features: { ...DEFAULT_FEATURES },
+  stripe_price_id: "",
+  stripe_price_id_annual: "",
 };
 
 export default function PlatformPlans() {
@@ -90,6 +95,8 @@ export default function PlatformPlans() {
     max_jobs_per_month: Number(f.max_jobs_per_month) || 100,
     is_active: f.is_active,
     features: f.features,
+    stripe_price_id: f.stripe_price_id || null,
+    stripe_price_id_annual: f.stripe_price_id_annual || null,
   });
 
   const createMutation = useMutation({
@@ -154,6 +161,8 @@ export default function PlatformPlans() {
       max_jobs_per_month: plan.max_jobs_per_month,
       is_active: plan.is_active,
       features: { ...DEFAULT_FEATURES, ...(plan.features || {}) },
+      stripe_price_id: plan.stripe_price_id || "",
+      stripe_price_id_annual: plan.stripe_price_id_annual || "",
     });
     setEditingId(plan.id);
     setShowNew(false);
@@ -210,6 +219,19 @@ export default function PlatformPlans() {
                 {FEATURE_LABELS[key]}
               </label>
             ))}
+          </div>
+        </div>
+        <div className="border-t pt-3 space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Monthly Price ID</Label>
+              <Input value={form.stripe_price_id} onChange={(e) => setForm({ ...form, stripe_price_id: e.target.value })} placeholder="price_..." className="font-mono text-xs" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Annual Price ID</Label>
+              <Input value={form.stripe_price_id_annual} onChange={(e) => setForm({ ...form, stripe_price_id_annual: e.target.value })} placeholder="price_..." className="font-mono text-xs" />
+            </div>
           </div>
         </div>
         <div className="flex gap-2 pt-2">
@@ -296,10 +318,19 @@ export default function PlatformPlans() {
                       ))}
                     </div>
                   </div>
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-1">
                     <Badge variant={plan.is_active ? "default" : "secondary"}>
                       {plan.is_active ? "Active" : "Inactive"}
                     </Badge>
+                  </div>
+                  <div className="pt-2 border-t text-xs space-y-1 text-muted-foreground">
+                    <p className="font-medium text-foreground/60">Stripe</p>
+                    <p className="font-mono truncate" title={plan.stripe_price_id || "Not set"}>
+                      Monthly: {plan.stripe_price_id ? <span className="text-green-600">{plan.stripe_price_id}</span> : <span className="italic">Not set</span>}
+                    </p>
+                    <p className="font-mono truncate" title={plan.stripe_price_id_annual || "Not set"}>
+                      Annual: {plan.stripe_price_id_annual ? <span className="text-green-600">{plan.stripe_price_id_annual}</span> : <span className="italic">Not set</span>}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
