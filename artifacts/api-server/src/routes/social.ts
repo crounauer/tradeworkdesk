@@ -1,8 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
-import { db } from "@workspace/db";
-import { socialAccounts, socialPosts, jobs, customers } from "@workspace/db";
-import { eq, and, desc, lte, sql } from "drizzle-orm";
+import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
 import { generatePostSuggestions, generateSocialImage, type SuggestionItem } from "../lib/social-ai";
@@ -22,24 +20,18 @@ router.get(
   requireTenant,
   requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const accounts = await db
-      .select({
-        id: socialAccounts.id,
-        platform: socialAccounts.platform,
-        page_id: socialAccounts.page_id,
-        page_name: socialAccounts.page_name,
-        instagram_business_id: socialAccounts.instagram_business_id,
-        profile_name: socialAccounts.profile_name,
-        expires_at: socialAccounts.expires_at,
-        is_active: socialAccounts.is_active,
-        auto_post: socialAccounts.auto_post,
-        created_at: socialAccounts.created_at,
-      })
-      .from(socialAccounts)
-      .where(eq(socialAccounts.tenant_id, req.tenantId!))
-      .orderBy(desc(socialAccounts.created_at));
+    const { data, error } = await supabaseAdmin
+      .from("social_accounts")
+      .select("id, platform, page_id, page_name, instagram_business_id, profile_name, expires_at, is_active, auto_post, created_at")
+      .eq("tenant_id", req.tenantId!)
+      .order("created_at", { ascending: false });
 
-    res.json(accounts);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json(data);
   },
 );
 
@@ -63,9 +55,9 @@ router.post(
 
     const encrypted = encryptCredentials(credentials);
 
-    const [account] = await db
-      .insert(socialAccounts)
-      .values({
+    const { data, error } = await supabaseAdmin
+      .from("social_accounts")
+      .insert({
         tenant_id: req.tenantId!,
         platform,
         encrypted_credentials: encrypted,
@@ -74,19 +66,15 @@ router.post(
         page_name: pageName || null,
         instagram_business_id: instagramBusinessId || null,
       })
-      .returning();
+      .select("id, platform, profile_name, page_id, page_name, instagram_business_id, is_active, auto_post, created_at")
+      .single();
 
-    res.json({
-      id: account.id,
-      platform: account.platform,
-      profile_name: account.profile_name,
-      page_id: account.page_id,
-      page_name: account.page_name,
-      instagram_business_id: account.instagram_business_id,
-      is_active: account.is_active,
-      auto_post: account.auto_post,
-      created_at: account.created_at,
-    });
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json(data);
   },
 );
 
@@ -99,28 +87,24 @@ router.patch(
     const { id } = req.params;
     const { isActive, autoPost } = req.body;
 
-    const updates: Record<string, unknown> = { updated_at: new Date() };
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (isActive !== undefined) updates.is_active = isActive;
     if (autoPost !== undefined) updates.auto_post = autoPost;
 
-    const [updated] = await db
-      .update(socialAccounts)
-      .set(updates)
-      .where(and(eq(socialAccounts.id, id), eq(socialAccounts.tenant_id, req.tenantId!)))
-      .returning();
+    const { data, error } = await supabaseAdmin
+      .from("social_accounts")
+      .update(updates)
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId!)
+      .select("id, platform, profile_name, is_active, auto_post")
+      .single();
 
-    if (!updated) {
+    if (error) {
       res.status(404).json({ error: "Account not found" });
       return;
     }
 
-    res.json({
-      id: updated.id,
-      platform: updated.platform,
-      profile_name: updated.profile_name,
-      is_active: updated.is_active,
-      auto_post: updated.auto_post,
-    });
+    res.json(data);
   },
 );
 
@@ -132,12 +116,13 @@ router.delete(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
-    const [deleted] = await db
-      .delete(socialAccounts)
-      .where(and(eq(socialAccounts.id, id), eq(socialAccounts.tenant_id, req.tenantId!)))
-      .returning();
+    const { error } = await supabaseAdmin
+      .from("social_accounts")
+      .delete()
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId!);
 
-    if (!deleted) {
+    if (error) {
       res.status(404).json({ error: "Account not found" });
       return;
     }
@@ -153,26 +138,28 @@ router.get(
   requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { status, platform, page = "1", limit = "20" } = req.query as Record<string, string>;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const offset = (pageNum - 1) * limitNum;
 
-    const conditions = [eq(socialPosts.tenant_id, req.tenantId!)];
-    if (status) conditions.push(eq(socialPosts.status, status as "draft" | "scheduled" | "posted" | "failed" | "dismissed"));
-    if (platform) conditions.push(eq(socialPosts.platform, platform as "x" | "facebook" | "instagram" | "pinterest" | "linkedin" | "tiktok" | "youtube"));
+    let query = supabaseAdmin
+      .from("social_posts")
+      .select("*", { count: "exact" })
+      .eq("tenant_id", req.tenantId!)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limitNum - 1);
 
-    const posts = await db
-      .select()
-      .from(socialPosts)
-      .where(and(...conditions))
-      .orderBy(desc(socialPosts.created_at))
-      .limit(parseInt(limit, 10))
-      .offset(offset);
+    if (status) query = query.eq("status", status);
+    if (platform) query = query.eq("platform", platform);
 
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(socialPosts)
-      .where(and(...conditions));
+    const { data, error, count } = await query;
 
-    res.json({ posts, total: Number(count) });
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ posts: data, total: count ?? 0 });
   },
 );
 
@@ -197,62 +184,66 @@ router.post(
     const scheduledDate = scheduledFor ? new Date(scheduledFor) : null;
     const isScheduled = scheduledDate && scheduledDate > new Date();
 
-    const [post] = await db
-      .insert(socialPosts)
-      .values({
+    const { data: post, error: insertError } = await supabaseAdmin
+      .from("social_posts")
+      .insert({
         tenant_id: req.tenantId!,
         platform,
         content,
         image_url: imageUrl || null,
         video_url: videoUrl || null,
         link_url: linkUrl || null,
-        scheduled_for: scheduledDate,
+        scheduled_for: scheduledDate ? scheduledDate.toISOString() : null,
         status: isScheduled ? "scheduled" : "draft",
       })
-      .returning();
+      .select()
+      .single();
+
+    if (insertError || !post) {
+      res.status(500).json({ error: insertError?.message ?? "Failed to create post" });
+      return;
+    }
 
     if (!isScheduled) {
-      const [account] = await db
-        .select()
-        .from(socialAccounts)
-        .where(
-          and(
-            eq(socialAccounts.tenant_id, req.tenantId!),
-            eq(socialAccounts.platform, platform),
-            eq(socialAccounts.is_active, true),
-          ),
-        )
-        .limit(1);
+      const { data: account } = await supabaseAdmin
+        .from("social_accounts")
+        .select("*")
+        .eq("tenant_id", req.tenantId!)
+        .eq("platform", platform)
+        .eq("is_active", true)
+        .limit(1)
+        .single();
 
       if (!account) {
-        await db
-          .update(socialPosts)
-          .set({ status: "failed", error: `No active ${platform} account found`, updated_at: new Date() })
-          .where(eq(socialPosts.id, post.id));
+        await supabaseAdmin
+          .from("social_posts")
+          .update({ status: "failed", error: `No active ${platform} account found`, updated_at: new Date().toISOString() })
+          .eq("id", post.id);
         res.status(400).json({ error: `No active ${platform} account connected` });
         return;
       }
 
       try {
         const result = await dispatchPost(post, account);
-        const [updated] = await db
-          .update(socialPosts)
-          .set({
+        const { data: updated } = await supabaseAdmin
+          .from("social_posts")
+          .update({
             status: "posted",
             post_id: result.postId || null,
             post_url: result.postUrl || null,
-            updated_at: new Date(),
+            updated_at: new Date().toISOString(),
           })
-          .where(eq(socialPosts.id, post.id))
-          .returning();
+          .eq("id", post.id)
+          .select()
+          .single();
         res.json(updated);
         return;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        await db
-          .update(socialPosts)
-          .set({ status: "failed", error: message, updated_at: new Date() })
-          .where(eq(socialPosts.id, post.id));
+        await supabaseAdmin
+          .from("social_posts")
+          .update({ status: "failed", error: message, updated_at: new Date().toISOString() })
+          .eq("id", post.id);
         res.status(500).json({ error: message });
         return;
       }
@@ -276,32 +267,30 @@ router.post(
     }
 
     const now = new Date();
-    const results = [];
+    const rows = posts.map((p: Record<string, unknown>, i: number) => ({
+      tenant_id: req.tenantId!,
+      platform: p.platform,
+      content: p.content,
+      image_url: p.imageUrl || null,
+      video_url: p.videoUrl || null,
+      link_url: p.linkUrl || null,
+      scheduled_for: new Date(now.getTime() + i * (intervalMinutes as number) * 60 * 1000).toISOString(),
+      status: "scheduled",
+      entity_type: p.entityType || null,
+      entity_id: p.entityId || null,
+    }));
 
-    for (let i = 0; i < posts.length; i++) {
-      const p = posts[i];
-      const scheduledFor = new Date(now.getTime() + i * intervalMinutes * 60 * 1000);
+    const { data, error } = await supabaseAdmin
+      .from("social_posts")
+      .insert(rows)
+      .select();
 
-      const [created] = await db
-        .insert(socialPosts)
-        .values({
-          tenant_id: req.tenantId!,
-          platform: p.platform,
-          content: p.content,
-          image_url: p.imageUrl || null,
-          video_url: p.videoUrl || null,
-          link_url: p.linkUrl || null,
-          scheduled_for: scheduledFor,
-          status: "scheduled",
-          entity_type: p.entityType || null,
-          entity_id: p.entityId || null,
-        })
-        .returning();
-
-      results.push(created);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
     }
 
-    res.json({ scheduled: results.length, posts: results });
+    res.json({ scheduled: data?.length ?? 0, posts: data });
   },
 );
 
@@ -315,19 +304,15 @@ router.get(
       const tenantId = req.tenantId!;
       const items: SuggestionItem[] = [];
 
-      const recentJobs = await db
-        .select({
-          id: jobs.id,
-          job_type: jobs.job_type,
-          description: jobs.description,
-          status: jobs.status,
-        })
-        .from(jobs)
-        .where(and(eq(jobs.is_active, true), sql`${jobs.id} IN (SELECT id FROM jobs WHERE tenant_id = ${tenantId})`))
-        .orderBy(desc(jobs.created_at))
+      const { data: recentJobs } = await supabaseAdmin
+        .from("jobs")
+        .select("id, job_type, description, status")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
         .limit(5);
 
-      for (const job of recentJobs) {
+      for (const job of recentJobs ?? []) {
         items.push({
           entityType: "article",
           entityId: `job-${job.id}`,
@@ -336,19 +321,15 @@ router.get(
         });
       }
 
-      const recentCustomers = await db
-        .select({
-          id: customers.id,
-          first_name: customers.first_name,
-          last_name: customers.last_name,
-          city: customers.city,
-        })
-        .from(customers)
-        .where(and(eq(customers.is_active, true), sql`${customers.id} IN (SELECT id FROM customers WHERE tenant_id = ${tenantId})`))
-        .orderBy(desc(customers.created_at))
+      const { data: recentCustomers } = await supabaseAdmin
+        .from("customers")
+        .select("id, first_name, last_name, city")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
         .limit(3);
 
-      for (const customer of recentCustomers) {
+      for (const customer of recentCustomers ?? []) {
         const fullName = `${customer.first_name} ${customer.last_name}`;
         items.push({
           entityType: "article",
@@ -417,18 +398,20 @@ router.patch(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
-    const [updated] = await db
-      .update(socialPosts)
-      .set({ status: "dismissed", updated_at: new Date() })
-      .where(and(eq(socialPosts.id, id), eq(socialPosts.tenant_id, req.tenantId!)))
-      .returning();
+    const { data, error } = await supabaseAdmin
+      .from("social_posts")
+      .update({ status: "dismissed", updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId!)
+      .select()
+      .single();
 
-    if (!updated) {
+    if (error) {
       res.status(404).json({ error: "Post not found" });
       return;
     }
 
-    res.json(updated);
+    res.json(data);
   },
 );
 

@@ -1,5 +1,40 @@
-import type { SocialPost, SocialAccount } from "@workspace/db";
 import { decryptCredentials } from "./social-crypto";
+
+export interface SocialPost {
+  id: string;
+  tenant_id: string;
+  account_id?: string | null;
+  platform: string;
+  content: string;
+  image_url?: string | null;
+  video_url?: string | null;
+  link_url?: string | null;
+  scheduled_for?: string | null;
+  status: string;
+  post_id?: string | null;
+  post_url?: string | null;
+  error?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SocialAccount {
+  id: string;
+  tenant_id: string;
+  platform: string;
+  encrypted_credentials: string;
+  page_id?: string | null;
+  page_name?: string | null;
+  instagram_business_id?: string | null;
+  profile_name: string;
+  expires_at?: string | null;
+  is_active: boolean;
+  auto_post: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface PostResult {
   postId?: string;

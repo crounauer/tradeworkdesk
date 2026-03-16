@@ -1,84 +1,76 @@
-import { db } from "@workspace/db";
-import { socialPosts, socialAccounts } from "@workspace/db";
-import { eq, lte, and, sql } from "drizzle-orm";
+import { supabaseAdmin } from "./supabase";
 import { dispatchPost } from "./social-platforms";
 
 const INTERVAL_MS = 60_000;
 
-async function claimDuePosts() {
-  return db
-    .update(socialPosts)
-    .set({ status: "processing", updated_at: new Date() })
-    .where(
-      and(
-        eq(socialPosts.status, "scheduled"),
-        lte(socialPosts.scheduled_for, new Date()),
-      ),
-    )
-    .returning();
-}
-
 async function processScheduledPosts(): Promise<void> {
   try {
-    const claimedPosts = await claimDuePosts();
+    const { data: claimedPosts, error: claimError } = await supabaseAdmin
+      .from("social_posts")
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .eq("status", "scheduled")
+      .lte("scheduled_for", new Date().toISOString())
+      .select();
 
-    for (const post of claimedPosts) {
+    if (claimError) {
+      console.error("[social-scheduler] Error claiming posts:", claimError.message);
+      return;
+    }
+
+    for (const post of claimedPosts ?? []) {
       try {
-        const accountFilter = post.account_id
-          ? and(
-              eq(socialAccounts.id, post.account_id),
-              eq(socialAccounts.is_active, true),
-            )
-          : and(
-              eq(socialAccounts.tenant_id, post.tenant_id),
-              eq(socialAccounts.platform, post.platform),
-              eq(socialAccounts.is_active, true),
-            );
-
-        const [account] = await db
-          .select()
-          .from(socialAccounts)
-          .where(accountFilter)
+        let accountQuery = supabaseAdmin
+          .from("social_accounts")
+          .select("*")
+          .eq("is_active", true)
           .limit(1);
 
+        if (post.account_id) {
+          accountQuery = accountQuery.eq("id", post.account_id);
+        } else {
+          accountQuery = accountQuery.eq("tenant_id", post.tenant_id).eq("platform", post.platform);
+        }
+
+        const { data: account } = await accountQuery.single();
+
         if (!account) {
-          await db
-            .update(socialPosts)
-            .set({
+          await supabaseAdmin
+            .from("social_posts")
+            .update({
               status: "failed",
               error: `No active ${post.platform} account found for tenant`,
-              updated_at: new Date(),
+              updated_at: new Date().toISOString(),
             })
-            .where(eq(socialPosts.id, post.id));
+            .eq("id", post.id);
           continue;
         }
 
         const result = await dispatchPost(post, account);
 
-        await db
-          .update(socialPosts)
-          .set({
+        await supabaseAdmin
+          .from("social_posts")
+          .update({
             status: "posted",
             post_id: result.postId || null,
             post_url: result.postUrl || null,
             error: null,
-            updated_at: new Date(),
+            updated_at: new Date().toISOString(),
           })
-          .where(eq(socialPosts.id, post.id));
+          .eq("id", post.id);
 
         console.log(`[social-scheduler] Posted ${post.platform} post ${post.id}`);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[social-scheduler] Failed to post ${post.id}:`, message);
 
-        await db
-          .update(socialPosts)
-          .set({
+        await supabaseAdmin
+          .from("social_posts")
+          .update({
             status: "failed",
             error: message,
-            updated_at: new Date(),
+            updated_at: new Date().toISOString(),
           })
-          .where(eq(socialPosts.id, post.id));
+          .eq("id", post.id);
       }
     }
   } catch (err) {
