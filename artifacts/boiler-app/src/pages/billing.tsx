@@ -82,7 +82,7 @@ export default function Billing() {
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: tenantInfo?.status === "active",
+    enabled: tenantInfo?.status === "active" || tenantInfo?.status === "payment_overdue",
   });
 
   const manageBillingMutation = useMutation({
@@ -213,7 +213,7 @@ export default function Billing() {
                   </span>
                 </div>
               )}
-              {tenantInfo.subscription_renewal_at && tenantInfo.status === "active" && (
+              {tenantInfo.subscription_renewal_at && (tenantInfo.status === "active" || tenantInfo.status === "payment_overdue") && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Renews</span>
                   <span className="flex items-center gap-1">
@@ -256,7 +256,7 @@ export default function Billing() {
                 <p className="text-muted-foreground italic">No payment method on file</p>
               )}
 
-              {isAdmin && tenantInfo.status === "active" && (
+              {isAdmin && (tenantInfo.status === "active" || tenantInfo.status === "payment_overdue") && tenantInfo.stripe_customer_id && (
                 <Button
                   variant="outline"
                   className="w-full"

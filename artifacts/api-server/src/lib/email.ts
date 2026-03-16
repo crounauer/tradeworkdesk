@@ -20,7 +20,9 @@ function baseHtml(title: string, body: string): string {
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; margin: 0; padding: 0; }
     .wrapper { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-    .header { background: #1d4ed8; padding: 28px 32px; color: #fff; }
+    .header { background: #1d4ed8; padding: 24px 32px; color: #fff; }
+    .header-brand { display: flex; align-items: center; gap: 12px; }
+    .header-logo { width: 40px; height: 40px; background: rgba(255,255,255,.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
     .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
     .header p { margin: 4px 0 0; font-size: 13px; opacity: .8; }
     .body { padding: 32px; color: #1e293b; line-height: 1.6; }
@@ -38,15 +40,21 @@ function baseHtml(title: string, body: string): string {
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>BoilerTech</h1>
-      <p>Professional Boiler Service Management</p>
+      <div class="header-brand">
+        <div class="header-logo">🔥</div>
+        <div>
+          <h1>BoilerTech</h1>
+          <p>Professional Boiler Service Management</p>
+        </div>
+      </div>
     </div>
     <div class="body">
       ${body}
     </div>
     <div class="footer">
-      &copy; ${new Date().getFullYear()} BoilerTech. All rights reserved.<br/>
-      You received this email because you have an account with BoilerTech.
+      &copy; ${new Date().getFullYear()} BoilerTech Ltd. All rights reserved.<br/>
+      You received this email because you have an active account with BoilerTech.<br/>
+      <span style="margin-top:6px; display:block;">To stop receiving emails, contact us at <a href="mailto:support@boilertech.app" style="color:#64748b;">support@boilertech.app</a> to unsubscribe.</span>
     </div>
   </div>
 </body>

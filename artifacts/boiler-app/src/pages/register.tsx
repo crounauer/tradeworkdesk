@@ -330,7 +330,7 @@ export default function Register() {
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-base">{p.name}</span>
-                          <span className="text-lg font-bold text-primary">${Number(p.monthly_price).toFixed(2)}<span className="text-xs text-muted-foreground font-normal">/mo</span></span>
+                          <span className="text-lg font-bold text-primary">£{Number(p.monthly_price).toFixed(2)}<span className="text-xs text-muted-foreground font-normal">/mo</span></span>
                         </div>
                         <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
                           {p.max_users && <span>{p.max_users} users</span>}
