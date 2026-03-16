@@ -413,7 +413,7 @@ export const socialPlatformEnum = pgEnum("social_platform", [
 ]);
 
 export const socialPostStatusEnum = pgEnum("social_post_status", [
-  "draft", "scheduled", "posted", "failed", "dismissed"
+  "draft", "scheduled", "processing", "posted", "failed", "dismissed"
 ]);
 
 export const socialEntityTypeEnum = pgEnum("social_entity_type", [

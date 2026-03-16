@@ -91,13 +91,23 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res.json();
 }
 
-function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
+interface CreatePostDialogProps {
+  onCreated: () => void;
+  initialContent?: string;
+  initialPlatform?: string;
+  initialScheduled?: boolean;
+  triggerButton?: React.ReactNode;
+}
+
+function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialScheduled, triggerButton }: CreatePostDialogProps) {
   const [open, setOpen] = useState(false);
-  const [platform, setPlatform] = useState("x");
-  const [content, setContent] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
+    new Set(initialPlatform ? [initialPlatform] : ["x"]),
+  );
+  const [content, setContent] = useState(initialContent || "");
   const [imageUrl, setImageUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
-  const [isScheduled, setIsScheduled] = useState(false);
+  const [isScheduled, setIsScheduled] = useState(initialScheduled || false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
@@ -110,13 +120,20 @@ function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
         ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
         : undefined;
 
-      return apiFetch("/admin/social/post", {
-        method: "POST",
-        body: JSON.stringify({ platform, content, imageUrl: imageUrl || undefined, linkUrl: linkUrl || undefined, scheduledFor }),
-      });
+      const platforms = Array.from(selectedPlatforms);
+      const results = [];
+      for (const platform of platforms) {
+        const result = await apiFetch("/admin/social/post", {
+          method: "POST",
+          body: JSON.stringify({ platform, content, imageUrl: imageUrl || undefined, linkUrl: linkUrl || undefined, scheduledFor }),
+        });
+        results.push(result);
+      }
+      return results;
     },
     onSuccess: () => {
-      toast({ title: isScheduled ? "Post scheduled" : "Post published" });
+      const count = selectedPlatforms.size;
+      toast({ title: isScheduled ? `${count} post(s) scheduled` : `${count} post(s) published` });
       setOpen(false);
       resetForm();
       onCreated();
@@ -127,14 +144,24 @@ function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
   });
 
   const resetForm = () => {
-    setPlatform("x");
-    setContent("");
+    setSelectedPlatforms(new Set(initialPlatform ? [initialPlatform] : ["x"]));
+    setContent(initialContent || "");
     setImageUrl("");
     setLinkUrl("");
-    setIsScheduled(false);
+    setIsScheduled(initialScheduled || false);
     setScheduledDate("");
     setScheduledTime("");
     setImagePrompt("");
+  };
+
+  const togglePlatform = (value: string) => {
+    const next = new Set(selectedPlatforms);
+    if (next.has(value)) {
+      if (next.size > 1) next.delete(value);
+    } else {
+      next.add(value);
+    }
+    setSelectedPlatforms(next);
   };
 
   const handleGenerateImage = async () => {
@@ -155,12 +182,14 @@ function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) resetForm(); }}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Post
-        </Button>
+        {triggerButton || (
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Post
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -168,17 +197,23 @@ function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Platform</Label>
-            <Select value={platform} onValueChange={setPlatform}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PLATFORMS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="mb-2 block">Platforms</Label>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => togglePlatform(p.value)}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                    selectedPlatforms.has(p.value)
+                      ? `${p.color} border-transparent`
+                      : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -189,9 +224,9 @@ function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
               placeholder="Write your post content..."
               rows={4}
             />
-            {platform === "x" && (
+            {selectedPlatforms.has("x") && (
               <p className={`text-xs mt-1 ${content.length > 280 ? "text-red-500" : "text-muted-foreground"}`}>
-                {content.length}/280 characters
+                {content.length}/280 characters (X limit)
               </p>
             )}
           </div>
@@ -259,13 +294,13 @@ function CreatePostDialog({ onCreated }: { onCreated: () => void }) {
           </DialogClose>
           <Button
             onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !content}
+            disabled={createMutation.isPending || !content || selectedPlatforms.size === 0}
           >
             {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             {isScheduled ? (
-              <><Calendar className="w-4 h-4 mr-2" /> Schedule</>
+              <><Calendar className="w-4 h-4 mr-2" /> Schedule ({selectedPlatforms.size})</>
             ) : (
-              <><Send className="w-4 h-4 mr-2" /> Publish Now</>
+              <><Send className="w-4 h-4 mr-2" /> Publish ({selectedPlatforms.size})</>
             )}
           </Button>
         </DialogFooter>
@@ -717,6 +752,18 @@ function SuggestionsTab() {
                     <Send className="w-3 h-3 mr-1" />
                     Post Now
                   </Button>
+                  <CreatePostDialog
+                    onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })}
+                    initialContent={suggestion.content}
+                    initialPlatform={suggestion.platform}
+                    initialScheduled={true}
+                    triggerButton={
+                      <Button size="sm" variant="outline">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Schedule
+                      </Button>
+                    }
+                  />
                 </div>
               </CardContent>
             </Card>

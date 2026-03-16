@@ -195,6 +195,12 @@ export async function dispatchPost(
       return postToFacebook(post, credentials, account);
     case "instagram":
       return postToInstagram(post, credentials, account);
+    case "linkedin":
+    case "pinterest":
+    case "tiktok":
+    case "youtube":
+      console.warn(`[social-platforms] Platform "${post.platform}" is not yet supported`);
+      throw new Error(`Platform "${post.platform}" is not yet supported`);
     default:
       throw new Error(`Unknown platform: ${post.platform}`);
   }

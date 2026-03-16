@@ -8,7 +8,7 @@ const INTERVAL_MS = 60_000;
 async function claimDuePosts() {
   return db
     .update(socialPosts)
-    .set({ status: "processing" as any, updated_at: new Date() })
+    .set({ status: "processing", updated_at: new Date() })
     .where(
       and(
         eq(socialPosts.status, "scheduled"),
