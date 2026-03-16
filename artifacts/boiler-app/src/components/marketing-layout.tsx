@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Menu, X, Flame } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 
@@ -23,10 +23,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display font-bold text-sm">
-                B
-              </div>
-              <span className="font-display font-bold text-lg text-slate-900">BoilerTech</span>
+              <img src="/logo.png" alt="BoilerTech" className="h-9 w-auto" />
             </Link>
 
             <nav className="hidden md:flex items-center gap-1">
@@ -114,10 +111,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-display font-bold text-sm">
-                  B
-                </div>
-                <span className="font-display font-bold text-lg text-white">BoilerTech</span>
+                <img src="/logo.png" alt="BoilerTech" className="h-9 w-auto" />
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
                 The all-in-one platform for boiler service companies. Manage jobs, customers, and compliance from one place.

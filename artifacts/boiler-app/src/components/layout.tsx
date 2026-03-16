@@ -132,10 +132,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-slate-50/50">
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
         <div className="p-6 flex items-center gap-3 border-b border-border/50">
-          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display font-bold">
-            B
-          </div>
-          <span className="font-display font-bold text-lg">BoilerTech</span>
+          <img src="/logo.png" alt="BoilerTech" className="h-8 w-auto" />
         </div>
         
         <div className="px-4 py-6 flex-1 overflow-y-auto space-y-1">
@@ -172,8 +169,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display font-bold">B</div>
-          <span className="font-display font-bold">BoilerTech</span>
+          <img src="/logo.png" alt="BoilerTech" className="h-8 w-auto" />
         </div>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
