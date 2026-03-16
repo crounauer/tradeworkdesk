@@ -196,11 +196,15 @@ router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmi
 });
 
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
-  const { data, error } = await supabaseAdmin
-    .from("plans").select("*")
-    .eq("is_active", true).order("sort_order");
-  if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || []);
+  const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order";
+  const basicSelect = "id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, sort_order";
+
+  let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).order("sort_order");
+  if (result.error?.code === "42703") {
+    result = await supabaseAdmin.from("plans").select(basicSelect).eq("is_active", true).order("sort_order");
+  }
+  if (result.error) { res.status(500).json({ error: result.error.message }); return; }
+  res.json(result.data || []);
 });
 
 router.get("/platform/plans", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {

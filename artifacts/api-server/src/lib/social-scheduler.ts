@@ -22,13 +22,14 @@ async function processScheduledPosts(): Promise<void> {
         let accountQuery = supabaseAdmin
           .from("social_accounts")
           .select("*")
+          .eq("tenant_id", post.tenant_id)
           .eq("is_active", true)
           .limit(1);
 
         if (post.account_id) {
           accountQuery = accountQuery.eq("id", post.account_id);
         } else {
-          accountQuery = accountQuery.eq("tenant_id", post.tenant_id).eq("platform", post.platform);
+          accountQuery = accountQuery.eq("platform", post.platform);
         }
 
         const { data: account } = await accountQuery.single();

@@ -4,6 +4,6 @@
 
 -- ─── 1. New columns ─────────────────────────────────────────────────────────────
 
-ALTER TABLE plans ADD COLUMN IF NOT EXISTS per_user_price INTEGER;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS per_user_price INTEGER; -- whole GBP, e.g. 12 = £12/user/month
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS user_note TEXT;
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_popular BOOLEAN NOT NULL DEFAULT false;
