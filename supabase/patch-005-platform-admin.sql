@@ -630,30 +630,34 @@ CREATE POLICY "breakdown_reports_tenant" ON breakdown_reports FOR ALL TO authent
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Heat pump service records: drop all legacy policies
-DROP POLICY IF EXISTS "heat_pump_service_records_select" ON heat_pump_service_records;
-DROP POLICY IF EXISTS "heat_pump_service_records_insert" ON heat_pump_service_records;
-DROP POLICY IF EXISTS "heat_pump_service_records_update" ON heat_pump_service_records;
-DROP POLICY IF EXISTS "heat_pump_service_records_all" ON heat_pump_service_records;
+-- Heat pump service records: drop all legacy policies (table may not exist)
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "heat_pump_service_records_select" ON heat_pump_service_records;
+  DROP POLICY IF EXISTS "heat_pump_service_records_insert" ON heat_pump_service_records;
+  DROP POLICY IF EXISTS "heat_pump_service_records_update" ON heat_pump_service_records;
+  DROP POLICY IF EXISTS "heat_pump_service_records_all" ON heat_pump_service_records;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "heat_pump_service_records_tenant" ON heat_pump_service_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
--- Heat pump commissioning records: drop all legacy policies
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records;
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records;
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records;
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_all" ON heat_pump_commissioning_records;
+-- Heat pump commissioning records: drop all legacy policies (table may not exist)
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records;
+  DROP POLICY IF EXISTS "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records;
+  DROP POLICY IF EXISTS "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records;
+  DROP POLICY IF EXISTS "heat_pump_commissioning_records_all" ON heat_pump_commissioning_records;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "heat_pump_commissioning_records_tenant" ON heat_pump_commissioning_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- RLS for oil form sub-record tables
