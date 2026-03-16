@@ -100,10 +100,10 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
-function PublicPage({ component: Component, ...props }: { component: React.ComponentType<any>; [key: string]: any }) {
+function PublicPage<P extends Record<string, unknown>>({ component: Component, ...props }: { component: React.ComponentType<P> } & P) {
   return (
     <Suspense fallback={<PageFallback />}>
-      <Component {...props} />
+      <Component {...(props as P)} />
     </Suspense>
   );
 }

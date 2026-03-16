@@ -87,7 +87,8 @@ export default function BlogPostPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-12">
           <div className="prose prose-slate prose-lg max-w-none">
             {paragraphs.map((p, i) => {
               const trimmed = p.trim();
@@ -143,38 +144,62 @@ export default function BlogPostPage() {
             })}
           </div>
 
-          <div className="mt-12 p-6 rounded-2xl bg-slate-50 border border-slate-200">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="text-lg font-display font-bold text-primary">
-                  {post.author.split(" ").map((n) => n[0]).join("")}
-                </span>
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 space-y-6">
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-display font-bold text-primary">
+                      {post.author.split(" ").map((n) => n[0]).join("")}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-display font-semibold text-sm text-slate-900">{post.author}</p>
+                    <p className="text-xs text-slate-500">{post.authorRole}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="font-display font-semibold text-slate-900">{post.author}</p>
-                <p className="text-sm text-slate-500">{post.authorRole}</p>
-              </div>
+
+              {related.length > 0 && (
+                <div className="p-5 rounded-2xl border border-slate-200">
+                  <h3 className="font-display font-semibold text-sm text-slate-900 mb-4">Related articles</h3>
+                  <div className="space-y-4">
+                    {related.map((rp) => (
+                      <Link
+                        key={rp.slug}
+                        href={`/blog/${rp.slug}`}
+                        className="group block"
+                      >
+                        <span className="text-[10px] font-medium text-primary uppercase tracking-wide">{rp.category}</span>
+                        <h4 className="text-sm font-medium text-slate-900 group-hover:text-primary transition-colors line-clamp-2 mt-0.5">
+                          {rp.title}
+                        </h4>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+          </aside>
           </div>
         </div>
       </article>
 
       {related.length > 0 && (
-        <section className="bg-slate-50 py-16 border-t border-slate-200">
+        <section className="bg-slate-50 py-12 border-t border-slate-200 lg:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="font-display text-2xl font-bold text-slate-900 mb-8">Related articles</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <h2 className="font-display text-xl font-bold text-slate-900 mb-6">Related articles</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {related.map((rp) => (
                 <Link
                   key={rp.slug}
                   href={`/blog/${rp.slug}`}
-                  className="group block bg-white rounded-xl border border-slate-200 p-6 hover:border-primary/30 hover:shadow-md transition-all"
+                  className="group block bg-white rounded-xl border border-slate-200 p-5 hover:border-primary/30 hover:shadow-md transition-all"
                 >
                   <span className="text-xs font-medium text-primary">{rp.category}</span>
-                  <h3 className="mt-2 font-display font-semibold text-slate-900 group-hover:text-primary transition-colors line-clamp-2">
+                  <h3 className="mt-1.5 font-display font-semibold text-sm text-slate-900 group-hover:text-primary transition-colors line-clamp-2">
                     {rp.title}
                   </h3>
-                  <p className="mt-2 text-sm text-slate-500 line-clamp-2">{rp.description}</p>
                 </Link>
               ))}
             </div>
