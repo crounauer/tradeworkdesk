@@ -97,7 +97,7 @@ router.patch("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req
 
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
-    .from("plans").select("id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month")
+    .from("plans").select("id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active")
     .eq("is_active", true).order("sort_order");
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data || []);

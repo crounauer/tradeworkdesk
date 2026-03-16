@@ -205,7 +205,7 @@ router.get("/lookup-options", requireAuth, async (req: AuthenticatedRequest, res
   res.json(data || []);
 });
 
-router.get("/admin/lookup-options", requireAuth, requireRole("admin"), async (req, res): Promise<void> => {
+router.get("/admin/lookup-options", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { category } = req.query as { category?: string };
 
   let query = supabaseAdmin
@@ -213,6 +213,8 @@ router.get("/admin/lookup-options", requireAuth, requireRole("admin"), async (re
     .select("*")
     .order("sort_order", { ascending: true })
     .order("label", { ascending: true });
+
+  if (req.tenantId) query = query.eq("tenant_id", req.tenantId);
 
   if (category) {
     if (!ALLOWED_LOOKUP_CATEGORIES.has(category)) {
