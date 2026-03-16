@@ -3,72 +3,89 @@ import { MarketingLayout } from "@/components/marketing-layout";
 import { SEOHead, SITE_URL } from "@/components/seo-head";
 import { breadcrumbSchema, faqSchema } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, X, ArrowRight } from "lucide-react";
+import { CheckCircle, X, ArrowRight, Minus } from "lucide-react";
 
-const plans = [
+type FeatureValue = true | false | string;
+
+interface Feature {
+  label: string;
+  value: FeatureValue;
+}
+
+interface Plan {
+  name: string;
+  base: string;
+  perUser: string | null;
+  userNote: string;
+  desc: string;
+  popular?: boolean;
+  features: Feature[];
+}
+
+const plans: Plan[] = [
   {
     name: "Starter",
-    price: "29",
+    base: "29",
+    perUser: null,
+    userNote: "1 user included",
     desc: "For solo engineers",
-    features: {
-      "Users": "1",
-      "Jobs per month": "Unlimited",
-      "Digital forms": true,
-      "Customer records": true,
-      "Property & appliance tracking": true,
-      "Digital signatures": true,
-      "Photo attachments": true,
-      "Mobile access": true,
-      "Reports & analytics": false,
-      "Team scheduling": false,
-      "Invite codes": false,
-      "Priority support": false,
-      "API access": false,
-      "Custom branding": false,
-    },
+    features: [
+      { label: "Forms", value: "Unlimited" },
+      { label: "Signatures", value: "Unlimited" },
+      { label: "Per user", value: "Included" },
+      { label: "Jobs", value: "Unlimited" },
+      { label: "Scheduling", value: true },
+      { label: "Reports", value: "Basic" },
+      { label: "Photo storage", value: "5 GB" },
+      { label: "Compliance forms", value: true },
+      { label: "API access", value: false },
+      { label: "Custom branding", value: false },
+      { label: "Analytics", value: false },
+      { label: "Priority support", value: false },
+    ],
   },
   {
     name: "Professional",
-    price: "59",
+    base: "49",
+    perUser: "12",
+    userNote: "Up to 10 users",
     desc: "For growing teams",
     popular: true,
-    features: {
-      "Users": "Up to 5",
-      "Jobs per month": "Unlimited",
-      "Digital forms": true,
-      "Customer records": true,
-      "Property & appliance tracking": true,
-      "Digital signatures": true,
-      "Photo attachments": true,
-      "Mobile access": true,
-      "Reports & analytics": true,
-      "Team scheduling": true,
-      "Invite codes": true,
-      "Priority support": true,
-      "API access": false,
-      "Custom branding": false,
-    },
+    features: [
+      { label: "Forms", value: "Unlimited" },
+      { label: "Signatures", value: "Unlimited" },
+      { label: "Per user", value: "£12 / user" },
+      { label: "Jobs", value: "Unlimited" },
+      { label: "Scheduling", value: true },
+      { label: "Reports", value: "Full" },
+      { label: "Photo storage", value: "25 GB" },
+      { label: "Compliance forms", value: true },
+      { label: "API access", value: false },
+      { label: "Custom branding", value: false },
+      { label: "Analytics", value: true },
+      { label: "Priority support", value: true },
+    ],
   },
   {
     name: "Business",
-    price: "99",
+    base: "79",
+    perUser: "9",
+    userNote: "Unlimited users",
     desc: "For established companies",
-    features: {
-      "Users": "Unlimited",
-      "Jobs per month": "Unlimited",
-      "Digital forms": true,
-      "Customer records": true,
-      "Property & appliance tracking": true,
-      "Digital signatures": true,
-      "Photo attachments": true,
-      "Mobile access": true,
-      "Reports & analytics": true,
-      "Team scheduling": true,
-      "Invite codes": true,
-      "Priority support": true,
-      "API access": true,
-      "Custom branding": true,
-    },
+    features: [
+      { label: "Forms", value: "Unlimited" },
+      { label: "Signatures", value: "Unlimited" },
+      { label: "Per user", value: "£9 / user" },
+      { label: "Jobs", value: "Unlimited" },
+      { label: "Scheduling", value: true },
+      { label: "Reports", value: "Full + Export" },
+      { label: "Photo storage", value: "Unlimited" },
+      { label: "Compliance forms", value: true },
+      { label: "API access", value: true },
+      { label: "Custom branding", value: true },
+      { label: "Analytics", value: "Advanced" },
+      { label: "Priority support", value: true },
+    ],
   },
 ];
 
@@ -76,6 +93,10 @@ const faqs = [
   {
     question: "Is there a free trial?",
     answer: "Yes. Every plan comes with a 14-day free trial. No credit card is required to start. You get full access to all features in your chosen plan during the trial period.",
+  },
+  {
+    question: "How does per-user pricing work?",
+    answer: "The Professional plan is £49/month base plus £12 per additional user per month. The Business plan is £79/month base plus £9 per user per month. The Starter plan is a flat £29/month for a single user — no per-user charge.",
   },
   {
     question: "Can I change plans later?",
@@ -101,11 +122,21 @@ const faqs = [
     question: "Is my data secure?",
     answer: "Yes. All data is encrypted in transit and at rest. We use industry-standard security practices and our infrastructure is hosted in UK/EU data centres. We are fully GDPR compliant.",
   },
-  {
-    question: "Can I add more users to the Starter plan?",
-    answer: "The Starter plan is designed for solo engineers. If you need more than one user, the Professional plan supports up to 5 users, and the Business plan offers unlimited users.",
-  },
 ];
+
+function FeatureValue({ value, popular }: { value: FeatureValue; popular?: boolean }) {
+  if (value === true) {
+    return <CheckCircle className={`w-4 h-4 shrink-0 ${popular ? "text-blue-200" : "text-green-500"}`} />;
+  }
+  if (value === false) {
+    return <Minus className={`w-4 h-4 shrink-0 ${popular ? "text-blue-300/40" : "text-slate-300"}`} />;
+  }
+  return (
+    <span className={`text-xs font-semibold shrink-0 ${popular ? "text-blue-100" : "text-primary"}`}>
+      {value}
+    </span>
+  );
+}
 
 export default function PricingPage() {
   return (
@@ -147,58 +178,78 @@ export default function PricingPage() {
 
       <section className="bg-white py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
             {plans.map((plan) => (
               <div
                 key={plan.name}
-                className={`rounded-2xl p-8 flex flex-col ${
+                className={`rounded-2xl flex flex-col ${
                   plan.popular
-                    ? "bg-primary text-white ring-2 ring-primary shadow-xl md:scale-105"
+                    ? "bg-primary text-white ring-2 ring-primary shadow-xl md:-mt-4"
                     : "bg-white border border-slate-200"
                 }`}
               >
-                {plan.popular && (
-                  <span className="inline-block self-start px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
-                    Most Popular
-                  </span>
-                )}
-                <h2 className="font-display text-xl font-bold">{plan.name}</h2>
-                <p className={`mt-1 text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
-                  {plan.desc}
-                </p>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-display font-bold">£{plan.price}</span>
-                  <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
+                <div className="p-8 pb-6">
+                  {plan.popular && (
+                    <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
+                      Most Popular
+                    </span>
+                  )}
+                  <h2 className="font-display text-xl font-bold">{plan.name}</h2>
+                  <p className={`mt-1 text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
+                    {plan.desc}
+                  </p>
+
+                  <div className="mt-5">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-display font-bold">£{plan.base}</span>
+                      <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
+                    </div>
+                    {plan.perUser ? (
+                      <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                        + £{plan.perUser} per user / month
+                      </p>
+                    ) : (
+                      <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                        flat rate — no per-user charge
+                      </p>
+                    )}
+                    <p className={`mt-0.5 text-xs ${plan.popular ? "text-blue-300" : "text-slate-400"}`}>
+                      {plan.userNote}
+                    </p>
+                  </div>
                 </div>
-                <ul className="mt-6 space-y-3 flex-1">
-                  {Object.entries(plan.features).map(([feature, value]) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm">
-                      {value === true ? (
-                        <CheckCircle className={`w-4 h-4 shrink-0 ${plan.popular ? "text-blue-200" : "text-green-500"}`} />
-                      ) : value === false ? (
-                        <X className={`w-4 h-4 shrink-0 ${plan.popular ? "text-blue-300/50" : "text-slate-300"}`} />
-                      ) : (
-                        <span className={`w-4 text-center text-xs font-bold shrink-0 ${plan.popular ? "text-blue-200" : "text-primary"}`}>
-                          {value}
-                        </span>
-                      )}
-                      <span className={value === false ? (plan.popular ? "text-blue-200/60" : "text-slate-400") : ""}>
-                        {feature}
+
+                <div className={`border-t mx-6 ${plan.popular ? "border-white/20" : "border-slate-100"}`} />
+
+                <ul className="px-8 py-6 space-y-3 flex-1">
+                  {plan.features.map(({ label, value }) => (
+                    <li key={label} className="flex items-center justify-between gap-3 text-sm">
+                      <span className={value === false ? (plan.popular ? "text-blue-200/50" : "text-slate-400") : ""}>
+                        {label}
                       </span>
+                      <FeatureValue value={value} popular={plan.popular} />
                     </li>
                   ))}
                 </ul>
-                <Link href="/register">
-                  <Button
-                    className={`w-full mt-8 ${plan.popular ? "bg-white text-primary hover:bg-blue-50" : ""}`}
-                    variant={plan.popular ? "secondary" : "default"}
-                  >
-                    Start Free Trial
-                  </Button>
-                </Link>
+
+                <div className="px-8 pb-8">
+                  <Link href="/register">
+                    <Button
+                      className={`w-full ${plan.popular ? "bg-white text-primary hover:bg-blue-50" : ""}`}
+                      variant={plan.popular ? "secondary" : "default"}
+                    >
+                      Start Free Trial
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
+
+          <p className="mt-8 text-center text-sm text-slate-500">
+            All prices exclude VAT. 14-day free trial on every plan. No credit card required.
+          </p>
         </div>
       </section>
 
