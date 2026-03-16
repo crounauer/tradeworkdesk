@@ -132,11 +132,16 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-slate-50/50">
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
-        <div className="p-6 flex items-center gap-3 border-b border-border/50">
-          <img src="/logo.png" alt="BoilerTech" className="h-8 w-auto" />
+        <div className="px-6 py-5 flex items-center gap-2.5 border-b border-border/50">
+          <Flame className="w-5 h-5 text-primary shrink-0" />
+          <span className="text-lg font-bold tracking-tight text-foreground">BoilerTech</span>
+        </div>
+
+        <div className="px-6 py-5 border-b border-border/50 flex items-center justify-center">
+          <img src="/logo.png" alt="BoilerTech" className="h-14 w-auto" />
         </div>
         
-        <div className="px-4 py-6 flex-1 overflow-y-auto space-y-1">
+        <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
           {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item))}
 
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
@@ -170,7 +175,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="BoilerTech" className="h-8 w-auto" />
+          <Flame className="w-5 h-5 text-primary" />
+          <span className="text-lg font-bold tracking-tight text-foreground">BoilerTech</span>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
