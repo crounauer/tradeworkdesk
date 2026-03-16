@@ -2,7 +2,10 @@
 -- Run this in your Supabase SQL Editor for existing databases
 
 -- ─── 1. Extend user_role enum ──────────────────────────────────────────────────
+-- NOTE: ALTER TYPE ADD VALUE cannot be used in a transaction; COMMIT ensures the
+-- new value is visible before subsequent statements use it.
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin';
+COMMIT;
 
 -- ─── 2. Tenant status enum ────────────────────────────────────────────────────
 DO $$ BEGIN
