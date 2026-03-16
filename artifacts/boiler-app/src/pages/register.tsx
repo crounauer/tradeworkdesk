@@ -151,6 +151,9 @@ export default function Register() {
       if (signInError) {
         toast({ title: "Company registered!", description: "Please sign in with your credentials." });
         navigate("/login");
+      } else if (data.checkout_url) {
+        toast({ title: "Account created!", description: "Redirecting to complete your payment…" });
+        window.location.href = data.checkout_url;
       } else {
         toast({ title: "Welcome to BoilerTech!", description: "Your company account is ready." });
         navigate("/");

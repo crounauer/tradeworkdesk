@@ -94,6 +94,14 @@ router.post(
               subscription_renewal_at: renewalAt,
             }).eq("id", tenant.id);
 
+            await supabaseAdmin.from("platform_audit_log").insert({
+              actor_email: "stripe",
+              event_type: "subscription_renewed",
+              entity_type: "tenant",
+              entity_id: tenant.id,
+              detail: { amount_paid: invoice.amount_paid, currency: invoice.currency, renewal_at: renewalAt },
+            });
+
             if (tenant.contact_email && invoice.amount_paid && invoice.currency && invoice.hosted_invoice_url) {
               await sendInvoiceEmail(
                 tenant.contact_email,

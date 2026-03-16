@@ -3,6 +3,7 @@ import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
+import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -488,13 +489,39 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     detail: { company_name },
   });
 
-  sendWelcomeEmail(contact_email, contact_name, company_name).catch(() => null);
+  sendWelcomeEmail(contact_email, company_name, trialEnds).catch(() => null);
+
+  let checkout_url: string | null = null;
+  if (stripe && plan_id) {
+    const { data: plan } = await supabaseAdmin
+      .from("plans")
+      .select("stripe_price_id")
+      .eq("id", plan_id)
+      .single();
+
+    if (plan?.stripe_price_id) {
+      const APP_URL = process.env.APP_URL || "https://boilertech.app";
+      try {
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
+          success_url: `${APP_URL}/billing?success=1`,
+          cancel_url: `${APP_URL}/billing?cancelled=1`,
+          metadata: { tenant_id: tenant.id },
+          client_reference_id: tenant.id,
+        });
+        checkout_url = session.url;
+      } catch {
+      }
+    }
+  }
 
   res.status(201).json({
     tenant_id: tenant.id,
     user_id: authData.user.id,
     email: contact_email,
     password_hint: true,
+    checkout_url,
     message: "Company registered successfully.",
   });
 });
