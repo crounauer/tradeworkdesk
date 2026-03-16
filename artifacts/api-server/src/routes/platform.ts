@@ -220,7 +220,7 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
 
   const { count } = await supabaseAdmin.from("plans").select("id", { count: "exact", head: true });
 
-  const { data, error } = await supabaseAdmin.from("plans").insert({
+  const fullPayload = {
     name,
     description: description || null,
     monthly_price: monthly_price || 0,
@@ -234,8 +234,16 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
     sort_order: (count || 0) + 1,
     stripe_price_id: stripe_price_id || null,
     stripe_price_id_annual: stripe_price_id_annual || null,
-  }).select().single();
+  };
 
+  let result = await supabaseAdmin.from("plans").insert(fullPayload).select().single();
+
+  if (result.error?.code === "42703") {
+    const { per_user_price: _a, user_note: _b, is_popular: _c, ...basePayload } = fullPayload;
+    result = await supabaseAdmin.from("plans").insert(basePayload).select().single();
+  }
+
+  const { data, error } = result;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   await supabaseAdmin.from("platform_audit_log").insert({
@@ -253,14 +261,22 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
 router.patch("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const allowed = ["name", "description", "monthly_price", "annual_price", "per_user_price", "user_note", "max_users", "max_jobs_per_month", "features", "is_active", "is_popular", "sort_order", "stripe_price_id", "stripe_price_id_annual"];
+  const patchOnlyNew = ["per_user_price", "user_note", "is_popular"];
 
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("plans").update(updates).eq("id", id).select().single();
+  let result = await supabaseAdmin.from("plans").update(updates).eq("id", id).select().single();
+
+  if (result.error?.code === "42703") {
+    const fallbackUpdates = { ...updates };
+    for (const key of patchOnlyNew) delete fallbackUpdates[key];
+    result = await supabaseAdmin.from("plans").update(fallbackUpdates).eq("id", id).select().single();
+  }
+
+  const { data, error } = result;
   if (error || !data) { res.status(404).json({ error: "Plan not found" }); return; }
 
   await supabaseAdmin.from("platform_audit_log").insert({
