@@ -138,7 +138,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="px-6 py-5 border-b border-border/50 flex items-center justify-center">
-          <img src="/logo.png" alt="BoilerTech" className="h-14 w-auto" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="BoilerTech" className="h-14 w-auto" />
         </div>
         
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">

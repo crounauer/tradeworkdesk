@@ -87,6 +87,11 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
           <div className="max-w-3xl">
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="BoilerTech"
+              className="h-24 w-auto mb-8"
+            />
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
               <Flame className="w-4 h-4" />
               Built for Gas & Oil Engineers
