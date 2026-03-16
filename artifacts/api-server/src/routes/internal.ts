@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { stripe } from "../lib/stripe";
 import {
   sendTrialExpiryReminder,
   sendRenewalReminder,
@@ -34,6 +35,7 @@ router.get("/internal/send-trial-reminders", async (req: Request, res: Response)
     .not("contact_email", "is", null);
 
   const results: Array<{ id: string; email: string; days: number; sent: boolean }> = [];
+  let successCount = 0;
 
   for (const tenant of tenants || []) {
     if (!tenant.contact_email || !tenant.trial_ends_at) continue;
@@ -46,12 +48,13 @@ router.get("/internal/send-trial-reminders", async (req: Request, res: Response)
     try {
       await sendTrialExpiryReminder(tenant.contact_email, tenant.company_name, daysLeft, BILLING_URL);
       results.push({ id: tenant.id, email: tenant.contact_email, days: daysLeft, sent: true });
+      successCount++;
     } catch {
       results.push({ id: tenant.id, email: tenant.contact_email, days: daysLeft, sent: false });
     }
   }
 
-  res.json({ sent: results.length, results });
+  res.json({ sent: successCount, results });
 });
 
 router.get("/internal/send-renewal-reminders", async (req: Request, res: Response): Promise<void> => {
@@ -61,41 +64,57 @@ router.get("/internal/send-renewal-reminders", async (req: Request, res: Respons
 
   const { data: tenants } = await supabaseAdmin
     .from("tenants")
-    .select("id, company_name, contact_email, subscription_renewal_at, plans(monthly_price)")
+    .select("id, company_name, contact_email, subscription_renewal_at, stripe_subscription_id, plans(monthly_price)")
     .eq("status", "active")
     .not("contact_email", "is", null)
     .not("subscription_renewal_at", "is", null);
 
   const results: Array<{ id: string; email: string; sent: boolean }> = [];
+  let successCount = 0;
 
   for (const tenant of (tenants || []) as Array<{
     id: string;
     company_name: string;
     contact_email: string | null;
     subscription_renewal_at: string | null;
+    stripe_subscription_id?: string | null;
     plans?: { monthly_price?: number } | null;
   }>) {
     if (!tenant.contact_email || !tenant.subscription_renewal_at) continue;
     const renewalDate = new Date(tenant.subscription_renewal_at).toISOString().split("T")[0];
     if (renewalDate !== in3) continue;
 
-    const amount = Math.round((tenant.plans?.monthly_price || 0) * 100);
+    let amount = Math.round((tenant.plans?.monthly_price || 0) * 100);
+    let currency = "gbp";
+
+    if (stripe && tenant.stripe_subscription_id) {
+      try {
+        const upcoming = await stripe.invoices.retrieveUpcoming({
+          subscription: tenant.stripe_subscription_id,
+        });
+        amount = upcoming.amount_due;
+        currency = upcoming.currency;
+      } catch {
+      }
+    }
+
     try {
       await sendRenewalReminder(
         tenant.contact_email,
         tenant.company_name,
         tenant.subscription_renewal_at,
         amount,
-        "gbp",
+        currency,
         BILLING_URL,
       );
       results.push({ id: tenant.id, email: tenant.contact_email, sent: true });
+      successCount++;
     } catch {
       results.push({ id: tenant.id, email: tenant.contact_email, sent: false });
     }
   }
 
-  res.json({ sent: results.length, results });
+  res.json({ sent: successCount, results });
 });
 
 export default router;
