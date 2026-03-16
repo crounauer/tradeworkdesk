@@ -45,26 +45,15 @@ export default function ContactPage() {
         ]}
       />
 
-      <section className="bg-gradient-to-br from-slate-50 to-white py-20 md:py-24">
+      <section className="bg-gradient-to-br from-slate-50 to-white py-12 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
-            <div className="flex-1 min-w-0">
-              <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
-                Get in touch
-              </h1>
-              <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-                Whether you have a question about features, pricing, or need help getting
-                started, our UK-based team is here to help.
-              </p>
-            </div>
-            <div className="shrink-0 flex items-center justify-center">
-              <img
-                src={`${import.meta.env.BASE_URL}logo.png`}
-                alt="BoilerTech"
-                className="w-[32rem] h-[32rem] md:w-[40rem] md:h-[40rem] object-contain max-w-full"
-              />
-            </div>
-          </div>
+          <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
+            Get in touch
+          </h1>
+          <p className="mt-4 text-lg text-slate-600 max-w-2xl leading-relaxed">
+            Whether you have a question about features, pricing, or need help getting
+            started, our UK-based team is here to help.
+          </p>
         </div>
       </section>
 

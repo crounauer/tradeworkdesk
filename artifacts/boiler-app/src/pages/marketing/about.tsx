@@ -62,9 +62,9 @@ export default function AboutPage() {
         ]}
       />
 
-      <section className="bg-gradient-to-br from-slate-50 to-white py-20 md:py-24">
+      <section className="bg-gradient-to-br from-slate-50 to-white py-12 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+          <div className="flex flex-col lg:flex-row items-start gap-10 lg:gap-14">
             <div className="flex-1 min-w-0">
               <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
                 Built by heating engineers, for heating engineers
@@ -84,7 +84,7 @@ export default function AboutPage() {
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
                 alt="BoilerTech"
-                className="w-[32rem] h-[32rem] md:w-[40rem] md:h-[40rem] object-contain max-w-full"
+                className="w-48 md:w-64 h-auto object-contain max-w-full"
               />
             </div>
           </div>

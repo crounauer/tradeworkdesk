@@ -61,7 +61,7 @@ export default function BlogPostPage() {
                 <img
                   src={`${import.meta.env.BASE_URL}logo.png`}
                   alt="BoilerTech"
-                  className="h-64 w-auto max-w-full"
+                  className="h-24 w-auto max-w-full"
                 />
               </div>
               <div className="flex-1 min-w-0">
