@@ -86,41 +86,45 @@ export default function HomePage() {
 
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
-          <div className="max-w-3xl">
-            <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="BoilerTech"
-              className="h-24 w-auto mb-8"
-            />
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-              <Flame className="w-4 h-4" />
-              Built for Gas & Oil Engineers
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+                <Flame className="w-4 h-4" />
+                Built for Gas & Oil Engineers
+              </div>
+              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight">
+                Run your boiler service business{" "}
+                <span className="text-primary">without the paperwork</span>
+              </h1>
+              <p className="mt-6 text-lg md:text-xl text-slate-600 leading-relaxed">
+                BoilerTech is the all-in-one platform built specifically for heating engineers.
+                Manage jobs, customers, and compliance from your phone — no more paper forms,
+                lost records, or missed services.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link href="/register">
+                  <Button size="lg" className="text-base px-8 h-12">
+                    Start Free Trial
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/features">
+                  <Button size="lg" variant="outline" className="text-base px-8 h-12">
+                    See Features
+                  </Button>
+                </Link>
+              </div>
+              <p className="mt-4 text-sm text-slate-500">
+                14-day free trial. No credit card required.
+              </p>
             </div>
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight">
-              Run your boiler service business{" "}
-              <span className="text-primary">without the paperwork</span>
-            </h1>
-            <p className="mt-6 text-lg md:text-xl text-slate-600 leading-relaxed max-w-2xl">
-              BoilerTech is the all-in-one platform built specifically for heating engineers.
-              Manage jobs, customers, and compliance from your phone — no more paper forms,
-              lost records, or missed services.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link href="/register">
-                <Button size="lg" className="text-base px-8 h-12">
-                  Start Free Trial
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/features">
-                <Button size="lg" variant="outline" className="text-base px-8 h-12">
-                  See Features
-                </Button>
-              </Link>
+            <div className="shrink-0 flex items-center justify-center">
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="BoilerTech"
+                className="w-64 h-64 md:w-80 md:h-80 object-contain"
+              />
             </div>
-            <p className="mt-4 text-sm text-slate-500">
-              14-day free trial. No credit card required.
-            </p>
           </div>
         </div>
       </section>
