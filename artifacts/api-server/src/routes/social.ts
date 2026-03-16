@@ -323,7 +323,7 @@ router.get(
           status: jobs.status,
         })
         .from(jobs)
-        .where(and(eq(jobs.is_active, true)))
+        .where(and(eq(jobs.is_active, true), sql`${jobs.id} IN (SELECT id FROM jobs WHERE tenant_id = ${tenantId})`))
         .orderBy(desc(jobs.created_at))
         .limit(5);
 
@@ -344,7 +344,7 @@ router.get(
           city: customers.city,
         })
         .from(customers)
-        .where(eq(customers.is_active, true))
+        .where(and(eq(customers.is_active, true), sql`${customers.id} IN (SELECT id FROM customers WHERE tenant_id = ${tenantId})`))
         .orderBy(desc(customers.created_at))
         .limit(3);
 

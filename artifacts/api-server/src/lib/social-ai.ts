@@ -1,5 +1,7 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
+import { supabaseAdmin } from "./supabase";
+import crypto from "crypto";
 
 export interface SuggestionItem {
   entityType: "product" | "category" | "article";
@@ -68,5 +70,24 @@ export async function generateSocialImage(prompt: string): Promise<string> {
     `Create a professional, clean social media banner image for a boiler service company. ${prompt}. Modern flat design, blue and orange color scheme, 1:1 aspect ratio.`,
     "1024x1024",
   );
-  return `data:image/png;base64,${buffer.toString("base64")}`;
+
+  const fileName = `social-images/${crypto.randomUUID()}.png`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("service-photos")
+    .upload(fileName, buffer, {
+      contentType: "image/png",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error("[social-ai] Failed to upload image to storage:", uploadError);
+    return `data:image/png;base64,${buffer.toString("base64")}`;
+  }
+
+  const { data: urlData } = supabaseAdmin.storage
+    .from("service-photos")
+    .getPublicUrl(fileName);
+
+  return urlData.publicUrl;
 }
