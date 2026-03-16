@@ -464,6 +464,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   });
 
   if (authError) {
+    console.error("[register] auth.admin.createUser failed:", JSON.stringify(authError));
     await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
     res.status(400).json({ error: authError.message });
     return;
