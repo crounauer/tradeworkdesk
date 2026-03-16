@@ -197,7 +197,7 @@ router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmi
 
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
-    .from("plans").select("id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active")
+    .from("plans").select("id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, stripe_price_id, stripe_price_id_annual")
     .eq("is_active", true).order("sort_order");
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data || []);

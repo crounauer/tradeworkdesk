@@ -269,7 +269,11 @@ export default function Billing() {
               )}
 
               {isAdmin && tenantInfo.status !== "active" && (
-                <Button className="w-full" onClick={() => setShowUpgrade(true)}>
+                <Button className="w-full" onClick={() => {
+                  const firstPaid = (plans || []).find((p) => p.stripe_price_id);
+                  if (firstPaid) { setSelectedPlan(firstPaid.id); }
+                  setShowUpgrade(true);
+                }}>
                   <CreditCard className="w-4 h-4 mr-2" />
                   Upgrade to Paid Plan
                 </Button>
