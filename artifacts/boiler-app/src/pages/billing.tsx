@@ -30,8 +30,9 @@ interface TenantInfo {
   status: string;
   trial_ends_at: string | null;
   plan_id: string | null;
-  plans?: { name: string; monthly_price: number; max_users: number; max_jobs_per_month: number } | null;
+  stripe_customer_id?: string | null;
   subscription_renewal_at?: string | null;
+  plans?: { name: string; monthly_price: number; max_users: number; max_jobs_per_month: number } | null;
 }
 
 interface PaymentMethod {
