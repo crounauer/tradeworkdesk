@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { MarketingLayout } from "@/components/marketing-layout";
@@ -21,6 +22,9 @@ interface DisplayPlan {
   desc: string;
   popular?: boolean;
   features: DisplayFeature[];
+  annualMonthly: string | null;
+  annualTotal: string | null;
+  savingsPct: number | null;
 }
 
 interface ApiPlan {
@@ -28,6 +32,7 @@ interface ApiPlan {
   name: string;
   description: string | null;
   monthly_price: number;
+  annual_price: number | null;
   per_user_price: number | null;
   user_note: string | null;
   is_popular: boolean;
@@ -62,8 +67,16 @@ function mapApiToDisplay(apiPlans: ApiPlan[]): DisplayPlan[] {
       return { label, value: false };
     });
 
-    const base = Math.round(Number(p.monthly_price) || 0).toString();
+    const monthly = Number(p.monthly_price) || 0;
+    const annual = Number(p.annual_price) || 0;
+    const base = Math.round(monthly).toString();
     const perUser = p.per_user_price != null ? Math.round(Number(p.per_user_price)).toString() : null;
+
+    const annualMonthly = annual > 0 ? (annual / 12).toFixed(2).replace(/\.00$/, "") : null;
+    const annualTotal = annual > 0 ? Math.round(annual).toString() : null;
+    const savingsPct = annual > 0 && monthly > 0
+      ? Math.round((1 - annual / 12 / monthly) * 100)
+      : null;
 
     return {
       name: p.name,
@@ -73,6 +86,9 @@ function mapApiToDisplay(apiPlans: ApiPlan[]): DisplayPlan[] {
       desc: p.description || "",
       popular: p.is_popular,
       features,
+      annualMonthly,
+      annualTotal,
+      savingsPct,
     };
   });
 }
@@ -84,6 +100,9 @@ const FALLBACK_PLANS: DisplayPlan[] = [
     perUser: null,
     userNote: "1 user included",
     desc: "For solo engineers",
+    annualMonthly: "24.17",
+    annualTotal: "290",
+    savingsPct: 17,
     features: [
       { label: "Forms", value: "Unlimited" },
       { label: "Signatures", value: "Unlimited" },
@@ -106,6 +125,9 @@ const FALLBACK_PLANS: DisplayPlan[] = [
     userNote: "Up to 10 users",
     desc: "For growing teams",
     popular: true,
+    annualMonthly: "40.83",
+    annualTotal: "490",
+    savingsPct: 17,
     features: [
       { label: "Forms", value: "Unlimited" },
       { label: "Signatures", value: "Unlimited" },
@@ -127,6 +149,9 @@ const FALLBACK_PLANS: DisplayPlan[] = [
     perUser: "9",
     userNote: "Unlimited users",
     desc: "For established companies",
+    annualMonthly: "65.83",
+    annualTotal: "790",
+    savingsPct: 17,
     features: [
       { label: "Forms", value: "Unlimited" },
       { label: "Signatures", value: "Unlimited" },
@@ -212,6 +237,8 @@ function PlanCardSkeleton() {
 }
 
 export default function PricingPage() {
+  const [isAnnual, setIsAnnual] = useState(false);
+
   const { data: apiPlans, isLoading } = useQuery({
     queryKey: ["public-pricing-plans"],
     queryFn: async () => {
@@ -267,6 +294,30 @@ export default function PricingPage() {
 
       <section className="bg-white py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center mb-10">
+            <div className="inline-flex items-center gap-3 bg-slate-100 rounded-full p-1">
+              <button
+                onClick={() => setIsAnnual(false)}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                  !isAnnual ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsAnnual(true)}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                  isAnnual ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Annual
+                <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  Save up to 17%
+                </span>
+              </button>
+            </div>
+          </div>
+
           {showSkeleton ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
               <PlanCardSkeleton />
@@ -296,7 +347,23 @@ export default function PricingPage() {
                     </p>
 
                     <div className="mt-5">
-                      {plan.base === "0" && plan.perUser ? (
+                      {isAnnual && plan.annualMonthly ? (
+                        <>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-display font-bold">£{plan.annualMonthly}</span>
+                            <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
+                          </div>
+                          <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-green-600"}`}>
+                            £{plan.annualTotal} billed annually
+                            {plan.savingsPct ? ` — save ${plan.savingsPct}%` : ""}
+                          </p>
+                          {plan.perUser && (
+                            <p className={`mt-0.5 text-sm ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                              + £{plan.perUser} per user / month
+                            </p>
+                          )}
+                        </>
+                      ) : plan.base === "0" && plan.perUser ? (
                         <>
                           <div className="flex items-baseline gap-1">
                             <span className="text-4xl font-display font-bold">£{plan.perUser}</span>
