@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import { requireStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
 
@@ -7,7 +7,7 @@ const router = Router();
 
 const APP_URL = process.env.APP_URL || "https://boilertech.app";
 
-router.post("/billing/checkout", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { plan_id, billing_cycle = "monthly" } = req.body;
   if (!plan_id) { res.status(400).json({ error: "plan_id is required" }); return; }
 
@@ -43,14 +43,14 @@ router.post("/billing/checkout", requireAuth, requireTenant, async (req: Authent
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${APP_URL}/billing?success=1`,
     cancel_url: `${APP_URL}/billing?cancelled=1`,
-    metadata: { tenant_id: req.tenantId! },
+    metadata: { tenant_id: req.tenantId!, plan_id, billing_cycle },
     allow_promotion_codes: true,
   });
 
   res.json({ url: session.url });
 });
 
-router.get("/billing/portal", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/billing/portal", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const stripeClient = requireStripe();
 
   const { data: tenant } = await supabaseAdmin.from("tenants").select("stripe_customer_id").eq("id", req.tenantId!).single();
@@ -67,7 +67,7 @@ router.get("/billing/portal", requireAuth, requireTenant, async (req: Authentica
   res.json({ url: session.url });
 });
 
-router.get("/billing/payment-method", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/billing/payment-method", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const stripeClient = requireStripe();
 
   const { data: tenant } = await supabaseAdmin.from("tenants").select("stripe_customer_id").eq("id", req.tenantId!).single();

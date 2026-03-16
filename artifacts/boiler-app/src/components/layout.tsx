@@ -70,7 +70,7 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
 
   const adminNavItems = [
-    { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
+    { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin", "office_staff"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
     { href: "/admin/users", label: "Team", icon: ShieldCheck },
     { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },

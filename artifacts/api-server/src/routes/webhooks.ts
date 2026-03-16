@@ -39,7 +39,7 @@ router.post(
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object as {
-            metadata?: { tenant_id?: string };
+            metadata?: { tenant_id?: string; plan_id?: string; billing_cycle?: string };
             customer?: string;
             subscription?: string;
           };
@@ -52,6 +52,7 @@ router.post(
           };
           if (session.customer) updates.stripe_customer_id = session.customer;
           if (session.subscription) updates.stripe_subscription_id = session.subscription;
+          if (session.metadata?.plan_id) updates.plan_id = session.metadata.plan_id;
 
           if (session.subscription) {
             const sub = await stripeClient.subscriptions.retrieve(session.subscription as string) as unknown as { current_period_end: number };

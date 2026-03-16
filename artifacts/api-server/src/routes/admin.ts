@@ -507,7 +507,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
           line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
           success_url: `${APP_URL}/billing?success=1`,
           cancel_url: `${APP_URL}/billing?cancelled=1`,
-          metadata: { tenant_id: tenant.id },
+          metadata: { tenant_id: tenant.id, plan_id, billing_cycle: "monthly" },
           client_reference_id: tenant.id,
         });
         checkout_url = session.url;
