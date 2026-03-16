@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { sendWelcomeEmail } from "../lib/email";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -486,6 +487,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     entity_id: tenant.id,
     detail: { company_name },
   });
+
+  sendWelcomeEmail(contact_email, contact_name, company_name).catch(() => null);
 
   res.status(201).json({
     tenant_id: tenant.id,

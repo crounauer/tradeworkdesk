@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
+import { stripe } from "../lib/stripe";
 
 const router: IRouter = Router();
 
@@ -172,6 +173,28 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
   res.sendStatus(204);
 });
 
+router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("stripe_customer_id, company_name")
+    .eq("id", id)
+    .single();
+
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (!tenant.stripe_customer_id) { res.status(400).json({ error: "Tenant has no Stripe customer" }); return; }
+
+  if (!stripe) { res.status(503).json({ error: "Stripe not configured" }); return; }
+
+  const APP_URL = process.env.APP_URL || "https://boilertech.app";
+  const session = await stripe.billingPortal.sessions.create({
+    customer: tenant.stripe_customer_id,
+    return_url: `${APP_URL}/platform/tenants/${id}`,
+  });
+
+  res.json({ url: session.url });
+});
+
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("plans").select("id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active")
@@ -268,6 +291,46 @@ router.delete("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req:
   });
 
   res.sendStatus(204);
+});
+
+router.post("/platform/plans/:id/sync-stripe", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { stripe_price_id, stripe_price_id_annual } = req.body as { stripe_price_id?: string; stripe_price_id_annual?: string };
+
+  if (!stripe_price_id && !stripe_price_id_annual) {
+    res.status(400).json({ error: "Provide at least stripe_price_id or stripe_price_id_annual" });
+    return;
+  }
+
+  const updates: Record<string, string | null> = {};
+  if (stripe_price_id !== undefined) updates.stripe_price_id = stripe_price_id || null;
+  if (stripe_price_id_annual !== undefined) updates.stripe_price_id_annual = stripe_price_id_annual || null;
+
+  if (stripe) {
+    for (const [field, priceId] of Object.entries(updates)) {
+      if (!priceId) continue;
+      try {
+        await stripe.prices.retrieve(priceId);
+      } catch {
+        res.status(400).json({ error: `Invalid Stripe Price ID for ${field}: ${priceId}` });
+        return;
+      }
+    }
+  }
+
+  const { data, error } = await supabaseAdmin.from("plans").update(updates).eq("id", id).select().single();
+  if (error || !data) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "plan_stripe_synced",
+    entity_type: "plan",
+    entity_id: id,
+    detail: updates,
+  });
+
+  res.json(data);
 });
 
 router.get("/platform/announcements", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
@@ -383,16 +446,51 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
 });
 
 router.get("/platform/stats/mrr", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  if (stripe) {
+    try {
+      let mrr = 0;
+      let hasMore = true;
+      let startingAfter: string | undefined;
+      while (hasMore) {
+        const subs = await stripe.subscriptions.list({
+          status: "active",
+          limit: 100,
+          ...(startingAfter ? { starting_after: startingAfter } : {}),
+          expand: ["data.items.data.price"],
+        });
+        for (const sub of subs.data) {
+          for (const item of sub.items.data) {
+            const price = item.price as unknown as { unit_amount?: number; recurring?: { interval?: string; interval_count?: number } };
+            if (price.unit_amount && price.recurring) {
+              const interval = price.recurring.interval;
+              const count = price.recurring.interval_count || 1;
+              const unitCents = price.unit_amount / 100;
+              if (interval === "month") mrr += unitCents / count;
+              else if (interval === "year") mrr += unitCents / (12 * count);
+            }
+          }
+        }
+        hasMore = subs.has_more;
+        if (subs.data.length > 0) startingAfter = subs.data[subs.data.length - 1].id;
+        else break;
+      }
+      res.json({ mrr: Math.round(mrr * 100) / 100, source: "stripe" });
+      return;
+    } catch {
+    }
+  }
+
   const { data: tenants } = await supabaseAdmin
     .from("tenants")
     .select("id, plan_id, status, plans(monthly_price)")
     .in("status", ["active", "trial"]);
 
-  const mrr = (tenants || []).reduce((sum: number, t: { plans?: { monthly_price?: number } | null }) => {
-    return sum + (t.plans?.monthly_price || 0);
+  const mrr = (tenants || []).reduce((sum: number, t: { plans?: { monthly_price?: number }[] | { monthly_price?: number } | null }) => {
+    const planData = Array.isArray(t.plans) ? t.plans[0] : t.plans;
+    return sum + (planData?.monthly_price || 0);
   }, 0);
 
-  res.json({ mrr });
+  res.json({ mrr, source: "db" });
 });
 
 router.get("/platform/stats/signups", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {

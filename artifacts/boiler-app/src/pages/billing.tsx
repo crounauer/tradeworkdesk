@@ -123,10 +123,13 @@ export default function Billing() {
   const statusColor = (status: string) => {
     if (status === "active") return "bg-green-100 text-green-700 border-green-200";
     if (status === "trial") return "bg-amber-100 text-amber-700 border-amber-200";
+    if (status === "payment_overdue") return "bg-orange-100 text-orange-700 border-orange-200";
     if (status === "suspended") return "bg-red-100 text-red-700 border-red-200";
     if (status === "cancelled") return "bg-slate-100 text-slate-700 border-slate-200";
     return "bg-slate-100 text-slate-700";
   };
+
+  const statusLabel = (status: string) => status.replace("_", " ");
 
   const currentPlan = plans?.find((p) => p.id === tenantInfo?.plan_id);
 
@@ -164,6 +167,15 @@ export default function Billing() {
         </div>
       )}
 
+      {tenantInfo?.status === "payment_overdue" && (
+        <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-orange-800 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <div>
+            <strong>Payment overdue.</strong> Please update your payment method to avoid service interruption.
+          </div>
+        </div>
+      )}
+
       {tenantInfo?.status === "suspended" && (
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -183,7 +195,7 @@ export default function Billing() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Status</span>
                 <Badge className={cn("capitalize border", statusColor(tenantInfo.status))}>
-                  {tenantInfo.status}
+                  {statusLabel(tenantInfo.status)}
                 </Badge>
               </div>
               {currentPlan && (

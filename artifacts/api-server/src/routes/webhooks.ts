@@ -122,7 +122,7 @@ router.post(
             .maybeSingle();
 
           if (tenant) {
-            await supabaseAdmin.from("tenants").update({ status: "suspended" }).eq("id", tenant.id);
+            await supabaseAdmin.from("tenants").update({ status: "payment_overdue" }).eq("id", tenant.id);
 
             if (tenant.contact_email && invoice.amount_due && invoice.currency) {
               await sendPaymentFailedEmail(

@@ -211,10 +211,15 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {tenantInfo?.status === "suspended" && !isSuperAdmin && (
+        {(tenantInfo?.status === "payment_overdue" || tenantInfo?.status === "suspended") && !isSuperAdmin && (
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5 flex items-center justify-center gap-2 text-sm text-red-800">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span><strong>Account suspended.</strong> A payment may have failed. Please update your payment method to restore access.</span>
+            <span>
+              {tenantInfo.status === "payment_overdue"
+                ? <><strong>Payment overdue.</strong> Please update your payment method to avoid service interruption.</>
+                : <><strong>Account suspended.</strong> A payment may have failed. Please update your payment method to restore access.</>
+              }
+            </span>
             {isAdmin && (
               <Link href="/billing">
                 <Button size="sm" variant="destructive" className="ml-2 h-7 text-xs">

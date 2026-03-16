@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 
-const STATUS_OPTIONS = ["trial", "active", "suspended", "cancelled"];
+const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
 
 export default function PlatformTenantDetail() {
   const params = useParams<{ id: string }>();
@@ -21,6 +21,7 @@ export default function PlatformTenantDetail() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [confirmAction, setConfirmAction] = useState<{ action: string; status: string } | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["platform-tenant", params.id],
@@ -106,6 +107,24 @@ export default function PlatformTenantDetail() {
     setConfirmAction({ action, status });
   };
 
+  const openBillingPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch(`/api/platform/tenants/${params.id}/billing-portal`);
+      if (!res.ok) {
+        const err = await res.json();
+        toast({ title: "Cannot open portal", description: err.error, variant: "destructive" });
+        return;
+      }
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch {
+      toast({ title: "Error opening billing portal", variant: "destructive" });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   const confirmStatusChange = () => {
     if (confirmAction) {
       updateMutation.mutate({ status: confirmAction.status });
@@ -141,8 +160,9 @@ export default function PlatformTenantDetail() {
           <Badge variant="secondary" className={
             tenant.status === "active" ? "bg-green-100 text-green-700" :
             tenant.status === "trial" ? "bg-amber-100 text-amber-700" :
+            tenant.status === "payment_overdue" ? "bg-orange-100 text-orange-700" :
             tenant.status === "suspended" ? "bg-red-100 text-red-700" : ""
-          }>{tenant.status}</Badge></div>
+          }>{tenant.status?.replace("_", " ")}</Badge></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
           <Users className="w-5 h-5 text-purple-500" />
@@ -160,12 +180,17 @@ export default function PlatformTenantDetail() {
         <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            {tenant.status !== "suspended" && (
+            {tenant.stripe_customer_id && (
+              <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>
+                <ExternalLink className="w-4 h-4 mr-2" />{portalLoading ? "Opening…" : "Billing Portal"}
+              </Button>
+            )}
+            {tenant.status !== "suspended" && tenant.status !== "payment_overdue" && (
               <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleStatusAction("Suspend", "suspended")}>
                 <Ban className="w-4 h-4 mr-2" />Suspend
               </Button>
             )}
-            {(tenant.status === "suspended" || tenant.status === "cancelled") && (
+            {(tenant.status === "suspended" || tenant.status === "payment_overdue" || tenant.status === "cancelled") && (
               <Button variant="outline" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleStatusAction("Reactivate", "active")}>
                 <Play className="w-4 h-4 mr-2" />Reactivate
               </Button>

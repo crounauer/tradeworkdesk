@@ -151,6 +151,31 @@ export default function PlatformPlans() {
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const syncStripeMutation = useMutation({
+    mutationFn: async () => {
+      const id = editingId;
+      if (!id) throw new Error("No plan selected");
+      const body: Record<string, string> = {};
+      if (form.stripe_price_id) body.stripe_price_id = form.stripe_price_id;
+      if (form.stripe_price_id_annual) body.stripe_price_id_annual = form.stripe_price_id_annual;
+      const res = await fetch(`/api/platform/plans/${id}/sync-stripe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Sync failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-plans"] });
+      toast({ title: "Stripe Price IDs synced and validated" });
+    },
+    onError: (e) => toast({ title: "Sync error", description: e.message, variant: "destructive" }),
+  });
+
   const startEdit = (plan: Plan) => {
     setForm({
       name: plan.name,
@@ -222,7 +247,21 @@ export default function PlatformPlans() {
           </div>
         </div>
         <div className="border-t pt-3 space-y-2">
-          <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
+            {!isNew && (form.stripe_price_id || form.stripe_price_id_annual) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => syncStripeMutation.mutate()}
+                disabled={syncStripeMutation.isPending}
+              >
+                <CreditCard className="w-3 h-3 mr-1" />
+                {syncStripeMutation.isPending ? "Validating…" : "Sync with Stripe"}
+              </Button>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Monthly Price ID</Label>
