@@ -663,112 +663,133 @@ CREATE POLICY "heat_pump_commissioning_records_tenant" ON heat_pump_commissionin
 EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
--- RLS for oil form sub-record tables
-ALTER TABLE oil_tank_inspections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE oil_tank_risk_assessments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE combustion_analysis_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE burner_setup_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE fire_valve_test_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE oil_line_vacuum_tests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE job_completion_reports ENABLE ROW LEVEL SECURITY;
+-- RLS for oil form sub-record tables (all wrapped — tables may not exist)
+DO $$ BEGIN ALTER TABLE oil_tank_inspections ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE oil_tank_risk_assessments ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE combustion_analysis_records ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE burner_setup_records ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE fire_valve_test_records ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE oil_line_vacuum_tests ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE job_completion_reports ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 ALTER TABLE lookup_options ENABLE ROW LEVEL SECURITY;
 
 -- Oil tank inspections: drop all legacy policies
-DROP POLICY IF EXISTS "oil_tank_inspections_select" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "oil_tank_inspections_insert" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "oil_tank_inspections_update" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "oil_tank_inspections_all" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_inspections;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "oil_tank_inspections_select" ON oil_tank_inspections;
+  DROP POLICY IF EXISTS "oil_tank_inspections_insert" ON oil_tank_inspections;
+  DROP POLICY IF EXISTS "oil_tank_inspections_update" ON oil_tank_inspections;
+  DROP POLICY IF EXISTS "oil_tank_inspections_all" ON oil_tank_inspections;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_inspections;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "oil_tank_inspections_tenant" ON oil_tank_inspections FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Oil tank risk assessments: drop all legacy policies
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_select" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_insert" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_update" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_all" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_risk_assessments;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "oil_tank_risk_assessments_select" ON oil_tank_risk_assessments;
+  DROP POLICY IF EXISTS "oil_tank_risk_assessments_insert" ON oil_tank_risk_assessments;
+  DROP POLICY IF EXISTS "oil_tank_risk_assessments_update" ON oil_tank_risk_assessments;
+  DROP POLICY IF EXISTS "oil_tank_risk_assessments_all" ON oil_tank_risk_assessments;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_risk_assessments;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "oil_tank_risk_assessments_tenant" ON oil_tank_risk_assessments FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Combustion analysis records: drop all legacy policies
-DROP POLICY IF EXISTS "combustion_analysis_records_select" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "combustion_analysis_records_insert" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "combustion_analysis_records_update" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "combustion_analysis_records_all" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON combustion_analysis_records;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "combustion_analysis_records_select" ON combustion_analysis_records;
+  DROP POLICY IF EXISTS "combustion_analysis_records_insert" ON combustion_analysis_records;
+  DROP POLICY IF EXISTS "combustion_analysis_records_update" ON combustion_analysis_records;
+  DROP POLICY IF EXISTS "combustion_analysis_records_all" ON combustion_analysis_records;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON combustion_analysis_records;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "combustion_analysis_records_tenant" ON combustion_analysis_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Burner setup records: drop all legacy policies
-DROP POLICY IF EXISTS "burner_setup_records_select" ON burner_setup_records;
-DROP POLICY IF EXISTS "burner_setup_records_insert" ON burner_setup_records;
-DROP POLICY IF EXISTS "burner_setup_records_update" ON burner_setup_records;
-DROP POLICY IF EXISTS "burner_setup_records_all" ON burner_setup_records;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON burner_setup_records;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "burner_setup_records_select" ON burner_setup_records;
+  DROP POLICY IF EXISTS "burner_setup_records_insert" ON burner_setup_records;
+  DROP POLICY IF EXISTS "burner_setup_records_update" ON burner_setup_records;
+  DROP POLICY IF EXISTS "burner_setup_records_all" ON burner_setup_records;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON burner_setup_records;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "burner_setup_records_tenant" ON burner_setup_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Fire valve test records: drop all legacy policies
-DROP POLICY IF EXISTS "fire_valve_test_records_select" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "fire_valve_test_records_insert" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "fire_valve_test_records_update" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "fire_valve_test_records_all" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON fire_valve_test_records;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "fire_valve_test_records_select" ON fire_valve_test_records;
+  DROP POLICY IF EXISTS "fire_valve_test_records_insert" ON fire_valve_test_records;
+  DROP POLICY IF EXISTS "fire_valve_test_records_update" ON fire_valve_test_records;
+  DROP POLICY IF EXISTS "fire_valve_test_records_all" ON fire_valve_test_records;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON fire_valve_test_records;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "fire_valve_test_records_tenant" ON fire_valve_test_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Oil line vacuum tests: drop all legacy policies
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_select" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_insert" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_update" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_all" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_line_vacuum_tests;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "oil_line_vacuum_tests_select" ON oil_line_vacuum_tests;
+  DROP POLICY IF EXISTS "oil_line_vacuum_tests_insert" ON oil_line_vacuum_tests;
+  DROP POLICY IF EXISTS "oil_line_vacuum_tests_update" ON oil_line_vacuum_tests;
+  DROP POLICY IF EXISTS "oil_line_vacuum_tests_all" ON oil_line_vacuum_tests;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_line_vacuum_tests;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "oil_line_vacuum_tests_tenant" ON oil_line_vacuum_tests FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Job completion reports: drop all legacy policies
-DROP POLICY IF EXISTS "job_completion_reports_select" ON job_completion_reports;
-DROP POLICY IF EXISTS "job_completion_reports_insert" ON job_completion_reports;
-DROP POLICY IF EXISTS "job_completion_reports_update" ON job_completion_reports;
-DROP POLICY IF EXISTS "job_completion_reports_all" ON job_completion_reports;
-DROP POLICY IF EXISTS "Enable access for authenticated users" ON job_completion_reports;
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "job_completion_reports_select" ON job_completion_reports;
+  DROP POLICY IF EXISTS "job_completion_reports_insert" ON job_completion_reports;
+  DROP POLICY IF EXISTS "job_completion_reports_update" ON job_completion_reports;
+  DROP POLICY IF EXISTS "job_completion_reports_all" ON job_completion_reports;
+  DROP POLICY IF EXISTS "Enable access for authenticated users" ON job_completion_reports;
+EXCEPTION WHEN undefined_table THEN NULL; END $$;
 
 DO $$ BEGIN
 CREATE POLICY "job_completion_reports_tenant" ON job_completion_reports FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
-EXCEPTION WHEN OTHERS THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; WHEN undefined_table THEN NULL;
 END $$;
 
 -- Lookup options: drop all legacy policies
