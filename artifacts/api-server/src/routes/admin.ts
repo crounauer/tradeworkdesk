@@ -423,6 +423,7 @@ router.delete("/admin/company-settings/logo", requireAuth, requireTenant, requir
 
 router.post("/auth/register", async (req, res): Promise<void> => {
   const { company_name, contact_name, contact_email, contact_phone, password, plan_id } = req.body;
+  console.log("[register] attempt:", { company_name, contact_email, plan_id });
 
   if (!company_name || !contact_email || !password || !contact_name) {
     res.status(400).json({ error: "company_name, contact_name, contact_email, and password are required." });
@@ -450,7 +451,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     .select()
     .single();
 
-  if (tenantError) { res.status(500).json({ error: tenantError.message }); return; }
+  if (tenantError) {
+    console.error("[register] tenant insert failed:", JSON.stringify(tenantError));
+    res.status(500).json({ error: tenantError.message });
+    return;
+  }
+  console.log("[register] tenant created:", tenant.id);
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: contact_email,
@@ -464,11 +470,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   });
 
   if (authError) {
-    console.error("[register] auth.admin.createUser failed:", JSON.stringify(authError));
+    console.error("[register] createUser failed — status:", authError.status, "code:", (authError as any).code, "msg:", authError.message, "full:", JSON.stringify(authError));
     await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
     res.status(400).json({ error: authError.message });
     return;
   }
+  console.log("[register] auth user created:", authData.user.id);
 
   await supabaseAdmin
     .from("profiles")
