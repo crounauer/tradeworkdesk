@@ -296,18 +296,29 @@ export default function PricingPage() {
                     </p>
 
                     <div className="mt-5">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-display font-bold">£{plan.base}</span>
-                        <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
-                      </div>
-                      {plan.perUser ? (
-                        <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
-                          + £{plan.perUser} per user / month
-                        </p>
+                      {plan.base === "0" && plan.perUser ? (
+                        <>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-display font-bold">£{plan.perUser}</span>
+                            <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>per user / month</span>
+                          </div>
+                        </>
                       ) : (
-                        <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
-                          flat rate — no per-user charge
-                        </p>
+                        <>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-display font-bold">£{plan.base}</span>
+                            <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
+                          </div>
+                          {plan.perUser ? (
+                            <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                              + £{plan.perUser} per user / month
+                            </p>
+                          ) : (
+                            <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                              flat rate — no per-user charge
+                            </p>
+                          )}
+                        </>
                       )}
                       <p className={`mt-0.5 text-xs ${plan.popular ? "text-blue-300" : "text-slate-400"}`}>
                         {plan.userNote}
