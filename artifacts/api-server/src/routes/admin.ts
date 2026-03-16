@@ -477,10 +477,23 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
   console.log("[register] auth user created:", authData.user.id);
 
-  await supabaseAdmin
+  // Upsert the profile — ensures correct tenant_id/role even if the trigger
+  // inserted a row without them (or failed silently with the safety net).
+  const { error: profileError } = await supabaseAdmin
     .from("profiles")
-    .update({ tenant_id: tenant.id, role: "admin" })
-    .eq("id", authData.user.id);
+    .upsert(
+      {
+        id: authData.user.id,
+        email: contact_email,
+        full_name: contact_name,
+        role: "admin",
+        tenant_id: tenant.id,
+      },
+      { onConflict: "id" }
+    );
+  if (profileError) {
+    console.error("[register] profile upsert failed:", JSON.stringify(profileError));
+  }
 
   await supabaseAdmin.from("company_settings").insert({
     singleton_id: "default",
