@@ -258,7 +258,7 @@ export default function PricingPage() {
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
                 alt="BoilerTech"
-                className="w-64 h-64 md:w-80 md:h-80 object-contain"
+                className="w-[32rem] h-[32rem] md:w-[40rem] md:h-[40rem] object-contain max-w-full"
               />
             </div>
           </div>

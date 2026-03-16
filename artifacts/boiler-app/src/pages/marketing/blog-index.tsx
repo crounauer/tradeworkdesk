@@ -44,7 +44,7 @@ export default function BlogIndex() {
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
                 alt="BoilerTech"
-                className="w-48 h-48 md:w-64 md:h-64 object-contain"
+                className="w-96 h-96 md:w-[32rem] md:h-[32rem] object-contain max-w-full"
               />
             </div>
           </div>
