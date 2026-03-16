@@ -139,11 +139,18 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         
         <div className="px-4 py-6 flex-1 overflow-y-auto space-y-1">
-          {visibleNavItems.map((item) => renderNavLink(item))}
+          {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item))}
 
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
 
-          {isSuperAdmin && renderSection("Platform", platformNavItems)}
+          {isSuperAdmin && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 px-3">
+                Platform
+              </p>
+              {platformNavItems.map((item) => renderNavLink(item))}
+            </div>
+          )}
         </div>
 
         <div className="p-4 border-t border-border/50">
@@ -176,9 +183,16 @@ export function Layout({ children }: { children: ReactNode }) {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16">
           <div className="p-4 space-y-2">
-            {visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
+            {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
-            {isSuperAdmin && renderSection("Platform", platformNavItems, () => setIsMobileMenuOpen(false), true)}
+            {isSuperAdmin && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 px-4">
+                  Platform
+                </p>
+                {platformNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
+              </div>
+            )}
             <div className="pt-4 mt-4 border-t border-border">
               <Button variant="outline" className="w-full" onClick={signOut}>
                 Sign Out
