@@ -476,7 +476,8 @@ router.get("/platform/stats/mrr", requireAuth, requireSuperAdmin, async (_req, r
       }
       res.json({ mrr: Math.round(mrr * 100) / 100, source: "stripe" });
       return;
-    } catch {
+    } catch (err) {
+      console.warn("[mrr] Stripe MRR fetch failed, falling back to DB:", err);
     }
   }
 

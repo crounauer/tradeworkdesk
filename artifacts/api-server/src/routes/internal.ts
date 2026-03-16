@@ -94,7 +94,8 @@ router.get("/internal/send-renewal-reminders", async (req: Request, res: Respons
         });
         amount = upcoming.amount_due;
         currency = upcoming.currency;
-      } catch {
+      } catch (err) {
+        console.warn(`[renewal-reminder] Failed to fetch upcoming invoice for ${tenant.id}, falling back to plan price:`, err);
       }
     }
 

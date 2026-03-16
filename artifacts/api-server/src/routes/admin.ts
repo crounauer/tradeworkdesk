@@ -511,7 +511,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
           client_reference_id: tenant.id,
         });
         checkout_url = session.url;
-      } catch {
+      } catch (err) {
+        console.error("[register] Failed to create Stripe Checkout session:", err);
       }
     }
   }
