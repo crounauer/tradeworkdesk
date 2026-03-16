@@ -408,6 +408,54 @@ export const signatures = pgTable("signatures", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const socialPlatformEnum = pgEnum("social_platform", [
+  "x", "facebook", "instagram", "pinterest", "linkedin", "tiktok", "youtube"
+]);
+
+export const socialPostStatusEnum = pgEnum("social_post_status", [
+  "draft", "scheduled", "posted", "failed", "dismissed"
+]);
+
+export const socialEntityTypeEnum = pgEnum("social_entity_type", [
+  "product", "category", "article"
+]);
+
+export const socialAccounts = pgTable("social_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: uuid("tenant_id").notNull(),
+  platform: socialPlatformEnum("platform").notNull(),
+  encrypted_credentials: text("encrypted_credentials").notNull(),
+  page_id: text("page_id"),
+  page_name: text("page_name"),
+  instagram_business_id: text("instagram_business_id"),
+  profile_name: text("profile_name").notNull(),
+  expires_at: timestamp("expires_at"),
+  is_active: boolean("is_active").notNull().default(true),
+  auto_post: boolean("auto_post").notNull().default(false),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const socialPosts = pgTable("social_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: uuid("tenant_id").notNull(),
+  account_id: uuid("account_id").references(() => socialAccounts.id),
+  platform: socialPlatformEnum("platform").notNull(),
+  content: text("content").notNull(),
+  link_url: text("link_url"),
+  image_url: text("image_url"),
+  video_url: text("video_url"),
+  scheduled_for: timestamp("scheduled_for"),
+  status: socialPostStatusEnum("status").notNull().default("draft"),
+  post_id: text("post_id"),
+  post_url: text("post_url"),
+  error: text("error"),
+  entity_type: socialEntityTypeEnum("entity_type"),
+  entity_id: text("entity_id"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type Profile = typeof profiles.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Property = typeof properties.$inferSelect;
@@ -426,3 +474,5 @@ export type JobCompletionReport = typeof jobCompletionReports.$inferSelect;
 export type JobNote = typeof jobNotes.$inferSelect;
 export type FileAttachment = typeof fileAttachments.$inferSelect;
 export type Signature = typeof signatures.$inferSelect;
+export type SocialAccount = typeof socialAccounts.$inferSelect;
+export type SocialPost = typeof socialPosts.$inferSelect;

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
-  Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle
+  Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -75,6 +75,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/admin/users", label: "Team", icon: ShieldCheck },
     { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
     { href: "/admin/lookup-options", label: "Lookup Options", icon: Settings2 },
+    { href: "/admin/social", label: "Social Media", icon: Share2 },
   ];
 
   const platformNavItems = [

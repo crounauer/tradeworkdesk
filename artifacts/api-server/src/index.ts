@@ -1,5 +1,6 @@
 import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
+import { startSocialScheduler } from "./lib/social-scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -18,4 +19,5 @@ if (Number.isNaN(port) || port <= 0) {
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   submitIndexNowOnStartup();
+  startSocialScheduler();
 });

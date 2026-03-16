@@ -29,6 +29,7 @@ import billingRouter from "./billing";
 import webhooksRouter from "./webhooks";
 import internalRouter from "./internal";
 import indexnowRouter from "./indexnow";
+import socialRouter from "./social";
 
 const router: IRouter = Router();
 
@@ -62,5 +63,6 @@ router.use(billingRouter);
 router.use(webhooksRouter);
 router.use(internalRouter);
 router.use(indexnowRouter);
+router.use(socialRouter);
 
 export default router;
