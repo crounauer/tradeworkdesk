@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2, Globe } from "lucide-react";
 import { Link } from "wouter";
 
 const EMAIL_TEMPLATES = [
@@ -16,11 +16,29 @@ const EMAIL_TEMPLATES = [
   { value: "payment_failed", label: "Payment failed" },
 ];
 
+const INDEXNOW_URLS = [
+  "https://boilertech.replit.app/",
+  "https://boilertech.replit.app/features",
+  "https://boilertech.replit.app/pricing",
+  "https://boilertech.replit.app/about",
+  "https://boilertech.replit.app/contact",
+  "https://boilertech.replit.app/blog",
+  "https://boilertech.replit.app/gas-engineer-software",
+  "https://boilertech.replit.app/boiler-service-management-software",
+  "https://boilertech.replit.app/job-management-software-heating-engineers",
+  "https://boilertech.replit.app/blog/how-to-go-paperless-as-a-gas-engineer",
+  "https://boilertech.replit.app/blog/gas-safe-record-keeping-guide",
+  "https://boilertech.replit.app/blog/best-software-for-heating-engineers",
+  "https://boilertech.replit.app/blog/managing-boiler-service-contracts",
+  "https://boilertech.replit.app/blog/heat-pump-service-software",
+];
+
 export default function PlatformDashboard() {
   const { toast } = useToast();
   const [emailTemplate, setEmailTemplate] = useState("welcome");
   const [emailRecipient, setEmailRecipient] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [indexNowSubmitted, setIndexNowSubmitted] = useState(false);
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["platform-stats"],
@@ -56,6 +74,27 @@ export default function PlatformDashboard() {
       if (!res.ok) throw new Error("Failed to load audit log");
       return res.json();
     },
+  });
+
+  const indexNowMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/indexnow/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: INDEXNOW_URLS }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to submit");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setIndexNowSubmitted(true);
+      toast({ title: "IndexNow submitted", description: `${data.submitted} URLs submitted for indexing` });
+      setTimeout(() => setIndexNowSubmitted(false), 5000);
+    },
+    onError: (e) => toast({ title: "IndexNow failed", description: e.message, variant: "destructive" }),
   });
 
   const sendEmailMutation = useMutation({
@@ -280,6 +319,35 @@ export default function PlatformDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            IndexNow — Search Engine Indexing
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Submit all marketing and blog URLs to search engines (Google, Bing, Yandex) for fast indexing via the IndexNow protocol. This notifies search engines that your content has been updated.
+          </p>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => indexNowMutation.mutate()}
+              disabled={indexNowMutation.isPending || indexNowSubmitted}
+            >
+              {indexNowMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
+              ) : indexNowSubmitted ? (
+                <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
+              ) : (
+                <><Globe className="w-4 h-4 mr-2" />Submit {INDEXNOW_URLS.length} URLs</>
+              )}
+            </Button>
+            <span className="text-xs text-muted-foreground">{INDEXNOW_URLS.length} pages will be submitted</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

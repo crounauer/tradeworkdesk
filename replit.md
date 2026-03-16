@@ -80,6 +80,7 @@ For `installation` job types, a commissioning record form is available. This cap
 - `VITE_SUPABASE_ANON_KEY` - Frontend Supabase anon key (auto-set from SUPABASE_ANON_KEY)
 - `PORT` - Server port (auto-assigned per artifact by Replit)
 - `BASE_PATH` - URL base path prefix (auto-assigned per artifact by Replit)
+- `INDEXNOW_KEY` - IndexNow API verification key (shared)
 
 ## Seed Data
 
@@ -109,7 +110,7 @@ artifacts-monorepo/
 
 Express 5 API server. All routes under `/api`.
 
-- Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, commissioning-records, oil-tank-inspections, oil-tank-risk-assessments, combustion-analysis-records, burner-setup-records, fire-valve-test-records, oil-line-vacuum-tests, job-completion-reports, notes, files, signatures, search, reports, dashboard, platform
+- Routes: auth, customers, properties, appliances, jobs, service-records, breakdown-reports, commissioning-records, oil-tank-inspections, oil-tank-risk-assessments, combustion-analysis-records, burner-setup-records, fire-valve-test-records, oil-line-vacuum-tests, job-completion-reports, notes, files, signatures, search, reports, dashboard, platform, indexnow
 - Uses `supabaseAdmin` (service role) for all DB/storage operations
 - Auth middleware: `requireAuth` validates JWT + extracts tenantId, `requireRole` checks user role, `requireSuperAdmin` enforces super_admin role, `requireTenant` ensures tenant context
 - Resource-level authorization: technicians restricted to assigned jobs across all job-related endpoints (detail, service records, breakdown reports, files, signatures, notes)
@@ -123,7 +124,10 @@ React + Vite frontend with Tailwind CSS and shadcn/ui components.
 - Auth: Supabase client-side auth with `useAuth` hook
 - Fetch interceptor: automatically attaches Supabase JWT to `/api/` requests
 - Pages: Login, Register (self-service company sign-up + invite code), Dashboard, Customers, Customer Detail, Properties, Property Detail, Appliances, Appliance Detail, Jobs, Job Detail, Service Record Form, Breakdown Report Form, Commissioning Record Form, Oil Tank Inspection Form, Oil Tank Risk Assessment Form, Combustion Analysis Form, Burner Setup Form, Fire Valve Test Form, Oil Line Vacuum Test Form, Job Completion Report Form, Job Files, Job Signatures, Search, Reports, Platform Dashboard, Platform Tenants, Platform Tenant Detail, Platform Plans, Platform Announcements, Platform Audit Log
-- Routing: wouter with protected routes
+- Routing: wouter with protected routes; root `/` shows marketing home for guests, dashboard for authenticated
+- Marketing site: SEO-optimised landing pages at `/features`, `/pricing`, `/about`, `/contact`; 3 trade keyword pages (`/gas-engineer-software`, `/boiler-service-management-software`, `/job-management-software-heating-engineers`); blog at `/blog` with 5 seed posts; legal pages at `/privacy-policy` and `/terms-of-service`. Uses `MarketingLayout` (nav + footer) and `SEOHead` component with JSON-LD structured data.
+- Blog: Static data layer in `src/data/blog-posts.ts`. Posts rendered via `src/pages/marketing/blog-post.tsx`.
+- IndexNow: Super_admin can submit all marketing URLs to search engines via `POST /api/indexnow/submit`. Button on Platform Dashboard.
 - API calls: Generated React Query hooks from `@workspace/api-client-react`
 - PDF export: client-side PDF generation for service records via jsPDF
 - Signature capture: react-signature-canvas for customer/technician signatures

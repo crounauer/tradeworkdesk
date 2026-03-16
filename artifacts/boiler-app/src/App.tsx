@@ -47,6 +47,17 @@ const PlatformAuditLog = lazy(() => import("@/pages/platform-audit-log"));
 const Billing = lazy(() => import("@/pages/billing"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
+const HomePage = lazy(() => import("@/pages/marketing/home"));
+const FeaturesPage = lazy(() => import("@/pages/marketing/features"));
+const PricingPage = lazy(() => import("@/pages/marketing/pricing"));
+const AboutPage = lazy(() => import("@/pages/marketing/about"));
+const ContactPage = lazy(() => import("@/pages/marketing/contact"));
+const TradeLandingPage = lazy(() => import("@/pages/marketing/trade-landing"));
+const BlogIndex = lazy(() => import("@/pages/marketing/blog-index"));
+const BlogPostPage = lazy(() => import("@/pages/marketing/blog-post"));
+const PrivacyPolicyPage = lazy(() => import("@/pages/marketing/privacy-policy"));
+const TermsOfServicePage = lazy(() => import("@/pages/marketing/terms-of-service"));
+
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (_error) => {},
@@ -89,10 +100,38 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
-function AppRouter() {
+function PublicPage({ component: Component, ...props }: { component: React.ComponentType<any>; [key: string]: any }) {
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Component {...props} />
+    </Suspense>
+  );
+}
+
+function RootRoute() {
   const { session, isLoading } = useAuth();
 
-  if (isLoading) return null;
+  if (isLoading) return <PageFallback />;
+
+  if (session) {
+    return (
+      <Layout>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+          <Dashboard />
+        </Suspense>
+      </Layout>
+    );
+  }
+
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <HomePage />
+    </Suspense>
+  );
+}
+
+function AppRouter() {
+  const { session } = useAuth();
 
   return (
     <Suspense fallback={<PageFallback />}>
@@ -105,7 +144,19 @@ function AppRouter() {
           {session ? <Redirect to="/" /> : <Register />}
         </Route>
 
-        <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
+        <Route path="/" component={RootRoute} />
+
+        <Route path="/features" component={() => <PublicPage component={FeaturesPage} />} />
+        <Route path="/pricing" component={() => <PublicPage component={PricingPage} />} />
+        <Route path="/about" component={() => <PublicPage component={AboutPage} />} />
+        <Route path="/contact" component={() => <PublicPage component={ContactPage} />} />
+        <Route path="/blog" component={() => <PublicPage component={BlogIndex} />} />
+        <Route path="/blog/:slug" component={() => <PublicPage component={BlogPostPage} />} />
+        <Route path="/gas-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="gas-engineer-software" />} />
+        <Route path="/boiler-service-management-software" component={() => <PublicPage component={TradeLandingPage} slug="boiler-service-management-software" />} />
+        <Route path="/job-management-software-heating-engineers" component={() => <PublicPage component={TradeLandingPage} slug="job-management-software-heating-engineers" />} />
+        <Route path="/privacy-policy" component={() => <PublicPage component={PrivacyPolicyPage} />} />
+        <Route path="/terms-of-service" component={() => <PublicPage component={TermsOfServicePage} />} />
 
         <Route path="/customers" component={() => <ProtectedRoute component={Customers} />} />
         <Route path="/customers/:id" component={() => <ProtectedRoute component={CustomerDetail} />} />
@@ -150,7 +201,11 @@ function AppRouter() {
         <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} />} />
         <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} />} />
 
-        <Route component={() => session ? <Layout><Suspense fallback={null}><NotFound /></Suspense></Layout> : <Redirect to="/login" />} />
+        <Route component={() => (
+          <Suspense fallback={<PageFallback />}>
+            <NotFound />
+          </Suspense>
+        )} />
       </Switch>
     </Suspense>
   );
