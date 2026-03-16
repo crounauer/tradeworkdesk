@@ -3,6 +3,27 @@ import { requireAuth, requireSuperAdmin } from "../middlewares/auth";
 
 const router = Router();
 
+const DEFAULT_SITEMAP_URLS = [
+  "https://boilertech.replit.app/",
+  "https://boilertech.replit.app/features",
+  "https://boilertech.replit.app/pricing",
+  "https://boilertech.replit.app/about",
+  "https://boilertech.replit.app/contact",
+  "https://boilertech.replit.app/blog",
+  "https://boilertech.replit.app/gas-engineer-software",
+  "https://boilertech.replit.app/boiler-service-management-software",
+  "https://boilertech.replit.app/job-management-software-heating-engineers",
+  "https://boilertech.replit.app/blog/how-to-go-paperless-as-a-gas-engineer",
+  "https://boilertech.replit.app/blog/gas-safe-record-keeping-guide",
+  "https://boilertech.replit.app/blog/best-software-for-heating-engineers",
+  "https://boilertech.replit.app/blog/managing-boiler-service-contracts",
+  "https://boilertech.replit.app/blog/heat-pump-service-software",
+  "https://boilertech.replit.app/privacy-policy",
+  "https://boilertech.replit.app/terms-of-service",
+];
+
+const HOST = "boilertech.replit.app";
+
 router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const key = process.env.INDEXNOW_KEY;
   if (!key) {
@@ -10,17 +31,15 @@ router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Requ
     return;
   }
 
-  const { urls } = req.body as { urls?: string[] };
-  if (!urls || !Array.isArray(urls) || urls.length === 0) {
-    res.status(400).json({ error: "urls array is required" });
-    return;
-  }
+  const { urls: requestedUrls } = req.body as { urls?: string[] };
+  const urlList = Array.isArray(requestedUrls) && requestedUrls.length > 0
+    ? requestedUrls
+    : DEFAULT_SITEMAP_URLS;
 
-  const host = "boilertech.replit.app";
-  const allowedPrefix = `https://${host}/`;
-  const invalidUrls = urls.filter((u) => !u.startsWith(allowedPrefix) && u !== `https://${host}`);
+  const allowedPrefix = `https://${HOST}/`;
+  const invalidUrls = urlList.filter((u) => !u.startsWith(allowedPrefix) && u !== `https://${HOST}`);
   if (invalidUrls.length > 0) {
-    res.status(400).json({ error: "All URLs must belong to " + host, invalid: invalidUrls });
+    res.status(400).json({ error: "All URLs must belong to " + HOST, invalid: invalidUrls });
     return;
   }
 
@@ -29,21 +48,33 @@ router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Requ
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        host,
+        host: HOST,
         key,
-        keyLocation: `https://${host}/${key}.txt`,
-        urlList: urls,
+        keyLocation: `https://${HOST}/${key}.txt`,
+        urlList,
       }),
     });
 
-    if (response.ok || response.status === 200 || response.status === 202) {
-      res.json({ success: true, submitted: urls.length, status: response.status });
+    const responseBody = await response.text();
+    const upstreamStatus = response.status;
+
+    if (upstreamStatus === 200 || upstreamStatus === 202) {
+      res.json({
+        success: true,
+        submitted: urlList.length,
+        upstreamStatus,
+        upstreamBody: responseBody || null,
+      });
     } else {
-      const text = await response.text();
-      res.status(response.status).json({ error: "IndexNow API error", detail: text });
+      res.status(upstreamStatus).json({
+        success: false,
+        error: "IndexNow API error",
+        upstreamStatus,
+        upstreamBody: responseBody || null,
+      });
     }
   } catch (err) {
-    res.status(500).json({ error: "Failed to contact IndexNow API", detail: String(err) });
+    res.status(500).json({ success: false, error: "Failed to contact IndexNow API", detail: String(err) });
   }
 });
 

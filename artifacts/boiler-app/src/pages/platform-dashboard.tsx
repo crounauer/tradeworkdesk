@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,23 +14,6 @@ const EMAIL_TEMPLATES = [
   { value: "trial_expiry", label: "Trial expiry reminder" },
   { value: "renewal_reminder", label: "Renewal reminder" },
   { value: "payment_failed", label: "Payment failed" },
-];
-
-const INDEXNOW_URLS = [
-  "https://boilertech.replit.app/",
-  "https://boilertech.replit.app/features",
-  "https://boilertech.replit.app/pricing",
-  "https://boilertech.replit.app/about",
-  "https://boilertech.replit.app/contact",
-  "https://boilertech.replit.app/blog",
-  "https://boilertech.replit.app/gas-engineer-software",
-  "https://boilertech.replit.app/boiler-service-management-software",
-  "https://boilertech.replit.app/job-management-software-heating-engineers",
-  "https://boilertech.replit.app/blog/how-to-go-paperless-as-a-gas-engineer",
-  "https://boilertech.replit.app/blog/gas-safe-record-keeping-guide",
-  "https://boilertech.replit.app/blog/best-software-for-heating-engineers",
-  "https://boilertech.replit.app/blog/managing-boiler-service-contracts",
-  "https://boilertech.replit.app/blog/heat-pump-service-software",
 ];
 
 export default function PlatformDashboard() {
@@ -81,7 +64,7 @@ export default function PlatformDashboard() {
       const res = await fetch("/api/indexnow/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls: INDEXNOW_URLS }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -341,10 +324,10 @@ export default function PlatformDashboard() {
               ) : indexNowSubmitted ? (
                 <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
               ) : (
-                <><Globe className="w-4 h-4 mr-2" />Submit {INDEXNOW_URLS.length} URLs</>
+                <><Globe className="w-4 h-4 mr-2" />Submit All Pages</>
               )}
             </Button>
-            <span className="text-xs text-muted-foreground">{INDEXNOW_URLS.length} pages will be submitted</span>
+            <span className="text-xs text-muted-foreground">All marketing and blog URLs will be submitted</span>
           </div>
         </CardContent>
       </Card>
