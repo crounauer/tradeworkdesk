@@ -124,13 +124,24 @@ export default function PricingPage() {
       />
 
       <section className="bg-gradient-to-br from-slate-50 to-white py-20 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
-            Simple, transparent pricing
-          </h1>
-          <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-            No long contracts. No hidden fees. Start with a 14-day free trial on any plan.
-          </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <div className="flex-1 min-w-0">
+              <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
+                Simple, transparent pricing
+              </h1>
+              <p className="mt-4 text-lg text-slate-600 max-w-2xl">
+                No long contracts. No hidden fees. Start with a 14-day free trial on any plan.
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center justify-center">
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="BoilerTech"
+                className="w-64 h-64 md:w-80 md:h-80 object-contain"
+              />
+            </div>
+          </div>
         </div>
       </section>
 

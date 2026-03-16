@@ -113,14 +113,23 @@ export default function FeaturesPage() {
 
       <section className="bg-gradient-to-br from-slate-50 to-white py-20 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
-              Every tool a heating engineer needs, in one platform
-            </h1>
-            <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-              BoilerTech isn't a generic field service app — it's purpose-built for gas, oil,
-              and heat pump engineers working in the UK market.
-            </p>
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <div className="flex-1 min-w-0">
+              <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
+                Every tool a heating engineer needs, in one platform
+              </h1>
+              <p className="mt-6 text-lg text-slate-600 leading-relaxed">
+                BoilerTech isn't a generic field service app — it's purpose-built for gas, oil,
+                and heat pump engineers working in the UK market.
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center justify-center">
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="BoilerTech"
+                className="w-64 h-64 md:w-80 md:h-80 object-contain"
+              />
+            </div>
           </div>
         </div>
       </section>
