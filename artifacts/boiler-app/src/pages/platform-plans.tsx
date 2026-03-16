@@ -5,14 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, X, Save, CreditCard, Trash2 } from "lucide-react";
+import { Plus, Pencil, X, Save, CreditCard, Trash2, Star } from "lucide-react";
 
 interface PlanFeatures {
-  heat_pump_forms: boolean;
-  combustion_analysis: boolean;
-  reports: boolean;
+  forms: string;
+  signatures: string;
+  per_user_display: string;
+  unlimited_jobs: boolean;
+  scheduling: boolean;
+  reports: string;
+  photo_storage: string;
+  compliance_forms: boolean;
   api_access: boolean;
+  custom_branding: boolean;
+  analytics: string;
+  priority_support: boolean;
 }
 
 interface Plan {
@@ -21,37 +30,62 @@ interface Plan {
   description: string | null;
   monthly_price: number;
   annual_price: number;
+  per_user_price: number | null;
+  user_note: string | null;
   max_users: number;
   max_jobs_per_month: number;
   features: PlanFeatures;
   is_active: boolean;
+  is_popular: boolean;
   sort_order: number;
   stripe_price_id: string | null;
   stripe_price_id_annual: string | null;
 }
 
 const DEFAULT_FEATURES: PlanFeatures = {
-  heat_pump_forms: true,
-  combustion_analysis: true,
-  reports: true,
+  forms: "Unlimited",
+  signatures: "Unlimited",
+  per_user_display: "Included",
+  unlimited_jobs: true,
+  scheduling: true,
+  reports: "Basic",
+  photo_storage: "5 GB",
+  compliance_forms: true,
   api_access: false,
+  custom_branding: false,
+  analytics: "",
+  priority_support: false,
 };
 
-const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
-  heat_pump_forms: "Heat Pump Forms",
-  combustion_analysis: "Combustion Analysis",
-  reports: "Reports",
-  api_access: "API Access",
-};
+const BOOL_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
+  { key: "unlimited_jobs", label: "Unlimited Jobs" },
+  { key: "scheduling", label: "Scheduling" },
+  { key: "compliance_forms", label: "Compliance Forms" },
+  { key: "api_access", label: "API Access" },
+  { key: "custom_branding", label: "Custom Branding" },
+  { key: "priority_support", label: "Priority Support" },
+];
+
+const TEXT_FEATURES: { key: keyof PlanFeatures; label: string; placeholder: string }[] = [
+  { key: "forms", label: "Forms", placeholder: "e.g. Unlimited, 50/month" },
+  { key: "signatures", label: "Signatures", placeholder: "e.g. Unlimited, 20/month" },
+  { key: "per_user_display", label: "Per User Display", placeholder: "e.g. Included, £12 / user" },
+  { key: "reports", label: "Reports", placeholder: "e.g. Basic, Full, Full + Export" },
+  { key: "photo_storage", label: "Photo Storage", placeholder: "e.g. 5 GB, 25 GB, Unlimited" },
+  { key: "analytics", label: "Analytics", placeholder: "e.g. Basic, Advanced, or leave blank" },
+];
 
 interface PlanFormState {
   name: string;
   description: string;
   monthly_price: number | string;
   annual_price: number | string;
+  per_user_price: number | string;
+  user_note: string;
   max_users: number | string;
   max_jobs_per_month: number | string;
   is_active: boolean;
+  is_popular: boolean;
   features: PlanFeatures;
   stripe_price_id: string;
   stripe_price_id_annual: string;
@@ -62,9 +96,12 @@ const EMPTY_FORM: PlanFormState = {
   description: "",
   monthly_price: "",
   annual_price: "",
+  per_user_price: "",
+  user_note: "",
   max_users: "",
   max_jobs_per_month: "",
   is_active: true,
+  is_popular: false,
   features: { ...DEFAULT_FEATURES },
   stripe_price_id: "",
   stripe_price_id_annual: "",
@@ -91,9 +128,12 @@ export default function PlatformPlans() {
     description: f.description || null,
     monthly_price: Number(f.monthly_price) || 0,
     annual_price: Number(f.annual_price) || 0,
+    per_user_price: f.per_user_price !== "" ? Number(f.per_user_price) : null,
+    user_note: f.user_note || null,
     max_users: Number(f.max_users) || 5,
     max_jobs_per_month: Number(f.max_jobs_per_month) || 100,
     is_active: f.is_active,
+    is_popular: f.is_popular,
     features: f.features,
     stripe_price_id: f.stripe_price_id || null,
     stripe_price_id_annual: f.stripe_price_id_annual || null,
@@ -182,9 +222,12 @@ export default function PlatformPlans() {
       description: plan.description || "",
       monthly_price: plan.monthly_price,
       annual_price: plan.annual_price,
+      per_user_price: plan.per_user_price ?? "",
+      user_note: plan.user_note || "",
       max_users: plan.max_users,
       max_jobs_per_month: plan.max_jobs_per_month,
       is_active: plan.is_active,
+      is_popular: plan.is_popular ?? false,
       features: { ...DEFAULT_FEATURES, ...(plan.features || {}) },
       stripe_price_id: plan.stripe_price_id || "",
       stripe_price_id_annual: plan.stripe_price_id_annual || "",
@@ -193,17 +236,18 @@ export default function PlatformPlans() {
     setShowNew(false);
   };
 
-  const toggleFeature = (key: keyof PlanFeatures) => {
+  const setFeature = (key: keyof PlanFeatures, value: string | boolean) => {
     setForm(prev => ({
       ...prev,
-      features: { ...prev.features, [key]: !prev.features[key] },
+      features: { ...prev.features, [key]: value },
     }));
   };
 
   const PlanForm = ({ isNew }: { isNew: boolean }) => (
     <Card className="border-primary/30">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-4">
         <p className="text-sm font-bold">{isNew ? "New Plan" : "Edit Plan"}</p>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">Name</Label>
@@ -211,16 +255,30 @@ export default function PlatformPlans() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Description</Label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short description" />
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. For solo engineers" />
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
-            <Label className="text-xs">Monthly Price</Label>
+            <Label className="text-xs">Base Price (£/mo)</Label>
             <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Annual Price</Label>
+            <Label className="text-xs">Per User (£/mo)</Label>
+            <Input type="number" step="0.01" value={form.per_user_price} onChange={(e) => setForm({ ...form, per_user_price: e.target.value })} placeholder="Leave blank for flat rate" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Annual Price (£/yr)</Label>
             <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
           </div>
+          <div className="space-y-1">
+            <Label className="text-xs">User Note</Label>
+            <Input value={form.user_note} onChange={(e) => setForm({ ...form, user_note: e.target.value })} placeholder="e.g. Up to 10 users" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">Max Users</Label>
             <Input type="number" value={form.max_users} onChange={(e) => setForm({ ...form, max_users: e.target.value })} />
@@ -229,23 +287,49 @@ export default function PlatformPlans() {
             <Label className="text-xs">Max Jobs/Month</Label>
             <Input type="number" value={form.max_jobs_per_month} onChange={(e) => setForm({ ...form, max_jobs_per_month: e.target.value })} />
           </div>
+          <div className="flex items-center gap-2 pt-5">
+            <Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} />
+            <Label className="text-xs">Popular Badge</Label>
+          </div>
+          <div className="flex items-center gap-2 pt-5">
+            <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+            <Label className="text-xs">Active</Label>
+          </div>
         </div>
+
+        <div className="border-t pt-3 space-y-3">
+          <Label className="text-xs font-semibold">Feature Values (text)</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {TEXT_FEATURES.map(({ key, label, placeholder }) => (
+              <div key={key} className="space-y-1">
+                <Label className="text-xs">{label}</Label>
+                <Input
+                  value={(form.features[key] as string) || ""}
+                  onChange={(e) => setFeature(key, e.target.value)}
+                  placeholder={placeholder}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-2">
-          <Label className="text-xs font-semibold">Feature Flags</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {(Object.keys(FEATURE_LABELS) as (keyof PlanFeatures)[]).map((key) => (
+          <Label className="text-xs font-semibold">Feature Toggles</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {BOOL_FEATURES.map(({ key, label }) => (
               <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={form.features[key]}
-                  onChange={() => toggleFeature(key)}
+                  checked={!!form.features[key]}
+                  onChange={() => setFeature(key, !form.features[key])}
                   className="rounded border-gray-300"
                 />
-                {FEATURE_LABELS[key]}
+                {label}
               </label>
             ))}
           </div>
         </div>
+
         <div className="border-t pt-3 space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
@@ -258,7 +342,7 @@ export default function PlatformPlans() {
                 disabled={syncStripeMutation.isPending}
               >
                 <CreditCard className="w-3 h-3 mr-1" />
-                {syncStripeMutation.isPending ? "Validating…" : "Sync with Stripe"}
+                {syncStripeMutation.isPending ? "Validating\u2026" : "Sync with Stripe"}
               </Button>
             )}
           </div>
@@ -273,6 +357,7 @@ export default function PlatformPlans() {
             </div>
           </div>
         </div>
+
         <div className="flex gap-2 pt-2">
           <Button
             size="sm"
@@ -289,12 +374,21 @@ export default function PlatformPlans() {
     </Card>
   );
 
+  const featureDisplay = (features: PlanFeatures | null) => {
+    if (!features) return null;
+    const items: { label: string; value: string | boolean }[] = [
+      ...TEXT_FEATURES.map(f => ({ label: f.label, value: (features[f.key] as string) || "" })),
+      ...BOOL_FEATURES.map(f => ({ label: f.label, value: !!features[f.key] })),
+    ];
+    return items;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-bold">Pricing Plans</h1>
-          <p className="text-muted-foreground">Manage subscription tiers</p>
+          <p className="text-muted-foreground">Manage subscription tiers and marketing page content</p>
         </div>
         <Button onClick={() => { setShowNew(true); setForm(EMPTY_FORM); setEditingId(null); }}>
           <Plus className="w-4 h-4 mr-2" />New Plan
@@ -311,11 +405,12 @@ export default function PlatformPlans() {
             editingId === plan.id ? (
               <PlanForm key={plan.id} isNew={false} />
             ) : (
-              <Card key={plan.id} className={!plan.is_active ? "opacity-60" : ""}>
+              <Card key={plan.id} className={`${!plan.is_active ? "opacity-60" : ""} ${plan.is_popular ? "ring-2 ring-primary" : ""}`}>
                 <CardHeader className="pb-2 flex flex-row items-start justify-between">
                   <div>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <CreditCard className="w-4 h-4" />{plan.name}
+                      {plan.is_popular && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
                     </CardTitle>
                     {plan.description && <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>}
                   </div>
@@ -332,13 +427,25 @@ export default function PlatformPlans() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Monthly</span>
-                    <span className="font-bold">&pound;{Number(plan.monthly_price).toFixed(2)}</span>
+                    <span className="text-muted-foreground">Base Price</span>
+                    <span className="font-bold">&pound;{Number(plan.monthly_price).toFixed(2)}/mo</span>
                   </div>
+                  {plan.per_user_price != null && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Per User</span>
+                      <span className="font-bold">+ &pound;{Number(plan.per_user_price).toFixed(2)}/user/mo</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Annual</span>
-                    <span className="font-bold">&pound;{Number(plan.annual_price).toFixed(2)}</span>
+                    <span className="font-bold">&pound;{Number(plan.annual_price).toFixed(2)}/yr</span>
                   </div>
+                  {plan.user_note && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Users</span>
+                      <span>{plan.user_note}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Users</span>
                     <span>{plan.max_users}</span>
@@ -350,9 +457,14 @@ export default function PlatformPlans() {
                   <div className="pt-2 space-y-1">
                     <p className="text-xs font-medium text-muted-foreground">Features</p>
                     <div className="flex flex-wrap gap-1">
-                      {plan.features && (Object.keys(FEATURE_LABELS) as (keyof PlanFeatures)[]).map((key) => (
-                        <Badge key={key} variant={plan.features[key] ? "default" : "outline"} className="text-xs">
-                          {FEATURE_LABELS[key]}
+                      {featureDisplay(plan.features)?.map(({ label, value }) => (
+                        <Badge
+                          key={label}
+                          variant={value ? "default" : "outline"}
+                          className="text-xs"
+                          title={typeof value === "string" ? value : undefined}
+                        >
+                          {label}{typeof value === "string" && value ? `: ${value}` : ""}
                         </Badge>
                       ))}
                     </div>

@@ -1,28 +1,83 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { MarketingLayout } from "@/components/marketing-layout";
 import { SEOHead, SITE_URL } from "@/components/seo-head";
 import { breadcrumbSchema, faqSchema } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, X, ArrowRight, Minus } from "lucide-react";
+import { CheckCircle, ArrowRight, Minus } from "lucide-react";
 
 type FeatureValue = true | false | string;
 
-interface Feature {
+interface DisplayFeature {
   label: string;
   value: FeatureValue;
 }
 
-interface Plan {
+interface DisplayPlan {
   name: string;
   base: string;
   perUser: string | null;
   userNote: string;
   desc: string;
   popular?: boolean;
-  features: Feature[];
+  features: DisplayFeature[];
 }
 
-const plans: Plan[] = [
+interface ApiPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  monthly_price: number;
+  per_user_price: number | null;
+  user_note: string | null;
+  is_popular: boolean;
+  features: Record<string, unknown>;
+}
+
+const FEATURE_ORDER: { key: string; label: string; isBool: boolean }[] = [
+  { key: "forms", label: "Forms", isBool: false },
+  { key: "signatures", label: "Signatures", isBool: false },
+  { key: "per_user_display", label: "Per user", isBool: false },
+  { key: "unlimited_jobs", label: "Jobs", isBool: true },
+  { key: "scheduling", label: "Scheduling", isBool: true },
+  { key: "reports", label: "Reports", isBool: false },
+  { key: "photo_storage", label: "Photo storage", isBool: false },
+  { key: "compliance_forms", label: "Compliance forms", isBool: true },
+  { key: "api_access", label: "API access", isBool: true },
+  { key: "custom_branding", label: "Custom branding", isBool: true },
+  { key: "analytics", label: "Analytics", isBool: false },
+  { key: "priority_support", label: "Priority support", isBool: true },
+];
+
+function mapApiToDisplay(apiPlans: ApiPlan[]): DisplayPlan[] {
+  return apiPlans.map((p) => {
+    const features: DisplayFeature[] = FEATURE_ORDER.map(({ key, label, isBool }) => {
+      const raw = p.features?.[key];
+      if (isBool) {
+        if (key === "unlimited_jobs" && raw) return { label: "Jobs", value: "Unlimited" };
+        return { label, value: !!raw };
+      }
+      if (typeof raw === "string" && raw.length > 0) return { label, value: raw };
+      if (raw === true) return { label, value: true };
+      return { label, value: false };
+    });
+
+    const base = Math.round(Number(p.monthly_price) || 0).toString();
+    const perUser = p.per_user_price != null ? Math.round(Number(p.per_user_price)).toString() : null;
+
+    return {
+      name: p.name,
+      base,
+      perUser,
+      userNote: p.user_note || (perUser ? `+ £${perUser}/user` : "1 user included"),
+      desc: p.description || "",
+      popular: p.is_popular,
+      features,
+    };
+  });
+}
+
+const FALLBACK_PLANS: DisplayPlan[] = [
   {
     name: "Starter",
     base: "29",
@@ -124,7 +179,7 @@ const faqs = [
   },
 ];
 
-function FeatureValue({ value, popular }: { value: FeatureValue; popular?: boolean }) {
+function FeatureIcon({ value, popular }: { value: FeatureValue; popular?: boolean }) {
   if (value === true) {
     return <CheckCircle className={`w-4 h-4 shrink-0 ${popular ? "text-blue-200" : "text-green-500"}`} />;
   }
@@ -138,7 +193,41 @@ function FeatureValue({ value, popular }: { value: FeatureValue; popular?: boole
   );
 }
 
+function PlanCardSkeleton() {
+  return (
+    <div className="rounded-2xl bg-white border border-slate-200 p-8 animate-pulse">
+      <div className="h-5 bg-slate-200 rounded w-24 mb-2" />
+      <div className="h-3 bg-slate-100 rounded w-32 mb-6" />
+      <div className="h-10 bg-slate-200 rounded w-20 mb-6" />
+      <div className="space-y-3">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex justify-between">
+            <div className="h-3 bg-slate-100 rounded w-24" />
+            <div className="h-3 bg-slate-100 rounded w-12" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PricingPage() {
+  const { data: apiPlans, isLoading } = useQuery({
+    queryKey: ["public-pricing-plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/plans/public");
+      if (!res.ok) throw new Error("Failed to fetch plans");
+      return res.json() as Promise<ApiPlan[]>;
+    },
+    staleTime: 60_000,
+    retry: 2,
+  });
+
+  const plans: DisplayPlan[] =
+    apiPlans && apiPlans.length > 0 ? mapApiToDisplay(apiPlans) : FALLBACK_PLANS;
+
+  const showSkeleton = isLoading && !apiPlans;
+
   return (
     <MarketingLayout>
       <SEOHead
@@ -178,74 +267,82 @@ export default function PricingPage() {
 
       <section className="bg-white py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`rounded-2xl flex flex-col ${
-                  plan.popular
-                    ? "bg-primary text-white ring-2 ring-primary shadow-xl md:-mt-4"
-                    : "bg-white border border-slate-200"
-                }`}
-              >
-                <div className="p-8 pb-6">
-                  {plan.popular && (
-                    <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
-                      Most Popular
-                    </span>
-                  )}
-                  <h2 className="font-display text-xl font-bold">{plan.name}</h2>
-                  <p className={`mt-1 text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
-                    {plan.desc}
-                  </p>
-
-                  <div className="mt-5">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-display font-bold">£{plan.base}</span>
-                      <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
-                    </div>
-                    {plan.perUser ? (
-                      <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
-                        + £{plan.perUser} per user / month
-                      </p>
-                    ) : (
-                      <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
-                        flat rate — no per-user charge
-                      </p>
+          {showSkeleton ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+              <PlanCardSkeleton />
+              <PlanCardSkeleton />
+              <PlanCardSkeleton />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+              {plans.map((plan) => (
+                <div
+                  key={plan.name}
+                  className={`rounded-2xl flex flex-col ${
+                    plan.popular
+                      ? "bg-primary text-white ring-2 ring-primary shadow-xl md:-mt-4"
+                      : "bg-white border border-slate-200"
+                  }`}
+                >
+                  <div className="p-8 pb-6">
+                    {plan.popular && (
+                      <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
+                        Most Popular
+                      </span>
                     )}
-                    <p className={`mt-0.5 text-xs ${plan.popular ? "text-blue-300" : "text-slate-400"}`}>
-                      {plan.userNote}
+                    <h2 className="font-display text-xl font-bold">{plan.name}</h2>
+                    <p className={`mt-1 text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
+                      {plan.desc}
                     </p>
+
+                    <div className="mt-5">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-display font-bold">£{plan.base}</span>
+                        <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
+                      </div>
+                      {plan.perUser ? (
+                        <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                          + £{plan.perUser} per user / month
+                        </p>
+                      ) : (
+                        <p className={`mt-1 text-sm font-medium ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                          flat rate — no per-user charge
+                        </p>
+                      )}
+                      <p className={`mt-0.5 text-xs ${plan.popular ? "text-blue-300" : "text-slate-400"}`}>
+                        {plan.userNote}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={`border-t mx-6 ${plan.popular ? "border-white/20" : "border-slate-100"}`} />
+
+                  <ul className="px-8 py-6 space-y-3 flex-1">
+                    {plan.features.map(({ label, value }) => (
+                      <li key={label} className="flex items-center justify-between gap-3 text-sm">
+                        <span className={value === false ? (plan.popular ? "text-blue-200/50" : "text-slate-400") : ""}>
+                          {label}
+                        </span>
+                        <FeatureIcon value={value} popular={plan.popular} />
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="px-8 pb-8">
+                    <Link href="/register">
+                      <Button
+                        className={`w-full ${plan.popular ? "bg-white text-primary hover:bg-blue-50" : ""}`}
+                        variant={plan.popular ? "secondary" : "default"}
+                      >
+                        Start Free Trial
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
                   </div>
                 </div>
-
-                <div className={`border-t mx-6 ${plan.popular ? "border-white/20" : "border-slate-100"}`} />
-
-                <ul className="px-8 py-6 space-y-3 flex-1">
-                  {plan.features.map(({ label, value }) => (
-                    <li key={label} className="flex items-center justify-between gap-3 text-sm">
-                      <span className={value === false ? (plan.popular ? "text-blue-200/50" : "text-slate-400") : ""}>
-                        {label}
-                      </span>
-                      <FeatureValue value={value} popular={plan.popular} />
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="px-8 pb-8">
-                  <Link href="/register">
-                    <Button
-                      className={`w-full ${plan.popular ? "bg-white text-primary hover:bg-blue-50" : ""}`}
-                      variant={plan.popular ? "secondary" : "default"}
-                    >
-                      Start Free Trial
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           <p className="mt-8 text-center text-sm text-slate-500">
             All prices exclude VAT. 14-day free trial on every plan. No credit card required.
