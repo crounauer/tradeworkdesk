@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "suspended", "cancelled"];
@@ -19,6 +20,7 @@ export default function PlatformTenantDetail() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [confirmAction, setConfirmAction] = useState<{ action: string; status: string } | null>(null);
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["platform-tenant", params.id],
@@ -54,6 +56,23 @@ export default function PlatformTenantDetail() {
       queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
       toast({ title: "Tenant updated" });
       setEditing(false);
+      setConfirmAction(null);
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Delete failed");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
+      toast({ title: "Tenant deleted" });
+      navigate("/platform/tenants");
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -81,6 +100,16 @@ export default function PlatformTenantDetail() {
 
   const handleSave = () => {
     updateMutation.mutate(form);
+  };
+
+  const handleStatusAction = (action: string, status: string) => {
+    setConfirmAction({ action, status });
+  };
+
+  const confirmStatusChange = () => {
+    if (confirmAction) {
+      updateMutation.mutate({ status: confirmAction.status });
+    }
   };
 
   return (
@@ -126,6 +155,32 @@ export default function PlatformTenantDetail() {
           <p className="font-bold">{tenant.customer_count || 0} / {tenant.job_count || 0}</p></div>
         </CardContent></Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {tenant.status !== "suspended" && (
+              <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleStatusAction("Suspend", "suspended")}>
+                <Ban className="w-4 h-4 mr-2" />Suspend
+              </Button>
+            )}
+            {(tenant.status === "suspended" || tenant.status === "cancelled") && (
+              <Button variant="outline" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleStatusAction("Reactivate", "active")}>
+                <Play className="w-4 h-4 mr-2" />Reactivate
+              </Button>
+            )}
+            {tenant.status !== "cancelled" && (
+              <Button variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => handleStatusAction("Cancel", "cancelled")}>
+                <XCircle className="w-4 h-4 mr-2" />Cancel Subscription
+              </Button>
+            )}
+            <Button variant="outline" className="text-red-700 border-red-300 hover:bg-red-50" onClick={() => setConfirmAction({ action: "Delete", status: "__delete__" })}>
+              <Trash2 className="w-4 h-4 mr-2" />Delete
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
@@ -220,6 +275,36 @@ export default function PlatformTenantDetail() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm {confirmAction?.action}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {confirmAction?.status === "__delete__"
+              ? `Are you sure you want to permanently delete "${tenant.company_name}"? This cannot be undone. Tenants with active users cannot be deleted.`
+              : `Are you sure you want to ${confirmAction?.action?.toLowerCase()} "${tenant.company_name}"? This will change their status to "${confirmAction?.status}".`
+            }
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={updateMutation.isPending || deleteMutation.isPending}
+              onClick={() => {
+                if (confirmAction?.status === "__delete__") {
+                  deleteMutation.mutate();
+                } else {
+                  confirmStatusChange();
+                }
+              }}
+            >
+              {confirmAction?.action}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

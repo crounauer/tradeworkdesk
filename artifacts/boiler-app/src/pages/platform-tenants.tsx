@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Search, ChevronRight, Users } from "lucide-react";
+import { Building2, Search, ChevronRight, Users, Plus } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,6 +20,10 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PlatformTenants() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ company_name: "", contact_name: "", contact_email: "", contact_phone: "" });
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: tenants, isLoading } = useQuery({
     queryKey: ["platform-tenants", search, statusFilter],
@@ -32,11 +37,38 @@ export default function PlatformTenants() {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: async (body: typeof addForm) => {
+      const res = await fetch("/api/platform/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create company");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
+      toast({ title: "Company created" });
+      setShowAdd(false);
+      setAddForm({ company_name: "", contact_name: "", contact_email: "", contact_phone: "" });
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold">Companies</h1>
-        <p className="text-muted-foreground">Manage all subscribing companies</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold">Companies</h1>
+          <p className="text-muted-foreground">Manage all subscribing companies</p>
+        </div>
+        <Button onClick={() => setShowAdd(true)}>
+          <Plus className="w-4 h-4 mr-2" />Add Company
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -105,6 +137,39 @@ export default function PlatformTenants() {
           ))}
         </div>
       )}
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Company</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Company Name *</Label>
+              <Input value={addForm.company_name} onChange={(e) => setAddForm({ ...addForm, company_name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Contact Name</Label>
+              <Input value={addForm.contact_name} onChange={(e) => setAddForm({ ...addForm, contact_name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Contact Email *</Label>
+              <Input type="email" value={addForm.contact_email} onChange={(e) => setAddForm({ ...addForm, contact_email: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Contact Phone</Label>
+              <Input value={addForm.contact_phone} onChange={(e) => setAddForm({ ...addForm, contact_phone: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button
+              onClick={() => createMutation.mutate(addForm)}
+              disabled={!addForm.company_name || !addForm.contact_email || createMutation.isPending}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

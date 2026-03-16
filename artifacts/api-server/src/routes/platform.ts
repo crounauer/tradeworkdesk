@@ -95,6 +95,76 @@ router.patch("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req
   res.json(data);
 });
 
+router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { company_name, contact_name, contact_email, contact_phone, plan_id, status } = req.body;
+  if (!company_name || !contact_email) {
+    res.status(400).json({ error: "company_name and contact_email are required." });
+    return;
+  }
+
+  const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString();
+
+  const { data: tenant, error } = await supabaseAdmin
+    .from("tenants")
+    .insert({
+      company_name,
+      contact_name: contact_name || company_name,
+      contact_email,
+      contact_phone: contact_phone || null,
+      status: status || "trial",
+      plan_id: plan_id || null,
+      trial_ends_at: trialEnds,
+    })
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await supabaseAdmin.from("company_settings").insert({
+    singleton_id: "default",
+    tenant_id: tenant.id,
+    name: company_name,
+  });
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "company_registered",
+    entity_type: "tenant",
+    entity_id: tenant.id,
+    detail: { company_name, created_by: "super_admin" },
+  });
+
+  res.status(201).json(tenant);
+});
+
+router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: tenant } = await supabaseAdmin.from("tenants").select("company_name").eq("id", id).single();
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const { count } = await supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("tenant_id", id);
+  if ((count || 0) > 0) {
+    res.status(400).json({ error: "Cannot delete tenant with active users. Suspend or cancel instead." });
+    return;
+  }
+
+  const { error } = await supabaseAdmin.from("tenants").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "tenant_deleted",
+    entity_type: "tenant",
+    entity_id: id,
+    detail: { company_name: tenant.company_name },
+  });
+
+  res.sendStatus(204);
+});
+
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("plans").select("id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active")

@@ -200,7 +200,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 : <>Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.</>}
             </span>
             {isAdmin && !isSuperAdmin && (
-              <Link href="/platform/plans">
+              <Link href="/billing">
                 <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="ml-2 h-7 text-xs">
                   <CreditCard className="w-3 h-3 mr-1" />
                   Upgrade Plan
