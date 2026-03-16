@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS plans (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON plans;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON plans
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS tenants (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON tenants;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON tenants
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -81,6 +83,7 @@ CREATE TABLE IF NOT EXISTS platform_announcements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON platform_announcements;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON platform_announcements
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -422,22 +425,46 @@ ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_audit_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "plans_select" ON plans FOR SELECT TO authenticated USING (true);
-CREATE POLICY "plans_admin" ON plans FOR ALL TO authenticated
-  USING (get_user_role(auth.uid()) = 'super_admin');
+DROP POLICY IF EXISTS "plans_select" ON plans;
+DROP POLICY IF EXISTS "plans_admin" ON plans;
+DO $$ BEGIN
+  CREATE POLICY "plans_select" ON plans FOR SELECT TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY "plans_admin" ON plans FOR ALL TO authenticated
+    USING (get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "tenants_super_admin" ON tenants FOR ALL TO authenticated
-  USING (get_user_role(auth.uid()) = 'super_admin');
-CREATE POLICY "tenants_own" ON tenants FOR SELECT TO authenticated
-  USING (id = get_user_tenant_id(auth.uid()));
+DROP POLICY IF EXISTS "tenants_super_admin" ON tenants;
+DROP POLICY IF EXISTS "tenants_own" ON tenants;
+DO $$ BEGIN
+  CREATE POLICY "tenants_super_admin" ON tenants FOR ALL TO authenticated
+    USING (get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY "tenants_own" ON tenants FOR SELECT TO authenticated
+    USING (id = get_user_tenant_id(auth.uid()));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "announcements_select" ON platform_announcements FOR SELECT TO authenticated USING (true);
-CREATE POLICY "announcements_admin" ON platform_announcements FOR ALL TO authenticated
-  USING (get_user_role(auth.uid()) = 'super_admin');
+DROP POLICY IF EXISTS "announcements_select" ON platform_announcements;
+DROP POLICY IF EXISTS "announcements_admin" ON platform_announcements;
+DO $$ BEGIN
+  CREATE POLICY "announcements_select" ON platform_announcements FOR SELECT TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY "announcements_admin" ON platform_announcements FOR ALL TO authenticated
+    USING (get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "audit_log_admin" ON platform_audit_log FOR SELECT TO authenticated
-  USING (get_user_role(auth.uid()) = 'super_admin');
-CREATE POLICY "audit_log_insert" ON platform_audit_log FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "audit_log_admin" ON platform_audit_log;
+DROP POLICY IF EXISTS "audit_log_insert" ON platform_audit_log;
+DO $$ BEGIN
+  CREATE POLICY "audit_log_admin" ON platform_audit_log FOR SELECT TO authenticated
+    USING (get_user_role(auth.uid()) = 'super_admin');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY "audit_log_insert" ON platform_audit_log FOR INSERT TO authenticated WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ─── 11. Tenant-aware RLS policies for existing data tables ───────────────────
 -- Drop old broad policies and replace with tenant-scoped ones
