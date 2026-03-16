@@ -52,7 +52,9 @@ router.get("/service-records/:id", requireAuth, requireTenant, async (req: Authe
   const params = GetServiceRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data, error } = await supabaseAdmin.from("service_records").select("*").eq("id", params.data.id).single();
+  let getQ = supabaseAdmin.from("service_records").select("*").eq("id", params.data.id);
+  if (req.tenantId) getQ = getQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await getQ.single();
   if (error || !data) { res.status(404).json({ error: "Service record not found" }); return; }
 
   const access = await verifyJobAccess(req, data.job_id);
@@ -67,7 +69,9 @@ router.patch("/service-records/:id", requireAuth, requireTenant, async (req: Aut
   const body = UpdateServiceRecordBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const { data: existing } = await supabaseAdmin.from("service_records").select("job_id").eq("id", params.data.id).single();
+  let existQ = supabaseAdmin.from("service_records").select("job_id").eq("id", params.data.id);
+  if (req.tenantId) existQ = existQ.eq("tenant_id", req.tenantId);
+  const { data: existing } = await existQ.single();
   if (!existing) { res.status(404).json({ error: "Service record not found" }); return; }
 
   const access = await verifyJobAccess(req, existing.job_id);
@@ -86,7 +90,9 @@ router.get("/service-records/job/:jobId", requireAuth, requireTenant, async (req
   const access = await verifyJobAccess(req, params.data.jobId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("service_records").select("*").eq("job_id", params.data.jobId).maybeSingle();
+  let jobRecQ = supabaseAdmin.from("service_records").select("*").eq("job_id", params.data.jobId);
+  if (req.tenantId) jobRecQ = jobRecQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await jobRecQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "No service record for this job" }); return; }
   res.json(GetServiceRecordByJobResponse.parse(data));

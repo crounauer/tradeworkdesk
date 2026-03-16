@@ -41,7 +41,9 @@ router.get("/breakdown-reports/:id", requireAuth, requireTenant, async (req: Aut
   const params = GetBreakdownReportParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data, error } = await supabaseAdmin.from("breakdown_reports").select("*").eq("id", params.data.id).single();
+  let getQ = supabaseAdmin.from("breakdown_reports").select("*").eq("id", params.data.id);
+  if (req.tenantId) getQ = getQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await getQ.single();
   if (error || !data) { res.status(404).json({ error: "Breakdown report not found" }); return; }
 
   const access = await verifyJobAccess(req, data.job_id);
@@ -56,7 +58,9 @@ router.patch("/breakdown-reports/:id", requireAuth, requireTenant, async (req: A
   const body = UpdateBreakdownReportBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const { data: existing } = await supabaseAdmin.from("breakdown_reports").select("job_id").eq("id", params.data.id).single();
+  let existQ = supabaseAdmin.from("breakdown_reports").select("job_id").eq("id", params.data.id);
+  if (req.tenantId) existQ = existQ.eq("tenant_id", req.tenantId);
+  const { data: existing } = await existQ.single();
   if (!existing) { res.status(404).json({ error: "Breakdown report not found" }); return; }
 
   const access = await verifyJobAccess(req, existing.job_id);
@@ -75,7 +79,9 @@ router.get("/breakdown-reports/job/:jobId", requireAuth, requireTenant, async (r
   const access = await verifyJobAccess(req, params.data.jobId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("breakdown_reports").select("*").eq("job_id", params.data.jobId).maybeSingle();
+  let jobQ = supabaseAdmin.from("breakdown_reports").select("*").eq("job_id", params.data.jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await jobQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "No breakdown report for this job" }); return; }
   res.json(GetBreakdownReportByJobResponse.parse(data));

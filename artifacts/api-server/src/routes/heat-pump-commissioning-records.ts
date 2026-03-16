@@ -30,8 +30,9 @@ router.get("/jobs/:jobId/heat-pump-commissioning", requireAuth, requireTenant, a
   const access = await verifyJobAccess(req, params.data.jobId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin
-    .from("heat_pump_commissioning_records").select("*").eq("job_id", params.data.jobId).maybeSingle();
+  let recQ = supabaseAdmin.from("heat_pump_commissioning_records").select("*").eq("job_id", params.data.jobId);
+  if (req.tenantId) recQ = recQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await recQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "No heat pump commissioning record for this job" }); return; }
   res.json(GetHeatPumpCommissioningRecordByJobResponse.parse(data));
@@ -67,8 +68,9 @@ router.patch("/jobs/:jobId/heat-pump-commissioning", requireAuth, requireTenant,
   const body = UpdateHeatPumpCommissioningRecordBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const { data: existing } = await supabaseAdmin
-    .from("heat_pump_commissioning_records").select("id").eq("job_id", params.data.jobId).maybeSingle();
+  let existQ = supabaseAdmin.from("heat_pump_commissioning_records").select("id").eq("job_id", params.data.jobId);
+  if (req.tenantId) existQ = existQ.eq("tenant_id", req.tenantId);
+  const { data: existing } = await existQ.maybeSingle();
   if (!existing) { res.status(404).json({ error: "No heat pump commissioning record for this job" }); return; }
 
   const { data, error } = await supabaseAdmin

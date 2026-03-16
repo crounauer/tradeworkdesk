@@ -61,7 +61,9 @@ router.get("/commissioning-records/:id", requireAuth, requireTenant, async (req:
   const params = GetCommissioningRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const { data, error } = await supabaseAdmin.from("commissioning_records").select("*").eq("id", params.data.id).single();
+  let getQ = supabaseAdmin.from("commissioning_records").select("*").eq("id", params.data.id);
+  if (req.tenantId) getQ = getQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await getQ.single();
   if (error || !data) { res.status(404).json({ error: "Commissioning record not found" }); return; }
 
   const access = await verifyJobAccess(req, data.job_id);
@@ -76,7 +78,9 @@ router.put("/commissioning-records/:id", requireAuth, requireTenant, async (req:
   const body = UpdateCommissioningRecordBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const { data: existing } = await supabaseAdmin.from("commissioning_records").select("job_id").eq("id", params.data.id).single();
+  let existQ = supabaseAdmin.from("commissioning_records").select("job_id").eq("id", params.data.id);
+  if (req.tenantId) existQ = existQ.eq("tenant_id", req.tenantId);
+  const { data: existing } = await existQ.single();
   if (!existing) { res.status(404).json({ error: "Commissioning record not found" }); return; }
 
   const access = await verifyJobAccess(req, existing.job_id);
@@ -95,7 +99,9 @@ router.get("/jobs/:jobId/commissioning-record", requireAuth, requireTenant, asyn
   const access = await verifyJobAccess(req, params.data.jobId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("commissioning_records").select("*").eq("job_id", params.data.jobId).maybeSingle();
+  let jobQ2 = supabaseAdmin.from("commissioning_records").select("*").eq("job_id", params.data.jobId);
+  if (req.tenantId) jobQ2 = jobQ2.eq("tenant_id", req.tenantId);
+  const { data, error } = await jobQ2.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "No commissioning record for this job" }); return; }
   res.json(GetCommissioningRecordByJobResponse.parse(data));
