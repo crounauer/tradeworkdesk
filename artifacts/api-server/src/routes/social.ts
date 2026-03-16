@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import { db } from "@workspace/db";
-import { socialAccounts, socialPosts } from "@workspace/db";
+import { socialAccounts, socialPosts, jobs, customers } from "@workspace/db";
 import { eq, and, desc, lte, sql } from "drizzle-orm";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
@@ -312,32 +312,68 @@ router.get(
   requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const items: SuggestionItem[] = [
-        {
+      const tenantId = req.tenantId!;
+      const items: SuggestionItem[] = [];
+
+      const recentJobs = await db
+        .select({
+          id: jobs.id,
+          job_type: jobs.job_type,
+          description: jobs.description,
+          status: jobs.status,
+        })
+        .from(jobs)
+        .where(and(eq(jobs.is_active, true)))
+        .orderBy(desc(jobs.created_at))
+        .limit(5);
+
+      for (const job of recentJobs) {
+        items.push({
           entityType: "article",
-          entityId: "boiler-service-tips",
-          title: "Top 5 Boiler Service Tips for Winter",
-          description: "Essential maintenance tips to keep boilers running efficiently during cold months",
-        },
-        {
+          entityId: `job-${job.id}`,
+          title: `${job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1)} Job ${job.status === "completed" ? "Completed" : "Update"}`,
+          description: job.description || `A ${job.job_type} job is ${job.status}`,
+        });
+      }
+
+      const recentCustomers = await db
+        .select({
+          id: customers.id,
+          first_name: customers.first_name,
+          last_name: customers.last_name,
+          city: customers.city,
+        })
+        .from(customers)
+        .where(eq(customers.is_active, true))
+        .orderBy(desc(customers.created_at))
+        .limit(3);
+
+      for (const customer of recentCustomers) {
+        const fullName = `${customer.first_name} ${customer.last_name}`;
+        items.push({
           entityType: "article",
-          entityId: "gas-safety-compliance",
-          title: "Gas Safety Compliance Guide 2025",
-          description: "Everything gas engineers need to know about current safety regulations",
-        },
-        {
-          entityType: "product",
-          entityId: "boilertech-mobile",
-          title: "BoilerTech Mobile App",
-          description: "Manage jobs, create certificates, and track service records on the go",
-        },
-        {
-          entityType: "article",
-          entityId: "digital-transformation",
-          title: "Why Heating Engineers Are Going Digital",
-          description: "How modern software helps engineers save time and grow their business",
-        },
-      ];
+          entityId: `customer-${customer.id}`,
+          title: `Customer Spotlight: ${fullName}`,
+          description: `Highlight the work done for ${fullName}${customer.city ? ` in ${customer.city}` : ""}`,
+        });
+      }
+
+      if (items.length === 0) {
+        items.push(
+          {
+            entityType: "product",
+            entityId: "boilertech-platform",
+            title: "BoilerTech Platform",
+            description: "Manage jobs, create certificates, and track service records digitally",
+          },
+          {
+            entityType: "article",
+            entityId: "boiler-service-tips",
+            title: "Essential Boiler Maintenance Tips",
+            description: "Key maintenance tips to keep boilers running efficiently",
+          },
+        );
+      }
 
       const platforms = (req.query.platforms as string)?.split(",") || ["x", "facebook", "instagram"];
       const suggestions = await generatePostSuggestions(items, platforms);

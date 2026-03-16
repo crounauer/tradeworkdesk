@@ -26,7 +26,7 @@ export async function generatePostSuggestions(
     .join("\n");
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     max_completion_tokens: 8192,
     messages: [
       {

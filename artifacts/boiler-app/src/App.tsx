@@ -86,11 +86,15 @@ const PageFallback = () => (
   </div>
 );
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { session, isLoading } = useAuth();
+function ProtectedRoute({ component: Component, roles }: { component: React.ComponentType; roles?: string[] }) {
+  const { session, isLoading, profile } = useAuth();
 
   if (isLoading) return <PageFallback />;
   if (!session) return <Redirect to="/login" />;
+
+  if (roles && profile && !roles.includes(profile.role)) {
+    return <Redirect to="/dashboard" />;
+  }
 
   return (
     <Layout>
@@ -192,7 +196,7 @@ function AppRouter() {
         <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
         <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
         <Route path="/admin/lookup-options" component={() => <ProtectedRoute component={AdminLookupOptions} />} />
-        <Route path="/admin/social" component={() => <ProtectedRoute component={AdminSocial} />} />
+        <Route path="/admin/social" component={() => <ProtectedRoute component={AdminSocial} roles={["admin", "super_admin"]} />} />
 
         <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
 
