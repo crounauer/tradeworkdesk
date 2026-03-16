@@ -20,7 +20,7 @@ router.get(
   "/admin/social/accounts",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const accounts = await db
       .select({
@@ -47,7 +47,7 @@ router.post(
   "/admin/social/accounts",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { platform, credentials, profileName, pageId, pageName, instagramBusinessId } = req.body;
 
@@ -94,7 +94,7 @@ router.patch(
   "/admin/social/accounts/:id",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
     const { isActive, autoPost } = req.body;
@@ -128,7 +128,7 @@ router.delete(
   "/admin/social/accounts/:id",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
@@ -150,7 +150,7 @@ router.get(
   "/admin/social/posts",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { status, platform, page = "1", limit = "20" } = req.query as Record<string, string>;
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
@@ -180,7 +180,7 @@ router.post(
   "/admin/social/post",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { platform, content, imageUrl, videoUrl, linkUrl, scheduledFor } = req.body;
 
@@ -266,7 +266,7 @@ router.post(
   "/admin/social/bulk-schedule",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { posts, intervalMinutes = 60 } = req.body;
 
@@ -309,7 +309,7 @@ router.get(
   "/admin/social/suggestions",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const tenantId = req.tenantId!;
@@ -390,7 +390,7 @@ router.post(
   "/admin/social/generate-image",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { prompt } = req.body;
     if (!prompt) {
@@ -413,7 +413,7 @@ router.patch(
   "/admin/social/posts/:id/dismiss",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
