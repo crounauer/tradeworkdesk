@@ -117,6 +117,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
       { label: "Custom branding", value: false },
       { label: "Analytics", value: false },
       { label: "Priority support", value: false },
+      { label: "Social Media Scheduling", value: false },
     ],
   },
   {
@@ -142,6 +143,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
       { label: "Custom branding", value: false },
       { label: "Analytics", value: true },
       { label: "Priority support", value: true },
+      { label: "Social Media Scheduling", value: true },
     ],
   },
   {
@@ -166,6 +168,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
       { label: "Custom branding", value: true },
       { label: "Analytics", value: "Advanced" },
       { label: "Priority support", value: true },
+      { label: "Social Media Scheduling", value: true },
     ],
   },
 ];
