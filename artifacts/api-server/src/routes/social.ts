@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
@@ -12,6 +12,14 @@ function isSupportedPlatform(p: string): p is SupportedPlatform {
   return (SUPPORTED_PLATFORMS as readonly string[]).includes(p);
 }
 
+function resolveTenantId(req: AuthenticatedRequest): string | undefined {
+  if (req.userRole === "super_admin") {
+    const qp = (req.query.tenant_id as string) || (req.body?.tenant_id as string);
+    return qp || undefined;
+  }
+  return req.tenantId;
+}
+
 const router: IRouter = Router();
 
 router.get(
@@ -19,12 +27,20 @@ router.get(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { data, error } = await supabaseAdmin
+    const tenantId = resolveTenantId(req);
+
+    let query = supabaseAdmin
       .from("social_accounts")
       .select("id, platform, page_id, page_name, instagram_business_id, profile_name, expires_at, is_active, auto_post, created_at")
-      .eq("tenant_id", req.tenantId!)
       .order("created_at", { ascending: false });
+
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       res.status(500).json({ error: error.message });
@@ -40,8 +56,15 @@ router.post(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { platform, credentials, profileName, pageId, pageName, instagramBusinessId } = req.body;
+    const tenantId = resolveTenantId(req);
+
+    if (!tenantId) {
+      res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+      return;
+    }
 
     if (!platform || !credentials || !profileName) {
       res.status(400).json({ error: "platform, credentials, and profileName are required" });
@@ -58,7 +81,7 @@ router.post(
     const { data, error } = await supabaseAdmin
       .from("social_accounts")
       .insert({
-        tenant_id: req.tenantId!,
+        tenant_id: tenantId,
         platform,
         encrypted_credentials: encrypted,
         profile_name: profileName,
@@ -83,19 +106,26 @@ router.patch(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
     const { isActive, autoPost } = req.body;
+    const tenantId = resolveTenantId(req);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (isActive !== undefined) updates.is_active = isActive;
     if (autoPost !== undefined) updates.auto_post = autoPost;
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("social_accounts")
       .update(updates)
-      .eq("id", id)
-      .eq("tenant_id", req.tenantId!)
+      .eq("id", id);
+
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query
       .select("id, platform, profile_name, is_active, auto_post")
       .single();
 
@@ -113,14 +143,21 @@ router.delete(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
+    const tenantId = resolveTenantId(req);
 
-    const { error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("social_accounts")
       .delete()
-      .eq("id", id)
-      .eq("tenant_id", req.tenantId!);
+      .eq("id", id);
+
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { error } = await query;
 
     if (error) {
       res.status(404).json({ error: "Account not found" });
@@ -136,8 +173,10 @@ router.get(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { status, platform, page = "1", limit = "20" } = req.query as Record<string, string>;
+    const tenantId = resolveTenantId(req);
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const offset = (pageNum - 1) * limitNum;
@@ -145,10 +184,12 @@ router.get(
     let query = supabaseAdmin
       .from("social_posts")
       .select("*", { count: "exact" })
-      .eq("tenant_id", req.tenantId!)
       .order("created_at", { ascending: false })
       .range(offset, offset + limitNum - 1);
 
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
     if (status) query = query.eq("status", status);
     if (platform) query = query.eq("platform", platform);
 
@@ -168,8 +209,15 @@ router.post(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { platform, content, imageUrl, videoUrl, linkUrl, scheduledFor } = req.body;
+    const tenantId = resolveTenantId(req);
+
+    if (!tenantId) {
+      res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+      return;
+    }
 
     if (!platform || !content) {
       res.status(400).json({ error: "platform and content are required" });
@@ -187,7 +235,7 @@ router.post(
     const { data: post, error: insertError } = await supabaseAdmin
       .from("social_posts")
       .insert({
-        tenant_id: req.tenantId!,
+        tenant_id: tenantId,
         platform,
         content,
         image_url: imageUrl || null,
@@ -208,7 +256,7 @@ router.post(
       const { data: account } = await supabaseAdmin
         .from("social_accounts")
         .select("*")
-        .eq("tenant_id", req.tenantId!)
+        .eq("tenant_id", tenantId)
         .eq("platform", platform)
         .eq("is_active", true)
         .limit(1)
@@ -258,8 +306,15 @@ router.post(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { posts, intervalMinutes = 60 } = req.body;
+    const tenantId = resolveTenantId(req);
+
+    if (!tenantId) {
+      res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+      return;
+    }
 
     if (!Array.isArray(posts) || posts.length === 0) {
       res.status(400).json({ error: "posts array is required" });
@@ -268,7 +323,7 @@ router.post(
 
     const now = new Date();
     const rows = posts.map((p: Record<string, unknown>, i: number) => ({
-      tenant_id: req.tenantId!,
+      tenant_id: tenantId,
       platform: p.platform,
       content: p.content,
       image_url: p.imageUrl || null,
@@ -299,9 +354,15 @@ router.get(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const tenantId = req.tenantId!;
+      const tenantId = resolveTenantId(req);
+      if (!tenantId) {
+        res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+        return;
+      }
+
       const items: SuggestionItem[] = [];
 
       const { data: recentJobs } = await supabaseAdmin
@@ -372,6 +433,7 @@ router.post(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { prompt } = req.body;
     if (!prompt) {
@@ -395,16 +457,21 @@ router.patch(
   requireAuth,
   requireTenant,
   requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
+    const tenantId = resolveTenantId(req);
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("social_posts")
       .update({ status: "dismissed", updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .eq("tenant_id", req.tenantId!)
-      .select()
-      .single();
+      .eq("id", id);
+
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) {
       res.status(404).json({ error: "Post not found" });

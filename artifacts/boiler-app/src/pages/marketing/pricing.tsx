@@ -52,6 +52,7 @@ const FEATURE_ORDER: { key: string; label: string; isBool: boolean }[] = [
   { key: "custom_branding", label: "Custom branding", isBool: true },
   { key: "analytics", label: "Analytics", isBool: false },
   { key: "priority_support", label: "Priority support", isBool: true },
+  { key: "social_media", label: "Social Media Scheduling", isBool: true },
 ];
 
 function mapApiToDisplay(apiPlans: ApiPlan[]): DisplayPlan[] {

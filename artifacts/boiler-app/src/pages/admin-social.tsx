@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import {
   Plus,
   Send,
@@ -39,6 +40,7 @@ import {
   Loader2,
   Share2,
   RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 
 const PLATFORMS = [
@@ -872,6 +874,54 @@ function AccountsTab() {
 }
 
 export default function AdminSocial() {
+  const { data: featureCheck, isLoading: featureLoading } = useQuery({
+    queryKey: ["social-feature-availability"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/social/accounts");
+      return { blocked: res.status === 402 };
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  if (featureLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (featureCheck?.blocked) {
+    return (
+      <div className="max-w-lg mx-auto py-16 text-center space-y-6">
+        <div className="p-4 bg-muted rounded-full w-fit mx-auto">
+          <Share2 className="w-10 h-10 text-muted-foreground" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-display font-bold">Social Media Scheduling</h1>
+          <p className="text-muted-foreground mt-2">
+            Schedule and publish posts across X, Facebook, and Instagram — directly from BoilerTech.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-8 space-y-5">
+            <p className="text-sm text-muted-foreground">
+              Social Media Scheduling is included on the <strong>Professional</strong> and{" "}
+              <strong>Enterprise</strong> plans. Upgrade your plan to unlock this feature.
+            </p>
+            <Link href="/pricing">
+              <Button size="lg">
+                View Pricing Plans
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">

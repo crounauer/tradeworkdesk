@@ -22,6 +22,7 @@ interface PlanFeatures {
   custom_branding: boolean;
   analytics: string;
   priority_support: boolean;
+  social_media: boolean;
 }
 
 interface Plan {
@@ -55,6 +56,7 @@ const DEFAULT_FEATURES: PlanFeatures = {
   custom_branding: false,
   analytics: "",
   priority_support: false,
+  social_media: false,
 };
 
 const BOOL_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
@@ -64,6 +66,7 @@ const BOOL_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
   { key: "api_access", label: "API Access" },
   { key: "custom_branding", label: "Custom Branding" },
   { key: "priority_support", label: "Priority Support" },
+  { key: "social_media", label: "Social Media Scheduling" },
 ];
 
 const TEXT_FEATURES: { key: keyof PlanFeatures; label: string; placeholder: string }[] = [

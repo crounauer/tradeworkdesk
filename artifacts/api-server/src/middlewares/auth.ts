@@ -121,3 +121,46 @@ export function requireTenant(
   }
   next();
 }
+
+export function requirePlanFeature(featureName: string) {
+  return async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    if (req.userRole === "super_admin") {
+      next();
+      return;
+    }
+
+    if (!req.tenantId) {
+      res.status(403).json({ error: "No tenant associated with this account" });
+      return;
+    }
+
+    const { data: tenant, error } = await supabaseAdmin
+      .from("tenants")
+      .select("plan_id, plans(features)")
+      .eq("id", req.tenantId)
+      .single();
+
+    if (error || !tenant) {
+      res.status(403).json({ error: "Could not verify plan features" });
+      return;
+    }
+
+    const features =
+      (tenant.plans as { features?: Record<string, unknown> } | null)
+        ?.features ?? {};
+
+    if (!features[featureName]) {
+      res.status(402).json({
+        error: "Plan upgrade required",
+        feature: featureName,
+      });
+      return;
+    }
+
+    next();
+  };
+}
