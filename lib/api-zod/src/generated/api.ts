@@ -926,6 +926,7 @@ export const CreateJobBody = zod.object({
     "inspection",
     "follow_up",
   ]),
+  job_type_id: zod.number().int().positive().optional(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
   scheduled_date: zod.coerce.date(),
   scheduled_time: zod.string().optional(),

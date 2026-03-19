@@ -10,10 +10,16 @@ router.get("/job-types", requireAuth, requireTenant, async (req: AuthenticatedRe
   if (!req.tenantId) { res.status(400).json({ error: "Tenant required" }); return; }
   await seedDefaultJobTypesForTenant(req.tenantId);
 
+  const includeInactive = req.query.includeInactive === "true";
+
+  const conditions = includeInactive
+    ? eq(jobTypes.tenant_id, req.tenantId)
+    : and(eq(jobTypes.tenant_id, req.tenantId), eq(jobTypes.is_active, true));
+
   const all = await db
     .select()
     .from(jobTypes)
-    .where(eq(jobTypes.tenant_id, req.tenantId))
+    .where(conditions)
     .orderBy(jobTypes.sort_order, jobTypes.name);
 
   res.json(all);

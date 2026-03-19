@@ -32,7 +32,7 @@ async function enrichJobsWithTypeNames(
       )
     ),
     tenantId
-      ? db.select().from(jobTypes).where(and(eq(jobTypes.tenant_id, tenantId), eq(jobTypes.is_active, true)))
+      ? db.select({ id: jobTypes.id, name: jobTypes.name }).from(jobTypes).where(eq(jobTypes.tenant_id, tenantId))
       : Promise.resolve([]),
   ]);
 
@@ -124,19 +124,26 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const jobTypeId = typeof req.body.job_type_id === "number" ? req.body.job_type_id : undefined;
+  const { job_type_id: rawJobTypeId, ...jobCoreData } = parsed.data;
+  const jobTypeId = typeof rawJobTypeId === "number" && Number.isInteger(rawJobTypeId) && rawJobTypeId > 0
+    ? rawJobTypeId : undefined;
+
+  let verifiedJobTypeId: number | undefined;
   let jobTypeCategoryOverride: string | undefined;
 
   if (jobTypeId && req.tenantId) {
     const [jt] = await db
       .select()
       .from(jobTypes)
-      .where(and(eq(jobTypes.id, jobTypeId), eq(jobTypes.tenant_id, req.tenantId)));
-    if (jt) jobTypeCategoryOverride = jt.category;
+      .where(and(eq(jobTypes.id, jobTypeId), eq(jobTypes.tenant_id, req.tenantId), eq(jobTypes.is_active, true)));
+    if (jt) {
+      verifiedJobTypeId = jt.id;
+      jobTypeCategoryOverride = jt.category;
+    }
   }
 
   const insertPayload = {
-    ...parsed.data,
+    ...jobCoreData,
     tenant_id: req.tenantId,
     ...(jobTypeCategoryOverride ? { job_type: jobTypeCategoryOverride as "service" | "breakdown" | "installation" | "inspection" | "follow_up" } : {}),
   };
@@ -144,10 +151,10 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  if (jobTypeId && req.tenantId && data) {
+  if (verifiedJobTypeId && req.tenantId && data) {
     await db.insert(jobTypeSelections).values({
       job_id: (data as { id: string }).id,
-      job_type_id: jobTypeId,
+      job_type_id: verifiedJobTypeId,
       tenant_id: req.tenantId,
     }).onConflictDoNothing();
   }

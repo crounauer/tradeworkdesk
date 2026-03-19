@@ -1,6 +1,7 @@
 import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";
+import { seedAllTenantsJobTypes } from "./lib/job-types-seed";
 
 const rawPort = process.env["PORT"];
 
@@ -20,4 +21,7 @@ app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   submitIndexNowOnStartup();
   startSocialScheduler();
+  seedAllTenantsJobTypes().catch((err) =>
+    console.error("[job-types] Startup seeding failed:", err)
+  );
 });

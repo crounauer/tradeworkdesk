@@ -1,4 +1,5 @@
 import { useListJobs, useCreateJob, useListProfiles, useListCustomers, useListProperties } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
 import { Briefcase, Calendar, MapPin, User, Plus, Filter, X } from "lucide-react";
@@ -11,10 +12,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
+interface JobType {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  color: string;
+  default_duration_minutes: number | null;
+  is_active: boolean;
+}
+
 type JobFormData = {
   customer_id: string;
   property_id: string;
-  job_type: string;
+  job_type_id: string;
   priority: string;
   scheduled_date: string;
   scheduled_time?: string;
@@ -22,15 +33,37 @@ type JobFormData = {
   assigned_technician_id?: string;
 };
 
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState("");
-  const [jobTypeFilter, setJobTypeFilter] = useState("");
+  const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
 
   const { data: jobs, isLoading } = useListJobs({
     status: statusFilter || undefined,
-    job_type: jobTypeFilter || undefined,
   });
+
+  const { data: jobTypes = [] } = useQuery<JobType[]>({
+    queryKey: ["job-types"],
+    queryFn: async () => {
+      const res = await fetch("/api/job-types");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const filteredJobs = jobTypeIdFilter
+    ? jobs?.filter((j) => {
+        const selectedType = jobTypes.find((t) => t.id === parseInt(jobTypeIdFilter, 10));
+        if (!selectedType) return true;
+        if (j.job_type_name) return j.job_type_name === selectedType.name;
+        return j.job_type === selectedType.category;
+      })
+    : jobs;
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -44,7 +77,6 @@ export default function Jobs() {
   };
 
   const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up'];
-  const jobTypes = ['service', 'breakdown', 'installation', 'inspection', 'follow_up'];
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -58,7 +90,7 @@ export default function Jobs() {
         </Button>
       </div>
 
-      {showForm && <AddJobForm onClose={() => setShowForm(false)} />}
+      {showForm && <AddJobForm onClose={() => setShowForm(false)} jobTypes={jobTypes} />}
 
       <div className="flex flex-wrap gap-3 items-center">
         <Filter className="w-4 h-4 text-muted-foreground" />
@@ -74,16 +106,16 @@ export default function Jobs() {
         </select>
         <select
           className="border border-border rounded-lg px-3 py-2 text-sm bg-background"
-          value={jobTypeFilter}
-          onChange={(e) => setJobTypeFilter(e.target.value)}
+          value={jobTypeIdFilter}
+          onChange={(e) => setJobTypeIdFilter(e.target.value)}
         >
-          <option value="">All Types</option>
+          <option value="">All Job Types</option>
           {jobTypes.map(t => (
-            <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+            <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
-        {(statusFilter || jobTypeFilter) && (
-          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeFilter(""); }}>
+        {(statusFilter || jobTypeIdFilter) && (
+          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); }}>
             <X className="w-4 h-4 mr-1" /> Clear
           </Button>
         )}
@@ -93,14 +125,14 @@ export default function Jobs() {
         <div className="space-y-3">
           {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />)}
         </div>
-      ) : !jobs?.length ? (
+      ) : !filteredJobs?.length ? (
         <Card className="p-8 text-center border-dashed">
           <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-muted-foreground">No jobs found matching your filters.</p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {jobs.map(job => (
+          {filteredJobs.map(job => (
             <Link key={job.id} href={`/jobs/${job.id}`}>
               <Card className="p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex-1">
@@ -109,7 +141,7 @@ export default function Jobs() {
                       {job.status.replace(/_/g, ' ')}
                     </span>
                     <span className="text-sm font-semibold capitalize text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
-                      {job.job_type.replace(/_/g, ' ')}
+                      {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
                     </span>
                   </div>
                   <h3 className="font-bold text-lg mb-1">{job.customer_name}</h3>
@@ -142,7 +174,7 @@ export default function Jobs() {
   );
 }
 
-function AddJobForm({ onClose }: { onClose: () => void }) {
+function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobType[] }) {
   const qc = useQueryClient();
   const createJob = useCreateJob();
   const { data: customers } = useListCustomers();
@@ -155,12 +187,16 @@ function AddJobForm({ onClose }: { onClose: () => void }) {
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
 
   const onSubmit = async (data: JobFormData) => {
+    const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
+    const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
+
     try {
       await createJob.mutateAsync({
         data: {
           customer_id: data.customer_id,
           property_id: data.property_id,
-          job_type: data.job_type as "service" | "breakdown" | "installation" | "inspection" | "follow_up",
+          job_type: jobTypeCategory,
+          job_type_id: selectedType ? selectedType.id : undefined,
           priority: data.priority as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
           scheduled_time: data.scheduled_time || undefined,
@@ -201,12 +237,11 @@ function AddJobForm({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Job Type *</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type")}>
-            <option value="service">Service</option>
-            <option value="breakdown">Breakdown</option>
-            <option value="installation">Installation</option>
-            <option value="inspection">Inspection</option>
-            <option value="follow_up">Follow Up</option>
+          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
+            <option value="">Select job type...</option>
+            {jobTypes.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
           </select>
         </div>
         <div>
