@@ -58,6 +58,7 @@ export default function CustomerDetail() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const deleteMutation = useDeleteCustomer();
+  const { toast } = useToast();
 
   const canDelete = profile?.role === "admin" || profile?.role === "super_admin";
 
@@ -106,9 +107,14 @@ export default function CustomerDetail() {
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     disabled={deleteMutation.isPending}
                     onClick={async () => {
-                      await deleteMutation.mutateAsync({ id: customer.id });
-                      qc.invalidateQueries({ queryKey: ["/api/customers"] });
-                      navigate("/customers");
+                      try {
+                        await deleteMutation.mutateAsync({ id: customer.id });
+                        qc.invalidateQueries({ queryKey: ["/api/customers"] });
+                        navigate("/customers");
+                      } catch (e: unknown) {
+                        const msg = e instanceof Error ? e.message : "Unknown error";
+                        toast({ title: "Delete failed", description: msg, variant: "destructive" });
+                      }
                     }}
                   >
                     {deleteMutation.isPending ? "Deleting..." : "Delete Customer"}
