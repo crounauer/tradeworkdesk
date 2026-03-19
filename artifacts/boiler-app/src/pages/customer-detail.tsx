@@ -1,6 +1,6 @@
 import { useGetCustomer, useCreateProperty, useUpdateCustomer, useDeleteCustomer } from "@workspace/api-client-react";
 import { useLookupOptions } from "@/hooks/use-lookup-options";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,8 @@ type CustomerEditData = {
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: customer, isLoading } = useGetCustomer(id);
-  const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const search = useSearch();
+  const [showPropertyForm, setShowPropertyForm] = useState(() => new URLSearchParams(search).get("addProperty") === "1");
   const [editing, setEditing] = useState(false);
   const { profile } = useAuth();
   const [, navigate] = useLocation();
@@ -189,7 +190,7 @@ export default function CustomerDetail() {
             </div>
 
             {showPropertyForm && (
-              <AddPropertyForm customerId={customer.id} onClose={() => setShowPropertyForm(false)} />
+              <AddPropertyForm customerId={customer.id} customer={customer} onClose={() => setShowPropertyForm(false)} />
             )}
 
             {customer.properties?.length === 0 ? (
@@ -346,12 +347,32 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
   );
 }
 
-function AddPropertyForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
+type CustomerAddress = {
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  county?: string | null;
+  postcode?: string | null;
+};
+
+function AddPropertyForm({ customerId, customer, onClose }: { customerId: string; customer?: CustomerAddress; onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateProperty();
   const { toast } = useToast();
-  const { register, handleSubmit } = useForm<PropertyFormData>();
+  const { register, handleSubmit, reset } = useForm<PropertyFormData>();
   const { data: propertyTypes } = useLookupOptions("property_type");
+
+  const useCustomerAddress = () => {
+    reset({
+      address_line1: customer?.address_line1 || "",
+      address_line2: customer?.address_line2 || "",
+      city: customer?.city || "",
+      county: customer?.county || "",
+      postcode: customer?.postcode || "",
+    });
+  };
+
+  const hasCustomerAddress = !!(customer?.address_line1 || customer?.postcode);
 
   const onSubmit = async (data: PropertyFormData) => {
     try {
@@ -379,7 +400,14 @@ function AddPropertyForm({ customerId, onClose }: { customerId: string; onClose:
 
   return (
     <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">
-      <h3 className="font-bold text-lg mb-4">Add New Property</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg">Add New Property</h3>
+        {hasCustomerAddress && (
+          <Button type="button" variant="outline" size="sm" onClick={useCustomerAddress}>
+            <MapPin className="w-4 h-4 mr-2" /> Use customer's address
+          </Button>
+        )}
+      </div>
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input placeholder="Address Line 1 *" required {...register("address_line1")} />
         <Input placeholder="Address Line 2" {...register("address_line2")} />

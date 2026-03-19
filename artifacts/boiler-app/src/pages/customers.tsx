@@ -3,7 +3,7 @@ import { useListCustomers, useCreateCustomer } from "@workspace/api-client-react
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Search, Plus, MapPin, Phone, Mail } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -89,13 +89,13 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const create = useCreateCustomer();
   const { register, handleSubmit } = useForm();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const onSubmit = async (data: Record<string, unknown>) => {
     try {
-      await create.mutateAsync({ data: data as { first_name: string; last_name: string } });
+      const newCustomer = await create.mutateAsync({ data: data as { first_name: string; last_name: string } });
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
-      toast({ title: "Customer saved", description: `${data.first_name} ${data.last_name} has been added.` });
-      onClose();
+      navigate(`/customers/${newCustomer.id}?addProperty=1`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not save customer. Please try again.";
       toast({ title: "Failed to save customer", description: message, variant: "destructive" });
