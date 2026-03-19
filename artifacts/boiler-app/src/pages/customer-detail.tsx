@@ -1,15 +1,27 @@
-import { useGetCustomer, useCreateProperty, useUpdateCustomer } from "@workspace/api-client-react";
+import { useGetCustomer, useCreateProperty, useUpdateCustomer, useDeleteCustomer } from "@workspace/api-client-react";
 import { useLookupOptions } from "@/hooks/use-lookup-options";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 type PropertyFormData = {
   address_line1: string;
@@ -42,6 +54,12 @@ export default function CustomerDetail() {
   const { data: customer, isLoading } = useGetCustomer(id);
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const { profile } = useAuth();
+  const [, navigate] = useLocation();
+  const qc = useQueryClient();
+  const deleteMutation = useDeleteCustomer();
+
+  const canDelete = profile?.role === "admin" || profile?.role === "super_admin";
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
@@ -64,9 +82,42 @@ export default function CustomerDetail() {
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-          {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+            {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
+          </Button>
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {customer.first_name} {customer.last_name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove the customer record and cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleteMutation.isPending}
+                    onClick={async () => {
+                      await deleteMutation.mutateAsync({ id: customer.id });
+                      qc.invalidateQueries({ queryKey: ["/api/customers"] });
+                      navigate("/customers");
+                    }}
+                  >
+                    {deleteMutation.isPending ? "Deleting..." : "Delete Customer"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       {editing ? (
