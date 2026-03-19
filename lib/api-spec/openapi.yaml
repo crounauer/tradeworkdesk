@@ -547,6 +547,68 @@ paths:
         "204":
           description: Deleted
 
+  /job-types:
+    get:
+      operationId: listJobTypes
+      tags: [jobTypes]
+      summary: List job types for the authenticated tenant
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of job types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobType"
+    post:
+      operationId: createJobType
+      tags: [jobTypes]
+      summary: Create a custom job type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobTypeBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobType"
+
+  /job-types/{id}:
+    patch:
+      operationId: updateJobType
+      tags: [jobTypes]
+      summary: Update a job type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJobTypeBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobType"
+
   /service-records:
     post:
       operationId: createServiceRecord
@@ -2143,6 +2205,8 @@ components:
               type: ["string", "null"]
             technician_name:
               type: ["string", "null"]
+            job_type_name:
+              type: ["string", "null"]
 
     JobDetail:
       allOf:
@@ -2193,6 +2257,9 @@ components:
         job_type:
           type: string
           enum: [service, breakdown, installation, inspection, follow_up]
+        job_type_id:
+          type: integer
+          description: Optional ID of a custom job type defined for this tenant
         priority:
           type: string
           enum: [low, medium, high, urgent]
@@ -2207,6 +2274,67 @@ components:
           type: string
         notes:
           type: string
+
+    JobType:
+      type: object
+      required: [id, tenant_id, name, slug, category, color, is_active, is_default, sort_order, created_at]
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+          enum: [service, breakdown, installation, inspection, follow_up]
+        color:
+          type: string
+        default_duration_minutes:
+          type: ["integer", "null"]
+        is_active:
+          type: boolean
+        is_default:
+          type: boolean
+        sort_order:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    CreateJobTypeBody:
+      type: object
+      required: [name, category]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [service, breakdown, installation, inspection, follow_up]
+        color:
+          type: string
+        default_duration_minutes:
+          type: integer
+
+    UpdateJobTypeBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [service, breakdown, installation, inspection, follow_up]
+        color:
+          type: string
+        default_duration_minutes:
+          type: ["integer", "null"]
+        is_active:
+          type: boolean
+        sort_order:
+          type: integer
 
     UpdateJobBody:
       type: object

@@ -246,6 +246,8 @@ export type JobListItem = Job & {
   property_address?: string | null;
   /** @nullable */
   technician_name?: string | null;
+  /** @nullable */
+  job_type_name?: string | null;
 };
 
 export type PropertyDetail = Property & {
@@ -599,12 +601,45 @@ export interface CreateJobBody {
   appliance_id?: string;
   assigned_technician_id?: string;
   job_type: CreateJobBodyJobType;
+  job_type_id?: number;
   priority?: CreateJobBodyPriority;
   scheduled_date: string;
   scheduled_time?: string;
   estimated_duration?: number;
   description?: string;
   notes?: string;
+}
+
+export type JobTypeCategory = "service" | "breakdown" | "installation" | "inspection" | "follow_up";
+
+export interface JobType {
+  id: number;
+  tenant_id: string;
+  name: string;
+  slug: string;
+  category: JobTypeCategory;
+  color: string;
+  default_duration_minutes?: number | null;
+  is_active: boolean;
+  is_default: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface CreateJobTypeBody {
+  name: string;
+  category: JobTypeCategory;
+  color?: string;
+  default_duration_minutes?: number;
+}
+
+export interface UpdateJobTypeBody {
+  name?: string;
+  category?: JobTypeCategory;
+  color?: string;
+  default_duration_minutes?: number | null;
+  is_active?: boolean;
+  sort_order?: number;
 }
 
 export type UpdateJobBodyJobType =

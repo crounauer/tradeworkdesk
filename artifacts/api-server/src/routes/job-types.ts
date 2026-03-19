@@ -67,7 +67,7 @@ router.post("/job-types", requireAuth, requireTenant, requireRole("admin", "offi
 router.patch("/job-types/:id", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.status(400).json({ error: "Tenant required" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const { name, category, color, default_duration_minutes, is_active } = req.body as {
