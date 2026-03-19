@@ -111,6 +111,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         <Input placeholder="Email" type="email" {...register("email")} />
         <Input placeholder="Phone" {...register("phone")} />
         <Input placeholder="Address Line 1" className="md:col-span-2" {...register("address_line1")} />
+        <Input placeholder="Address Line 2" className="md:col-span-2" {...register("address_line2")} />
         <Input placeholder="City" {...register("city")} />
         <Input placeholder="Postcode" {...register("postcode")} />
         <div className="md:col-span-2 flex justify-end gap-2 mt-2">
