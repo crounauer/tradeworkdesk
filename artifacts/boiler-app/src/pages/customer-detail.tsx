@@ -53,7 +53,13 @@ export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: customer, isLoading } = useGetCustomer(id);
   const search = useSearch();
-  const [showPropertyForm, setShowPropertyForm] = useState(() => new URLSearchParams(search).get("addProperty") === "1");
+  const [showPropertyForm, setShowPropertyForm] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(search).get("addProperty") === "1") {
+      setShowPropertyForm(true);
+    }
+  }, [search]);
   const [editing, setEditing] = useState(false);
   const { profile } = useAuth();
   const [, navigate] = useLocation();
@@ -190,7 +196,7 @@ export default function CustomerDetail() {
             </div>
 
             {showPropertyForm && (
-              <AddPropertyForm customerId={customer.id} customer={customer} onClose={() => setShowPropertyForm(false)} />
+              <AddPropertyForm customerId={customer.id} customerAddress={customer} onClose={() => setShowPropertyForm(false)} />
             )}
 
             {customer.properties?.length === 0 ? (
@@ -355,24 +361,24 @@ type CustomerAddress = {
   postcode?: string | null;
 };
 
-function AddPropertyForm({ customerId, customer, onClose }: { customerId: string; customer?: CustomerAddress; onClose: () => void }) {
+function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId: string; customerAddress?: CustomerAddress; onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateProperty();
   const { toast } = useToast();
   const { register, handleSubmit, reset } = useForm<PropertyFormData>();
   const { data: propertyTypes } = useLookupOptions("property_type");
 
-  const useCustomerAddress = () => {
+  const fillCustomerAddress = () => {
     reset({
-      address_line1: customer?.address_line1 || "",
-      address_line2: customer?.address_line2 || "",
-      city: customer?.city || "",
-      county: customer?.county || "",
-      postcode: customer?.postcode || "",
+      address_line1: customerAddress?.address_line1 ?? "",
+      address_line2: customerAddress?.address_line2 ?? "",
+      city: customerAddress?.city ?? "",
+      county: customerAddress?.county ?? "",
+      postcode: customerAddress?.postcode ?? "",
     });
   };
 
-  const hasCustomerAddress = !!(customer?.address_line1 || customer?.postcode);
+  const hasCustomerAddress = !!(customerAddress?.address_line1 || customerAddress?.postcode);
 
   const onSubmit = async (data: PropertyFormData) => {
     try {
@@ -403,7 +409,7 @@ function AddPropertyForm({ customerId, customer, onClose }: { customerId: string
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-lg">Add New Property</h3>
         {hasCustomerAddress && (
-          <Button type="button" variant="outline" size="sm" onClick={useCustomerAddress}>
+          <Button type="button" variant="outline" size="sm" onClick={fillCustomerAddress}>
             <MapPin className="w-4 h-4 mr-2" /> Use customer's address
           </Button>
         )}
