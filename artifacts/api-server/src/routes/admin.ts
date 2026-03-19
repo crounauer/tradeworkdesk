@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
-import { sendWelcomeEmail } from "../lib/email";
+import { sendConfirmationEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 
@@ -456,21 +456,23 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+  const { data: linkData, error: authError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "signup",
     email: contact_email,
     password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: contact_name,
-      role: "admin",
-      tenant_id: tenant.id,
+    options: {
+      data: {
+        full_name: contact_name,
+        role: "admin",
+        tenant_id: tenant.id,
+      },
     },
   });
 
-  if (authError) {
-    console.error("[register] createUser failed:", authError.message);
+  if (authError || !linkData) {
+    console.error("[register] generateLink failed:", authError?.message);
     await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
-    res.status(400).json({ error: authError.message });
+    res.status(400).json({ error: authError?.message ?? "Failed to create account" });
     return;
   }
 
@@ -480,7 +482,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     .from("profiles")
     .upsert(
       {
-        id: authData.user.id,
+        id: linkData.user.id,
         email: contact_email,
         full_name: contact_name,
         role: "admin",
@@ -499,7 +501,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   });
 
   await supabaseAdmin.from("platform_audit_log").insert({
-    actor_id: authData.user.id,
+    actor_id: linkData.user.id,
     actor_email: contact_email,
     event_type: "company_registered",
     entity_type: "tenant",
@@ -507,41 +509,15 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     detail: { company_name },
   });
 
-  sendWelcomeEmail(contact_email, company_name, trialEnds).catch(() => null);
-
-  let checkout_url: string | null = null;
-  if (stripe && plan_id) {
-    const { data: plan } = await supabaseAdmin
-      .from("plans")
-      .select("stripe_price_id")
-      .eq("id", plan_id)
-      .single();
-
-    if (plan?.stripe_price_id) {
-      const APP_URL = process.env.APP_URL || "https://boilertech.app";
-      try {
-        const session = await stripe.checkout.sessions.create({
-          mode: "subscription",
-          line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
-          success_url: `${APP_URL}/billing?success=1`,
-          cancel_url: `${APP_URL}/billing?cancelled=1`,
-          metadata: { tenant_id: tenant.id, plan_id, billing_cycle: "monthly" },
-          client_reference_id: tenant.id,
-        });
-        checkout_url = session.url;
-      } catch (err) {
-        console.error("[register] Failed to create Stripe Checkout session:", err);
-      }
-    }
-  }
+  sendConfirmationEmail(contact_email, contact_name, company_name, linkData.properties.action_link).catch((e) =>
+    console.error("[email] Confirmation email failed:", e)
+  );
 
   res.status(201).json({
     tenant_id: tenant.id,
-    user_id: authData.user.id,
+    user_id: linkData.user.id,
     email: contact_email,
-    password_hint: true,
-    checkout_url,
-    message: "Company registered successfully.",
+    message: "Check your email to confirm your account.",
   });
 });
 

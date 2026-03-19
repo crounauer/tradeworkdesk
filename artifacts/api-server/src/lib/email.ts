@@ -72,6 +72,19 @@ async function send(to: string, subject: string, html: string): Promise<void> {
   }
 }
 
+export async function sendConfirmationEmail(to: string, contactName: string, companyName: string, confirmUrl: string): Promise<void> {
+  const html = baseHtml("Confirm your BoilerTech account", `
+    <h2>Welcome to BoilerTech, ${contactName}!</h2>
+    <p>Your company account for <strong>${companyName}</strong> has been created. Please confirm your email address to activate your account and start your free trial.</p>
+    <p style="margin-top:24px;">
+      <a href="${confirmUrl}" class="btn">Confirm Email Address</a>
+    </p>
+    <hr class="divider"/>
+    <p style="font-size:13px; color:#64748b;">This link expires in 24 hours. If you didn't create a BoilerTech account, you can safely ignore this email.</p>
+  `);
+  await send(to, "BoilerTech — Please confirm your email address", html);
+}
+
 export async function sendWelcomeEmail(to: string, companyName: string, trialEndsAt: string): Promise<void> {
   const trialDate = new Date(trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const html = baseHtml("Welcome to BoilerTech", `

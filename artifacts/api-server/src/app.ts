@@ -1,10 +1,31 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import router from "./routes";
 
 const app: Express = express();
 
 app.use(cors());
+
+const registrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many registration attempts. Please try again in 15 minutes." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in 15 minutes." },
+});
+
+app.use("/api/auth/register", registrationLimiter);
+app.use("/api/auth/validate-invite", authLimiter);
+app.use("/api/auth/use-invite", authLimiter);
 
 app.use(
   "/api/webhooks/stripe",

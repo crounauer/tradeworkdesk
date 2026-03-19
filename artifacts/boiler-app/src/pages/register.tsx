@@ -143,21 +143,7 @@ export default function Register() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        toast({ title: "Company registered!", description: "Please sign in with your credentials." });
-        navigate("/login");
-      } else if (data.checkout_url) {
-        toast({ title: "Account created!", description: "Redirecting to complete your payment…" });
-        window.location.href = data.checkout_url;
-      } else {
-        toast({ title: "Welcome to BoilerTech!", description: "Your company account is ready." });
-        navigate("/");
-      }
+      setDone(true);
     } catch (err) {
       toast({ title: "Registration failed", description: (err as Error).message, variant: "destructive" });
     } finally {
