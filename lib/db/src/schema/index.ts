@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, boolean, date, time, integer, numeric, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, numeric, timestamp, pgEnum } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "office_staff", "technician"]);
 export const jobStatusEnum = pgEnum("job_status", ["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]);
@@ -408,6 +408,28 @@ export const signatures = pgTable("signatures", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const jobTypes = pgTable("job_types", {
+  id: serial("id").primaryKey(),
+  tenant_id: text("tenant_id").notNull(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  category: text("category").notNull().default("service"),
+  color: varchar("color", { length: 20 }).notNull().default("#3B82F6"),
+  default_duration_minutes: integer("default_duration_minutes"),
+  is_active: boolean("is_active").notNull().default(true),
+  is_default: boolean("is_default").notNull().default(false),
+  sort_order: integer("sort_order").notNull().default(0),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const jobTypeSelections = pgTable("job_type_selections", {
+  id: serial("id").primaryKey(),
+  job_id: uuid("job_id").notNull(),
+  job_type_id: integer("job_type_id").notNull().references(() => jobTypes.id),
+  tenant_id: text("tenant_id").notNull(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
 export type Profile = typeof profiles.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Property = typeof properties.$inferSelect;
@@ -426,3 +448,5 @@ export type JobCompletionReport = typeof jobCompletionReports.$inferSelect;
 export type JobNote = typeof jobNotes.$inferSelect;
 export type FileAttachment = typeof fileAttachments.$inferSelect;
 export type Signature = typeof signatures.$inferSelect;
+export type JobType = typeof jobTypes.$inferSelect;
+export type JobTypeSelection = typeof jobTypeSelections.$inferSelect;

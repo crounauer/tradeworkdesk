@@ -30,6 +30,7 @@ import webhooksRouter from "./webhooks";
 import internalRouter from "./internal";
 import indexnowRouter from "./indexnow";
 import socialRouter from "./social";
+import jobTypesRouter from "./job-types";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use(webhooksRouter);
 router.use(internalRouter);
 router.use(indexnowRouter);
 router.use(socialRouter);
+router.use(jobTypesRouter);
 
 export default router;

@@ -906,6 +906,7 @@ export const ListJobsResponseItem = zod
       customer_name: zod.string().nullish(),
       property_address: zod.string().nullish(),
       technician_name: zod.string().nullish(),
+      job_type_name: zod.string().nullish(),
     }),
   );
 export const ListJobsResponse = zod.array(ListJobsResponseItem);

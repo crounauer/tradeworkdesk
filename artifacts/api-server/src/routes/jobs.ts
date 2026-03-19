@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { eq, and, inArray } from "drizzle-orm";
+import { db, jobTypes, jobTypeSelections } from "@workspace/db";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
@@ -13,6 +15,36 @@ import {
   UpdateJobResponse,
   DeleteJobParams,
 } from "@workspace/api-zod";
+
+async function enrichJobsWithTypeNames(
+  jobs: SupabaseJobRow[],
+  tenantId: string | undefined
+): Promise<(SupabaseJobRow & { job_type_name: string | null })[]> {
+  if (!jobs.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
+
+  const jobIds = jobs.map((j) => j.id);
+
+  const [selections, allTypes] = await Promise.all([
+    db.select().from(jobTypeSelections).where(
+      and(
+        inArray(jobTypeSelections.job_id, jobIds),
+        tenantId ? eq(jobTypeSelections.tenant_id, tenantId) : undefined
+      )
+    ),
+    tenantId
+      ? db.select().from(jobTypes).where(and(eq(jobTypes.tenant_id, tenantId), eq(jobTypes.is_active, true)))
+      : Promise.resolve([]),
+  ]);
+
+  const selectionMap = new Map(selections.map((s) => [s.job_id, s.job_type_id]));
+  const typeMap = new Map(allTypes.map((t) => [t.id, t.name]));
+
+  return jobs.map((j) => {
+    const typeId = selectionMap.get(j.id);
+    const name = typeId != null ? (typeMap.get(typeId) ?? null) : null;
+    return { ...j, job_type_name: name };
+  });
+}
 
 interface SupabaseJobRow {
   id: string;
@@ -65,7 +97,7 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data as SupabaseJobRow[] || []).map((j) => ({
+  const rawMapped = (data as SupabaseJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
@@ -75,7 +107,8 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
     properties: undefined,
   }));
 
-  res.json(ListJobsResponse.parse(mapped));
+  const enriched = await enrichJobsWithTypeNames(rawMapped, req.tenantId);
+  res.json(ListJobsResponse.parse(enriched));
 });
 
 router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -91,8 +124,34 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const { data, error } = await supabaseAdmin.from("jobs").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
+  const jobTypeId = typeof req.body.job_type_id === "number" ? req.body.job_type_id : undefined;
+  let jobTypeCategoryOverride: string | undefined;
+
+  if (jobTypeId && req.tenantId) {
+    const [jt] = await db
+      .select()
+      .from(jobTypes)
+      .where(and(eq(jobTypes.id, jobTypeId), eq(jobTypes.tenant_id, req.tenantId)));
+    if (jt) jobTypeCategoryOverride = jt.category;
+  }
+
+  const insertPayload = {
+    ...parsed.data,
+    tenant_id: req.tenantId,
+    ...(jobTypeCategoryOverride ? { job_type: jobTypeCategoryOverride as "service" | "breakdown" | "installation" | "inspection" | "follow_up" } : {}),
+  };
+
+  const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  if (jobTypeId && req.tenantId && data) {
+    await db.insert(jobTypeSelections).values({
+      job_id: (data as { id: string }).id,
+      job_type_id: jobTypeId,
+      tenant_id: req.tenantId,
+    }).onConflictDoNothing();
+  }
+
   res.status(201).json(data);
 });
 
