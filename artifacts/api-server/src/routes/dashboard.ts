@@ -73,6 +73,13 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     return q;
   };
 
+  const buildTodayCountQuery = () => {
+    let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("is_active", true);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (techFilter) q = q.eq("assigned_technician_id", techFilter);
+    return q;
+  };
+
   // Matches single-day jobs on today OR multi-day jobs whose range spans today
   const activeToday = `and(scheduled_date.eq.${today},scheduled_end_date.is.null),and(scheduled_date.lte.${today},scheduled_end_date.gte.${today})`;
 
@@ -88,8 +95,8 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
       .limit(10),
     Promise.all([
       buildCustomerCountQuery(),
-      buildJobQuery().or(activeToday).neq("status", "cancelled"),
-      buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today),
+      buildTodayCountQuery().or(activeToday).neq("status", "cancelled"),
+      buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today).select("id", { count: "exact", head: true }),
       buildCompletedCountQuery(),
     ]),
   ]);
@@ -124,7 +131,7 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     follow_up_required: (followUpRes.data as DashboardJobRow[] || []).map(mapJob),
     stats: {
       total_customers: statsRes[0].count || 0,
-      total_jobs_today: (statsRes[1].data || []).length,
+      total_jobs_today: statsRes[1].count || 0,
       overdue_count: statsRes[2].count || 0,
       completed_this_week: statsRes[3].count || 0,
     },

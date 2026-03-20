@@ -107,21 +107,26 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
     q = q.eq("assigned_technician_id", req.userId!);
   }
 
-  const { data, error } = await q;
+  const [{ data, error }, allTypes] = await Promise.all([
+    q,
+    db.select({ id: jobTypes.id, name: jobTypes.name }).from(jobTypes),
+  ]);
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  const typeMap = new Map(allTypes.map((t) => [t.id, t.name]));
   const rawMapped = (data as SupabaseJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
+    job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
     customers: undefined,
     profiles: undefined,
     properties: undefined,
   }));
 
-  const enriched = await enrichJobsWithTypeNames(rawMapped);
-  res.json(ListJobsResponse.parse(enriched));
+  res.set("Cache-Control", "private, no-cache");
+  res.json(ListJobsResponse.parse(rawMapped));
 });
 
 router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
