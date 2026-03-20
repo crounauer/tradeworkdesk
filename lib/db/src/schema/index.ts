@@ -92,6 +92,7 @@ export const jobs = pgTable("jobs", {
   appliance_id: uuid("appliance_id").references(() => appliances.id),
   assigned_technician_id: uuid("assigned_technician_id").references(() => profiles.id),
   job_type: jobTypeEnum("job_type").notNull().default("service"),
+  job_type_id: integer("job_type_id"),
   status: jobStatusEnum("status").notNull().default("scheduled"),
   priority: priorityEnum("priority").notNull().default("medium"),
   description: text("description"),
@@ -422,14 +423,6 @@ export const jobTypes = pgTable("job_types", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const jobTypeSelections = pgTable("job_type_selections", {
-  id: serial("id").primaryKey(),
-  job_id: uuid("job_id").notNull(),
-  job_type_id: integer("job_type_id").notNull().references(() => jobTypes.id),
-  tenant_id: text("tenant_id").notNull(),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-});
-
 export type Profile = typeof profiles.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Property = typeof properties.$inferSelect;
@@ -449,4 +442,3 @@ export type JobNote = typeof jobNotes.$inferSelect;
 export type FileAttachment = typeof fileAttachments.$inferSelect;
 export type Signature = typeof signatures.$inferSelect;
 export type JobType = typeof jobTypes.$inferSelect;
-export type JobTypeSelection = typeof jobTypeSelections.$inferSelect;

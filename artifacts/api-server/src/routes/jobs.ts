@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray } from "drizzle-orm";
-import { db, jobTypes, jobTypeSelections } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
+import { db, jobTypes } from "@workspace/db";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
@@ -16,36 +16,6 @@ import {
   DeleteJobParams,
 } from "@workspace/api-zod";
 
-async function enrichJobsWithTypeNames(
-  jobs: SupabaseJobRow[],
-  tenantId: string | undefined
-): Promise<(SupabaseJobRow & { job_type_name: string | null })[]> {
-  if (!jobs.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
-
-  const jobIds = jobs.map((j) => j.id);
-
-  const [selections, allTypes] = await Promise.all([
-    db.select().from(jobTypeSelections).where(
-      and(
-        inArray(jobTypeSelections.job_id, jobIds),
-        tenantId ? eq(jobTypeSelections.tenant_id, tenantId) : undefined
-      )
-    ),
-    tenantId
-      ? db.select({ id: jobTypes.id, name: jobTypes.name }).from(jobTypes).where(eq(jobTypes.tenant_id, tenantId))
-      : Promise.resolve([]),
-  ]);
-
-  const selectionMap = new Map(selections.map((s) => [s.job_id, s.job_type_id]));
-  const typeMap = new Map(allTypes.map((t) => [t.id, t.name]));
-
-  return jobs.map((j) => {
-    const typeId = selectionMap.get(j.id);
-    const name = typeId != null ? (typeMap.get(typeId) ?? null) : null;
-    return { ...j, job_type_name: name };
-  });
-}
-
 interface SupabaseJobRow {
   id: string;
   customer_id: string;
@@ -53,6 +23,7 @@ interface SupabaseJobRow {
   appliance_id: string | null;
   assigned_technician_id: string | null;
   job_type: string;
+  job_type_id: number | null;
   status: string;
   priority: string;
   description: string | null;
@@ -66,6 +37,27 @@ interface SupabaseJobRow {
   customers?: { first_name: string; last_name: string } | null;
   properties?: { address_line1: string } | null;
   profiles?: { full_name: string } | null;
+}
+
+async function enrichJobsWithTypeNames(
+  jobs: SupabaseJobRow[]
+): Promise<(SupabaseJobRow & { job_type_name: string | null })[]> {
+  if (!jobs.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
+
+  const typeIds = [...new Set(jobs.map((j) => j.job_type_id).filter((id): id is number => id != null))];
+  if (!typeIds.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
+
+  const types = await db
+    .select({ id: jobTypes.id, name: jobTypes.name })
+    .from(jobTypes)
+    .where(inArray(jobTypes.id, typeIds));
+
+  const typeMap = new Map(types.map((t) => [t.id, t.name]));
+
+  return jobs.map((j) => ({
+    ...j,
+    job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
+  }));
 }
 
 const router: IRouter = Router();
@@ -107,7 +99,7 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
     properties: undefined,
   }));
 
-  const enriched = await enrichJobsWithTypeNames(rawMapped, req.tenantId);
+  const enriched = await enrichJobsWithTypeNames(rawMapped);
   res.json(ListJobsResponse.parse(enriched));
 });
 
@@ -135,8 +127,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     const [jt] = await db
       .select()
       .from(jobTypes)
-      .where(and(eq(jobTypes.id, jobTypeId), eq(jobTypes.tenant_id, req.tenantId), eq(jobTypes.is_active, true)));
-    if (jt) {
+      .where(eq(jobTypes.id, jobTypeId));
+    if (jt && jt.tenant_id === req.tenantId && jt.is_active) {
       verifiedJobTypeId = jt.id;
       jobTypeCategoryOverride = jt.category;
     }
@@ -145,19 +137,12 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const insertPayload = {
     ...jobCoreData,
     tenant_id: req.tenantId,
+    ...(verifiedJobTypeId ? { job_type_id: verifiedJobTypeId } : {}),
     ...(jobTypeCategoryOverride ? { job_type: jobTypeCategoryOverride as "service" | "breakdown" | "installation" | "inspection" | "follow_up" } : {}),
   };
 
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
-
-  if (verifiedJobTypeId && req.tenantId && data) {
-    await db.insert(jobTypeSelections).values({
-      job_id: (data as { id: string }).id,
-      job_type_id: verifiedJobTypeId,
-      tenant_id: req.tenantId,
-    }).onConflictDoNothing();
-  }
 
   res.status(201).json(data);
 });
