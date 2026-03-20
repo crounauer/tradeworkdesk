@@ -136,7 +136,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   const { job_type_id: rawJobTypeId, ...jobCoreData } = parsed.data;
 
-  if (jobCoreData.scheduled_end_date && jobCoreData.scheduled_end_date < String(jobCoreData.scheduled_date).slice(0, 10)) {
+  const postStartIso = new Date(jobCoreData.scheduled_date as unknown as string).toISOString().slice(0, 10);
+  if (jobCoreData.scheduled_end_date && jobCoreData.scheduled_end_date < postStartIso) {
     res.status(400).json({ error: "End date cannot be before start date" }); return;
   }
 
@@ -285,7 +286,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
   if (updateCoreData.scheduled_end_date != null) {
     let effectiveStartDate: string;
     if (updateCoreData.scheduled_date) {
-      effectiveStartDate = String(updateCoreData.scheduled_date).slice(0, 10);
+      effectiveStartDate = new Date(updateCoreData.scheduled_date as unknown as string).toISOString().slice(0, 10);
     } else {
       let existingQ = supabaseAdmin.from("jobs").select("scheduled_date").eq("id", params.data.id);
       if (req.tenantId) existingQ = existingQ.eq("tenant_id", req.tenantId);

@@ -15,6 +15,7 @@ type JobEditData = {
   status: string;
   priority: string;
   scheduled_date: string;
+  scheduled_end_date?: string;
   scheduled_time?: string;
   estimated_duration?: string;
   description?: string;
@@ -281,6 +282,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       status: job.status,
       priority: job.priority,
       scheduled_date: (job.scheduled_date as string)?.split('T')[0] || "",
+      scheduled_end_date: (job.scheduled_end_date as string)?.split('T')[0] || "",
       scheduled_time: (job.scheduled_time as string) || "",
       estimated_duration: job.estimated_duration != null ? String(job.estimated_duration) : "",
       description: (job.description as string) || "",
@@ -295,6 +297,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
           status: data.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up",
           priority: data.priority as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
+          scheduled_end_date: data.scheduled_end_date || null,
           scheduled_time: data.scheduled_time || undefined,
           estimated_duration: data.estimated_duration ? Number(data.estimated_duration) : undefined,
           description: data.description || undefined,
@@ -338,7 +341,11 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
             <Input type="date" {...register("scheduled_date")} required />
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>End Date <span className="text-muted-foreground">(multi-day)</span></Label>
+            <Input type="date" {...register("scheduled_end_date")} />
+          </div>
           <div className="space-y-2">
             <Label>Scheduled Time</Label>
             <Input type="time" {...register("scheduled_time")} />
