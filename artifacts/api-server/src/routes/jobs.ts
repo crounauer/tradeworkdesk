@@ -169,7 +169,12 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   };
 
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();
-  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (error) {
+    if (error.code === "23514") {
+      res.status(400).json({ error: "End date cannot be before start date" }); return;
+    }
+    res.status(500).json({ error: error.message }); return;
+  }
 
   res.status(201).json(data);
 });
