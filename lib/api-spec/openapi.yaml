@@ -2177,6 +2177,9 @@ components:
         scheduled_date:
           type: string
           format: date
+        scheduled_end_date:
+          type: ["string", "null"]
+          format: date
         scheduled_time:
           type: ["string", "null"]
         estimated_duration:
@@ -2264,6 +2267,9 @@ components:
           type: string
           enum: [low, medium, high, urgent]
         scheduled_date:
+          type: string
+          format: date
+        scheduled_end_date:
           type: string
           format: date
         scheduled_time:
@@ -2362,6 +2368,9 @@ components:
           enum: [low, medium, high, urgent]
         scheduled_date:
           type: string
+          format: date
+        scheduled_end_date:
+          type: ["string", "null"]
           format: date
         scheduled_time:
           type: ["string", "null"]

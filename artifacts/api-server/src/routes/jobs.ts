@@ -29,6 +29,7 @@ interface SupabaseJobRow {
   description: string | null;
   notes: string | null;
   scheduled_date: string;
+  scheduled_end_date: string | null;
   scheduled_time: string | null;
   estimated_duration: number | null;
   is_active: boolean;
@@ -134,6 +135,11 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
   const { job_type_id: rawJobTypeId, ...jobCoreData } = parsed.data;
+
+  if (jobCoreData.scheduled_end_date && jobCoreData.scheduled_end_date < String(jobCoreData.scheduled_date).slice(0, 10)) {
+    res.status(400).json({ error: "End date cannot be before start date" }); return;
+  }
+
   const jobTypeId = typeof rawJobTypeId === "number" && Number.isInteger(rawJobTypeId) && rawJobTypeId > 0
     ? rawJobTypeId : undefined;
 
@@ -275,6 +281,14 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
   const { job_type_id: rawUpdateJobTypeId, ...updateCoreData } = body.data as typeof body.data & { job_type_id?: number };
+
+  if (updateCoreData.scheduled_end_date != null && updateCoreData.scheduled_date) {
+    const startStr = String(updateCoreData.scheduled_date).slice(0, 10);
+    if (updateCoreData.scheduled_end_date < startStr) {
+      res.status(400).json({ error: "End date cannot be before start date" }); return;
+    }
+  }
+
   const updatePayload: Record<string, unknown> = { ...updateCoreData };
 
   if (rawUpdateJobTypeId != null && req.tenantId) {

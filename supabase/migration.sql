@@ -1509,3 +1509,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- no FK constraint here since job_types lives in a separate database)
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_type_id INTEGER;
 CREATE INDEX IF NOT EXISTS idx_jobs_job_type_id ON jobs(job_type_id);
+
+-- =============================================================================
+-- Section 16: Multi-day job support
+-- =============================================================================
+-- Adds scheduled_end_date column to the jobs table.
+-- When null (or equal to scheduled_date), the job is treated as a single-day job.
+-- When set to a later date, the job spans from scheduled_date to scheduled_end_date.
+ALTER TABLE jobs
+  ADD COLUMN IF NOT EXISTS scheduled_end_date DATE;
+
+ALTER TABLE jobs
+  ADD CONSTRAINT IF NOT EXISTS chk_job_end_date
+  CHECK (scheduled_end_date IS NULL OR scheduled_end_date >= scheduled_date);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_scheduled_end ON jobs(scheduled_end_date)
+  WHERE scheduled_end_date IS NOT NULL;

@@ -227,6 +227,8 @@ export interface Job {
   priority: JobPriority;
   scheduled_date: string;
   /** @nullable */
+  scheduled_end_date?: string | null;
+  /** @nullable */
   scheduled_time?: string | null;
   /** @nullable */
   estimated_duration?: number | null;
@@ -604,6 +606,7 @@ export interface CreateJobBody {
   job_type_id?: number;
   priority?: CreateJobBodyPriority;
   scheduled_date: string;
+  scheduled_end_date?: string;
   scheduled_time?: string;
   estimated_duration?: number;
   description?: string;
@@ -685,6 +688,8 @@ export interface UpdateJobBody {
   status?: UpdateJobBodyStatus;
   priority?: UpdateJobBodyPriority;
   scheduled_date?: string;
+  /** @nullable */
+  scheduled_end_date?: string | null;
   /** @nullable */
   scheduled_time?: string | null;
   /** @nullable */

@@ -28,6 +28,7 @@ type JobFormData = {
   job_type_id: string;
   priority: string;
   scheduled_date: string;
+  scheduled_end_date?: string;
   scheduled_time?: string;
   description?: string;
   assigned_technician_id?: string;
@@ -153,10 +154,14 @@ export default function Jobs() {
                   <div className="flex items-center gap-1.5 text-foreground font-medium bg-slate-50 px-3 py-1.5 rounded-lg w-full sm:w-auto justify-center">
                     <Calendar className="w-4 h-4 text-primary" />
                     {(() => {
-                      const dateOnly = String(job.scheduled_date).slice(0, 10);
+                      const startStr = String(job.scheduled_date).slice(0, 10);
+                      const endStr = job.scheduled_end_date ? String(job.scheduled_end_date).slice(0, 10) : null;
+                      if (endStr && endStr !== startStr) {
+                        return `${formatDate(startStr)} – ${formatDate(endStr)}`;
+                      }
                       return job.scheduled_time
-                        ? formatDateTime(`${dateOnly}T${job.scheduled_time}`)
-                        : formatDate(dateOnly);
+                        ? formatDateTime(`${startStr}T${job.scheduled_time}`)
+                        : formatDate(startStr);
                     })()}
                   </div>
                   {job.technician_name && (
@@ -199,6 +204,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           job_type_id: selectedType ? selectedType.id : undefined,
           priority: data.priority as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
+          scheduled_end_date: data.scheduled_end_date || undefined,
           scheduled_time: data.scheduled_time || undefined,
           description: data.description || undefined,
           assigned_technician_id: data.assigned_technician_id || undefined,
@@ -254,8 +260,12 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           </select>
         </div>
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Scheduled Date *</label>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Start Date *</label>
           <Input type="date" required {...register("scheduled_date")} />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">End Date <span className="text-xs text-muted-foreground">(multi-day jobs only)</span></label>
+          <Input type="date" {...register("scheduled_end_date")} />
         </div>
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Scheduled Time</label>

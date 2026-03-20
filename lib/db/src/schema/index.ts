@@ -98,6 +98,7 @@ export const jobs = pgTable("jobs", {
   description: text("description"),
   notes: text("notes"),
   scheduled_date: date("scheduled_date").notNull(),
+  scheduled_end_date: date("scheduled_end_date"),
   scheduled_time: time("scheduled_time"),
   estimated_duration: integer("estimated_duration"),
   is_active: boolean("is_active").notNull().default(true),
