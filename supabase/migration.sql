@@ -1519,9 +1519,11 @@ CREATE INDEX IF NOT EXISTS idx_jobs_job_type_id ON jobs(job_type_id);
 ALTER TABLE jobs
   ADD COLUMN IF NOT EXISTS scheduled_end_date DATE;
 
-ALTER TABLE jobs
-  ADD CONSTRAINT IF NOT EXISTS chk_job_end_date
-  CHECK (scheduled_end_date IS NULL OR scheduled_end_date >= scheduled_date);
+DO $$ BEGIN
+  ALTER TABLE jobs ADD CONSTRAINT chk_job_end_date
+    CHECK (scheduled_end_date IS NULL OR scheduled_end_date >= scheduled_date);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_jobs_scheduled_end ON jobs(scheduled_end_date)
   WHERE scheduled_end_date IS NOT NULL;

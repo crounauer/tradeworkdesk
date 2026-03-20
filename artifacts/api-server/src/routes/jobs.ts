@@ -282,9 +282,18 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
 
   const { job_type_id: rawUpdateJobTypeId, ...updateCoreData } = body.data as typeof body.data & { job_type_id?: number };
 
-  if (updateCoreData.scheduled_end_date != null && updateCoreData.scheduled_date) {
-    const startStr = String(updateCoreData.scheduled_date).slice(0, 10);
-    if (updateCoreData.scheduled_end_date < startStr) {
+  if (updateCoreData.scheduled_end_date != null) {
+    let effectiveStartDate: string;
+    if (updateCoreData.scheduled_date) {
+      effectiveStartDate = String(updateCoreData.scheduled_date).slice(0, 10);
+    } else {
+      let existingQ = supabaseAdmin.from("jobs").select("scheduled_date").eq("id", params.data.id);
+      if (req.tenantId) existingQ = existingQ.eq("tenant_id", req.tenantId);
+      const { data: existing, error: existingErr } = await existingQ.single();
+      if (existingErr || !existing) { res.status(404).json({ error: "Job not found" }); return; }
+      effectiveStartDate = String(existing.scheduled_date).slice(0, 10);
+    }
+    if (updateCoreData.scheduled_end_date < effectiveStartDate) {
       res.status(400).json({ error: "End date cannot be before start date" }); return;
     }
   }
@@ -303,7 +312,13 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
   let q = supabaseAdmin.from("jobs").update(updatePayload).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
-  if (error || !data) { res.status(404).json({ error: "Job not found" }); return; }
+  if (error) {
+    if (error.code === "23514") {
+      res.status(400).json({ error: "End date cannot be before start date" }); return;
+    }
+    res.status(!data ? 404 : 500).json({ error: error.message }); return;
+  }
+  if (!data) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(UpdateJobResponse.parse(data));
 });
 

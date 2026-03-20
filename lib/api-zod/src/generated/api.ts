@@ -930,7 +930,7 @@ export const CreateJobBody = zod.object({
   job_type_id: zod.number().int().positive().optional(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
   scheduled_date: zod.coerce.date(),
-  scheduled_end_date: zod.string().optional(),
+  scheduled_end_date: zod.string().nullish(),
   scheduled_time: zod.string().optional(),
   estimated_duration: zod.number().optional(),
   description: zod.string().optional(),

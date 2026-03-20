@@ -606,7 +606,8 @@ export interface CreateJobBody {
   job_type_id?: number;
   priority?: CreateJobBodyPriority;
   scheduled_date: string;
-  scheduled_end_date?: string;
+  /** @nullable */
+  scheduled_end_date?: string | null;
   scheduled_time?: string;
   estimated_duration?: number;
   description?: string;

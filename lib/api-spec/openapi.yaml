@@ -2270,7 +2270,7 @@ components:
           type: string
           format: date
         scheduled_end_date:
-          type: string
+          type: ["string", "null"]
           format: date
         scheduled_time:
           type: string
