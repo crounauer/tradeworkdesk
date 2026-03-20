@@ -1527,3 +1527,17 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_jobs_scheduled_end ON jobs(scheduled_end_date)
   WHERE scheduled_end_date IS NOT NULL;
+
+-- =============================================================================
+-- Section 17: Fix company_settings unique constraint for multi-tenant
+-- =============================================================================
+-- The original constraint was UNIQUE (singleton_id) which only allows one row
+-- globally. After tenant_id was added, it must be UNIQUE (singleton_id, tenant_id)
+-- so each tenant can maintain their own settings.
+ALTER TABLE company_settings DROP CONSTRAINT IF EXISTS company_settings_singleton;
+
+DO $$ BEGIN
+  ALTER TABLE company_settings
+    ADD CONSTRAINT company_settings_singleton UNIQUE (singleton_id, tenant_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
