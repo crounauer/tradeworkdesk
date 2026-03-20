@@ -274,7 +274,19 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  let q = supabaseAdmin.from("jobs").update(body.data).eq("id", params.data.id);
+  const { job_type_id: rawUpdateJobTypeId, ...updateCoreData } = body.data as typeof body.data & { job_type_id?: number };
+  const updatePayload: Record<string, unknown> = { ...updateCoreData };
+
+  if (rawUpdateJobTypeId != null && req.tenantId) {
+    const [jt] = await db.select().from(jobTypes).where(eq(jobTypes.id, rawUpdateJobTypeId));
+    if (!jt || jt.tenant_id !== req.tenantId || !jt.is_active) {
+      res.status(400).json({ error: "Invalid or inactive job type for this company" }); return;
+    }
+    updatePayload.job_type_id = jt.id;
+    updatePayload.job_type = deriveJobTypeEnum(jt.category, jt.slug);
+  }
+
+  let q = supabaseAdmin.from("jobs").update(updatePayload).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Job not found" }); return; }

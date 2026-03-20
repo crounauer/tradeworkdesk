@@ -25,7 +25,7 @@ router.get("/job-types", requireAuth, requireTenant, async (req: AuthenticatedRe
   res.json(all);
 });
 
-router.post("/job-types", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/job-types", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.status(400).json({ error: "Tenant required" }); return; }
 
   const { name, category, color, default_duration_minutes } = req.body as {
@@ -64,7 +64,7 @@ router.post("/job-types", requireAuth, requireTenant, requireRole("admin", "offi
   res.status(201).json(created);
 });
 
-router.patch("/job-types/:id", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/job-types/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.status(400).json({ error: "Tenant required" }); return; }
 
   const id = parseInt(req.params.id as string, 10);
@@ -82,8 +82,10 @@ router.patch("/job-types/:id", requireAuth, requireTenant, requireRole("admin", 
 
   const updates: Partial<typeof jobTypes.$inferInsert> = {};
   if (name !== undefined) {
-    updates.name = name.trim();
-    updates.slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const trimmed = name.trim();
+    if (!trimmed) { res.status(400).json({ error: "Name cannot be empty" }); return; }
+    updates.name = trimmed;
+    updates.slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   }
   if (category !== undefined && validCategories.includes(category)) updates.category = category;
   if (color !== undefined) updates.color = color;
