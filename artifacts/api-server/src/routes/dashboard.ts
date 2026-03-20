@@ -73,8 +73,11 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     return q;
   };
 
+  // Matches single-day jobs on today OR multi-day jobs whose range spans today
+  const activeToday = `and(scheduled_date.eq.${today},scheduled_end_date.is.null),and(scheduled_date.lte.${today},scheduled_end_date.gte.${today})`;
+
   const [todaysRes, upcomingRes, recentRes, followUpRes, overdueRes, statsRes] = await Promise.all([
-    buildJobQuery().eq("scheduled_date", today).neq("status", "cancelled").order("scheduled_time").limit(20),
+    buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
     buildJobQuery().eq("status", "completed").order("updated_at", { ascending: false }).limit(5),
     buildJobQuery().eq("status", "requires_follow_up").order("scheduled_date").limit(10),
@@ -85,7 +88,7 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
       .limit(10),
     Promise.all([
       buildCustomerCountQuery(),
-      buildJobQuery().eq("scheduled_date", today).neq("status", "cancelled"),
+      buildJobQuery().or(activeToday).neq("status", "cancelled"),
       buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today),
       buildCompletedCountQuery(),
     ]),
