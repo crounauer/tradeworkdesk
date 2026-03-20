@@ -1483,3 +1483,29 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ─── 14. Seed default plans ─────────────────────────────────────────────────────
 -- (Already inserted above in step 7)
+
+-- ─── 15. Custom Job Types ────────────────────────────────────────────────────────
+-- job_types rows are stored in the application (Drizzle/PostgreSQL) database,
+-- not in Supabase, because they are tenant-managed via the API server.
+-- The schema is reproduced here for documentation and parity.
+--
+-- Application DB schema (Drizzle/PostgreSQL):
+--   CREATE TABLE job_types (
+--     id SERIAL PRIMARY KEY,
+--     tenant_id TEXT NOT NULL,
+--     name TEXT NOT NULL,
+--     slug TEXT NOT NULL,
+--     category TEXT NOT NULL DEFAULT 'service',
+--     color VARCHAR(20) NOT NULL DEFAULT '#3B82F6',
+--     default_duration_minutes INTEGER,
+--     is_active BOOLEAN NOT NULL DEFAULT true,
+--     is_default BOOLEAN NOT NULL DEFAULT false,
+--     sort_order INTEGER NOT NULL DEFAULT 0,
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+--   );
+--   CREATE INDEX idx_job_types_tenant ON job_types(tenant_id);
+
+-- Add job_type_id to jobs (references job_types.id in the application DB;
+-- no FK constraint here since job_types lives in a separate database)
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_type_id INTEGER;
+CREATE INDEX IF NOT EXISTS idx_jobs_job_type_id ON jobs(job_type_id);

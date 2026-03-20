@@ -92,7 +92,7 @@ export const jobs = pgTable("jobs", {
   appliance_id: uuid("appliance_id").references(() => appliances.id),
   assigned_technician_id: uuid("assigned_technician_id").references(() => profiles.id),
   job_type: jobTypeEnum("job_type").notNull().default("service"),
-  job_type_id: integer("job_type_id"),
+  job_type_id: integer("job_type_id").references(() => jobTypes.id),
   status: jobStatusEnum("status").notNull().default("scheduled"),
   priority: priorityEnum("priority").notNull().default("medium"),
   description: text("description"),

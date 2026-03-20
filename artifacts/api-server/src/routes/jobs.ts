@@ -60,6 +60,23 @@ async function enrichJobsWithTypeNames(
   }));
 }
 
+const VALID_JOB_TYPE_ENUMS = new Set(["service", "breakdown", "installation", "inspection", "follow_up"]);
+
+function deriveJobTypeEnum(
+  category: string,
+  slug: string
+): "service" | "breakdown" | "installation" | "inspection" | "follow_up" {
+  if (VALID_JOB_TYPE_ENUMS.has(category)) {
+    return category as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
+  }
+  const s = slug.toLowerCase();
+  if (s.includes("follow")) return "follow_up";
+  if (s.includes("install")) return "installation";
+  if (s.includes("inspect")) return "inspection";
+  if (s.includes("breakdown") || s.includes("repair") || s.includes("emergency")) return "breakdown";
+  return "service";
+}
+
 const router: IRouter = Router();
 
 router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -121,7 +138,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     ? rawJobTypeId : undefined;
 
   let verifiedJobTypeId: number | undefined;
-  let jobTypeCategoryOverride: string | undefined;
+  let resolvedJobType: "service" | "breakdown" | "installation" | "inspection" | "follow_up" =
+    jobCoreData.job_type ?? "service";
 
   if (jobTypeId && req.tenantId) {
     const [jt] = await db
@@ -130,15 +148,17 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
       .where(eq(jobTypes.id, jobTypeId));
     if (jt && jt.tenant_id === req.tenantId && jt.is_active) {
       verifiedJobTypeId = jt.id;
-      jobTypeCategoryOverride = jt.category;
+      resolvedJobType = deriveJobTypeEnum(jt.category, jt.slug);
+    } else {
+      resolvedJobType = "service";
     }
   }
 
   const insertPayload = {
     ...jobCoreData,
+    job_type: resolvedJobType,
     tenant_id: req.tenantId,
     ...(verifiedJobTypeId ? { job_type_id: verifiedJobTypeId } : {}),
-    ...(jobTypeCategoryOverride ? { job_type: jobTypeCategoryOverride as "service" | "breakdown" | "installation" | "inspection" | "follow_up" } : {}),
   };
 
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();
