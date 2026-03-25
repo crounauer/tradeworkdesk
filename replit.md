@@ -118,7 +118,8 @@ Express 5 API server. All routes under `/api`.
 - Uses `supabaseAdmin` (service role) for all DB/storage operations
 - Auth middleware: `requireAuth` validates JWT + extracts tenantId, `requireRole` checks user role, `requireSuperAdmin` enforces super_admin role, `requireTenant` ensures tenant context
 - Resource-level authorization: technicians restricted to assigned jobs across all job-related endpoints (detail, service records, breakdown reports, files, signatures, notes)
-- File uploads: multer with memory storage, 10MB limit
+- File uploads: multer with memory storage, 10MB limit; server-side image compression via sharp (max 1920px, JPEG quality 80) with 300px thumbnail generation
+- Job comments: PATCH/DELETE note routes with author-only edit, author+admin delete
 - Centralized error handling middleware
 
 ### `artifacts/boiler-app` (`@workspace/boiler-app`)
@@ -155,7 +156,7 @@ Drizzle ORM schema definitions matching the Supabase database tables. Exports ty
 
 ## Database
 
-The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, commissioning_records, breakdown_reports, oil_tank_inspections, oil_tank_risk_assessments, combustion_analysis_records, burner_setup_records, fire_valve_test_records, oil_line_vacuum_tests, job_completion_reports, job_notes, file_attachments, signatures, lookup_options, plans, tenants, tenant_subscriptions, platform_announcements, platform_audit_log, job_parts. All data tables have `tenant_id NOT NULL`. Includes tenant-aware RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`. Platform migration in `supabase/patch-005-platform-admin.sql` (must be run in Supabase SQL Editor). Job time tracking patch in `supabase/patches/patch-011-job-time-parts.sql` (adds arrival_time/departure_time to jobs + job_parts table).
+The database schema is in `supabase/migration.sql`. It must be run manually in the Supabase SQL editor. Tables: profiles, customers, properties, appliances, jobs, service_records, commissioning_records, breakdown_reports, oil_tank_inspections, oil_tank_risk_assessments, combustion_analysis_records, burner_setup_records, fire_valve_test_records, oil_line_vacuum_tests, job_completion_reports, job_notes, file_attachments, signatures, lookup_options, plans, tenants, tenant_subscriptions, platform_announcements, platform_audit_log, job_parts. All data tables have `tenant_id NOT NULL`. Includes tenant-aware RLS policies and storage bucket setup. Sample data available in `supabase/seed.sql`. Platform migration in `supabase/patch-005-platform-admin.sql` (must be run in Supabase SQL Editor). Job time tracking patch in `supabase/patches/patch-011-job-time-parts.sql` (adds arrival_time/departure_time to jobs + job_parts table). Thumbnail support patch in `supabase/patches/patch-012-thumbnail-storage-path.sql` (adds thumbnail_storage_path to file_attachments).
 
 Schema enums: user_role (admin/office_staff/technician/super_admin), tenant_status (trial/active/suspended/cancelled), job_status, job_type (service/breakdown/installation/inspection/follow_up), priority_level, property_type, occupancy_type, fuel_type, boiler_type, system_type.
 

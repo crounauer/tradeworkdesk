@@ -1,20 +1,23 @@
-import { useGetJob, useUpdateJob, useListFiles, useDeleteFile } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
-  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon
+  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
+  MessageSquare, Send, Pencil
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 type JobEditData = {
   status: string;
@@ -125,6 +128,8 @@ export default function JobDetail() {
             <PartsUsedSection jobId={job.id} />
 
             <PhotosSection jobId={job.id} />
+
+            <CommentsSection jobId={job.id} />
 
             <h3 className="font-display font-bold text-xl mt-8 mb-4">Actions & Forms</h3>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -483,6 +488,42 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
   );
 }
 
+async function compressImageClient(file: File): Promise<File> {
+  if (file.size < 500 * 1024) return file;
+  if (!file.type.startsWith("image/")) return file;
+
+  return new Promise<File>((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX = 1920;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        const ratio = Math.min(MAX / width, MAX / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob || blob.size >= file.size) { resolve(file); return; }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.8,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.src = objectUrl;
+  });
+}
+
 function PhotosSection({ jobId }: { jobId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -501,9 +542,9 @@ function PhotosSection({ jobId }: { jobId: string }) {
     setUploading(true);
     try {
       for (let i = 0; i < fileList.length; i++) {
-        const file = fileList[i];
+        const compressed = await compressImageClient(fileList[i]);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", compressed);
         formData.append("entity_type", "job");
         formData.append("entity_id", jobId);
         await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
@@ -564,32 +605,170 @@ function PhotosSection({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {imageFiles.map((file) => (
-            <div key={file.id} className="relative group rounded-lg overflow-hidden border bg-slate-100 aspect-square">
-              {file.signed_url ? (
-                <a href={file.signed_url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-                  <img src={file.signed_url} alt={file.file_name} className="w-full h-full object-cover" />
-                </a>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <ImageIcon className="w-8 h-8 text-slate-400" />
+          {imageFiles.map((file) => {
+            const thumbUrl = (file as unknown as Record<string, unknown>).thumbnail_signed_url as string | null;
+            const displayUrl = thumbUrl || file.signed_url;
+            return (
+              <div key={file.id} className="relative group rounded-lg overflow-hidden border bg-slate-100 aspect-square">
+                {displayUrl ? (
+                  <a href={file.signed_url || "#"} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                    <img src={displayUrl} alt={file.file_name} className="w-full h-full object-cover" loading="lazy" />
+                  </a>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <ImageIcon className="w-8 h-8 text-slate-400" />
+                  </div>
+                )}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-1 right-1 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleDelete(file.id)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+                <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
+                  {file.file_name}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function CommentsSection({ jobId }: { jobId: string }) {
+  const { toast } = useToast();
+  const { profile } = useAuth();
+  const qc = useQueryClient();
+  const { data: notes, isLoading } = useListJobNotes(jobId);
+  const createMutation = useCreateJobNote();
+  const [newComment, setNewComment] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const sortedNotes = [...(notes || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  const handlePost = async () => {
+    if (!newComment.trim()) return;
+    try {
+      await createMutation.mutateAsync({ jobId, data: { content: newComment.trim() } });
+      setNewComment("");
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/notes`] });
+      toast({ title: "Posted", description: "Comment added" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to post";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleEdit = async (noteId: string) => {
+    if (!editContent.trim()) return;
+    setSavingEdit(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/notes/${noteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent.trim() }),
+      });
+      setEditingId(null);
+      setEditContent("");
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/notes`] });
+      toast({ title: "Updated", description: "Comment updated" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/notes/${noteId}`, { method: "DELETE" });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/notes`] });
+      toast({ title: "Deleted", description: "Comment removed" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const isOwn = (authorId: string) => profile?.id === authorId;
+  const canDelete = (authorId: string) => isOwn(authorId) || profile?.role === "admin";
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm">
+      <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-green-600">
+        <MessageSquare className="w-5 h-5" /> Comments
+      </h3>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading comments...</p>
+      ) : sortedNotes.length === 0 ? (
+        <p className="text-sm text-muted-foreground mb-4">No comments yet. Be the first to add one.</p>
+      ) : (
+        <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
+          {sortedNotes.map((note) => (
+            <div key={note.id} className="border rounded-lg p-3 bg-slate-50/50">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{note.author_name || "Unknown"}</span>
+                  <span className="text-xs text-muted-foreground">{timeAgo(note.created_at)}</span>
+                  {note.updated_at !== note.created_at && <span className="text-xs text-muted-foreground italic">(edited)</span>}
                 </div>
+                <div className="flex gap-1">
+                  {isOwn(note.author_id) && editingId !== note.id && (
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingId(note.id); setEditContent(note.content); }}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                  )}
+                  {canDelete(note.author_id) && (
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => handleDeleteNote(note.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {editingId === note.id ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="min-h-[60px] text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => handleEdit(note.id)} disabled={savingEdit || !editContent.trim()}>
+                      <Check className="w-3 h-3 mr-1" /> {savingEdit ? "Saving..." : "Save"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                      <X className="w-3 h-3 mr-1" /> Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">{note.content}</p>
               )}
-              <Button
-                variant="destructive"
-                size="sm"
-                className="absolute top-1 right-1 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDelete(file.id)}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-              <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
-                {file.file_name}
-              </p>
             </div>
           ))}
         </div>
       )}
+
+      <div className="flex gap-2">
+        <Textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder="Add a comment..."
+          className="min-h-[60px] text-sm flex-1"
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && newComment.trim()) { e.preventDefault(); handlePost(); } }}
+        />
+        <Button size="sm" className="self-end" onClick={handlePost} disabled={createMutation.isPending || !newComment.trim()}>
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
     </Card>
   );
 }
@@ -691,6 +870,20 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       </form>
     </Card>
   );
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.max(0, now - then);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(dateStr);
 }
 
 function toLocalDatetimeStr(d: Date): string {

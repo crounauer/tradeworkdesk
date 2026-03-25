@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
+import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
@@ -16,6 +17,7 @@ interface FileRow {
   file_type: string;
   file_size: number;
   storage_path: string;
+  thumbnail_storage_path: string | null;
   entity_type: string;
   entity_id: string;
   uploaded_by: string;
@@ -33,6 +35,42 @@ async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string,
     if (job.assigned_technician_id !== req.userId) return { allowed: false, error: "Not authorized" };
   }
   return { allowed: true };
+}
+
+const MAX_DIMENSION = 1920;
+const THUMB_DIMENSION = 300;
+const JPEG_QUALITY = 80;
+const THUMB_QUALITY = 70;
+
+async function compressImage(buffer: Buffer, mimetype: string): Promise<{ buffer: Buffer; mimetype: string }> {
+  try {
+    const image = sharp(buffer).rotate();
+    const metadata = await image.metadata();
+    const w = metadata.width || 0;
+    const h = metadata.height || 0;
+
+    let pipeline = image;
+    if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
+      pipeline = pipeline.resize(MAX_DIMENSION, MAX_DIMENSION, { fit: "inside", withoutEnlargement: true });
+    }
+
+    const compressed = await pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
+    return { buffer: compressed, mimetype: "image/jpeg" };
+  } catch {
+    return { buffer, mimetype };
+  }
+}
+
+async function generateThumbnail(buffer: Buffer): Promise<Buffer | null> {
+  try {
+    return await sharp(buffer)
+      .rotate()
+      .resize(THUMB_DIMENSION, THUMB_DIMENSION, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: THUMB_QUALITY, mozjpeg: true })
+      .toBuffer();
+  } catch {
+    return null;
+  }
 }
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -61,7 +99,14 @@ router.get("/files", requireAuth, requireTenant, async (req: AuthenticatedReques
     (data as FileRow[] || []).map(async (f) => {
       const bucket = f.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
       const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(f.storage_path, 3600);
-      return { ...f, signed_url: urlData?.signedUrl || null };
+
+      let thumbnail_signed_url: string | null = null;
+      if (f.thumbnail_storage_path) {
+        const { data: thumbUrl } = await supabaseAdmin.storage.from(bucket).createSignedUrl(f.thumbnail_storage_path, 3600);
+        thumbnail_signed_url = thumbUrl?.signedUrl || null;
+      }
+
+      return { ...f, signed_url: urlData?.signedUrl || null, thumbnail_signed_url };
     })
   );
 
@@ -84,35 +129,71 @@ router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), 
   const access = await verifyEntityAccess(req, entityType, entityId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const bucket = file.mimetype.startsWith("image/") ? "service-photos" : "service-documents";
-  const storagePath = `${entityType}/${entityId}/${Date.now()}-${file.originalname}`;
+  const isImage = file.mimetype.startsWith("image/");
+  let uploadBuffer = file.buffer;
+  let uploadMimetype = file.mimetype;
+  let thumbnailStoragePath: string | null = null;
+
+  if (isImage) {
+    const compressed = await compressImage(file.buffer, file.mimetype);
+    uploadBuffer = compressed.buffer;
+    uploadMimetype = compressed.mimetype;
+
+    const thumb = await generateThumbnail(uploadBuffer);
+    if (thumb) {
+      const thumbPath = `${entityType}/${entityId}/thumb_${Date.now()}-${file.originalname.replace(/\.[^.]+$/, ".jpg")}`;
+      const { error: thumbErr } = await supabaseAdmin.storage
+        .from("service-photos")
+        .upload(thumbPath, thumb, { contentType: "image/jpeg" });
+      if (!thumbErr) {
+        thumbnailStoragePath = thumbPath;
+      }
+    }
+  }
+
+  const bucket = isImage ? "service-photos" : "service-documents";
+  const ext = isImage ? ".jpg" : "";
+  const originalName = isImage ? file.originalname.replace(/\.[^.]+$/, ext) : file.originalname;
+  const storagePath = `${entityType}/${entityId}/${Date.now()}-${originalName}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)
-    .upload(storagePath, file.buffer, { contentType: file.mimetype });
+    .upload(storagePath, uploadBuffer, { contentType: uploadMimetype });
 
   if (uploadError) { res.status(500).json({ error: uploadError.message }); return; }
 
+  const insertPayload: Record<string, unknown> = {
+    file_name: file.originalname,
+    file_type: uploadMimetype,
+    file_size: uploadBuffer.length,
+    storage_path: storagePath,
+    entity_type: entityType,
+    entity_id: entityId,
+    uploaded_by: req.userId,
+    description,
+    tenant_id: req.tenantId,
+  };
+  if (thumbnailStoragePath) {
+    insertPayload.thumbnail_storage_path = thumbnailStoragePath;
+  }
+
   const { data, error } = await supabaseAdmin
     .from("file_attachments")
-    .insert({
-      file_name: file.originalname,
-      file_type: file.mimetype,
-      file_size: file.size,
-      storage_path: storagePath,
-      entity_type: entityType,
-      entity_id: entityId,
-      uploaded_by: req.userId,
-      description,
-      tenant_id: req.tenantId,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(storagePath, 3600);
-  res.status(201).json({ ...data, signed_url: urlData?.signedUrl || null });
+
+  let thumbnail_signed_url: string | null = null;
+  if (thumbnailStoragePath) {
+    const { data: thumbUrl } = await supabaseAdmin.storage.from("service-photos").createSignedUrl(thumbnailStoragePath, 3600);
+    thumbnail_signed_url = thumbUrl?.signedUrl || null;
+  }
+
+  res.status(201).json({ ...data, signed_url: urlData?.signedUrl || null, thumbnail_signed_url });
 });
 
 router.delete("/files/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -131,7 +212,11 @@ router.delete("/files/:id", requireAuth, requireTenant, async (req: Authenticate
   }
 
   const bucket = fileRow.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
-  await supabaseAdmin.storage.from(bucket).remove([fileRow.storage_path]);
+  const pathsToDelete = [fileRow.storage_path];
+  if (fileRow.thumbnail_storage_path) {
+    pathsToDelete.push(fileRow.thumbnail_storage_path);
+  }
+  await supabaseAdmin.storage.from(bucket).remove(pathsToDelete);
   await supabaseAdmin.from("file_attachments").delete().eq("id", params.data.id);
   res.sendStatus(204);
 });

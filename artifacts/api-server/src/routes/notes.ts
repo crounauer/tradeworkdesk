@@ -75,4 +75,65 @@ router.post("/jobs/:jobId/notes", requireAuth, requireTenant, async (req: Authen
   res.status(201).json(mapped);
 });
 
+router.patch("/jobs/:jobId/notes/:noteId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { jobId, noteId } = req.params;
+  if (!jobId || !noteId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  const { content } = req.body;
+  if (!content || typeof content !== "string" || !content.trim()) {
+    res.status(400).json({ error: "content is required" }); return;
+  }
+
+  let jobQ = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job } = await jobQ.single();
+  if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+    res.status(403).json({ error: "Not authorized" }); return;
+  }
+
+  let noteQ = supabaseAdmin.from("job_notes").select("author_id").eq("id", noteId).eq("job_id", jobId);
+  if (req.tenantId) noteQ = noteQ.eq("tenant_id", req.tenantId);
+  const { data: note } = await noteQ.single();
+  if (!note) { res.status(404).json({ error: "Note not found" }); return; }
+  if (note.author_id !== req.userId) {
+    res.status(403).json({ error: "You can only edit your own comments" }); return;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("job_notes")
+    .update({ content: content.trim() })
+    .eq("id", noteId)
+    .select("*, profiles(full_name)")
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  const noteData = data as NoteRow;
+  res.json({ ...noteData, author_name: noteData.profiles?.full_name || null, profiles: undefined });
+});
+
+router.delete("/jobs/:jobId/notes/:noteId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { jobId, noteId } = req.params;
+  if (!jobId || !noteId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  let jobQ = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job } = await jobQ.single();
+  if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+    res.status(403).json({ error: "Not authorized" }); return;
+  }
+
+  let noteQ = supabaseAdmin.from("job_notes").select("author_id").eq("id", noteId).eq("job_id", jobId);
+  if (req.tenantId) noteQ = noteQ.eq("tenant_id", req.tenantId);
+  const { data: note } = await noteQ.single();
+  if (!note) { res.status(404).json({ error: "Note not found" }); return; }
+  if (note.author_id !== req.userId && req.userRole !== "admin") {
+    res.status(403).json({ error: "Only the author or an admin can delete comments" }); return;
+  }
+
+  await supabaseAdmin.from("job_notes").delete().eq("id", noteId);
+  res.sendStatus(204);
+});
+
 export default router;
