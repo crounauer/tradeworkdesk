@@ -13,6 +13,7 @@ import {
   Gauge, Settings, ShieldCheck as ShieldCheckIcon, Pipette, ClipboardList, Wind,
   Plus, X
 } from "lucide-react";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 
 interface Appliance {
   id: string;
@@ -23,18 +24,18 @@ interface Appliance {
 }
 
 const FORM_TYPES = [
-  { key: "service-record", label: "Service Record", icon: FileText, color: "blue", description: "Complete full inspection" },
-  { key: "breakdown-report", label: "Breakdown Report", icon: Wrench, color: "rose", description: "Record faults and fixes" },
-  { key: "commissioning", label: "Commissioning Record", icon: ClipboardCheck, color: "emerald", description: "New installation commissioning" },
-  { key: "job-completion", label: "Job Completion Report", icon: ClipboardList, color: "emerald", description: "Summarise work & sign-off" },
-  { key: "oil-tank-inspection", label: "Oil Tank Inspection", icon: Droplets, color: "blue", description: "Tank details & condition" },
-  { key: "oil-tank-risk-assessment", label: "Oil Tank Risk Assessment", icon: ShieldAlert, color: "orange", description: "Hazards & risk ratings" },
-  { key: "combustion-analysis", label: "Combustion Analysis", icon: Gauge, color: "indigo", description: "Flue gas readings & efficiency" },
-  { key: "burner-setup", label: "Burner Setup Record", icon: Settings, color: "amber", description: "Nozzle, pressure & electrodes" },
-  { key: "fire-valve-test", label: "Fire Valve Test", icon: ShieldCheckIcon, color: "red", description: "Test result & remedial action" },
-  { key: "oil-line-vacuum-test", label: "Oil Line Vacuum Test", icon: Pipette, color: "teal", description: "Pipework & vacuum readings" },
-  { key: "heat-pump-service", label: "Heat Pump Service", icon: Wind, color: "cyan", description: "Refrigerant, temps & COP readings" },
-  { key: "heat-pump-commissioning", label: "Heat Pump Commissioning", icon: ClipboardCheck, color: "cyan", description: "MCS-style commissioning record" },
+  { key: "service-record", label: "Service Record", icon: FileText, color: "blue", description: "Complete full inspection", feature: null },
+  { key: "breakdown-report", label: "Breakdown Report", icon: Wrench, color: "rose", description: "Record faults and fixes", feature: null },
+  { key: "commissioning", label: "Commissioning Record", icon: ClipboardCheck, color: "emerald", description: "New installation commissioning", feature: "commissioning_forms" },
+  { key: "job-completion", label: "Job Completion Report", icon: ClipboardList, color: "emerald", description: "Summarise work & sign-off", feature: null },
+  { key: "oil-tank-inspection", label: "Oil Tank Inspection", icon: Droplets, color: "blue", description: "Tank details & condition", feature: "oil_tank_forms" },
+  { key: "oil-tank-risk-assessment", label: "Oil Tank Risk Assessment", icon: ShieldAlert, color: "orange", description: "Hazards & risk ratings", feature: "oil_tank_forms" },
+  { key: "combustion-analysis", label: "Combustion Analysis", icon: Gauge, color: "indigo", description: "Flue gas readings & efficiency", feature: "combustion_analysis" },
+  { key: "burner-setup", label: "Burner Setup Record", icon: Settings, color: "amber", description: "Nozzle, pressure & electrodes", feature: "oil_tank_forms" },
+  { key: "fire-valve-test", label: "Fire Valve Test", icon: ShieldCheckIcon, color: "red", description: "Test result & remedial action", feature: "oil_tank_forms" },
+  { key: "oil-line-vacuum-test", label: "Oil Line Vacuum Test", icon: Pipette, color: "teal", description: "Pipework & vacuum readings", feature: "oil_tank_forms" },
+  { key: "heat-pump-service", label: "Heat Pump Service", icon: Wind, color: "cyan", description: "Refrigerant, temps & COP readings", feature: "heat_pump_forms" },
+  { key: "heat-pump-commissioning", label: "Heat Pump Commissioning", icon: ClipboardCheck, color: "cyan", description: "MCS-style commissioning record", feature: "heat_pump_forms" },
 ];
 
 function InlineCreateCustomer({ onCreated, onCancel }: { onCreated: (id: string) => void; onCancel: () => void }) {
@@ -176,6 +177,11 @@ export default function QuickRecord() {
   const [showCreateProperty, setShowCreateProperty] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { hasFeature, isLoading: planLoading } = usePlanFeatures();
+
+  const availableFormTypes = FORM_TYPES.filter(
+    (f) => !f.feature || hasFeature(f.feature)
+  );
 
   const { data: customers } = useListCustomers();
   const { data: properties } = useListProperties();
@@ -416,7 +422,7 @@ export default function QuickRecord() {
           <div className="space-y-4">
             <h2 className="text-lg font-bold flex items-center gap-2"><FileText className="w-5 h-5" /> Select Form Type</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {FORM_TYPES.map((f) => (
+              {availableFormTypes.map((f) => (
                 <button
                   key={f.key}
                   onClick={() => setFormType(f.key)}

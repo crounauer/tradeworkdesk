@@ -37,6 +37,7 @@ export function usePlanFeatures() {
   const features = data?.features ?? {};
 
   const hasFeature = (key: string): boolean => {
+    if (isLoading) return true;
     return !!features[key];
   };
 
