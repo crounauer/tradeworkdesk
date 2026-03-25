@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import ScheduleCalendar from "@/components/schedule-calendar";
 
 interface JobType {
   id: number;
@@ -128,6 +129,8 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      <ScheduleCalendar />
 
       {showQuickBook && (
         <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} />
