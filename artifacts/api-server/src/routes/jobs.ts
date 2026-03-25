@@ -97,10 +97,17 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
     if (query.data.customer_id) q = q.eq("customer_id", query.data.customer_id);
     if (query.data.property_id) q = q.eq("property_id", query.data.property_id);
     if (query.data.date_from) {
-      const df = query.data.date_from;
+      const df = query.data.date_from instanceof Date
+        ? query.data.date_from.toISOString().slice(0, 10)
+        : String(query.data.date_from);
       q = q.or(`scheduled_date.gte.${df},scheduled_end_date.gte.${df}`);
     }
-    if (query.data.date_to) q = q.lte("scheduled_date", query.data.date_to);
+    if (query.data.date_to) {
+      const dt = query.data.date_to instanceof Date
+        ? query.data.date_to.toISOString().slice(0, 10)
+        : String(query.data.date_to);
+      q = q.lte("scheduled_date", dt);
+    }
   }
 
   if (req.userRole === "technician") {
