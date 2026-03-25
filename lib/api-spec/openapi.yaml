@@ -1498,6 +1498,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/JobNote"
 
+  /jobs/{jobId}/time-entries:
+    get:
+      operationId: listJobTimeEntries
+      tags: [time-entries]
+      summary: List time entries for a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Time entries list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobTimeEntry"
+    post:
+      operationId: createJobTimeEntry
+      tags: [time-entries]
+      summary: Create a job time entry
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobTimeEntryBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobTimeEntry"
+
+  /jobs/{jobId}/time-entries/{entryId}:
+    delete:
+      operationId: deleteJobTimeEntry
+      tags: [time-entries]
+      summary: Delete a job time entry
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
   /files:
     get:
       operationId: listFiles
@@ -3092,6 +3160,49 @@ components:
       properties:
         content:
           type: string
+
+    JobTimeEntry:
+      type: object
+      required: [id, job_id, tenant_id, arrival_time, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        arrival_time:
+          type: string
+          format: date-time
+        departure_time:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        created_by:
+          type: ["string", "null"]
+          format: uuid
+        created_by_name:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    CreateJobTimeEntryBody:
+      type: object
+      required: [arrival_time]
+      properties:
+        arrival_time:
+          type: string
+          format: date-time
+        departure_time:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
 
     FileAttachment:
       type: object

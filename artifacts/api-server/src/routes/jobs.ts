@@ -442,22 +442,24 @@ router.get("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: Aut
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
-  let q = supabaseAdmin.from("job_time_entries").select("*, created_by_profile:profiles!job_time_entries_created_by_fkey(full_name)").eq("job_id", jobId).order("arrival_time", { ascending: true });
+  let q = supabaseAdmin.from("job_time_entries").select("*").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q;
-  if (error) {
-    let q2 = supabaseAdmin.from("job_time_entries").select("*").eq("job_id", jobId).order("arrival_time", { ascending: true });
-    if (req.tenantId) q2 = q2.eq("tenant_id", req.tenantId);
-    const { data: data2, error: error2 } = await q2;
-    if (error2) { res.status(500).json({ error: error2.message }); return; }
-    const entries = (data2 || []).map((e: Record<string, unknown>) => ({ ...e, created_by_name: null }));
-    res.json(entries);
-    return;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const rawEntries = data || [];
+  const creatorIds = [...new Set(rawEntries.map((e: Record<string, unknown>) => e.created_by).filter(Boolean))] as string[];
+  let profileMap: Record<string, string> = {};
+  if (creatorIds.length > 0) {
+    const { data: profiles } = await supabaseAdmin.from("profiles").select("id, full_name").in("id", creatorIds);
+    if (profiles) {
+      profileMap = Object.fromEntries(profiles.map((p: Record<string, unknown>) => [p.id as string, p.full_name as string]));
+    }
   }
-  const entries = (data || []).map((e: Record<string, unknown>) => {
-    const profile = e.created_by_profile as Record<string, unknown> | null;
-    return { ...e, created_by_profile: undefined, created_by_name: profile?.full_name || null };
-  });
+  const entries = rawEntries.map((e: Record<string, unknown>) => ({
+    ...e,
+    created_by_name: (e.created_by ? profileMap[e.created_by as string] : null) || null,
+  }));
   res.json(entries);
 });
 

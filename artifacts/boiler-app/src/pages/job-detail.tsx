@@ -352,7 +352,7 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
   };
 
   const canDelete = (createdBy: string | null | undefined) =>
-    createdBy === profile?.id || profile?.role === "admin";
+    createdBy === profile?.id || profile?.role === "admin" || profile?.role === "super_admin";
 
   const formatEntryDate = (iso: string) => {
     const d = new Date(iso);
