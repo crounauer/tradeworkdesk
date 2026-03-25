@@ -401,6 +401,11 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentic
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
+  let jobCheck = supabaseAdmin.from("jobs").select("id").eq("id", jobId);
+  if (req.tenantId) jobCheck = jobCheck.eq("tenant_id", req.tenantId);
+  const { data: jobExists } = await jobCheck.single();
+  if (!jobExists) { res.status(404).json({ error: "Job not found" }); return; }
+
   const { data, error } = await supabaseAdmin.from("job_parts").insert({
     job_id: jobId,
     part_name: part_name.trim(),
