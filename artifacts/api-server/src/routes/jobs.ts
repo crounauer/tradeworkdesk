@@ -771,8 +771,19 @@ router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole
     res.status(400).json({ error: "Maximum 100 jobs per export" }); return;
   }
 
+  let statusQ = supabaseAdmin.from("jobs").select("id, status").in("id", job_ids);
+  if (req.tenantId) statusQ = statusQ.eq("tenant_id", req.tenantId);
+  const { data: jobRows } = await statusQ;
+  const exportableIds = (jobRows || [])
+    .filter((j: { status: string }) => j.status === "completed" || j.status === "invoiced")
+    .map((j: { id: string }) => j.id);
+
+  if (exportableIds.length === 0) {
+    res.status(400).json({ error: "No completed or invoiced jobs found in the selection" }); return;
+  }
+
   const invoices: InvoiceData[] = [];
-  for (const jid of job_ids) {
+  for (const jid of exportableIds) {
     const data = await buildInvoiceData(jid, req.tenantId);
     if (data) invoices.push(data);
   }
