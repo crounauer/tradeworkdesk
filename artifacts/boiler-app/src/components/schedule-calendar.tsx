@@ -443,6 +443,9 @@ export default function ScheduleCalendar() {
                         <span className="font-medium truncate">
                           {job.customer_name || "Unknown"}
                         </span>
+                        <span className="text-[10px] opacity-60 capitalize ml-auto shrink-0">
+                          {job.job_type?.replace("_", " ")}
+                        </span>
                       </div>
                       {job.scheduled_time && (
                         <span className="text-[10px] opacity-75 ml-2.5">
