@@ -1881,3 +1881,11 @@ export interface CreateJobTimeEntryBody {
   /** @nullable */
   notes?: string | null;
 }
+
+export interface UpdateJobTimeEntryBody {
+  arrival_time?: string;
+  /** @nullable */
+  departure_time?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}

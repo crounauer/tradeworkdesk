@@ -495,6 +495,41 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: Au
   res.status(201).json(data);
 });
 
+router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: jobId, entryId } = req.params;
+  if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let entryQ = supabaseAdmin.from("job_time_entries").select("created_by").eq("id", entryId).eq("job_id", jobId);
+  if (req.tenantId) entryQ = entryQ.eq("tenant_id", req.tenantId);
+  const { data: existing } = await entryQ.single();
+  if (!existing) { res.status(404).json({ error: "Time entry not found" }); return; }
+
+  const isAdmin = req.userRole === "admin" || req.userRole === "super_admin";
+  const isAuthor = (existing as Record<string, unknown>).created_by === req.userId;
+  if (!isAdmin && !isAuthor) {
+    res.status(403).json({ error: "You can only edit your own time entries" }); return;
+  }
+
+  const { arrival_time, departure_time, notes } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (arrival_time !== undefined) updates.arrival_time = arrival_time;
+  if (departure_time !== undefined) updates.departure_time = departure_time || null;
+  if (notes !== undefined) updates.notes = notes || null;
+
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+  let upQ = supabaseAdmin.from("job_time_entries").update(updates).eq("id", entryId).eq("job_id", jobId);
+  if (req.tenantId) upQ = upQ.eq("tenant_id", req.tenantId);
+  const { data, error } = await upQ.select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
 router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id: jobId, entryId } = req.params;
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }

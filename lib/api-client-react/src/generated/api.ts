@@ -93,6 +93,7 @@ import type {
   UpdateHeatPumpCommissioningRecordBody,
   JobTimeEntry,
   CreateJobTimeEntryBody,
+  UpdateJobTimeEntryBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -7721,4 +7722,82 @@ export const useDeleteJobTimeEntry = <
   TContext
 > => {
   return useMutation(getDeleteJobTimeEntryMutationOptions(options));
+};
+
+/**
+ * @summary Update a job time entry
+ */
+export const getUpdateJobTimeEntryUrl = (jobId: string, entryId: string) => {
+  return `/api/jobs/${jobId}/time-entries/${entryId}`;
+};
+
+export const updateJobTimeEntry = async (
+  jobId: string,
+  entryId: string,
+  updateJobTimeEntryBody: UpdateJobTimeEntryBody,
+  options?: RequestInit,
+): Promise<JobTimeEntry> => {
+  return customFetch<JobTimeEntry>(getUpdateJobTimeEntryUrl(jobId, entryId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateJobTimeEntryBody),
+  });
+};
+
+export const getUpdateJobTimeEntryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateJobTimeEntry>>,
+    TError,
+    { jobId: string; entryId: string; data: BodyType<UpdateJobTimeEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateJobTimeEntry>>,
+  TError,
+  { jobId: string; entryId: string; data: BodyType<UpdateJobTimeEntryBody> },
+  TContext
+> => {
+  const mutationKey = ["updateJobTimeEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateJobTimeEntry>>,
+    { jobId: string; entryId: string; data: BodyType<UpdateJobTimeEntryBody> }
+  > = (props) => {
+    const { jobId, entryId, data } = props ?? {};
+    return updateJobTimeEntry(jobId, entryId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useUpdateJobTimeEntry = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateJobTimeEntry>>,
+    TError,
+    { jobId: string; entryId: string; data: BodyType<UpdateJobTimeEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateJobTimeEntry>>,
+  TError,
+  { jobId: string; entryId: string; data: BodyType<UpdateJobTimeEntryBody> },
+  TContext
+> => {
+  return useMutation(getUpdateJobTimeEntryMutationOptions(options));
 };

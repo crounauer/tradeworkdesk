@@ -3426,3 +3426,9 @@ export const CreateJobTimeEntryBody = zod.object({
   departure_time: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
+
+export const UpdateJobTimeEntryBody = zod.object({
+  arrival_time: zod.string().optional(),
+  departure_time: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});

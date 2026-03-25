@@ -1,4 +1,4 @@
-import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -304,10 +304,15 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
   const { data: entries, isLoading } = useListJobTimeEntries(jobId);
   const createMutation = useCreateJobTimeEntry();
   const deleteMutation = useDeleteJobTimeEntry();
+  const updateMutation = useUpdateJobTimeEntry();
   const [showAdd, setShowAdd] = useState(false);
   const [arrival, setArrival] = useState("");
   const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editArrival, setEditArrival] = useState("");
+  const [editDeparture, setEditDeparture] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
@@ -351,7 +356,40 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
     }
   };
 
-  const canDelete = (createdBy: string | null | undefined) =>
+  const startEdit = (entry: { id: string; arrival_time: string; departure_time?: string | null; notes?: string | null }) => {
+    setEditingId(entry.id);
+    setEditArrival(toLocalDatetimeStr(new Date(entry.arrival_time)));
+    setEditDeparture(entry.departure_time ? toLocalDatetimeStr(new Date(entry.departure_time)) : "");
+    setEditNotes(entry.notes || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditArrival(""); setEditDeparture(""); setEditNotes("");
+  };
+
+  const handleUpdate = async () => {
+    if (!editingId || !editArrival) return;
+    try {
+      await updateMutation.mutateAsync({
+        jobId,
+        entryId: editingId,
+        data: {
+          arrival_time: new Date(editArrival).toISOString(),
+          departure_time: editDeparture ? new Date(editDeparture).toISOString() : null,
+          notes: editNotes || null,
+        },
+      });
+      cancelEdit();
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
+      toast({ title: "Updated", description: "Time entry updated" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const canModify = (createdBy: string | null | undefined) =>
     createdBy === profile?.id || profile?.role === "admin" || profile?.role === "super_admin";
 
   const formatEntryDate = (iso: string) => {
@@ -411,29 +449,64 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
         <>
           <div className="space-y-2">
             {sortedEntries.map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between border rounded-lg px-3 py-2 bg-white">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{formatEntryDate(entry.arrival_time)}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatEntryTime(entry.arrival_time)}
-                      {entry.departure_time ? ` - ${formatEntryTime(entry.departure_time)}` : " - ongoing"}
-                    </span>
-                    {entry.departure_time && (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
-                        {calcDuration(entry.arrival_time, entry.departure_time)}
-                      </span>
-                    )}
+              editingId === entry.id ? (
+                <div key={entry.id} className="border rounded-lg p-3 bg-blue-50/50 space-y-3">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Arrival *</Label>
+                      <Input type="datetime-local" value={editArrival} onChange={(e) => setEditArrival(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Departure</Label>
+                      <Input type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} />
+                    </div>
                   </div>
-                  {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
-                  {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Notes</Label>
+                    <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+                  </div>
+                  {editArrival && editDeparture && (
+                    <p className="text-xs text-muted-foreground">Duration: {calcDuration(editArrival, editDeparture)}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleUpdate} disabled={updateMutation.isPending || !editArrival}>
+                      <Check className="w-4 h-4 mr-1" /> {updateMutation.isPending ? "Saving..." : "Save"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={cancelEdit}>
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-                {canDelete(entry.created_by) && (
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive ml-2 flex-shrink-0" onClick={() => handleDelete(entry.id)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <div key={entry.id} className="flex items-center justify-between border rounded-lg px-3 py-2 bg-white">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{formatEntryDate(entry.arrival_time)}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {formatEntryTime(entry.arrival_time)}
+                        {entry.departure_time ? ` - ${formatEntryTime(entry.departure_time)}` : " - ongoing"}
+                      </span>
+                      {entry.departure_time && (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                          {calcDuration(entry.arrival_time, entry.departure_time)}
+                        </span>
+                      )}
+                    </div>
+                    {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
+                    {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
+                  </div>
+                  {canModify(entry.created_by) && (
+                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => startEdit(entry)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(entry.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )
             ))}
           </div>
           <div className="mt-3 pt-3 border-t flex justify-between items-center">
