@@ -247,6 +247,7 @@ export default function ScheduleCalendar() {
       e.preventDefault();
       setDragOverDate(null);
       setDragJobId(null);
+      if (!canDrag) return;
 
       const jobId = e.dataTransfer.getData("text/plain");
       if (!jobId) return;
@@ -292,7 +293,7 @@ export default function ScheduleCalendar() {
         });
       }
     },
-    [calendarJobs, updateJob, qc, toast]
+    [canDrag, calendarJobs, updateJob, qc, toast]
   );
 
   const headerTitle =
