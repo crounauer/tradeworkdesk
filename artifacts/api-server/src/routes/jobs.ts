@@ -619,11 +619,11 @@ async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
-  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time").eq("job_id", jobId);
+  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate").eq("job_id", jobId);
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
 
-  const hourlyRate = Number(settings?.default_hourly_rate) || 0;
+  const defaultHourlyRate = Number(settings?.default_hourly_rate) || 0;
   const callOutFee = Number(settings?.call_out_fee) || 0;
   const rawVat = Number(settings?.default_vat_rate);
   const vatRate = Number.isFinite(rawVat) ? rawVat : 20;
@@ -637,15 +637,22 @@ async function buildInvoiceData(
   const companyAddressParts = [settings?.address_line1, settings?.address_line2, settings?.city, settings?.county, settings?.postcode].filter(Boolean);
 
   let totalLabourHours = 0;
+  let totalLabourCost = 0;
   if (timeEntries) {
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null }[]) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[]) {
       if (e.arrival_time && e.departure_time) {
         const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
-        if (diffMs > 0) totalLabourHours += diffMs / (1000 * 60 * 60);
+        if (diffMs > 0) {
+          const hours = diffMs / (1000 * 60 * 60);
+          totalLabourHours += hours;
+          const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
+          if (rate > 0) totalLabourCost += hours * rate;
+        }
       }
     }
   }
   totalLabourHours = Math.round(totalLabourHours * 100) / 100;
+  totalLabourCost = Math.round(totalLabourCost * 100) / 100;
 
   const lines: InvoiceLineItem[] = [];
 
@@ -661,12 +668,13 @@ async function buildInvoiceData(
     }
   }
 
-  if (totalLabourHours > 0 && hourlyRate > 0) {
+  if (totalLabourCost > 0) {
+    const effectiveRate = totalLabourHours > 0 ? Math.round(totalLabourCost / totalLabourHours * 100) / 100 : 0;
     lines.push({
       description: "Labour",
       quantity: totalLabourHours,
-      unit_price: hourlyRate,
-      total: Math.round(totalLabourHours * hourlyRate * 100) / 100,
+      unit_price: effectiveRate,
+      total: totalLabourCost,
     });
   }
 
