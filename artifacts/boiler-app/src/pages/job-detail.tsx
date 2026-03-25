@@ -606,8 +606,7 @@ function PhotosSection({ jobId }: { jobId: string }) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {imageFiles.map((file) => {
-            const thumbUrl = (file as unknown as Record<string, unknown>).thumbnail_signed_url as string | null;
-            const displayUrl = thumbUrl || file.signed_url;
+            const displayUrl = file.thumbnail_signed_url || file.signed_url;
             return (
               <div key={file.id} className="relative group rounded-lg overflow-hidden border bg-slate-100 aspect-square">
                 {displayUrl ? (

@@ -533,6 +533,8 @@ export interface FileAttachment {
   /** @nullable */
   file_size?: number | null;
   storage_path: string;
+  /** @nullable */
+  thumbnail_storage_path?: string | null;
   entity_type: string;
   entity_id: string;
   /** @nullable */
@@ -542,6 +544,8 @@ export interface FileAttachment {
   created_at: string;
   /** @nullable */
   signed_url?: string | null;
+  /** @nullable */
+  thumbnail_signed_url?: string | null;
 }
 
 export type SignatureSignerType =

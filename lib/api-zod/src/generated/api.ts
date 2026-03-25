@@ -2924,12 +2924,14 @@ export const ListFilesResponseItem = zod.object({
   file_type: zod.string(),
   file_size: zod.number().nullish(),
   storage_path: zod.string(),
+  thumbnail_storage_path: zod.string().nullish(),
   entity_type: zod.string(),
   entity_id: zod.string().uuid(),
   uploaded_by: zod.string().uuid().nullish(),
   description: zod.string().nullish(),
   created_at: zod.coerce.date(),
   signed_url: zod.string().nullish(),
+  thumbnail_signed_url: zod.string().nullish(),
 });
 export const ListFilesResponse = zod.array(ListFilesResponseItem);
 
