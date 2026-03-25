@@ -861,22 +861,15 @@ router.post("/quick-record", requireAuth, requireTenant, async (req: Authenticat
   }
 
   if (formConfig.feature) {
-    const { data: tenantRow } = await supabaseAdmin
-      .from("tenant_subscriptions")
-      .select("plan_id")
-      .eq("tenant_id", req.tenantId)
-      .eq("status", "active")
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("plan_id, plans(features)")
+      .eq("id", req.tenantId)
       .single();
-    if (tenantRow?.plan_id) {
-      const { data: plan } = await supabaseAdmin
-        .from("plans")
-        .select("features")
-        .eq("id", tenantRow.plan_id)
-        .single();
-      if (plan?.features && !(plan.features as Record<string, boolean>)[formConfig.feature]) {
-        res.status(402).json({ error: `Your plan does not include access to this form type. Please upgrade.` });
-        return;
-      }
+    const features = (tenant?.plans as { features?: Record<string, unknown> } | null)?.features ?? {};
+    if (!(features as Record<string, boolean>)[formConfig.feature]) {
+      res.status(402).json({ error: `Your plan does not include access to this form type. Please upgrade.` });
+      return;
     }
   }
 
