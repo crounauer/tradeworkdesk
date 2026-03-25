@@ -308,7 +308,7 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
   }));
 });
 
-router.patch("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateJobBody.safeParse(req.body);
@@ -839,24 +839,45 @@ router.post("/quick-record", requireAuth, requireTenant, async (req: Authenticat
     return;
   }
 
-  const validFormTypes: Record<string, string> = {
-    "service-record": "service",
-    "breakdown-report": "breakdown",
-    "commissioning": "installation",
-    "oil-tank-inspection": "inspection",
-    "oil-tank-risk-assessment": "inspection",
-    "combustion-analysis": "service",
-    "burner-setup": "service",
-    "fire-valve-test": "inspection",
-    "oil-line-vacuum-test": "inspection",
-    "job-completion": "service",
-    "heat-pump-service": "service",
-    "heat-pump-commissioning": "installation",
+  const validFormTypes: Record<string, { jobType: string; feature: string | null }> = {
+    "service-record": { jobType: "service", feature: null },
+    "breakdown-report": { jobType: "breakdown", feature: null },
+    "commissioning": { jobType: "installation", feature: "commissioning_forms" },
+    "oil-tank-inspection": { jobType: "inspection", feature: "oil_tank_forms" },
+    "oil-tank-risk-assessment": { jobType: "inspection", feature: "oil_tank_forms" },
+    "combustion-analysis": { jobType: "service", feature: "combustion_analysis" },
+    "burner-setup": { jobType: "service", feature: "oil_tank_forms" },
+    "fire-valve-test": { jobType: "inspection", feature: "oil_tank_forms" },
+    "oil-line-vacuum-test": { jobType: "inspection", feature: "oil_tank_forms" },
+    "job-completion": { jobType: "service", feature: null },
+    "heat-pump-service": { jobType: "service", feature: "heat_pump_forms" },
+    "heat-pump-commissioning": { jobType: "installation", feature: "heat_pump_forms" },
   };
 
-  if (!validFormTypes[form_type]) {
+  const formConfig = validFormTypes[form_type];
+  if (!formConfig) {
     res.status(400).json({ error: `Invalid form_type: ${form_type}` });
     return;
+  }
+
+  if (formConfig.feature) {
+    const { data: tenantRow } = await supabaseAdmin
+      .from("tenant_subscriptions")
+      .select("plan_id")
+      .eq("tenant_id", req.tenantId)
+      .eq("status", "active")
+      .single();
+    if (tenantRow?.plan_id) {
+      const { data: plan } = await supabaseAdmin
+        .from("plans")
+        .select("features")
+        .eq("id", tenantRow.plan_id)
+        .single();
+      if (plan?.features && !(plan.features as Record<string, boolean>)[formConfig.feature]) {
+        res.status(402).json({ error: `Your plan does not include access to this form type. Please upgrade.` });
+        return;
+      }
+    }
   }
 
   const fkChecks: Array<{ table: string; id: string }> = [
@@ -889,7 +910,7 @@ router.post("/quick-record", requireAuth, requireTenant, async (req: Authenticat
   const jobPayload: Record<string, unknown> = {
     customer_id,
     property_id,
-    job_type: validFormTypes[form_type],
+    job_type: formConfig.jobType,
     priority: "medium",
     status: "in_progress",
     scheduled_date: today,

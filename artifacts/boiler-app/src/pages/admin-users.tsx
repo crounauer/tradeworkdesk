@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Users, ShieldCheck, Wrench, UserCog } from "lucide-react";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 type Profile = {
   id: string;
@@ -34,7 +36,7 @@ const ROLE_ICON: Record<string, React.ReactNode> = {
   technician: <Wrench className="w-3.5 h-3.5" />,
 };
 
-export default function AdminUsers() {
+function AdminUsersContent() {
   const { toast } = useToast();
   const { profile: me } = useAuth();
   const queryClient = useQueryClient();
@@ -182,4 +184,14 @@ export default function AdminUsers() {
       </div>
     </div>
   );
+}
+
+export default function AdminUsers() {
+  const { hasFeature } = usePlanFeatures();
+
+  if (!hasFeature("team_management")) {
+    return <UpgradePrompt feature="team_management" />;
+  }
+
+  return <AdminUsersContent />;
 }

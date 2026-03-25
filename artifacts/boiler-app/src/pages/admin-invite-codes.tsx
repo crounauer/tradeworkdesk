@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, Plus, X, CheckCircle2, Clock, Ban, Link } from "lucide-react";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 type InviteCode = {
   id: string;
@@ -47,7 +49,7 @@ function getRegisterUrl(code: string) {
   return `${base}/register?code=${code}`;
 }
 
-export default function AdminInviteCodes() {
+function AdminInviteCodesContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -253,4 +255,14 @@ export default function AdminInviteCodes() {
       )}
     </div>
   );
+}
+
+export default function AdminInviteCodes() {
+  const { hasFeature } = usePlanFeatures();
+
+  if (!hasFeature("team_management")) {
+    return <UpgradePrompt feature="team_management" />;
+  }
+
+  return <AdminInviteCodesContent />;
 }
