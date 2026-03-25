@@ -43,7 +43,7 @@ interface JobPart {
   part_name: string;
   quantity: number;
   serial_number: string | null;
-  tenant_id: string | null;
+  tenant_id: string;
   created_at: string;
 }
 

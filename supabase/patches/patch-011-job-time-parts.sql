@@ -12,36 +12,49 @@ CREATE TABLE IF NOT EXISTS job_parts (
   part_name TEXT NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,
   serial_number TEXT,
-  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_job_parts_job ON job_parts(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_parts_tenant ON job_parts(tenant_id);
 
--- 3. RLS policies for job_parts
+-- 3. RLS policies for job_parts (tenant-scoped)
 ALTER TABLE job_parts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "job_parts_select" ON job_parts FOR SELECT TO authenticated
   USING (
-    get_user_role(auth.uid()) IN ('admin', 'office_staff')
-    OR EXISTS (
-      SELECT 1 FROM jobs WHERE jobs.id = job_parts.job_id AND jobs.assigned_technician_id = auth.uid()
+    tenant_id = get_user_tenant_id(auth.uid())
+    AND (
+      get_user_role(auth.uid()) IN ('admin', 'office_staff', 'super_admin')
+      OR EXISTS (
+        SELECT 1 FROM jobs WHERE jobs.id = job_parts.job_id AND jobs.assigned_technician_id = auth.uid()
+      )
     )
   );
 
 CREATE POLICY "job_parts_insert" ON job_parts FOR INSERT TO authenticated
   WITH CHECK (
-    get_user_role(auth.uid()) IN ('admin', 'office_staff')
-    OR EXISTS (
-      SELECT 1 FROM jobs WHERE jobs.id = job_parts.job_id AND jobs.assigned_technician_id = auth.uid()
+    tenant_id = get_user_tenant_id(auth.uid())
+    AND (
+      get_user_role(auth.uid()) IN ('admin', 'office_staff', 'super_admin')
+      OR EXISTS (
+        SELECT 1 FROM jobs WHERE jobs.id = job_parts.job_id AND jobs.assigned_technician_id = auth.uid()
+      )
     )
   );
 
 CREATE POLICY "job_parts_delete" ON job_parts FOR DELETE TO authenticated
   USING (
-    get_user_role(auth.uid()) IN ('admin', 'office_staff')
-    OR EXISTS (
-      SELECT 1 FROM jobs WHERE jobs.id = job_parts.job_id AND jobs.assigned_technician_id = auth.uid()
+    tenant_id = get_user_tenant_id(auth.uid())
+    AND (
+      get_user_role(auth.uid()) IN ('admin', 'office_staff', 'super_admin')
+      OR EXISTS (
+        SELECT 1 FROM jobs WHERE jobs.id = job_parts.job_id AND jobs.assigned_technician_id = auth.uid()
+      )
     )
   );
+
+CREATE POLICY "job_parts_super_admin" ON job_parts FOR ALL TO authenticated
+  USING (get_user_role(auth.uid()) = 'super_admin')
+  WITH CHECK (get_user_role(auth.uid()) = 'super_admin');
