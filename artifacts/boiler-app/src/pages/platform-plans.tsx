@@ -15,7 +15,7 @@ interface PlanFeatures {
   per_user_display: string;
   unlimited_jobs: boolean;
   scheduling: boolean;
-  reports: string;
+  reports: boolean;
   photo_storage: string;
   compliance_forms: boolean;
   api_access: boolean;
@@ -23,6 +23,13 @@ interface PlanFeatures {
   analytics: string;
   priority_support: boolean;
   social_media: boolean;
+  job_management: boolean;
+  invoicing: boolean;
+  team_management: boolean;
+  heat_pump_forms: boolean;
+  oil_tank_forms: boolean;
+  commissioning_forms: boolean;
+  combustion_analysis: boolean;
 }
 
 interface Plan {
@@ -49,7 +56,7 @@ const DEFAULT_FEATURES: PlanFeatures = {
   per_user_display: "Included",
   unlimited_jobs: true,
   scheduling: true,
-  reports: "Basic",
+  reports: true,
   photo_storage: "5 GB",
   compliance_forms: true,
   api_access: false,
@@ -57,23 +64,49 @@ const DEFAULT_FEATURES: PlanFeatures = {
   analytics: "",
   priority_support: false,
   social_media: false,
+  job_management: true,
+  invoicing: true,
+  team_management: true,
+  heat_pump_forms: true,
+  oil_tank_forms: true,
+  commissioning_forms: true,
+  combustion_analysis: true,
 };
 
-const BOOL_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
-  { key: "unlimited_jobs", label: "Unlimited Jobs" },
-  { key: "scheduling", label: "Scheduling" },
+const CORE_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
+  { key: "job_management", label: "Job Management" },
+  { key: "scheduling", label: "Scheduling & Calendar" },
+  { key: "invoicing", label: "Invoicing & Export" },
+  { key: "reports", label: "Reports Dashboard" },
+  { key: "team_management", label: "Team Management" },
+  { key: "social_media", label: "Social Media Scheduling" },
+];
+
+const FORM_TYPE_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
+  { key: "heat_pump_forms", label: "Heat Pump Forms" },
+  { key: "oil_tank_forms", label: "Oil Tank Forms" },
+  { key: "commissioning_forms", label: "Commissioning Forms" },
+  { key: "combustion_analysis", label: "Combustion Analysis" },
   { key: "compliance_forms", label: "Compliance Forms" },
+];
+
+const ADVANCED_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
+  { key: "unlimited_jobs", label: "Unlimited Jobs" },
   { key: "api_access", label: "API Access" },
   { key: "custom_branding", label: "Custom Branding" },
   { key: "priority_support", label: "Priority Support" },
-  { key: "social_media", label: "Social Media Scheduling" },
+];
+
+const BOOL_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
+  ...CORE_FEATURES,
+  ...FORM_TYPE_FEATURES,
+  ...ADVANCED_FEATURES,
 ];
 
 const TEXT_FEATURES: { key: keyof PlanFeatures; label: string; placeholder: string }[] = [
   { key: "forms", label: "Forms", placeholder: "e.g. Unlimited, 50/month" },
   { key: "signatures", label: "Signatures", placeholder: "e.g. Unlimited, 20/month" },
   { key: "per_user_display", label: "Per User Display", placeholder: "e.g. Included, £12 / user" },
-  { key: "reports", label: "Reports", placeholder: "e.g. Basic, Full, Full + Export" },
   { key: "photo_storage", label: "Photo Storage", placeholder: "e.g. 5 GB, 25 GB, Unlimited" },
   { key: "analytics", label: "Analytics", placeholder: "e.g. Basic, Advanced, or leave blank" },
 ];
@@ -316,20 +349,42 @@ export default function PlatformPlans() {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold">Feature Toggles</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {BOOL_FEATURES.map(({ key, label }) => (
-              <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!form.features[key]}
-                  onChange={() => setFeature(key, !form.features[key])}
-                  className="rounded border-gray-300"
-                />
-                {label}
-              </label>
-            ))}
+        <div className="space-y-3">
+          <Label className="text-xs font-semibold">Feature Gating</Label>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Core Features</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CORE_FEATURES.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={!!form.features[key]} onChange={() => setFeature(key, !form.features[key])} className="rounded border-gray-300" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Form Types</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {FORM_TYPE_FEATURES.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={!!form.features[key]} onChange={() => setFeature(key, !form.features[key])} className="rounded border-gray-300" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Advanced</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {ADVANCED_FEATURES.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={!!form.features[key]} onChange={() => setFeature(key, !form.features[key])} className="rounded border-gray-300" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

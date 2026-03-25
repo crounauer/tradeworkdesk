@@ -446,6 +446,41 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
   res.json(data);
 });
 
+router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (req.userRole === "super_admin") {
+    res.json({ plan_id: null, plan_name: "Super Admin", features: {
+      job_management: true, invoicing: true, reports: true, team_management: true,
+      social_media: true, heat_pump_forms: true, oil_tank_forms: true,
+      commissioning_forms: true, combustion_analysis: true, api_access: true,
+      scheduling: true, custom_branding: true, priority_support: true,
+    }});
+    return;
+  }
+
+  if (!req.tenantId) {
+    res.json({ plan_id: null, plan_name: null, features: {} });
+    return;
+  }
+
+  const { data: tenant, error } = await supabaseAdmin
+    .from("tenants")
+    .select("plan_id, plans(name, features)")
+    .eq("id", req.tenantId)
+    .single();
+
+  if (error || !tenant) {
+    res.json({ plan_id: null, plan_name: null, features: {} });
+    return;
+  }
+
+  const plan = tenant.plans as { name?: string; features?: Record<string, boolean> } | null;
+  res.json({
+    plan_id: tenant.plan_id,
+    plan_name: plan?.name ?? null,
+    features: plan?.features ?? {},
+  });
+});
+
 router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.json(null); return; }
 

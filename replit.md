@@ -166,6 +166,17 @@ Invoice export supports CSV (universal), QuickBooks IIF, Xero CSV, and Sage CSV 
 - **Backend**: `artifacts/api-server/src/lib/invoice-export.ts` — format generators with CSV formula injection protection. Routes: `GET /api/jobs/:id/invoice-summary`, `GET /api/jobs/:id/invoice-export?format=csv|quickbooks|xero|sage`, `POST /api/jobs/bulk-invoice-export`.
 - **Frontend**: PricingSummarySection on job detail (admin/office_staff only) with expandable line items and export buttons. Bulk export on jobs list with checkbox selection for completed/invoiced jobs. Company Settings pricing card for configuring hourly rate, call-out fee, VAT rate, payment terms, and currency.
 
+## Plan Feature Gating
+
+Tiered plan feature gating system. Plans have a `features` JSONB column with boolean flags controlling access. Feature keys: `job_management`, `invoicing`, `reports`, `team_management`, `social_media`, `heat_pump_forms`, `oil_tank_forms`, `commissioning_forms`, `combustion_analysis`, `api_access`, `scheduling`, `custom_branding`, `priority_support`.
+
+- **Backend**: `requirePlanFeature(featureName)` middleware in `auth.ts` gates routes. Applied to: jobs list/create (job_management), invoice export (invoicing), admin users/invite-codes (team_management).
+- **Frontend**: `usePlanFeatures()` hook in `use-plan-features.ts` fetches `/api/me/plan-features`. `UpgradePrompt` component shows friendly upgrade page. Layout sidebar conditionally shows/hides nav items based on features. Jobs and Reports pages check features and show UpgradePrompt.
+- **Quick Record**: `POST /api/quick-record` endpoint creates a lightweight job + returns form URL. Frontend multi-step flow at `/quick-record` for Forms Only users. Sidebar shows "Quick Record" instead of "Jobs" for Forms Only plans.
+- **Super Admin Plan Editor**: `platform-plans.tsx` has grouped feature toggles (Core Features, Form Types, Advanced) for editing plan feature flags.
+- **SQL**: `supabase/patch-016-plan-feature-gates.sql` adds "Forms Only" plan and updates existing plans with comprehensive feature flags.
+- **Plans**: Forms Only (free, forms-only) → Starter (job management) → Professional (invoicing, reports, team) → Enterprise (all features).
+
 ## Codegen Notes
 
 After regenerating API client via Orval, two manual fixups are required in `lib/api-zod/src/generated/api.ts`:

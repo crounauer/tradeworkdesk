@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
 import { db, jobTypes } from "@workspace/db";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import {
   ListJobsQueryParams,
@@ -102,7 +102,7 @@ function deriveJobTypeEnum(
 
 const router: IRouter = Router();
 
-router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListJobsQueryParams.safeParse(req.query);
   let q = supabaseAdmin
     .from("jobs")
@@ -158,7 +158,7 @@ router.get("/jobs", requireAuth, requireTenant, async (req: AuthenticatedRequest
   res.json(ListJobsResponse.parse(rawMapped));
 });
 
-router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateJobBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -716,13 +716,13 @@ async function buildInvoiceData(
   };
 }
 
-router.get("/jobs/:id/invoice-summary", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:id/invoice-summary", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const invoiceData = await buildInvoiceData(req.params.id, req.tenantId);
   if (!invoiceData) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(invoiceData);
 });
 
-router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const format = (req.query.format as string) || "csv";
 
   let statusQ = supabaseAdmin.from("jobs").select("status").eq("id", req.params.id);
@@ -769,7 +769,7 @@ router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("
   res.send(content);
 });
 
-router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { job_ids, format } = req.body as { job_ids?: string[]; format?: string };
   if (!job_ids || !Array.isArray(job_ids) || job_ids.length === 0) {
     res.status(400).json({ error: "job_ids array is required" }); return;
@@ -829,6 +829,95 @@ router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole
   res.setHeader("Content-Type", contentType);
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(content);
+});
+
+router.post("/quick-record", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { customer_id, property_id, appliance_id, form_type, description } = req.body;
+
+  if (!customer_id || !property_id || !form_type) {
+    res.status(400).json({ error: "customer_id, property_id, and form_type are required" });
+    return;
+  }
+
+  const validFormTypes: Record<string, string> = {
+    "service-record": "service",
+    "breakdown-report": "breakdown",
+    "commissioning": "installation",
+    "oil-tank-inspection": "inspection",
+    "oil-tank-risk-assessment": "inspection",
+    "combustion-analysis": "service",
+    "burner-setup": "service",
+    "fire-valve-test": "inspection",
+    "oil-line-vacuum-test": "inspection",
+    "job-completion": "service",
+    "heat-pump-service": "service",
+    "heat-pump-commissioning": "installation",
+  };
+
+  if (!validFormTypes[form_type]) {
+    res.status(400).json({ error: `Invalid form_type: ${form_type}` });
+    return;
+  }
+
+  const fkChecks: Array<{ table: string; id: string }> = [
+    { table: "customers", id: customer_id },
+    { table: "properties", id: property_id },
+  ];
+  if (appliance_id) fkChecks.push({ table: "appliances", id: appliance_id });
+
+  const ownershipResult = await verifyMultipleTenantOwnership(
+    fkChecks,
+    req.tenantId,
+  );
+  if (!ownershipResult.valid) {
+    res.status(400).json({ error: ownershipResult.error || "Invalid references" });
+    return;
+  }
+
+  const { data: prop } = await supabaseAdmin
+    .from("properties")
+    .select("customer_id")
+    .eq("id", property_id)
+    .single();
+  if (prop && prop.customer_id !== customer_id) {
+    res.status(400).json({ error: "Property does not belong to selected customer" });
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const jobPayload: Record<string, unknown> = {
+    customer_id,
+    property_id,
+    job_type: validFormTypes[form_type],
+    priority: "medium",
+    status: "in_progress",
+    scheduled_date: today,
+    description: description || `Quick record - ${form_type.replace(/-/g, " ")}`,
+    tenant_id: req.tenantId,
+    created_by: req.userId,
+    assigned_technician_id: req.userId,
+  };
+
+  if (appliance_id) {
+    jobPayload.appliance_id = appliance_id;
+  }
+
+  const { data: job, error } = await supabaseAdmin
+    .from("jobs")
+    .insert(jobPayload)
+    .select("id")
+    .single();
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.status(201).json({
+    job_id: job.id,
+    form_url: `/jobs/${job.id}/${form_type}`,
+  });
 });
 
 router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {

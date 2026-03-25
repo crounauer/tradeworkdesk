@@ -11,6 +11,8 @@ import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 interface JobType {
   id: number;
@@ -40,6 +42,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function Jobs() {
+  const { hasFeature } = usePlanFeatures();
   const [statusFilter, setStatusFilter] = useState("");
   const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -48,6 +51,10 @@ export default function Jobs() {
   const [bulkExporting, setBulkExporting] = useState(false);
   const { profile } = useAuth();
   const { toast } = useToast();
+
+  if (!hasFeature("job_management")) {
+    return <UpgradePrompt feature="job_management" />;
+  }
 
   const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff";
 

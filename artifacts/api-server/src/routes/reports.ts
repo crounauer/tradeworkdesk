@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   GetUpcomingServicesResponse,
   GetOverdueServicesResponse,
@@ -46,7 +46,7 @@ interface TechGroup {
 
 const router: IRouter = Router();
 
-router.get("/reports/upcoming-services", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/reports/upcoming-services", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("reports"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
   const thirtyDays = new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
 
@@ -79,7 +79,7 @@ router.get("/reports/upcoming-services", requireAuth, requireTenant, requireRole
   res.json(GetUpcomingServicesResponse.parse(mapped));
 });
 
-router.get("/reports/overdue-services", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/reports/overdue-services", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("reports"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const today = new Date().toISOString().split("T")[0];
 
   let q = supabaseAdmin
@@ -110,7 +110,7 @@ router.get("/reports/overdue-services", requireAuth, requireTenant, requireRole(
   res.json(GetOverdueServicesResponse.parse(mapped));
 });
 
-router.get("/reports/completed-by-technician", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/reports/completed-by-technician", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("reports"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = GetCompletedByTechnicianQueryParams.safeParse(req.query);
 
   let q = supabaseAdmin

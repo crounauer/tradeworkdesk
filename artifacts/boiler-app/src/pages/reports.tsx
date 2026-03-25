@@ -2,8 +2,10 @@ import { useGetUpcomingServices, useGetOverdueServices, useGetCompletedByTechnic
 import { Card } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { AlertTriangle, Clock, CheckCircle, Users, Lock } from "lucide-react";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
-export default function Reports() {
+function ReportsContent() {
   const { data: upcoming, isLoading: loadingUpcoming, isError: errorUpcoming } = useGetUpcomingServices();
   const { data: overdue, isLoading: loadingOverdue, isError: errorOverdue } = useGetOverdueServices();
   const { data: completedByTech, isLoading: loadingCompleted, isError: errorCompleted } = useGetCompletedByTechnician();
@@ -142,4 +144,14 @@ export default function Reports() {
       </Card>
     </div>
   );
+}
+
+export default function Reports() {
+  const { hasFeature } = usePlanFeatures();
+
+  if (!hasFeature("reports")) {
+    return <UpgradePrompt feature="reports" />;
+  }
+
+  return <ReportsContent />;
 }

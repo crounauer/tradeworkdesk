@@ -2,11 +2,13 @@ import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { 
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
-  Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree
+  Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -28,6 +30,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
+  const { hasFeature, isFormsOnly } = usePlanFeatures();
 
   const { data: tenantInfo } = useQuery({
     queryKey: ["me-tenant"],
@@ -64,19 +67,29 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
     { href: "/appliances", label: "Appliances", icon: Flame },
-    { href: "/jobs", label: "Jobs", icon: Briefcase },
-    { href: "/search", label: "Search", icon: Search },
-    { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] },
+    ...(isFormsOnly ? [
+      { href: "/quick-record", label: "Quick Record", icon: Zap },
+    ] : [
+      { href: "/jobs", label: "Jobs", icon: Briefcase },
+      { href: "/search", label: "Search", icon: Search },
+    ]),
+    ...(hasFeature("reports") ? [
+      { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
+    ] : []),
   ];
 
   const adminNavItems = [
     { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
-    { href: "/admin/users", label: "Team", icon: ShieldCheck },
-    { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
+    ...(hasFeature("team_management") ? [
+      { href: "/admin/users", label: "Team", icon: ShieldCheck },
+      { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
+    ] : []),
     { href: "/admin/job-types", label: "Job Types", icon: ListTree },
     { href: "/admin/lookup-options", label: "Lookup Options", icon: Settings2 },
-    { href: "/admin/social", label: "Social Media", icon: Share2 },
+    ...(hasFeature("social_media") ? [
+      { href: "/admin/social", label: "Social Media", icon: Share2 },
+    ] : []),
   ];
 
   const platformNavItems = [

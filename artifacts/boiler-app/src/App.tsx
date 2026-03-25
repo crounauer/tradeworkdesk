@@ -46,6 +46,7 @@ const PlatformTenantDetail = lazy(() => import("@/pages/platform-tenant-detail")
 const PlatformPlans = lazy(() => import("@/pages/platform-plans"));
 const PlatformAnnouncements = lazy(() => import("@/pages/platform-announcements"));
 const PlatformAuditLog = lazy(() => import("@/pages/platform-audit-log"));
+const QuickRecord = lazy(() => import("@/pages/quick-record"));
 const Billing = lazy(() => import("@/pages/billing"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -190,6 +191,7 @@ function AppRouter() {
         <Route path="/jobs/:jobId/files" component={() => <ProtectedRoute component={JobFiles} />} />
         <Route path="/jobs/:jobId/signatures" component={() => <ProtectedRoute component={JobSignatures} />} />
 
+        <Route path="/quick-record" component={() => <ProtectedRoute component={QuickRecord} />} />
         <Route path="/search" component={() => <ProtectedRoute component={SearchPage} />} />
         <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
 

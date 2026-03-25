@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, RefreshCw, Loader2,
-  ChevronRight, Calendar, Users, Briefcase
+  ChevronRight, Calendar, Users, Briefcase, X as XIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FEATURE_LABELS } from "@/hooks/use-plan-features";
 
 interface Plan {
   id: string;
@@ -334,14 +335,18 @@ export default function Billing() {
                   </div>
                   {plan.features && (
                     <div className="text-sm space-y-1 pt-2 border-t">
-                      {Object.entries(plan.features)
-                        .filter(([, v]) => v)
-                        .map(([key]) => (
-                          <div key={key} className="flex items-center gap-2">
-                            <Check className="w-3.5 h-3.5 text-green-600" />
-                            <span className="capitalize">{key.replace(/_/g, " ")}</span>
-                          </div>
-                        ))}
+                      {Object.entries(plan.features).map(([key, val]) => (
+                        <div key={key} className="flex items-center gap-2">
+                          {val ? (
+                            <Check className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                          ) : (
+                            <XIcon className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                          )}
+                          <span className={val ? "" : "text-slate-400"}>
+                            {FEATURE_LABELS[key] || key.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {isAdmin && !isCurrent && (

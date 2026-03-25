@@ -1,14 +1,14 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendConfirmationEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 
 const router: IRouter = Router();
 
-router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let q = supabaseAdmin
     .from("profiles")
     .select("*")
@@ -21,7 +21,7 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), asy
   res.json(data);
 });
 
-router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const { role, full_name, phone } = req.body;
 
@@ -43,7 +43,7 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
   res.json(data);
 });
 
-router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
   if (id === req.userId) {
@@ -65,7 +65,7 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
   res.status(204).send();
 });
 
-router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let q = supabaseAdmin
     .from("invite_codes")
     .select("*")
@@ -91,7 +91,7 @@ router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin
   res.json(enriched);
 });
 
-router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { role = "technician", expires_at, note } = req.body;
 
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
@@ -113,7 +113,7 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
   res.status(201).json(data);
 });
 
-router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
   let q = supabaseAdmin.from("invite_codes").update({ is_active: false }).eq("id", id);
