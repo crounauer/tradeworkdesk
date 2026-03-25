@@ -217,8 +217,10 @@ export default function ScheduleCalendar() {
   );
 
   const goToday = useCallback(() => {
-    setAnchorDate(startOfWeek(new Date()));
-  }, []);
+    setAnchorDate(
+      viewMode === "month" ? startOfMonth(new Date()) : startOfWeek(new Date())
+    );
+  }, [viewMode]);
 
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLAnchorElement>, jobId: string) => {
