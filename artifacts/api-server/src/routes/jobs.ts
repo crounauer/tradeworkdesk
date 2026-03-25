@@ -388,7 +388,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   res.json(UpdateJobResponse.parse(data));
 });
 
-router.get("/jobs/:id/parts", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -404,7 +404,7 @@ router.get("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentica
   res.json(data || []);
 });
 
-router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -436,7 +436,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentic
   res.status(201).json(data);
 });
 
-router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id: jobId, partId } = req.params;
   if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
 
@@ -451,7 +451,7 @@ router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req:
   res.sendStatus(204);
 });
 
-router.get("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -481,7 +481,7 @@ router.get("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: Aut
   res.json(entries);
 });
 
-router.post("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -513,7 +513,7 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: Au
   res.status(201).json(data);
 });
 
-router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id: jobId, entryId } = req.params;
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
 
@@ -548,7 +548,7 @@ router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, asyn
   res.json(data);
 });
 
-router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id: jobId, entryId } = req.params;
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
 
@@ -909,7 +909,6 @@ router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "o
     scheduled_date: today,
     description: description || `Quick record - ${form_type.replace(/-/g, " ")}`,
     tenant_id: req.tenantId,
-    created_by: req.userId,
     assigned_technician_id: req.userId,
   };
 
@@ -934,7 +933,7 @@ router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "o
   });
 });
 
-router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = DeleteJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
