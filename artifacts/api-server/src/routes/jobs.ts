@@ -433,6 +433,92 @@ router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req:
   res.sendStatus(204);
 });
 
+router.get("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let q = supabaseAdmin.from("job_time_entries").select("*, created_by_profile:profiles!job_time_entries_created_by_fkey(full_name)").eq("job_id", jobId).order("arrival_time", { ascending: true });
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q;
+  if (error) {
+    let q2 = supabaseAdmin.from("job_time_entries").select("*").eq("job_id", jobId).order("arrival_time", { ascending: true });
+    if (req.tenantId) q2 = q2.eq("tenant_id", req.tenantId);
+    const { data: data2, error: error2 } = await q2;
+    if (error2) { res.status(500).json({ error: error2.message }); return; }
+    const entries = (data2 || []).map((e: Record<string, unknown>) => ({ ...e, created_by_name: null }));
+    res.json(entries);
+    return;
+  }
+  const entries = (data || []).map((e: Record<string, unknown>) => {
+    const profile = e.created_by_profile as Record<string, unknown> | null;
+    return { ...e, created_by_profile: undefined, created_by_name: profile?.full_name || null };
+  });
+  res.json(entries);
+});
+
+router.post("/jobs/:id/time-entries", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  const { arrival_time, departure_time, notes } = req.body;
+  if (!arrival_time) {
+    res.status(400).json({ error: "arrival_time is required" }); return;
+  }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let jobCheck = supabaseAdmin.from("jobs").select("id").eq("id", jobId);
+  if (req.tenantId) jobCheck = jobCheck.eq("tenant_id", req.tenantId);
+  const { data: jobExists } = await jobCheck.single();
+  if (!jobExists) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const { data, error } = await supabaseAdmin.from("job_time_entries").insert({
+    job_id: jobId,
+    arrival_time,
+    departure_time: departure_time || null,
+    notes: notes || null,
+    created_by: req.userId,
+    tenant_id: req.tenantId,
+  }).select().single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(201).json(data);
+});
+
+router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: jobId, entryId } = req.params;
+  if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let entryQ = supabaseAdmin.from("job_time_entries").select("created_by").eq("id", entryId).eq("job_id", jobId);
+  if (req.tenantId) entryQ = entryQ.eq("tenant_id", req.tenantId);
+  const { data: entry } = await entryQ.single();
+  if (!entry) { res.status(404).json({ error: "Time entry not found" }); return; }
+
+  const isAdmin = req.userRole === "admin" || req.userRole === "super_admin";
+  const isAuthor = (entry as Record<string, unknown>).created_by === req.userId;
+  if (!isAdmin && !isAuthor) {
+    res.status(403).json({ error: "You can only delete your own time entries" }); return;
+  }
+
+  let delQ = supabaseAdmin.from("job_time_entries").delete().eq("id", entryId).eq("job_id", jobId);
+  if (req.tenantId) delQ = delQ.eq("tenant_id", req.tenantId);
+  await delQ;
+  res.sendStatus(204);
+});
+
 router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = DeleteJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }

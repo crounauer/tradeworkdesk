@@ -1,4 +1,4 @@
-import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -123,7 +123,7 @@ export default function JobDetail() {
               </div>
             </Card>
 
-            <TimeAttendedSection jobId={job.id} arrivalTime={(job as unknown as Record<string, unknown>).arrival_time as string | null} departureTime={(job as unknown as Record<string, unknown>).departure_time as string | null} />
+            <TimeAttendedSection jobId={job.id} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} />
 
             <PartsUsedSection jobId={job.id} />
 
@@ -297,72 +297,183 @@ export default function JobDetail() {
   );
 }
 
-function TimeAttendedSection({ jobId, arrivalTime, departureTime }: { jobId: string; arrivalTime: string | null; departureTime: string | null }) {
-  const update = useUpdateJob();
-  const qc = useQueryClient();
+function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId: string; legacyArrival: string | null; legacyDeparture: string | null }) {
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const qc = useQueryClient();
+  const { data: entries, isLoading } = useListJobTimeEntries(jobId);
+  const createMutation = useCreateJobTimeEntry();
+  const deleteMutation = useDeleteJobTimeEntry();
+  const [showAdd, setShowAdd] = useState(false);
   const [arrival, setArrival] = useState("");
   const [departure, setDeparture] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [notes, setNotes] = useState("");
 
-  useEffect(() => {
-    if (arrivalTime) {
-      const d = new Date(arrivalTime);
-      if (!isNaN(d.getTime())) setArrival(toLocalDatetimeStr(d));
-    }
-    if (departureTime) {
-      const d = new Date(departureTime);
-      if (!isNaN(d.getTime())) setDeparture(toLocalDatetimeStr(d));
-    }
-  }, [arrivalTime, departureTime]);
+  const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
-  const handleSave = async () => {
-    setSaving(true);
+  const totalMinutes = sortedEntries.reduce((sum, e) => {
+    if (!e.departure_time) return sum;
+    const ms = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
+    return sum + Math.max(0, ms / 60000);
+  }, 0);
+
+  const hasEntries = sortedEntries.length > 0;
+  const showLegacy = !hasEntries && (legacyArrival || legacyDeparture);
+
+  const handleAdd = async () => {
+    if (!arrival) return;
     try {
-      await update.mutateAsync({
-        id: jobId,
+      await createMutation.mutateAsync({
+        jobId,
         data: {
-          arrival_time: arrival ? new Date(arrival).toISOString() : null,
+          arrival_time: new Date(arrival).toISOString(),
           departure_time: departure ? new Date(departure).toISOString() : null,
-        } as Record<string, unknown> as Parameters<typeof update.mutateAsync>[0]["data"],
+          notes: notes || null,
+        },
       });
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}`] });
-      toast({ title: "Saved", description: "Time attended updated" });
+      setArrival(""); setDeparture(""); setNotes(""); setShowAdd(false);
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
+      toast({ title: "Added", description: "Time entry added" });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to save";
+      const msg = e instanceof Error ? e.message : "Failed to add";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setSaving(false);
     }
+  };
+
+  const handleDelete = async (entryId: string) => {
+    try {
+      await deleteMutation.mutateAsync({ jobId, entryId });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
+      toast({ title: "Deleted", description: "Time entry removed" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const canDelete = (createdBy: string | null | undefined) =>
+    createdBy === profile?.id || profile?.role === "admin";
+
+  const formatEntryDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  };
+
+  const formatEntryTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
     <Card className="p-6 border border-border/50 shadow-sm">
-      <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-amber-600">
-        <Clock className="w-5 h-5" /> Time Attended
-      </h3>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Arrival</Label>
-          <Input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label>Departure</Label>
-          <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} />
-        </div>
-      </div>
-      {arrival && departure && (
-        <p className="text-sm text-muted-foreground mt-3">
-          Duration: {calcDuration(arrival, departure)}
-        </p>
-      )}
-      <div className="mt-4">
-        <Button size="sm" onClick={handleSave} disabled={saving}>
-          <Check className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save Times"}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-amber-600">
+          <Clock className="w-5 h-5" /> Time Attended
+        </h3>
+        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
+          <Plus className="w-4 h-4 mr-1" /> Add Entry
         </Button>
       </div>
+
+      {showAdd && (
+        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Arrival *</Label>
+              <Input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Departure</Label>
+              <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Notes (optional)</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+          </div>
+          {arrival && departure && (
+            <p className="text-xs text-muted-foreground">Duration: {calcDuration(arrival, departure)}</p>
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || !arrival}>
+              <Check className="w-4 h-4 mr-1" /> {createMutation.isPending ? "Saving..." : "Save Entry"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading time entries...</p>
+      ) : hasEntries ? (
+        <>
+          <div className="space-y-2">
+            {sortedEntries.map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between border rounded-lg px-3 py-2 bg-white">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{formatEntryDate(entry.arrival_time)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatEntryTime(entry.arrival_time)}
+                      {entry.departure_time ? ` - ${formatEntryTime(entry.departure_time)}` : " - ongoing"}
+                    </span>
+                    {entry.departure_time && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                        {calcDuration(entry.arrival_time, entry.departure_time)}
+                      </span>
+                    )}
+                  </div>
+                  {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
+                  {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
+                </div>
+                {canDelete(entry.created_by) && (
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive ml-2 flex-shrink-0" onClick={() => handleDelete(entry.id)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+          {totalMinutes > 0 && (
+            <div className="mt-3 pt-3 border-t flex justify-between items-center">
+              <span className="text-sm font-medium text-muted-foreground">Total Time</span>
+              <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
+            </div>
+          )}
+        </>
+      ) : showLegacy ? (
+        <div className="border rounded-lg p-3 bg-slate-50/50">
+          <p className="text-xs text-muted-foreground mb-1 italic">Legacy single entry</p>
+          <div className="flex items-center gap-2 flex-wrap text-sm">
+            {legacyArrival && <span>Arrival: {formatDateTime(legacyArrival)}</span>}
+            {legacyDeparture && <span>Departure: {formatDateTime(legacyDeparture)}</span>}
+            {legacyArrival && legacyDeparture && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                {calcDuration(legacyArrival, legacyDeparture)}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-6 border border-dashed rounded-lg">
+          <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No time entries yet</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowAdd(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Add First Entry
+          </Button>
+        </div>
+      )}
     </Card>
   );
+}
+
+function formatTotalTime(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = Math.round(totalMinutes % 60);
+  if (h === 0) return `${m}m`;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 function PartsUsedSection({ jobId }: { jobId: string }) {

@@ -3404,3 +3404,25 @@ export const UpdateHeatPumpCommissioningRecordBody = zod.object({
   technician_name_signed: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
+
+/**
+ * @summary Job time entries
+ */
+export const JobTimeEntryResponseItem = zod.object({
+  id: zod.string().uuid(),
+  job_id: zod.string().uuid(),
+  arrival_time: zod.coerce.date(),
+  departure_time: zod.coerce.date().nullish(),
+  notes: zod.string().nullish(),
+  created_by: zod.string().uuid().nullish(),
+  created_by_name: zod.string().nullish(),
+  tenant_id: zod.string().uuid(),
+  created_at: zod.coerce.date(),
+});
+export const JobTimeEntriesResponse = zod.array(JobTimeEntryResponseItem);
+
+export const CreateJobTimeEntryBody = zod.object({
+  arrival_time: zod.string(),
+  departure_time: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});

@@ -1857,3 +1857,27 @@ export type CreateHeatPumpCommissioningRecordBody = {
 };
 
 export type UpdateHeatPumpCommissioningRecordBody = Omit<CreateHeatPumpCommissioningRecordBody, 'job_id' | 'technician_id'>;
+
+export interface JobTimeEntry {
+  id: string;
+  job_id: string;
+  arrival_time: string;
+  /** @nullable */
+  departure_time?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  created_by?: string | null;
+  /** @nullable */
+  created_by_name?: string | null;
+  tenant_id: string;
+  created_at: string;
+}
+
+export interface CreateJobTimeEntryBody {
+  arrival_time: string;
+  /** @nullable */
+  departure_time?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
