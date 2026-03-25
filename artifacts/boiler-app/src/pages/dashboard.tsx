@@ -1,14 +1,54 @@
-import { useGetDashboard } from "@workspace/api-client-react";
+import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Users, Briefcase, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Users, Briefcase, AlertCircle, CheckCircle2, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateTime, formatDate } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+
+interface JobType {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  color: string;
+  default_duration_minutes: number | null;
+  is_active: boolean;
+}
+
+type QuickBookData = {
+  customer_mode: "existing" | "new";
+  customer_id: string;
+  property_id: string;
+  new_first_name: string;
+  new_last_name: string;
+  new_phone: string;
+  new_address_line1: string;
+  new_city: string;
+  new_postcode: string;
+  job_type_id: string;
+  priority: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  description: string;
+};
 
 export default function Dashboard() {
   const { data, isLoading } = useGetDashboard();
+  const { profile } = useAuth();
+  const [showQuickBook, setShowQuickBook] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading dashboard...</div>;
   if (!data) return null;
+
+  const canCreateJobs = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
 
   const stats = [
     { label: "Total Customers", value: data.stats?.total_customers || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-50" },
@@ -21,10 +61,15 @@ export default function Dashboard() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="BoilerTech" className="h-20 w-auto" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening today.</p>
         </div>
+        {canCreateJobs && (
+          <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => setShowQuickBook(true)}>
+            <Plus className="w-5 h-5" /> Book Job
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -83,6 +128,258 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {showQuickBook && (
+        <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} />
+      )}
     </div>
+  );
+}
+
+function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const createJob = useCreateJob();
+  const createCustomer = useCreateCustomer();
+  const createProperty = useCreateProperty();
+
+  const { data: customers } = useListCustomers();
+  const { data: properties } = useListProperties();
+  const { data: jobTypes = [] } = useQuery<JobType[]>({
+    queryKey: ["job-types"],
+    queryFn: async () => {
+      const res = await fetch("/api/job-types");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const { register, handleSubmit, watch, reset, setValue } = useForm<QuickBookData>({
+    defaultValues: {
+      customer_mode: "existing",
+      priority: "medium",
+      scheduled_date: todayStr,
+    },
+  });
+
+  const customerMode = watch("customer_mode");
+  const selectedCustomerId = watch("customer_id");
+  const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const onSubmit = async (data: QuickBookData) => {
+    setSubmitting(true);
+    try {
+      let customerId = data.customer_id;
+      let propertyId = data.property_id;
+
+      if (data.customer_mode === "new") {
+        if (!data.new_first_name || !data.new_last_name) {
+          toast({ title: "Missing info", description: "Please enter the customer's name.", variant: "destructive" });
+          setSubmitting(false);
+          return;
+        }
+        if (!data.new_address_line1 || !data.new_city || !data.new_postcode) {
+          toast({ title: "Missing info", description: "Please enter the property address.", variant: "destructive" });
+          setSubmitting(false);
+          return;
+        }
+
+        const custRes = await createCustomer.mutateAsync({
+          data: {
+            first_name: data.new_first_name.trim(),
+            last_name: data.new_last_name.trim(),
+            phone: data.new_phone?.trim() || undefined,
+            email: undefined,
+          },
+        });
+        customerId = (custRes as { id: string }).id;
+
+        const propRes = await createProperty.mutateAsync({
+          data: {
+            customer_id: customerId,
+            address_line1: data.new_address_line1.trim(),
+            city: data.new_city.trim(),
+            postcode: data.new_postcode.trim(),
+          },
+        });
+        propertyId = (propRes as { id: string }).id;
+      }
+
+      if (!customerId || !propertyId) {
+        toast({ title: "Missing info", description: "Please select a customer and property.", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+
+      const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
+      const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
+
+      await createJob.mutateAsync({
+        data: {
+          customer_id: customerId,
+          property_id: propertyId,
+          job_type: jobTypeCategory,
+          job_type_id: selectedType ? selectedType.id : undefined,
+          priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
+          scheduled_date: data.scheduled_date,
+          scheduled_time: data.scheduled_time || undefined,
+          description: data.description || undefined,
+        },
+      });
+
+      qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      qc.invalidateQueries({ queryKey: ["/api/customers"] });
+      qc.invalidateQueries({ queryKey: ["/api/properties"] });
+
+      toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
+      reset();
+      onOpenChange(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl">Quick Book Job</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="flex gap-2 bg-muted rounded-lg p-1">
+            <button
+              type="button"
+              className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "existing" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setValue("customer_mode", "existing")}
+            >
+              Existing Customer
+            </button>
+            <button
+              type="button"
+              className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "new" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setValue("customer_mode", "new")}
+            >
+              New Customer
+            </button>
+          </div>
+
+          {customerMode === "existing" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Customer *</Label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("customer_id")}>
+                  <option value="">Select customer...</option>
+                  {customers?.map(c => (
+                    <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Property *</Label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
+                  <option value="">Select property...</option>
+                  {filteredProperties?.map(p => (
+                    <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>First Name *</Label>
+                  <Input {...register("new_first_name")} placeholder="John" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Last Name *</Label>
+                  <Input {...register("new_last_name")} placeholder="Smith" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input {...register("new_phone")} placeholder="07700 900000" />
+              </div>
+              <div className="border-t pt-4 space-y-4">
+                <p className="text-sm font-medium text-muted-foreground">Property Address</p>
+                <div className="space-y-1.5">
+                  <Label>Address *</Label>
+                  <Input {...register("new_address_line1")} placeholder="123 High Street" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Town / City *</Label>
+                    <Input {...register("new_city")} placeholder="Manchester" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Postcode *</Label>
+                    <Input {...register("new_postcode")} placeholder="M1 1AA" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t pt-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Job Type *</Label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
+                  <option value="">Select type...</option>
+                  {jobTypes.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("priority")}>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Date *</Label>
+                <Input type="date" required {...register("scheduled_date")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Time</Label>
+                <Input type="time" {...register("scheduled_time")} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Notes</Label>
+              <textarea
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]"
+                placeholder="Any details about the job..."
+                {...register("description")}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={submitting} className="flex-1">
+              {submitting ? "Booking..." : "Book Job"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
