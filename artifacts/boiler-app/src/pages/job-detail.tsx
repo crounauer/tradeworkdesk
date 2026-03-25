@@ -372,9 +372,8 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
 
   const fetchParts = useCallback(async () => {
     try {
-      const resp = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`);
-      const data = await (resp as Response).json();
-      setParts(Array.isArray(data) ? data : []);
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`);
+      setParts(Array.isArray(data) ? data as JobPart[] : []);
     } catch {
       setParts([]);
     } finally {
