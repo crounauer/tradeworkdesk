@@ -485,7 +485,7 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFea
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { arrival_time, departure_time, notes } = req.body;
+  const { arrival_time, departure_time, notes, hourly_rate } = req.body;
   if (!arrival_time) {
     res.status(400).json({ error: "arrival_time is required" }); return;
   }
@@ -505,6 +505,7 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFea
     arrival_time,
     departure_time: departure_time || null,
     notes: notes || null,
+    hourly_rate: hourly_rate != null ? parseFloat(hourly_rate) : null,
     created_by: req.userId,
     tenant_id: req.tenantId,
   }).select().single();
@@ -533,11 +534,12 @@ router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requ
     res.status(403).json({ error: "You can only edit your own time entries" }); return;
   }
 
-  const { arrival_time, departure_time, notes } = req.body;
+  const { arrival_time, departure_time, notes, hourly_rate } = req.body;
   const updates: Record<string, unknown> = {};
   if (arrival_time !== undefined) updates.arrival_time = arrival_time;
   if (departure_time !== undefined) updates.departure_time = departure_time || null;
   if (notes !== undefined) updates.notes = notes || null;
+  if (hourly_rate !== undefined) updates.hourly_rate = hourly_rate != null ? parseFloat(hourly_rate) : null;
 
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
 

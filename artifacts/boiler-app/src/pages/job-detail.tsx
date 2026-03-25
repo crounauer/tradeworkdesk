@@ -352,10 +352,12 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
   const [arrival, setArrival] = useState("");
   const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
+  const [hourlyRate, setHourlyRate] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editArrival, setEditArrival] = useState("");
   const [editDeparture, setEditDeparture] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editHourlyRate, setEditHourlyRate] = useState("");
 
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
@@ -363,6 +365,12 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
     if (!e.departure_time) return sum;
     const ms = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
     return sum + Math.max(0, ms / 60000);
+  }, 0);
+
+  const totalLabourCost = sortedEntries.reduce((sum, e) => {
+    if (!e.departure_time || !e.hourly_rate) return sum;
+    const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
+    return sum + hours * parseFloat(String(e.hourly_rate));
   }, 0);
 
   const hasEntries = sortedEntries.length > 0;
@@ -377,9 +385,10 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
           arrival_time: new Date(arrival).toISOString(),
           departure_time: departure ? new Date(departure).toISOString() : null,
           notes: notes || null,
-        },
+          hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+        } as Record<string, unknown>,
       });
-      setArrival(""); setDeparture(""); setNotes(""); setShowAdd(false);
+      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
     } catch (e: unknown) {
@@ -399,16 +408,17 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
     }
   };
 
-  const startEdit = (entry: { id: string; arrival_time: string; departure_time?: string | null; notes?: string | null }) => {
+  const startEdit = (entry: { id: string; arrival_time: string; departure_time?: string | null; notes?: string | null; hourly_rate?: number | string | null }) => {
     setEditingId(entry.id);
     setEditArrival(toLocalDatetimeStr(new Date(entry.arrival_time)));
     setEditDeparture(entry.departure_time ? toLocalDatetimeStr(new Date(entry.departure_time)) : "");
     setEditNotes(entry.notes || "");
+    setEditHourlyRate(entry.hourly_rate != null ? String(entry.hourly_rate) : "");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditArrival(""); setEditDeparture(""); setEditNotes("");
+    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate("");
   };
 
   const handleUpdate = async () => {
@@ -421,7 +431,8 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
           arrival_time: new Date(editArrival).toISOString(),
           departure_time: editDeparture ? new Date(editDeparture).toISOString() : null,
           notes: editNotes || null,
-        },
+          hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
+        } as Record<string, unknown>,
       });
       cancelEdit();
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
@@ -468,18 +479,31 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
               <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} />
             </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Notes (optional)</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Notes (optional)</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Hourly Rate (£)</Label>
+              <Input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="e.g. 45.00" />
+            </div>
           </div>
           {arrival && departure && (
-            <p className="text-xs text-muted-foreground">Duration: {calcDuration(arrival, departure)}</p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>Duration: {calcDuration(arrival, departure)}</span>
+              {hourlyRate && parseFloat(hourlyRate) > 0 && (
+                <span className="font-medium text-emerald-600">
+                  Cost: £{((new Date(departure).getTime() - new Date(arrival).getTime()) / 3600000 * parseFloat(hourlyRate)).toFixed(2)}
+                </span>
+              )}
+            </div>
           )}
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || !arrival}>
               <Check className="w-4 h-4 mr-1" /> {createMutation.isPending ? "Saving..." : "Save Entry"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); }}>
+            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); }}>
               Cancel
             </Button>
           </div>
@@ -504,12 +528,25 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
                       <Input type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Notes</Label>
-                    <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Notes</Label>
+                      <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Hourly Rate (£)</Label>
+                      <Input type="number" step="0.01" min="0" value={editHourlyRate} onChange={(e) => setEditHourlyRate(e.target.value)} placeholder="e.g. 45.00" />
+                    </div>
                   </div>
                   {editArrival && editDeparture && (
-                    <p className="text-xs text-muted-foreground">Duration: {calcDuration(editArrival, editDeparture)}</p>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>Duration: {calcDuration(editArrival, editDeparture)}</span>
+                      {editHourlyRate && parseFloat(editHourlyRate) > 0 && (
+                        <span className="font-medium text-emerald-600">
+                          Cost: £{((new Date(editDeparture).getTime() - new Date(editArrival).getTime()) / 3600000 * parseFloat(editHourlyRate)).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                   )}
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleUpdate} disabled={updateMutation.isPending || !editArrival}>
@@ -534,6 +571,16 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
                           {calcDuration(entry.arrival_time, entry.departure_time)}
                         </span>
                       )}
+                      {entry.hourly_rate != null && (
+                        <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                          £{parseFloat(String(entry.hourly_rate)).toFixed(2)}/hr
+                        </span>
+                      )}
+                      {entry.departure_time && entry.hourly_rate != null && (
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                          £{((new Date(entry.departure_time).getTime() - new Date(entry.arrival_time).getTime()) / 3600000 * parseFloat(String(entry.hourly_rate))).toFixed(2)}
+                        </span>
+                      )}
                     </div>
                     {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
                     {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
@@ -554,7 +601,12 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
           </div>
           <div className="mt-3 pt-3 border-t flex justify-between items-center">
             <span className="text-sm font-medium text-muted-foreground">Total Time</span>
-            <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
+              {totalLabourCost > 0 && (
+                <span className="font-bold text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
+              )}
+            </div>
           </div>
         </>
       ) : showLegacy ? (
