@@ -110,6 +110,10 @@ export function generateUniversalCSV(invoices: InvoiceData[]): string {
   return rows.join("\r\n");
 }
 
+function sanitizeIIF(val: string): string {
+  return String(val).replace(/[\t\r\n]/g, " ").trim();
+}
+
 export function generateQuickBooksIIF(invoices: InvoiceData[]): string {
   const lines: string[] = [];
   lines.push("!TRNS\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO");
@@ -117,14 +121,14 @@ export function generateQuickBooksIIF(invoices: InvoiceData[]): string {
   lines.push("!ENDTRNS");
 
   for (const inv of invoices) {
-    lines.push(`TRNS\tINVOICE\t${formatIIFDate(inv.invoice_date)}\tAccounts Receivable\t${inv.customer_name}\t${inv.total.toFixed(2)}\t${inv.invoice_number}\t${inv.job_description}`);
+    lines.push(`TRNS\tINVOICE\t${formatIIFDate(inv.invoice_date)}\tAccounts Receivable\t${sanitizeIIF(inv.customer_name)}\t${inv.total.toFixed(2)}\t${sanitizeIIF(inv.invoice_number)}\t${sanitizeIIF(inv.job_description)}`);
 
     for (const line of inv.lines) {
-      lines.push(`SPL\tINVOICE\t${formatIIFDate(inv.invoice_date)}\tSales Income\t${inv.customer_name}\t${(-line.total).toFixed(2)}\t${inv.invoice_number}\t${line.description}\t${line.quantity}\t${line.unit_price.toFixed(2)}`);
+      lines.push(`SPL\tINVOICE\t${formatIIFDate(inv.invoice_date)}\tSales Income\t${sanitizeIIF(inv.customer_name)}\t${(-line.total).toFixed(2)}\t${sanitizeIIF(inv.invoice_number)}\t${sanitizeIIF(line.description)}\t${line.quantity}\t${line.unit_price.toFixed(2)}`);
     }
 
     if (inv.vat_amount > 0) {
-      lines.push(`SPL\tINVOICE\t${formatIIFDate(inv.invoice_date)}\tVAT Liability\t${inv.customer_name}\t${(-inv.vat_amount).toFixed(2)}\t${inv.invoice_number}\tVAT @ ${inv.vat_rate}%\t\t`);
+      lines.push(`SPL\tINVOICE\t${formatIIFDate(inv.invoice_date)}\tVAT Liability\t${sanitizeIIF(inv.customer_name)}\t${(-inv.vat_amount).toFixed(2)}\t${sanitizeIIF(inv.invoice_number)}\tVAT @ ${inv.vat_rate}%\t\t`);
     }
 
     lines.push("ENDTRNS");
