@@ -971,6 +971,8 @@ export const GetJobResponse = zod
     scheduled_time: zod.string().nullish(),
     estimated_duration: zod.number().nullish(),
     description: zod.string().nullish(),
+    arrival_time: zod.string().nullish(),
+    departure_time: zod.string().nullish(),
     is_active: zod.boolean(),
     created_at: zod.coerce.date(),
     updated_at: zod.coerce.date(),
@@ -1238,6 +1240,8 @@ export const UpdateJobBody = zod.object({
   estimated_duration: zod.number().nullish(),
   description: zod.string().nullish(),
   notes: zod.string().nullish(),
+  arrival_time: zod.string().nullish(),
+  departure_time: zod.string().nullish(),
 });
 
 export const UpdateJobResponse = zod.object({
@@ -1267,6 +1271,8 @@ export const UpdateJobResponse = zod.object({
   estimated_duration: zod.number().nullish(),
   description: zod.string().nullish(),
   notes: zod.string().nullish(),
+  arrival_time: zod.string().nullish(),
+  departure_time: zod.string().nullish(),
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),

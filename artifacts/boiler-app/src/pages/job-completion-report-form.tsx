@@ -7,13 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ClipboardList, Package, CalendarCheck } from "lucide-react";
+import { ArrowLeft, ClipboardList, CalendarCheck } from "lucide-react";
 import { useEffect } from "react";
 
 interface JobCompletionFormData {
   work_completed: string;
-  parts_fitted: string;
-  parts_serial_numbers: string;
   outstanding_items: string;
   defects_found: string;
   advisories: string;
@@ -42,8 +40,6 @@ export default function JobCompletionReportForm() {
     if (existingRecord) {
       reset({
         work_completed: existingRecord.work_completed || "",
-        parts_fitted: existingRecord.parts_fitted || "",
-        parts_serial_numbers: existingRecord.parts_serial_numbers || "",
         outstanding_items: existingRecord.outstanding_items || "",
         defects_found: existingRecord.defects_found || "",
         advisories: existingRecord.advisories || "",
@@ -89,7 +85,7 @@ export default function JobCompletionReportForm() {
         <h1 className="text-3xl font-display font-bold flex items-center gap-3">
           <ClipboardList className="w-8 h-8 text-emerald-500" /> Job Completion Report
         </h1>
-        <p className="text-muted-foreground mt-1">Summarise work carried out, parts fitted, and next steps.</p>
+        <p className="text-muted-foreground mt-1">Summarise work carried out, findings, and next steps.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -100,7 +96,7 @@ export default function JobCompletionReportForm() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Work Completed</Label>
-              <Input {...register("work_completed")} placeholder="Describe all work carried out..." />
+              <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("work_completed")} placeholder="Describe all work carried out..." />
             </div>
             <div className="space-y-2">
               <Label>Outstanding Items</Label>
@@ -113,22 +109,6 @@ export default function JobCompletionReportForm() {
             <div className="space-y-2">
               <Label>Advisories</Label>
               <Input {...register("advisories")} placeholder="Recommendations to the customer..." />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 shadow-sm border-border/50">
-          <h2 className="font-bold text-lg mb-4 text-blue-600 flex items-center gap-2">
-            <Package className="w-5 h-5" /> Parts Installed
-          </h2>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Parts Fitted</Label>
-              <Input {...register("parts_fitted")} placeholder="List all parts installed..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Parts Serial Numbers</Label>
-              <Input {...register("parts_serial_numbers")} placeholder="Serial numbers of fitted parts..." />
             </div>
           </div>
         </Card>
@@ -166,7 +146,7 @@ export default function JobCompletionReportForm() {
             </div>
             <div className="space-y-2">
               <Label>Additional Notes</Label>
-              <Input {...register("additional_notes")} placeholder="Any other information..." />
+              <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("additional_notes")} placeholder="Any other information..." />
             </div>
           </div>
         </Card>

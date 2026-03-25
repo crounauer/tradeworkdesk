@@ -1,12 +1,17 @@
-import { useGetJob, useUpdateJob } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useListFiles, useDeleteFile } from "@workspace/api-client-react";
+import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check, ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette, ClipboardList, Wind } from "lucide-react";
+import {
+  ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
+  ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
+  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon
+} from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +36,16 @@ type JobLike = {
   description?: string | null;
   [k: string]: unknown;
 };
+
+interface JobPart {
+  id: string;
+  job_id: string;
+  part_name: string;
+  quantity: number;
+  serial_number: string | null;
+  tenant_id: string | null;
+  created_at: string;
+}
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
@@ -104,6 +119,12 @@ export default function JobDetail() {
                 </div>
               </div>
             </Card>
+
+            <TimeAttendedSection jobId={job.id} arrivalTime={(job as unknown as Record<string, unknown>).arrival_time as string | null} departureTime={(job as unknown as Record<string, unknown>).departure_time as string | null} />
+
+            <PartsUsedSection jobId={job.id} />
+
+            <PhotosSection jobId={job.id} />
 
             <h3 className="font-display font-bold text-xl mt-8 mb-4">Actions & Forms</h3>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -271,6 +292,309 @@ export default function JobDetail() {
   );
 }
 
+function TimeAttendedSection({ jobId, arrivalTime, departureTime }: { jobId: string; arrivalTime: string | null; departureTime: string | null }) {
+  const update = useUpdateJob();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [arrival, setArrival] = useState("");
+  const [departure, setDeparture] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (arrivalTime) {
+      const d = new Date(arrivalTime);
+      if (!isNaN(d.getTime())) setArrival(toLocalDatetimeStr(d));
+    }
+    if (departureTime) {
+      const d = new Date(departureTime);
+      if (!isNaN(d.getTime())) setDeparture(toLocalDatetimeStr(d));
+    }
+  }, [arrivalTime, departureTime]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await update.mutateAsync({
+        id: jobId,
+        data: {
+          arrival_time: arrival ? new Date(arrival).toISOString() : null,
+          departure_time: departure ? new Date(departure).toISOString() : null,
+        } as Record<string, unknown> as Parameters<typeof update.mutateAsync>[0]["data"],
+      });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}`] });
+      toast({ title: "Saved", description: "Time attended updated" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to save";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm">
+      <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-amber-600">
+        <Clock className="w-5 h-5" /> Time Attended
+      </h3>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Arrival</Label>
+          <Input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Departure</Label>
+          <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} />
+        </div>
+      </div>
+      {arrival && departure && (
+        <p className="text-sm text-muted-foreground mt-3">
+          Duration: {calcDuration(arrival, departure)}
+        </p>
+      )}
+      <div className="mt-4">
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Check className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save Times"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function PartsUsedSection({ jobId }: { jobId: string }) {
+  const { toast } = useToast();
+  const [parts, setParts] = useState<JobPart[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [partName, setPartName] = useState("");
+  const [partQty, setPartQty] = useState("1");
+  const [partSerial, setPartSerial] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchParts = useCallback(async () => {
+    try {
+      const resp = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`);
+      const data = await (resp as Response).json();
+      setParts(Array.isArray(data) ? data : []);
+    } catch {
+      setParts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId]);
+
+  useEffect(() => { fetchParts(); }, [fetchParts]);
+
+  const handleAdd = async () => {
+    if (!partName.trim()) return;
+    setSubmitting(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ part_name: partName.trim(), quantity: Number(partQty) || 1, serial_number: partSerial || null }),
+      });
+      setPartName(""); setPartQty("1"); setPartSerial(""); setShowAdd(false);
+      toast({ title: "Added", description: "Part added" });
+      fetchParts();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to add part";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (partId: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, { method: "DELETE" });
+      toast({ title: "Removed", description: "Part removed" });
+      fetchParts();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-blue-600">
+          <Package className="w-5 h-5" /> Parts Used
+        </h3>
+        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
+          {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Part</>}
+        </Button>
+      </div>
+
+      {showAdd && (
+        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Part Name *</Label>
+              <Input value={partName} onChange={(e) => setPartName(e.target.value)} placeholder="e.g. Pump, Fan, Valve" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Quantity</Label>
+              <Input type="number" min="1" value={partQty} onChange={(e) => setPartQty(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Serial Number</Label>
+              <Input value={partSerial} onChange={(e) => setPartSerial(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <Button size="sm" onClick={handleAdd} disabled={submitting || !partName.trim()}>
+            <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Part"}
+          </Button>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading parts...</p>
+      ) : parts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No parts recorded yet.</p>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium">Part</th>
+                <th className="text-left px-4 py-2 font-medium">Qty</th>
+                <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Serial #</th>
+                <th className="w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {parts.map((p) => (
+                <tr key={p.id} className="border-b last:border-0">
+                  <td className="px-4 py-2">{p.part_name}</td>
+                  <td className="px-4 py-2">{p.quantity}</td>
+                  <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.serial_number || "—"}</td>
+                  <td className="px-2 py-2">
+                    <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(p.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function PhotosSection({ jobId }: { jobId: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: files, isLoading } = useListFiles({ entity_type: "job", entity_id: jobId });
+  const deleteMutation = useDeleteFile();
+
+  const imageFiles = (files || []).filter((f) => f.file_type?.startsWith("image/"));
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("entity_type", "job");
+        formData.append("entity_id", jobId);
+        await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
+      }
+      qc.invalidateQueries({ queryKey: ["/api/files"] });
+      toast({ title: "Uploaded", description: `${fileList.length} photo(s) uploaded` });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      toast({ title: "Upload Error", description: message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      qc.invalidateQueries({ queryKey: ["/api/files"] });
+      toast({ title: "Deleted", description: "Photo removed" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Delete failed";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-violet-600">
+          <Camera className="w-5 h-5" /> Photos
+        </h3>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept="image/*"
+            capture="environment"
+            multiple
+            onChange={handleUpload}
+          />
+          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            <Upload className="w-4 h-4 mr-1" /> {uploading ? "Uploading..." : "Upload / Take Photo"}
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading photos...</p>
+      ) : imageFiles.length === 0 ? (
+        <div className="text-center py-8 border border-dashed rounded-lg">
+          <ImageIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No photos yet</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => fileInputRef.current?.click()}>
+            <Camera className="w-4 h-4 mr-1" /> Take or Upload Photo
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {imageFiles.map((file) => (
+            <div key={file.id} className="relative group rounded-lg overflow-hidden border bg-slate-100 aspect-square">
+              {file.signed_url ? (
+                <a href={file.signed_url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                  <img src={file.signed_url} alt={file.file_name} className="w-full h-full object-cover" />
+                </a>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <ImageIcon className="w-8 h-8 text-slate-400" />
+                </div>
+              )}
+              <Button
+                variant="destructive"
+                size="sm"
+                className="absolute top-1 right-1 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleDelete(file.id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+              <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
+                {file.file_name}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateJob();
@@ -368,4 +692,19 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       </form>
     </Card>
   );
+}
+
+function toLocalDatetimeStr(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function calcDuration(start: string, end: string): string {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (ms <= 0) return "—";
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }

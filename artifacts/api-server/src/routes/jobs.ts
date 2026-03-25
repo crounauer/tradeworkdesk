@@ -286,11 +286,28 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
   }));
 });
 
-router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateJobBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const TECH_ALLOWED_FIELDS = new Set(["arrival_time", "departure_time", "status"]);
+  if (req.userRole === "technician") {
+    const bodyKeys = Object.keys(req.body).filter((k) => req.body[k] !== undefined);
+    const forbidden = bodyKeys.filter((k) => !TECH_ALLOWED_FIELDS.has(k));
+    if (forbidden.length > 0) {
+      res.status(403).json({ error: "Technicians can only update arrival/departure time and status" });
+      return;
+    }
+    let techQ = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", params.data.id);
+    if (req.tenantId) techQ = techQ.eq("tenant_id", req.tenantId);
+    const { data: techJob } = await techQ.single();
+    if (!techJob || techJob.assigned_technician_id !== req.userId) {
+      res.status(403).json({ error: "You can only update jobs assigned to you" });
+      return;
+    }
+  }
 
   const fkChecks: Array<{ table: string; id: string | undefined | null }> = [
     { table: "customers", id: body.data.customer_id },
@@ -341,6 +358,75 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requireRole("admin", "offi
   }
   if (!data) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(UpdateJobResponse.parse(data));
+});
+
+router.get("/jobs/:id/parts", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  if (req.userRole === "technician") {
+    let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+    if (req.tenantId) tq = tq.eq("tenant_id", req.tenantId);
+    const { data: j } = await tq.single();
+    if (!j || j.assigned_technician_id !== req.userId) {
+      res.status(403).json({ error: "Not authorized" }); return;
+    }
+  }
+
+  let q = supabaseAdmin.from("job_parts").select("*").eq("job_id", jobId).order("created_at", { ascending: true });
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  const { part_name, quantity, serial_number } = req.body;
+  if (!part_name || typeof part_name !== "string") {
+    res.status(400).json({ error: "part_name is required" }); return;
+  }
+
+  if (req.userRole === "technician") {
+    let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+    if (req.tenantId) tq = tq.eq("tenant_id", req.tenantId);
+    const { data: j } = await tq.single();
+    if (!j || j.assigned_technician_id !== req.userId) {
+      res.status(403).json({ error: "Not authorized" }); return;
+    }
+  }
+
+  const { data, error } = await supabaseAdmin.from("job_parts").insert({
+    job_id: jobId,
+    part_name: part_name.trim(),
+    quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
+    serial_number: serial_number || null,
+    tenant_id: req.tenantId,
+  }).select().single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(201).json(data);
+});
+
+router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: jobId, partId } = req.params;
+  if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  if (req.userRole === "technician") {
+    let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+    if (req.tenantId) tq = tq.eq("tenant_id", req.tenantId);
+    const { data: j } = await tq.single();
+    if (!j || j.assigned_technician_id !== req.userId) {
+      res.status(403).json({ error: "Not authorized" }); return;
+    }
+  }
+
+  let q = supabaseAdmin.from("job_parts").delete().eq("id", partId).eq("job_id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  await q;
+  res.sendStatus(204);
 });
 
 router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
