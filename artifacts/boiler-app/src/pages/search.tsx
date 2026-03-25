@@ -4,8 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import { Search as SearchIcon, Users, Home, Flame, Briefcase } from "lucide-react";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
-export default function SearchPage() {
+function SearchContent() {
   const [query, setQuery] = useState("");
   const { data, isLoading } = useGlobalSearch(
     { q: query || "  " },
@@ -131,4 +133,14 @@ export default function SearchPage() {
       )}
     </div>
   );
+}
+
+export default function SearchPage() {
+  const { hasFeature } = usePlanFeatures();
+
+  if (!hasFeature("job_management")) {
+    return <UpgradePrompt feature="job_management" />;
+  }
+
+  return <SearchContent />;
 }

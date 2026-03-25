@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateCommissioningRecordBody,
   GetCommissioningRecordParams,
@@ -25,7 +25,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.get("/commissioning-records", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/commissioning-records", requireAuth, requireTenant, requirePlanFeature("commissioning_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let query = supabaseAdmin.from("commissioning_records").select("*").order("created_at", { ascending: false });
 
   if (req.tenantId) query = query.eq("tenant_id", req.tenantId);
@@ -44,7 +44,7 @@ router.get("/commissioning-records", requireAuth, requireTenant, async (req: Aut
   res.json(data || []);
 });
 
-router.post("/commissioning-records", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/commissioning-records", requireAuth, requireTenant, requirePlanFeature("commissioning_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateCommissioningRecordBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -57,7 +57,7 @@ router.post("/commissioning-records", requireAuth, requireTenant, async (req: Au
   res.status(201).json(GetCommissioningRecordResponse.parse(data));
 });
 
-router.get("/commissioning-records/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/commissioning-records/:id", requireAuth, requireTenant, requirePlanFeature("commissioning_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCommissioningRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -72,7 +72,7 @@ router.get("/commissioning-records/:id", requireAuth, requireTenant, async (req:
   res.json(GetCommissioningRecordResponse.parse(data));
 });
 
-router.put("/commissioning-records/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.put("/commissioning-records/:id", requireAuth, requireTenant, requirePlanFeature("commissioning_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateCommissioningRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateCommissioningRecordBody.safeParse(req.body);
@@ -92,7 +92,7 @@ router.put("/commissioning-records/:id", requireAuth, requireTenant, async (req:
   res.json(UpdateCommissioningRecordResponse.parse(data));
 });
 
-router.get("/jobs/:jobId/commissioning-record", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:jobId/commissioning-record", requireAuth, requireTenant, requirePlanFeature("commissioning_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCommissioningRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

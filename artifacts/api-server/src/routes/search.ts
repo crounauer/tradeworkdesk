@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { GlobalSearchQueryParams, GlobalSearchResponse } from "@workspace/api-zod";
 
 interface ApplianceSearchRow {
@@ -33,7 +33,7 @@ interface JobSearchRow {
 
 const router: IRouter = Router();
 
-router.get("/search", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = GlobalSearchQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 

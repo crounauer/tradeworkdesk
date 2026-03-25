@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateHeatPumpServiceRecordBody,
   UpdateHeatPumpServiceRecordBody,
@@ -23,7 +23,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.get("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, requirePlanFeature("heat_pump_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetHeatPumpServiceRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -38,7 +38,7 @@ router.get("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, async (
   res.json(GetHeatPumpServiceRecordByJobResponse.parse(data));
 });
 
-router.post("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, requirePlanFeature("heat_pump_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetHeatPumpServiceRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -58,7 +58,7 @@ router.post("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, async 
   res.status(201).json(GetHeatPumpServiceRecordResponse.parse(data));
 });
 
-router.patch("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, requirePlanFeature("heat_pump_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetHeatPumpServiceRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

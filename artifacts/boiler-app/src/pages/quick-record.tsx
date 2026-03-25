@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Zap, ChevronRight, ChevronLeft, Users, Home, Flame,
   FileText, Wrench, ClipboardCheck, Droplets, ShieldAlert,
-  Gauge, Settings, ShieldCheck as ShieldCheckIcon, Pipette, ClipboardList, Wind
+  Gauge, Settings, ShieldCheck as ShieldCheckIcon, Pipette, ClipboardList, Wind,
+  Plus, X
 } from "lucide-react";
 
 interface Appliance {
@@ -36,6 +37,133 @@ const FORM_TYPES = [
   { key: "heat-pump-commissioning", label: "Heat Pump Commissioning", icon: ClipboardCheck, color: "cyan", description: "MCS-style commissioning record" },
 ];
 
+function InlineCreateCustomer({ onCreated, onCancel }: { onCreated: (id: string) => void; onCancel: () => void }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const handleCreate = async () => {
+    if (!firstName.trim() || !lastName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/customers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), phone: phone.trim() || undefined, email: email.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create customer");
+      }
+      const customer = await res.json();
+      await queryClient.invalidateQueries({ queryKey: ["listCustomers"] });
+      toast({ title: "Customer created" });
+      onCreated(customer.id);
+    } catch (e) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border-2 border-dashed border-primary/30 rounded-lg p-4 space-y-3 bg-primary/5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm flex items-center gap-1"><Plus className="w-4 h-4" /> New Customer</h3>
+        <Button variant="ghost" size="sm" onClick={onCancel}><X className="w-4 h-4" /></Button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">First Name *</Label>
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" />
+        </div>
+        <div>
+          <Label className="text-xs">Last Name *</Label>
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Smith" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Phone</Label>
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07123 456789" />
+        </div>
+        <div>
+          <Label className="text-xs">Email</Label>
+          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" />
+        </div>
+      </div>
+      <Button onClick={handleCreate} disabled={!firstName.trim() || !lastName.trim() || saving} size="sm" className="w-full">
+        {saving ? "Creating..." : "Create Customer"}
+      </Button>
+    </div>
+  );
+}
+
+function InlineCreateProperty({ customerId, onCreated, onCancel }: { customerId: string; onCreated: (id: string) => void; onCancel: () => void }) {
+  const [addressLine1, setAddressLine1] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [city, setCity] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const handleCreate = async () => {
+    if (!addressLine1.trim() || !postcode.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/properties`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ customer_id: customerId, address_line1: addressLine1.trim(), postcode: postcode.trim(), city: city.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create property");
+      }
+      const property = await res.json();
+      await queryClient.invalidateQueries({ queryKey: ["listProperties"] });
+      toast({ title: "Property created" });
+      onCreated(property.id);
+    } catch (e) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border-2 border-dashed border-primary/30 rounded-lg p-4 space-y-3 bg-primary/5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm flex items-center gap-1"><Plus className="w-4 h-4" /> New Property</h3>
+        <Button variant="ghost" size="sm" onClick={onCancel}><X className="w-4 h-4" /></Button>
+      </div>
+      <div>
+        <Label className="text-xs">Address *</Label>
+        <Input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder="123 High Street" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">City</Label>
+          <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="London" />
+        </div>
+        <div>
+          <Label className="text-xs">Postcode *</Label>
+          <Input value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="SW1A 1AA" />
+        </div>
+      </div>
+      <Button onClick={handleCreate} disabled={!addressLine1.trim() || !postcode.trim() || saving} size="sm" className="w-full">
+        {saving ? "Creating..." : "Create Property"}
+      </Button>
+    </div>
+  );
+}
+
 export default function QuickRecord() {
   const [step, setStep] = useState(0);
   const [customerId, setCustomerId] = useState("");
@@ -44,6 +172,8 @@ export default function QuickRecord() {
   const [formType, setFormType] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+  const [showCreateProperty, setShowCreateProperty] = useState(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -150,7 +280,25 @@ export default function QuickRecord() {
       <Card className="p-6">
         {step === 0 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold flex items-center gap-2"><Users className="w-5 h-5" /> Select Customer</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2"><Users className="w-5 h-5" /> Select Customer</h2>
+              {!showCreateCustomer && (
+                <Button variant="outline" size="sm" onClick={() => setShowCreateCustomer(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> New
+                </Button>
+              )}
+            </div>
+            {showCreateCustomer && (
+              <InlineCreateCustomer
+                onCreated={(id) => {
+                  setCustomerId(id);
+                  setPropertyId("");
+                  setApplianceId("");
+                  setShowCreateCustomer(false);
+                }}
+                onCancel={() => setShowCreateCustomer(false)}
+              />
+            )}
             <Input
               placeholder="Search customers..."
               value={searchTerm}
@@ -180,10 +328,28 @@ export default function QuickRecord() {
 
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold flex items-center gap-2"><Home className="w-5 h-5" /> Select Property</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2"><Home className="w-5 h-5" /> Select Property</h2>
+              {!showCreateProperty && (
+                <Button variant="outline" size="sm" onClick={() => setShowCreateProperty(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> New
+                </Button>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               Showing properties for <span className="font-semibold text-foreground">{selectedCustomer?.first_name} {selectedCustomer?.last_name}</span>
             </p>
+            {showCreateProperty && (
+              <InlineCreateProperty
+                customerId={customerId}
+                onCreated={(id) => {
+                  setPropertyId(id);
+                  setApplianceId("");
+                  setShowCreateProperty(false);
+                }}
+                onCancel={() => setShowCreateProperty(false)}
+              />
+            )}
             <div className="max-h-64 overflow-y-auto space-y-1">
               {filteredProperties?.map((p) => (
                 <button
@@ -199,8 +365,13 @@ export default function QuickRecord() {
                   <p className="text-xs text-muted-foreground">{p.postcode}</p>
                 </button>
               ))}
-              {filteredProperties?.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No properties for this customer</p>
+              {filteredProperties?.length === 0 && !showCreateProperty && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground">No properties for this customer</p>
+                  <Button variant="link" size="sm" onClick={() => setShowCreateProperty(true)} className="mt-1">
+                    <Plus className="w-3 h-3 mr-1" /> Add one now
+                  </Button>
+                </div>
               )}
             </div>
           </div>

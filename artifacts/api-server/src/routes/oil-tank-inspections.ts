@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateOilTankInspectionBody,
   GetOilTankInspectionParams,
@@ -25,7 +25,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.post("/oil-tank-inspections", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/oil-tank-inspections", requireAuth, requireTenant, requirePlanFeature("oil_tank_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateOilTankInspectionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -37,7 +37,7 @@ router.post("/oil-tank-inspections", requireAuth, requireTenant, async (req: Aut
   res.status(201).json(GetOilTankInspectionResponse.parse(data));
 });
 
-router.get("/oil-tank-inspections/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/oil-tank-inspections/:id", requireAuth, requireTenant, requirePlanFeature("oil_tank_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetOilTankInspectionParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -52,7 +52,7 @@ router.get("/oil-tank-inspections/:id", requireAuth, requireTenant, async (req: 
   res.json(GetOilTankInspectionResponse.parse(data));
 });
 
-router.patch("/oil-tank-inspections/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/oil-tank-inspections/:id", requireAuth, requireTenant, requirePlanFeature("oil_tank_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateOilTankInspectionParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateOilTankInspectionBody.safeParse(req.body);
@@ -72,7 +72,7 @@ router.patch("/oil-tank-inspections/:id", requireAuth, requireTenant, async (req
   res.json(UpdateOilTankInspectionResponse.parse(data));
 });
 
-router.get("/oil-tank-inspections/job/:jobId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/oil-tank-inspections/job/:jobId", requireAuth, requireTenant, requirePlanFeature("oil_tank_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetOilTankInspectionByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

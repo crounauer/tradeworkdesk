@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateCombustionAnalysisRecordBody,
   GetCombustionAnalysisRecordParams,
@@ -25,7 +25,7 @@ async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promis
   return { allowed: true };
 }
 
-router.post("/combustion-analysis-records", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/combustion-analysis-records", requireAuth, requireTenant, requirePlanFeature("combustion_analysis"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateCombustionAnalysisRecordBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -37,7 +37,7 @@ router.post("/combustion-analysis-records", requireAuth, requireTenant, async (r
   res.status(201).json(GetCombustionAnalysisRecordResponse.parse(data));
 });
 
-router.get("/combustion-analysis-records/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/combustion-analysis-records/:id", requireAuth, requireTenant, requirePlanFeature("combustion_analysis"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCombustionAnalysisRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -52,7 +52,7 @@ router.get("/combustion-analysis-records/:id", requireAuth, requireTenant, async
   res.json(GetCombustionAnalysisRecordResponse.parse(data));
 });
 
-router.patch("/combustion-analysis-records/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/combustion-analysis-records/:id", requireAuth, requireTenant, requirePlanFeature("combustion_analysis"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateCombustionAnalysisRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateCombustionAnalysisRecordBody.safeParse(req.body);
@@ -72,7 +72,7 @@ router.patch("/combustion-analysis-records/:id", requireAuth, requireTenant, asy
   res.json(UpdateCombustionAnalysisRecordResponse.parse(data));
 });
 
-router.get("/combustion-analysis-records/job/:jobId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/combustion-analysis-records/job/:jobId", requireAuth, requireTenant, requirePlanFeature("combustion_analysis"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCombustionAnalysisRecordByJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
