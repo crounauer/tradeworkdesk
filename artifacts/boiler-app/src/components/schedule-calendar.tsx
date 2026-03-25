@@ -70,6 +70,13 @@ function formatTime(t: string): string {
   return `${h12}:${m}${ampm}`;
 }
 
+function getJobEndDate(job: CalendarJob): string {
+  if (job.scheduled_end_date) {
+    return String(job.scheduled_end_date).slice(0, 10);
+  }
+  return String(job.scheduled_date).slice(0, 10);
+}
+
 const STATUS_COLORS: Record<string, string> = {
   scheduled: "bg-blue-100 text-blue-700 border-blue-200",
   in_progress: "bg-amber-100 text-amber-700 border-amber-200",
@@ -135,15 +142,20 @@ export default function ScheduleCalendar() {
   const dateFrom = days[0];
   const dateTo = days[days.length - 1];
 
-  const { data: jobs = [] } = useListJobs({
-    date_from: toDateStr(dateFrom) as any,
-    date_to: toDateStr(addDays(dateTo, 1)) as any,
-  });
+  const dateFromStr = toDateStr(dateFrom);
+  const dateToStr = toDateStr(addDays(dateTo, 1));
+
+  const { data: rawJobs = [] } = useListJobs({
+    date_from: dateFromStr,
+    date_to: dateToStr,
+  } as Record<string, string>);
+
+  const calendarJobs = rawJobs as unknown as CalendarJob[];
 
   const { data: profiles = [] } = useListProfiles();
 
   const technicians = useMemo(
-    () => profiles.filter((p: any) => p.role === "technician"),
+    () => profiles.filter((p) => p.role === "technician"),
     [profiles]
   );
 
@@ -152,11 +164,9 @@ export default function ScheduleCalendar() {
     for (const day of days) {
       map[toDateStr(day)] = [];
     }
-    for (const job of jobs as CalendarJob[]) {
+    for (const job of calendarJobs) {
       const startStr = String(job.scheduled_date).slice(0, 10);
-      const endStr = (job as any).scheduled_end_date
-        ? String((job as any).scheduled_end_date).slice(0, 10)
-        : startStr;
+      const endStr = getJobEndDate(job);
 
       for (const day of days) {
         const ds = toDateStr(day);
@@ -166,7 +176,7 @@ export default function ScheduleCalendar() {
       }
     }
     return map;
-  }, [jobs, days]);
+  }, [calendarJobs, days]);
 
   const techWorkload = useMemo(() => {
     const map: Record<string, Record<string, number>> = {};
@@ -174,12 +184,10 @@ export default function ScheduleCalendar() {
       const ds = toDateStr(day);
       map[ds] = {};
     }
-    for (const job of jobs as CalendarJob[]) {
+    for (const job of calendarJobs) {
       if (!job.assigned_technician_id) continue;
       const startStr = String(job.scheduled_date).slice(0, 10);
-      const endStr = (job as any).scheduled_end_date
-        ? String((job as any).scheduled_end_date).slice(0, 10)
-        : startStr;
+      const endStr = getJobEndDate(job);
       for (const day of days) {
         const ds = toDateStr(day);
         if (ds >= startStr && ds <= endStr && map[ds]) {
@@ -189,7 +197,7 @@ export default function ScheduleCalendar() {
       }
     }
     return map;
-  }, [jobs, days]);
+  }, [calendarJobs, days]);
 
   const todayStr = toDateStr(new Date());
 
@@ -213,7 +221,7 @@ export default function ScheduleCalendar() {
   }, []);
 
   const handleDragStart = useCallback(
-    (e: DragEvent, jobId: string) => {
+    (e: DragEvent<HTMLAnchorElement>, jobId: string) => {
       if (!canDrag) return;
       e.dataTransfer.setData("text/plain", jobId);
       e.dataTransfer.effectAllowed = "move";
@@ -222,7 +230,7 @@ export default function ScheduleCalendar() {
     [canDrag]
   );
 
-  const handleDragOver = useCallback((e: DragEvent, dateStr: string) => {
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverDate(dateStr);
@@ -233,7 +241,7 @@ export default function ScheduleCalendar() {
   }, []);
 
   const handleDrop = useCallback(
-    async (e: DragEvent, newDateStr: string) => {
+    async (e: DragEvent<HTMLDivElement>, newDateStr: string) => {
       e.preventDefault();
       setDragOverDate(null);
       setDragJobId(null);
@@ -241,20 +249,20 @@ export default function ScheduleCalendar() {
       const jobId = e.dataTransfer.getData("text/plain");
       if (!jobId) return;
 
-      const job = (jobs as CalendarJob[]).find((j) => j.id === jobId);
+      const job = calendarJobs.find((j) => j.id === jobId);
       if (!job) return;
 
       const oldDateStr = String(job.scheduled_date).slice(0, 10);
       if (oldDateStr === newDateStr) return;
 
-      const updateData: any = {
+      const updateData: Record<string, string> = {
         scheduled_date: newDateStr,
       };
 
-      if ((job as any).scheduled_end_date) {
+      if (job.scheduled_end_date) {
         const oldStart = new Date(oldDateStr + "T00:00:00");
         const oldEnd = new Date(
-          String((job as any).scheduled_end_date).slice(0, 10) + "T00:00:00"
+          String(job.scheduled_end_date).slice(0, 10) + "T00:00:00"
         );
         const duration = Math.round(
           (oldEnd.getTime() - oldStart.getTime()) / 86400000
@@ -266,7 +274,7 @@ export default function ScheduleCalendar() {
       try {
         await updateJob.mutateAsync({
           id: jobId,
-          data: updateData,
+          data: updateData as { scheduled_date: string },
         });
         qc.invalidateQueries({ queryKey: ["/api/jobs"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -282,7 +290,7 @@ export default function ScheduleCalendar() {
         });
       }
     },
-    [jobs, updateJob, qc, toast]
+    [calendarJobs, updateJob, qc, toast]
   );
 
   const headerTitle =
@@ -292,7 +300,7 @@ export default function ScheduleCalendar() {
 
   const visibleTechs = useMemo(() => {
     if (profile?.role === "technician") {
-      return technicians.filter((t: any) => t.id === profile.id);
+      return technicians.filter((t) => t.id === profile.id);
     }
     return technicians;
   }, [technicians, profile]);
@@ -365,7 +373,6 @@ export default function ScheduleCalendar() {
         {headerTitle}
       </div>
 
-      {/* Desktop grid */}
       <div className="hidden sm:block">
         <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden border border-border">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
@@ -420,7 +427,7 @@ export default function ScheduleCalendar() {
                       key={job.id}
                       href={`/jobs/${job.id}`}
                       draggable={canDrag}
-                      onDragStart={(e: any) => handleDragStart(e, job.id)}
+                      onDragStart={(e: DragEvent<HTMLAnchorElement>) => handleDragStart(e, job.id)}
                       className={`block text-[11px] leading-tight px-1.5 py-1 rounded border transition-all ${
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
                       } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${
@@ -453,7 +460,7 @@ export default function ScheduleCalendar() {
 
                 {visibleTechs.length > 0 && (
                   <div className="flex flex-wrap gap-0.5 mt-1 pt-1 border-t border-border/50">
-                    {visibleTechs.map((tech: any) => {
+                    {visibleTechs.map((tech) => {
                       const count = techWorkload[ds]?.[tech.id] || 0;
                       if (count === 0) return null;
                       return (
@@ -481,7 +488,6 @@ export default function ScheduleCalendar() {
         </div>
       </div>
 
-      {/* Mobile stacked list */}
       <div className="sm:hidden space-y-2">
         {days.map((day) => {
           const ds = toDateStr(day);
@@ -531,7 +537,7 @@ export default function ScheduleCalendar() {
                       key={job.id}
                       href={`/jobs/${job.id}`}
                       draggable={canDrag}
-                      onDragStart={(e: any) => handleDragStart(e, job.id)}
+                      onDragStart={(e: DragEvent<HTMLAnchorElement>) => handleDragStart(e, job.id)}
                       className={`block text-sm px-3 py-2 rounded-lg border transition-all ${
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
                       } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
@@ -566,7 +572,7 @@ export default function ScheduleCalendar() {
 
               {visibleTechs.length > 0 && dayJobs.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-border/50">
-                  {visibleTechs.map((tech: any) => {
+                  {visibleTechs.map((tech) => {
                     const count = techWorkload[ds]?.[tech.id] || 0;
                     if (count === 0) return null;
                     return (
