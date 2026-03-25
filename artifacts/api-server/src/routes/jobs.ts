@@ -831,7 +831,7 @@ router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole
   res.send(content);
 });
 
-router.post("/quick-record", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "office_staff", "technician"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { customer_id, property_id, appliance_id, form_type, description } = req.body;
 
   if (!customer_id || !property_id || !form_type) {
