@@ -898,6 +898,18 @@ router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "o
     return;
   }
 
+  if (appliance_id) {
+    const { data: appliance } = await supabaseAdmin
+      .from("appliances")
+      .select("property_id")
+      .eq("id", appliance_id)
+      .single();
+    if (appliance && appliance.property_id !== property_id) {
+      res.status(400).json({ error: "Appliance does not belong to selected property" });
+      return;
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
 
   const jobPayload: Record<string, unknown> = {
