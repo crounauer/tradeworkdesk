@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback, DragEvent } from "react";
+import { useState, useMemo, useCallback, useRef, DragEvent, MouseEvent } from "react";
 import { useListJobs, useUpdateJob, useListProfiles } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -113,10 +113,12 @@ export default function ScheduleCalendar() {
   const qc = useQueryClient();
   const updateJob = useUpdateJob();
 
+  const [, navigate] = useLocation();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [anchorDate, setAnchorDate] = useState(() => startOfWeek(new Date()));
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const didDragRef = useRef(false);
 
   const canDrag =
     profile?.role === "admin" ||
@@ -201,7 +203,7 @@ export default function ScheduleCalendar() {
 
   const todayStr = toDateStr(new Date());
 
-  const navigate = useCallback(
+  const navigateCalendar = useCallback(
     (dir: number) => {
       if (viewMode === "week") {
         setAnchorDate((prev) => addDays(prev, dir * 7));
@@ -223,13 +225,26 @@ export default function ScheduleCalendar() {
   }, [viewMode]);
 
   const handleDragStart = useCallback(
-    (e: DragEvent<HTMLAnchorElement>, jobId: string) => {
+    (e: DragEvent<HTMLDivElement>, jobId: string) => {
       if (!canDrag) return;
+      didDragRef.current = true;
       e.dataTransfer.setData("text/plain", jobId);
       e.dataTransfer.effectAllowed = "move";
       setDragJobId(jobId);
     },
     [canDrag]
+  );
+
+  const handleJobClick = useCallback(
+    (e: MouseEvent, jobId: string) => {
+      if (didDragRef.current) {
+        didDragRef.current = false;
+        return;
+      }
+      e.stopPropagation();
+      navigate(`/jobs/${jobId}`);
+    },
+    [navigate]
   );
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, dateStr: string) => {
@@ -343,7 +358,7 @@ export default function ScheduleCalendar() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(-1)}
+              onClick={() => navigateCalendar(-1)}
               className="h-8 w-8 p-0"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -359,7 +374,7 @@ export default function ScheduleCalendar() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(1)}
+              onClick={() => navigateCalendar(1)}
               className="h-8 w-8 p-0"
             >
               <ChevronRight className="w-4 h-4" />
@@ -426,14 +441,18 @@ export default function ScheduleCalendar() {
 
                 <div className="space-y-0.5 overflow-y-auto max-h-[80px]">
                   {dayJobs.slice(0, viewMode === "month" ? 3 : 5).map((job) => (
-                    <Link
+                    <div
                       key={job.id}
-                      href={`/jobs/${job.id}`}
+                      role="button"
+                      tabIndex={0}
                       draggable={canDrag}
-                      onDragStart={(e: DragEvent<HTMLAnchorElement>) => handleDragStart(e, job.id)}
-                      className={`block text-[11px] leading-tight px-1.5 py-1 rounded border transition-all ${
+                      onDragStart={(e) => handleDragStart(e, job.id)}
+                      onDragEnd={() => { didDragRef.current = false; }}
+                      onClick={(e) => handleJobClick(e, job.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                      className={`block text-[11px] leading-tight px-1.5 py-1 rounded border transition-all cursor-pointer ${
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
-                      } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""} ${
+                      } ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${
                         dragJobId === job.id ? "opacity-50" : ""
                       } hover:shadow-sm`}
                     >
@@ -450,12 +469,21 @@ export default function ScheduleCalendar() {
                           {job.job_type?.replace("_", " ")}
                         </span>
                       </div>
-                      {job.scheduled_time && (
-                        <span className="text-[10px] opacity-75 ml-2.5">
-                          {formatTime(job.scheduled_time)}
-                        </span>
+                      {(job.scheduled_time || job.property_address) && (
+                        <div className="ml-2.5 mt-0.5">
+                          {job.scheduled_time && (
+                            <span className="text-[10px] opacity-75">
+                              {formatTime(job.scheduled_time)}
+                            </span>
+                          )}
+                          {job.property_address && (
+                            <span className="text-[10px] opacity-60 truncate block">
+                              {job.property_address}
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </Link>
+                    </div>
                   ))}
                   {dayJobs.length > (viewMode === "month" ? 3 : 5) && (
                     <span className="text-[10px] text-muted-foreground pl-1.5">
@@ -539,14 +567,18 @@ export default function ScheduleCalendar() {
               ) : (
                 <div className="space-y-1.5">
                   {dayJobs.map((job) => (
-                    <Link
+                    <div
                       key={job.id}
-                      href={`/jobs/${job.id}`}
+                      role="button"
+                      tabIndex={0}
                       draggable={canDrag}
-                      onDragStart={(e: DragEvent<HTMLAnchorElement>) => handleDragStart(e, job.id)}
-                      className={`block text-sm px-3 py-2 rounded-lg border transition-all ${
+                      onDragStart={(e) => handleDragStart(e, job.id)}
+                      onDragEnd={() => { didDragRef.current = false; }}
+                      onClick={(e) => handleJobClick(e, job.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                      className={`block text-sm px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
-                      } ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+                      } ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""}`}
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -561,6 +593,11 @@ export default function ScheduleCalendar() {
                           {job.job_type?.replace("_", " ")}
                         </span>
                       </div>
+                      {job.property_address && (
+                        <p className="text-xs opacity-60 mt-1 ml-4 truncate">
+                          {job.property_address}
+                        </p>
+                      )}
                       {(job.scheduled_time || job.technician_name) && (
                         <div className="flex items-center gap-3 mt-1 ml-4 text-xs opacity-75">
                           {job.scheduled_time && (
@@ -571,7 +608,7 @@ export default function ScheduleCalendar() {
                           )}
                         </div>
                       )}
-                    </Link>
+                    </div>
                   ))}
                 </div>
               )}
