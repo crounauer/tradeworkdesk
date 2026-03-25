@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText,
-  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck
+  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling
 } from "lucide-react";
 
 type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "logo_storage_path" | "created_at" | "updated_at">;
@@ -43,15 +43,26 @@ export default function AdminCompanySettings() {
         oftec_number: settings.oftec_number ?? "",
         vat_number: settings.vat_number ?? "",
         company_number: settings.company_number ?? "",
+        default_hourly_rate: settings.default_hourly_rate ?? 0,
+        call_out_fee: settings.call_out_fee ?? 0,
+        default_vat_rate: settings.default_vat_rate ?? 20,
+        default_payment_terms_days: settings.default_payment_terms_days ?? 30,
+        currency: settings.currency ?? "GBP",
       });
       if (settings.logo_url) setLogoPreview(settings.logo_url);
     }
   }, [settings, reset]);
 
+  const numericFields = new Set(["default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days"]);
+
   const onSubmit = async (values: FormValues) => {
-    const clean: Record<string, string | null> = {};
+    const clean: Record<string, string | number | null> = {};
     for (const [k, v] of Object.entries(values)) {
-      clean[k] = (v as string)?.trim() || null;
+      if (numericFields.has(k)) {
+        clean[k] = v != null && v !== "" ? Number(v) : null;
+      } else {
+        clean[k] = (v as string)?.trim() || null;
+      }
     }
     try {
       await updateSettings.mutateAsync(clean as Partial<CompanySettings>);
@@ -276,6 +287,45 @@ export default function AdminCompanySettings() {
                 <Globe className="w-3.5 h-3.5" /> Website
               </Label>
               <Input id="website" type="url" placeholder="e.g. https://www.example.com" {...register("website")} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pricing & Invoicing */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <PoundSterling className="w-4 h-4" />
+              Pricing & Invoicing
+            </CardTitle>
+            <CardDescription>
+              Default rates used for invoice calculations. These can be overridden per job.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="default_hourly_rate">Default Hourly Labour Rate</Label>
+              <Input id="default_hourly_rate" type="number" step="0.01" min="0" placeholder="e.g. 55.00" {...register("default_hourly_rate")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="call_out_fee">Call-out Fee</Label>
+              <Input id="call_out_fee" type="number" step="0.01" min="0" placeholder="e.g. 65.00" {...register("call_out_fee")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>
+              <Input id="default_vat_rate" type="number" step="0.01" min="0" max="100" placeholder="e.g. 20.00" {...register("default_vat_rate")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="default_payment_terms_days">Payment Terms (days)</Label>
+              <Input id="default_payment_terms_days" type="number" step="1" min="0" placeholder="e.g. 30" {...register("default_payment_terms_days")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="currency">Currency</Label>
+              <select id="currency" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("currency")}>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="USD">USD - US Dollar</option>
+              </select>
             </div>
           </CardContent>
         </Card>

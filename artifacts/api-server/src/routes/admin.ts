@@ -332,6 +332,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "address_line1", "address_line2", "city", "county", "postcode", "country",
     "phone", "email", "website",
     "gas_safe_number", "oftec_number", "vat_number", "company_number",
+    "default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days", "currency",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };

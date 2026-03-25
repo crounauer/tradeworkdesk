@@ -2,7 +2,7 @@ import { useListJobs, useCreateJob, useListProfiles, useListCustomers, useListPr
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,13 @@ export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState("");
   const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkExport, setShowBulkExport] = useState(false);
+  const [bulkExporting, setBulkExporting] = useState(false);
+  const { profile } = useAuth();
+  const { toast } = useToast();
+
+  const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff";
 
   const { data: jobs, isLoading } = useListJobs({
     status: statusFilter || undefined,
@@ -80,6 +87,59 @@ export default function Jobs() {
 
   const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up', 'invoiced'];
 
+  const exportableJobs = filteredJobs?.filter((j) => j.status === "completed" || j.status === "invoiced") || [];
+  const selectedExportable = [...selectedIds].filter((id) => exportableJobs.some((j) => j.id === id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedExportable.length === exportableJobs.length && exportableJobs.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(exportableJobs.map((j) => j.id)));
+    }
+  };
+
+  const handleBulkExport = async (format: string) => {
+    if (selectedExportable.length === 0) return;
+    setBulkExporting(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/bulk-invoice-export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ job_ids: selectedExportable, format }),
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      const filename = filenameMatch ? filenameMatch[1] : `bulk-invoices.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Exported", description: `${selectedExportable.length} invoice(s) exported` });
+      setShowBulkExport(false);
+      setSelectedIds(new Set());
+    } catch {
+      toast({ title: "Error", description: "Bulk export failed", variant: "destructive" });
+    } finally {
+      setBulkExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in">
       <div className="flex justify-between items-center">
@@ -87,9 +147,16 @@ export default function Jobs() {
           <h1 className="text-3xl font-display font-bold">Jobs</h1>
           <p className="text-muted-foreground mt-1">Manage all service visits</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> New Job</>}
-        </Button>
+        <div className="flex gap-2">
+          {isAdminOrOffice && selectedExportable.length > 0 && (
+            <Button variant="outline" className="text-emerald-600 border-emerald-200" onClick={() => setShowBulkExport(!showBulkExport)}>
+              <Download className="w-4 h-4 mr-2" /> Export {selectedExportable.length} Invoice{selectedExportable.length !== 1 ? "s" : ""}
+            </Button>
+          )}
+          <Button onClick={() => setShowForm(!showForm)}>
+            {showForm ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> New Job</>}
+          </Button>
+        </div>
       </div>
 
       {showForm && <AddJobForm onClose={() => setShowForm(false)} jobTypes={jobTypes} />}
@@ -121,7 +188,31 @@ export default function Jobs() {
             <X className="w-4 h-4 mr-1" /> Clear
           </Button>
         )}
+        {isAdminOrOffice && exportableJobs.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="ml-auto text-xs">
+            {selectedExportable.length === exportableJobs.length ? "Deselect All" : `Select All (${exportableJobs.length})`}
+          </Button>
+        )}
       </div>
+
+      {showBulkExport && (
+        <Card className="p-4 border-emerald-200 bg-emerald-50/50">
+          <p className="text-sm font-medium mb-3">Choose export format for {selectedExportable.length} job(s):</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "csv", label: "Universal CSV" },
+              { key: "quickbooks", label: "QuickBooks (IIF)" },
+              { key: "xero", label: "Xero CSV" },
+              { key: "sage", label: "Sage CSV" },
+            ].map((f) => (
+              <Button key={f.key} size="sm" variant="outline" disabled={bulkExporting} onClick={() => handleBulkExport(f.key)}>
+                <FileText className="w-4 h-4 mr-1" /> {f.label}
+              </Button>
+            ))}
+            <Button size="sm" variant="ghost" onClick={() => setShowBulkExport(false)}>Cancel</Button>
+          </div>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -134,9 +225,24 @@ export default function Jobs() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredJobs.map(job => (
-            <Link key={job.id} href={`/jobs/${job.id}`}>
-              <Card className="p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4">
+          {filteredJobs.map(job => {
+            const isExportable = job.status === "completed" || job.status === "invoiced";
+            const isSelected = selectedIds.has(job.id);
+            return (
+            <div key={job.id} className="flex items-stretch gap-2">
+              {isAdminOrOffice && isExportable && (
+                <div className="flex items-center px-1">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(job.id)}
+                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+              )}
+              {isAdminOrOffice && !isExportable && <div className="w-[28px]" />}
+            <Link href={`/jobs/${job.id}`} className="flex-1">
+              <Card className={`p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${isSelected ? "ring-2 ring-emerald-300 border-emerald-300" : ""}`}>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${getStatusColor(job.status)}`}>
@@ -173,7 +279,9 @@ export default function Jobs() {
                 </div>
               </Card>
             </Link>
-          ))}
+            </div>
+            );
+          })}
         </div>
       )}
     </div>

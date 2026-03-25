@@ -15,6 +15,15 @@ import {
   UpdateJobResponse,
   DeleteJobParams,
 } from "@workspace/api-zod";
+import {
+  generateUniversalCSV,
+  generateQuickBooksIIF,
+  generateXeroCSV,
+  generateSageCSV,
+  generateInvoiceNumber,
+  type InvoiceData,
+  type InvoiceLineItem,
+} from "../lib/invoice-export";
 
 interface SupabaseJobRow {
   id: string;
@@ -399,7 +408,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentic
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { part_name, quantity, serial_number } = req.body;
+  const { part_name, quantity, serial_number, unit_price } = req.body;
   if (!part_name || typeof part_name !== "string") {
     res.status(400).json({ error: "part_name is required" }); return;
   }
@@ -419,6 +428,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentic
     part_name: part_name.trim(),
     quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
     serial_number: serial_number || null,
+    unit_price: typeof unit_price === "number" && unit_price >= 0 ? unit_price : null,
     tenant_id: req.tenantId,
   }).select().single();
 
@@ -562,6 +572,245 @@ router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, asy
   if (req.tenantId) delQ = delQ.eq("tenant_id", req.tenantId);
   await delQ;
   res.sendStatus(204);
+});
+
+router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: jobId, partId } = req.params;
+  if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  const { part_name, quantity, serial_number, unit_price } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (part_name !== undefined) updates.part_name = String(part_name).trim();
+  if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? quantity : 1;
+  if (serial_number !== undefined) updates.serial_number = serial_number || null;
+  if (unit_price !== undefined) updates.unit_price = typeof unit_price === "number" && unit_price >= 0 ? unit_price : null;
+
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+  let q = supabaseAdmin.from("job_parts").update(updates).eq("id", partId).eq("job_id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q.select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Part not found" }); return; }
+  res.json(data);
+});
+
+async function buildInvoiceData(
+  jobId: string,
+  tenantId: string | null | undefined
+): Promise<InvoiceData | null> {
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email, address_line1, address_line2, city, county, postcode)").eq("id", jobId);
+  if (tenantId) jobQ = jobQ.eq("tenant_id", tenantId);
+  const { data: job } = await jobQ.single();
+  if (!job) return null;
+
+  let settingsQ = supabaseAdmin.from("company_settings").select("*").eq("singleton_id", "default");
+  if (tenantId) settingsQ = settingsQ.eq("tenant_id", tenantId);
+  const { data: settings } = await settingsQ.maybeSingle();
+
+  let partsQ = supabaseAdmin.from("job_parts").select("*").eq("job_id", jobId);
+  if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
+  const { data: parts } = await partsQ;
+
+  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time").eq("job_id", jobId);
+  if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
+  const { data: timeEntries } = await timeQ;
+
+  const hourlyRate = Number(settings?.default_hourly_rate) || 0;
+  const callOutFee = Number(settings?.call_out_fee) || 0;
+  const rawVat = Number(settings?.default_vat_rate);
+  const vatRate = Number.isFinite(rawVat) ? rawVat : 20;
+  const paymentTermsDays = Number(settings?.default_payment_terms_days) || 30;
+  const currency = settings?.currency || "GBP";
+
+  const customer = job.customers as { first_name: string; last_name: string; email?: string; address_line1?: string; address_line2?: string; city?: string; county?: string; postcode?: string } | null;
+  const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Unknown";
+  const customerAddressParts = [customer?.address_line1, customer?.address_line2, customer?.city, customer?.county, customer?.postcode].filter(Boolean);
+
+  const companyAddressParts = [settings?.address_line1, settings?.address_line2, settings?.city, settings?.county, settings?.postcode].filter(Boolean);
+
+  let totalLabourHours = 0;
+  if (timeEntries) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null }[]) {
+      if (e.arrival_time && e.departure_time) {
+        const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
+        if (diffMs > 0) totalLabourHours += diffMs / (1000 * 60 * 60);
+      }
+    }
+  }
+  totalLabourHours = Math.round(totalLabourHours * 100) / 100;
+
+  const lines: InvoiceLineItem[] = [];
+
+  if (parts) {
+    for (const p of parts as { part_name: string; quantity: number; unit_price: number | null }[]) {
+      const up = Number(p.unit_price) || 0;
+      lines.push({
+        description: p.part_name,
+        quantity: p.quantity,
+        unit_price: up,
+        total: up * p.quantity,
+      });
+    }
+  }
+
+  if (totalLabourHours > 0 && hourlyRate > 0) {
+    lines.push({
+      description: "Labour",
+      quantity: totalLabourHours,
+      unit_price: hourlyRate,
+      total: Math.round(totalLabourHours * hourlyRate * 100) / 100,
+    });
+  }
+
+  if (callOutFee > 0) {
+    lines.push({
+      description: "Call-out Fee",
+      quantity: 1,
+      unit_price: callOutFee,
+      total: callOutFee,
+    });
+  }
+
+  const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
+  const vatAmount = Math.round(subtotal * vatRate / 100 * 100) / 100;
+  const total = subtotal + vatAmount;
+
+  const invoiceDate = new Date().toISOString().slice(0, 10);
+  const dueDate = new Date(Date.now() + paymentTermsDays * 86400000).toISOString().slice(0, 10);
+  const invoiceNumber = generateInvoiceNumber(job.created_at, job.id.substring(0, 6));
+
+  return {
+    invoice_number: invoiceNumber,
+    invoice_date: invoiceDate,
+    due_date: dueDate,
+    currency,
+    company_name: settings?.name || settings?.trading_name || "",
+    company_address: companyAddressParts.join(", "),
+    company_email: settings?.email || "",
+    company_phone: settings?.phone || "",
+    company_vat_number: settings?.vat_number || "",
+    customer_name: customerName,
+    customer_email: customer?.email || "",
+    customer_address: customerAddressParts.join(", "),
+    job_id: job.id,
+    job_type: job.job_type,
+    job_description: job.description || `${job.job_type} job`,
+    lines,
+    subtotal,
+    vat_rate: vatRate,
+    vat_amount: vatAmount,
+    total,
+  };
+}
+
+router.get("/jobs/:id/invoice-summary", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const invoiceData = await buildInvoiceData(req.params.id, req.tenantId);
+  if (!invoiceData) { res.status(404).json({ error: "Job not found" }); return; }
+  res.json(invoiceData);
+});
+
+router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const format = (req.query.format as string) || "csv";
+
+  let statusQ = supabaseAdmin.from("jobs").select("status").eq("id", req.params.id);
+  if (req.tenantId) statusQ = statusQ.eq("tenant_id", req.tenantId);
+  const { data: jobRow } = await statusQ.single();
+  if (!jobRow) { res.status(404).json({ error: "Job not found" }); return; }
+  if (jobRow.status !== "completed" && jobRow.status !== "invoiced") {
+    res.status(400).json({ error: "Only completed or invoiced jobs can be exported" }); return;
+  }
+
+  const invoiceData = await buildInvoiceData(req.params.id, req.tenantId);
+  if (!invoiceData) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const safeName = invoiceData.customer_name.replace(/[^a-zA-Z0-9]/g, "-");
+  let content: string;
+  let contentType: string;
+  let ext: string;
+
+  switch (format) {
+    case "quickbooks":
+      content = generateQuickBooksIIF([invoiceData]);
+      contentType = "text/plain";
+      ext = "iif";
+      break;
+    case "xero":
+      content = generateXeroCSV([invoiceData]);
+      contentType = "text/csv";
+      ext = "csv";
+      break;
+    case "sage":
+      content = generateSageCSV([invoiceData]);
+      contentType = "text/csv";
+      ext = "csv";
+      break;
+    default:
+      content = generateUniversalCSV([invoiceData]);
+      contentType = "text/csv";
+      ext = "csv";
+  }
+
+  const filename = `${invoiceData.invoice_number}-${safeName}.${ext}`;
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(content);
+});
+
+router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { job_ids, format } = req.body as { job_ids?: string[]; format?: string };
+  if (!job_ids || !Array.isArray(job_ids) || job_ids.length === 0) {
+    res.status(400).json({ error: "job_ids array is required" }); return;
+  }
+  if (job_ids.length > 100) {
+    res.status(400).json({ error: "Maximum 100 jobs per export" }); return;
+  }
+
+  const invoices: InvoiceData[] = [];
+  for (const jid of job_ids) {
+    const data = await buildInvoiceData(jid, req.tenantId);
+    if (data) invoices.push(data);
+  }
+
+  if (invoices.length === 0) { res.status(404).json({ error: "No valid jobs found" }); return; }
+
+  let content: string;
+  let contentType: string;
+  let ext: string;
+  const fmt = format || "csv";
+
+  switch (fmt) {
+    case "quickbooks":
+      content = generateQuickBooksIIF(invoices);
+      contentType = "text/plain";
+      ext = "iif";
+      break;
+    case "xero":
+      content = generateXeroCSV(invoices);
+      contentType = "text/csv";
+      ext = "csv";
+      break;
+    case "sage":
+      content = generateSageCSV(invoices);
+      contentType = "text/csv";
+      ext = "csv";
+      break;
+    default:
+      content = generateUniversalCSV(invoices);
+      contentType = "text/csv";
+      ext = "csv";
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `bulk-invoices-${date}.${ext}`;
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(content);
 });
 
 router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {

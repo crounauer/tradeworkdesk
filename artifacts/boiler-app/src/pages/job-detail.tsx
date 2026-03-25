@@ -10,7 +10,7 @@ import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
-  MessageSquare, Send, Pencil
+  MessageSquare, Send, Pencil, PoundSterling, Download
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -46,6 +46,7 @@ interface JobPart {
   part_name: string;
   quantity: number;
   serial_number: string | null;
+  unit_price: number | null;
   tenant_id: string;
   created_at: string;
 }
@@ -164,6 +165,12 @@ export default function JobDetail() {
             <TimeAttendedSection jobId={job.id} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} />
 
             <PartsUsedSection jobId={job.id} />
+
+            {(profile?.role === "admin" || profile?.role === "office_staff") && (
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} customerName={
+                job.customer ? `${(job.customer as {first_name: string}).first_name} ${(job.customer as {last_name: string}).last_name}` : ""
+              } />
+            )}
 
             <PhotosSection jobId={job.id} />
 
@@ -593,7 +600,10 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
   const [partName, setPartName] = useState("");
   const [partQty, setPartQty] = useState("1");
   const [partSerial, setPartSerial] = useState("");
+  const [partPrice, setPartPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
 
   const fetchParts = useCallback(async () => {
     try {
@@ -615,9 +625,14 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ part_name: partName.trim(), quantity: Number(partQty) || 1, serial_number: partSerial || null }),
+        body: JSON.stringify({
+          part_name: partName.trim(),
+          quantity: Number(partQty) || 1,
+          serial_number: partSerial || null,
+          unit_price: partPrice ? Number(partPrice) : null,
+        }),
       });
-      setPartName(""); setPartQty("1"); setPartSerial(""); setShowAdd(false);
+      setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setShowAdd(false);
       toast({ title: "Added", description: "Part added" });
       fetchParts();
     } catch (e: unknown) {
@@ -639,6 +654,23 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
     }
   };
 
+  const handleSavePrice = async (partId: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null }),
+      });
+      setEditingId(null);
+      fetchParts();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update price";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const partsSubtotal = parts.reduce((sum, p) => sum + (Number(p.unit_price) || 0) * p.quantity, 0);
+
   return (
     <Card className="p-6 border border-border/50 shadow-sm">
       <div className="flex items-center justify-between mb-4">
@@ -652,7 +684,7 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
 
       {showAdd && (
         <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid sm:grid-cols-3 gap-3">
+          <div className="grid sm:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Part Name *</Label>
               <Input value={partName} onChange={(e) => setPartName(e.target.value)} placeholder="e.g. Pump, Fan, Valve" />
@@ -660,6 +692,10 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
             <div className="space-y-1">
               <Label className="text-xs">Quantity</Label>
               <Input type="number" min="1" value={partQty} onChange={(e) => setPartQty(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Unit Price</Label>
+              <Input type="number" step="0.01" min="0" value={partPrice} onChange={(e) => setPartPrice(e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Serial Number</Label>
@@ -683,6 +719,8 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Part</th>
                 <th className="text-left px-4 py-2 font-medium">Qty</th>
+                <th className="text-right px-4 py-2 font-medium">Unit Price</th>
+                <th className="text-right px-4 py-2 font-medium">Line Total</th>
                 <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Serial #</th>
                 <th className="w-10"></th>
               </tr>
@@ -692,6 +730,35 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
                 <tr key={p.id} className="border-b last:border-0">
                   <td className="px-4 py-2">{p.part_name}</td>
                   <td className="px-4 py-2">{p.quantity}</td>
+                  <td className="px-4 py-2 text-right">
+                    {editingId === p.id ? (
+                      <div className="flex items-center gap-1 justify-end">
+                        <Input
+                          type="number" step="0.01" min="0"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                          className="w-20 h-7 text-xs"
+                        />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(p.id)}>
+                          <Check className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingId(null)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span
+                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
+                        onClick={() => { setEditingId(p.id); setEditPrice(p.unit_price != null ? String(p.unit_price) : ""); }}
+                      >
+                        {p.unit_price != null ? `${Number(p.unit_price).toFixed(2)}` : "—"}
+                        <Pencil className="w-3 h-3 opacity-40" />
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium">
+                    {p.unit_price != null ? (Number(p.unit_price) * p.quantity).toFixed(2) : "—"}
+                  </td>
                   <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.serial_number || "—"}</td>
                   <td className="px-2 py-2">
                     <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(p.id)}>
@@ -701,7 +768,157 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
                 </tr>
               ))}
             </tbody>
+            {partsSubtotal > 0 && (
+              <tfoot className="bg-slate-50 border-t">
+                <tr>
+                  <td colSpan={3} className="px-4 py-2 font-semibold text-right">Parts Subtotal</td>
+                  <td className="px-4 py-2 font-bold text-right">{partsSubtotal.toFixed(2)}</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+interface InvoiceSummary {
+  invoice_number: string;
+  invoice_date: string;
+  due_date: string;
+  currency: string;
+  lines: { description: string; quantity: number; unit_price: number; total: number }[];
+  subtotal: number;
+  vat_rate: number;
+  vat_amount: number;
+  total: number;
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = { GBP: "\u00A3", EUR: "\u20AC", USD: "$" };
+
+function PricingSummarySection({ jobId, jobStatus, customerName }: { jobId: string; jobStatus: string; customerName: string }) {
+  const [summary, setSummary] = useState<InvoiceSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/invoice-summary`);
+        setSummary(data as InvoiceSummary);
+      } catch {
+        setSummary(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [jobId]);
+
+  const handleExport = async (format: string) => {
+    setExporting(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/invoice-export?format=${format}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+      const filename = filenameMatch ? filenameMatch[1] : `invoice-${jobId.substring(0, 8)}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Exported", description: `Invoice exported as ${format.toUpperCase()}` });
+      setShowExport(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Export failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  if (loading) return null;
+  if (!summary) return null;
+
+  const sym = CURRENCY_SYMBOLS[summary.currency] || summary.currency + " ";
+  const canExport = jobStatus === "completed" || jobStatus === "invoiced";
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3
+          className="font-bold text-lg flex items-center gap-2 text-emerald-600 cursor-pointer select-none"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <PoundSterling className="w-5 h-5" /> Pricing Summary
+          <span className="text-xs text-muted-foreground ml-1">{expanded ? "▲" : "▼"}</span>
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-lg">{sym}{summary.total.toFixed(2)}</span>
+          {canExport && (
+            <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200" onClick={() => setShowExport(!showExport)}>
+              <FileText className="w-4 h-4 mr-1" /> Export Invoice
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {showExport && (
+        <div className="border rounded-lg p-4 mb-4 bg-emerald-50/50 space-y-3">
+          <p className="text-sm font-medium">Choose export format:</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "csv", label: "Universal CSV" },
+              { key: "quickbooks", label: "QuickBooks (IIF)" },
+              { key: "xero", label: "Xero CSV" },
+              { key: "sage", label: "Sage CSV" },
+            ].map((f) => (
+              <Button
+                key={f.key}
+                size="sm"
+                variant="outline"
+                disabled={exporting}
+                onClick={() => handleExport(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setShowExport(false)}>Cancel</Button>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="space-y-2 text-sm">
+          {summary.lines.map((line, i) => (
+            <div key={i} className="flex justify-between border-b border-border/30 pb-1">
+              <span>{line.description} <span className="text-muted-foreground">x{line.quantity}</span></span>
+              <span>{sym}{line.total.toFixed(2)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between pt-1">
+            <span className="font-medium">Subtotal</span>
+            <span>{sym}{summary.subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>VAT ({summary.vat_rate}%)</span>
+            <span>{sym}{summary.vat_amount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-base border-t pt-2">
+            <span>Total</span>
+            <span>{sym}{summary.total.toFixed(2)}</span>
+          </div>
         </div>
       )}
     </Card>

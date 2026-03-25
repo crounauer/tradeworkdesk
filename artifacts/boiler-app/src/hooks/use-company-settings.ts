@@ -20,6 +20,11 @@ export interface CompanySettings {
   company_number?: string | null;
   logo_url?: string | null;
   logo_storage_path?: string | null;
+  default_hourly_rate?: number | null;
+  call_out_fee?: number | null;
+  default_vat_rate?: number | null;
+  default_payment_terms_days?: number | null;
+  currency?: string | null;
   created_at?: string;
   updated_at?: string;
 }
