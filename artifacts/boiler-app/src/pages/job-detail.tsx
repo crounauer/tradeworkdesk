@@ -53,6 +53,10 @@ interface JobPart {
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: job, isLoading } = useGetJob(id);
+  const updateJob = useUpdateJob();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { profile } = useAuth();
   const [editing, setEditing] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading job details...</div>;
@@ -64,7 +68,29 @@ export default function JobDetail() {
     completed: "bg-emerald-100 text-emerald-700",
     cancelled: "bg-slate-100 text-slate-500",
     requires_follow_up: "bg-rose-100 text-rose-700",
+    invoiced: "bg-violet-100 text-violet-700",
   };
+
+  const handleStatusChange = async (newStatus: string, label: string) => {
+    try {
+      await updateJob.mutateAsync({
+        id: job.id,
+        data: {
+          status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "invoiced",
+        },
+      });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Status Updated", description: `Job marked as ${label}` });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update status";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+  const canComplete = job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled";
+  const canInvoice = job.status === "completed";
 
   return (
     <div className="space-y-6 animate-in fade-in pb-20">
@@ -82,9 +108,21 @@ export default function JobDetail() {
           </div>
           <p className="text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-          {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {canComplete && (
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
+              <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
+            </Button>
+          )}
+          {canInvoice && isAdmin && (
+            <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending}>
+              <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+            {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
+          </Button>
+        </div>
       </div>
 
       {editing ? (
@@ -977,7 +1015,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       await update.mutateAsync({
         id: job.id,
         data: {
-          status: data.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up",
+          status: data.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "invoiced",
           priority: data.priority as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
           scheduled_end_date: data.scheduled_end_date || null,
@@ -1008,6 +1046,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
               <option value="requires_follow_up">Requires Follow-up</option>
+              <option value="invoiced">Invoiced</option>
             </select>
           </div>
           <div className="space-y-2">

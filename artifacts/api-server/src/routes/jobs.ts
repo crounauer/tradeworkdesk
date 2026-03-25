@@ -320,6 +320,14 @@ router.patch("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedR
     }
   }
 
+  if (body.data.status === "invoiced") {
+    const isAdmin = req.userRole === "admin" || req.userRole === "super_admin";
+    if (!isAdmin) {
+      res.status(403).json({ error: "Only admins can mark a job as invoiced" });
+      return;
+    }
+  }
+
   const fkChecks: Array<{ table: string; id: string | undefined | null }> = [
     { table: "customers", id: body.data.customer_id },
     { table: "properties", id: body.data.property_id },

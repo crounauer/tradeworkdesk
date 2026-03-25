@@ -72,12 +72,13 @@ export default function Jobs() {
       case 'in_progress': return 'bg-amber-100 text-amber-700';
       case 'completed': return 'bg-emerald-100 text-emerald-700';
       case 'requires_follow_up': return 'bg-rose-100 text-rose-700';
+      case 'invoiced': return 'bg-violet-100 text-violet-700';
       case 'cancelled': return 'bg-slate-200 text-slate-600';
       default: return 'bg-slate-100 text-slate-700';
     }
   };
 
-  const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up'];
+  const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up', 'invoiced'];
 
   return (
     <div className="space-y-6 animate-in fade-in">
