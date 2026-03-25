@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 
 interface JobType {
   id: number;
@@ -45,11 +46,12 @@ export default function Dashboard() {
   const { data, isLoading } = useGetDashboard();
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
+  const { hasFeature } = usePlanFeatures();
+  const hasJobManagement = hasFeature("job_management");
 
   if (isLoading) return <div className="p-8">Loading dashboard...</div>;
   if (!data) return null;
-
-  const canCreateJobs = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+  const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   const stats = [
     { label: "Total Customers", value: data.stats?.total_customers || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-50" },
@@ -130,9 +132,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <ScheduleCalendar />
+      {hasJobManagement && <ScheduleCalendar />}
 
-      {showQuickBook && (
+      {hasJobManagement && showQuickBook && (
         <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} />
       )}
     </div>
