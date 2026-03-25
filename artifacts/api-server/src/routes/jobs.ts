@@ -32,12 +32,25 @@ interface SupabaseJobRow {
   scheduled_end_date: string | null;
   scheduled_time: string | null;
   estimated_duration: number | null;
+  arrival_time: string | null;
+  departure_time: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   customers?: { first_name: string; last_name: string } | null;
   properties?: { address_line1: string } | null;
   profiles?: { full_name: string } | null;
+}
+
+async function verifyTechnicianOwnership(
+  jobId: string,
+  userId: string | undefined,
+  tenantId: string | undefined | null,
+): Promise<boolean> {
+  let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
+  if (tenantId) tq = tq.eq("tenant_id", tenantId);
+  const { data: j } = await tq.single();
+  return !!j && j.assigned_technician_id === userId;
 }
 
 async function enrichJobsWithTypeNames(
@@ -300,10 +313,8 @@ router.patch("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedR
       res.status(403).json({ error: "Technicians can only update arrival/departure time and status" });
       return;
     }
-    let techQ = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", params.data.id);
-    if (req.tenantId) techQ = techQ.eq("tenant_id", req.tenantId);
-    const { data: techJob } = await techQ.single();
-    if (!techJob || techJob.assigned_technician_id !== req.userId) {
+    const isOwner = await verifyTechnicianOwnership(params.data.id, req.userId, req.tenantId);
+    if (!isOwner) {
       res.status(403).json({ error: "You can only update jobs assigned to you" });
       return;
     }
@@ -365,12 +376,8 @@ router.get("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentica
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {
-    let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
-    if (req.tenantId) tq = tq.eq("tenant_id", req.tenantId);
-    const { data: j } = await tq.single();
-    if (!j || j.assigned_technician_id !== req.userId) {
-      res.status(403).json({ error: "Not authorized" }); return;
-    }
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
   let q = supabaseAdmin.from("job_parts").select("*").eq("job_id", jobId).order("created_at", { ascending: true });
@@ -390,12 +397,8 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, async (req: Authentic
   }
 
   if (req.userRole === "technician") {
-    let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
-    if (req.tenantId) tq = tq.eq("tenant_id", req.tenantId);
-    const { data: j } = await tq.single();
-    if (!j || j.assigned_technician_id !== req.userId) {
-      res.status(403).json({ error: "Not authorized" }); return;
-    }
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
   const { data, error } = await supabaseAdmin.from("job_parts").insert({
@@ -415,12 +418,8 @@ router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req:
   if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
-    let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
-    if (req.tenantId) tq = tq.eq("tenant_id", req.tenantId);
-    const { data: j } = await tq.single();
-    if (!j || j.assigned_technician_id !== req.userId) {
-      res.status(403).json({ error: "Not authorized" }); return;
-    }
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
   let q = supabaseAdmin.from("job_parts").delete().eq("id", partId).eq("job_id", jobId);
