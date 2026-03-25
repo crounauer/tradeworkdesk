@@ -10,7 +10,7 @@ import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
-  MessageSquare, Send, Pencil, PoundSterling, Download
+  MessageSquare, Send, Pencil, PoundSterling
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -167,9 +167,7 @@ export default function JobDetail() {
             <PartsUsedSection jobId={job.id} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
-              <PricingSummarySection jobId={job.id} jobStatus={job.status} customerName={
-                job.customer ? `${(job.customer as {first_name: string}).first_name} ${(job.customer as {last_name: string}).last_name}` : ""
-              } />
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} />
             )}
 
             <PhotosSection jobId={job.id} />
@@ -794,11 +792,14 @@ interface InvoiceSummary {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  parts_total?: number;
+  labour_total?: number;
+  call_out_fee?: number;
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = { GBP: "\u00A3", EUR: "\u20AC", USD: "$" };
 
-function PricingSummarySection({ jobId, jobStatus, customerName }: { jobId: string; jobStatus: string; customerName: string }) {
+function PricingSummarySection({ jobId, jobStatus }: { jobId: string; jobStatus: string }) {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -907,6 +908,26 @@ function PricingSummarySection({ jobId, jobStatus, customerName }: { jobId: stri
               <span>{sym}{line.total.toFixed(2)}</span>
             </div>
           ))}
+          <div className="border-t border-border/30 pt-2 mt-2 space-y-1">
+            {(summary.parts_total ?? 0) > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Parts Total</span>
+                <span>{sym}{(summary.parts_total ?? 0).toFixed(2)}</span>
+              </div>
+            )}
+            {(summary.labour_total ?? 0) > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Labour Total</span>
+                <span>{sym}{(summary.labour_total ?? 0).toFixed(2)}</span>
+              </div>
+            )}
+            {(summary.call_out_fee ?? 0) > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Call-out Fee</span>
+                <span>{sym}{(summary.call_out_fee ?? 0).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
           <div className="flex justify-between pt-1">
             <span className="font-medium">Subtotal</span>
             <span>{sym}{summary.subtotal.toFixed(2)}</span>

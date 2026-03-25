@@ -677,6 +677,10 @@ async function buildInvoiceData(
     });
   }
 
+  const partsTotal = lines.filter(l => l.description !== "Labour" && l.description !== "Call-out Fee").reduce((sum, l) => sum + l.total, 0);
+  const labourTotal = lines.filter(l => l.description === "Labour").reduce((sum, l) => sum + l.total, 0);
+  const callOutTotal = callOutFee > 0 ? callOutFee : 0;
+
   const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
   const vatAmount = Math.round(subtotal * vatRate / 100 * 100) / 100;
   const total = subtotal + vatAmount;
@@ -702,6 +706,9 @@ async function buildInvoiceData(
     job_type: job.job_type,
     job_description: job.description || `${job.job_type} job`,
     lines,
+    parts_total: partsTotal,
+    labour_total: labourTotal,
+    call_out_fee: callOutTotal,
     subtotal,
     vat_rate: vatRate,
     vat_amount: vatAmount,
