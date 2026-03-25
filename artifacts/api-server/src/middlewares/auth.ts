@@ -1,6 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 
+const planFeaturesCache = new Map<string, { features: Record<string, unknown>; expiresAt: number }>();
+const PLAN_CACHE_TTL_MS = 60_000;
+
+const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
+const PROFILE_CACHE_TTL_MS = 30_000;
+
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   userRole?: string;
@@ -31,44 +37,61 @@ export async function requireAuth(
     return;
   }
 
-  let { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single();
+  const now = Date.now();
+  const cachedProfile = profileCache.get(user.id);
 
-  if (!profile) {
-    const fullName =
-      user.user_metadata?.full_name ||
-      user.email?.split("@")[0] ||
-      "User";
+  let profile: { role: string; tenant_id: string | null } | null = null;
 
-    const { count: adminCount } = await supabaseAdmin
+  if (cachedProfile && cachedProfile.expiresAt > now) {
+    profile = cachedProfile;
+  } else {
+    const { data: dbProfile } = await supabaseAdmin
       .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin");
-
-    const role = (adminCount ?? 0) === 0 ? "admin" : "technician";
-
-    const { data: created } = await supabaseAdmin
-      .from("profiles")
-      .insert({ id: user.id, email: user.email, full_name: fullName, role })
       .select("role, tenant_id")
+      .eq("id", user.id)
       .single();
 
-    profile = created;
-  } else if (profile.role === "technician") {
-    const { count: adminCount } = await supabaseAdmin
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin");
+    if (!dbProfile) {
+      const fullName =
+        user.user_metadata?.full_name ||
+        user.email?.split("@")[0] ||
+        "User";
 
-    if ((adminCount ?? 0) === 0) {
-      await supabaseAdmin
+      const { count: adminCount } = await supabaseAdmin
         .from("profiles")
-        .update({ role: "admin" })
-        .eq("id", user.id);
-      profile = { ...profile, role: "admin" };
+        .select("id", { count: "exact", head: true })
+        .eq("role", "admin");
+
+      const role = (adminCount ?? 0) === 0 ? "admin" : "technician";
+
+      const { data: created } = await supabaseAdmin
+        .from("profiles")
+        .insert({ id: user.id, email: user.email, full_name: fullName, role })
+        .select("role, tenant_id")
+        .single();
+
+      profile = created;
+    } else if (dbProfile.role === "technician") {
+      const { count: adminCount } = await supabaseAdmin
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "admin");
+
+      if ((adminCount ?? 0) === 0) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ role: "admin" })
+          .eq("id", user.id);
+        profile = { ...dbProfile, role: "admin" };
+      } else {
+        profile = dbProfile;
+      }
+    } else {
+      profile = dbProfile;
+    }
+
+    if (profile) {
+      profileCache.set(user.id, { ...profile, expiresAt: now + PROFILE_CACHE_TTL_MS });
     }
   }
 
@@ -122,6 +145,29 @@ export function requireTenant(
   next();
 }
 
+async function getTenantFeatures(tenantId: string): Promise<Record<string, unknown> | null> {
+  const now = Date.now();
+  const cached = planFeaturesCache.get(tenantId);
+  if (cached && cached.expiresAt > now) {
+    return cached.features;
+  }
+
+  const { data: tenant, error } = await supabaseAdmin
+    .from("tenants")
+    .select("plan_id, plans(features)")
+    .eq("id", tenantId)
+    .single();
+
+  if (error || !tenant) return null;
+
+  const features =
+    (tenant.plans as { features?: Record<string, unknown> } | null)
+      ?.features ?? {};
+
+  planFeaturesCache.set(tenantId, { features, expiresAt: now + PLAN_CACHE_TTL_MS });
+  return features;
+}
+
 export function requirePlanFeature(featureName: string) {
   return async (
     req: AuthenticatedRequest,
@@ -138,20 +184,12 @@ export function requirePlanFeature(featureName: string) {
       return;
     }
 
-    const { data: tenant, error } = await supabaseAdmin
-      .from("tenants")
-      .select("plan_id, plans(features)")
-      .eq("id", req.tenantId)
-      .single();
+    const features = await getTenantFeatures(req.tenantId);
 
-    if (error || !tenant) {
+    if (features === null) {
       res.status(403).json({ error: "Could not verify plan features" });
       return;
     }
-
-    const features =
-      (tenant.plans as { features?: Record<string, unknown> } | null)
-        ?.features ?? {};
 
     if (!features[featureName]) {
       res.status(402).json({
