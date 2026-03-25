@@ -436,12 +436,10 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
               </div>
             ))}
           </div>
-          {totalMinutes > 0 && (
-            <div className="mt-3 pt-3 border-t flex justify-between items-center">
-              <span className="text-sm font-medium text-muted-foreground">Total Time</span>
-              <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
-            </div>
-          )}
+          <div className="mt-3 pt-3 border-t flex justify-between items-center">
+            <span className="text-sm font-medium text-muted-foreground">Total Time</span>
+            <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
+          </div>
         </>
       ) : showLegacy ? (
         <div className="border rounded-lg p-3 bg-slate-50/50">
