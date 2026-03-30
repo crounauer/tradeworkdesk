@@ -74,7 +74,16 @@ router.get("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job
 
 router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { contact_name, contact_phone, contact_email, source, description, notes, address, status, priority } = req.body;
+  const body = req.body || {};
+  const contact_name = typeof body.contact_name === "string" ? body.contact_name : undefined;
+  const contact_phone = typeof body.contact_phone === "string" ? body.contact_phone : undefined;
+  const contact_email = typeof body.contact_email === "string" ? body.contact_email : undefined;
+  const source = typeof body.source === "string" ? body.source : undefined;
+  const description = typeof body.description === "string" ? body.description : undefined;
+  const notes = typeof body.notes === "string" ? body.notes : undefined;
+  const address = typeof body.address === "string" ? body.address : undefined;
+  const status = typeof body.status === "string" ? body.status : undefined;
+  const priority = typeof body.priority === "string" ? body.priority : undefined;
 
   const validStatuses = ["new", "contacted", "quoted", "converted", "lost"];
   const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "referral", "other"];
@@ -82,12 +91,12 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
 
   const updates: Record<string, unknown> = {};
   if (contact_name !== undefined) updates.contact_name = contact_name.trim();
-  if (contact_phone !== undefined) updates.contact_phone = contact_phone?.trim() || null;
-  if (contact_email !== undefined) updates.contact_email = contact_email?.trim() || null;
+  if (contact_phone !== undefined) updates.contact_phone = contact_phone.trim() || null;
+  if (contact_email !== undefined) updates.contact_email = contact_email.trim() || null;
   if (source !== undefined && validSources.includes(source)) updates.source = source;
-  if (description !== undefined) updates.description = description?.trim() || null;
-  if (notes !== undefined) updates.notes = notes?.trim() || null;
-  if (address !== undefined) updates.address = address?.trim() || null;
+  if (description !== undefined) updates.description = description.trim() || null;
+  if (notes !== undefined) updates.notes = notes.trim() || null;
+  if (address !== undefined) updates.address = address.trim() || null;
   if (status !== undefined && validStatuses.includes(status)) updates.status = status;
   if (priority !== undefined && validPriorities.includes(priority)) updates.priority = priority;
 
