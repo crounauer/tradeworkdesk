@@ -213,6 +213,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     contact_email: "",
     source: "phone",
     description: "",
+    notes: "",
     address: "",
     priority: "medium",
   });
@@ -294,6 +295,15 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="What does the customer need? E.g., 'Boiler not heating water, wants a quote for repair...'"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <textarea
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]"
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder="Internal notes about this enquiry..."
             />
           </div>
           <div className="flex gap-3 pt-2">

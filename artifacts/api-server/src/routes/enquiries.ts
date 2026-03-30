@@ -18,7 +18,7 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
   if (source && typeof source === "string") q = q.eq("source", source);
   if (search && typeof search === "string") {
     const s = `%${search}%`;
-    q = q.or(`contact_name.ilike.${s},contact_phone.ilike.${s},contact_email.ilike.${s},description.ilike.${s},address.ilike.${s}`);
+    q = q.or(`contact_name.ilike.${s},contact_phone.ilike.${s},contact_email.ilike.${s},description.ilike.${s},notes.ilike.${s},address.ilike.${s}`);
   }
 
   const { data, error } = await q;
@@ -27,7 +27,7 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
 });
 
 router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { contact_name, contact_phone, contact_email, source, description, address, priority } = req.body;
+  const { contact_name, contact_phone, contact_email, source, description, notes, address, priority } = req.body;
 
   if (!contact_name || typeof contact_name !== "string" || !contact_name.trim()) {
     res.status(400).json({ error: "contact_name is required" }); return;
@@ -45,6 +45,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
       contact_email: contact_email?.trim() || null,
       source: validSources.includes(source) ? source : "phone",
       description: description?.trim() || null,
+      notes: notes?.trim() || null,
       address: address?.trim() || null,
       priority: validPriorities.includes(priority) ? priority : "medium",
       status: "new",
@@ -73,7 +74,7 @@ router.get("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job
 
 router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { contact_name, contact_phone, contact_email, source, description, address, status, priority } = req.body;
+  const { contact_name, contact_phone, contact_email, source, description, notes, address, status, priority } = req.body;
 
   const validStatuses = ["new", "contacted", "quoted", "converted", "lost"];
   const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "referral", "other"];
@@ -85,6 +86,7 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
   if (contact_email !== undefined) updates.contact_email = contact_email?.trim() || null;
   if (source !== undefined && validSources.includes(source)) updates.source = source;
   if (description !== undefined) updates.description = description?.trim() || null;
+  if (notes !== undefined) updates.notes = notes?.trim() || null;
   if (address !== undefined) updates.address = address?.trim() || null;
   if (status !== undefined && validStatuses.includes(status)) updates.status = status;
   if (priority !== undefined && validPriorities.includes(priority)) updates.priority = priority;

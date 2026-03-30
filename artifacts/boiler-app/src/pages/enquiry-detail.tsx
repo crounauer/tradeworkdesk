@@ -202,6 +202,12 @@ function EnquiryDetailContent() {
                   <p className="text-sm text-muted-foreground mb-1">Description</p>
                   <p className="text-foreground whitespace-pre-wrap">{enquiry.description || "No description provided."}</p>
                 </div>
+                {enquiry.notes && (
+                  <div className="sm:col-span-2">
+                    <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                    <p className="text-foreground whitespace-pre-wrap">{enquiry.notes}</p>
+                  </div>
+                )}
               </div>
             </Card>
           )}
@@ -328,6 +334,7 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
     contact_email: (enquiry.contact_email as string) || "",
     source: (enquiry.source as string) || "phone",
     description: (enquiry.description as string) || "",
+    notes: (enquiry.notes as string) || "",
     address: (enquiry.address as string) || "",
     priority: (enquiry.priority as string) || "medium",
   });
@@ -403,6 +410,10 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
           <Label>Description</Label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
         </div>
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes..." />
+        </div>
         <div className="flex gap-3">
           <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</Button>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -421,6 +432,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
+  const [propertyMode, setPropertyMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState("");
   const [propertyId, setPropertyId] = useState("");
   const [newFirstName, setNewFirstName] = useState(() => {
@@ -487,13 +499,27 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
       }
 
       if (customerMode === "existing") {
-        if (!customerId || !propertyId) {
-          toast({ title: "Missing info", description: "Select a customer and property.", variant: "destructive" });
+        if (!customerId) {
+          toast({ title: "Missing info", description: "Select a customer.", variant: "destructive" });
           setSubmitting(false);
           return;
         }
         body.customer_id = customerId;
-        body.property_id = propertyId;
+        if (propertyMode === "existing") {
+          if (!propertyId) {
+            toast({ title: "Missing info", description: "Select a property.", variant: "destructive" });
+            setSubmitting(false);
+            return;
+          }
+          body.property_id = propertyId;
+        } else {
+          if (!newAddress || !newPostcode) {
+            toast({ title: "Missing info", description: "Enter at least address and postcode.", variant: "destructive" });
+            setSubmitting(false);
+            return;
+          }
+          body.new_property = { address_line1: newAddress, city: newCity || undefined, postcode: newPostcode };
+        }
       } else {
         if (!newFirstName || !newLastName) {
           toast({ title: "Missing info", description: "Enter the customer's name.", variant: "destructive" });
@@ -546,21 +572,48 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
           </div>
 
           {customerMode === "existing" ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label>Customer *</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required value={customerId} onChange={e => setCustomerId(e.target.value)}>
+                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required value={customerId} onChange={e => { setCustomerId(e.target.value); setPropertyId(""); }}>
                   <option value="">Select customer...</option>
                   {customers?.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Property *</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required value={propertyId} onChange={e => setPropertyId(e.target.value)}>
-                  <option value="">Select property...</option>
-                  {filteredProperties?.map(p => <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>)}
-                </select>
+              <div className="flex gap-2 bg-muted/50 rounded-lg p-1">
+                <button type="button" className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${propertyMode === "existing" ? "bg-background shadow-sm" : "text-muted-foreground"}`} onClick={() => setPropertyMode("existing")}>
+                  Existing Property
+                </button>
+                <button type="button" className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${propertyMode === "new" ? "bg-background shadow-sm" : "text-muted-foreground"}`} onClick={() => setPropertyMode("new")}>
+                  New Property
+                </button>
               </div>
+              {propertyMode === "existing" ? (
+                <div className="space-y-1.5">
+                  <Label>Property *</Label>
+                  <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required value={propertyId} onChange={e => setPropertyId(e.target.value)}>
+                    <option value="">Select property...</option>
+                    {filteredProperties?.map(p => <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Address *</Label>
+                    <Input value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="123 High Street" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Town / City</Label>
+                      <Input value={newCity} onChange={e => setNewCity(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Postcode *</Label>
+                      <Input value={newPostcode} onChange={e => setNewPostcode(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">

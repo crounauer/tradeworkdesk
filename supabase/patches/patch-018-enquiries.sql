@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS enquiries (
   contact_email TEXT,
   source TEXT NOT NULL DEFAULT 'phone' CHECK (source IN ('phone','email','text','facebook','whatsapp','messenger','website','referral','other')),
   description TEXT,
+  notes TEXT,
   address TEXT,
   status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','quoted','converted','lost')),
   priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
