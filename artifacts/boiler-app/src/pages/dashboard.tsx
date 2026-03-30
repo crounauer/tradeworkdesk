@@ -47,6 +47,7 @@ export default function Dashboard() {
   const { data, isLoading } = useGetDashboard();
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
+  const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
 
@@ -79,11 +80,18 @@ export default function Dashboard() {
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening today.</p>
         </div>
-        {canCreateJobs && (
-          <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => setShowQuickBook(true)}>
-            <Plus className="w-5 h-5" /> Book Job
-          </Button>
-        )}
+        <div className="flex gap-3">
+          {canCreateJobs && (
+            <Button size="lg" variant="outline" className="gap-2 text-base px-5 py-3 shadow-sm" onClick={() => setShowAddEnquiry(true)}>
+              <MessageSquarePlus className="w-5 h-5" /> Add Enquiry
+            </Button>
+          )}
+          {canCreateJobs && (
+            <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => setShowQuickBook(true)}>
+              <Plus className="w-5 h-5" /> Book Job
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -164,6 +172,9 @@ export default function Dashboard() {
 
       {hasJobManagement && showQuickBook && (
         <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} />
+      )}
+      {hasJobManagement && showAddEnquiry && (
+        <QuickEnquiryDialog open={showAddEnquiry} onOpenChange={setShowAddEnquiry} />
       )}
     </div>
   );
@@ -410,6 +421,118 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const ENQUIRY_SOURCE_OPTIONS = [
+  { value: "phone", label: "Phone" }, { value: "email", label: "Email" },
+  { value: "text", label: "Text/SMS" }, { value: "whatsapp", label: "WhatsApp" },
+  { value: "website", label: "Website" }, { value: "referral", label: "Referral" },
+  { value: "other", label: "Other" },
+];
+
+function QuickEnquiryDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    contact_name: "",
+    contact_phone: "",
+    contact_email: "",
+    source: "phone",
+    description: "",
+    address: "",
+    priority: "medium",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.contact_name.trim()) {
+      toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/enquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create enquiry");
+      }
+      qc.invalidateQueries({ queryKey: ["enquiries"] });
+      qc.invalidateQueries({ queryKey: ["enquiries-count"] });
+      toast({ title: "Enquiry added", description: `Enquiry for ${form.contact_name} created.` });
+      onOpenChange(false);
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle className="text-xl">Quick Add Enquiry</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Contact Name *</Label>
+            <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input value={form.contact_phone} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="07700 900000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} placeholder="john@example.com" type="email" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Source</Label>
+              <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>
+                {ENQUIRY_SOURCE_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Priority</Label>
+              <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 High Street, Manchester, M1 1AA" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <textarea
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[70px]"
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="What does the customer need?"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={submitting} className="flex-1">
+              {submitting ? "Adding..." : "Add Enquiry"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </div>
         </form>
       </DialogContent>
