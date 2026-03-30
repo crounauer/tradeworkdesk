@@ -42,6 +42,19 @@ export function Layout({ children }: { children: ReactNode }) {
     enabled: !!profile && !isSuperAdmin,
   });
 
+  const hasJobManagement = hasFeature("job_management");
+
+  const { data: enquiryCountData } = useQuery({
+    queryKey: ["enquiries-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/enquiries-count");
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+    enabled: !!profile && !isSuperAdmin && hasJobManagement && !isFormsOnly,
+    refetchInterval: 2 * 60 * 1000,
+  });
+
   const { data: announcements } = useQuery({
     queryKey: ["active-announcements"],
     queryFn: async () => {
@@ -70,7 +83,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(isFormsOnly ? [
       { href: "/quick-record", label: "Quick Record", icon: Zap },
     ] : [
-      { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
+      ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
       { href: "/jobs", label: "Jobs", icon: Briefcase },
       { href: "/search", label: "Search", icon: Search },
     ]),
@@ -105,10 +118,13 @@ export function Layout({ children }: { children: ReactNode }) {
     !item.roles || (profile && item.roles.includes(profile.role))
   );
 
+  const openEnquiryCount = enquiryCountData?.count || 0;
+
   const renderNavLink = (item: { href: string; label: string; icon: React.ElementType }, onClick?: () => void, mobile?: boolean) => {
     const isActive = item.href === "/" 
       ? location === "/" 
       : location === item.href || location.startsWith(item.href + "/");
+    const badge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
     return (
       <Link key={item.href} href={item.href} onClick={onClick} className={cn(
         "flex items-center gap-3 rounded-xl text-sm font-medium transition-colors",
@@ -118,7 +134,12 @@ export function Layout({ children }: { children: ReactNode }) {
           : mobile ? "text-foreground" : "text-muted-foreground hover:bg-slate-100 hover:text-foreground"
       )}>
         <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "")} />
-        {item.label}
+        <span className="flex-1">{item.label}</span>
+        {badge !== null && (
+          <span className="ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full bg-orange-500 text-white min-w-[20px] text-center">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
       </Link>
     );
   };

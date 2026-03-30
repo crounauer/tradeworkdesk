@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS enquiry_notes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   enquiry_id UUID NOT NULL REFERENCES enquiries(id) ON DELETE CASCADE,
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE SET NULL,
+  author_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
