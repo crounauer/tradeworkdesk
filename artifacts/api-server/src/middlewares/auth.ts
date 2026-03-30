@@ -41,10 +41,17 @@ export async function requireAuth(
   }
 
   const now = Date.now();
-  let hasVerifiedTotp = false;
+  const decoded = decodeJwtPayload(token);
+  const tokenAal = decoded?.aal as string | undefined;
+
   const cachedMfa = mfaCache.get(user.id);
-  if (cachedMfa && cachedMfa.expiresAt > now) {
-    hasVerifiedTotp = cachedMfa.hasVerifiedTotp;
+  const useCached = cachedMfa && cachedMfa.expiresAt > now;
+
+  let hasVerifiedTotp: boolean;
+  if (useCached && cachedMfa!.hasVerifiedTotp && tokenAal === "aal2") {
+    hasVerifiedTotp = true;
+  } else if (useCached && !cachedMfa!.hasVerifiedTotp && tokenAal === "aal2") {
+    hasVerifiedTotp = false;
   } else {
     const { data: factors, error: mfaError } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
     if (mfaError) {
@@ -54,12 +61,10 @@ export async function requireAuth(
     hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
     mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: now + MFA_CACHE_TTL_MS });
   }
-  if (hasVerifiedTotp) {
-    const decoded = decodeJwtPayload(token);
-    if (decoded?.aal !== "aal2") {
-      res.status(403).json({ error: "MFA verification required" });
-      return;
-    }
+
+  if (hasVerifiedTotp && tokenAal !== "aal2") {
+    res.status(403).json({ error: "MFA verification required" });
+    return;
   }
 
   const cachedProfile = profileCache.get(user.id);
