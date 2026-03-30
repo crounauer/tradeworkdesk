@@ -2,7 +2,7 @@
 
 ## Overview
 
-BoilerTech - Boiler service technician management web app. pnpm workspace monorepo using TypeScript.
+TradeWorkDesk - Boiler service technician management web app. pnpm workspace monorepo using TypeScript.
 
 ## Stack
 

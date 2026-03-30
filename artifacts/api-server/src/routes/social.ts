@@ -405,7 +405,7 @@ router.get(
           {
             entityType: "product",
             entityId: "boilertech-platform",
-            title: "BoilerTech Platform",
+            title: "TradeWorkDesk Platform",
             description: "Manage jobs, create certificates, and track service records digitally",
           },
           {

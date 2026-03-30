@@ -8,7 +8,7 @@ if (!resendApiKey) {
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-const FROM = "BoilerTech <noreply@boilertech.app>";
+const FROM = "TradeWorkDesk <noreply@boilertech.app>";
 
 function baseHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -43,7 +43,7 @@ function baseHtml(title: string, body: string): string {
       <div class="header-brand">
         <div class="header-logo">🔥</div>
         <div>
-          <h1>BoilerTech</h1>
+          <h1>TradeWorkDesk</h1>
           <p>Professional Boiler Service Management</p>
         </div>
       </div>
@@ -52,8 +52,8 @@ function baseHtml(title: string, body: string): string {
       ${body}
     </div>
     <div class="footer">
-      &copy; ${new Date().getFullYear()} BoilerTech Ltd. All rights reserved.<br/>
-      You received this email because you have an active account with BoilerTech.<br/>
+      &copy; ${new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.<br/>
+      You received this email because you have an active account with TradeWorkDesk.<br/>
       <span style="margin-top:6px; display:block;">To stop receiving emails, contact us at <a href="mailto:support@boilertech.app" style="color:#64748b;">support@boilertech.app</a> to unsubscribe.</span>
     </div>
   </div>
@@ -73,22 +73,22 @@ async function send(to: string, subject: string, html: string): Promise<void> {
 }
 
 export async function sendConfirmationEmail(to: string, contactName: string, companyName: string, confirmUrl: string): Promise<void> {
-  const html = baseHtml("Confirm your BoilerTech account", `
-    <h2>Welcome to BoilerTech, ${contactName}!</h2>
+  const html = baseHtml("Confirm your TradeWorkDesk account", `
+    <h2>Welcome to TradeWorkDesk, ${contactName}!</h2>
     <p>Your company account for <strong>${companyName}</strong> has been created. Please confirm your email address to activate your account and start your free trial.</p>
     <p style="margin-top:24px;">
       <a href="${confirmUrl}" class="btn">Confirm Email Address</a>
     </p>
     <hr class="divider"/>
-    <p style="font-size:13px; color:#64748b;">This link expires in 24 hours. If you didn't create a BoilerTech account, you can safely ignore this email.</p>
+    <p style="font-size:13px; color:#64748b;">This link expires in 24 hours. If you didn't create a TradeWorkDesk account, you can safely ignore this email.</p>
   `);
-  await send(to, "BoilerTech — Please confirm your email address", html);
+  await send(to, "TradeWorkDesk — Please confirm your email address", html);
 }
 
 export async function sendWelcomeEmail(to: string, companyName: string, trialEndsAt: string): Promise<void> {
   const trialDate = new Date(trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const html = baseHtml("Welcome to BoilerTech", `
-    <h2>Welcome to BoilerTech, ${companyName}!</h2>
+  const html = baseHtml("Welcome to TradeWorkDesk", `
+    <h2>Welcome to TradeWorkDesk, ${companyName}!</h2>
     <p>Your account is set up and ready to go. You're on a free trial until <strong>${trialDate}</strong>.</p>
     <p>During your trial you have full access to all features:</p>
     <ul>
@@ -98,12 +98,12 @@ export async function sendWelcomeEmail(to: string, companyName: string, trialEnd
       <li>Reports &amp; analytics</li>
     </ul>
     <p style="margin-top:24px;">
-      <a href="https://boilertech.app" class="btn">Open BoilerTech</a>
+      <a href="https://boilertech.app" class="btn">Open TradeWorkDesk</a>
     </p>
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">If you have any questions, reply to this email and we'll be happy to help.</p>
   `);
-  await send(to, "Welcome to BoilerTech — your trial has started", html);
+  await send(to, "Welcome to TradeWorkDesk — your trial has started", html);
 }
 
 export async function sendInvoiceEmail(to: string, companyName: string, amount: number, currency: string, periodEnd: string, invoiceUrl: string): Promise<void> {
@@ -112,7 +112,7 @@ export async function sendInvoiceEmail(to: string, companyName: string, amount: 
   const html = baseHtml("Payment Received", `
     <h2>Payment received — thank you!</h2>
     <p>Hi ${companyName},</p>
-    <p>We've successfully received your payment for your BoilerTech subscription.</p>
+    <p>We've successfully received your payment for your TradeWorkDesk subscription.</p>
     <div class="info-box">
       <p><strong>Amount:</strong> ${formatted}</p>
       <p><strong>Next renewal:</strong> ${date}</p>
@@ -121,7 +121,7 @@ export async function sendInvoiceEmail(to: string, companyName: string, amount: 
       <a href="${invoiceUrl}" class="btn">View Invoice</a>
     </p>
   `);
-  await send(to, `BoilerTech — Payment received (${formatted})`, html);
+  await send(to, `TradeWorkDesk — Payment received (${formatted})`, html);
 }
 
 export async function sendTrialExpiryReminder(to: string, companyName: string, daysLeft: number, billingUrl: string): Promise<void> {
@@ -130,15 +130,15 @@ export async function sendTrialExpiryReminder(to: string, companyName: string, d
     <h2>Your trial expires ${urgency}</h2>
     <p>Hi ${companyName},</p>
     <div class="warning-box">
-      <p><strong>Your BoilerTech trial expires ${urgency}.</strong></p>
-      <p>To keep access to your data and continue using BoilerTech, please upgrade to a paid plan.</p>
+      <p><strong>Your TradeWorkDesk trial expires ${urgency}.</strong></p>
+      <p>To keep access to your data and continue using TradeWorkDesk, please upgrade to a paid plan.</p>
     </div>
     <p>Upgrading takes less than 2 minutes. Your data will remain intact.</p>
     <p style="margin-top:24px;">
       <a href="${billingUrl}" class="btn">Upgrade Now</a>
     </p>
   `);
-  await send(to, `BoilerTech — Your trial expires ${urgency}`, html);
+  await send(to, `TradeWorkDesk — Your trial expires ${urgency}`, html);
 }
 
 export async function sendRenewalReminder(to: string, companyName: string, renewalDate: string, amount: number, currency: string, billingUrl: string): Promise<void> {
@@ -147,7 +147,7 @@ export async function sendRenewalReminder(to: string, companyName: string, renew
   const html = baseHtml("Upcoming renewal", `
     <h2>Your subscription renews on ${date}</h2>
     <p>Hi ${companyName},</p>
-    <p>This is a reminder that your BoilerTech subscription will automatically renew on <strong>${date}</strong>.</p>
+    <p>This is a reminder that your TradeWorkDesk subscription will automatically renew on <strong>${date}</strong>.</p>
     <div class="info-box">
       <p><strong>Renewal amount:</strong> ${formatted}</p>
       <p><strong>Renewal date:</strong> ${date}</p>
@@ -157,7 +157,7 @@ export async function sendRenewalReminder(to: string, companyName: string, renew
       <a href="${billingUrl}" class="btn">Manage Billing</a>
     </p>
   `);
-  await send(to, `BoilerTech — Subscription renews on ${date}`, html);
+  await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html);
 }
 
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
@@ -175,5 +175,5 @@ export async function sendPaymentFailedEmail(to: string, companyName: string, am
     </p>
     <p style="font-size:13px; color:#64748b;">If you believe this is an error, please contact your bank or reply to this email for assistance.</p>
   `);
-  await send(to, "BoilerTech — Action required: payment failed", html);
+  await send(to, "TradeWorkDesk — Action required: payment failed", html);
 }

@@ -60,7 +60,7 @@ export default function BlogPostPage() {
               <div className="shrink-0">
                 <img
                   src={`${import.meta.env.BASE_URL}logo.png`}
-                  alt="BoilerTech"
+                  alt="TradeWorkDesk"
                   className="h-24 w-auto max-w-full"
                 />
               </div>

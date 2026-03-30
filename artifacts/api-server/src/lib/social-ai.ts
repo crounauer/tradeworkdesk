@@ -33,7 +33,7 @@ export async function generatePostSuggestions(
     messages: [
       {
         role: "system",
-        content: `You are a social media marketing expert for BoilerTech, a boiler service management software company.
+        content: `You are a social media marketing expert for TradeWorkDesk, a boiler service management software company.
 Generate engaging social media posts for each item provided.
 For each item, create one post per requested platform.
 Include relevant emojis and 2-3 hashtags.

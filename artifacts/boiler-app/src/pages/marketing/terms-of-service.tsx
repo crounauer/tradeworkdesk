@@ -7,7 +7,7 @@ export default function TermsOfServicePage() {
     <MarketingLayout>
       <SEOHead
         title="Terms of Service"
-        description="BoilerTech terms of service. The agreement between you and BoilerTech Ltd governing your use of the BoilerTech platform."
+        description="TradeWorkDesk terms of service. The agreement between you and TradeWorkDesk Ltd governing your use of the TradeWorkDesk platform."
         canonical={`${SITE_URL}/terms-of-service`}
         schema={[
           breadcrumbSchema([
@@ -24,13 +24,13 @@ export default function TermsOfServicePage() {
         <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">1. Agreement</h2>
-            <p>These terms of service ("Terms") are a legal agreement between you and BoilerTech Ltd ("BoilerTech", "we", "us"), a company registered in England and Wales. By creating an account or using the BoilerTech platform, you agree to these Terms.</p>
-            <p>If you are using BoilerTech on behalf of a business, you represent that you have authority to bind that business to these Terms.</p>
+            <p>These terms of service ("Terms") are a legal agreement between you and TradeWorkDesk Ltd ("TradeWorkDesk", "we", "us"), a company registered in England and Wales. By creating an account or using the TradeWorkDesk platform, you agree to these Terms.</p>
+            <p>If you are using TradeWorkDesk on behalf of a business, you represent that you have authority to bind that business to these Terms.</p>
           </section>
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">2. The Service</h2>
-            <p>BoilerTech provides a cloud-based platform for managing boiler service operations, including job management, customer records, digital forms, and reporting tools ("the Service"). The Service is provided on a subscription basis.</p>
+            <p>TradeWorkDesk provides a cloud-based platform for managing boiler service operations, including job management, customer records, digital forms, and reporting tools ("the Service"). The Service is provided on a subscription basis.</p>
           </section>
 
           <section>
@@ -79,14 +79,14 @@ export default function TermsOfServicePage() {
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">9. Limitation of Liability</h2>
-            <p>To the fullest extent permitted by law, BoilerTech's total liability to you for any claims arising from or related to the Service is limited to the amount you have paid us in the 12 months preceding the claim.</p>
+            <p>To the fullest extent permitted by law, TradeWorkDesk's total liability to you for any claims arising from or related to the Service is limited to the amount you have paid us in the 12 months preceding the claim.</p>
             <p>We are not liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunities.</p>
             <p>Nothing in these Terms limits our liability for death or personal injury caused by our negligence, fraud, or any other liability that cannot be excluded by law.</p>
           </section>
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">10. Intellectual Property</h2>
-            <p>The Service, including its design, code, features, and documentation, is owned by BoilerTech and protected by intellectual property laws. Your subscription grants you a limited, non-exclusive, non-transferable right to use the Service.</p>
+            <p>The Service, including its design, code, features, and documentation, is owned by TradeWorkDesk and protected by intellectual property laws. Your subscription grants you a limited, non-exclusive, non-transferable right to use the Service.</p>
           </section>
 
           <section>

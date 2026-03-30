@@ -78,7 +78,7 @@ export default function HomePage() {
   return (
     <MarketingLayout>
       <SEOHead
-        title="BoilerTech — Boiler Service Management Software for Gas Engineers"
+        title="TradeWorkDesk — Boiler Service Management Software for Gas Engineers"
         description="The all-in-one platform for boiler service companies. Manage jobs, customers, digital forms, and compliance from one place. Start your free trial today."
         canonical={SITE_URL}
         schema={[organizationSchema(), webSiteSchema(), softwareApplicationSchema()]}
@@ -97,7 +97,7 @@ export default function HomePage() {
                 <span className="text-primary">without the paperwork</span>
               </h1>
               <p className="mt-6 text-lg md:text-xl text-slate-600 leading-relaxed">
-                BoilerTech is the all-in-one platform built specifically for heating engineers.
+                TradeWorkDesk is the all-in-one platform built specifically for heating engineers.
                 Manage jobs, customers, and compliance from your phone — no more paper forms,
                 lost records, or missed services.
               </p>
@@ -121,7 +121,7 @@ export default function HomePage() {
             <div className="shrink-0 flex items-center justify-center">
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
-                alt="BoilerTech"
+                alt="TradeWorkDesk"
                 className="w-48 md:w-64 h-auto object-contain max-w-full"
               />
             </div>
@@ -233,7 +233,7 @@ export default function HomePage() {
             Ready to ditch the paperwork?
           </h2>
           <p className="mt-4 text-lg text-blue-100">
-            Join hundreds of heating engineers who've switched to BoilerTech.
+            Join hundreds of heating engineers who've switched to TradeWorkDesk.
             Start your 14-day free trial today — no credit card required.
           </p>
           <Link href="/register">

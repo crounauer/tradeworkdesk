@@ -100,7 +100,7 @@ export default function FeaturesPage() {
     <MarketingLayout>
       <SEOHead
         title="Features — Boiler Service Management Tools"
-        description="Explore BoilerTech's full feature set: job management, digital forms, customer records, reports, team tools, and Gas Safe compliance built for heating engineers."
+        description="Explore TradeWorkDesk's full feature set: job management, digital forms, customer records, reports, team tools, and Gas Safe compliance built for heating engineers."
         canonical={`${SITE_URL}/features`}
         schema={[
           breadcrumbSchema([
@@ -119,14 +119,14 @@ export default function FeaturesPage() {
                 Every tool a heating engineer needs, in one platform
               </h1>
               <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-                BoilerTech isn't a generic field service app — it's purpose-built for gas, oil,
+                TradeWorkDesk isn't a generic field service app — it's purpose-built for gas, oil,
                 and heat pump engineers working in the UK market.
               </p>
             </div>
             <div className="shrink-0 flex items-center justify-center">
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
-                alt="BoilerTech"
+                alt="TradeWorkDesk"
                 className="w-48 md:w-64 h-auto object-contain max-w-full"
               />
             </div>

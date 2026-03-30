@@ -1,4 +1,4 @@
--- BoilerTech Seed Data
+-- TradeWorkDesk Seed Data
 -- Run this after migration.sql to populate the database with realistic test data.
 -- NOTE: You need to first create auth users in Supabase Auth, then insert matching profiles.
 -- The UUIDs below are placeholders - replace with actual auth user IDs after creating them.

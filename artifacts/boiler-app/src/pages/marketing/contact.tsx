@@ -35,7 +35,7 @@ export default function ContactPage() {
     <MarketingLayout>
       <SEOHead
         title="Contact Us — Get in Touch"
-        description="Contact the BoilerTech team for support, sales questions, or partnership enquiries. UK-based support team available Monday to Friday."
+        description="Contact the TradeWorkDesk team for support, sales questions, or partnership enquiries. UK-based support team available Monday to Friday."
         canonical={`${SITE_URL}/contact`}
         schema={[
           breadcrumbSchema([

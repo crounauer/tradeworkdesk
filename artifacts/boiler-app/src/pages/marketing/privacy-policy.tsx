@@ -7,7 +7,7 @@ export default function PrivacyPolicyPage() {
     <MarketingLayout>
       <SEOHead
         title="Privacy Policy"
-        description="BoilerTech privacy policy. How we collect, use, store, and protect your personal data under UK GDPR and the Data Protection Act 2018."
+        description="TradeWorkDesk privacy policy. How we collect, use, store, and protect your personal data under UK GDPR and the Data Protection Act 2018."
         canonical={`${SITE_URL}/privacy-policy`}
         schema={[
           breadcrumbSchema([
@@ -24,7 +24,7 @@ export default function PrivacyPolicyPage() {
         <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">1. Who We Are</h2>
-            <p>BoilerTech Ltd ("we", "us", "our") is a company registered in England and Wales. We operate the BoilerTech platform at boilertech.replit.app. We are the data controller for the personal data we process through our platform.</p>
+            <p>TradeWorkDesk Ltd ("we", "us", "our") is a company registered in England and Wales. We operate the TradeWorkDesk platform at boilertech.replit.app. We are the data controller for the personal data we process through our platform.</p>
             <p>For data protection enquiries, contact us at: privacy@boilertech.co.uk</p>
           </section>
 
@@ -42,7 +42,7 @@ export default function PrivacyPolicyPage() {
             <h2 className="font-display text-xl font-bold text-slate-900">3. How We Use Your Data</h2>
             <p>We use your data for the following purposes:</p>
             <ul className="list-disc pl-6 space-y-1">
-              <li>Providing and operating the BoilerTech platform</li>
+              <li>Providing and operating the TradeWorkDesk platform</li>
               <li>Managing your account and subscription</li>
               <li>Sending service-related communications (e.g., billing, security, feature updates)</li>
               <li>Providing customer support</li>

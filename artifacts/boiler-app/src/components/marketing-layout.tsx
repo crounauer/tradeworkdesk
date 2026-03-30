@@ -24,7 +24,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
               <Flame className="w-5 h-5 text-primary" />
-              <span className="text-lg font-bold tracking-tight text-slate-900">BoilerTech</span>
+              <span className="text-lg font-bold tracking-tight text-slate-900">TradeWorkDesk</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-1">
@@ -112,7 +112,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
-                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="BoilerTech" className="h-9 w-auto" />
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="TradeWorkDesk" className="h-9 w-auto" />
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
                 The all-in-one platform for boiler service companies. Manage jobs, customers, and compliance from one place.
@@ -149,7 +149,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
 
           <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">
-              &copy; {new Date().getFullYear()} BoilerTech Ltd. All rights reserved.
+              &copy; {new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.
             </p>
             <p className="text-sm text-slate-500">
               Registered in England & Wales. Made for heating engineers, by heating engineers.

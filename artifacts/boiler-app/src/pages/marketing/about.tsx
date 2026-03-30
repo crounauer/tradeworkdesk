@@ -9,7 +9,7 @@ const team = [
   {
     name: "James Harrison",
     role: "Founder & Lead Engineer",
-    bio: "Gas Safe registered engineer with 15+ years in the heating industry. Built BoilerTech after experiencing the pain of paper-based job management first-hand.",
+    bio: "Gas Safe registered engineer with 15+ years in the heating industry. Built TradeWorkDesk after experiencing the pain of paper-based job management first-hand.",
   },
   {
     name: "Sarah Mitchell",
@@ -50,8 +50,8 @@ export default function AboutPage() {
   return (
     <MarketingLayout>
       <SEOHead
-        title="About BoilerTech — Built by Heating Engineers"
-        description="BoilerTech was founded by a Gas Safe registered engineer who understood the industry's need for purpose-built job management software. Meet the team behind the platform."
+        title="About TradeWorkDesk — Built by Heating Engineers"
+        description="TradeWorkDesk was founded by a Gas Safe registered engineer who understood the industry's need for purpose-built job management software. Meet the team behind the platform."
         canonical={`${SITE_URL}/about`}
         schema={[
           breadcrumbSchema([
@@ -70,7 +70,7 @@ export default function AboutPage() {
                 Built by heating engineers, for heating engineers
               </h1>
               <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-                BoilerTech started in 2023 when our founder — a Gas Safe registered engineer
+                TradeWorkDesk started in 2023 when our founder — a Gas Safe registered engineer
                 with 15 years in the trade — got fed up with paper forms, lost records, and
                 software that didn't understand his industry.
               </p>
@@ -83,7 +83,7 @@ export default function AboutPage() {
             <div className="shrink-0 flex items-center justify-center">
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
-                alt="BoilerTech"
+                alt="TradeWorkDesk"
                 className="w-48 md:w-64 h-auto object-contain max-w-full"
               />
             </div>

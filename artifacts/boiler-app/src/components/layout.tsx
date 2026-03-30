@@ -170,11 +170,11 @@ export function Layout({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
         <div className="px-6 py-5 flex items-center gap-2.5 border-b border-border/50">
           <Flame className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-lg font-bold tracking-tight text-foreground">BoilerTech</span>
+          <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
         </div>
 
         <div className="px-6 py-5 border-b border-border/50 flex items-center justify-center">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="BoilerTech" className="h-14 w-auto" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="TradeWorkDesk" className="h-14 w-auto" />
         </div>
         
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
@@ -218,7 +218,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2">
           <Flame className="w-5 h-5 text-primary" />
-          <span className="text-lg font-bold tracking-tight text-foreground">BoilerTech</span>
+          <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

@@ -106,7 +106,7 @@ export default function Register() {
           const err = await inviteRes.json();
           throw new Error(err.error ?? "Failed to apply invite code");
         }
-        toast({ title: "Welcome to BoilerTech!", description: "Your account is ready." });
+        toast({ title: "Welcome to TradeWorkDesk!", description: "Your account is ready." });
         navigate("/");
       } else {
         localStorage.setItem("pending_invite_code", code.trim().toUpperCase());
@@ -205,7 +205,7 @@ export default function Register() {
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25 mb-4">
             <Flame className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Join BoilerTech</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">Join TradeWorkDesk</h1>
         </div>
 
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">

@@ -137,7 +137,7 @@ export default function Login() {
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25 mb-4">
             <Flame className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-foreground">BoilerTech</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">TradeWorkDesk</h1>
           {showMfa ? (
             <p className="text-muted-foreground mt-2 text-center">Enter your authenticator code to continue.</p>
           ) : (

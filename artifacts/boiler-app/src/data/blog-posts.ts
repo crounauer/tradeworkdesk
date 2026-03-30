@@ -18,7 +18,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A practical guide for gas engineers ready to ditch paper records and move to digital job management. Covers Gas Safe compliance, choosing software, and getting your team on board.",
     author: "James Harrison",
-    authorRole: "Gas Safe Registered Engineer & BoilerTech Founder",
+    authorRole: "Gas Safe Registered Engineer & TradeWorkDesk Founder",
     publishedAt: "2025-09-12",
     updatedAt: "2026-01-15",
     readingTimeMinutes: 7,
@@ -104,7 +104,7 @@ Most small teams (1-5 engineers) can transition within 4-6 weeks. Larger teams m
     description:
       "Everything gas engineers need to know about Gas Safe record keeping requirements, retention periods, and how to stay compliant during inspections.",
     author: "James Harrison",
-    authorRole: "Gas Safe Registered Engineer & BoilerTech Founder",
+    authorRole: "Gas Safe Registered Engineer & TradeWorkDesk Founder",
     publishedAt: "2025-10-03",
     updatedAt: "2026-02-10",
     readingTimeMinutes: 6,
@@ -200,7 +200,7 @@ Yes. Gas Safe Register accepts electronic records and many inspectors prefer the
     description:
       "A comparison of the top job management software options for heating engineers in 2025. What to look for, what to avoid, and how to choose the right platform for your business.",
     author: "James Harrison",
-    authorRole: "Gas Safe Registered Engineer & BoilerTech Founder",
+    authorRole: "Gas Safe Registered Engineer & TradeWorkDesk Founder",
     publishedAt: "2025-11-15",
     updatedAt: "2026-03-01",
     readingTimeMinutes: 8,
@@ -287,7 +287,7 @@ Any UK-based platform should handle GDPR compliance for you, including secure da
     description:
       "Practical tips for heating companies on managing annual boiler service contracts, reducing missed appointments, and improving customer retention.",
     author: "James Harrison",
-    authorRole: "Gas Safe Registered Engineer & BoilerTech Founder",
+    authorRole: "Gas Safe Registered Engineer & TradeWorkDesk Founder",
     publishedAt: "2025-12-08",
     updatedAt: "2026-02-20",
     readingTimeMinutes: 6,
@@ -387,7 +387,7 @@ Communicate price changes 3 months before renewal with a clear explanation. Incr
     description:
       "As heat pumps grow in the UK, engineers need software that handles MCS compliance, commissioning records, and performance monitoring. Here's what to look for.",
     author: "James Harrison",
-    authorRole: "Gas Safe Registered Engineer & BoilerTech Founder",
+    authorRole: "Gas Safe Registered Engineer & TradeWorkDesk Founder",
     publishedAt: "2026-01-20",
     updatedAt: "2026-03-10",
     readingTimeMinutes: 6,

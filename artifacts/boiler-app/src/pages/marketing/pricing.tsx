@@ -263,7 +263,7 @@ export default function PricingPage() {
     <MarketingLayout>
       <SEOHead
         title="Pricing — Simple, Transparent Plans"
-        description="BoilerTech pricing starts at £29/month. No contracts, no hidden fees. Compare Starter, Professional, and Business plans for your heating engineering business."
+        description="TradeWorkDesk pricing starts at £29/month. No contracts, no hidden fees. Compare Starter, Professional, and Business plans for your heating engineering business."
         canonical={`${SITE_URL}/pricing`}
         schema={[
           breadcrumbSchema([

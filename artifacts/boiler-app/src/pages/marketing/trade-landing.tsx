@@ -23,7 +23,7 @@ const tradePages: Record<string, TradePageConfig> = {
     description:
       "Purpose-built job management software for Gas Safe registered engineers. Digital service records, breakdown reports, commissioning forms, and compliance tools.",
     intro:
-      "BoilerTech is built specifically for Gas Safe registered engineers. Every form, workflow, and feature is designed around how gas engineers actually work — not adapted from a generic field service tool.",
+      "TradeWorkDesk is built specifically for Gas Safe registered engineers. Every form, workflow, and feature is designed around how gas engineers actually work — not adapted from a generic field service tool.",
     features: [
       "Gas Safe compliant service records and breakdown reports",
       "Commissioning forms for new boiler installations",
@@ -38,19 +38,19 @@ const tradePages: Record<string, TradePageConfig> = {
     ],
     faqs: [
       {
-        question: "Is BoilerTech approved by Gas Safe?",
+        question: "Is TradeWorkDesk approved by Gas Safe?",
         answer:
-          "BoilerTech produces records that are accepted by Gas Safe Register during inspections. Our forms are designed to capture all the data points required by current regulations.",
+          "TradeWorkDesk produces records that are accepted by Gas Safe Register during inspections. Our forms are designed to capture all the data points required by current regulations.",
       },
       {
-        question: "Can I use BoilerTech for CP12 landlord certificates?",
+        question: "Can I use TradeWorkDesk for CP12 landlord certificates?",
         answer:
-          "Yes. Service records created in BoilerTech can be exported as PDFs suitable for landlord gas safety certificates. All required fields are included.",
+          "Yes. Service records created in TradeWorkDesk can be exported as PDFs suitable for landlord gas safety certificates. All required fields are included.",
       },
       {
         question: "Does it work offline?",
         answer:
-          "BoilerTech is a web-based application that works on any device with a browser. For areas with limited signal, forms can be completed and submitted once connectivity is restored.",
+          "TradeWorkDesk is a web-based application that works on any device with a browser. For areas with limited signal, forms can be completed and submitted once connectivity is restored.",
       },
       {
         question: "How much does it cost?",
@@ -66,7 +66,7 @@ const tradePages: Record<string, TradePageConfig> = {
     description:
       "All-in-one boiler service management software for heating companies. Track jobs, manage customers, generate reports, and stay Gas Safe compliant.",
     intro:
-      "Running a boiler service company means juggling jobs, customers, compliance, and paperwork every single day. BoilerTech brings it all together in one platform, so you can focus on the work that matters.",
+      "Running a boiler service company means juggling jobs, customers, compliance, and paperwork every single day. TradeWorkDesk brings it all together in one platform, so you can focus on the work that matters.",
     features: [
       "Full job lifecycle management — from booking to completion",
       "Customer database with property and appliance tracking",
@@ -98,7 +98,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "Do I need to install anything?",
         answer:
-          "No. BoilerTech is web-based and works in any modern browser — Chrome, Safari, Firefox, or Edge. No app to download, no software to install.",
+          "No. TradeWorkDesk is web-based and works in any modern browser — Chrome, Safari, Firefox, or Edge. No app to download, no software to install.",
       },
     ],
   },
@@ -109,7 +109,7 @@ const tradePages: Record<string, TradePageConfig> = {
     description:
       "Purpose-built job management software for heating engineers. Create, assign, schedule, and track boiler service jobs from your phone.",
     intro:
-      "Most job management software wasn't built for heating engineers. BoilerTech was. Every feature is designed around the daily workflow of gas, oil, and heat pump engineers working in the UK market.",
+      "Most job management software wasn't built for heating engineers. TradeWorkDesk was. Every feature is designed around the daily workflow of gas, oil, and heat pump engineers working in the UK market.",
     features: [
       "Create and assign jobs in seconds",
       "Track job status — scheduled, in progress, completed",
@@ -126,12 +126,12 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How is this different from a generic job management app?",
         answer:
-          "Generic apps don't understand heating industry requirements. BoilerTech includes pre-built gas service forms, appliance tracking, Gas Safe compliant records, and workflows designed specifically for how heating engineers work.",
+          "Generic apps don't understand heating industry requirements. TradeWorkDesk includes pre-built gas service forms, appliance tracking, Gas Safe compliant records, and workflows designed specifically for how heating engineers work.",
       },
       {
         question: "Can my office staff use it too?",
         answer:
-          "Yes. BoilerTech has role-based access — admins and office staff can create and manage jobs, while technicians see their assigned work and complete forms on site.",
+          "Yes. TradeWorkDesk has role-based access — admins and office staff can create and manage jobs, while technicians see their assigned work and complete forms on site.",
       },
       {
         question: "Can I see all my engineers' jobs at once?",
