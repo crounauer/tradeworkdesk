@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
@@ -16,7 +16,6 @@ export default function AccountSettings() {
   const [factors, setFactors] = useState<MfaFactor[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
-  const [totpUri, setTotpUri] = useState("");
   const [totpSecret, setTotpSecret] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [enrollFactorId, setEnrollFactorId] = useState("");
@@ -49,7 +48,6 @@ export default function AccountSettings() {
         friendlyName: "Authenticator App",
       });
       if (error) throw error;
-      setTotpUri(data.totp.uri);
       setEnrollFactorId(data.id);
 
       const secret = extractSecretFromUri(data.totp.uri);
@@ -80,7 +78,6 @@ export default function AccountSettings() {
       if (verifyError) throw verifyError;
 
       toast({ title: "2FA Enabled", description: "Two-factor authentication is now active on your account." });
-      setTotpUri("");
       setTotpSecret("");
       setQrDataUrl("");
       setEnrollFactorId("");
@@ -98,7 +95,6 @@ export default function AccountSettings() {
     if (enrollFactorId) {
       await supabase.auth.mfa.unenroll({ factorId: enrollFactorId });
     }
-    setTotpUri("");
     setTotpSecret("");
     setQrDataUrl("");
     setEnrollFactorId("");

@@ -7,6 +7,9 @@ const PLAN_CACHE_TTL_MS = 60_000;
 const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
 const PROFILE_CACHE_TTL_MS = 30_000;
 
+const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
+const MFA_CACHE_TTL_MS = 60_000;
+
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   userRole?: string;
@@ -38,6 +41,23 @@ export async function requireAuth(
   }
 
   const now = Date.now();
+  let hasVerifiedTotp = false;
+  const cachedMfa = mfaCache.get(user.id);
+  if (cachedMfa && cachedMfa.expiresAt > now) {
+    hasVerifiedTotp = cachedMfa.hasVerifiedTotp;
+  } else {
+    const { data: factors } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
+    hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
+    mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: now + MFA_CACHE_TTL_MS });
+  }
+  if (hasVerifiedTotp) {
+    const decoded = decodeJwtPayload(token);
+    if (decoded?.aal !== "aal2") {
+      res.status(403).json({ error: "MFA verification required" });
+      return;
+    }
+  }
+
   const cachedProfile = profileCache.get(user.id);
 
   let profile: { role: string; tenant_id: string | null } | null = null;
@@ -201,4 +221,15 @@ export function requirePlanFeature(featureName: string) {
 
     next();
   };
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = Buffer.from(parts[1], "base64url").toString("utf8");
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
 }
