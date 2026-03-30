@@ -472,11 +472,17 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Arrival *</Label>
-              <Input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} />
+              <div className="flex gap-1.5">
+                <Input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} className="flex-1" />
+                <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setArrival(toLocalDatetimeStr(new Date()))}>Now</Button>
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Departure</Label>
-              <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} />
+              <div className="flex gap-1.5">
+                <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} className="flex-1" />
+                <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
+              </div>
             </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -521,11 +527,17 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Arrival *</Label>
-                      <Input type="datetime-local" value={editArrival} onChange={(e) => setEditArrival(e.target.value)} />
+                      <div className="flex gap-1.5">
+                        <Input type="datetime-local" value={editArrival} onChange={(e) => setEditArrival(e.target.value)} className="flex-1" />
+                        <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setEditArrival(toLocalDatetimeStr(new Date()))}>Now</Button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Departure</Label>
-                      <Input type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} />
+                      <div className="flex gap-1.5">
+                        <Input type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} className="flex-1" />
+                        <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setEditDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
+                      </div>
                     </div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-3">
