@@ -8,7 +8,7 @@ const profileCache = new Map<string, { role: string; tenant_id: string | null; e
 const PROFILE_CACHE_TTL_MS = 30_000;
 
 const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
-const MFA_CACHE_TTL_MS = 60_000;
+const MFA_CACHE_TTL_MS = 5_000;
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -49,10 +49,10 @@ export async function requireAuth(
   } else {
     const { data: factors, error: mfaError } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
     if (mfaError) {
-      hasVerifiedTotp = false;
-    } else {
-      hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
+      res.status(503).json({ error: "Unable to verify MFA status" });
+      return;
     }
+    hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
     mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: now + MFA_CACHE_TTL_MS });
   }
 
