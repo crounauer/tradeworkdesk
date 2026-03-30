@@ -438,6 +438,8 @@ export const ListPropertiesResponseItem = zod.object({
   flue_location: zod.string().nullish(),
   tank_location: zod.string().nullish(),
   notes: zod.string().nullish(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
@@ -463,6 +465,8 @@ export const CreatePropertyBody = zod.object({
   flue_location: zod.string().optional(),
   tank_location: zod.string().optional(),
   notes: zod.string().optional(),
+  latitude: zod.number().optional(),
+  longitude: zod.number().optional(),
 });
 
 /**
@@ -489,6 +493,8 @@ export const GetPropertyResponse = zod
     flue_location: zod.string().nullish(),
     tank_location: zod.string().nullish(),
     notes: zod.string().nullish(),
+    latitude: zod.number().nullish(),
+    longitude: zod.number().nullish(),
     is_active: zod.boolean(),
     created_at: zod.coerce.date(),
     updated_at: zod.coerce.date(),
@@ -612,6 +618,8 @@ export const UpdatePropertyBody = zod.object({
   flue_location: zod.string().nullish(),
   tank_location: zod.string().nullish(),
   notes: zod.string().nullish(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
   is_active: zod.boolean().optional(),
 });
 
@@ -631,6 +639,8 @@ export const UpdatePropertyResponse = zod.object({
   flue_location: zod.string().nullish(),
   tank_location: zod.string().nullish(),
   notes: zod.string().nullish(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
@@ -915,6 +925,9 @@ export const ListJobsResponseItem = zod
       property_address: zod.string().nullish(),
       technician_name: zod.string().nullish(),
       job_type_name: zod.string().nullish(),
+      property_latitude: zod.number().nullish(),
+      property_longitude: zod.number().nullish(),
+      property_postcode: zod.string().nullish(),
     }),
   );
 export const ListJobsResponse = zod.array(ListJobsResponseItem);

@@ -17,11 +17,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+
+const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 
 type PropertyFormData = {
   address_line1: string;
@@ -32,6 +35,8 @@ type PropertyFormData = {
   property_type?: string;
   access_notes?: string;
   parking_notes?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type CustomerEditData = {
@@ -365,8 +370,20 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
   const qc = useQueryClient();
   const create = useCreateProperty();
   const { toast } = useToast();
-  const { register, handleSubmit, reset } = useForm<PropertyFormData>();
+  const { register, handleSubmit, reset, watch, setValue } = useForm<PropertyFormData>();
   const { data: propertyTypes } = useLookupOptions("property_type");
+  const { hasFeature } = usePlanFeatures();
+
+  const watchedLat = watch("latitude");
+  const watchedLng = watch("longitude");
+
+  const addressForLookup = [
+    watch("address_line1"),
+    watch("address_line2"),
+    watch("city"),
+    watch("county"),
+    watch("postcode"),
+  ].filter(Boolean).join(", ");
 
   const fillCustomerAddress = () => {
     reset({
@@ -393,6 +410,8 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
           property_type: data.property_type || undefined,
           access_notes: data.access_notes || undefined,
           parking_notes: data.parking_notes || undefined,
+          latitude: data.latitude ?? undefined,
+          longitude: data.longitude ?? undefined,
         }
       });
       qc.invalidateQueries({ queryKey: [`/api/customers/${customerId}`] });
@@ -428,6 +447,26 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
         </select>
         <Input placeholder="Access Notes" {...register("access_notes")} />
         <Input placeholder="Parking Notes" {...register("parking_notes")} />
+        {hasFeature("geo_mapping") && (
+          <div className="md:col-span-2 border-t border-border/50 pt-3">
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">Property Location</label>
+            <Suspense fallback={<div className="h-8 bg-slate-100 rounded animate-pulse" />}>
+              <PropertyLocationLookup
+                address={addressForLookup}
+                latitude={watchedLat}
+                longitude={watchedLng}
+                onLocationFound={(lat, lng) => {
+                  setValue("latitude", lat);
+                  setValue("longitude", lng);
+                }}
+                onClearLocation={() => {
+                  setValue("latitude", null);
+                  setValue("longitude", null);
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
         <div className="md:col-span-2 flex gap-3">
           <Button type="submit" disabled={create.isPending}>
             {create.isPending ? "Adding..." : "Add Property"}

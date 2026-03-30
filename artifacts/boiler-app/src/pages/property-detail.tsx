@@ -6,11 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Home, Flame, MapPin, Briefcase, Plus, X, Edit, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLookupOptions } from "@/hooks/use-lookup-options";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+
+const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
+const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
 
 type ApplianceFormData = {
   manufacturer: string;
@@ -34,6 +38,8 @@ type PropertyEditData = {
   flue_location?: string;
   tank_location?: string;
   notes?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export default function PropertyDetail() {
@@ -41,6 +47,7 @@ export default function PropertyDetail() {
   const { data: property, isLoading, error } = useGetProperty(id);
   const [showApplianceForm, setShowApplianceForm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const { hasFeature } = usePlanFeatures();
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (error || !property) return <div className="p-8 text-destructive">Property not found</div>;
@@ -105,6 +112,29 @@ export default function PropertyDetail() {
                   <Link href={`/customers/${property.customer_id}`} className="text-primary hover:underline font-medium">
                     {property.customer.first_name} {property.customer.last_name}
                   </Link>
+                </div>
+              )}
+              {hasFeature("geo_mapping") && property.latitude != null && property.longitude != null && (
+                <div className="pt-3 border-t border-border/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Location:</span>
+                    <button
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                      onClick={() => {
+                        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                        if (isIos) {
+                          window.open(`maps://maps.apple.com/?daddr=${property.latitude},${property.longitude}`, "_blank");
+                        } else {
+                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${property.latitude},${property.longitude}`, "_blank");
+                        }
+                      }}
+                    >
+                      <MapPin className="w-3 h-3" /> Navigate
+                    </button>
+                  </div>
+                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
+                    <PropertyMapPreview latitude={property.latitude} longitude={property.longitude} />
+                  </Suspense>
                 </div>
               )}
             </div>
@@ -178,13 +208,17 @@ export default function PropertyDetail() {
   );
 }
 
-function EditPropertyForm({ property, onClose }: { property: { id: string; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; property_type?: string | null; occupancy_type?: string | null; access_notes?: string | null; parking_notes?: string | null; boiler_location?: string | null; flue_location?: string | null; tank_location?: string | null; notes?: string | null }; onClose: () => void }) {
+function EditPropertyForm({ property, onClose }: { property: { id: string; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; property_type?: string | null; occupancy_type?: string | null; access_notes?: string | null; parking_notes?: string | null; boiler_location?: string | null; flue_location?: string | null; tank_location?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateProperty();
   const { toast } = useToast();
-  const { register, handleSubmit, reset } = useForm<PropertyEditData>();
+  const { register, handleSubmit, reset, watch, setValue } = useForm<PropertyEditData>();
   const { data: propertyTypes } = useLookupOptions("property_type");
   const { data: occupancyTypes } = useLookupOptions("occupancy_type");
+  const { hasFeature } = usePlanFeatures();
+
+  const watchedLat = watch("latitude");
+  const watchedLng = watch("longitude");
 
   useEffect(() => {
     reset({
@@ -201,8 +235,18 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
       flue_location: property.flue_location || "",
       tank_location: property.tank_location || "",
       notes: property.notes || "",
+      latitude: property.latitude ?? null,
+      longitude: property.longitude ?? null,
     });
   }, [property, reset]);
+
+  const addressForLookup = [
+    watch("address_line1"),
+    watch("address_line2"),
+    watch("city"),
+    watch("county"),
+    watch("postcode"),
+  ].filter(Boolean).join(", ");
 
   const onSubmit = async (data: PropertyEditData) => {
     try {
@@ -222,6 +266,8 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
           flue_location: data.flue_location || undefined,
           tank_location: data.tank_location || undefined,
           notes: data.notes || undefined,
+          latitude: data.latitude ?? null,
+          longitude: data.longitude ?? null,
         },
       });
       qc.invalidateQueries({ queryKey: [`/api/properties/${property.id}`] });
@@ -303,6 +349,26 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
           <Label>Notes</Label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("notes")} />
         </div>
+        {hasFeature("geo_mapping") && (
+          <div className="space-y-2 border-t border-border/50 pt-4">
+            <Label>Property Location</Label>
+            <Suspense fallback={<div className="h-8 bg-slate-100 rounded animate-pulse" />}>
+              <PropertyLocationLookup
+                address={addressForLookup}
+                latitude={watchedLat}
+                longitude={watchedLng}
+                onLocationFound={(lat, lng) => {
+                  setValue("latitude", lat);
+                  setValue("longitude", lng);
+                }}
+                onClearLocation={() => {
+                  setValue("latitude", null);
+                  setValue("longitude", null);
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
         <div className="flex gap-3">
           <Button type="submit" disabled={update.isPending}>
             <Check className="w-4 h-4 mr-2" /> {update.isPending ? "Saving..." : "Save Changes"}

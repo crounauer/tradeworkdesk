@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
 import { db, jobTypes } from "@workspace/db";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import {
   ListJobsQueryParams,
@@ -47,7 +47,7 @@ interface SupabaseJobRow {
   created_at: string;
   updated_at: string;
   customers?: { first_name: string; last_name: string } | null;
-  properties?: { address_line1: string } | null;
+  properties?: { address_line1: string; latitude?: number | null; longitude?: number | null; postcode?: string | null } | null;
   profiles?: { full_name: string } | null;
 }
 
@@ -106,7 +106,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   const query = ListJobsQueryParams.safeParse(req.query);
   let q = supabaseAdmin
     .from("jobs")
-    .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
+    .select("*, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: false });
 
@@ -142,6 +142,9 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   ]);
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  const tenantFeatures = req.tenantId ? await getTenantFeatures(req.tenantId) : null;
+  const hasGeoMapping = !!(tenantFeatures?.geo_mapping);
+
   const typeMap = new Map(allTypes.map((t) => [t.id, t.name]));
   const rawMapped = (data as SupabaseJobRow[] || []).map((j) => ({
     ...j,
@@ -149,6 +152,9 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
     job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
+    property_latitude: hasGeoMapping ? (j.properties?.latitude ?? null) : null,
+    property_longitude: hasGeoMapping ? (j.properties?.longitude ?? null) : null,
+    property_postcode: hasGeoMapping ? (j.properties?.postcode ?? null) : null,
     customers: undefined,
     profiles: undefined,
     properties: undefined,

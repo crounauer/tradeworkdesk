@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, numeric, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, numeric, timestamp, pgEnum, doublePrecision } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "office_staff", "technician"]);
 export const jobStatusEnum = pgEnum("job_status", ["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]);
@@ -56,6 +56,8 @@ export const properties = pgTable("properties", {
   flue_location: text("flue_location"),
   tank_location: text("tank_location"),
   notes: text("notes"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   is_active: boolean("is_active").notNull().default(true),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),

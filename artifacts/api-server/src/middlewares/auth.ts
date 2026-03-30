@@ -171,7 +171,7 @@ export function requireTenant(
   next();
 }
 
-async function getTenantFeatures(tenantId: string): Promise<Record<string, unknown> | null> {
+export async function getTenantFeatures(tenantId: string): Promise<Record<string, unknown> | null> {
   const now = Date.now();
   const cached = planFeaturesCache.get(tenantId);
   if (cached && cached.expiresAt > now) {

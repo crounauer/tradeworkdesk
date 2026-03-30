@@ -12,6 +12,7 @@ export interface PlanFeatures {
   combustion_analysis?: boolean;
   api_access?: boolean;
   scheduling?: boolean;
+  geo_mapping?: boolean;
   custom_branding?: boolean;
   priority_support?: boolean;
   [key: string]: boolean | undefined;
@@ -67,4 +68,5 @@ export const FEATURE_LABELS: Record<string, string> = {
   scheduling: "Scheduling & Calendar",
   custom_branding: "Custom Branding",
   priority_support: "Priority Support",
+  geo_mapping: "Geomapping & Location",
 };

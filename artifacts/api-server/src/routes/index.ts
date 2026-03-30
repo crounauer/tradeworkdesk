@@ -32,6 +32,7 @@ import indexnowRouter from "./indexnow";
 import socialRouter from "./social";
 import jobTypesRouter from "./job-types";
 import enquiriesRouter from "./enquiries";
+import geocodingRouter from "./geocoding";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use(indexnowRouter);
 router.use(socialRouter);
 router.use(jobTypesRouter);
 router.use(enquiriesRouter);
+router.use(geocodingRouter);
 
 export default router;

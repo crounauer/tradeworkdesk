@@ -2,17 +2,19 @@ import { useListJobs, useCreateJob, useListProfiles, useListCustomers, useListPr
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+
+const JobMapView = lazy(() => import("@/components/job-map-view"));
 
 interface JobType {
   id: number;
@@ -49,6 +51,8 @@ export default function Jobs() {
   return <JobsContent />;
 }
 
+type ViewTab = "list" | "map";
+
 function JobsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
@@ -56,8 +60,10 @@ function JobsContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkExport, setShowBulkExport] = useState(false);
   const [bulkExporting, setBulkExporting] = useState(false);
+  const [viewTab, setViewTab] = useState<ViewTab>("list");
   const { profile } = useAuth();
   const { toast } = useToast();
+  const { hasFeature } = usePlanFeatures();
 
   const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff";
 
@@ -158,6 +164,31 @@ function JobsContent() {
           <p className="text-muted-foreground mt-1">Manage all service visits</p>
         </div>
         <div className="flex gap-2">
+          {hasFeature("geo_mapping") && (
+            <div className="flex bg-muted rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewTab("list")}
+                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewTab === "list" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <List className="w-3.5 h-3.5" />
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewTab("map")}
+                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewTab === "map" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Map className="w-3.5 h-3.5" />
+                Map
+              </button>
+            </div>
+          )}
+          {!hasFeature("geo_mapping") && (
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setViewTab("map")}>
+              <Map className="w-4 h-4 mr-2" /> Map
+            </Button>
+          )}
           {isAdminOrOffice && selectedExportable.length > 0 && (
             <Button variant="outline" className="text-emerald-600 border-emerald-200" onClick={() => setShowBulkExport(!showBulkExport)}>
               <Download className="w-4 h-4 mr-2" /> Export {selectedExportable.length} Invoice{selectedExportable.length !== 1 ? "s" : ""}
@@ -171,6 +202,17 @@ function JobsContent() {
 
       {showForm && <AddJobForm onClose={() => setShowForm(false)} jobTypes={jobTypes} />}
 
+      {viewTab === "map" && !hasFeature("geo_mapping") && (
+        <UpgradePrompt feature="geo_mapping" />
+      )}
+
+      {viewTab === "map" && hasFeature("geo_mapping") && (
+        <Suspense fallback={<div className="h-[500px] bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-muted-foreground">Loading map...</div>}>
+          <JobMapView />
+        </Suspense>
+      )}
+
+      {viewTab === "list" && <>
       <div className="flex flex-wrap gap-3 items-center">
         <Filter className="w-4 h-4 text-muted-foreground" />
         <select
@@ -294,6 +336,7 @@ function JobsContent() {
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }

@@ -91,6 +91,10 @@ export interface Property {
   tank_location?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -251,6 +255,12 @@ export type JobListItem = Job & {
   technician_name?: string | null;
   /** @nullable */
   job_type_name?: string | null;
+  /** @nullable */
+  property_latitude?: number | null;
+  /** @nullable */
+  property_longitude?: number | null;
+  /** @nullable */
+  property_postcode?: string | null;
 };
 
 export type PropertyDetail = Property & {
@@ -274,6 +284,8 @@ export interface CreatePropertyBody {
   flue_location?: string;
   tank_location?: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdatePropertyBody {
@@ -302,6 +314,10 @@ export interface UpdatePropertyBody {
   tank_location?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
   is_active?: boolean;
 }
 
