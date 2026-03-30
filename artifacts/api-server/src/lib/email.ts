@@ -1,14 +1,28 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resendApiKey = process.env.RESEND_API_KEY;
+const smtpHost = process.env.SMTP_HOST;
+const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
 
-if (!resendApiKey) {
-  console.warn("RESEND_API_KEY is not set — email features will be unavailable");
+if (!smtpHost) {
+  console.warn("SMTP_HOST is not set — email features will be unavailable");
 }
 
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const transporter = smtpHost
+  ? nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth:
+        smtpUser && smtpPass
+          ? { user: smtpUser, pass: smtpPass }
+          : undefined,
+    })
+  : null;
 
-const FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
+const FROM =
+  process.env.SMTP_FROM || "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 
 function baseHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -62,13 +76,14 @@ function baseHtml(title: string, body: string): string {
 }
 
 async function send(to: string, subject: string, html: string): Promise<void> {
-  if (!resend) {
-    console.warn(`[email] Resend not configured — would have sent "${subject}" to ${to}`);
+  if (!transporter) {
+    console.warn(`[email] SMTP not configured — would have sent "${subject}" to ${to}`);
     return;
   }
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
-  if (error) {
-    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
+  try {
+    await transporter.sendMail({ from: FROM, to, subject, html });
+  } catch (err) {
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, err);
   }
 }
 
