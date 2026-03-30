@@ -100,6 +100,11 @@ export default function Login() {
         code: mfaCode,
       });
       if (verifyError) throw verifyError;
+
+      const { data: refreshedAal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (refreshedAal?.currentLevel === "aal2") {
+        setShowMfa(false);
+      }
     } catch (err) {
       toast({
         title: "Verification Failed",
