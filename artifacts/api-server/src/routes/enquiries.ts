@@ -164,84 +164,104 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
   if (enqErr || !enquiry) { res.status(404).json({ error: "Enquiry not found" }); return; }
   if (enquiry.status === "converted") { res.status(400).json({ error: "Enquiry already converted" }); return; }
 
-  let finalCustomerId = customer_id;
-  let finalPropertyId = property_id;
+  const ownershipChecks: { table: string; id: string }[] = [];
+  if (customer_id) ownershipChecks.push({ table: "customers", id: customer_id });
+  if (property_id) ownershipChecks.push({ table: "properties", id: property_id });
+  if (job_type_id) ownershipChecks.push({ table: "job_types", id: String(job_type_id) });
 
-  if (new_customer && !customer_id) {
-    const { first_name, last_name, phone, email } = new_customer;
-    if (!first_name || !last_name) {
-      res.status(400).json({ error: "Customer first_name and last_name required" }); return;
+  if (ownershipChecks.length > 0) {
+    const ownershipCheck = await verifyMultipleTenantOwnership(ownershipChecks, req.tenantId);
+    if (!ownershipCheck.valid) {
+      res.status(403).json({ error: `Invalid reference: ${ownershipCheck.failedTable} does not belong to your organisation` }); return;
     }
-    const { data: cust, error: custErr } = await supabaseAdmin
-      .from("customers")
-      .insert({ first_name, last_name, phone: phone || null, email: email || null, tenant_id: req.tenantId })
+  }
+
+  if (!customer_id && !new_customer) {
+    res.status(400).json({ error: "Customer is required (provide customer_id or new_customer)" }); return;
+  }
+  if (!property_id && !new_property) {
+    res.status(400).json({ error: "Property is required (provide property_id or new_property)" }); return;
+  }
+
+  const createdIds: { customer?: string; property?: string; job?: string } = {};
+
+  try {
+    let finalCustomerId = customer_id;
+    if (new_customer && !customer_id) {
+      const { first_name, last_name, phone, email } = new_customer;
+      if (!first_name || !last_name) {
+        res.status(400).json({ error: "Customer first_name and last_name required" }); return;
+      }
+      const { data: cust, error: custErr } = await supabaseAdmin
+        .from("customers")
+        .insert({ first_name, last_name, phone: phone || null, email: email || null, tenant_id: req.tenantId })
+        .select()
+        .single();
+      if (custErr) throw new Error(`Customer creation failed: ${custErr.message}`);
+      finalCustomerId = cust.id;
+      createdIds.customer = cust.id;
+    }
+
+    let finalPropertyId = property_id;
+    if (new_property && !property_id) {
+      const { address_line1, city, postcode } = new_property;
+      if (!address_line1 || !postcode) {
+        res.status(400).json({ error: "Property address_line1 and postcode required" }); return;
+      }
+      const { data: prop, error: propErr } = await supabaseAdmin
+        .from("properties")
+        .insert({ customer_id: finalCustomerId, address_line1, city: city || null, postcode, tenant_id: req.tenantId })
+        .select()
+        .single();
+      if (propErr) throw new Error(`Property creation failed: ${propErr.message}`);
+      finalPropertyId = prop.id;
+      createdIds.property = prop.id;
+    }
+
+    if (!finalCustomerId || !finalPropertyId) {
+      res.status(400).json({ error: "Customer and property are required" }); return;
+    }
+
+    const validJobTypes = ["service", "breakdown", "installation", "inspection", "follow_up"];
+    const validPriorities = ["low", "medium", "high", "urgent"];
+
+    const { data: job, error: jobErr } = await supabaseAdmin
+      .from("jobs")
+      .insert({
+        customer_id: finalCustomerId,
+        property_id: finalPropertyId,
+        job_type: validJobTypes.includes(job_type) ? job_type : "service",
+        job_type_id: job_type_id || null,
+        priority: validPriorities.includes(priority) ? priority : enquiry.priority || "medium",
+        scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
+        scheduled_time: scheduled_time || null,
+        description: description || enquiry.description || null,
+        status: "scheduled",
+        tenant_id: req.tenantId,
+      })
       .select()
       .single();
-    if (custErr) { res.status(500).json({ error: custErr.message }); return; }
-    finalCustomerId = cust.id;
-  }
 
-  if (new_property && !property_id) {
-    const { address_line1, city, postcode } = new_property;
-    if (!address_line1 || !postcode) {
-      res.status(400).json({ error: "Property address_line1 and postcode required" }); return;
+    if (jobErr) throw new Error(`Job creation failed: ${jobErr.message}`);
+    createdIds.job = job.id;
+
+    const { error: updateErr, count: updateCount } = await supabaseAdmin
+      .from("enquiries")
+      .update({ status: "converted", linked_customer_id: finalCustomerId, linked_job_id: job.id })
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId);
+
+    if (updateErr || updateCount === 0) {
+      throw new Error("Failed to mark enquiry as converted");
     }
-    const { data: prop, error: propErr } = await supabaseAdmin
-      .from("properties")
-      .insert({ customer_id: finalCustomerId, address_line1, city: city || null, postcode, tenant_id: req.tenantId })
-      .select()
-      .single();
-    if (propErr) { res.status(500).json({ error: propErr.message }); return; }
-    finalPropertyId = prop.id;
+
+    res.status(201).json({ enquiry_id: id, job_id: job.id, customer_id: finalCustomerId, property_id: finalPropertyId });
+  } catch (err) {
+    if (createdIds.job) await supabaseAdmin.from("jobs").delete().eq("id", createdIds.job);
+    if (createdIds.property) await supabaseAdmin.from("properties").delete().eq("id", createdIds.property);
+    if (createdIds.customer) await supabaseAdmin.from("customers").delete().eq("id", createdIds.customer);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Conversion failed" }); return;
   }
-
-  if (!finalCustomerId || !finalPropertyId) {
-    res.status(400).json({ error: "Customer and property are required" }); return;
-  }
-
-  const ownershipCheck = await verifyMultipleTenantOwnership([
-    { table: "customers", id: finalCustomerId },
-    { table: "properties", id: finalPropertyId },
-    ...(job_type_id ? [{ table: "job_types", id: String(job_type_id) }] : []),
-  ], req.tenantId);
-  if (!ownershipCheck.valid) {
-    res.status(403).json({ error: `Invalid reference: ${ownershipCheck.failedTable} does not belong to your organisation` }); return;
-  }
-
-  const validJobTypes = ["service", "breakdown", "installation", "inspection", "follow_up"];
-  const validPriorities = ["low", "medium", "high", "urgent"];
-
-  const { data: job, error: jobErr } = await supabaseAdmin
-    .from("jobs")
-    .insert({
-      customer_id: finalCustomerId,
-      property_id: finalPropertyId,
-      job_type: validJobTypes.includes(job_type) ? job_type : "service",
-      job_type_id: job_type_id || null,
-      priority: validPriorities.includes(priority) ? priority : enquiry.priority || "medium",
-      scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
-      scheduled_time: scheduled_time || null,
-      description: description || enquiry.description || null,
-      status: "scheduled",
-      tenant_id: req.tenantId,
-    })
-    .select()
-    .single();
-
-  if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
-
-  const { error: updateErr, count: updateCount } = await supabaseAdmin
-    .from("enquiries")
-    .update({ status: "converted", linked_customer_id: finalCustomerId, linked_job_id: job.id })
-    .eq("id", id)
-    .eq("tenant_id", req.tenantId);
-
-  if (updateErr || updateCount === 0) {
-    await supabaseAdmin.from("jobs").delete().eq("id", job.id);
-    res.status(500).json({ error: "Failed to update enquiry status. Job creation has been rolled back." }); return;
-  }
-
-  res.status(201).json({ enquiry_id: id, job_id: job.id, customer_id: finalCustomerId, property_id: finalPropertyId });
 });
 
 router.get("/enquiries-count", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
