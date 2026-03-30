@@ -228,10 +228,16 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
 
   if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
 
-  await supabaseAdmin
+  const { error: updateErr, count: updateCount } = await supabaseAdmin
     .from("enquiries")
     .update({ status: "converted", linked_customer_id: finalCustomerId, linked_job_id: job.id })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId);
+
+  if (updateErr || updateCount === 0) {
+    await supabaseAdmin.from("jobs").delete().eq("id", job.id);
+    res.status(500).json({ error: "Failed to update enquiry status. Job creation has been rolled back." }); return;
+  }
 
   res.status(201).json({ enquiry_id: id, job_id: job.id, customer_id: finalCustomerId, property_id: finalPropertyId });
 });
