@@ -46,7 +46,11 @@ export async function requireAuth(
   if (cachedMfa && cachedMfa.expiresAt > now) {
     hasVerifiedTotp = cachedMfa.hasVerifiedTotp;
   } else {
-    const { data: factors } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
+    const { data: factors, error: mfaError } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
+    if (mfaError) {
+      res.status(503).json({ error: "Unable to verify MFA status. Please try again." });
+      return;
+    }
     hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
     mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: now + MFA_CACHE_TTL_MS });
   }
