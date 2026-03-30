@@ -1,4 +1,4 @@
-const HOST = "boilertech.replit.app";
+const HOST = "www.tradeworkdesk.co.uk";
 
 const SITEMAP_URLS = [
   `https://${HOST}/`,

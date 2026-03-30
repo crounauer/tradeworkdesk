@@ -101,7 +101,7 @@ export default function TermsOfServicePage() {
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">13. Contact</h2>
-            <p>For questions about these Terms, contact us at: legal@boilertech.co.uk</p>
+            <p>For questions about these Terms, contact us at: legal@tradeworkdesk.co.uk</p>
           </section>
         </div>
       </div>

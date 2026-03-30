@@ -5,7 +5,7 @@
 
 -- Placeholder admin user (replace UUID with actual Supabase auth user ID)
 -- INSERT INTO profiles (id, email, full_name, role, phone)
--- VALUES ('REPLACE-WITH-AUTH-USER-ID', 'admin@boilertech.co.uk', 'Sarah Mitchell', 'admin', '07700 900100');
+-- VALUES ('REPLACE-WITH-AUTH-USER-ID', 'admin@tradeworkdesk.co.uk', 'Sarah Mitchell', 'admin', '07700 900100');
 
 -- Sample Customers
 INSERT INTO customers (id, title, first_name, last_name, email, phone, mobile, address_line1, city, county, postcode, notes) VALUES

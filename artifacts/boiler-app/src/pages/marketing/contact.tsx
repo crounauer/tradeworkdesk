@@ -7,7 +7,7 @@ const contactMethods = [
   {
     icon: Mail,
     title: "Email",
-    detail: "support@boilertech.co.uk",
+    detail: "support@tradeworkdesk.co.uk",
     desc: "We aim to respond within 4 hours during business hours.",
   },
   {

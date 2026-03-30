@@ -4,25 +4,25 @@ import { requireAuth, requireSuperAdmin } from "../middlewares/auth";
 const router = Router();
 
 const DEFAULT_SITEMAP_URLS = [
-  "https://boilertech.replit.app/",
-  "https://boilertech.replit.app/features",
-  "https://boilertech.replit.app/pricing",
-  "https://boilertech.replit.app/about",
-  "https://boilertech.replit.app/contact",
-  "https://boilertech.replit.app/blog",
-  "https://boilertech.replit.app/gas-engineer-software",
-  "https://boilertech.replit.app/boiler-service-management-software",
-  "https://boilertech.replit.app/job-management-software-heating-engineers",
-  "https://boilertech.replit.app/blog/how-to-go-paperless-as-a-gas-engineer",
-  "https://boilertech.replit.app/blog/gas-safe-record-keeping-guide",
-  "https://boilertech.replit.app/blog/best-software-for-heating-engineers",
-  "https://boilertech.replit.app/blog/managing-boiler-service-contracts",
-  "https://boilertech.replit.app/blog/heat-pump-service-software",
-  "https://boilertech.replit.app/privacy-policy",
-  "https://boilertech.replit.app/terms-of-service",
+  "https://www.tradeworkdesk.co.uk/",
+  "https://www.tradeworkdesk.co.uk/features",
+  "https://www.tradeworkdesk.co.uk/pricing",
+  "https://www.tradeworkdesk.co.uk/about",
+  "https://www.tradeworkdesk.co.uk/contact",
+  "https://www.tradeworkdesk.co.uk/blog",
+  "https://www.tradeworkdesk.co.uk/gas-engineer-software",
+  "https://www.tradeworkdesk.co.uk/boiler-service-management-software",
+  "https://www.tradeworkdesk.co.uk/job-management-software-heating-engineers",
+  "https://www.tradeworkdesk.co.uk/blog/how-to-go-paperless-as-a-gas-engineer",
+  "https://www.tradeworkdesk.co.uk/blog/gas-safe-record-keeping-guide",
+  "https://www.tradeworkdesk.co.uk/blog/best-software-for-heating-engineers",
+  "https://www.tradeworkdesk.co.uk/blog/managing-boiler-service-contracts",
+  "https://www.tradeworkdesk.co.uk/blog/heat-pump-service-software",
+  "https://www.tradeworkdesk.co.uk/privacy-policy",
+  "https://www.tradeworkdesk.co.uk/terms-of-service",
 ];
 
-const HOST = "boilertech.replit.app";
+const HOST = "www.tradeworkdesk.co.uk";
 
 router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const key = process.env.INDEXNOW_KEY;

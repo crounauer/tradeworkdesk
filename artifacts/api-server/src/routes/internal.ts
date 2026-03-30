@@ -8,7 +8,7 @@ import {
 
 const router = Router();
 
-const APP_URL = process.env.APP_URL || "https://boilertech.app";
+const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
 const BILLING_URL = `${APP_URL}/billing`;
 
 function requireCronSecret(req: Request, res: Response): boolean {

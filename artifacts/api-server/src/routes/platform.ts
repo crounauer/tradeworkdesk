@@ -186,7 +186,7 @@ router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmi
 
   if (!stripe) { res.status(503).json({ error: "Stripe not configured" }); return; }
 
-  const APP_URL = process.env.APP_URL || "https://boilertech.app";
+  const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
   const session = await stripe.billingPortal.sessions.create({
     customer: tenant.stripe_customer_id,
     return_url: `${APP_URL}/platform/tenants/${id}`,
@@ -581,7 +581,7 @@ router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: 
 
   const { sendWelcomeEmail: wel, sendInvoiceEmail: inv, sendTrialExpiryReminder: trial, sendRenewalReminder: ren, sendPaymentFailedEmail: fail } = await import("../lib/email");
 
-  const BILLING = process.env.APP_URL ? `${process.env.APP_URL}/billing` : "https://boilertech.app/billing";
+  const BILLING = process.env.APP_URL ? `${process.env.APP_URL}/billing` : "https://tradeworkdesk.co.uk/billing";
   const futureDate = new Date(Date.now() + 14 * 86400000).toISOString();
 
   try {

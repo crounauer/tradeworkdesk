@@ -10,7 +10,7 @@ const router = Router();
 
 const BILLING_URL = process.env.APP_URL
   ? `${process.env.APP_URL}/billing`
-  : "https://boilertech.app/billing";
+  : "https://tradeworkdesk.co.uk/billing";
 
 router.post(
   "/webhooks/stripe",

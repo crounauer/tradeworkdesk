@@ -24,8 +24,8 @@ export default function PrivacyPolicyPage() {
         <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">1. Who We Are</h2>
-            <p>TradeWorkDesk Ltd ("we", "us", "our") is a company registered in England and Wales. We operate the TradeWorkDesk platform at boilertech.replit.app. We are the data controller for the personal data we process through our platform.</p>
-            <p>For data protection enquiries, contact us at: privacy@boilertech.co.uk</p>
+            <p>TradeWorkDesk Ltd ("we", "us", "our") is a company registered in England and Wales. We operate the TradeWorkDesk platform at www.tradeworkdesk.co.uk. We are the data controller for the personal data we process through our platform.</p>
+            <p>For data protection enquiries, contact us at: privacy@tradeworkdesk.co.uk</p>
           </section>
 
           <section>
@@ -80,7 +80,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>Restriction</strong> — Request that we limit processing of your data</li>
               <li><strong>Objection</strong> — Object to processing based on legitimate interests</li>
             </ul>
-            <p>To exercise any of these rights, contact us at privacy@boilertech.co.uk. We will respond within 30 days.</p>
+            <p>To exercise any of these rights, contact us at privacy@tradeworkdesk.co.uk. We will respond within 30 days.</p>
           </section>
 
           <section>
@@ -106,7 +106,7 @@ export default function PrivacyPolicyPage() {
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">10. Complaints</h2>
-            <p>If you have concerns about how we handle your data, please contact us first at privacy@boilertech.co.uk. You also have the right to lodge a complaint with the Information Commissioner's Office (ICO) at ico.org.uk.</p>
+            <p>If you have concerns about how we handle your data, please contact us first at privacy@tradeworkdesk.co.uk. You also have the right to lodge a complaint with the Information Commissioner's Office (ICO) at ico.org.uk.</p>
           </section>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 
 const SITE_NAME = "TradeWorkDesk";
-const SITE_URL = "https://boilertech.replit.app";
+const SITE_URL = "https://www.tradeworkdesk.co.uk";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/opengraph.jpg`;
 
 interface SEOHeadProps {

@@ -10,7 +10,7 @@ export function organizationSchema() {
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",
-      email: "support@boilertech.co.uk",
+      email: "support@tradeworkdesk.co.uk",
       availableLanguage: "English",
     },
     sameAs: [],

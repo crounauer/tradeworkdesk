@@ -8,7 +8,7 @@ if (!resendApiKey) {
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-const FROM = "TradeWorkDesk <noreply@boilertech.app>";
+const FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 
 function baseHtml(title: string, body: string): string {
   return `<!DOCTYPE html>
@@ -54,7 +54,7 @@ function baseHtml(title: string, body: string): string {
     <div class="footer">
       &copy; ${new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.<br/>
       You received this email because you have an active account with TradeWorkDesk.<br/>
-      <span style="margin-top:6px; display:block;">To stop receiving emails, contact us at <a href="mailto:support@boilertech.app" style="color:#64748b;">support@boilertech.app</a> to unsubscribe.</span>
+      <span style="margin-top:6px; display:block;">To stop receiving emails, contact us at <a href="mailto:support@tradeworkdesk.co.uk" style="color:#64748b;">support@tradeworkdesk.co.uk</a> to unsubscribe.</span>
     </div>
   </div>
 </body>
@@ -98,7 +98,7 @@ export async function sendWelcomeEmail(to: string, companyName: string, trialEnd
       <li>Reports &amp; analytics</li>
     </ul>
     <p style="margin-top:24px;">
-      <a href="https://boilertech.app" class="btn">Open TradeWorkDesk</a>
+      <a href="https://tradeworkdesk.co.uk" class="btn">Open TradeWorkDesk</a>
     </p>
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">If you have any questions, reply to this email and we'll be happy to help.</p>

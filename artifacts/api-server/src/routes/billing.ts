@@ -5,7 +5,7 @@ import { supabaseAdmin } from "../lib/supabase";
 
 const router = Router();
 
-const APP_URL = process.env.APP_URL || "https://boilertech.app";
+const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
 
 router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { plan_id, billing_cycle = "monthly" } = req.body;
