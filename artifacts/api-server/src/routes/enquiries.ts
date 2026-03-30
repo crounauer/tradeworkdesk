@@ -132,6 +132,11 @@ router.post("/enquiries/:id/notes", requireAuth, requireTenant, requirePlanFeatu
     res.status(400).json({ error: "content is required" }); return;
   }
 
+  let enqCheck = supabaseAdmin.from("enquiries").select("id").eq("id", id);
+  if (req.tenantId) enqCheck = enqCheck.eq("tenant_id", req.tenantId);
+  const { data: enqExists } = await enqCheck.single();
+  if (!enqExists) { res.status(404).json({ error: "Enquiry not found" }); return; }
+
   const { data, error } = await supabaseAdmin
     .from("enquiry_notes")
     .insert({

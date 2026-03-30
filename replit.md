@@ -39,7 +39,7 @@ The system is designed for multi-tenancy, with all data tables including a `tena
 - **Marketing Site**: Includes SEO-optimized landing pages, a blog, and legal pages, utilizing a `MarketingLayout` and `SEOHead` component with JSON-LD structured data.
 - **Invoice Export**: Supports CSV, QuickBooks IIF, Xero CSV, and Sage CSV formats for completed/invoiced jobs.
 - **Plan Feature Gating**: A tiered plan system (e.g., Forms Only, Starter, Professional, Enterprise) gates features based on a `features` JSONB column in the `plans` table. Backend middleware `requirePlanFeature()` and frontend `usePlanFeatures()` hook enforce access and display upgrade prompts.
-- **Enquiry Tracking**: Record incoming enquiries from multiple sources (phone, email, text, Facebook, WhatsApp, Messenger, website, referral). Enquiries have statuses (new, contacted, quoted, converted, lost) and can be converted to jobs with customer/property creation. Feature-gated behind `job_management` plan feature. Includes activity notes timeline and dashboard widget for open enquiry count.
+- **Enquiry Tracking**: Enquiries from phone/email/text/social channels, with statuses (new → contacted → quoted → converted/lost). Convert-to-job flow creates customer/property/job. Gated behind `job_management`. Routes: `/api/enquiries`, pages: `/enquiries`, `/enquiries/:id`.
 - **Platform Admin**: Super_admin users have access to `/platform/*` routes for managing tenants, plans, announcements, and audit logs, including a dashboard with MRR metrics.
 - **Image Handling**: File uploads via multer with memory storage and a 10MB limit. Server-side image compression (max 1920px, JPEG quality 80) and 300px thumbnail generation using `sharp`.
 
