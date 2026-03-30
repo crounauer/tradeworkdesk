@@ -31,6 +31,7 @@ import internalRouter from "./internal";
 import indexnowRouter from "./indexnow";
 import socialRouter from "./social";
 import jobTypesRouter from "./job-types";
+import enquiriesRouter from "./enquiries";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,6 @@ router.use(internalRouter);
 router.use(indexnowRouter);
 router.use(socialRouter);
 router.use(jobTypesRouter);
+router.use(enquiriesRouter);
 
 export default router;

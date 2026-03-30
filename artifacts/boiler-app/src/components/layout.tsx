@@ -8,7 +8,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap
+  Zap, MessageSquarePlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -70,6 +70,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(isFormsOnly ? [
       { href: "/quick-record", label: "Quick Record", icon: Zap },
     ] : [
+      { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
       { href: "/jobs", label: "Jobs", icon: Briefcase },
       { href: "/search", label: "Search", icon: Search },
     ]),

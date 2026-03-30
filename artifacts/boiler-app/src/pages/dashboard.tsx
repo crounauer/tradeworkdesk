@@ -1,7 +1,7 @@
 import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Users, Briefcase, AlertCircle, CheckCircle2, Plus } from "lucide-react";
+import { Users, Briefcase, AlertCircle, CheckCircle2, Plus, MessageSquarePlus } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useQuery as useReactQuery } from "@tanstack/react-query";
 
 interface JobType {
   id: number;
@@ -48,6 +49,16 @@ export default function Dashboard() {
   const [showQuickBook, setShowQuickBook] = useState(false);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
+
+  const { data: enquiryCount } = useReactQuery({
+    queryKey: ["enquiries-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/enquiries-count");
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+    enabled: hasJobManagement,
+  });
 
   if (isLoading) return <div className="p-8">Loading dashboard...</div>;
   if (!data) return null;
@@ -90,6 +101,23 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {hasJobManagement && enquiryCount?.count > 0 && (
+        <Link href="/enquiries">
+          <Card className="p-5 border-0 shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all bg-gradient-to-r from-orange-50/80 to-amber-50/80">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-orange-100 text-orange-600">
+                <MessageSquarePlus className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground">Open Enquiries</p>
+                <p className="text-2xl font-bold text-foreground">{enquiryCount.count}</p>
+              </div>
+              <span className="text-sm text-primary font-medium">View all &rarr;</span>
+            </div>
+          </Card>
+        </Link>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-8">
         <Card className="p-6 border-0 shadow-sm overflow-hidden flex flex-col h-[400px]">
