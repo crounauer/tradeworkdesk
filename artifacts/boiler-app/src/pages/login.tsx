@@ -1,16 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame } from "lucide-react";
+import { Flame, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export default function Login() {
+  const { mfaPending } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaVerifying, setMfaVerifying] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (mfaPending) {
+      initMfaFromPending();
+    }
+  }, [mfaPending]);
+
+  const initMfaFromPending = async () => {
+    const { data: factorsData, error } = await supabase.auth.mfa.listFactors();
+    if (error || !factorsData?.totp?.length) {
+      toast({ title: "MFA Error", description: "Could not load MFA factors. Please try again.", variant: "destructive" });
+      return;
+    }
+    const totpFactor = factorsData.totp.find(f => f.status === "verified");
+    if (totpFactor) {
+      setMfaFactorId(totpFactor.id);
+      setShowMfa(true);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,8 +53,70 @@ export default function Login() {
         description: error.message,
         variant: "destructive"
       });
+      setLoading(false);
+      return;
     }
+
+    const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalError) {
+      setLoading(false);
+      return;
+    }
+
+    if (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") {
+      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError || !factorsData?.totp?.length) {
+        toast({ title: "MFA Error", description: "Could not load MFA factors. Please sign in again.", variant: "destructive" });
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+      const totpFactor = factorsData.totp.find(f => f.status === "verified");
+      if (!totpFactor) {
+        toast({ title: "MFA Error", description: "No verified authenticator found. Contact your administrator.", variant: "destructive" });
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+      setMfaFactorId(totpFactor.id);
+      setShowMfa(true);
+    }
+
     setLoading(false);
+  };
+
+  const handleMfaVerify = async () => {
+    if (mfaCode.length !== 6) return;
+    setMfaVerifying(true);
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: mfaFactorId,
+      });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challengeData.id,
+        code: mfaCode,
+      });
+      if (verifyError) throw verifyError;
+    } catch (err) {
+      toast({
+        title: "Verification Failed",
+        description: err instanceof Error ? err.message : "Invalid code. Please try again.",
+        variant: "destructive"
+      });
+      setMfaCode("");
+    } finally {
+      setMfaVerifying(false);
+    }
+  };
+
+  const handleBackToLogin = async () => {
+    setShowMfa(false);
+    setMfaCode("");
+    setMfaFactorId("");
+    await supabase.auth.signOut();
   };
 
   return (
@@ -45,36 +133,69 @@ export default function Login() {
             <Flame className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-display font-bold text-foreground">BoilerTech</h1>
-          <p className="text-muted-foreground mt-2 text-center">Sign in to access your field service dashboard.</p>
-          <p className="text-xs text-muted-foreground mt-1 text-center">Have an invite link? <a href="/register" className="text-primary hover:underline font-medium">Create an account</a></p>
+          {showMfa ? (
+            <p className="text-muted-foreground mt-2 text-center">Enter your authenticator code to continue.</p>
+          ) : (
+            <>
+              <p className="text-muted-foreground mt-2 text-center">Sign in to access your field service dashboard.</p>
+              <p className="text-xs text-muted-foreground mt-1 text-center">Have an invite link? <a href="/register" className="text-primary hover:underline font-medium">Create an account</a></p>
+            </>
+          )}
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              placeholder="technician@example.com" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+        {showMfa ? (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <p className="text-sm text-blue-800">Two-factor authentication is enabled on this account.</p>
+            </div>
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={mfaCode} onChange={setMfaCode} autoFocus>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button className="w-full h-12 text-base" onClick={handleMfaVerify} disabled={mfaVerifying || mfaCode.length !== 6}>
+              {mfaVerifying ? "Verifying..." : "Verify"}
+            </Button>
+            <Button variant="ghost" className="w-full text-muted-foreground" onClick={handleBackToLogin}>
+              Back to Login
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input 
-              id="password" 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
-          </Button>
-        </form>
+        ) : (
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="technician@example.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );

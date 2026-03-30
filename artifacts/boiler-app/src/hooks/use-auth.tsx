@@ -18,6 +18,7 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null | undefined;
   isLoading: boolean;
+  mfaPending: boolean;
   signOut: () => Promise<void>;
 };
 
@@ -27,19 +28,38 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mfaPending, setMfaPending] = useState(false);
   const queryClient = useQueryClient();
 
+  const checkMfaStatus = async () => {
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") {
+      setMfaPending(true);
+    } else {
+      setMfaPending(false);
+    }
+  };
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session) {
+        await checkMfaStatus();
+      }
       setIsLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       queryClient.clear();
+
+      if (session) {
+        await checkMfaStatus();
+      } else {
+        setMfaPending(false);
+      }
 
       if (event === "SIGNED_IN" && session?.access_token) {
         const pendingCode = localStorage.getItem("pending_invite_code");
@@ -67,7 +87,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile: profile as Profile | null | undefined, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile: profile as Profile | null | undefined, isLoading, mfaPending, signOut }}>
       {children}
     </AuthContext.Provider>
   );

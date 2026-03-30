@@ -8,7 +8,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus
+  Zap, MessageSquarePlus, UserCog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -202,6 +202,12 @@ export function Layout({ children }: { children: ReactNode }) {
               <p className="text-xs text-muted-foreground capitalize">{profile?.role?.replace('_', ' ')}</p>
             </div>
           </div>
+          <Link href="/account">
+            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground mb-1">
+              <UserCog className="w-4 h-4 mr-2" />
+              My Account
+            </Button>
+          </Link>
           <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
@@ -232,7 +238,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 {platformNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
               </div>
             )}
-            <div className="pt-4 mt-4 border-t border-border">
+            <div className="pt-4 mt-4 border-t border-border space-y-2">
+              <Link href="/account" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant="outline" className="w-full">
+                  <UserCog className="w-4 h-4 mr-2" />
+                  My Account
+                </Button>
+              </Link>
               <Button variant="outline" className="w-full" onClick={signOut}>
                 Sign Out
               </Button>

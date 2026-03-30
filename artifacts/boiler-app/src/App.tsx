@@ -50,6 +50,7 @@ const QuickRecord = lazy(() => import("@/pages/quick-record"));
 const Enquiries = lazy(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazy(() => import("@/pages/enquiry-detail"));
 const Billing = lazy(() => import("@/pages/billing"));
+const AccountSettings = lazy(() => import("@/pages/account-settings"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const HomePage = lazy(() => import("@/pages/marketing/home"));
@@ -91,10 +92,11 @@ const PageFallback = () => (
 );
 
 function ProtectedRoute({ component: Component, roles }: { component: React.ComponentType; roles?: string[] }) {
-  const { session, isLoading, profile } = useAuth();
+  const { session, isLoading, profile, mfaPending } = useAuth();
 
   if (isLoading) return <PageFallback />;
   if (!session) return <Redirect to="/login" />;
+  if (mfaPending) return <Redirect to="/login" />;
 
   if (roles && profile && !roles.includes(profile.role)) {
     return <Redirect to="/dashboard" />;
@@ -118,9 +120,10 @@ function PublicPage<P extends Record<string, unknown>>({ component: Component, .
 }
 
 function RootRoute() {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, mfaPending } = useAuth();
 
   if (isLoading) return <PageFallback />;
+  if (mfaPending) return <Redirect to="/login" />;
 
   if (session) {
     return (
@@ -140,13 +143,13 @@ function RootRoute() {
 }
 
 function AppRouter() {
-  const { session } = useAuth();
+  const { session, mfaPending } = useAuth();
 
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
         <Route path="/login">
-          {session ? <Redirect to="/" /> : <Login />}
+          {session && !mfaPending ? <Redirect to="/" /> : <Login />}
         </Route>
 
         <Route path="/register">
@@ -207,6 +210,7 @@ function AppRouter() {
         <Route path="/admin/job-types" component={() => <ProtectedRoute component={AdminJobTypes} roles={["admin"]} />} />
 
         <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
+        <Route path="/account" component={() => <ProtectedRoute component={AccountSettings} />} />
 
         <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} />} />
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} />} />
