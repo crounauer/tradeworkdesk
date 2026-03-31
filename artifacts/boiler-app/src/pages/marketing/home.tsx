@@ -118,13 +118,6 @@ export default function HomePage() {
                 14-day free trial. No credit card required.
               </p>
             </div>
-            <div className="shrink-0 flex items-center justify-center">
-              <img
-                src={`${import.meta.env.BASE_URL}logo.png`}
-                alt="TradeWorkDesk"
-                className="w-48 md:w-64 h-auto object-contain max-w-full"
-              />
-            </div>
           </div>
         </div>
       </section>

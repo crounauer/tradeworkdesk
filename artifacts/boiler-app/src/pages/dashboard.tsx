@@ -75,7 +75,6 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
-        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="TradeWorkDesk" className="h-20 w-auto" />
         <div className="flex-1">
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening today.</p>

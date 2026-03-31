@@ -57,13 +57,6 @@ export default function BlogPostPage() {
         <div className="bg-gradient-to-br from-slate-50 to-white py-12 md:py-16 border-b border-slate-200">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 items-start">
-              <div className="shrink-0">
-                <img
-                  src={`${import.meta.env.BASE_URL}logo.png`}
-                  alt="TradeWorkDesk"
-                  className="h-24 w-auto max-w-full"
-                />
-              </div>
               <div className="flex-1 min-w-0">
                 <Link href="/blog" className="inline-flex items-center gap-1 text-sm text-primary hover:underline mb-4">
                   <ArrowLeft className="w-4 h-4" />

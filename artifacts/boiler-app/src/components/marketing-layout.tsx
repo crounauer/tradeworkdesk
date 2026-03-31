@@ -112,7 +112,8 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
-                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="TradeWorkDesk" className="h-9 w-auto" />
+                <Flame className="w-6 h-6 text-primary" />
+                <span className="text-lg font-bold tracking-tight text-white">TradeWorkDesk</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
                 The all-in-one platform for boiler service companies. Manage jobs, customers, and compliance from one place.
