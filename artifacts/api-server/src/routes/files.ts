@@ -27,15 +27,15 @@ interface FileRow {
 }
 
 async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string, entityId: string): Promise<{ allowed: boolean; error?: string }> {
-  if (req.userRole !== "technician") return { allowed: true };
   if (entityType === "job") {
     let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", entityId);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     const { data: job } = await q.single();
     if (!job) return { allowed: false, error: "Job not found" };
-    if (job.assigned_technician_id !== req.userId) return { allowed: false, error: "Not authorized" };
-  }
-  if (entityType === "enquiry") {
+    if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+      return { allowed: false, error: "Not authorized" };
+    }
+  } else if (entityType === "enquiry") {
     let q = supabaseAdmin.from("enquiries").select("id").eq("id", entityId);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     const { data: enquiry } = await q.single();
