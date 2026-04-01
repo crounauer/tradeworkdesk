@@ -85,9 +85,7 @@ export default function AddToHomeScreen() {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") {
-        dismiss();
-      }
+      dismiss();
       setDeferredPrompt(null);
       promptRef.current = null;
     } else {
