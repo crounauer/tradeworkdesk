@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import { useEffect , useRef } from "react";
-import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, useUpdateHeatPumpServiceRecord, useGetJob } from "@workspace/api-client-react";
+import { useEffect , useRef, useState } from "react";
+import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, useUpdateHeatPumpServiceRecord, useGetJob, customFetch } from "@workspace/api-client-react";
 import type { CreateHeatPumpServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, FileDown, Thermometer, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle } from "lucide-react";
+import { ArrowLeft, FileDown, Thermometer, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { generateHeatPumpServicePdf } from "@/lib/pdf-generator";
 import { useCompanySettings } from "@/hooks/use-company-settings";
@@ -53,6 +53,10 @@ export default function HeatPumpServiceForm() {
   const createMutation = useCreateHeatPumpServiceRecord();
   const updateMutation = useUpdateHeatPumpServiceRecord();
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const { register, handleSubmit, getValues, reset } = useForm<HeatPumpServiceFormData>({
     defaultValues: { appliance_safe: true },
   });
@@ -332,16 +336,45 @@ export default function HeatPumpServiceForm() {
         </Card>
 
         <div className="sticky bottom-0 z-10 bg-background/80 backdrop-blur-sm border-t py-4 -mx-4 px-4">
-          <div className="max-w-4xl mx-auto flex gap-3">
-            <Button type="submit" size="lg" className="px-8 bg-cyan-600 hover:bg-cyan-700" disabled={createMutation.isPending || updateMutation.isPending}>
-              {(createMutation.isPending || updateMutation.isPending)
-                ? "Saving..."
-                : existingRecord ? "Update Service Record" : "Save Service Record"
-              }
-            </Button>
-            <Link href={`/jobs/${jobId}`}>
-              <Button type="button" variant="outline" size="lg">Cancel</Button>
-            </Link>
+          <div className="max-w-4xl mx-auto flex justify-between gap-3">
+            <div>
+              {existingRecord && isAdmin && !showDeleteConfirm && (
+                <Button variant="ghost" type="button" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+              )}
+              {showDeleteConfirm && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-red-600 font-medium">Delete this record?</span>
+                  <Button variant="destructive" type="button" size="sm" disabled={isDeleting} onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/heat-pump-service/${existingRecord!.id}`, { method: "DELETE" });
+                      toast({ title: "Deleted", description: "Heat pump service record deleted" });
+                      setLocation(`/jobs/${jobId}`);
+                    } catch (e: unknown) {
+                      toast({ title: "Error", description: e instanceof Error ? e.message : "Delete failed", variant: "destructive" });
+                      setIsDeleting(false);
+                      setShowDeleteConfirm(false);
+                    }
+                  }}>
+                    {isDeleting ? "Deleting..." : "Yes, delete"}
+                  </Button>
+                  <Button variant="outline" type="button" size="sm" onClick={() => setShowDeleteConfirm(false)}>No</Button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button type="submit" size="lg" className="px-8 bg-cyan-600 hover:bg-cyan-700" disabled={createMutation.isPending || updateMutation.isPending}>
+                {(createMutation.isPending || updateMutation.isPending)
+                  ? "Saving..."
+                  : existingRecord ? "Update Service Record" : "Save Service Record"
+                }
+              </Button>
+              <Link href={`/jobs/${jobId}`}>
+                <Button type="button" variant="outline" size="lg">Cancel</Button>
+              </Link>
+            </div>
           </div>
         </div>
       </form>

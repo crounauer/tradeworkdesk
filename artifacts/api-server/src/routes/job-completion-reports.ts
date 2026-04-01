@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateJobCompletionReportBody,
   GetJobCompletionReportParams,
@@ -85,6 +85,17 @@ router.get("/job-completion-reports/job/:jobId", requireAuth, requireTenant, asy
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.json(null); return; }
   res.json(GetJobCompletionReportByJobResponse.parse(data));
+});
+
+router.delete("/job-completion-reports/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = req.params.id;
+  let q = supabaseAdmin.from("job_completion_reports").select("job_id").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: existing } = await q.single();
+  if (!existing) { res.status(404).json({ error: "Job completion report not found" }); return; }
+  const { error } = await supabaseAdmin.from("job_completion_reports").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
 });
 
 export default router;

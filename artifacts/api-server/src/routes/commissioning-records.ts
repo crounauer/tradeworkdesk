@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateCommissioningRecordBody,
   GetCommissioningRecordParams,
@@ -105,6 +105,17 @@ router.get("/jobs/:jobId/commissioning-record", requireAuth, requireTenant, requ
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.json(null); return; }
   res.json(GetCommissioningRecordByJobResponse.parse(data));
+});
+
+router.delete("/commissioning-records/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = req.params.id;
+  let q = supabaseAdmin.from("commissioning_records").select("job_id").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: existing } = await q.single();
+  if (!existing) { res.status(404).json({ error: "Commissioning record not found" }); return; }
+  const { error } = await supabaseAdmin.from("commissioning_records").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
 });
 
 export default router;

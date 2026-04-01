@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import { useEffect, useMemo , useRef } from "react";
-import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob } from "@workspace/api-client-react";
+import { useEffect, useMemo , useRef, useState } from "react";
+import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob, customFetch } from "@workspace/api-client-react";
 import type { CreateServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle, Flame, Gauge } from "lucide-react";
+import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle, Flame, Gauge, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { generateServiceRecordPdf, generateCp12Pdf } from "@/lib/pdf-generator";
 import { useCompanySettings } from "@/hooks/use-company-settings";
@@ -97,6 +97,10 @@ export default function ServiceRecordForm() {
 
   const { register, handleSubmit, getValues, reset, watch } = useForm<ServiceRecordFormData>();
   const hasPopulated = useRef(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
   const fuelType = useMemo(() => {
     return job?.appliance?.fuel_type || "oil";
@@ -651,11 +655,40 @@ export default function ServiceRecordForm() {
           </div>
         </Card>
 
-        <div className="flex justify-end gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
-          <Button variant="outline" type="button" onClick={() => setLocation(`/jobs/${jobId}`)}>Cancel</Button>
-          <Button type="submit" size="lg" className="w-48 shadow-lg shadow-primary/30" disabled={createMutation.isPending || updateMutation.isPending}>
-            {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : existingRecord ? "Update Record" : "Save Record"}
-          </Button>
+        <div className="flex justify-between gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
+          <div>
+            {existingRecord && isAdmin && !showDeleteConfirm && (
+              <Button variant="ghost" type="button" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
+                <Trash2 className="w-4 h-4 mr-2" /> Delete
+              </Button>
+            )}
+            {showDeleteConfirm && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-red-600 font-medium">Delete this record?</span>
+                <Button variant="destructive" type="button" size="sm" disabled={isDeleting} onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await customFetch(`${import.meta.env.BASE_URL}api/service-records/${existingRecord!.id}`, { method: "DELETE" });
+                    toast({ title: "Deleted", description: "Service record deleted" });
+                    setLocation(`/jobs/${jobId}`);
+                  } catch (e: unknown) {
+                    toast({ title: "Error", description: e instanceof Error ? e.message : "Delete failed", variant: "destructive" });
+                    setIsDeleting(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}>
+                  {isDeleting ? "Deleting..." : "Yes, delete"}
+                </Button>
+                <Button variant="outline" type="button" size="sm" onClick={() => setShowDeleteConfirm(false)}>No</Button>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-4">
+            <Button variant="outline" type="button" onClick={() => setLocation(`/jobs/${jobId}`)}>Cancel</Button>
+            <Button type="submit" size="lg" className="w-48 shadow-lg shadow-primary/30" disabled={createMutation.isPending || updateMutation.isPending}>
+              {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : existingRecord ? "Update Record" : "Save Record"}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

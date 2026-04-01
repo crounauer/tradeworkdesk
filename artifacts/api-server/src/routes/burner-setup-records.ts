@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateBurnerSetupRecordBody,
   GetBurnerSetupRecordParams,
@@ -85,6 +85,17 @@ router.get("/burner-setup-records/job/:jobId", requireAuth, requireTenant, requi
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.json(null); return; }
   res.json(GetBurnerSetupRecordByJobResponse.parse(data));
+});
+
+router.delete("/burner-setup-records/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = req.params.id;
+  let q = supabaseAdmin.from("burner_setup_records").select("job_id").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: existing } = await q.single();
+  if (!existing) { res.status(404).json({ error: "Record not found" }); return; }
+  const { error } = await supabaseAdmin.from("burner_setup_records").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
 });
 
 export default router;

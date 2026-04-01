@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateBreakdownReport, useGetBreakdownReportByJob, useUpdateBreakdownReport } from "@workspace/api-client-react";
+import { useCreateBreakdownReport, useGetBreakdownReportByJob, useUpdateBreakdownReport, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, AlertTriangle, Wrench } from "lucide-react";
-import { useEffect , useRef } from "react";
+import { ArrowLeft, AlertTriangle, Wrench, Trash2 } from "lucide-react";
+import { useEffect , useRef, useState } from "react";
 
 interface BreakdownFormData {
   reported_fault: string;
@@ -36,6 +36,10 @@ export default function BreakdownReportForm() {
   const updateMutation = useUpdateBreakdownReport();
 
   const { register, handleSubmit, reset } = useForm<BreakdownFormData>();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const hasPopulated = useRef(false);
 
   useEffect(() => {
@@ -166,11 +170,40 @@ export default function BreakdownReportForm() {
           </div>
         </Card>
 
-        <div className="flex justify-end gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
+        <div className="flex justify-between gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
+            <div>
+              {existingReport && isAdmin && !showDeleteConfirm && (
+                <Button variant="ghost" type="button" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+              )}
+              {showDeleteConfirm && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-red-600 font-medium">Delete this record?</span>
+                  <Button variant="destructive" type="button" size="sm" disabled={isDeleting} onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await customFetch(`${import.meta.env.BASE_URL}api/breakdown-reports/${existingReport!.id}`, { method: "DELETE" });
+                      toast({ title: "Deleted", description: "Breakdown report deleted" });
+                      setLocation(`/jobs/${jobId}`);
+                    } catch (e: unknown) {
+                      toast({ title: "Error", description: e instanceof Error ? e.message : "Delete failed", variant: "destructive" });
+                      setIsDeleting(false);
+                      setShowDeleteConfirm(false);
+                    }
+                  }}>
+                    {isDeleting ? "Deleting..." : "Yes, delete"}
+                  </Button>
+                  <Button variant="outline" type="button" size="sm" onClick={() => setShowDeleteConfirm(false)}>No</Button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-4">
           <Button variant="outline" type="button" onClick={() => setLocation(`/jobs/${jobId}`)}>Cancel</Button>
           <Button type="submit" size="lg" className="w-48 shadow-lg shadow-primary/30" disabled={createMutation.isPending || updateMutation.isPending}>
             {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : existingReport ? "Update Report" : "Save Report"}
           </Button>
+          </div>
         </div>
       </form>
     </div>

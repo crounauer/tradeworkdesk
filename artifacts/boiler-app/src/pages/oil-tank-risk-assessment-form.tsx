@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateOilTankRiskAssessment, useGetOilTankRiskAssessmentByJob, useUpdateOilTankRiskAssessment } from "@workspace/api-client-react";
+import { useCreateOilTankRiskAssessment, useGetOilTankRiskAssessmentByJob, useUpdateOilTankRiskAssessment, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShieldAlert, TriangleAlert, Scale } from "lucide-react";
-import { useEffect , useRef } from "react";
+import { useEffect , useRef, useState } from "react";
 
 interface RiskAssessmentFormData {
   site_hazards: string;
@@ -177,11 +177,40 @@ export default function OilTankRiskAssessmentForm() {
           </div>
         </Card>
 
-        <div className="flex justify-end gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
+        <div className="flex justify-between gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
+            <div>
+              {existingRecord && isAdmin && !showDeleteConfirm && (
+                <Button variant="ghost" type="button" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+              )}
+              {showDeleteConfirm && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-red-600 font-medium">Delete this record?</span>
+                  <Button variant="destructive" type="button" size="sm" disabled={isDeleting} onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await customFetch(`${import.meta.env.BASE_URL}api/oil-tank-risk-assessments/${existingRecord!.id}`, { method: "DELETE" });
+                      toast({ title: "Deleted", description: "Oil tank risk assessment deleted" });
+                      setLocation(`/jobs/${jobId}`);
+                    } catch (e: unknown) {
+                      toast({ title: "Error", description: e instanceof Error ? e.message : "Delete failed", variant: "destructive" });
+                      setIsDeleting(false);
+                      setShowDeleteConfirm(false);
+                    }
+                  }}>
+                    {isDeleting ? "Deleting..." : "Yes, delete"}
+                  </Button>
+                  <Button variant="outline" type="button" size="sm" onClick={() => setShowDeleteConfirm(false)}>No</Button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-4">
           <Button variant="outline" type="button" onClick={() => setLocation(`/jobs/${jobId}`)}>Cancel</Button>
           <Button type="submit" size="lg" className="w-48 shadow-lg shadow-primary/30" disabled={createMutation.isPending || updateMutation.isPending}>
             {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : existingRecord ? "Update Assessment" : "Save Assessment"}
           </Button>
+          </div>
         </div>
       </form>
     </div>

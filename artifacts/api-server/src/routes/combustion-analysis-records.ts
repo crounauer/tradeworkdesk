@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requirePlanFeature, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   CreateCombustionAnalysisRecordBody,
   GetCombustionAnalysisRecordParams,
@@ -85,6 +85,17 @@ router.get("/combustion-analysis-records/job/:jobId", requireAuth, requireTenant
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.json(null); return; }
   res.json(GetCombustionAnalysisRecordByJobResponse.parse(data));
+});
+
+router.delete("/combustion-analysis-records/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = req.params.id;
+  let q = supabaseAdmin.from("combustion_analysis_records").select("job_id").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: existing } = await q.single();
+  if (!existing) { res.status(404).json({ error: "Record not found" }); return; }
+  const { error } = await supabaseAdmin.from("combustion_analysis_records").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
 });
 
 export default router;
