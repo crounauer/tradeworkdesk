@@ -1322,6 +1322,11 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     if (recErr) { console.error(`[email] Error fetching ${formType} record ${formId}:`, recErr); continue; }
     if (!record) continue;
 
+    const rec = record as Record<string, unknown>;
+    const matchedFields = Object.keys(config.fieldMap).filter(k => rec[k] != null && rec[k] !== "" && rec[k] !== "null");
+    const unmatchedDbKeys = Object.keys(rec).filter(k => !["id","job_id","technician_id","tenant_id","created_at","updated_at"].includes(k) && !(k in config.fieldMap));
+    console.log(`[email-pdf] ${formType}: DB columns=${Object.keys(rec).length}, fieldMap keys=${Object.keys(config.fieldMap).length}, matched=${matchedFields.length}, unmatched DB cols=[${unmatchedDbKeys.join(",")}]`);
+
     const pdfBuffer = generateFormPdf(
       formType,
       config.label,
