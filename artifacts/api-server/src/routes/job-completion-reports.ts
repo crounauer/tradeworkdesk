@@ -83,7 +83,7 @@ router.get("/job-completion-reports/job/:jobId", requireAuth, requireTenant, asy
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data, error } = await jobQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
-  if (!data) { res.status(404).json({ error: "No job completion report for this job" }); return; }
+  if (!data) { res.json(null); return; }
   res.json(GetJobCompletionReportByJobResponse.parse(data));
 });
 

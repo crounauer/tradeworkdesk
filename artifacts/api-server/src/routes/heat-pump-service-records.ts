@@ -34,7 +34,7 @@ router.get("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, require
   if (req.tenantId) recQ = recQ.eq("tenant_id", req.tenantId);
   const { data, error } = await recQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
-  if (!data) { res.status(404).json({ error: "No heat pump service record for this job" }); return; }
+  if (!data) { res.json(null); return; }
   res.json(GetHeatPumpServiceRecordByJobResponse.parse(data));
 });
 

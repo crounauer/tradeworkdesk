@@ -83,7 +83,7 @@ router.get("/combustion-analysis-records/job/:jobId", requireAuth, requireTenant
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data, error } = await jobQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
-  if (!data) { res.status(404).json({ error: "No combustion analysis record for this job" }); return; }
+  if (!data) { res.json(null); return; }
   res.json(GetCombustionAnalysisRecordByJobResponse.parse(data));
 });
 

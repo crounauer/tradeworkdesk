@@ -94,7 +94,7 @@ router.get("/service-records/job/:jobId", requireAuth, requireTenant, async (req
   if (req.tenantId) jobRecQ = jobRecQ.eq("tenant_id", req.tenantId);
   const { data, error } = await jobRecQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
-  if (!data) { res.status(404).json({ error: "No service record for this job" }); return; }
+  if (!data) { res.json(null); return; }
   res.json(GetServiceRecordByJobResponse.parse(data));
 });
 

@@ -83,7 +83,7 @@ router.get("/fire-valve-test-records/job/:jobId", requireAuth, requireTenant, re
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data, error } = await jobQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
-  if (!data) { res.status(404).json({ error: "No fire valve test record for this job" }); return; }
+  if (!data) { res.json(null); return; }
   res.json(GetFireValveTestRecordByJobResponse.parse(data));
 });
 
