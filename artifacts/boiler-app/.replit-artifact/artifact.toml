@@ -23,9 +23,12 @@ BASE_PATH = "/"
 
 [services.production]
 build = ["pnpm", "--filter", "@workspace/boiler-app", "run", "build"]
-publicDir = "artifacts/boiler-app/dist/public"
-serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.run]
+args = ["node", "artifacts/boiler-app/serve.js"]
+
+[services.production.run.env]
+PORT = "22873"
+
+[services.production.health.startup]
+path = "/"
