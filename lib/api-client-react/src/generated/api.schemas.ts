@@ -1741,6 +1741,21 @@ export type ListJobsParams = {
   date_to?: string;
   customer_id?: string;
   property_id?: string;
+  limit?: number;
+  page?: number;
+  search?: string;
+};
+
+export type ListJobsPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ListJobsResponse = {
+  jobs: JobListItem[];
+  pagination: ListJobsPagination;
 };
 
 export type ListFilesParams = {

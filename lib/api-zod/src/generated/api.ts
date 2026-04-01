@@ -884,6 +884,9 @@ export const ListJobsQueryParams = zod.object({
   date_to: zod.coerce.date().optional(),
   customer_id: zod.coerce.string().uuid().optional(),
   property_id: zod.coerce.string().uuid().optional(),
+  limit: zod.coerce.number().int().min(1).max(500).optional(),
+  page: zod.coerce.number().int().min(1).optional(),
+  search: zod.coerce.string().optional(),
 });
 
 export const ListJobsResponseItem = zod

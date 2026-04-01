@@ -106,46 +106,70 @@ const router: IRouter = Router();
 
 router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListJobsQueryParams.safeParse(req.query);
+
+  const limit = Math.min(query.success && query.data.limit ? query.data.limit : 50, 500);
+  const page = query.success && query.data.page ? query.data.page : 1;
+  const offset = (page - 1) * limit;
+  const searchTerm = query.success ? query.data.search : undefined;
+
+  let countQ = supabaseAdmin
+    .from("jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("is_active", true);
+
   let q = supabaseAdmin
     .from("jobs")
     .select("*, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
-  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  if (req.tenantId) {
+    q = q.eq("tenant_id", req.tenantId);
+    countQ = countQ.eq("tenant_id", req.tenantId);
+  }
 
   if (query.success) {
-    if (query.data.status) q = q.eq("status", query.data.status);
-    if (query.data.job_type) q = q.eq("job_type", query.data.job_type);
-    if (query.data.technician_id) q = q.eq("assigned_technician_id", query.data.technician_id);
-    if (query.data.customer_id) q = q.eq("customer_id", query.data.customer_id);
-    if (query.data.property_id) q = q.eq("property_id", query.data.property_id);
+    if (query.data.status) { q = q.eq("status", query.data.status); countQ = countQ.eq("status", query.data.status); }
+    if (query.data.job_type) { q = q.eq("job_type", query.data.job_type); countQ = countQ.eq("job_type", query.data.job_type); }
+    if (query.data.technician_id) { q = q.eq("assigned_technician_id", query.data.technician_id); countQ = countQ.eq("assigned_technician_id", query.data.technician_id); }
+    if (query.data.customer_id) { q = q.eq("customer_id", query.data.customer_id); countQ = countQ.eq("customer_id", query.data.customer_id); }
+    if (query.data.property_id) { q = q.eq("property_id", query.data.property_id); countQ = countQ.eq("property_id", query.data.property_id); }
     if (query.data.date_from) {
       const df = query.data.date_from instanceof Date
         ? query.data.date_from.toISOString().slice(0, 10)
         : String(query.data.date_from);
       q = q.or(`scheduled_date.gte.${df},scheduled_end_date.gte.${df}`);
+      countQ = countQ.or(`scheduled_date.gte.${df},scheduled_end_date.gte.${df}`);
     }
     if (query.data.date_to) {
       const dt = query.data.date_to instanceof Date
         ? query.data.date_to.toISOString().slice(0, 10)
         : String(query.data.date_to);
       q = q.lte("scheduled_date", dt);
+      countQ = countQ.lte("scheduled_date", dt);
     }
   }
 
   if (req.userRole === "technician") {
     q = q.eq("assigned_technician_id", req.userId!);
+    countQ = countQ.eq("assigned_technician_id", req.userId!);
   }
 
-  const [{ data, error }, allTypes] = await Promise.all([
+  if (searchTerm && searchTerm.trim()) {
+    const s = searchTerm.trim();
+    q = q.or(`description.ilike.%${s}%,notes.ilike.%${s}%,customers.first_name.ilike.%${s}%,customers.last_name.ilike.%${s}%`);
+  }
+
+  const [{ data, error }, { count: totalCount }, allTypes, tenantFeatures] = await Promise.all([
     q,
+    countQ,
     db.select({ id: jobTypes.id, name: jobTypes.name }).from(jobTypes),
+    req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const tenantFeatures = req.tenantId ? await getTenantFeatures(req.tenantId) : null;
   const hasGeoMapping = !!(tenantFeatures?.geo_mapping);
 
   const typeMap = new Map(allTypes.map((t) => [t.id, t.name]));
@@ -164,7 +188,15 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   }));
 
   res.set("Cache-Control", "private, no-cache");
-  res.json(ListJobsResponse.parse(rawMapped));
+  res.json({
+    jobs: rawMapped,
+    pagination: {
+      page,
+      limit,
+      total: totalCount ?? 0,
+      totalPages: Math.ceil((totalCount ?? 0) / limit),
+    },
+  });
 });
 
 router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

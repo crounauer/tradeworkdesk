@@ -100,15 +100,16 @@ export default function JobMapView() {
 
   const dateStr = toDateStr(selectedDate);
 
-  const { data: rawJobs = [] } = useListJobs({
+  const { data: jobsResponse } = useListJobs({
     date_from: dateStr,
     date_to: dateStr,
+    limit: 500,
   } as Record<string, string>);
 
   const { data: profiles = [] } = useListProfiles();
   const technicians = useMemo(() => profiles.filter(p => p.role === "technician"), [profiles]);
 
-  const jobs = rawJobs as unknown as MapJob[];
+  const jobs = ((jobsResponse as any)?.jobs ?? []) as MapJob[];
 
   const mappableJobs = useMemo(() => {
     let filtered = jobs.filter(j => j.property_latitude != null && j.property_longitude != null && j.status !== "cancelled");

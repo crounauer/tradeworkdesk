@@ -57,6 +57,7 @@ import type {
   ListCustomersParams,
   ListFilesParams,
   ListJobsParams,
+  ListJobsResponse as ListJobsResponseType,
   ListPropertiesParams,
   OilLineVacuumTest,
   OilTankInspection,
@@ -1825,8 +1826,8 @@ export const getListJobsUrl = (params?: ListJobsParams) => {
 export const listJobs = async (
   params?: ListJobsParams,
   options?: RequestInit,
-): Promise<JobListItem[]> => {
-  return customFetch<JobListItem[]>(getListJobsUrl(params), {
+): Promise<ListJobsResponseType> => {
+  return customFetch<ListJobsResponseType>(getListJobsUrl(params), {
     ...options,
     method: "GET",
   });

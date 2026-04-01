@@ -61,15 +61,20 @@ function JobsContent() {
   const [showBulkExport, setShowBulkExport] = useState(false);
   const [bulkExporting, setBulkExporting] = useState(false);
   const [viewTab, setViewTab] = useState<ViewTab>("list");
+  const [currentPage, setCurrentPage] = useState(1);
   const { profile } = useAuth();
   const { toast } = useToast();
   const { hasFeature } = usePlanFeatures();
 
   const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff";
 
-  const { data: jobs, isLoading } = useListJobs({
+  const { data: jobsResponse, isLoading } = useListJobs({
     status: statusFilter || undefined,
+    page: currentPage,
+    limit: 50,
   });
+  const jobs = jobsResponse?.jobs;
+  const pagination = jobsResponse?.pagination;
 
   const { data: jobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
@@ -218,7 +223,7 @@ function JobsContent() {
         <select
           className="border border-border rounded-lg px-3 py-2 text-sm bg-background"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
         >
           <option value="">All Statuses</option>
           {statuses.map(s => (
@@ -228,7 +233,7 @@ function JobsContent() {
         <select
           className="border border-border rounded-lg px-3 py-2 text-sm bg-background"
           value={jobTypeIdFilter}
-          onChange={(e) => setJobTypeIdFilter(e.target.value)}
+          onChange={(e) => { setJobTypeIdFilter(e.target.value); setCurrentPage(1); }}
         >
           <option value="">All Job Types</option>
           {jobTypes.map(t => (
@@ -236,9 +241,16 @@ function JobsContent() {
           ))}
         </select>
         {(statusFilter || jobTypeIdFilter) && (
-          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); setCurrentPage(1); }}>
             <X className="w-4 h-4 mr-1" /> Clear
           </Button>
+        )}
+        {pagination && (
+          <span className="text-xs text-muted-foreground ml-auto">
+            {jobTypeIdFilter
+              ? `${filteredJobs?.length ?? 0} of ${pagination.total} shown`
+              : `${pagination.total} job${pagination.total !== 1 ? "s" : ""} total`}
+          </span>
         )}
         {isAdminOrOffice && exportableJobs.length > 0 && (
           <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="ml-auto text-xs">
@@ -334,6 +346,30 @@ function JobsContent() {
             </div>
             );
           })}
+        </div>
+      )}
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground px-3">
+            Page {pagination.page} of {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage >= pagination.totalPages}
+            onClick={() => setCurrentPage(p => p + 1)}
+          >
+            Next
+          </Button>
         </div>
       )}
       </>}

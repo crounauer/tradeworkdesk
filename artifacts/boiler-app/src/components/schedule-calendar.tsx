@@ -147,12 +147,13 @@ export default function ScheduleCalendar() {
   const dateFromStr = toDateStr(dateFrom);
   const dateToStr = toDateStr(addDays(dateTo, 1));
 
-  const { data: rawJobs = [] } = useListJobs({
+  const { data: jobsResponse } = useListJobs({
     date_from: dateFromStr,
     date_to: dateToStr,
+    limit: 500,
   } as Record<string, string>);
 
-  const calendarJobs = rawJobs as unknown as CalendarJob[];
+  const calendarJobs = ((jobsResponse as any)?.jobs ?? []) as CalendarJob[];
 
   const { data: profiles = [] } = useListProfiles();
 
