@@ -1254,6 +1254,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     message: `Email sent to ${to}`,
     forms_sent: formsIncluded.map(f => f.form_label),
     sender_name: (senderProfile as Record<string, unknown>)?.full_name || null,
+    log_saved: !logErr,
   });
 });
 
