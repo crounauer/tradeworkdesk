@@ -1417,41 +1417,53 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
   );
 }
 
-const FORM_OPTIONS = [
-  { key: "service_record", label: "Service Record" },
-  { key: "breakdown_report", label: "Breakdown Report" },
-  { key: "commissioning_record", label: "Commissioning Record" },
-  { key: "job_completion_report", label: "Job Completion Report" },
-  { key: "burner_setup_record", label: "Burner Setup Record" },
-  { key: "combustion_analysis_record", label: "Combustion Analysis" },
-  { key: "fire_valve_test_record", label: "Fire Valve Test" },
-  { key: "oil_line_vacuum_test", label: "Oil Line Vacuum Test" },
-  { key: "oil_tank_inspection", label: "Oil Tank Inspection" },
-  { key: "oil_tank_risk_assessment", label: "Oil Tank Risk Assessment" },
-  { key: "heat_pump_service_record", label: "Heat Pump Service" },
-  { key: "heat_pump_commissioning_record", label: "Heat Pump Commissioning" },
-];
+interface CompletedForm {
+  form_type: string;
+  form_label: string;
+  form_id: string;
+}
 
 function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }: { jobId: string; customerEmail: string; customerName: string; onClose: () => void; onSent: () => void }) {
   const { toast } = useToast();
   const [to, setTo] = useState(customerEmail);
   const [cc, setCc] = useState("");
+  const [completedForms, setCompletedForms] = useState<CompletedForm[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
+  const [loadingForms, setLoadingForms] = useState(true);
 
-  const toggle = (key: string) => {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/completed-forms`);
+        if (!cancelled) {
+          const forms = data as CompletedForm[];
+          setCompletedForms(forms);
+          setSelected(new Set(forms.map(f => f.form_id)));
+        }
+      } catch {
+        if (!cancelled) toast({ title: "Error", description: "Failed to load completed forms", variant: "destructive" });
+      } finally {
+        if (!cancelled) setLoadingForms(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [jobId]);
+
+  const toggle = (formId: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(formId)) next.delete(formId); else next.add(formId);
       return next;
     });
   };
 
   const selectAll = () => {
-    if (selected.size === FORM_OPTIONS.length) {
+    if (selected.size === completedForms.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(FORM_OPTIONS.map(f => f.key)));
+      setSelected(new Set(completedForms.map(f => f.form_id)));
     }
   };
 
@@ -1460,10 +1472,11 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     if (selected.size === 0) { toast({ title: "Error", description: "Select at least one form to send", variant: "destructive" }); return; }
     setSending(true);
     try {
+      const formsPayload = completedForms.filter(f => selected.has(f.form_id)).map(f => ({ form_type: f.form_type, form_id: f.form_id }));
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-forms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, cc: cc || undefined, forms: [...selected] }),
+        body: JSON.stringify({ to, cc: cc || undefined, forms: formsPayload }),
       });
       toast({ title: "Email Sent", description: `Forms emailed to ${to}` });
       onSent();
@@ -1484,6 +1497,8 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
           <Button variant="ghost" size="sm" onClick={onClose}><X className="w-4 h-4" /></Button>
         </div>
 
+        {customerName && <p className="text-sm text-muted-foreground mb-4">Sending to <strong>{customerName}</strong></p>}
+
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>To (Email)</Label>
@@ -1496,24 +1511,31 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label>Select Forms to Include</Label>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={selectAll}>
-                {selected.size === FORM_OPTIONS.length ? "Deselect All" : "Select All"}
-              </Button>
+              <Label>Completed Forms</Label>
+              {completedForms.length > 0 && (
+                <Button variant="ghost" size="sm" className="text-xs" onClick={selectAll}>
+                  {selected.size === completedForms.length ? "Deselect All" : "Select All"}
+                </Button>
+              )}
             </div>
-            <div className="space-y-1 max-h-64 overflow-y-auto border border-border rounded-lg p-2">
-              {FORM_OPTIONS.map(f => (
-                <label key={f.key} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
-                  <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} className="rounded border-border" />
-                  <span className="text-sm">{f.label}</span>
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Only forms with saved data will be included in the email.</p>
+            {loadingForms ? (
+              <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">Loading forms...</div>
+            ) : completedForms.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground text-center border border-border rounded-lg">No completed forms found for this job.</div>
+            ) : (
+              <div className="space-y-1 max-h-64 overflow-y-auto border border-border rounded-lg p-2">
+                {completedForms.map(f => (
+                  <label key={f.form_id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
+                    <input type="checkbox" checked={selected.has(f.form_id)} onChange={() => toggle(f.form_id)} className="rounded border-border" />
+                    <span className="text-sm">{f.form_label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleSend} disabled={sending || selected.size === 0 || !to} className="flex-1">
+            <Button onClick={handleSend} disabled={sending || selected.size === 0 || !to || loadingForms} className="flex-1">
               <Send className="w-4 h-4 mr-2" /> {sending ? "Sending..." : `Send ${selected.size} Form${selected.size !== 1 ? "s" : ""}`}
             </Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -1530,7 +1552,7 @@ interface EmailLogEntry {
   sent_to: string;
   cc: string | null;
   subject: string;
-  forms_included: Array<{ form_type: string; form_label: string }>;
+  forms_included: Array<{ form_type: string; form_label: string; form_id: string }>;
   created_at: string;
 }
 

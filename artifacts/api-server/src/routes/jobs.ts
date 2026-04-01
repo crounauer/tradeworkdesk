@@ -1134,17 +1134,47 @@ const FORM_TABLE_MAP: Record<string, { table: string; label: string; fieldMap: R
   },
 };
 
+router.get("/jobs/:jobId/completed-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.jobId;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  const completed: Array<{ form_type: string; form_label: string; form_id: string }> = [];
+
+  for (const [formType, config] of Object.entries(FORM_TABLE_MAP)) {
+    let q = supabaseAdmin.from(config.table).select("id").eq("job_id", jobId);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    const { data: records } = await q;
+    if (records && records.length > 0) {
+      for (const rec of records) {
+        completed.push({ form_type: formType, form_label: config.label, form_id: (rec as Record<string, unknown>).id as string });
+      }
+    }
+  }
+
+  res.json(completed);
+});
+
 router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.jobId;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { to, cc, forms } = req.body as { to?: string; cc?: string; forms?: string[] };
+  const { to, cc, forms } = req.body as { to?: string; cc?: string; forms?: Array<{ form_type: string; form_id: string }> };
   if (!to || !forms || !Array.isArray(forms) || forms.length === 0) {
-    res.status(400).json({ error: "to (email) and forms (array of form types) are required" }); return;
+    res.status(400).json({ error: "to (email) and forms (array of {form_type, form_id}) are required" }); return;
   }
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRe.test(to)) { res.status(400).json({ error: "Invalid recipient email address" }); return; }
   if (cc && !emailRe.test(cc)) { res.status(400).json({ error: "Invalid CC email address" }); return; }
+
+  for (const f of forms) {
+    if (!f.form_type || !f.form_id) { res.status(400).json({ error: "Each form entry must have form_type and form_id" }); return; }
+    if (!FORM_TABLE_MAP[f.form_type]) { res.status(400).json({ error: `Unknown form type: ${f.form_type}` }); return; }
+  }
 
   let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email), profiles(full_name)").eq("id", jobId);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
@@ -1160,15 +1190,16 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const companyName = (tenant as Record<string, unknown>)?.company_name as string || "Your Service Provider";
 
   const sections: Array<{ formType: string; formLabel: string; fields: Array<{ label: string; value: string }> }> = [];
-  const formsIncluded: Array<{ form_type: string; form_label: string }> = [];
+  const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
 
-  for (const formType of forms) {
+  for (const { form_type: formType, form_id: formId } of forms) {
     const config = FORM_TABLE_MAP[formType];
     if (!config) continue;
 
-    let q = supabaseAdmin.from(config.table).select("*").eq("job_id", jobId);
+    let q = supabaseAdmin.from(config.table).select("*").eq("id", formId).eq("job_id", jobId);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    const { data: record } = await q.maybeSingle();
+    const { data: record, error: recErr } = await q.maybeSingle();
+    if (recErr) { console.error(`[email] Error fetching ${formType} record ${formId}:`, recErr); continue; }
     if (!record) continue;
 
     const fields: Array<{ label: string; value: string }> = [];
@@ -1183,12 +1214,12 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
 
     if (fields.length > 0) {
       sections.push({ formType, formLabel: config.label, fields });
-      formsIncluded.push({ form_type: formType, form_label: config.label });
+      formsIncluded.push({ form_type: formType, form_label: config.label, form_id: formId });
     }
   }
 
   if (sections.length === 0) {
-    res.status(400).json({ error: "No completed forms found for the selected types" }); return;
+    res.status(400).json({ error: "No completed forms found for the selected entries" }); return;
   }
 
   const customer = job.customers as { first_name: string; last_name: string } | null;
