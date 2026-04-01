@@ -41,12 +41,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    const sessionTimeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 5000);
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(sessionTimeout);
       setSession(session);
       setUser(session?.user ?? null);
       if (session) {
         await checkMfaStatus();
       }
+      setIsLoading(false);
+    }).catch(() => {
+      clearTimeout(sessionTimeout);
       setIsLoading(false);
     });
 
@@ -77,7 +85,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(sessionTimeout);
+      subscription.unsubscribe();
+    };
   }, [queryClient]);
 
   const { data: profile } = useGetProfile();
