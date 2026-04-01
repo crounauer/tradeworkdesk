@@ -20,6 +20,7 @@ interface FileRow {
   thumbnail_storage_path: string | null;
   entity_type: string;
   entity_id: string;
+  note_id: string | null;
   uploaded_by: string;
   description: string | null;
   created_at: string;
@@ -33,6 +34,12 @@ async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string,
     const { data: job } = await q.single();
     if (!job) return { allowed: false, error: "Job not found" };
     if (job.assigned_technician_id !== req.userId) return { allowed: false, error: "Not authorized" };
+  }
+  if (entityType === "enquiry") {
+    let q = supabaseAdmin.from("enquiries").select("id").eq("id", entityId);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    const { data: enquiry } = await q.single();
+    if (!enquiry) return { allowed: false, error: "Enquiry not found" };
   }
   return { allowed: true };
 }
@@ -113,6 +120,116 @@ router.get("/files", requireAuth, requireTenant, async (req: AuthenticatedReques
   res.json(ListFilesResponse.parse(filesWithUrls));
 });
 
+const uploadMultiple = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }).array("files", 10);
+
+router.post("/files/upload-multiple", requireAuth, requireTenant, (req, res, next) => { uploadMultiple(req, res, next); }, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const files = req.files as Express.Multer.File[];
+  if (!files || files.length === 0) { res.status(400).json({ error: "No files uploaded" }); return; }
+
+  const entityType = req.body.entity_type;
+  const entityId = req.body.entity_id;
+  const noteId = req.body.note_id || null;
+
+  if (!entityType || !entityId) {
+    res.status(400).json({ error: "entity_type and entity_id are required" }); return;
+  }
+
+  const access = await verifyEntityAccess(req, entityType, entityId);
+  if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
+
+  if (noteId) {
+    let noteCheck = supabaseAdmin.from("enquiry_notes").select("id, enquiry_id").eq("id", noteId);
+    if (req.tenantId) noteCheck = noteCheck.eq("tenant_id", req.tenantId);
+    const { data: noteData } = await noteCheck.single();
+    if (!noteData) {
+      res.status(400).json({ error: "Note not found" }); return;
+    }
+    if (entityType === "enquiry" && noteData.enquiry_id !== entityId) {
+      res.status(400).json({ error: "Note does not belong to this enquiry" }); return;
+    }
+  }
+
+  const results = [];
+  const errors: string[] = [];
+  for (const file of files) {
+    const isImage = file.mimetype.startsWith("image/");
+    let uploadBuffer = file.buffer;
+    let uploadMimetype = file.mimetype;
+    let thumbnailStoragePath: string | null = null;
+
+    if (isImage) {
+      const compressed = await compressImage(file.buffer, file.mimetype);
+      uploadBuffer = compressed.buffer;
+      uploadMimetype = compressed.mimetype;
+
+      const thumb = await generateThumbnail(uploadBuffer);
+      if (thumb) {
+        const thumbPath = `${entityType}/${entityId}/thumb_${Date.now()}-${file.originalname.replace(/\.[^.]+$/, ".jpg")}`;
+        const { error: thumbErr } = await supabaseAdmin.storage
+          .from("service-photos")
+          .upload(thumbPath, thumb, { contentType: "image/jpeg" });
+        if (!thumbErr) thumbnailStoragePath = thumbPath;
+      }
+    }
+
+    const bucket = isImage ? "service-photos" : "service-documents";
+    const ext = isImage ? ".jpg" : "";
+    const originalName = isImage ? file.originalname.replace(/\.[^.]+$/, ext) : file.originalname;
+    const storagePath = `${entityType}/${entityId}/${Date.now()}-${originalName}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(bucket)
+      .upload(storagePath, uploadBuffer, { contentType: uploadMimetype });
+
+    if (uploadError) { errors.push(`${file.originalname}: ${uploadError.message}`); continue; }
+
+    const insertPayload: Record<string, unknown> = {
+      file_name: file.originalname,
+      file_type: uploadMimetype,
+      file_size: uploadBuffer.length,
+      storage_path: storagePath,
+      entity_type: entityType,
+      entity_id: entityId,
+      uploaded_by: req.userId,
+      tenant_id: req.tenantId,
+    };
+    if (noteId) insertPayload.note_id = noteId;
+    if (thumbnailStoragePath) insertPayload.thumbnail_storage_path = thumbnailStoragePath;
+
+    let { data, error } = await supabaseAdmin
+      .from("file_attachments")
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (error && noteId && error.message?.includes("note_id")) {
+      delete insertPayload.note_id;
+      const retry = await supabaseAdmin
+        .from("file_attachments")
+        .insert(insertPayload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (!error && data) {
+      const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(storagePath, 3600);
+      let thumbnail_signed_url: string | null = null;
+      if (thumbnailStoragePath) {
+        const { data: thumbUrl } = await supabaseAdmin.storage.from("service-photos").createSignedUrl(thumbnailStoragePath, 3600);
+        thumbnail_signed_url = thumbUrl?.signedUrl || null;
+      }
+      results.push({ ...data, signed_url: urlData?.signedUrl || null, thumbnail_signed_url });
+    }
+  }
+
+  if (results.length === 0 && errors.length > 0) {
+    res.status(500).json({ error: `All uploads failed: ${errors.join("; ")}` }); return;
+  }
+  res.status(201).json({ files: results, failed: errors.length, errors: errors.length > 0 ? errors : undefined });
+});
+
 router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const file = req.file;
   if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
@@ -120,6 +237,7 @@ router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), 
   const entityType = req.body.entity_type;
   const entityId = req.body.entity_id;
   const description = req.body.description || null;
+  const noteId = req.body.note_id || null;
 
   if (!entityType || !entityId) {
     res.status(400).json({ error: "entity_type and entity_id are required" });
@@ -128,6 +246,16 @@ router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), 
 
   const access = await verifyEntityAccess(req, entityType, entityId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
+
+  if (noteId) {
+    let noteCheck = supabaseAdmin.from("enquiry_notes").select("id, enquiry_id").eq("id", noteId);
+    if (req.tenantId) noteCheck = noteCheck.eq("tenant_id", req.tenantId);
+    const { data: noteData } = await noteCheck.single();
+    if (!noteData) { res.status(400).json({ error: "Note not found" }); return; }
+    if (entityType === "enquiry" && noteData.enquiry_id !== entityId) {
+      res.status(400).json({ error: "Note does not belong to this enquiry" }); return;
+    }
+  }
 
   const isImage = file.mimetype.startsWith("image/");
   let uploadBuffer = file.buffer;
@@ -173,15 +301,29 @@ router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), 
     description,
     tenant_id: req.tenantId,
   };
+  if (noteId) {
+    insertPayload.note_id = noteId;
+  }
   if (thumbnailStoragePath) {
     insertPayload.thumbnail_storage_path = thumbnailStoragePath;
   }
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("file_attachments")
     .insert(insertPayload)
     .select()
     .single();
+
+  if (error && noteId && error.message?.includes("note_id")) {
+    delete insertPayload.note_id;
+    const retry = await supabaseAdmin
+      .from("file_attachments")
+      .insert(insertPayload)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 

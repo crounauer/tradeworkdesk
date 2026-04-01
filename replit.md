@@ -70,6 +70,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **Registration:** Supports multi-step company signup and invite-code registration.
 - **Invoice Export:** Supports CSV, QuickBooks IIF, Xero CSV, and Sage CSV formats for completed/invoiced jobs.
 - **Plan Feature Gating:** Tiered plans (Forms Only, Starter, Professional, Enterprise) with a `features` JSONB column control access to various functionalities.
+- **Enquiry Photos:** Enquiry detail page supports photo uploads (standalone or attached to activity notes). Uses the existing Sharp compression/thumbnail pipeline. Multi-file upload via `/api/files/upload-multiple`. Photos linked to notes via optional `note_id` column on `file_attachments` (requires `patch-019-enquiry-photos.sql`).
 - **Geo Mapping:** Properties have optional `latitude`/`longitude` columns. A `/api/geocode` endpoint (Nominatim by default, Mapbox if `GEOCODE_API_KEY` is set) converts addresses to coordinates. The jobs page has a Map/List tab toggle showing an interactive Leaflet/OpenStreetMap map with status-colored pins, navigation links, and a day-route view with polyline. Property edit/create forms include a "Lookup exact location" button with map preview. All geo features are gated behind the `geo_mapping` plan feature flag.
 
 # External Dependencies

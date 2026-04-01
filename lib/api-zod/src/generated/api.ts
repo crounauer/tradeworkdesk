@@ -2950,6 +2950,7 @@ export const ListFilesResponseItem = zod.object({
   thumbnail_storage_path: zod.string().nullish(),
   entity_type: zod.string(),
   entity_id: zod.string().uuid(),
+  note_id: zod.string().uuid().nullish(),
   uploaded_by: zod.string().uuid().nullish(),
   description: zod.string().nullish(),
   created_at: zod.coerce.date(),

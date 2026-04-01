@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useListCustomers, useListProperties } from "@workspace/api-client-react";
@@ -12,7 +12,8 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
-  Briefcase, Clock, Edit, Check, X, Trash2
+  Briefcase, Clock, Edit, Check, X, Trash2,
+  Camera, ImagePlus, Loader2, ChevronLeft, ChevronRight, Paperclip
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -45,6 +46,267 @@ interface JobType {
   is_active: boolean;
 }
 
+interface FileAttachment {
+  id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  signed_url: string | null;
+  thumbnail_signed_url: string | null;
+  uploaded_by: string;
+  note_id: string | null;
+  created_at: string;
+}
+
+function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
+  enquiryId: string;
+  canEdit: boolean;
+  userId: string | undefined;
+  isAdmin: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const { data: photos = [], isLoading } = useQuery<FileAttachment[]>({
+    queryKey: ["enquiry-photos", enquiryId],
+    queryFn: async () => {
+      const res = await fetch(`/api/files?entity_type=enquiry&entity_id=${enquiryId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const standalonePhotos = photos.filter(p => !p.note_id && p.file_type?.startsWith("image/"));
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("entity_type", "enquiry");
+      formData.append("entity_id", enquiryId);
+
+      if (files.length === 1) {
+        formData.append("file", files[0]);
+        const res = await fetch(`/api/files/upload`, { method: "POST", body: formData });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Upload failed"); }
+      } else {
+        for (let i = 0; i < files.length; i++) {
+          formData.append("files", files[i]);
+        }
+        const res = await fetch(`/api/files/upload-multiple`, { method: "POST", body: formData });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Upload failed"); }
+        const result = await res.json();
+        if (result.failed > 0) {
+          toast({ title: "Partial upload", description: `${result.files.length} uploaded, ${result.failed} failed`, variant: "destructive" });
+        }
+      }
+
+      qc.invalidateQueries({ queryKey: ["enquiry-photos", enquiryId] });
+      toast({ title: "Photos uploaded", description: `${files.length} photo${files.length > 1 ? "s" : ""} added` });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async (fileId: string) => {
+    if (!confirm("Delete this photo?")) return;
+    setDeletingId(fileId);
+    try {
+      const res = await fetch(`/api/files/${fileId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      qc.invalidateQueries({ queryKey: ["enquiry-photos", enquiryId] });
+      toast({ title: "Photo deleted" });
+      if (lightboxIdx !== null) setLightboxIdx(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to delete photo", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const lightboxPhoto = lightboxIdx !== null ? standalonePhotos[lightboxIdx] : null;
+
+  return (
+    <>
+      <Card className="p-6 border border-border/50 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <Camera className="w-5 h-5 text-blue-500" /> Photos
+            {standalonePhotos.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">({standalonePhotos.length})</span>
+            )}
+          </h3>
+          {canEdit && (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                multiple
+                onChange={handleUpload}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
+                ) : (
+                  <><ImagePlus className="w-4 h-4 mr-1" /> Add Photos</>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {isLoading ? (
+          <p className="text-muted-foreground text-sm">Loading photos...</p>
+        ) : standalonePhotos.length === 0 ? (
+          <div className="text-center py-6">
+            <Camera className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+            <p className="text-muted-foreground text-sm">No photos attached yet.</p>
+            {canEdit && (
+              <Button variant="ghost" size="sm" className="mt-2" onClick={() => fileInputRef.current?.click()}>
+                <ImagePlus className="w-4 h-4 mr-1" /> Upload Photos
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            {standalonePhotos.map((photo, idx) => (
+              <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden bg-slate-100 cursor-pointer">
+                <img
+                  src={photo.thumbnail_signed_url || photo.signed_url || ""}
+                  alt={photo.file_name}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  onClick={() => setLightboxIdx(idx)}
+                  loading="lazy"
+                />
+                {(isAdmin || photo.uploaded_by === userId) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(photo.id); }}
+                    disabled={deletingId === photo.id}
+                    className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-600 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {lightboxPhoto && (
+        <Dialog open={lightboxIdx !== null} onOpenChange={() => setLightboxIdx(null)}>
+          <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-2 bg-black/95 border-none">
+            <div className="relative flex items-center justify-center min-h-[50vh]">
+              <img
+                src={lightboxPhoto.signed_url || ""}
+                alt={lightboxPhoto.file_name}
+                className="max-w-full max-h-[80vh] object-contain rounded"
+              />
+              {standalonePhotos.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setLightboxIdx((lightboxIdx! - 1 + standalonePhotos.length) % standalonePhotos.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setLightboxIdx((lightboxIdx! + 1) % standalonePhotos.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center justify-between px-2 py-1">
+              <p className="text-white/70 text-xs truncate">{lightboxPhoto.file_name}</p>
+              <p className="text-white/50 text-xs">{lightboxIdx! + 1} / {standalonePhotos.length}</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+function NotePhotos({ noteId, photos }: { noteId: string; photos: FileAttachment[] }) {
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const notePhotos = photos.filter(p => p.note_id === noteId && p.file_type?.startsWith("image/"));
+
+  if (notePhotos.length === 0) return null;
+
+  const lightboxPhoto = lightboxIdx !== null ? notePhotos[lightboxIdx] : null;
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        {notePhotos.map((photo, idx) => (
+          <div
+            key={photo.id}
+            className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+            onClick={() => setLightboxIdx(idx)}
+          >
+            <img
+              src={photo.thumbnail_signed_url || photo.signed_url || ""}
+              alt={photo.file_name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        ))}
+      </div>
+
+      {lightboxPhoto && (
+        <Dialog open={lightboxIdx !== null} onOpenChange={() => setLightboxIdx(null)}>
+          <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-2 bg-black/95 border-none">
+            <div className="relative flex items-center justify-center min-h-[50vh]">
+              <img
+                src={lightboxPhoto.signed_url || ""}
+                alt={lightboxPhoto.file_name}
+                className="max-w-full max-h-[80vh] object-contain rounded"
+              />
+              {notePhotos.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setLightboxIdx((lightboxIdx! - 1 + notePhotos.length) % notePhotos.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setLightboxIdx((lightboxIdx! + 1) % notePhotos.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 function EnquiryDetailContent() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -55,6 +317,8 @@ function EnquiryDetailContent() {
   const [noteText, setNoteText] = useState("");
   const [sendingNote, setSendingNote] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
+  const [noteFiles, setNoteFiles] = useState<File[]>([]);
+  const noteFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: enquiry, isLoading } = useQuery({
     queryKey: ["enquiry", id],
@@ -69,6 +333,15 @@ function EnquiryDetailContent() {
     queryKey: ["enquiry-notes", id],
     queryFn: async () => {
       const res = await fetch(`/api/enquiries/${id}/notes`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: allPhotos = [] } = useQuery<FileAttachment[]>({
+    queryKey: ["enquiry-photos", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/files?entity_type=enquiry&entity_id=${id}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -91,23 +364,75 @@ function EnquiryDetailContent() {
   };
 
   const handleAddNote = async () => {
-    if (!noteText.trim()) return;
+    if (!noteText.trim() && noteFiles.length === 0) return;
     setSendingNote(true);
     try {
-      const res = await fetch(`/api/enquiries/${id}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: noteText.trim() }),
-      });
-      if (!res.ok) throw new Error("Failed to add note");
+      let noteId: string | null = null;
+
+      const noteContent = noteText.trim() || (noteFiles.length > 0 ? `Attached ${noteFiles.length} photo${noteFiles.length > 1 ? "s" : ""}` : "");
+      if (noteContent) {
+        const res = await fetch(`/api/enquiries/${id}/notes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: noteContent }),
+        });
+        if (!res.ok) throw new Error("Failed to add note");
+        const noteData = await res.json();
+        noteId = noteData.id;
+      }
+
+      if (noteFiles.length > 0) {
+        const formData = new FormData();
+        formData.append("entity_type", "enquiry");
+        formData.append("entity_id", id!);
+        if (noteId) formData.append("note_id", noteId);
+
+        if (noteFiles.length === 1) {
+          formData.append("file", noteFiles[0]);
+          const res = await fetch(`/api/files/upload`, { method: "POST", body: formData });
+          if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Photo upload failed"); }
+        } else {
+          for (const f of noteFiles) formData.append("files", f);
+          const res = await fetch(`/api/files/upload-multiple`, { method: "POST", body: formData });
+          if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Photo upload failed"); }
+          const result = await res.json();
+          if (result.failed > 0) {
+            toast({ title: "Partial upload", description: `${result.files?.length || 0} photo(s) uploaded, ${result.failed} failed` });
+          }
+        }
+      }
+
       setNoteText("");
+      setNoteFiles([]);
       qc.invalidateQueries({ queryKey: ["enquiry-notes", id] });
-    } catch {
-      toast({ title: "Error", description: "Failed to add note", variant: "destructive" });
+      qc.invalidateQueries({ queryKey: ["enquiry-photos", id] });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to add note", variant: "destructive" });
     } finally {
       setSendingNote(false);
     }
   };
+
+  const previewUrls = useMemo(() => noteFiles.map(f => URL.createObjectURL(f)), [noteFiles]);
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
+
+  const handleNoteFilesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    setNoteFiles(prev => [...prev, ...Array.from(files)]);
+    if (noteFileInputRef.current) noteFileInputRef.current.value = "";
+  }, []);
+
+  const removeNoteFile = useCallback((idx: number) => {
+    const urlToRevoke = previewUrls[idx];
+    if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+    setNoteFiles(prev => prev.filter((_, i) => i !== idx));
+  }, [previewUrls]);
 
   const handleDelete = async () => {
     if (!confirm("Delete this enquiry? This cannot be undone.")) return;
@@ -227,6 +552,13 @@ function EnquiryDetailContent() {
             </Card>
           )}
 
+          <EnquiryPhotosCard
+            enquiryId={id!}
+            canEdit={canEdit}
+            userId={profile?.id}
+            isAdmin={isAdmin}
+          />
+
           <Card className="p-6 border border-border/50 shadow-sm">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-blue-500" /> Activity / Notes
@@ -247,22 +579,69 @@ function EnquiryDetailContent() {
                       </span>
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{note.content as string}</p>
+                    <NotePhotos noteId={note.id as string} photos={allPhotos} />
                   </div>
                 ))}
               </div>
             )}
 
             {canEdit && (
-              <div className="flex gap-2 pt-2 border-t border-border/50">
-                <Input
-                  placeholder="Add a note..."
-                  value={noteText}
-                  onChange={e => setNoteText(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
-                />
-                <Button size="icon" onClick={handleAddNote} disabled={sendingNote || !noteText.trim()}>
-                  <Send className="w-4 h-4" />
-                </Button>
+              <div className="pt-2 border-t border-border/50 space-y-2">
+                {noteFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {noteFiles.map((f, idx) => (
+                      <div key={idx} className="relative group">
+                        <div className="w-14 h-14 rounded-md overflow-hidden bg-slate-100">
+                          <img
+                            src={previewUrls[idx]}
+                            alt={f.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          onClick={() => removeNoteFile(idx)}
+                          className="absolute -top-1 -right-1 p-0.5 bg-red-500 hover:bg-red-600 rounded-full text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <div className="flex-1 flex gap-1">
+                    <Input
+                      placeholder="Add a note..."
+                      value={noteText}
+                      onChange={e => setNoteText(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+                    />
+                    <input
+                      ref={noteFileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      multiple
+                      onChange={handleNoteFilesChange}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => noteFileInputRef.current?.click()}
+                      title="Attach photos"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <Button
+                    size="icon"
+                    onClick={handleAddNote}
+                    disabled={sendingNote || (!noteText.trim() && noteFiles.length === 0)}
+                  >
+                    {sendingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
