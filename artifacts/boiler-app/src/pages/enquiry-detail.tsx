@@ -153,7 +153,6 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
                 type="file"
                 className="hidden"
                 accept="image/*"
-                capture="environment"
                 multiple
                 onChange={handleUpload}
               />
@@ -656,7 +655,6 @@ function EnquiryDetailContent() {
                       type="file"
                       className="hidden"
                       accept="image/*"
-                      capture="environment"
                       multiple
                       onChange={handleNoteFilesChange}
                     />
