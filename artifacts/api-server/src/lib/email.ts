@@ -160,6 +160,63 @@ export async function sendRenewalReminder(to: string, companyName: string, renew
   await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html);
 }
 
+function escHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+interface FormSection {
+  formType: string;
+  formLabel: string;
+  fields: Array<{ label: string; value: string }>;
+}
+
+export function renderFormSectionsHtml(sections: FormSection[]): string {
+  return sections.map(s => {
+    const rows = s.fields
+      .filter(f => f.value != null && f.value !== "" && f.value !== "null")
+      .map(f => `<tr><td style="padding:6px 12px;font-size:13px;color:#64748b;white-space:nowrap;vertical-align:top;">${escHtml(f.label)}</td><td style="padding:6px 12px;font-size:13px;color:#1e293b;">${escHtml(f.value)}</td></tr>`)
+      .join("\n");
+    if (!rows) return "";
+    return `
+      <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px;font-size:15px;color:#1d4ed8;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">${escHtml(s.formLabel)}</h3>
+        <table style="width:100%;border-collapse:collapse;">${rows}</table>
+      </div>`;
+  }).filter(Boolean).join("");
+}
+
+export async function sendJobFormsEmail(
+  to: string,
+  cc: string | null,
+  subject: string,
+  jobRef: string,
+  customerName: string,
+  companyName: string,
+  sections: FormSection[],
+): Promise<void> {
+  const formsHtml = renderFormSectionsHtml(sections);
+  const html = baseHtml(escHtml(subject), `
+    <h2>Job Forms — ${escHtml(jobRef)}</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p>Please find below the completed form records for your recent job from <strong>${escHtml(companyName)}</strong>.</p>
+    <hr class="divider"/>
+    ${formsHtml}
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#64748b;">This email was sent by ${escHtml(companyName)} via TradeWorkDesk. If you have any questions, please contact your service provider directly.</p>
+  `);
+  if (!resend) {
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+  const recipients: string[] = [to];
+  const sendOptions: { from: string; to: string[]; subject: string; html: string; cc?: string[] } = { from: FROM, to: recipients, subject, html };
+  if (cc) sendOptions.cc = [cc];
+  const { error } = await resend.emails.send(sendOptions);
+  if (error) {
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
+    throw new Error(`Email send failed: ${error.message}`);
+  }
+}
+
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
   const html = baseHtml("Payment failed", `

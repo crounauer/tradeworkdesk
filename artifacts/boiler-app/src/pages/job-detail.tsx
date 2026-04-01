@@ -10,7 +10,7 @@ import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
-  MessageSquare, Send, Pencil, PoundSterling
+  MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -60,6 +60,8 @@ export default function JobDetail() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const [editing, setEditing] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailLogRefresh, setEmailLogRefresh] = useState(0);
 
   if (isLoading) return <div className="p-8">Loading job details...</div>;
   if (!job) return <div>Job not found</div>;
@@ -121,6 +123,9 @@ export default function JobDetail() {
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
+            <Mail className="w-4 h-4 mr-2" /> Email Forms
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
@@ -313,6 +318,8 @@ export default function JobDetail() {
                 </Card>
               </Link>
             </div>
+
+            <EmailLogSection jobId={job.id} refreshKey={emailLogRefresh} />
           </div>
 
           <div className="space-y-6">
@@ -341,6 +348,16 @@ export default function JobDetail() {
             )}
           </div>
         </div>
+      )}
+
+      {emailModalOpen && (
+        <EmailFormsModal
+          jobId={job.id}
+          customerEmail={(job.customer as Record<string, unknown>)?.email as string || ""}
+          customerName={`${job.customer?.first_name || ""} ${job.customer?.last_name || ""}`.trim()}
+          onClose={() => setEmailModalOpen(false)}
+          onSent={() => setEmailLogRefresh(k => k + 1)}
+        />
       )}
     </div>
   );
@@ -1396,6 +1413,185 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         </div>
       </form>
+    </Card>
+  );
+}
+
+const FORM_OPTIONS = [
+  { key: "service_record", label: "Service Record" },
+  { key: "breakdown_report", label: "Breakdown Report" },
+  { key: "commissioning_record", label: "Commissioning Record" },
+  { key: "job_completion_report", label: "Job Completion Report" },
+  { key: "burner_setup_record", label: "Burner Setup Record" },
+  { key: "combustion_analysis_record", label: "Combustion Analysis" },
+  { key: "fire_valve_test_record", label: "Fire Valve Test" },
+  { key: "oil_line_vacuum_test", label: "Oil Line Vacuum Test" },
+  { key: "oil_tank_inspection", label: "Oil Tank Inspection" },
+  { key: "oil_tank_risk_assessment", label: "Oil Tank Risk Assessment" },
+  { key: "heat_pump_service_record", label: "Heat Pump Service" },
+  { key: "heat_pump_commissioning_record", label: "Heat Pump Commissioning" },
+];
+
+function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }: { jobId: string; customerEmail: string; customerName: string; onClose: () => void; onSent: () => void }) {
+  const { toast } = useToast();
+  const [to, setTo] = useState(customerEmail);
+  const [cc, setCc] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+
+  const toggle = (key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === FORM_OPTIONS.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(FORM_OPTIONS.map(f => f.key)));
+    }
+  };
+
+  const handleSend = async () => {
+    if (!to) { toast({ title: "Error", description: "Recipient email is required", variant: "destructive" }); return; }
+    if (selected.size === 0) { toast({ title: "Error", description: "Select at least one form to send", variant: "destructive" }); return; }
+    setSending(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-forms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, cc: cc || undefined, forms: [...selected] }),
+      });
+      toast({ title: "Email Sent", description: `Forms emailed to ${to}` });
+      onSent();
+      onClose();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to send email";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 bg-background">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-lg flex items-center gap-2"><Mail className="w-5 h-5" /> Email Forms to Customer</h3>
+          <Button variant="ghost" size="sm" onClick={onClose}><X className="w-4 h-4" /></Button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>To (Email)</Label>
+            <Input type="email" value={to} onChange={e => setTo(e.target.value)} placeholder="customer@example.com" />
+          </div>
+          <div className="space-y-2">
+            <Label>CC (optional)</Label>
+            <Input type="email" value={cc} onChange={e => setCc(e.target.value)} placeholder="cc@example.com" />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>Select Forms to Include</Label>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={selectAll}>
+                {selected.size === FORM_OPTIONS.length ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+            <div className="space-y-1 max-h-64 overflow-y-auto border border-border rounded-lg p-2">
+              {FORM_OPTIONS.map(f => (
+                <label key={f.key} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
+                  <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} className="rounded border-border" />
+                  <span className="text-sm">{f.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Only forms with saved data will be included in the email.</p>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button onClick={handleSend} disabled={sending || selected.size === 0 || !to} className="flex-1">
+              <Send className="w-4 h-4 mr-2" /> {sending ? "Sending..." : `Send ${selected.size} Form${selected.size !== 1 ? "s" : ""}`}
+            </Button>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+interface EmailLogEntry {
+  id: string;
+  sent_by_name: string | null;
+  sent_to: string;
+  cc: string | null;
+  subject: string;
+  forms_included: Array<{ form_type: string; form_label: string }>;
+  created_at: string;
+}
+
+function EmailLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: number }) {
+  const [logs, setLogs] = useState<EmailLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-log`);
+        if (!cancelled) setLogs(data as EmailLogEntry[]);
+      } catch {
+        if (!cancelled) setLogs([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [jobId, refreshKey]);
+
+  if (loading) return null;
+  if (logs.length === 0) return null;
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm mt-6">
+      <button
+        className="w-full flex items-center justify-between"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <h3 className="font-bold text-lg flex items-center gap-2 text-blue-600">
+          <Mail className="w-5 h-5" /> Email Log ({logs.length})
+        </h3>
+        {expanded ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-3">
+          {logs.map(entry => (
+            <div key={entry.id} className="border border-border/50 rounded-lg p-3 bg-muted/30">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium">{entry.sent_by_name || "Unknown"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(entry.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
+                  {new Date(entry.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                To: {entry.sent_to}{entry.cc ? ` (CC: ${entry.cc})` : ""}
+              </p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {entry.forms_included.map((f, i) => (
+                  <span key={i} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{f.form_label}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

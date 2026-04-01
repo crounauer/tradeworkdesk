@@ -24,6 +24,7 @@ import {
   type InvoiceData,
   type InvoiceLineItem,
 } from "../lib/invoice-export";
+import { sendJobFormsEmail } from "../lib/email";
 
 interface SupabaseJobRow {
   id: string;
@@ -960,6 +961,298 @@ router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "o
     job_id: job.id,
     form_url: `/jobs/${job.id}/${form_type}`,
   });
+});
+
+const FORM_TABLE_MAP: Record<string, { table: string; label: string; fieldMap: Record<string, string> }> = {
+  service_record: {
+    table: "service_records",
+    label: "Service Record",
+    fieldMap: {
+      boiler_manufacturer: "Boiler Manufacturer", boiler_model: "Boiler Model", boiler_serial: "Boiler Serial",
+      gc_number: "GC Number", boiler_type: "Boiler Type", boiler_location: "Boiler Location",
+      flue_type: "Flue Type", flue_condition: "Flue Condition", ventilation_adequate: "Ventilation Adequate",
+      gas_pressure_inlet: "Gas Pressure (Inlet)", gas_pressure_outlet: "Gas Pressure (Outlet)",
+      gas_rate: "Gas Rate", burner_pressure: "Burner Pressure", burner_condition: "Burner Condition",
+      heat_exchanger_condition: "Heat Exchanger Condition", ignition_condition: "Ignition Condition",
+      safety_devices_tested: "Safety Devices Tested", co_reading: "CO Reading", co2_reading: "CO2 Reading",
+      ratio: "Ratio", flue_flow_test: "Flue Flow Test", spillage_test: "Spillage Test",
+      visual_condition: "Visual Condition", operation_check: "Operation Check",
+      condensate_trap: "Condensate Trap", condensate_pipe: "Condensate Pipe",
+      system_pressure: "System Pressure", expansion_vessel: "Expansion Vessel",
+      next_service_due: "Next Service Due", overall_result: "Overall Result",
+      landlord_property: "Landlord Property", additional_notes: "Additional Notes",
+    },
+  },
+  breakdown_report: {
+    table: "breakdown_reports",
+    label: "Breakdown Report",
+    fieldMap: {
+      fault_reported: "Fault Reported", fault_found: "Fault Found", fault_code: "Fault Code",
+      parts_required: "Parts Required", parts_fitted: "Parts Fitted", repair_description: "Repair Description",
+      repair_completed: "Repair Completed", follow_up_required: "Follow-up Required",
+      follow_up_notes: "Follow-up Notes", additional_notes: "Additional Notes",
+    },
+  },
+  commissioning_record: {
+    table: "commissioning_records",
+    label: "Commissioning Record",
+    fieldMap: {
+      appliance_manufacturer: "Manufacturer", appliance_model: "Model", appliance_serial: "Serial",
+      appliance_type: "Type", flue_type: "Flue Type", location: "Location",
+      gas_type: "Gas Type", gas_inlet_pressure: "Gas Inlet Pressure",
+      gas_rate_reading: "Gas Rate Reading", burner_operating_pressure: "Burner Operating Pressure",
+      flue_gas_co: "Flue Gas CO", flue_gas_co2: "Flue Gas CO2", flue_gas_ratio: "Flue Gas Ratio",
+      flue_temperature: "Flue Temperature", return_temperature: "Return Temperature",
+      flow_temperature: "Flow Temperature", system_pressure: "System Pressure",
+      expansion_vessel_charge: "Expansion Vessel Charge", safety_valve: "Safety Valve",
+      ventilation_check: "Ventilation Check", flue_visual_check: "Flue Visual Check",
+      condensate_check: "Condensate Check", controls_check: "Controls Check",
+      user_instructions_given: "User Instructions Given", benchmark_completed: "Benchmark Completed",
+      commissioning_result: "Commissioning Result", additional_notes: "Additional Notes",
+    },
+  },
+  job_completion_report: {
+    table: "job_completion_reports",
+    label: "Job Completion Report",
+    fieldMap: {
+      work_summary: "Work Summary", work_completed: "Work Completed",
+      recommendations: "Recommendations", customer_informed: "Customer Informed",
+      site_left_clean: "Site Left Clean", follow_up_required: "Follow-up Required",
+      follow_up_notes: "Follow-up Notes", additional_notes: "Additional Notes",
+    },
+  },
+  burner_setup_record: {
+    table: "burner_setup_records",
+    label: "Burner Setup Record",
+    fieldMap: {
+      burner_manufacturer: "Burner Manufacturer", burner_model: "Burner Model",
+      burner_serial_number: "Burner Serial Number", nozzle_size: "Nozzle Size",
+      nozzle_type: "Nozzle Type", nozzle_angle: "Nozzle Angle",
+      pump_pressure: "Pump Pressure", pump_vacuum: "Pump Vacuum",
+      electrode_gap: "Electrode Gap", electrode_position: "Electrode Position",
+      air_damper_setting: "Air Damper Setting", head_setting: "Head Setting",
+      combustion_co2: "Combustion CO2", combustion_co: "Combustion CO",
+      combustion_smoke: "Combustion Smoke", combustion_efficiency: "Combustion Efficiency",
+      additional_notes: "Additional Notes",
+    },
+  },
+  combustion_analysis_record: {
+    table: "combustion_analysis_records",
+    label: "Combustion Analysis",
+    fieldMap: {
+      co2_reading: "CO2 Reading", co_reading: "CO Reading", o2_reading: "O2 Reading",
+      flue_temperature: "Flue Temperature", ambient_temperature: "Ambient Temperature",
+      efficiency: "Efficiency", excess_air: "Excess Air", smoke_number: "Smoke Number",
+      ambient_co: "Ambient CO", draft_reading: "Draft Reading",
+      instrument_make: "Instrument Make", instrument_model: "Instrument Model",
+      instrument_serial: "Instrument Serial", calibration_date: "Calibration Date",
+      pass_fail: "Pass/Fail", additional_notes: "Additional Notes",
+    },
+  },
+  fire_valve_test_record: {
+    table: "fire_valve_test_records",
+    label: "Fire Valve Test",
+    fieldMap: {
+      valve_location: "Valve Location", valve_type: "Valve Type",
+      valve_manufacturer: "Valve Manufacturer", test_date: "Test Date",
+      test_method: "Test Method", test_result: "Test Result",
+      response_time: "Response Time", reset_successful: "Reset Successful",
+      remedial_action: "Remedial Action", additional_notes: "Additional Notes",
+    },
+  },
+  oil_line_vacuum_test: {
+    table: "oil_line_vacuum_tests",
+    label: "Oil Line Vacuum Test",
+    fieldMap: {
+      pipe_size: "Pipe Size", pipe_material: "Pipe Material", pipe_length: "Pipe Length",
+      number_of_joints: "Number of Joints", initial_vacuum: "Initial Vacuum",
+      vacuum_after_5_min: "Vacuum After 5 Min", vacuum_after_10_min: "Vacuum After 10 Min",
+      allowable_drop: "Allowable Drop", actual_drop: "Actual Drop",
+      pass_fail: "Pass/Fail", remedial_action: "Remedial Action",
+      additional_notes: "Additional Notes",
+    },
+  },
+  oil_tank_inspection: {
+    table: "oil_tank_inspections",
+    label: "Oil Tank Inspection",
+    fieldMap: {
+      tank_type: "Tank Type", tank_size: "Tank Size", tank_material: "Tank Material",
+      tank_location: "Tank Location", tank_age: "Tank Age",
+      bunding_type: "Bunding Type", bunding_condition: "Bunding Condition",
+      sight_gauge_condition: "Sight Gauge Condition", fill_point_condition: "Fill Point Condition",
+      vent_condition: "Vent Condition", filter_condition: "Filter Condition",
+      pipework_condition: "Pipework Condition", supports_condition: "Supports Condition",
+      overall_condition: "Overall Condition", leaks_found: "Leaks Found",
+      leaks_details: "Leaks Details", remedial_actions: "Remedial Actions",
+      additional_notes: "Additional Notes",
+    },
+  },
+  oil_tank_risk_assessment: {
+    table: "oil_tank_risk_assessments",
+    label: "Oil Tank Risk Assessment",
+    fieldMap: {
+      site_hazards: "Site Hazards", environmental_risks: "Environmental Risks",
+      fire_risk: "Fire Risk", access_risk: "Access Risk",
+      likelihood_rating: "Likelihood Rating", severity_rating: "Severity Rating",
+      overall_risk_rating: "Overall Risk Rating", control_measures: "Control Measures",
+      further_actions_required: "Further Actions Required",
+      assessor_name: "Assessor Name", assessor_qualification: "Assessor Qualification",
+      assessment_date: "Assessment Date", additional_notes: "Additional Notes",
+    },
+  },
+  heat_pump_service_record: {
+    table: "heat_pump_service_records",
+    label: "Heat Pump Service",
+    fieldMap: {
+      hp_manufacturer: "Manufacturer", hp_model: "Model", hp_serial: "Serial Number",
+      hp_type: "HP Type", refrigerant_type: "Refrigerant Type",
+      refrigerant_charge: "Refrigerant Charge", suction_pressure: "Suction Pressure",
+      discharge_pressure: "Discharge Pressure", superheat: "Superheat", subcooling: "Subcooling",
+      flow_temp: "Flow Temperature", return_temp: "Return Temperature",
+      ambient_temp: "Ambient Temperature", cop_reading: "COP Reading",
+      defrost_operation: "Defrost Operation", filter_condition: "Filter Condition",
+      electrical_connections: "Electrical Connections", controls_check: "Controls Check",
+      overall_condition: "Overall Condition", additional_notes: "Additional Notes",
+    },
+  },
+  heat_pump_commissioning_record: {
+    table: "heat_pump_commissioning_records",
+    label: "Heat Pump Commissioning",
+    fieldMap: {
+      hp_manufacturer: "Manufacturer", hp_model: "Model", hp_serial: "Serial Number",
+      hp_type: "HP Type", refrigerant_type: "Refrigerant Type",
+      design_flow_temp: "Design Flow Temp", design_return_temp: "Design Return Temp",
+      actual_flow_temp: "Actual Flow Temp", actual_return_temp: "Actual Return Temp",
+      flow_rate: "Flow Rate", system_pressure: "System Pressure",
+      expansion_vessel: "Expansion Vessel", safety_valve: "Safety Valve",
+      antifreeze_check: "Antifreeze Check", electrical_supply: "Electrical Supply",
+      controls_programmed: "Controls Programmed", weather_comp_set: "Weather Comp Set",
+      legionella_cycle: "Legionella Cycle", mcs_compliance: "MCS Compliance",
+      user_demo_given: "User Demo Given", commissioning_result: "Commissioning Result",
+      additional_notes: "Additional Notes",
+    },
+  },
+};
+
+router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.jobId;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  const { to, cc, forms } = req.body as { to?: string; cc?: string; forms?: string[] };
+  if (!to || !forms || !Array.isArray(forms) || forms.length === 0) {
+    res.status(400).json({ error: "to (email) and forms (array of form types) are required" }); return;
+  }
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(to)) { res.status(400).json({ error: "Invalid recipient email address" }); return; }
+  if (cc && !emailRe.test(cc)) { res.status(400).json({ error: "Invalid CC email address" }); return; }
+
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email), profiles(full_name)").eq("id", jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job, error: jobErr } = await jobQ.single();
+  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+    res.status(403).json({ error: "You can only email forms for jobs assigned to you" }); return;
+  }
+
+  let tenantQ = supabaseAdmin.from("tenants").select("company_name").eq("id", req.tenantId!);
+  const { data: tenant } = await tenantQ.single();
+  const companyName = (tenant as Record<string, unknown>)?.company_name as string || "Your Service Provider";
+
+  const sections: Array<{ formType: string; formLabel: string; fields: Array<{ label: string; value: string }> }> = [];
+  const formsIncluded: Array<{ form_type: string; form_label: string }> = [];
+
+  for (const formType of forms) {
+    const config = FORM_TABLE_MAP[formType];
+    if (!config) continue;
+
+    let q = supabaseAdmin.from(config.table).select("*").eq("job_id", jobId);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    const { data: record } = await q.maybeSingle();
+    if (!record) continue;
+
+    const fields: Array<{ label: string; value: string }> = [];
+    for (const [col, label] of Object.entries(config.fieldMap)) {
+      const val = (record as Record<string, unknown>)[col];
+      if (val != null && val !== "" && val !== "null") {
+        let displayVal = String(val);
+        if (typeof val === "boolean") displayVal = val ? "Yes" : "No";
+        fields.push({ label, value: displayVal });
+      }
+    }
+
+    if (fields.length > 0) {
+      sections.push({ formType, formLabel: config.label, fields });
+      formsIncluded.push({ form_type: formType, form_label: config.label });
+    }
+  }
+
+  if (sections.length === 0) {
+    res.status(400).json({ error: "No completed forms found for the selected types" }); return;
+  }
+
+  const customer = job.customers as { first_name: string; last_name: string } | null;
+  const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Customer";
+  const jobRef = `#${job.id.slice(0, 8)}`;
+  const subject = `Job ${jobRef} — Service Forms from ${companyName}`;
+
+  try {
+    await sendJobFormsEmail(to, cc || null, subject, jobRef, customerName, companyName, sections);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to send email";
+    res.status(500).json({ error: msg }); return;
+  }
+
+  const { data: senderProfile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", req.userId!).single();
+
+  const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
+    job_id: jobId,
+    tenant_id: req.tenantId,
+    sent_by: req.userId,
+    sent_to: to,
+    cc: cc || null,
+    subject,
+    forms_included: formsIncluded,
+  });
+  if (logErr) {
+    console.error("[email] Failed to log email send:", logErr);
+  }
+
+  res.json({
+    success: true,
+    message: `Email sent to ${to}`,
+    forms_sent: formsIncluded.map(f => f.form_label),
+    sender_name: (senderProfile as Record<string, unknown>)?.full_name || null,
+  });
+});
+
+router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.jobId;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let q = supabaseAdmin.from("job_email_logs").select("*, profiles(full_name)").eq("job_id", jobId).order("created_at", { ascending: false });
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const mapped = (data || []).map((entry: Record<string, unknown>) => ({
+    id: entry.id,
+    job_id: entry.job_id,
+    sent_by: entry.sent_by,
+    sent_by_name: (entry.profiles as Record<string, unknown>)?.full_name || null,
+    sent_to: entry.sent_to,
+    cc: entry.cc,
+    subject: entry.subject,
+    forms_included: entry.forms_included,
+    created_at: entry.created_at,
+  }));
+
+  res.json(mapped);
 });
 
 router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
