@@ -40,9 +40,18 @@ export default function AddToHomeScreen() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (isInStandaloneMode()) return;
-    if (!isMobileOrTablet()) return;
-    if (localStorage.getItem(DISMISSED_KEY)) return;
+    const onInstalled = () => dismiss();
+    window.addEventListener("appinstalled", onInstalled);
+
+    if (isInStandaloneMode()) {
+      return () => window.removeEventListener("appinstalled", onInstalled);
+    }
+    if (!isMobileOrTablet()) {
+      return () => window.removeEventListener("appinstalled", onInstalled);
+    }
+    if (localStorage.getItem(DISMISSED_KEY)) {
+      return () => window.removeEventListener("appinstalled", onInstalled);
+    }
 
     if (isIos()) {
       setVisible(true);
@@ -67,6 +76,7 @@ export default function AddToHomeScreen() {
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", onInstalled);
       clearTimeout(timeout);
     };
   }, []);
