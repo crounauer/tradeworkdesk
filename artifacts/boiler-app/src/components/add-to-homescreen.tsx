@@ -55,7 +55,7 @@ export default function AddToHomeScreen() {
 
     if (isIos()) {
       setVisible(true);
-      return;
+      return () => window.removeEventListener("appinstalled", onInstalled);
     }
 
     const handler = (e: Event) => {
