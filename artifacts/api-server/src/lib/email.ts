@@ -164,25 +164,9 @@ function escHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-interface FormSection {
-  formType: string;
-  formLabel: string;
-  fields: Array<{ label: string; value: string }>;
-}
-
-export function renderFormSectionsHtml(sections: FormSection[]): string {
-  return sections.map(s => {
-    const rows = s.fields
-      .filter(f => f.value != null && f.value !== "" && f.value !== "null")
-      .map(f => `<tr><td style="padding:6px 12px;font-size:13px;color:#64748b;white-space:nowrap;vertical-align:top;">${escHtml(f.label)}</td><td style="padding:6px 12px;font-size:13px;color:#1e293b;">${escHtml(f.value)}</td></tr>`)
-      .join("\n");
-    if (!rows) return "";
-    return `
-      <div style="margin-bottom:24px;">
-        <h3 style="margin:0 0 8px;font-size:15px;color:#1d4ed8;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">${escHtml(s.formLabel)}</h3>
-        <table style="width:100%;border-collapse:collapse;">${rows}</table>
-      </div>`;
-  }).filter(Boolean).join("");
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
 }
 
 export async function sendJobFormsEmail(
@@ -192,24 +176,42 @@ export async function sendJobFormsEmail(
   jobRef: string,
   customerName: string,
   companyName: string,
-  sections: FormSection[],
+  formLabels: string[],
+  attachments: EmailAttachment[],
 ): Promise<void> {
-  const formsHtml = renderFormSectionsHtml(sections);
+  const formListHtml = formLabels
+    .map(label => `<li style="margin:4px 0;font-size:14px;">${escHtml(label)}</li>`)
+    .join("\n");
+
   const html = baseHtml(escHtml(subject), `
-    <h2>Job Forms — ${escHtml(jobRef)}</h2>
+    <h2>Job Forms &mdash; ${escHtml(jobRef)}</h2>
     <p>Dear ${escHtml(customerName)},</p>
-    <p>Please find below the completed form records for your recent job from <strong>${escHtml(companyName)}</strong>.</p>
+    <p>Please find attached the completed service form(s) for your recent job carried out by <strong>${escHtml(companyName)}</strong>.</p>
+    <div class="info-box">
+      <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Attached Forms:</p>
+      <ul style="margin:0;padding-left:20px;">
+        ${formListHtml}
+      </ul>
+    </div>
+    <p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>
+    <p>If you have any questions about the work carried out, please contact your service provider directly.</p>
     <hr class="divider"/>
-    ${formsHtml}
-    <hr class="divider"/>
-    <p style="font-size:13px;color:#64748b;">This email was sent by ${escHtml(companyName)} via TradeWorkDesk. If you have any questions, please contact your service provider directly.</p>
+    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
   `);
   if (!resend) {
     throw new Error("Email service is not configured (RESEND_API_KEY missing)");
   }
   const recipients: string[] = [to];
-  const sendOptions: { from: string; to: string[]; subject: string; html: string; cc?: string[] } = { from: FROM, to: recipients, subject, html };
+  const sendOptions: {
+    from: string;
+    to: string[];
+    subject: string;
+    html: string;
+    cc?: string[];
+    attachments?: Array<{ filename: string; content: Buffer }>;
+  } = { from: FROM, to: recipients, subject, html };
   if (cc) sendOptions.cc = [cc];
+  if (attachments.length > 0) sendOptions.attachments = attachments;
   const { error } = await resend.emails.send(sendOptions);
   if (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error);

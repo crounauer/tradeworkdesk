@@ -24,7 +24,8 @@ import {
   type InvoiceData,
   type InvoiceLineItem,
 } from "../lib/invoice-export";
-import { sendJobFormsEmail } from "../lib/email";
+import { sendJobFormsEmail, type EmailAttachment } from "../lib/email";
+import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 
 interface SupabaseJobRow {
   id: string;
@@ -1189,8 +1190,57 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const { data: tenant } = await tenantQ.single();
   const companyName = (tenant as Record<string, unknown>)?.company_name as string || "Your Service Provider";
 
-  const sections: Array<{ formType: string; formLabel: string; fields: Array<{ label: string; value: string }> }> = [];
+  const { data: companySettings } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const pdfCompany: PdfCompanySettings | undefined = companySettings ? {
+    name: (companySettings as Record<string, unknown>).name as string | null,
+    trading_name: (companySettings as Record<string, unknown>).trading_name as string | null,
+    address_line1: (companySettings as Record<string, unknown>).address_line1 as string | null,
+    address_line2: (companySettings as Record<string, unknown>).address_line2 as string | null,
+    city: (companySettings as Record<string, unknown>).city as string | null,
+    county: (companySettings as Record<string, unknown>).county as string | null,
+    postcode: (companySettings as Record<string, unknown>).postcode as string | null,
+    phone: (companySettings as Record<string, unknown>).phone as string | null,
+    email: (companySettings as Record<string, unknown>).email as string | null,
+    website: (companySettings as Record<string, unknown>).website as string | null,
+    gas_safe_number: (companySettings as Record<string, unknown>).gas_safe_number as string | null,
+    oftec_number: (companySettings as Record<string, unknown>).oftec_number as string | null,
+    vat_number: (companySettings as Record<string, unknown>).vat_number as string | null,
+  } : undefined;
+
+  const customer = job.customers as { first_name: string; last_name: string } | null;
+  const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Customer";
+  const techProfile = job.profiles as { full_name: string } | null;
+  const technicianName = techProfile?.full_name || "Technician";
+  const jobRef = `#${job.id.slice(0, 8)}`;
+
+  let propertyAddress = "";
+  if (job.property_id) {
+    const { data: prop } = await supabaseAdmin
+      .from("properties")
+      .select("address_line1, city, postcode")
+      .eq("id", job.property_id)
+      .maybeSingle();
+    if (prop) {
+      const parts = [
+        (prop as Record<string, unknown>).address_line1,
+        (prop as Record<string, unknown>).city,
+        (prop as Record<string, unknown>).postcode,
+      ].filter(Boolean);
+      propertyAddress = parts.join(", ");
+    }
+  }
+
+  const scheduledDate = job.scheduled_date || "";
+  const formCtx = { jobRef: job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
+
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
+  const attachments: EmailAttachment[] = [];
 
   for (const { form_type: formType, form_id: formId } of forms) {
     const config = FORM_TABLE_MAP[formType];
@@ -1202,33 +1252,40 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     if (recErr) { console.error(`[email] Error fetching ${formType} record ${formId}:`, recErr); continue; }
     if (!record) continue;
 
-    const fields: Array<{ label: string; value: string }> = [];
-    for (const [col, label] of Object.entries(config.fieldMap)) {
-      const val = (record as Record<string, unknown>)[col];
-      if (val != null && val !== "" && val !== "null") {
-        let displayVal = String(val);
-        if (typeof val === "boolean") displayVal = val ? "Yes" : "No";
-        fields.push({ label, value: displayVal });
-      }
-    }
+    const pdfBuffer = generateFormPdf(
+      formType,
+      config.label,
+      record as Record<string, unknown>,
+      config.fieldMap,
+      formCtx,
+      pdfCompany,
+    );
 
-    if (fields.length > 0) {
-      sections.push({ formType, formLabel: config.label, fields });
-      formsIncluded.push({ form_type: formType, form_label: config.label, form_id: formId });
-    }
+    const safeLabel = config.label.replace(/[^a-zA-Z0-9]/g, "_");
+    attachments.push({
+      filename: `${safeLabel}_${formCtx.jobRef}.pdf`,
+      content: pdfBuffer,
+    });
+    formsIncluded.push({ form_type: formType, form_label: config.label, form_id: formId });
   }
 
-  if (sections.length === 0) {
+  if (formsIncluded.length === 0) {
     res.status(400).json({ error: "No completed forms found for the selected entries" }); return;
   }
 
-  const customer = job.customers as { first_name: string; last_name: string } | null;
-  const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Customer";
-  const jobRef = `#${job.id.slice(0, 8)}`;
   const subject = `Job ${jobRef} — Service Forms from ${companyName}`;
 
   try {
-    await sendJobFormsEmail(to, cc || null, subject, jobRef, customerName, companyName, sections);
+    await sendJobFormsEmail(
+      to,
+      cc || null,
+      subject,
+      jobRef,
+      customerName,
+      companyName,
+      formsIncluded.map(f => f.form_label),
+      attachments,
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send email";
     res.status(500).json({ error: msg }); return;
