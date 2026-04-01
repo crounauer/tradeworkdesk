@@ -1,4 +1,4 @@
-import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -54,6 +54,7 @@ interface JobPart {
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: job, isLoading } = useGetJob(id);
+  const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } });
   const updateJob = useUpdateJob();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -209,11 +210,16 @@ export default function JobDetail() {
               )}
 
               <Link href={`/jobs/${job.id}/job-completion`}>
-                <Card className="p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br from-emerald-50/50 to-white">
-                  <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><ClipboardList className="w-6 h-6"/></div>
-                  <div>
-                    <h4 className="font-bold">Job Completion Report</h4>
-                    <p className="text-sm text-muted-foreground">Summarise work & sign-off</p>
+                <Card className={`p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completionReport ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-emerald-50/50 to-white"}`}>
+                  <div className={`p-3 rounded-xl ${completionReport ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><ClipboardList className="w-6 h-6"/></div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold">Job Completion Report</h4>
+                      {completionReport && <Check className="w-4 h-4 text-emerald-600" />}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {completionReport ? "Completed — tap to view or edit" : "Summarise work & sign-off"}
+                    </p>
                   </div>
                 </Card>
               </Link>
