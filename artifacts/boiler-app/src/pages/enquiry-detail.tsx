@@ -80,7 +80,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
     },
   });
 
-  const standalonePhotos = photos.filter(p => !p.note_id && p.file_type?.startsWith("image/"));
+  const allImagePhotos = photos.filter(p => p.file_type?.startsWith("image/"));
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -134,7 +134,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
     }
   };
 
-  const lightboxPhoto = lightboxIdx !== null ? standalonePhotos[lightboxIdx] : null;
+  const lightboxPhoto = lightboxIdx !== null ? allImagePhotos[lightboxIdx] : null;
 
   return (
     <>
@@ -142,8 +142,8 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-lg flex items-center gap-2">
             <Camera className="w-5 h-5 text-blue-500" /> Photos
-            {standalonePhotos.length > 0 && (
-              <span className="text-sm font-normal text-muted-foreground">({standalonePhotos.length})</span>
+            {allImagePhotos.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">({allImagePhotos.length})</span>
             )}
           </h3>
           {canEdit && (
@@ -153,6 +153,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
                 type="file"
                 className="hidden"
                 accept="image/*"
+                capture="environment"
                 multiple
                 onChange={handleUpload}
               />
@@ -174,7 +175,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
 
         {isLoading ? (
           <p className="text-muted-foreground text-sm">Loading photos...</p>
-        ) : standalonePhotos.length === 0 ? (
+        ) : allImagePhotos.length === 0 ? (
           <div className="text-center py-6">
             <Camera className="w-10 h-10 text-slate-200 mx-auto mb-2" />
             <p className="text-muted-foreground text-sm">No photos attached yet.</p>
@@ -186,7 +187,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {standalonePhotos.map((photo, idx) => (
+            {allImagePhotos.map((photo, idx) => (
               <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden bg-slate-100 cursor-pointer">
                 <img
                   src={photo.thumbnail_signed_url || photo.signed_url || ""}
@@ -219,16 +220,16 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
                 alt={lightboxPhoto.file_name}
                 className="max-w-full max-h-[80vh] object-contain rounded"
               />
-              {standalonePhotos.length > 1 && (
+              {allImagePhotos.length > 1 && (
                 <>
                   <button
-                    onClick={() => setLightboxIdx((lightboxIdx! - 1 + standalonePhotos.length) % standalonePhotos.length)}
+                    onClick={() => setLightboxIdx((lightboxIdx! - 1 + allImagePhotos.length) % allImagePhotos.length)}
                     className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => setLightboxIdx((lightboxIdx! + 1) % standalonePhotos.length)}
+                    onClick={() => setLightboxIdx((lightboxIdx! + 1) % allImagePhotos.length)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -238,7 +239,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
             </div>
             <div className="flex items-center justify-between px-2 py-1">
               <p className="text-white/70 text-xs truncate">{lightboxPhoto.file_name}</p>
-              <p className="text-white/50 text-xs">{lightboxIdx! + 1} / {standalonePhotos.length}</p>
+              <p className="text-white/50 text-xs">{lightboxIdx! + 1} / {allImagePhotos.length}</p>
             </div>
           </DialogContent>
         </Dialog>
@@ -247,11 +248,36 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
   );
 }
 
-function NotePhotos({ noteId, photos }: { noteId: string; photos: FileAttachment[] }) {
+function NotePhotos({ noteId, photos, enquiryId, userId, isAdmin }: {
+  noteId: string;
+  photos: FileAttachment[];
+  enquiryId: string;
+  userId: string | undefined;
+  isAdmin: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const notePhotos = photos.filter(p => p.note_id === noteId && p.file_type?.startsWith("image/"));
 
   if (notePhotos.length === 0) return null;
+
+  const handleDelete = async (fileId: string) => {
+    if (!confirm("Delete this photo?")) return;
+    setDeletingId(fileId);
+    try {
+      const res = await fetch(`/api/files/${fileId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      qc.invalidateQueries({ queryKey: ["enquiry-photos", enquiryId] });
+      toast({ title: "Photo deleted" });
+      if (lightboxIdx !== null) setLightboxIdx(null);
+    } catch {
+      toast({ title: "Error", description: "Failed to delete photo", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const lightboxPhoto = lightboxIdx !== null ? notePhotos[lightboxIdx] : null;
 
@@ -261,7 +287,7 @@ function NotePhotos({ noteId, photos }: { noteId: string; photos: FileAttachment
         {notePhotos.map((photo, idx) => (
           <div
             key={photo.id}
-            className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+            className="relative group w-16 h-16 rounded-md overflow-hidden bg-slate-100 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
             onClick={() => setLightboxIdx(idx)}
           >
             <img
@@ -270,6 +296,15 @@ function NotePhotos({ noteId, photos }: { noteId: string; photos: FileAttachment
               className="w-full h-full object-cover"
               loading="lazy"
             />
+            {(isAdmin || photo.uploaded_by === userId) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(photo.id); }}
+                disabled={deletingId === photo.id}
+                className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 hover:bg-red-600 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="w-2.5 h-2.5" />
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -579,7 +614,7 @@ function EnquiryDetailContent() {
                       </span>
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{note.content as string}</p>
-                    <NotePhotos noteId={note.id as string} photos={allPhotos} />
+                    <NotePhotos noteId={note.id as string} photos={allPhotos} enquiryId={id!} userId={profile?.id} isAdmin={isAdmin} />
                   </div>
                 ))}
               </div>
@@ -621,6 +656,7 @@ function EnquiryDetailContent() {
                       type="file"
                       className="hidden"
                       accept="image/*"
+                      capture="environment"
                       multiple
                       onChange={handleNoteFilesChange}
                     />
