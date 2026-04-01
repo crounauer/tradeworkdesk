@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo , useRef } from "react";
 import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob } from "@workspace/api-client-react";
 import type { CreateServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
@@ -96,6 +96,7 @@ export default function ServiceRecordForm() {
   const updateMutation = useUpdateServiceRecord();
 
   const { register, handleSubmit, getValues, reset, watch } = useForm<ServiceRecordFormData>();
+  const hasPopulated = useRef(false);
 
   const fuelType = useMemo(() => {
     return job?.appliance?.fuel_type || "oil";
@@ -110,7 +111,8 @@ export default function ServiceRecordForm() {
   const showWarningNotice = isAtRisk || isImmediatelyDangerous;
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         arrival_time: existingRecord.arrival_time || "",
         departure_time: existingRecord.departure_time || "",

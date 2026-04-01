@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Gauge, Thermometer, Award } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface CombustionAnalysisFormData {
   co2_reading: string;
@@ -40,9 +40,11 @@ export default function CombustionAnalysisForm() {
   const updateMutation = useUpdateCombustionAnalysisRecord();
 
   const { register, handleSubmit, reset } = useForm<CombustionAnalysisFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         co2_reading: existingRecord.co2_reading || "",
         co_reading: existingRecord.co_reading || "",

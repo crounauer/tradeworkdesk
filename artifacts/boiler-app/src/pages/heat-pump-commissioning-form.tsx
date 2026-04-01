@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 import { useCreateHeatPumpCommissioningRecord, useGetHeatPumpCommissioningRecordByJob, useUpdateHeatPumpCommissioningRecord, useGetJob } from "@workspace/api-client-react";
 import type { CreateHeatPumpCommissioningRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
@@ -49,9 +49,11 @@ export default function HeatPumpCommissioningForm() {
   const updateMutation = useUpdateHeatPumpCommissioningRecord();
 
   const { register, handleSubmit, getValues, reset } = useForm<HeatPumpCommissioningFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         heat_loss_kwh: existingRecord.heat_loss_kwh || "",
         design_flow_temp: existingRecord.design_flow_temp || "",

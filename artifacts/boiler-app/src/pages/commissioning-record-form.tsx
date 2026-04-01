@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 import { useCreateCommissioningRecord, useGetCommissioningRecordByJob, useUpdateCommissioningRecord, useGetJob } from "@workspace/api-client-react";
 import type { CreateCommissioningRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
@@ -49,9 +49,11 @@ export default function CommissioningRecordForm() {
   const updateMutation = useUpdateCommissioningRecord();
 
   const { register, handleSubmit, getValues, reset } = useForm<CommissioningFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         gas_safe_engineer_id: existingRecord.gas_safe_engineer_id || "",
         standing_pressure: existingRecord.standing_pressure || "",

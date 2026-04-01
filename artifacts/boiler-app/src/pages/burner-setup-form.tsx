@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Flame, Settings, Gauge } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface BurnerSetupFormData {
   burner_manufacturer: string;
@@ -41,9 +41,11 @@ export default function BurnerSetupForm() {
   const updateMutation = useUpdateBurnerSetupRecord();
 
   const { register, handleSubmit, reset } = useForm<BurnerSetupFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         burner_manufacturer: existingRecord.burner_manufacturer || "",
         burner_model: existingRecord.burner_model || "",

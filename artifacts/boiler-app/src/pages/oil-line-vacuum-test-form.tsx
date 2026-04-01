@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Pipette, Timer, CheckCircle } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface OilLineVacuumTestFormData {
   pipe_size: string;
@@ -36,9 +36,11 @@ export default function OilLineVacuumTestForm() {
   const updateMutation = useUpdateOilLineVacuumTest();
 
   const { register, handleSubmit, reset } = useForm<OilLineVacuumTestFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         pipe_size: existingRecord.pipe_size || "",
         pipe_material: existingRecord.pipe_material || "",

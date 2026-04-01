@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShieldCheck, MapPin } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface FireValveTestFormData {
   valve_location: string;
@@ -34,9 +34,11 @@ export default function FireValveTestForm() {
   const updateMutation = useUpdateFireValveTestRecord();
 
   const { register, handleSubmit, reset } = useForm<FireValveTestFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         valve_location: existingRecord.valve_location || "",
         valve_type: existingRecord.valve_type || "",

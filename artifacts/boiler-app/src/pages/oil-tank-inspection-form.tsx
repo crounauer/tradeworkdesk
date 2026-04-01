@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Droplets, Shield, Eye } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface OilTankInspectionFormData {
   tank_type: string;
@@ -42,9 +42,11 @@ export default function OilTankInspectionForm() {
   const updateMutation = useUpdateOilTankInspection();
 
   const { register, handleSubmit, reset } = useForm<OilTankInspectionFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         tank_type: existingRecord.tank_type || "",
         tank_size: existingRecord.tank_size || "",

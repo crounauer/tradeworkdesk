@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShieldAlert, TriangleAlert, Scale } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface RiskAssessmentFormData {
   site_hazards: string;
@@ -37,9 +37,11 @@ export default function OilTankRiskAssessmentForm() {
   const updateMutation = useUpdateOilTankRiskAssessment();
 
   const { register, handleSubmit, reset } = useForm<RiskAssessmentFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         site_hazards: existingRecord.site_hazards || "",
         environmental_risks: existingRecord.environmental_risks || "",

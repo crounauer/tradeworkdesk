@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, AlertTriangle, Wrench } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 
 interface BreakdownFormData {
   reported_fault: string;
@@ -36,9 +36,11 @@ export default function BreakdownReportForm() {
   const updateMutation = useUpdateBreakdownReport();
 
   const { register, handleSubmit, reset } = useForm<BreakdownFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingReport) {
+    if (existingReport && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         reported_fault: existingReport.reported_fault || "",
         symptoms: existingReport.symptoms || "",

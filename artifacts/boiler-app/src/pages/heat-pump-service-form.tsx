@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useEffect } from "react";
+import { useEffect , useRef } from "react";
 import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, useUpdateHeatPumpServiceRecord, useGetJob } from "@workspace/api-client-react";
 import type { CreateHeatPumpServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
@@ -56,9 +56,11 @@ export default function HeatPumpServiceForm() {
   const { register, handleSubmit, getValues, reset } = useForm<HeatPumpServiceFormData>({
     defaultValues: { appliance_safe: true },
   });
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         refrigerant_type: existingRecord.refrigerant_type || "",
         refrigerant_pressure_high: existingRecord.refrigerant_pressure_high || "",

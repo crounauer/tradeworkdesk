@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ClipboardList, CalendarCheck } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface JobCompletionFormData {
   work_completed: string;
@@ -35,9 +35,11 @@ export default function JobCompletionReportForm() {
   const updateMutation = useUpdateJobCompletionReport();
 
   const { register, handleSubmit, reset } = useForm<JobCompletionFormData>();
+  const hasPopulated = useRef(false);
 
   useEffect(() => {
-    if (existingRecord) {
+    if (existingRecord && !hasPopulated.current) {
+      hasPopulated.current = true;
       reset({
         work_completed: existingRecord.work_completed || "",
         outstanding_items: existingRecord.outstanding_items || "",
