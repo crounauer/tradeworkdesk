@@ -67,7 +67,13 @@ router.patch("/service-records/:id", requireAuth, requireTenant, async (req: Aut
   const params = UpdateServiceRecordParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateServiceRecordBody.safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  if (!body.success) {
+    console.error("[service-records] Update validation failed:", body.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", "));
+    res.status(400).json({ error: body.error.message }); return;
+  }
+
+  const updateKeys = Object.keys(body.data).filter(k => (body.data as Record<string, unknown>)[k] !== undefined);
+  console.log(`[service-records] Updating ${params.data.id}: ${updateKeys.length} fields: [${updateKeys.join(",")}]`);
 
   let existQ = supabaseAdmin.from("service_records").select("job_id").eq("id", params.data.id);
   if (req.tenantId) existQ = existQ.eq("tenant_id", req.tenantId);
@@ -79,7 +85,10 @@ router.patch("/service-records/:id", requireAuth, requireTenant, async (req: Aut
 
   const { data, error } = await supabaseAdmin
     .from("service_records").update(body.data).eq("id", params.data.id).select().single();
-  if (error || !data) { res.status(404).json({ error: "Service record not found" }); return; }
+  if (error || !data) {
+    console.error("[service-records] Supabase update error:", error);
+    res.status(404).json({ error: error?.message || "Service record not found" }); return;
+  }
   res.json(UpdateServiceRecordResponse.parse(data));
 });
 
