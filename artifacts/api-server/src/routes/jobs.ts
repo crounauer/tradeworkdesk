@@ -108,7 +108,8 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     .from("jobs")
     .select("*, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
     .eq("is_active", true)
-    .order("scheduled_date", { ascending: false });
+    .order("scheduled_date", { ascending: false })
+    .order("created_at", { ascending: false });
 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
