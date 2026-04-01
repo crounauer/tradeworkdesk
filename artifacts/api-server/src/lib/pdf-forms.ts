@@ -1,4 +1,5 @@
-import jsPDF from "jspdf";
+import jsPDFModule from "jspdf";
+const jsPDF = (jsPDFModule as any).default || jsPDFModule;
 
 export interface PdfCompanySettings {
   name?: string | null;
