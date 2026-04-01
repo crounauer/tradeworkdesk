@@ -85,20 +85,23 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="header-brand">
-        <div class="header-logo">\u{1F525}</div>
-        <div>
-          <h1>TradeWorkDesk</h1>
-          <p>Professional Boiler Service Management</p>
+      <a href="https://www.tradeworkdesk.co.uk" style="text-decoration:none;color:#fff;" target="_blank">
+        <div class="header-brand">
+          <div class="header-logo">\u{1F525}</div>
+          <div>
+            <h1>TradeWorkDesk</h1>
+            <p>Professional Boiler Service Management</p>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
     <div class="body">
       ${e}
     </div>
     <div class="footer">
+      <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;" target="_blank">Powered by TradeWorkDesk</a>
+      <span style="display:block;margin:4px 0 8px;font-size:11px;color:#94a3b8;">Simplify your trade service business &mdash; <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;text-decoration:underline;" target="_blank">Learn more</a></span>
       &copy; ${new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.<br/>
-      You received this email because you have an active account with TradeWorkDesk.<br/>
       <span style="margin-top:6px; display:block;">To stop receiving emails, contact us at <a href="mailto:support@tradeworkdesk.co.uk" style="color:#64748b;">support@tradeworkdesk.co.uk</a> to unsubscribe.</span>
     </div>
   </div>
