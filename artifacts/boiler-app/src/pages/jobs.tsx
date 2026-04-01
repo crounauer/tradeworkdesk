@@ -1,8 +1,8 @@
-import { useListJobs, useCreateJob, useListProfiles, useListCustomers, useListProperties } from "@workspace/api-client-react";
+import { useListJobs, useCreateJob, useCreateCustomer, useListProfiles, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -344,14 +344,60 @@ function JobsContent() {
 function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobType[] }) {
   const qc = useQueryClient();
   const createJob = useCreateJob();
+  const createCustomer = useCreateCustomer();
   const { data: customers } = useListCustomers();
   const { data: properties } = useListProperties();
   const { data: technicians } = useListProfiles();
-  const { register, handleSubmit, watch } = useForm<JobFormData>();
+  const { register, handleSubmit, watch, setValue } = useForm<JobFormData>();
   const { toast } = useToast();
   const selectedCustomerId = watch("customer_id");
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustFirst, setNewCustFirst] = useState("");
+  const [newCustLast, setNewCustLast] = useState("");
+  const [newCustEmail, setNewCustEmail] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [prevCustomerId, setPrevCustomerId] = useState("");
 
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
+
+  if (selectedCustomerId !== prevCustomerId) {
+    setPrevCustomerId(selectedCustomerId);
+    if (prevCustomerId) {
+      setValue("property_id", "");
+    }
+  }
+
+  const handleCreateCustomer = async () => {
+    if (!newCustFirst || !newCustLast) {
+      toast({ title: "Error", description: "First and last name are required", variant: "destructive" });
+      return;
+    }
+    setCreatingCustomer(true);
+    try {
+      const newCustomer = await createCustomer.mutateAsync({
+        data: {
+          first_name: newCustFirst,
+          last_name: newCustLast,
+          email: newCustEmail || undefined,
+          phone: newCustPhone || undefined,
+        } as { first_name: string; last_name: string },
+      });
+      qc.invalidateQueries({ queryKey: ["/api/customers"] });
+      setValue("customer_id", newCustomer.id);
+      setShowNewCustomer(false);
+      setNewCustFirst("");
+      setNewCustLast("");
+      setNewCustEmail("");
+      setNewCustPhone("");
+      toast({ title: "Customer created", description: `${newCustFirst} ${newCustLast} added` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not create customer";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setCreatingCustomer(false);
+    }
+  };
 
   const onSubmit = async (data: JobFormData) => {
     const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
@@ -387,13 +433,35 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Customer *</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("customer_id")}>
-            <option value="">Select customer...</option>
-            {customers?.map(c => (
-              <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("customer_id")}>
+              <option value="">Select customer...</option>
+              {customers?.map(c => (
+                <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
+              ))}
+            </select>
+            <Button type="button" variant="outline" size="icon" className="shrink-0" title="Add new customer" onClick={() => setShowNewCustomer(!showNewCustomer)}>
+              {showNewCustomer ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
+        {showNewCustomer && (
+          <div className="md:col-span-2 border border-primary/20 rounded-lg p-4 bg-background space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2"><UserPlus className="w-4 h-4" /> Quick Add Customer</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input placeholder="First Name *" value={newCustFirst} onChange={e => setNewCustFirst(e.target.value)} />
+              <Input placeholder="Last Name *" value={newCustLast} onChange={e => setNewCustLast(e.target.value)} />
+              <Input placeholder="Email" type="email" value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} />
+              <Input placeholder="Phone" value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={handleCreateCustomer} disabled={creatingCustomer || !newCustFirst || !newCustLast}>
+                {creatingCustomer ? "Creating..." : "Create Customer"}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewCustomer(false)}>Cancel</Button>
+            </div>
+          </div>
+        )}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Property *</label>
           <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
@@ -402,6 +470,12 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
               <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
             ))}
           </select>
+          {selectedCustomerId && filteredProperties?.length === 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              No properties found for this customer.{" "}
+              <Link href={`/customers/${selectedCustomerId}?addProperty=1`} className="underline font-medium">Add a property first</Link>
+            </p>
+          )}
         </div>
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Job Type *</label>
