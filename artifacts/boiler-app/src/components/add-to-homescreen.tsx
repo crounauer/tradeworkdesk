@@ -19,9 +19,13 @@ function isAndroid(): boolean {
   return /Android/i.test(navigator.userAgent);
 }
 
+interface NavigatorStandalone extends Navigator {
+  standalone?: boolean;
+}
+
 function isInStandaloneMode(): boolean {
   return window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as any).standalone === true;
+    (navigator as NavigatorStandalone).standalone === true;
 }
 
 function isMobileOrTablet(): boolean {
