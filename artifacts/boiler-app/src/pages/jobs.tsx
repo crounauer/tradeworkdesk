@@ -383,8 +383,8 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           phone: newCustPhone || undefined,
         } as { first_name: string; last_name: string },
       });
-      qc.invalidateQueries({ queryKey: ["/api/customers"] });
-      setValue("customer_id", newCustomer.id);
+      await qc.refetchQueries({ queryKey: ["/api/customers"] });
+      setTimeout(() => setValue("customer_id", newCustomer.id), 50);
       setShowNewCustomer(false);
       setNewCustFirst("");
       setNewCustLast("");
