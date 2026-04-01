@@ -27,7 +27,11 @@ app.use(
   })
 );
 
-app.use((_req, res) => {
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.setHeader("Cache-Control", "no-cache");
   res.sendFile(path.join(publicDir, "index.html"));
 });
