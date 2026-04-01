@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
+import AddToHomeScreen from "@/components/add-to-homescreen";
 
 interface JobType {
   id: number;
@@ -74,6 +75,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      <AddToHomeScreen />
       <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
         <div className="flex-1">
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
