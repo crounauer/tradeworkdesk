@@ -348,7 +348,7 @@ router.delete("/files/:id", requireAuth, requireTenant, async (req: Authenticate
   if (!file) { res.status(404).json({ error: "File not found" }); return; }
 
   const fileRow = file as FileRow;
-  if (fileRow.uploaded_by !== req.userId && req.userRole !== "admin") {
+  if (fileRow.uploaded_by !== req.userId && req.userRole !== "admin" && req.userRole !== "super_admin") {
     res.status(403).json({ error: "Not authorized to delete this file" });
     return;
   }
