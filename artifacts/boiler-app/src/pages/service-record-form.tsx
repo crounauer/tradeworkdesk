@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useMemo , useRef, useState } from "react";
-import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob, customFetch, getGetServiceRecordByJobQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { CreateServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -88,7 +89,8 @@ export default function ServiceRecordForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetServiceRecordByJob(jobId!);
+  const queryClient = useQueryClient();
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetServiceRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
 
   const { data: company } = useCompanySettings();
@@ -96,7 +98,7 @@ export default function ServiceRecordForm() {
   const updateMutation = useUpdateServiceRecord();
 
   const { register, handleSubmit, getValues, reset, watch } = useForm<ServiceRecordFormData>();
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
@@ -115,8 +117,8 @@ export default function ServiceRecordForm() {
   const showWarningNotice = isAtRisk || isImmediatelyDangerous;
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         arrival_time: existingRecord.arrival_time || "",
         departure_time: existingRecord.departure_time || "",
@@ -185,7 +187,7 @@ export default function ServiceRecordForm() {
         gas_pressure_checked: existingRecord.gas_pressure_checked ?? false,
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
@@ -268,9 +270,11 @@ export default function ServiceRecordForm() {
       if (existingRecord) {
         const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
         await updateMutation.mutateAsync({ id: existingRecord.id, data: updatePayload });
+        await queryClient.invalidateQueries({ queryKey: getGetServiceRecordByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Service record updated successfully" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetServiceRecordByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Service record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);
