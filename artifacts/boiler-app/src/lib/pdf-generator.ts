@@ -866,3 +866,494 @@ export function generateHeatPumpCommissioningPdf(data: HeatPumpCommissioningPdfD
 
   doc.save(`heat-pump-commissioning-${data.jobId.slice(0, 8)}.pdf`);
 }
+
+// ─── Breakdown Report PDF ─────────────────────────────────────────────────────
+
+interface BreakdownReportPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    reported_fault?: string;
+    symptoms?: string;
+    diagnostics_performed?: string;
+    findings?: string;
+    parts_required?: string;
+    temporary_fix?: string;
+    permanent_fix?: string;
+    appliance_safe?: boolean;
+    return_visit_required?: boolean;
+    return_visit_notes?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateBreakdownReportPdf(data: BreakdownReportPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection, bool } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Breakdown Report");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(225, 29, 72); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Fault Details", [
+    ["Reported Fault", r.reported_fault || ""], ["Symptoms", r.symptoms || ""],
+  ], [225, 29, 72]);
+  y = addSection(y, "Diagnosis & Findings", [
+    ["Diagnostics Performed", r.diagnostics_performed || ""], ["Findings", r.findings || ""],
+  ]);
+  y = addSection(y, "Repair Details", [
+    ["Temporary Fix", r.temporary_fix || ""], ["Permanent Fix", r.permanent_fix || ""],
+    ["Parts Required", r.parts_required || ""],
+  ]);
+  y = addSection(y, "Safety & Follow-up", [
+    ["Appliance Safe", bool(r.appliance_safe)],
+    ["Return Visit Required", bool(r.return_visit_required)],
+    ["Return Visit Notes", r.return_visit_notes || ""],
+    ["Additional Notes", r.additional_notes || ""],
+  ]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Breakdown Report"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`breakdown-report-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Job Completion Report PDF ────────────────────────────────────────────────
+
+interface JobCompletionReportPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    work_completed?: string;
+    outstanding_items?: string;
+    defects_found?: string;
+    advisories?: string;
+    customer_advised?: boolean;
+    customer_sign_off?: boolean;
+    customer_name_signed?: string;
+    next_service_date?: string;
+    follow_up_required?: boolean;
+    follow_up_notes?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateJobCompletionReportPdf(data: JobCompletionReportPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection, bool } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Job Completion Report");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(16, 185, 129); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Work Summary", [
+    ["Work Completed", r.work_completed || ""], ["Outstanding Items", r.outstanding_items || ""],
+    ["Defects Found", r.defects_found || ""], ["Advisories", r.advisories || ""],
+  ], [16, 185, 129]);
+  y = addSection(y, "Customer Sign-off", [
+    ["Customer Advised", bool(r.customer_advised)],
+    ["Customer Sign Off", bool(r.customer_sign_off)],
+    ["Customer Name", r.customer_name_signed || ""],
+  ]);
+  y = addSection(y, "Follow-up", [
+    ["Next Service Date", r.next_service_date || ""],
+    ["Follow-up Required", bool(r.follow_up_required)],
+    ["Follow-up Notes", r.follow_up_notes || ""],
+    ["Additional Notes", r.additional_notes || ""],
+  ]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Job Completion Report"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`job-completion-report-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Burner Setup PDF ─────────────────────────────────────────────────────────
+
+interface BurnerSetupPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    burner_manufacturer?: string;
+    burner_model?: string;
+    burner_serial_number?: string;
+    nozzle_size?: string;
+    nozzle_type?: string;
+    nozzle_angle?: string;
+    pump_pressure?: string;
+    pump_vacuum?: string;
+    electrode_gap?: string;
+    electrode_position?: string;
+    air_damper_setting?: string;
+    head_setting?: string;
+    combustion_co2?: string;
+    combustion_co?: string;
+    combustion_smoke?: string;
+    combustion_efficiency?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateBurnerSetupPdf(data: BurnerSetupPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Burner Setup Record");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(234, 88, 12); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Burner Details", [
+    ["Manufacturer", r.burner_manufacturer || ""], ["Model", r.burner_model || ""],
+    ["Serial Number", r.burner_serial_number || ""],
+  ], [234, 88, 12]);
+  y = addSection(y, "Nozzle Settings", [
+    ["Nozzle Size", r.nozzle_size || ""], ["Nozzle Type", r.nozzle_type || ""],
+    ["Nozzle Angle", r.nozzle_angle || ""],
+  ]);
+  y = addSection(y, "Pressure & Electrode Settings", [
+    ["Pump Pressure", r.pump_pressure || ""], ["Pump Vacuum", r.pump_vacuum || ""],
+    ["Electrode Gap", r.electrode_gap || ""], ["Electrode Position", r.electrode_position || ""],
+    ["Air Damper Setting", r.air_damper_setting || ""], ["Head Setting", r.head_setting || ""],
+  ]);
+  y = addSection(y, "Combustion Readings", [
+    ["CO2 (%)", r.combustion_co2 || ""], ["CO (ppm)", r.combustion_co || ""],
+    ["Smoke Number", r.combustion_smoke || ""], ["Efficiency (%)", r.combustion_efficiency || ""],
+  ]);
+  if (r.additional_notes) {
+    y = addSection(y, "Notes", [["Additional Notes", r.additional_notes]]);
+  }
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Burner Setup Record"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`burner-setup-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Combustion Analysis PDF ──────────────────────────────────────────────────
+
+interface CombustionAnalysisPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    co2_reading?: string;
+    co_reading?: string;
+    o2_reading?: string;
+    flue_temperature?: string;
+    ambient_temperature?: string;
+    efficiency?: string;
+    excess_air?: string;
+    smoke_number?: string;
+    ambient_co?: string;
+    draft_reading?: string;
+    instrument_make?: string;
+    instrument_model?: string;
+    instrument_serial?: string;
+    calibration_date?: string;
+    pass_fail?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateCombustionAnalysisPdf(data: CombustionAnalysisPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Combustion Analysis Record");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(59, 130, 246); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Readings", [
+    ["CO2 (%)", r.co2_reading || ""], ["CO (ppm)", r.co_reading || ""],
+    ["O2 (%)", r.o2_reading || ""], ["Flue Temperature", r.flue_temperature || ""],
+    ["Ambient Temperature", r.ambient_temperature || ""], ["Efficiency (%)", r.efficiency || ""],
+    ["Excess Air (%)", r.excess_air || ""], ["Smoke Number", r.smoke_number || ""],
+    ["Ambient CO (ppm)", r.ambient_co || ""], ["Draft Reading", r.draft_reading || ""],
+  ]);
+  y = addSection(y, "Instrument Details", [
+    ["Make", r.instrument_make || ""], ["Model", r.instrument_model || ""],
+    ["Serial Number", r.instrument_serial || ""], ["Calibration Date", r.calibration_date || ""],
+  ], [107, 114, 128]);
+  y = addSection(y, "Result", [
+    ["Pass/Fail", r.pass_fail || ""], ["Additional Notes", r.additional_notes || ""],
+  ], [22, 163, 74]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Combustion Analysis Record"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`combustion-analysis-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Fire Valve Test PDF ──────────────────────────────────────────────────────
+
+interface FireValveTestPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    valve_location?: string;
+    valve_type?: string;
+    valve_manufacturer?: string;
+    test_date?: string;
+    test_method?: string;
+    test_result?: string;
+    response_time?: string;
+    reset_successful?: boolean;
+    remedial_action?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateFireValveTestPdf(data: FireValveTestPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection, bool } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Fire Valve Test Record");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Valve Details", [
+    ["Valve Location", r.valve_location || ""], ["Valve Type", r.valve_type || ""],
+    ["Valve Manufacturer", r.valve_manufacturer || ""],
+  ], [220, 38, 38]);
+  y = addSection(y, "Test Details", [
+    ["Test Date", r.test_date || ""], ["Test Method", r.test_method || ""],
+    ["Test Result", r.test_result || ""], ["Response Time", r.response_time || ""],
+  ]);
+  y = addSection(y, "Result & Actions", [
+    ["Reset Successful", bool(r.reset_successful)],
+    ["Remedial Action", r.remedial_action || ""],
+    ["Additional Notes", r.additional_notes || ""],
+  ]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Fire Valve Test Record"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`fire-valve-test-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Oil Line Vacuum Test PDF ─────────────────────────────────────────────────
+
+interface OilLineVacuumTestPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    pipe_size?: string;
+    pipe_material?: string;
+    pipe_length?: string;
+    number_of_joints?: string;
+    initial_vacuum?: string;
+    vacuum_after_5_min?: string;
+    vacuum_after_10_min?: string;
+    allowable_drop?: string;
+    actual_drop?: string;
+    pass_fail?: string;
+    remedial_action?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateOilLineVacuumTestPdf(data: OilLineVacuumTestPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Oil Line Vacuum Test");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(107, 114, 128); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Pipe Details", [
+    ["Pipe Size", r.pipe_size || ""], ["Pipe Material", r.pipe_material || ""],
+    ["Pipe Length", r.pipe_length || ""], ["Number of Joints", r.number_of_joints || ""],
+  ], [107, 114, 128]);
+  y = addSection(y, "Vacuum Readings", [
+    ["Initial Vacuum", r.initial_vacuum || ""],
+    ["Vacuum After 5 Min", r.vacuum_after_5_min || ""],
+    ["Vacuum After 10 Min", r.vacuum_after_10_min || ""],
+    ["Allowable Drop", r.allowable_drop || ""],
+    ["Actual Drop", r.actual_drop || ""],
+  ]);
+  y = addSection(y, "Result", [
+    ["Pass/Fail", r.pass_fail || ""], ["Remedial Action", r.remedial_action || ""],
+    ["Additional Notes", r.additional_notes || ""],
+  ], [22, 163, 74]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Oil Line Vacuum Test"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`oil-line-vacuum-test-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Oil Tank Inspection PDF ──────────────────────────────────────────────────
+
+interface OilTankInspectionPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    tank_type?: string;
+    tank_size?: string;
+    tank_material?: string;
+    tank_location?: string;
+    tank_age?: string;
+    bunding_type?: string;
+    bunding_condition?: string;
+    sight_gauge_condition?: string;
+    fill_point_condition?: string;
+    vent_condition?: string;
+    filter_condition?: string;
+    pipework_condition?: string;
+    supports_condition?: string;
+    overall_condition?: string;
+    leaks_found?: boolean;
+    leaks_details?: string;
+    remedial_actions?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateOilTankInspectionPdf(data: OilTankInspectionPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection, bool } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Oil Tank Inspection");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(107, 114, 128); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Tank Details", [
+    ["Tank Type", r.tank_type || ""], ["Tank Size", r.tank_size || ""],
+    ["Tank Material", r.tank_material || ""], ["Tank Location", r.tank_location || ""],
+    ["Tank Age", r.tank_age || ""],
+  ], [107, 114, 128]);
+  y = addSection(y, "Bunding", [
+    ["Bunding Type", r.bunding_type || ""], ["Bunding Condition", r.bunding_condition || ""],
+  ]);
+  y = addSection(y, "Component Condition", [
+    ["Sight Gauge", r.sight_gauge_condition || ""], ["Fill Point", r.fill_point_condition || ""],
+    ["Vent", r.vent_condition || ""], ["Filter", r.filter_condition || ""],
+    ["Pipework", r.pipework_condition || ""], ["Supports", r.supports_condition || ""],
+    ["Overall Condition", r.overall_condition || ""],
+  ]);
+  y = addSection(y, "Defects & Actions", [
+    ["Leaks Found", bool(r.leaks_found)], ["Leak Details", r.leaks_details || ""],
+    ["Remedial Actions", r.remedial_actions || ""], ["Additional Notes", r.additional_notes || ""],
+  ], [234, 88, 12]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Oil Tank Inspection"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`oil-tank-inspection-${data.jobId.slice(0, 8)}.pdf`);
+}
+
+// ─── Oil Tank Risk Assessment PDF ─────────────────────────────────────────────
+
+interface OilTankRiskAssessmentPdfData {
+  jobId: string;
+  customerName: string;
+  propertyAddress: string;
+  technicianName: string;
+  scheduledDate: string;
+  record: {
+    site_hazards?: string;
+    environmental_risks?: string;
+    fire_risk?: string;
+    access_risk?: string;
+    likelihood_rating?: string;
+    severity_rating?: string;
+    overall_risk_rating?: string;
+    control_measures?: string;
+    further_actions_required?: string;
+    assessor_name?: string;
+    assessor_qualification?: string;
+    assessment_date?: string;
+    additional_notes?: string;
+  };
+}
+
+export function generateOilTankRiskAssessmentPdf(data: OilTankRiskAssessmentPdfData, company?: PdfCompanySettings): void {
+  const doc = new jsPDF();
+  const { pageWidth, pageHeight, margin, addSection } = createPdfHelpers(doc);
+  let y = renderPdfHeader(doc, company, "Oil Tank Risk Assessment");
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Job Ref: ${data.jobId.slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Date: ${data.scheduledDate}`, pageWidth - margin, y, { align: "right" });
+  y += 4;
+  doc.setDrawColor(234, 88, 12); doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y); y += 8;
+  const r = data.record;
+  y = addSection(y, "Job Details", [
+    ["Customer", data.customerName], ["Property", data.propertyAddress],
+    ["Technician", data.technicianName], ["Date", data.scheduledDate],
+  ]);
+  y = addSection(y, "Hazard Identification", [
+    ["Site Hazards", r.site_hazards || ""], ["Environmental Risks", r.environmental_risks || ""],
+    ["Fire Risk", r.fire_risk || ""], ["Access Risk", r.access_risk || ""],
+  ], [234, 88, 12]);
+  y = addSection(y, "Risk Rating", [
+    ["Likelihood Rating", r.likelihood_rating || ""], ["Severity Rating", r.severity_rating || ""],
+    ["Overall Risk Rating", r.overall_risk_rating || ""],
+  ]);
+  y = addSection(y, "Control Measures", [
+    ["Control Measures", r.control_measures || ""],
+    ["Further Actions Required", r.further_actions_required || ""],
+  ], [22, 163, 74]);
+  y = addSection(y, "Assessor Details", [
+    ["Assessor Name", r.assessor_name || ""], ["Assessor Qualification", r.assessor_qualification || ""],
+    ["Assessment Date", r.assessment_date || ""], ["Additional Notes", r.additional_notes || ""],
+  ], [107, 114, 128]);
+  doc.setFontSize(7); doc.setTextColor(150, 150, 150);
+  doc.text(pdfFooterText(company, "Oil Tank Risk Assessment"), pageWidth / 2, pageHeight - 10, { align: "center" });
+  doc.save(`oil-tank-risk-assessment-${data.jobId.slice(0, 8)}.pdf`);
+}

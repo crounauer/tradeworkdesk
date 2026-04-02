@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateCombustionAnalysisRecord, useGetCombustionAnalysisRecordByJob, getGetCombustionAnalysisRecordByJobQueryKey, useUpdateCombustionAnalysisRecord, customFetch } from "@workspace/api-client-react";
+import { useCreateCombustionAnalysisRecord, useGetCombustionAnalysisRecordByJob, getGetCombustionAnalysisRecordByJobQueryKey, useUpdateCombustionAnalysisRecord, useGetJob, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Gauge, Thermometer, Award, Trash2 } from "lucide-react";
+import { ArrowLeft, Gauge, Thermometer, Award, Trash2, FileDown } from "lucide-react";
+import { generateCombustionAnalysisPdf } from "@/lib/pdf-generator";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -41,12 +43,14 @@ export default function CombustionAnalysisForm() {
   const createMutation = useCreateCombustionAnalysisRecord();
   const updateMutation = useUpdateCombustionAnalysisRecord();
 
-  const { register, handleSubmit, reset } = useForm<CombustionAnalysisFormData>();
+  const { register, handleSubmit, reset, getValues } = useForm<CombustionAnalysisFormData>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const populatedAt = useRef(0);
+  const { data: job } = useGetJob(jobId!);
+  const { data: company } = useCompanySettings();
 
   useEffect(() => {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
@@ -93,6 +97,20 @@ export default function CombustionAnalysisForm() {
     }
   };
 
+  const handleExportPdf = () => {
+    const vals = getValues();
+    const customer = job?.customer;
+    const property = job?.property;
+    generateCombustionAnalysisPdf({
+      jobId: jobId!,
+      customerName: customer ? `${customer.first_name} ${customer.last_name}` : "N/A",
+      propertyAddress: property?.address_line1 || "N/A",
+      technicianName: job?.technician?.full_name || user?.email || "N/A",
+      scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
+      record: vals,
+    }, company ?? undefined);
+  };
+
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;
 
   return (
@@ -101,11 +119,18 @@ export default function CombustionAnalysisForm() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Job
       </Link>
 
-      <div>
-        <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-          <Gauge className="w-8 h-8 text-indigo-500" /> Combustion Analysis Record
-        </h1>
-        <p className="text-muted-foreground mt-1">Record flue gas readings, efficiency, and instrument details.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-display font-bold flex items-center gap-3">
+            <Gauge className="w-8 h-8 text-indigo-500" /> Combustion Analysis Record
+          </h1>
+          <p className="text-muted-foreground mt-1">Record flue gas readings, efficiency, and instrument details.</p>
+        </div>
+        {existingRecord && (
+          <Button variant="outline" onClick={handleExportPdf}>
+            <FileDown className="w-4 h-4 mr-2" /> Export PDF
+          </Button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">

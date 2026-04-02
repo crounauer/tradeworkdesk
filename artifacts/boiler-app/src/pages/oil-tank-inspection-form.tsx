@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateOilTankInspection, useGetOilTankInspectionByJob, getGetOilTankInspectionByJobQueryKey, useUpdateOilTankInspection, customFetch } from "@workspace/api-client-react";
+import { useCreateOilTankInspection, useGetOilTankInspectionByJob, getGetOilTankInspectionByJobQueryKey, useUpdateOilTankInspection, useGetJob, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Droplets, Shield, Eye } from "lucide-react";
+import { ArrowLeft, Droplets, Shield, Eye, FileDown } from "lucide-react";
+import { generateOilTankInspectionPdf } from "@/lib/pdf-generator";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -43,7 +45,9 @@ export default function OilTankInspectionForm() {
   const createMutation = useCreateOilTankInspection();
   const updateMutation = useUpdateOilTankInspection();
 
-  const { register, handleSubmit, reset } = useForm<OilTankInspectionFormData>();
+  const { register, handleSubmit, reset, getValues } = useForm<OilTankInspectionFormData>();
+  const { data: job } = useGetJob(jobId!);
+  const { data: company } = useCompanySettings();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
@@ -97,6 +101,20 @@ export default function OilTankInspectionForm() {
     }
   };
 
+  const handleExportPdf = () => {
+    const vals = getValues();
+    const customer = job?.customer;
+    const property = job?.property;
+    generateOilTankInspectionPdf({
+      jobId: jobId!,
+      customerName: customer ? `${customer.first_name} ${customer.last_name}` : "N/A",
+      propertyAddress: property?.address_line1 || "N/A",
+      technicianName: job?.technician?.full_name || user?.email || "N/A",
+      scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
+      record: vals,
+    }, company ?? undefined);
+  };
+
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;
 
   return (
@@ -105,11 +123,18 @@ export default function OilTankInspectionForm() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Job
       </Link>
 
-      <div>
-        <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-          <Droplets className="w-8 h-8 text-blue-500" /> Oil Tank Inspection
-        </h1>
-        <p className="text-muted-foreground mt-1">Record tank installation details, condition, and inspection findings.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-display font-bold flex items-center gap-3">
+            <Droplets className="w-8 h-8 text-blue-500" /> Oil Tank Inspection
+          </h1>
+          <p className="text-muted-foreground mt-1">Record tank installation details, condition, and inspection findings.</p>
+        </div>
+        {existingRecord && (
+          <Button variant="outline" onClick={handleExportPdf}>
+            <FileDown className="w-4 h-4 mr-2" /> Export PDF
+          </Button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
