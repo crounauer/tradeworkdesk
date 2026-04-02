@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, getGetHeatPumpServiceRecordByJobQueryKey, useUpdateHeatPumpServiceRecord, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, getGetHeatPumpServiceRecordByJobQueryKey, useUpdateHeatPumpServiceRecord, customFetch } from "@workspace/api-client-react";
 import type { CreateHeatPumpServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -12,8 +12,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileDown, Thermometer, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle, Trash2 } from "lucide-react";
 import { Link } from "wouter";
-import { generateHeatPumpServicePdf } from "@/lib/pdf-generator";
-import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface HeatPumpServiceFormData {
   refrigerant_type: string;
@@ -49,9 +47,8 @@ export default function HeatPumpServiceForm() {
 
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetHeatPumpServiceRecordByJob(jobId!);
   const queryClient = useQueryClient();
-  const { data: job } = useGetJob(jobId!);
 
-  const { data: company } = useCompanySettings();
+
   const createMutation = useCreateHeatPumpServiceRecord();
   const updateMutation = useUpdateHeatPumpServiceRecord();
 
@@ -59,7 +56,7 @@ export default function HeatPumpServiceForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const { register, handleSubmit, getValues, reset } = useForm<HeatPumpServiceFormData>({
+  const { register, handleSubmit, reset } = useForm<HeatPumpServiceFormData>({
     defaultValues: { appliance_safe: true },
   });
   const populatedAt = useRef(0);
@@ -144,17 +141,18 @@ export default function HeatPumpServiceForm() {
     }
   };
 
-  const handleExportPdf = () => {
-    const vals = getValues();
-    generateHeatPumpServicePdf({
-      jobId: jobId!,
-      customerName: job?.customer ? `${job.customer.first_name} ${job.customer.last_name}` : "N/A",
-      propertyAddress: job?.property?.address_line1 || "N/A",
-      applianceName: job?.appliance ? `${job.appliance.manufacturer || ""} ${job.appliance.model || ""}`.trim() || "N/A" : "N/A",
-      technicianName: job?.technician?.full_name || user?.email || "N/A",
-      scheduledDate: job?.scheduled_date ? new Date(String(job.scheduled_date).slice(0, 10)).toLocaleDateString() : new Date().toLocaleDateString(),
-      record: vals,
-    }, company ?? undefined);
+  const handleExportPdf = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/forms/heat_pump_service_record/${existingRecord!.id}/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `heat-pump-service-${jobId?.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast({ title: "Error", description: "Failed to export PDF", variant: "destructive" }); }
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;

@@ -12,8 +12,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle, Flame, Gauge, Trash2 } from "lucide-react";
 import { Link } from "wouter";
-import { generateServiceRecordPdf, generateCp12Pdf } from "@/lib/pdf-generator";
-import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface ServiceRecordFormData {
   arrival_time: string;
@@ -93,11 +91,11 @@ export default function ServiceRecordForm() {
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetServiceRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
 
-  const { data: company } = useCompanySettings();
+
   const createMutation = useCreateServiceRecord();
   const updateMutation = useUpdateServiceRecord();
 
-  const { register, handleSubmit, getValues, reset, watch } = useForm<ServiceRecordFormData>();
+  const { register, handleSubmit, reset, watch } = useForm<ServiceRecordFormData>();
   const populatedAt = useRef(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -294,33 +292,18 @@ export default function ServiceRecordForm() {
     }
   };
 
-  const handleExportPdf = () => {
-    const vals = getValues();
-    const customer = job?.customer;
-    const property = job?.property;
-    const appliance = job?.appliance;
-    const technician = job?.technician;
-
-    const commonData = {
-      jobId: jobId!,
-      customerName: customer ? `${customer.first_name} ${customer.last_name}` : "N/A",
-      propertyAddress: property?.address_line1 || "N/A",
-      applianceName: appliance ? `${appliance.manufacturer || ""} ${appliance.model || ""}`.trim() || "N/A" : "N/A",
-      technicianName: technician?.full_name || user?.email || "N/A",
-      scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
-    };
-
-    if (isGas) {
-      generateCp12Pdf({
-        ...commonData,
-        serviceRecord: vals,
-      }, company ?? undefined);
-    } else {
-      generateServiceRecordPdf({
-        ...commonData,
-        serviceRecord: vals,
-      }, company ?? undefined);
-    }
+  const handleExportPdf = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/forms/service_record/${existingRecord!.id}/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${isGas ? "cp12" : "service-record"}-${jobId?.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast({ title: "Error", description: "Failed to export PDF", variant: "destructive" }); }
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;

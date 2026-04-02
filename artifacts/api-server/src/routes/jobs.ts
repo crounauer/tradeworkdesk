@@ -1224,6 +1224,82 @@ router.get("/jobs/:jobId/completed-forms", requireAuth, requireTenant, requirePl
   res.json(completed);
 });
 
+router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { jobId, formType, formId } = req.params;
+  if (!jobId || !formType || !formId) { res.status(400).json({ error: "Missing parameters" }); return; }
+
+  const config = FORM_TABLE_MAP[formType];
+  if (!config) { res.status(400).json({ error: `Unknown form type: ${formType}` }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name), profiles(full_name), appliances(fuel_type), properties(address_line1, city, postcode)").eq("id", jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job, error: jobErr } = await jobQ.single();
+  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  let recQ = supabaseAdmin.from(config.table).select("*").eq("id", formId).eq("job_id", jobId);
+  if (req.tenantId) recQ = recQ.eq("tenant_id", req.tenantId);
+  const { data: record, error: recErr } = await recQ.maybeSingle();
+  if (recErr || !record) { res.status(404).json({ error: "Form record not found" }); return; }
+
+  const customer = job.customers as Record<string, unknown> | null;
+  const customerName = customer ? `${customer.first_name || ""} ${customer.last_name || ""}`.trim() : "N/A";
+  const technicianName = (job.profiles as Record<string, unknown>)?.full_name as string || "N/A";
+  const prop = job.properties as Record<string, unknown> | null;
+  let propertyAddress = "N/A";
+  if (prop) {
+    const parts = [prop.address_line1, prop.city, prop.postcode].filter(Boolean);
+    propertyAddress = parts.join(", ");
+  }
+
+  const { data: companySettings } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+  const pdfCompany: PdfCompanySettings | undefined = companySettings ? {
+    name: (companySettings as Record<string, unknown>).name as string | null,
+    trading_name: (companySettings as Record<string, unknown>).trading_name as string | null,
+    address_line1: (companySettings as Record<string, unknown>).address_line1 as string | null,
+    address_line2: (companySettings as Record<string, unknown>).address_line2 as string | null,
+    city: (companySettings as Record<string, unknown>).city as string | null,
+    county: (companySettings as Record<string, unknown>).county as string | null,
+    postcode: (companySettings as Record<string, unknown>).postcode as string | null,
+    phone: (companySettings as Record<string, unknown>).phone as string | null,
+    email: (companySettings as Record<string, unknown>).email as string | null,
+    website: (companySettings as Record<string, unknown>).website as string | null,
+    gas_safe_number: (companySettings as Record<string, unknown>).gas_safe_number as string | null,
+    oftec_number: (companySettings as Record<string, unknown>).oftec_number as string | null,
+    vat_number: (companySettings as Record<string, unknown>).vat_number as string | null,
+  } : undefined;
+
+  const appliance = job.appliances as { fuel_type: string } | null;
+  const fuelType = appliance?.fuel_type || "oil";
+  const scheduledDate = job.scheduled_date || "";
+
+  const pdfBuffer = generateFormPdf(
+    formType,
+    config.label,
+    record as Record<string, unknown>,
+    config.fieldMap,
+    { jobRef: job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate },
+    pdfCompany,
+    fuelType,
+  );
+
+  const safeLabel = config.label.replace(/[^a-zA-Z0-9]/g, "_");
+  const filename = `${safeLabel}_${job.id.slice(0, 8).toUpperCase()}.pdf`;
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(pdfBuffer);
+});
+
 router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.jobId;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }

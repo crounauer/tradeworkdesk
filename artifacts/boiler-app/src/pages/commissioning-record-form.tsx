@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCreateCommissioningRecord, useGetCommissioningRecordByJob, useUpdateCommissioningRecord, getGetCommissioningRecordByJobQueryKey, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useCreateCommissioningRecord, useGetCommissioningRecordByJob, useUpdateCommissioningRecord, getGetCommissioningRecordByJobQueryKey, customFetch } from "@workspace/api-client-react";
 import type { CreateCommissioningRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -12,8 +12,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, ArrowLeft, FileDown, Shield, Gauge, ClipboardCheck, UserCheck, Trash2 } from "lucide-react";
 import { Link } from "wouter";
-import { generateCommissioningPdf } from "@/lib/pdf-generator";
-import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface CommissioningFormData {
   gas_safe_engineer_id: string;
@@ -44,13 +42,12 @@ export default function CommissioningRecordForm() {
 
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetCommissioningRecordByJob(jobId!);
   const queryClient = useQueryClient();
-  const { data: job } = useGetJob(jobId!);
 
-  const { data: company } = useCompanySettings();
+
   const createMutation = useCreateCommissioningRecord();
   const updateMutation = useUpdateCommissioningRecord();
 
-  const { register, handleSubmit, getValues, reset } = useForm<CommissioningFormData>();
+  const { register, handleSubmit, reset } = useForm<CommissioningFormData>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
@@ -127,22 +124,18 @@ export default function CommissioningRecordForm() {
     }
   };
 
-  const handleExportPdf = () => {
-    const vals = getValues();
-    const customer = job?.customer;
-    const property = job?.property;
-    const appliance = job?.appliance;
-    const technician = job?.technician;
-
-    generateCommissioningPdf({
-      jobId: jobId!,
-      customerName: customer ? `${customer.first_name} ${customer.last_name}` : "N/A",
-      propertyAddress: property?.address_line1 || "N/A",
-      applianceName: appliance ? `${appliance.manufacturer || ""} ${appliance.model || ""}`.trim() || "N/A" : "N/A",
-      technicianName: technician?.full_name || user?.email || "N/A",
-      scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
-      record: vals,
-    }, company ?? undefined);
+  const handleExportPdf = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/forms/commissioning_record/${existingRecord!.id}/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `commissioning-record-${jobId?.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast({ title: "Error", description: "Failed to export PDF", variant: "destructive" }); }
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;

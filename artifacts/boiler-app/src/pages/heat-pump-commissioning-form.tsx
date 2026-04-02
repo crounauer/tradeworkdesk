@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCreateHeatPumpCommissioningRecord, useGetHeatPumpCommissioningRecordByJob, getGetHeatPumpCommissioningRecordByJobQueryKey, useUpdateHeatPumpCommissioningRecord, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useCreateHeatPumpCommissioningRecord, useGetHeatPumpCommissioningRecordByJob, getGetHeatPumpCommissioningRecordByJobQueryKey, useUpdateHeatPumpCommissioningRecord, customFetch } from "@workspace/api-client-react";
 import type { CreateHeatPumpCommissioningRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -12,8 +12,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, FileDown, Wind, Gauge, ClipboardCheck, UserCheck, Settings, Trash2 } from "lucide-react";
 import { Link } from "wouter";
-import { generateHeatPumpCommissioningPdf } from "@/lib/pdf-generator";
-import { useCompanySettings } from "@/hooks/use-company-settings";
 
 interface HeatPumpCommissioningFormData {
   heat_loss_kwh: string;
@@ -44,13 +42,12 @@ export default function HeatPumpCommissioningForm() {
 
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetHeatPumpCommissioningRecordByJob(jobId!);
   const queryClient = useQueryClient();
-  const { data: job } = useGetJob(jobId!);
 
-  const { data: company } = useCompanySettings();
+
   const createMutation = useCreateHeatPumpCommissioningRecord();
   const updateMutation = useUpdateHeatPumpCommissioningRecord();
 
-  const { register, handleSubmit, getValues, reset } = useForm<HeatPumpCommissioningFormData>();
+  const { register, handleSubmit, reset } = useForm<HeatPumpCommissioningFormData>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
@@ -127,17 +124,18 @@ export default function HeatPumpCommissioningForm() {
     }
   };
 
-  const handleExportPdf = () => {
-    const vals = getValues();
-    generateHeatPumpCommissioningPdf({
-      jobId: jobId!,
-      customerName: job?.customer ? `${job.customer.first_name} ${job.customer.last_name}` : "N/A",
-      propertyAddress: job?.property?.address_line1 || "N/A",
-      applianceName: job?.appliance ? `${job.appliance.manufacturer || ""} ${job.appliance.model || ""}`.trim() || "N/A" : "N/A",
-      technicianName: job?.technician?.full_name || user?.email || "N/A",
-      scheduledDate: job?.scheduled_date ? new Date(String(job.scheduled_date).slice(0, 10)).toLocaleDateString() : new Date().toLocaleDateString(),
-      record: vals,
-    }, company ?? undefined);
+  const handleExportPdf = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/forms/heat_pump_commissioning_record/${existingRecord!.id}/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `heat-pump-commissioning-${jobId?.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast({ title: "Error", description: "Failed to export PDF", variant: "destructive" }); }
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;

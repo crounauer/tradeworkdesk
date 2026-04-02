@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateFireValveTestRecord, useGetFireValveTestRecordByJob, getGetFireValveTestRecordByJobQueryKey, useUpdateFireValveTestRecord, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useCreateFireValveTestRecord, useGetFireValveTestRecordByJob, getGetFireValveTestRecordByJobQueryKey, useUpdateFireValveTestRecord, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,6 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShieldCheck, MapPin, Trash2, FileDown } from "lucide-react";
-import { generateFireValveTestPdf } from "@/lib/pdf-generator";
-import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -37,11 +35,9 @@ export default function FireValveTestForm() {
   const createMutation = useCreateFireValveTestRecord();
   const updateMutation = useUpdateFireValveTestRecord();
 
-  const { register, handleSubmit, reset, getValues } = useForm<FireValveTestFormData>();
+  const { register, handleSubmit, reset } = useForm<FireValveTestFormData>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { data: job } = useGetJob(jobId!);
-  const { data: company } = useCompanySettings();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const populatedAt = useRef(0);
@@ -85,18 +81,18 @@ export default function FireValveTestForm() {
     }
   };
 
-  const handleExportPdf = () => {
-    const vals = getValues();
-    const customer = job?.customer;
-    const property = job?.property;
-    generateFireValveTestPdf({
-      jobId: jobId!,
-      customerName: customer ? `${customer.first_name} ${customer.last_name}` : "N/A",
-      propertyAddress: property?.address_line1 || "N/A",
-      technicianName: job?.technician?.full_name || user?.email || "N/A",
-      scheduledDate: job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString() : new Date().toLocaleDateString(),
-      record: vals,
-    }, company ?? undefined);
+  const handleExportPdf = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/forms/fire_valve_test_record/${existingRecord!.id}/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fire-valve-test-${jobId?.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast({ title: "Error", description: "Failed to export PDF", variant: "destructive" }); }
   };
 
   if (isLoadingExisting) return <div className="p-8">Loading form...</div>;
