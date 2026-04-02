@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateJobCompletionReport, useGetJobCompletionReportByJob, useUpdateJobCompletionReport, customFetch } from "@workspace/api-client-react";
+import { useCreateJobCompletionReport, useGetJobCompletionReportByJob, useUpdateJobCompletionReport, getGetJobCompletionReportByJobQueryKey, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ClipboardList, CalendarCheck, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface JobCompletionFormData {
   work_completed: string;
@@ -30,20 +31,21 @@ export default function JobCompletionReportForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetJobCompletionReportByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetJobCompletionReportByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateJobCompletionReport();
   const updateMutation = useUpdateJobCompletionReport();
 
   const { register, handleSubmit, reset } = useForm<JobCompletionFormData>();
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         work_completed: existingRecord.work_completed || "",
         outstanding_items: existingRecord.outstanding_items || "",
@@ -52,13 +54,13 @@ export default function JobCompletionReportForm() {
         customer_advised: existingRecord.customer_advised || false,
         customer_sign_off: existingRecord.customer_sign_off || false,
         customer_name_signed: existingRecord.customer_name_signed || "",
-        next_service_date: existingRecord.next_service_date || "",
+        next_service_date: typeof existingRecord.next_service_date === "string" ? existingRecord.next_service_date.slice(0, 10) : "",
         follow_up_required: existingRecord.follow_up_required || false,
         follow_up_notes: existingRecord.follow_up_notes || "",
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: JobCompletionFormData) => {
     if (!user?.id) return;
@@ -67,9 +69,11 @@ export default function JobCompletionReportForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetJobCompletionReportByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Completion report updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetJobCompletionReportByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Completion report created" });
       }
       setLocation(`/jobs/${jobId}`);

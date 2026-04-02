@@ -302,6 +302,267 @@ const SERVICE_RECORD_SECTIONS: SectionDef[] = [
   },
 ];
 
+const BREAKDOWN_REPORT_SECTIONS: SectionDef[] = [
+  {
+    title: "Fault Details",
+    fields: ["reported_fault", "symptoms"],
+    color: [225, 29, 72],
+  },
+  {
+    title: "Diagnosis & Findings",
+    fields: ["diagnostics_performed", "findings"],
+  },
+  {
+    title: "Repair Details",
+    fields: ["temporary_fix", "permanent_fix", "parts_required"],
+  },
+  {
+    title: "Safety & Follow-up",
+    fields: ["appliance_safe", "return_visit_required", "return_visit_notes", "additional_notes"],
+  },
+];
+
+const COMMISSIONING_RECORD_SECTIONS: SectionDef[] = [
+  {
+    title: "Gas Safe Details",
+    fields: ["gas_safe_engineer_id"],
+    color: [37, 99, 235],
+  },
+  {
+    title: "Pressure Readings",
+    fields: ["standing_pressure", "working_pressure", "operating_pressure", "gas_rate_measured"],
+  },
+  {
+    title: "Combustion Readings",
+    fields: ["combustion_co", "combustion_co2", "flue_temp"],
+  },
+  {
+    title: "Commissioning Checks",
+    fields: ["ignition_tested", "controls_tested", "thermostats_tested", "pressure_relief_tested",
+             "expansion_vessel_checked", "system_flushed", "inhibitor_added", "customer_instructions_given"],
+    checkboxGrid: true,
+    color: [22, 163, 74],
+  },
+  {
+    title: "Notes",
+    fields: ["notes"],
+  },
+];
+
+const JOB_COMPLETION_REPORT_SECTIONS: SectionDef[] = [
+  {
+    title: "Work Summary",
+    fields: ["work_completed", "outstanding_items", "defects_found", "advisories"],
+    color: [16, 185, 129],
+  },
+  {
+    title: "Customer Sign-off",
+    fields: ["customer_advised", "customer_sign_off"],
+    checkboxGrid: true,
+  },
+  {
+    title: "Follow-up",
+    fields: ["next_service_date", "follow_up_required", "follow_up_notes", "additional_notes"],
+  },
+];
+
+const BURNER_SETUP_SECTIONS: SectionDef[] = [
+  {
+    title: "Burner Details",
+    fields: ["burner_manufacturer", "burner_model", "burner_serial_number"],
+    color: [234, 88, 12],
+  },
+  {
+    title: "Nozzle Settings",
+    fields: ["nozzle_size", "nozzle_type", "nozzle_angle"],
+  },
+  {
+    title: "Pressure & Electrode Settings",
+    fields: ["pump_pressure", "pump_vacuum", "electrode_gap", "electrode_position",
+             "air_damper_setting", "head_setting"],
+  },
+  {
+    title: "Combustion Readings",
+    fields: ["combustion_co2", "combustion_co", "combustion_smoke", "combustion_efficiency"],
+  },
+  {
+    title: "Notes",
+    fields: ["additional_notes"],
+  },
+];
+
+const COMBUSTION_ANALYSIS_SECTIONS: SectionDef[] = [
+  {
+    title: "Readings",
+    fields: ["co2_reading", "co_reading", "o2_reading", "flue_temperature",
+             "ambient_temperature", "efficiency", "excess_air", "smoke_number",
+             "ambient_co", "draft_reading"],
+  },
+  {
+    title: "Instrument Details",
+    fields: ["instrument_make", "instrument_model", "instrument_serial", "calibration_date"],
+    color: [107, 114, 128],
+  },
+  {
+    title: "Result",
+    fields: ["pass_fail", "additional_notes"],
+    color: [22, 163, 74],
+  },
+];
+
+const FIRE_VALVE_TEST_SECTIONS: SectionDef[] = [
+  {
+    title: "Valve Details",
+    fields: ["valve_location", "valve_type", "valve_manufacturer"],
+    color: [220, 38, 38],
+  },
+  {
+    title: "Test Details",
+    fields: ["test_date", "test_method", "test_result", "response_time"],
+  },
+  {
+    title: "Result & Actions",
+    fields: ["reset_successful", "remedial_action", "additional_notes"],
+  },
+];
+
+const OIL_LINE_VACUUM_TEST_SECTIONS: SectionDef[] = [
+  {
+    title: "Pipe Details",
+    fields: ["pipe_size", "pipe_material", "pipe_length", "number_of_joints"],
+    color: [107, 114, 128],
+  },
+  {
+    title: "Vacuum Readings",
+    fields: ["initial_vacuum", "vacuum_after_5_min", "vacuum_after_10_min",
+             "allowable_drop", "actual_drop"],
+  },
+  {
+    title: "Result",
+    fields: ["pass_fail", "remedial_action", "additional_notes"],
+    color: [22, 163, 74],
+  },
+];
+
+const OIL_TANK_INSPECTION_SECTIONS: SectionDef[] = [
+  {
+    title: "Tank Details",
+    fields: ["tank_type", "tank_size", "tank_material", "tank_location", "tank_age"],
+    color: [107, 114, 128],
+  },
+  {
+    title: "Bunding",
+    fields: ["bunding_type", "bunding_condition"],
+  },
+  {
+    title: "Component Condition",
+    fields: ["sight_gauge_condition", "fill_point_condition", "vent_condition",
+             "filter_condition", "pipework_condition", "supports_condition", "overall_condition"],
+  },
+  {
+    title: "Defects & Actions",
+    fields: ["leaks_found", "leaks_details", "remedial_actions", "additional_notes"],
+    color: [234, 88, 12],
+  },
+];
+
+const OIL_TANK_RISK_ASSESSMENT_SECTIONS: SectionDef[] = [
+  {
+    title: "Hazard Identification",
+    fields: ["site_hazards", "environmental_risks", "fire_risk", "access_risk"],
+    color: [234, 88, 12],
+  },
+  {
+    title: "Risk Rating",
+    fields: ["likelihood_rating", "severity_rating", "overall_risk_rating"],
+  },
+  {
+    title: "Control Measures",
+    fields: ["control_measures", "further_actions_required"],
+    color: [22, 163, 74],
+  },
+  {
+    title: "Assessor Details",
+    fields: ["assessor_name", "assessor_qualification", "assessment_date", "additional_notes"],
+    color: [107, 114, 128],
+  },
+];
+
+const HEAT_PUMP_SERVICE_SECTIONS: SectionDef[] = [
+  {
+    title: "Refrigerant Details",
+    fields: ["refrigerant_type", "refrigerant_pressure_high", "refrigerant_pressure_low"],
+    color: [37, 99, 235],
+  },
+  {
+    title: "Temperature Readings",
+    fields: ["flow_temp", "return_temp", "delta_t", "cop_reading", "compressor_amps"],
+  },
+  {
+    title: "Unit Condition",
+    fields: ["outdoor_unit_condition", "indoor_unit_condition", "filter_condition"],
+  },
+  {
+    title: "Checks",
+    fields: ["controls_checked", "dhw_cylinder_checked"],
+    checkboxGrid: true,
+    color: [22, 163, 74],
+  },
+  {
+    title: "DHW Details",
+    fields: ["dhw_cylinder_temp"],
+  },
+  {
+    title: "Safety & Defects",
+    fields: ["defects_found", "defects_details", "advisories", "appliance_safe"],
+    color: [234, 88, 12],
+  },
+  {
+    title: "Follow-up",
+    fields: ["follow_up_required", "follow_up_notes", "additional_notes"],
+  },
+];
+
+const HEAT_PUMP_COMMISSIONING_SECTIONS: SectionDef[] = [
+  {
+    title: "Design Data",
+    fields: ["heat_loss_kwh", "design_flow_temp"],
+    color: [37, 99, 235],
+  },
+  {
+    title: "Refrigerant Details",
+    fields: ["refrigerant_type", "refrigerant_charge_weight",
+             "commissioning_pressure_high", "commissioning_pressure_low", "measured_cop"],
+  },
+  {
+    title: "Commissioning Checks",
+    fields: ["expansion_vessel_checked", "safety_devices_checked", "controls_commissioned",
+             "buffer_tank_checked", "cylinder_checked", "system_flushed", "inhibitor_added",
+             "customer_instructions_given"],
+    checkboxGrid: true,
+    color: [22, 163, 74],
+  },
+  {
+    title: "Notes",
+    fields: ["notes"],
+  },
+];
+
+const FORM_SECTIONS: Record<string, SectionDef[]> = {
+  service_record: SERVICE_RECORD_SECTIONS,
+  breakdown_report: BREAKDOWN_REPORT_SECTIONS,
+  commissioning_record: COMMISSIONING_RECORD_SECTIONS,
+  job_completion_report: JOB_COMPLETION_REPORT_SECTIONS,
+  burner_setup_record: BURNER_SETUP_SECTIONS,
+  combustion_analysis_record: COMBUSTION_ANALYSIS_SECTIONS,
+  fire_valve_test_record: FIRE_VALVE_TEST_SECTIONS,
+  oil_line_vacuum_test: OIL_LINE_VACUUM_TEST_SECTIONS,
+  oil_tank_inspection: OIL_TANK_INSPECTION_SECTIONS,
+  oil_tank_risk_assessment: OIL_TANK_RISK_ASSESSMENT_SECTIONS,
+  heat_pump_service_record: HEAT_PUMP_SERVICE_SECTIONS,
+  heat_pump_commissioning_record: HEAT_PUMP_COMMISSIONING_SECTIONS,
+};
+
 function isCheckboxField(col: string): boolean {
   const boolFields = new Set([
     "burner_cleaned", "heat_exchanger_cleaned", "seals_gaskets_checked", "seals_gaskets_replaced",
@@ -355,7 +616,7 @@ export function generateFormPdf(
     ["Date", ctx.scheduledDate],
   ]);
 
-  const sections = formType === "service_record" ? SERVICE_RECORD_SECTIONS : null;
+  const sections = FORM_SECTIONS[formType] || null;
   const isGas = fuelType === "gas" || fuelType === "lpg";
 
   if (sections) {

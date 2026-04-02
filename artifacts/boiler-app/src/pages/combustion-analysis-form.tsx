@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateCombustionAnalysisRecord, useGetCombustionAnalysisRecordByJob, useUpdateCombustionAnalysisRecord, customFetch } from "@workspace/api-client-react";
+import { useCreateCombustionAnalysisRecord, useGetCombustionAnalysisRecordByJob, getGetCombustionAnalysisRecordByJobQueryKey, useUpdateCombustionAnalysisRecord, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Gauge, Thermometer, Award, Trash2 } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface CombustionAnalysisFormData {
   co2_reading: string;
@@ -35,7 +36,8 @@ export default function CombustionAnalysisForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetCombustionAnalysisRecordByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetCombustionAnalysisRecordByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateCombustionAnalysisRecord();
   const updateMutation = useUpdateCombustionAnalysisRecord();
 
@@ -44,11 +46,11 @@ export default function CombustionAnalysisForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         co2_reading: existingRecord.co2_reading || "",
         co_reading: existingRecord.co_reading || "",
@@ -63,12 +65,12 @@ export default function CombustionAnalysisForm() {
         instrument_make: existingRecord.instrument_make || "",
         instrument_model: existingRecord.instrument_model || "",
         instrument_serial: existingRecord.instrument_serial || "",
-        calibration_date: existingRecord.calibration_date || "",
+        calibration_date: typeof existingRecord.calibration_date === "string" ? existingRecord.calibration_date.slice(0, 10) : "",
         pass_fail: existingRecord.pass_fail || "",
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: CombustionAnalysisFormData) => {
     if (!user?.id) return;
@@ -77,9 +79,11 @@ export default function CombustionAnalysisForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetCombustionAnalysisRecordByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Combustion analysis updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetCombustionAnalysisRecordByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Combustion analysis created" });
       }
       setLocation(`/jobs/${jobId}`);

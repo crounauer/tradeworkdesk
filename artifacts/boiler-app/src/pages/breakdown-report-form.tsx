@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateBreakdownReport, useGetBreakdownReportByJob, useUpdateBreakdownReport, customFetch } from "@workspace/api-client-react";
+import { useCreateBreakdownReport, useGetBreakdownReportByJob, useUpdateBreakdownReport, getGetBreakdownReportByJobQueryKey, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, AlertTriangle, Wrench, Trash2 } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface BreakdownFormData {
   reported_fault: string;
@@ -30,7 +31,8 @@ export default function BreakdownReportForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingReport, isLoading: isLoadingExisting } = useGetBreakdownReportByJob(jobId!);
+  const { data: existingReport, isLoading: isLoadingExisting, dataUpdatedAt } = useGetBreakdownReportByJob(jobId!);
+  const queryClient = useQueryClient();
 
   const createMutation = useCreateBreakdownReport();
   const updateMutation = useUpdateBreakdownReport();
@@ -40,11 +42,11 @@ export default function BreakdownReportForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingReport && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingReport && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         reported_fault: existingReport.reported_fault || "",
         symptoms: existingReport.symptoms || "",
@@ -59,7 +61,7 @@ export default function BreakdownReportForm() {
         additional_notes: existingReport.additional_notes || "",
       });
     }
-  }, [existingReport, reset]);
+  }, [existingReport, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: BreakdownFormData) => {
     if (!user?.id) return;
@@ -76,9 +78,11 @@ export default function BreakdownReportForm() {
           id: existingReport.id,
           data: payload,
         });
+        await queryClient.invalidateQueries({ queryKey: getGetBreakdownReportByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Breakdown report updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetBreakdownReportByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Breakdown report created" });
       }
       setLocation(`/jobs/${jobId}`);

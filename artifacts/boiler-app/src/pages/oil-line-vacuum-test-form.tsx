@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateOilLineVacuumTest, useGetOilLineVacuumTestByJob, useUpdateOilLineVacuumTest, customFetch } from "@workspace/api-client-react";
+import { useCreateOilLineVacuumTest, useGetOilLineVacuumTestByJob, getGetOilLineVacuumTestByJobQueryKey, useUpdateOilLineVacuumTest, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Pipette, Timer, CheckCircle } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface OilLineVacuumTestFormData {
   pipe_size: string;
@@ -31,7 +32,8 @@ export default function OilLineVacuumTestForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetOilLineVacuumTestByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetOilLineVacuumTestByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateOilLineVacuumTest();
   const updateMutation = useUpdateOilLineVacuumTest();
 
@@ -40,11 +42,11 @@ export default function OilLineVacuumTestForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         pipe_size: existingRecord.pipe_size || "",
         pipe_material: existingRecord.pipe_material || "",
@@ -60,7 +62,7 @@ export default function OilLineVacuumTestForm() {
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: OilLineVacuumTestFormData) => {
     if (!user?.id) return;
@@ -69,9 +71,11 @@ export default function OilLineVacuumTestForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetOilLineVacuumTestByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Vacuum test updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetOilLineVacuumTestByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Vacuum test created" });
       }
       setLocation(`/jobs/${jobId}`);

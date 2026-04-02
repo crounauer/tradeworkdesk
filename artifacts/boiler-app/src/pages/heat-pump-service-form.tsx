@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
-import { useEffect , useRef, useState } from "react";
-import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, useUpdateHeatPumpServiceRecord, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCreateHeatPumpServiceRecord, useGetHeatPumpServiceRecordByJob, getGetHeatPumpServiceRecordByJobQueryKey, useUpdateHeatPumpServiceRecord, useGetJob, customFetch } from "@workspace/api-client-react";
 import type { CreateHeatPumpServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -46,7 +47,8 @@ export default function HeatPumpServiceForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetHeatPumpServiceRecordByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetHeatPumpServiceRecordByJob(jobId!);
+  const queryClient = useQueryClient();
   const { data: job } = useGetJob(jobId!);
 
   const { data: company } = useCompanySettings();
@@ -60,11 +62,11 @@ export default function HeatPumpServiceForm() {
   const { register, handleSubmit, getValues, reset } = useForm<HeatPumpServiceFormData>({
     defaultValues: { appliance_safe: true },
   });
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         refrigerant_type: existingRecord.refrigerant_type || "",
         refrigerant_pressure_high: existingRecord.refrigerant_pressure_high || "",
@@ -91,7 +93,7 @@ export default function HeatPumpServiceForm() {
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: HeatPumpServiceFormData) => {
     if (!user?.id || !jobId) return;
@@ -128,9 +130,11 @@ export default function HeatPumpServiceForm() {
       if (existingRecord) {
         const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
         await updateMutation.mutateAsync({ jobId, data: updatePayload });
+        await queryClient.invalidateQueries({ queryKey: getGetHeatPumpServiceRecordByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Heat pump service record updated successfully" });
       } else {
         await createMutation.mutateAsync({ jobId, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetHeatPumpServiceRecordByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Heat pump service record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);

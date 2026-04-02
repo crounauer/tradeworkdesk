@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateOilTankInspection, useGetOilTankInspectionByJob, useUpdateOilTankInspection, customFetch } from "@workspace/api-client-react";
+import { useCreateOilTankInspection, useGetOilTankInspectionByJob, getGetOilTankInspectionByJobQueryKey, useUpdateOilTankInspection, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Droplets, Shield, Eye } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface OilTankInspectionFormData {
   tank_type: string;
@@ -37,7 +38,8 @@ export default function OilTankInspectionForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetOilTankInspectionByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetOilTankInspectionByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateOilTankInspection();
   const updateMutation = useUpdateOilTankInspection();
 
@@ -46,11 +48,11 @@ export default function OilTankInspectionForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         tank_type: existingRecord.tank_type || "",
         tank_size: existingRecord.tank_size || "",
@@ -72,7 +74,7 @@ export default function OilTankInspectionForm() {
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: OilTankInspectionFormData) => {
     if (!user?.id) return;
@@ -81,9 +83,11 @@ export default function OilTankInspectionForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetOilTankInspectionByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Oil tank inspection updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetOilTankInspectionByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Oil tank inspection created" });
       }
       setLocation(`/jobs/${jobId}`);

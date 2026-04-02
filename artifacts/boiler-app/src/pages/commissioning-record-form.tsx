@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
-import { useEffect , useRef, useState } from "react";
-import { useCreateCommissioningRecord, useGetCommissioningRecordByJob, useUpdateCommissioningRecord, useGetJob, customFetch } from "@workspace/api-client-react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCreateCommissioningRecord, useGetCommissioningRecordByJob, useUpdateCommissioningRecord, getGetCommissioningRecordByJobQueryKey, useGetJob, customFetch } from "@workspace/api-client-react";
 import type { CreateCommissioningRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -41,7 +42,8 @@ export default function CommissioningRecordForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetCommissioningRecordByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetCommissioningRecordByJob(jobId!);
+  const queryClient = useQueryClient();
   const { data: job } = useGetJob(jobId!);
 
   const { data: company } = useCompanySettings();
@@ -53,11 +55,11 @@ export default function CommissioningRecordForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         gas_safe_engineer_id: existingRecord.gas_safe_engineer_id || "",
         standing_pressure: existingRecord.standing_pressure || "",
@@ -79,7 +81,7 @@ export default function CommissioningRecordForm() {
         notes: existingRecord.notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: CommissioningFormData) => {
     if (!user?.id) return;
@@ -111,9 +113,11 @@ export default function CommissioningRecordForm() {
       if (existingRecord) {
         const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
         await updateMutation.mutateAsync({ id: existingRecord.id, data: updatePayload });
+        await queryClient.invalidateQueries({ queryKey: getGetCommissioningRecordByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Commissioning record updated successfully" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetCommissioningRecordByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Commissioning record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateFireValveTestRecord, useGetFireValveTestRecordByJob, useUpdateFireValveTestRecord, customFetch } from "@workspace/api-client-react";
+import { useCreateFireValveTestRecord, useGetFireValveTestRecordByJob, getGetFireValveTestRecordByJobQueryKey, useUpdateFireValveTestRecord, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShieldCheck, MapPin, Trash2 } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface FireValveTestFormData {
   valve_location: string;
@@ -29,7 +30,8 @@ export default function FireValveTestForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetFireValveTestRecordByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetFireValveTestRecordByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateFireValveTestRecord();
   const updateMutation = useUpdateFireValveTestRecord();
 
@@ -38,16 +40,16 @@ export default function FireValveTestForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         valve_location: existingRecord.valve_location || "",
         valve_type: existingRecord.valve_type || "",
         valve_manufacturer: existingRecord.valve_manufacturer || "",
-        test_date: existingRecord.test_date || "",
+        test_date: typeof existingRecord.test_date === "string" ? existingRecord.test_date.slice(0, 10) : "",
         test_method: existingRecord.test_method || "",
         test_result: existingRecord.test_result || "",
         response_time: existingRecord.response_time || "",
@@ -56,7 +58,7 @@ export default function FireValveTestForm() {
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: FireValveTestFormData) => {
     if (!user?.id) return;
@@ -65,9 +67,11 @@ export default function FireValveTestForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetFireValveTestRecordByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Fire valve test updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetFireValveTestRecordByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Fire valve test created" });
       }
       setLocation(`/jobs/${jobId}`);

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateBurnerSetupRecord, useGetBurnerSetupRecordByJob, useUpdateBurnerSetupRecord, customFetch } from "@workspace/api-client-react";
+import { useCreateBurnerSetupRecord, useGetBurnerSetupRecordByJob, getGetBurnerSetupRecordByJobQueryKey, useUpdateBurnerSetupRecord, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Flame, Settings, Gauge, Trash2 } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface BurnerSetupFormData {
   burner_manufacturer: string;
@@ -36,7 +37,8 @@ export default function BurnerSetupForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetBurnerSetupRecordByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetBurnerSetupRecordByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateBurnerSetupRecord();
   const updateMutation = useUpdateBurnerSetupRecord();
 
@@ -45,11 +47,11 @@ export default function BurnerSetupForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         burner_manufacturer: existingRecord.burner_manufacturer || "",
         burner_model: existingRecord.burner_model || "",
@@ -70,7 +72,7 @@ export default function BurnerSetupForm() {
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: BurnerSetupFormData) => {
     if (!user?.id) return;
@@ -79,9 +81,11 @@ export default function BurnerSetupForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetBurnerSetupRecordByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Burner setup record updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetBurnerSetupRecordByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Burner setup record created" });
       }
       setLocation(`/jobs/${jobId}`);

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateOilTankRiskAssessment, useGetOilTankRiskAssessmentByJob, useUpdateOilTankRiskAssessment, customFetch } from "@workspace/api-client-react";
+import { useCreateOilTankRiskAssessment, useGetOilTankRiskAssessmentByJob, getGetOilTankRiskAssessmentByJobQueryKey, useUpdateOilTankRiskAssessment, customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ShieldAlert, TriangleAlert, Scale } from "lucide-react";
-import { useEffect , useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface RiskAssessmentFormData {
   site_hazards: string;
@@ -32,16 +33,17 @@ export default function OilTankRiskAssessmentForm() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: existingRecord, isLoading: isLoadingExisting } = useGetOilTankRiskAssessmentByJob(jobId!);
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetOilTankRiskAssessmentByJob(jobId!);
+  const queryClient = useQueryClient();
   const createMutation = useCreateOilTankRiskAssessment();
   const updateMutation = useUpdateOilTankRiskAssessment();
 
   const { register, handleSubmit, reset } = useForm<RiskAssessmentFormData>();
-  const hasPopulated = useRef(false);
+  const populatedAt = useRef(0);
 
   useEffect(() => {
-    if (existingRecord && !hasPopulated.current) {
-      hasPopulated.current = true;
+    if (existingRecord && dataUpdatedAt > populatedAt.current) {
+      populatedAt.current = dataUpdatedAt;
       reset({
         site_hazards: existingRecord.site_hazards || "",
         environmental_risks: existingRecord.environmental_risks || "",
@@ -54,11 +56,11 @@ export default function OilTankRiskAssessmentForm() {
         further_actions_required: existingRecord.further_actions_required || "",
         assessor_name: existingRecord.assessor_name || "",
         assessor_qualification: existingRecord.assessor_qualification || "",
-        assessment_date: existingRecord.assessment_date || "",
+        assessment_date: typeof existingRecord.assessment_date === "string" ? existingRecord.assessment_date.slice(0, 10) : "",
         additional_notes: existingRecord.additional_notes || "",
       });
     }
-  }, [existingRecord, reset]);
+  }, [existingRecord, dataUpdatedAt, reset]);
 
   const onSubmit = async (data: RiskAssessmentFormData) => {
     if (!user?.id) return;
@@ -67,9 +69,11 @@ export default function OilTankRiskAssessmentForm() {
     try {
       if (existingRecord) {
         await updateMutation.mutateAsync({ id: existingRecord.id, data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetOilTankRiskAssessmentByJobQueryKey(jobId!) });
         toast({ title: "Updated", description: "Risk assessment updated" });
       } else {
         await createMutation.mutateAsync({ data: payload });
+        await queryClient.invalidateQueries({ queryKey: getGetOilTankRiskAssessmentByJobQueryKey(jobId!) });
         toast({ title: "Success", description: "Risk assessment created" });
       }
       setLocation(`/jobs/${jobId}`);
