@@ -622,8 +622,14 @@ export function generateFormPdf(
   if (sections) {
     const usedCols = new Set<string>();
     for (const section of sections) {
-      if (section.fuel === "gas" && !isGas) continue;
-      if (section.fuel === "oil" && isGas) continue;
+      if (section.fuel === "gas" && !isGas) {
+        for (const col of section.fields) usedCols.add(col);
+        continue;
+      }
+      if (section.fuel === "oil" && isGas) {
+        for (const col of section.fields) usedCols.add(col);
+        continue;
+      }
       const rows: [string, string][] = [];
       const checks: [string, string][] = [];
 
