@@ -1247,7 +1247,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     if (!FORM_TABLE_MAP[f.form_type]) { res.status(400).json({ error: `Unknown form type: ${f.form_type}` }); return; }
   }
 
-  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email), profiles(full_name)").eq("id", jobId);
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email), profiles(full_name), appliances(fuel_type)").eq("id", jobId);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job, error: jobErr } = await jobQ.single();
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
@@ -1307,6 +1307,8 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   }
 
   const scheduledDate = job.scheduled_date || "";
+  const appliance = job.appliances as { fuel_type: string } | null;
+  const fuelType = appliance?.fuel_type || "oil";
   const formCtx = { jobRef: job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
 
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
@@ -1334,6 +1336,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       config.fieldMap,
       formCtx,
       pdfCompany,
+      fuelType,
     );
 
     const safeLabel = config.label.replace(/[^a-zA-Z0-9]/g, "_");

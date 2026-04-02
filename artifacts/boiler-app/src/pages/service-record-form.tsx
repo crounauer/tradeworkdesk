@@ -111,6 +111,16 @@ export default function ServiceRecordForm() {
   const isGas = fuelType === "gas" || fuelType === "lpg";
   const isOil = !isGas;
 
+  const toDatetimeLocal = (v: unknown): string => {
+    if (!v) return "";
+    const s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   const watchClassification = watch("appliance_classification");
   const isAtRisk = watchClassification === "at_risk";
   const isImmediatelyDangerous = watchClassification === "immediately_dangerous";
@@ -120,8 +130,8 @@ export default function ServiceRecordForm() {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
       reset({
-        arrival_time: existingRecord.arrival_time || "",
-        departure_time: existingRecord.departure_time || "",
+        arrival_time: toDatetimeLocal(existingRecord.arrival_time),
+        departure_time: toDatetimeLocal(existingRecord.departure_time),
         visual_inspection: existingRecord.visual_inspection || "",
         appliance_condition: existingRecord.appliance_condition || "",
         flue_inspection: existingRecord.flue_inspection || "",
@@ -160,7 +170,7 @@ export default function ServiceRecordForm() {
         appliance_safe: existingRecord.appliance_safe ?? false,
         follow_up_required: existingRecord.follow_up_required ?? false,
         follow_up_notes: existingRecord.follow_up_notes || "",
-        next_service_due: existingRecord.next_service_due || "",
+        next_service_due: existingRecord.next_service_due ? String(existingRecord.next_service_due).slice(0, 10) : "",
         additional_notes: existingRecord.additional_notes || "",
         gas_tightness_pass: existingRecord.gas_tightness_pass ?? false,
         gas_standing_pressure: existingRecord.gas_standing_pressure || "",
