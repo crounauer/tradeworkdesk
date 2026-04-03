@@ -1529,7 +1529,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 bg-background">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-lg flex items-center gap-2"><Mail className="w-5 h-5" /> Email Forms to Customer</h3>
