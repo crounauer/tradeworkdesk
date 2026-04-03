@@ -11,7 +11,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import {
   Plus, Search, Phone, Mail, MessageSquare, Globe, Users, Hash,
-  Clock, Filter, ChevronRight
+  Clock, Filter, ChevronRight, ChevronDown, ChevronUp, CheckCircle2, FileText, XCircle
 } from "lucide-react";
 
 const SOURCE_OPTIONS = [
@@ -154,40 +154,13 @@ function EnquiriesContent() {
           )}
         </Card>
       ) : (
-        <div className="space-y-3">
-          {enquiries.map((enq: Record<string, unknown>) => (
-            <Link key={enq.id as string} href={`/enquiries/${enq.id}`}>
-              <Card className="p-5 hover:border-primary/50 hover:shadow-md cursor-pointer transition-all">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-bold text-foreground text-lg">{enq.contact_name as string}</span>
-                      {getSourceBadge(enq.source as string)}
-                      {getStatusBadge(enq.status as string)}
-                    </div>
-                    {(enq.contact_phone || enq.contact_email) && (
-                      <p className="text-sm text-muted-foreground">
-                        {enq.contact_phone as string}{enq.contact_phone && enq.contact_email ? " · " : ""}{enq.contact_email as string}
-                      </p>
-                    )}
-                    {enq.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{enq.description as string}</p>
-                    )}
-                    {enq.address && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{enq.address as string}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {getAge(enq.created_at as string)}
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <EnquirySections
+          enquiries={enquiries}
+          getSourceBadge={getSourceBadge}
+          getStatusBadge={getStatusBadge}
+          getAge={getAge}
+          statusFilter={statusFilter}
+        />
       )}
 
       {showCreate && (
@@ -199,6 +172,185 @@ function EnquiriesContent() {
             toast({ title: "Enquiry created", description: "New enquiry has been recorded." });
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function EnquiryCard({
+  enq,
+  getSourceBadge,
+  getStatusBadge,
+  getAge,
+}: {
+  enq: Record<string, unknown>;
+  getSourceBadge: (s: string) => React.ReactNode;
+  getStatusBadge: (s: string) => React.ReactNode;
+  getAge: (c: string) => string;
+}) {
+  const job = enq.job as { id: string; status: string; job_type: string } | null;
+  return (
+    <Link href={`/enquiries/${enq.id}`}>
+      <Card className="p-5 hover:border-primary/50 hover:shadow-md cursor-pointer transition-all">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="font-bold text-foreground text-lg">{enq.contact_name as string}</span>
+              {getSourceBadge(enq.source as string)}
+              {getStatusBadge(enq.status as string)}
+              {job && (enq.status === "converted") && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  job.status === "invoiced" ? "bg-emerald-100 text-emerald-700"
+                    : job.status === "completed" ? "bg-teal-100 text-teal-700"
+                    : "bg-blue-50 text-blue-600"
+                }`}>
+                  Job: {job.status.replace("_", " ")}
+                </span>
+              )}
+            </div>
+            {(enq.contact_phone || enq.contact_email) && (
+              <p className="text-sm text-muted-foreground">
+                {enq.contact_phone as string}{enq.contact_phone && enq.contact_email ? " · " : ""}{enq.contact_email as string}
+              </p>
+            )}
+            {enq.description && (
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{enq.description as string}</p>
+            )}
+            {enq.address && (
+              <p className="text-xs text-muted-foreground mt-0.5">{enq.address as string}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" /> {getAge(enq.created_at as string)}
+            </span>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </div>
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+function EnquirySections({
+  enquiries,
+  getSourceBadge,
+  getStatusBadge,
+  getAge,
+  statusFilter,
+}: {
+  enquiries: Record<string, unknown>[];
+  getSourceBadge: (s: string) => React.ReactNode;
+  getStatusBadge: (s: string) => React.ReactNode;
+  getAge: (c: string) => string;
+  statusFilter: string;
+}) {
+  const [showConverted, setShowConverted] = useState(statusFilter === "converted");
+  const [showInvoiced, setShowInvoiced] = useState(false);
+  const [showLost, setShowLost] = useState(statusFilter === "lost");
+
+  const active = enquiries.filter((e) => {
+    const s = e.status as string;
+    return s !== "converted" && s !== "lost";
+  });
+
+  const converted = enquiries.filter((e) => e.status === "converted");
+  const invoiced = converted.filter((e) => {
+    const job = e.job as { status: string } | null;
+    return job?.status === "invoiced";
+  });
+  const convertedNotInvoiced = converted.filter((e) => {
+    const job = e.job as { status: string } | null;
+    return job?.status !== "invoiced";
+  });
+
+  const lost = enquiries.filter((e) => e.status === "lost");
+
+  const isFiltered = !!statusFilter;
+
+  const renderCards = (items: Record<string, unknown>[]) => (
+    <div className="space-y-3">
+      {items.map((enq) => (
+        <EnquiryCard
+          key={enq.id as string}
+          enq={enq}
+          getSourceBadge={getSourceBadge}
+          getStatusBadge={getStatusBadge}
+          getAge={getAge}
+        />
+      ))}
+    </div>
+  );
+
+  if (isFiltered) {
+    return renderCards(enquiries);
+  }
+
+  return (
+    <div className="space-y-6">
+      {active.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-bold text-lg text-foreground">Active Enquiries</h2>
+            <span className="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{active.length}</span>
+          </div>
+          {renderCards(active)}
+        </div>
+      )}
+
+      {convertedNotInvoiced.length > 0 && (
+        <div>
+          <button
+            className="w-full flex items-center gap-2 mb-3 group"
+            onClick={() => setShowConverted(!showConverted)}
+          >
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <h2 className="font-bold text-lg text-emerald-700">Converted</h2>
+            <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{convertedNotInvoiced.length}</span>
+            <div className="flex-1 border-t border-border/50" />
+            {showConverted ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showConverted && renderCards(convertedNotInvoiced)}
+        </div>
+      )}
+
+      {invoiced.length > 0 && (
+        <div>
+          <button
+            className="w-full flex items-center gap-2 mb-3 group"
+            onClick={() => setShowInvoiced(!showInvoiced)}
+          >
+            <FileText className="w-5 h-5 text-teal-600" />
+            <h2 className="font-bold text-lg text-teal-700">Invoiced</h2>
+            <span className="text-xs font-medium bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">{invoiced.length}</span>
+            <div className="flex-1 border-t border-border/50" />
+            {showInvoiced ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showInvoiced && renderCards(invoiced)}
+        </div>
+      )}
+
+      {lost.length > 0 && (
+        <div>
+          <button
+            className="w-full flex items-center gap-2 mb-3 group"
+            onClick={() => setShowLost(!showLost)}
+          >
+            <XCircle className="w-5 h-5 text-slate-400" />
+            <h2 className="font-bold text-lg text-slate-500">Lost</h2>
+            <span className="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{lost.length}</span>
+            <div className="flex-1 border-t border-border/50" />
+            {showLost ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showLost && renderCards(lost)}
+        </div>
+      )}
+
+      {active.length === 0 && converted.length === 0 && lost.length === 0 && (
+        <Card className="p-12 text-center border-dashed border-2">
+          <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <h3 className="text-lg font-bold mb-1">No enquiries</h3>
+        </Card>
       )}
     </div>
   );
