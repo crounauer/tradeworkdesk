@@ -310,6 +310,7 @@ export default function AdminCompanySettings() {
             <div className="space-y-1.5">
               <Label htmlFor="call_out_fee">Call-out Fee</Label>
               <Input id="call_out_fee" type="number" step="0.01" min="0" placeholder="e.g. 65.00" {...register("call_out_fee")} />
+              <p className="text-xs text-muted-foreground">Fixed fee covering the first hour. Additional time billed at the hourly rate.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>

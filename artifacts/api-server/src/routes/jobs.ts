@@ -791,16 +791,49 @@ async function buildInvoiceData(
         if (diffMs > 0) {
           const hours = diffMs / (1000 * 60 * 60);
           totalLabourHours += hours;
-          const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
-          if (rate > 0) totalLabourCost += hours * rate;
         }
       }
     }
   }
   totalLabourHours = Math.round(totalLabourHours * 100) / 100;
+
+  const billableHours = callOutFee > 0 ? Math.max(0, totalLabourHours - 1) : totalLabourHours;
+
+  if (timeEntries && billableHours > 0) {
+    let remainingBillable = billableHours;
+    let hoursProcessed = 0;
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[]) {
+      if (e.arrival_time && e.departure_time) {
+        const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
+        if (diffMs > 0) {
+          const hours = diffMs / (1000 * 60 * 60);
+          const coveredByCallout = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
+          const billableForEntry = hours - coveredByCallout;
+          if (billableForEntry > 0 && remainingBillable > 0) {
+            const actualBillable = Math.min(billableForEntry, remainingBillable);
+            const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
+            if (rate > 0) totalLabourCost += actualBillable * rate;
+            remainingBillable -= actualBillable;
+          }
+          hoursProcessed += hours;
+        }
+      }
+    }
+  }
   totalLabourCost = Math.round(totalLabourCost * 100) / 100;
 
   const lines: InvoiceLineItem[] = [];
+
+  if (callOutFee > 0) {
+    const coveredHrs = Math.min(totalLabourHours, 1);
+    const coveredLabel = coveredHrs > 0 ? ` (incl. first ${coveredHrs >= 1 ? "hour" : `${Math.round(coveredHrs * 60)}min`})` : "";
+    lines.push({
+      description: `Call-out Fee${coveredLabel}`,
+      quantity: 1,
+      unit_price: callOutFee,
+      total: callOutFee,
+    });
+  }
 
   if (parts) {
     for (const p of parts as { part_name: string; quantity: number; unit_price: number | null }[]) {
@@ -815,26 +848,17 @@ async function buildInvoiceData(
   }
 
   if (totalLabourCost > 0) {
-    const effectiveRate = totalLabourHours > 0 ? Math.round(totalLabourCost / totalLabourHours * 100) / 100 : 0;
+    const effectiveRate = billableHours > 0 ? Math.round(totalLabourCost / billableHours * 100) / 100 : 0;
     lines.push({
-      description: "Labour",
-      quantity: totalLabourHours,
+      description: callOutFee > 0 ? "Labour (after first hour)" : "Labour",
+      quantity: Math.round(billableHours * 100) / 100,
       unit_price: effectiveRate,
       total: totalLabourCost,
     });
   }
 
-  if (callOutFee > 0) {
-    lines.push({
-      description: "Call-out Fee",
-      quantity: 1,
-      unit_price: callOutFee,
-      total: callOutFee,
-    });
-  }
-
-  const partsTotal = lines.filter(l => l.description !== "Labour" && l.description !== "Call-out Fee").reduce((sum, l) => sum + l.total, 0);
-  const labourTotal = lines.filter(l => l.description === "Labour").reduce((sum, l) => sum + l.total, 0);
+  const partsTotal = lines.filter(l => !l.description.startsWith("Labour") && !l.description.startsWith("Call-out Fee")).reduce((sum, l) => sum + l.total, 0);
+  const labourTotal = lines.filter(l => l.description.startsWith("Labour")).reduce((sum, l) => sum + l.total, 0);
   const callOutTotal = callOutFee > 0 ? callOutFee : 0;
 
   const subtotal = lines.reduce((sum, l) => sum + l.total, 0);

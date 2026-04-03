@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 
 type JobEditData = {
   status: string;
@@ -408,6 +409,7 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
   const { profile } = useAuth();
   const qc = useQueryClient();
   const { data: entries, isLoading } = useListJobTimeEntries(jobId);
+  const { data: companySettings } = useCompanySettings();
   const createMutation = useCreateJobTimeEntry();
   const deleteMutation = useDeleteJobTimeEntry();
   const updateMutation = useUpdateJobTimeEntry();
@@ -422,6 +424,8 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
   const [editNotes, setEditNotes] = useState("");
   const [editHourlyRate, setEditHourlyRate] = useState("");
 
+  const callOutFee = Number(companySettings?.call_out_fee) || 0;
+
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
   const totalMinutes = sortedEntries.reduce((sum, e) => {
@@ -430,11 +434,24 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
     return sum + Math.max(0, ms / 60000);
   }, 0);
 
-  const totalLabourCost = sortedEntries.reduce((sum, e) => {
-    if (!e.departure_time || !e.hourly_rate) return sum;
-    const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
-    return sum + hours * parseFloat(String(e.hourly_rate));
-  }, 0);
+  const totalHours = totalMinutes / 60;
+  const billableHours = callOutFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
+
+  const totalLabourCost = (() => {
+    let cost = 0;
+    let hoursProcessed = 0;
+    for (const e of sortedEntries) {
+      if (!e.departure_time || !e.hourly_rate) continue;
+      const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
+      const coveredByCallout = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
+      const billableForEntry = hours - coveredByCallout;
+      if (billableForEntry > 0) {
+        cost += billableForEntry * parseFloat(String(e.hourly_rate));
+      }
+      hoursProcessed += hours;
+    }
+    return cost;
+  })();
 
   const hasEntries = sortedEntries.length > 0;
   const showLegacy = !hasEntries && (legacyArrival || legacyDeparture);
@@ -677,14 +694,35 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
               )
             ))}
           </div>
-          <div className="mt-3 pt-3 border-t flex justify-between items-center">
-            <span className="text-sm font-medium text-muted-foreground">Total Time</span>
-            <div className="flex items-center gap-3">
+          <div className="mt-3 pt-3 border-t space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-muted-foreground">Total Time</span>
               <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
-              {totalLabourCost > 0 && (
-                <span className="font-bold text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
-              )}
             </div>
+            {callOutFee > 0 && hasEntries && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Call-out Fee <span className="text-xs">(covers first hour)</span></span>
+                <span className="font-medium text-emerald-600">£{callOutFee.toFixed(2)}</span>
+              </div>
+            )}
+            {callOutFee > 0 && billableHours > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Billable time <span className="text-xs">(after first hour)</span></span>
+                <span className="text-sm text-amber-600">{formatTotalTime(billableHours * 60)}</span>
+              </div>
+            )}
+            {totalLabourCost > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">{callOutFee > 0 ? "Additional labour" : "Labour cost"}</span>
+                <span className="font-medium text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
+              </div>
+            )}
+            {callOutFee > 0 && hasEntries && (
+              <div className="flex justify-between items-center pt-1 border-t border-border/30">
+                <span className="text-sm font-medium">Total</span>
+                <span className="font-bold text-emerald-600">£{(callOutFee + totalLabourCost).toFixed(2)}</span>
+              </div>
+            )}
           </div>
         </>
       ) : showLegacy ? (
