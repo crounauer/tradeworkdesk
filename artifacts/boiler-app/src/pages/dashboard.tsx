@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 
@@ -186,6 +187,8 @@ export default function Dashboard() {
 function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const { isSoleTrader } = useIsSoleTrader();
   const createJob = useCreateJob();
   const createCustomer = useCreateCustomer();
   const createProperty = useCreateProperty();
@@ -265,6 +268,7 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
       const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
 
+      const technicianId = isSoleTrader && profile?.id ? profile.id : undefined;
       await createJob.mutateAsync({
         data: {
           customer_id: customerId,
@@ -275,6 +279,7 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
           scheduled_date: data.scheduled_date,
           scheduled_time: data.scheduled_time || undefined,
           description: data.description || undefined,
+          assigned_technician_id: technicianId,
         },
       });
 

@@ -10,6 +10,18 @@ export const fuelTypeEnum = pgEnum("fuel_type", ["oil", "gas", "lpg", "electric"
 export const boilerTypeEnum = pgEnum("boiler_type", ["combi", "system", "regular", "back_boiler", "other"]);
 export const systemTypeEnum = pgEnum("system_type", ["open_vented", "sealed", "gravity_fed", "pressurised", "other"]);
 
+export const companyTypeEnum = pgEnum("company_type", ["sole_trader", "company"]);
+
+export const tenants = pgTable("tenants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  company_name: text("company_name").notNull(),
+  plan: text("plan").notNull().default("free"),
+  is_active: boolean("is_active").notNull().default(true),
+  company_type: companyTypeEnum("company_type").notNull().default("company"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
   email: text("email").notNull(),

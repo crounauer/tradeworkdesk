@@ -438,7 +438,7 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
 
   const { data, error } = await supabaseAdmin
     .from("tenants")
-    .select("id, company_name, status, trial_ends_at, plan_id, plans(name, max_users, max_jobs_per_month)")
+    .select("id, company_name, company_type, status, trial_ends_at, plan_id, plans(name, max_users, max_jobs_per_month)")
     .eq("id", req.tenantId)
     .single();
 
@@ -486,7 +486,7 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
 
   const { data, error } = await supabaseAdmin
     .from("tenants")
-    .select("id, company_name, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
+    .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
     .eq("id", req.tenantId)
     .single();
 

@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
@@ -521,6 +522,8 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const { data: technicians } = useListProfiles();
   const { register, handleSubmit, watch, setValue } = useForm<JobFormData>();
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const { isSoleTrader } = useIsSoleTrader();
   const selectedCustomerId = watch("customer_id");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustFirst, setNewCustFirst] = useState("");
@@ -596,6 +599,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
     const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
 
     try {
+      const technicianId = isSoleTrader && profile?.id ? profile.id : (data.assigned_technician_id || undefined);
       const newJob = await createJob.mutateAsync({
         data: {
           customer_id: data.customer_id,
@@ -607,7 +611,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           scheduled_end_date: data.scheduled_end_date || undefined,
           scheduled_time: data.scheduled_time || undefined,
           description: data.description || undefined,
-          assigned_technician_id: data.assigned_technician_id || undefined,
+          assigned_technician_id: technicianId,
         }
       });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
@@ -739,15 +743,17 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Scheduled Time</label>
           <Input type="time" {...register("scheduled_time")} />
         </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Assign Technician</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("assigned_technician_id")}>
-            <option value="">Unassigned</option>
-            {technicians?.filter(t => t.role === 'technician').map(t => (
-              <option key={t.id} value={t.id}>{t.full_name}</option>
-            ))}
-          </select>
-        </div>
+        {!isSoleTrader && (
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Assign Technician</label>
+            <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("assigned_technician_id")}>
+              <option value="">Unassigned</option>
+              {technicians?.filter(t => t.role === 'technician').map(t => (
+                <option key={t.id} value={t.id}>{t.full_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="md:col-span-2">
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Description</label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("description")} />

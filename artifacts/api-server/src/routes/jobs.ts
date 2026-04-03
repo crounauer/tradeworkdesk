@@ -239,8 +239,21 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     }
   }
 
+  let autoAssignedTechnicianId = jobCoreData.assigned_technician_id;
+  if (req.tenantId) {
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("company_type")
+      .eq("id", req.tenantId)
+      .single();
+    if (tenant?.company_type === "sole_trader") {
+      autoAssignedTechnicianId = req.userId!;
+    }
+  }
+
   const insertPayload = {
     ...jobCoreData,
+    assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
     tenant_id: req.tenantId,
     ...(verifiedJobTypeId ? { job_type_id: verifiedJobTypeId } : {}),

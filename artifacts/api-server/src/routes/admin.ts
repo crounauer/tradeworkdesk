@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
@@ -8,7 +8,22 @@ import crypto from "crypto";
 
 const router: IRouter = Router();
 
+async function requireNotSoleTrader(req: AuthenticatedRequest, res: Response): Promise<boolean> {
+  if (!req.tenantId) return true;
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("company_type")
+    .eq("id", req.tenantId)
+    .single();
+  if (tenant?.company_type === "sole_trader") {
+    res.status(403).json({ error: "Team management is not available in sole trader mode. Switch to Company mode first." });
+    return false;
+  }
+  return true;
+}
+
 router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await requireNotSoleTrader(req, res))) return;
   let q = supabaseAdmin
     .from("profiles")
     .select("*")
@@ -22,6 +37,7 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 });
 
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
   const { role, full_name, phone } = req.body;
 
@@ -44,6 +60,7 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
 });
 
 router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
 
   if (id === req.userId) {
@@ -66,6 +83,7 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
 });
 
 router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await requireNotSoleTrader(req, res))) return;
   let q = supabaseAdmin
     .from("invite_codes")
     .select("*")
@@ -92,6 +110,7 @@ router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin
 });
 
 router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await requireNotSoleTrader(req, res))) return;
   const { role = "technician", expires_at, note } = req.body;
 
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
@@ -114,6 +133,7 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
 });
 
 router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
 
   let q = supabaseAdmin.from("invite_codes").update({ is_active: false }).eq("id", id);
@@ -422,11 +442,33 @@ router.delete("/admin/company-settings/logo", requireAuth, requireTenant, requir
   res.json(data);
 });
 
-router.post("/auth/register", async (req, res): Promise<void> => {
-  const { company_name, contact_name, contact_email, contact_phone, password, plan_id } = req.body;
+router.post("/admin/switch-to-company", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: tenant, error: fetchErr } = await supabaseAdmin
+    .from("tenants")
+    .select("company_type")
+    .eq("id", req.tenantId!)
+    .single();
 
-  if (!company_name || !contact_email || !password || !contact_name) {
-    res.status(400).json({ error: "company_name, contact_name, contact_email, and password are required." });
+  if (fetchErr || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (tenant.company_type === "company") { res.json({ message: "Already in company mode" }); return; }
+
+  const { error } = await supabaseAdmin
+    .from("tenants")
+    .update({ company_type: "company" })
+    .eq("id", req.tenantId!);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true, company_type: "company" });
+});
+
+router.post("/auth/register", async (req, res): Promise<void> => {
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type } = req.body;
+
+  const resolvedCompanyType = company_type === "sole_trader" ? "sole_trader" : "company";
+  const resolvedCompanyName = resolvedCompanyType === "sole_trader" && !company_name ? contact_name : company_name;
+
+  if (!resolvedCompanyName || !contact_email || !password || !contact_name) {
+    res.status(400).json({ error: "contact_name, contact_email, and password are required." });
     return;
   }
 
@@ -440,13 +482,14 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const { data: tenant, error: tenantError } = await supabaseAdmin
     .from("tenants")
     .insert({
-      company_name,
+      company_name: resolvedCompanyName,
       contact_name,
       contact_email,
       contact_phone: contact_phone || null,
       status: "trial",
       plan_id: plan_id || "00000000-0000-0000-0000-000000000001",
       trial_ends_at: trialEnds,
+      company_type: resolvedCompanyType,
     })
     .select()
     .single();
@@ -498,7 +541,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   await supabaseAdmin.from("company_settings").insert({
     singleton_id: "default",
     tenant_id: tenant.id,
-    name: company_name,
+    name: resolvedCompanyName,
   });
 
   await supabaseAdmin.from("platform_audit_log").insert({
@@ -507,10 +550,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     event_type: "company_registered",
     entity_type: "tenant",
     entity_id: tenant.id,
-    detail: { company_name },
+    detail: { company_name: resolvedCompanyName },
   });
 
-  sendConfirmationEmail(contact_email, contact_name, company_name, linkData.properties.action_link).catch((e) =>
+  sendConfirmationEmail(contact_email, contact_name, resolvedCompanyName, linkData.properties.action_link).catch((e) =>
     console.error("[email] Confirmation email failed:", e)
   );
 

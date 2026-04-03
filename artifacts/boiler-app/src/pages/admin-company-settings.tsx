@@ -3,14 +3,16 @@ import { useForm } from "react-hook-form";
 import { useCompanySettings, useUpdateCompanySettings, useUploadCompanyLogo } from "@/hooks/use-company-settings";
 import type { CompanySettings } from "@/hooks/use-company-settings";
 import { useToast } from "@/hooks/use-toast";
+import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText,
-  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling
+  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling, Users
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "logo_storage_path" | "created_at" | "updated_at">;
 
@@ -19,9 +21,12 @@ export default function AdminCompanySettings() {
   const updateSettings = useUpdateCompanySettings();
   const uploadLogo = useUploadCompanyLogo();
   const { toast } = useToast();
+  const { isSoleTrader } = useIsSoleTrader();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [switchingToCompany, setSwitchingToCompany] = useState(false);
 
   const { register, handleSubmit, reset, formState: { isDirty } } = useForm<FormValues>();
 
@@ -101,6 +106,25 @@ export default function AdminCompanySettings() {
       toast({ title: "Logo removed" });
     } catch (err) {
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    }
+  };
+
+  const handleSwitchToCompany = async () => {
+    if (!confirm("Switch to Company mode? This will allow you to add team members and manage staff. This action cannot be undone.")) return;
+    setSwitchingToCompany(true);
+    try {
+      const res = await fetch("/api/admin/switch-to-company", { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to switch");
+      }
+      queryClient.invalidateQueries({ queryKey: ["me-tenant"] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-plan-features"] });
+      toast({ title: "Switched to Company mode", description: "You can now add team members and manage staff." });
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSwitchingToCompany(false);
     }
   };
 
@@ -375,6 +399,36 @@ export default function AdminCompanySettings() {
           </Button>
         </div>
       </form>
+
+      {isSoleTrader && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Growing Your Business?
+            </CardTitle>
+            <CardDescription>
+              You're currently operating as a sole trader. If you're hiring staff or need to manage a team,
+              you can switch to Company mode. This will unlock team management features like invite codes
+              and user roles.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleSwitchToCompany}
+              disabled={switchingToCompany}
+              variant="outline"
+              className="border-blue-300 text-blue-700 hover:bg-blue-100"
+            >
+              {switchingToCompany ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Switching...</>
+              ) : (
+                <><Building2 className="w-4 h-4 mr-2" /> Switch to Company Mode</>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { 
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
@@ -31,6 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
   const { hasFeature, isFormsOnly } = usePlanFeatures();
+  const { isSoleTrader } = useIsSoleTrader();
 
   const { data: tenantInfo } = useQuery({
     queryKey: ["me-tenant"],
@@ -95,7 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const adminNavItems = [
     { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
-    ...(hasFeature("team_management") ? [
+    ...(hasFeature("team_management") && !isSoleTrader ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
       { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
     ] : []),
