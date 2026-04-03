@@ -862,18 +862,29 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const [newEmail, setNewEmail] = useState((enquiry.contact_email as string) || "");
   const [newAddress, setNewAddress] = useState(() => {
     const addr = (enquiry.address as string) || "";
-    const parts = addr.split(",");
-    return parts[0]?.trim() || "";
+    const parts = addr.split(",").map(s => s.trim());
+    return parts[0] || "";
   });
   const [newCity, setNewCity] = useState(() => {
     const addr = (enquiry.address as string) || "";
-    const parts = addr.split(",");
-    return parts[1]?.trim() || "";
+    const parts = addr.split(",").map(s => s.trim());
+    const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i;
+    if (parts.length >= 3) {
+      return parts.slice(1, -1).join(", ");
+    }
+    if (parts.length === 2) {
+      const tail = parts[1];
+      const m = tail.match(postcodeRe);
+      if (m) return tail.slice(0, m.index).trim().replace(/,\s*$/, "");
+      return tail;
+    }
+    return "";
   });
   const [newPostcode, setNewPostcode] = useState(() => {
     const addr = (enquiry.address as string) || "";
-    const parts = addr.split(",");
-    return parts[parts.length - 1]?.trim() || "";
+    const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i;
+    const m = addr.match(postcodeRe);
+    return m ? m[1].trim() : "";
   });
   const [jobTypeId, setJobTypeId] = useState("");
   const [priority, setPriority] = useState((enquiry.priority as string) || "medium");
