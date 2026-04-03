@@ -278,6 +278,68 @@ export async function sendJobFormsEmail(
   }
 }
 
+export interface JobConfirmationDetails {
+  jobRef: string;
+  jobType: string;
+  scheduledDate: string;
+  scheduledTime?: string | null;
+  propertyAddress: string;
+  technicianName?: string | null;
+  description?: string | null;
+}
+
+export async function sendJobConfirmationEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  jobDetails: JobConfirmationDetails,
+  companyDetails?: EmailCompanyDetails,
+): Promise<void> {
+  const dateStr = new Date(jobDetails.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  let timeStr = "";
+  if (jobDetails.scheduledTime) {
+    const [hh, mm] = jobDetails.scheduledTime.split(":");
+    const h = parseInt(hh, 10);
+    const ampm = h >= 12 ? "pm" : "am";
+    const h12 = h % 12 || 12;
+    timeStr = ` at ${h12}:${mm}${ampm}`;
+  }
+
+  const contactLine = companyDetails?.phone
+    ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
+    : "please contact your service provider directly.";
+
+  const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
+
+  const html = baseHtml(subject, `
+    <h2>Appointment Confirmation</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p>We're writing to confirm your upcoming appointment with <strong>${escHtml(companyName)}</strong>.</p>
+    <div class="info-box">
+      <p><strong>Job Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
+      <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
+      <p><strong>Date:</strong> ${escHtml(dateStr)}${escHtml(timeStr)}</p>
+      <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
+      ${jobDetails.technicianName ? `<p><strong>Engineer:</strong> ${escHtml(jobDetails.technicianName)}</p>` : ""}
+    </div>
+    ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
+    <p>Please ensure there is access to the property at the scheduled time. If you need to reschedule or have any questions, ${contactLine}</p>
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+  `, companyDetails);
+
+  if (!resend) {
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+
+  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+  if (error) {
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
+    throw new Error(`Email send failed: ${error.message}`);
+  }
+}
+
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
   const html = baseHtml("Payment failed", `

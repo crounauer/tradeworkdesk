@@ -2,7 +2,7 @@ import { useListJobs, useCreateJob, useCreateCustomer, useListProfiles, useListC
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -394,6 +394,8 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const [newCustPhone, setNewCustPhone] = useState("");
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [prevCustomerId, setPrevCustomerId] = useState("");
+  const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
 

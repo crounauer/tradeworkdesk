@@ -24,7 +24,7 @@ import {
   type InvoiceData,
   type InvoiceLineItem,
 } from "../lib/invoice-export";
-import { sendJobFormsEmail, type EmailAttachment, type EmailCompanyDetails } from "../lib/email";
+import { sendJobFormsEmail, sendJobConfirmationEmail, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 
 interface SupabaseJobRow {
@@ -255,6 +255,111 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   }
 
   res.status(201).json(data);
+});
+
+router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { jobId } = req.params;
+
+  const { data: job, error: jobErr } = await supabaseAdmin
+    .from("jobs")
+    .select("*")
+    .eq("id", jobId)
+    .eq("tenant_id", req.tenantId)
+    .single();
+  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const { data: customer } = await supabaseAdmin
+    .from("customers")
+    .select("first_name, last_name, email")
+    .eq("id", job.customer_id)
+    .eq("tenant_id", req.tenantId)
+    .single();
+  if (!customer || !customer.email) {
+    res.status(400).json({ error: "Customer does not have an email address" }); return;
+  }
+
+  const { data: property } = await supabaseAdmin
+    .from("properties")
+    .select("address_line1, address_line2, city, county, postcode")
+    .eq("id", job.property_id)
+    .eq("tenant_id", req.tenantId)
+    .single();
+
+  const addressParts = property
+    ? [property.address_line1, property.address_line2, property.city, property.county, property.postcode].filter(Boolean)
+    : [];
+  const propertyAddress = addressParts.join(", ") || "See job details";
+
+  let technicianName: string | null = null;
+  if (job.assigned_technician_id) {
+    const { data: tech } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", job.assigned_technician_id)
+      .single();
+    technicianName = tech?.full_name ?? null;
+  }
+
+  let jobTypeName = job.job_type || "Service";
+  if (job.job_type_id) {
+    const [jt] = await db.select().from(jobTypes).where(eq(jobTypes.id, job.job_type_id));
+    if (jt) jobTypeName = jt.name;
+  }
+
+  const { data: companySettings } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("tenant_id", req.tenantId)
+    .eq("singleton_id", "default")
+    .single();
+
+  const cs = companySettings as Record<string, unknown> | null;
+  const companyName = (cs?.name as string) || (cs?.trading_name as string) || "Your Service Provider";
+
+  const emailCompany: EmailCompanyDetails | undefined = cs ? {
+    name: cs.name as string | null,
+    trading_name: cs.trading_name as string | null,
+    address_line1: cs.address_line1 as string | null,
+    address_line2: cs.address_line2 as string | null,
+    city: cs.city as string | null,
+    county: cs.county as string | null,
+    postcode: cs.postcode as string | null,
+    phone: cs.phone as string | null,
+    email: cs.email as string | null,
+    website: cs.website as string | null,
+    gas_safe_number: cs.gas_safe_number as string | null,
+    oftec_number: cs.oftec_number as string | null,
+    vat_number: cs.vat_number as string | null,
+  } : undefined;
+
+  const jobRef = job.job_ref || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
+
+  const confirmationDetails: JobConfirmationDetails = {
+    jobRef,
+    jobType: jobTypeName,
+    scheduledDate: job.scheduled_date,
+    scheduledTime: job.scheduled_time || null,
+    propertyAddress,
+    technicianName,
+    description: job.description || null,
+  };
+
+  const customerFullName = `${customer.first_name} ${customer.last_name}`;
+
+  try {
+    await sendJobConfirmationEmail(
+      customer.email,
+      customerFullName,
+      companyName,
+      confirmationDetails,
+      emailCompany,
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to send confirmation email";
+    res.status(500).json({ error: msg }); return;
+  }
+
+  res.json({ success: true, sent_to: customer.email });
 });
 
 router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
