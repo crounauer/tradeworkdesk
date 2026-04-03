@@ -13,7 +13,7 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
   let q = supabaseAdmin
     .from("enquiries")
     .select("*, created_by_profile:profiles!enquiries_created_by_fkey(full_name), job:jobs!enquiries_linked_job_id_fkey(id, status, job_type)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   if (status && typeof status === "string") q = q.eq("status", status);
