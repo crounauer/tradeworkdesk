@@ -10,7 +10,68 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 
-function baseHtml(title: string, body: string): string {
+export interface EmailCompanyDetails {
+  name?: string | null;
+  trading_name?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  county?: string | null;
+  postcode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  gas_safe_number?: string | null;
+  oftec_number?: string | null;
+  vat_number?: string | null;
+}
+
+function renderCompanyHeader(company?: EmailCompanyDetails): string {
+  if (!company) {
+    return `
+    <div class="header">
+      <a href="https://www.tradeworkdesk.co.uk" style="text-decoration:none;color:#fff;" target="_blank">
+        <div class="header-brand">
+          <div class="header-logo">🔥</div>
+          <div>
+            <h1>TradeWorkDesk</h1>
+            <p>Professional Boiler Service Management</p>
+          </div>
+        </div>
+      </a>
+    </div>`;
+  }
+
+  const companyName = company.name || company.trading_name || "Your Service Provider";
+  const addressParts = [company.address_line1, company.address_line2, company.city, company.county, company.postcode].filter(Boolean);
+  const addressLine = addressParts.join(", ");
+
+  const detailItems: string[] = [];
+  if (company.phone) detailItems.push(`<span style="white-space:nowrap;">📞 ${company.phone}</span>`);
+  if (company.email) detailItems.push(`<span style="white-space:nowrap;">✉️ ${company.email}</span>`);
+  if (company.website) detailItems.push(`<span style="white-space:nowrap;">🌐 ${company.website}</span>`);
+
+  const regItems: string[] = [];
+  if (company.gas_safe_number) regItems.push(`Gas Safe: ${company.gas_safe_number}`);
+  if (company.oftec_number) regItems.push(`OFTEC: ${company.oftec_number}`);
+  if (company.vat_number) regItems.push(`VAT: ${company.vat_number}`);
+
+  return `
+    <div class="header" style="background:#1d4ed8;padding:28px 32px 20px;color:#fff;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td>
+            <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin:0 0 4px;">${companyName}</div>
+            ${addressLine ? `<div style="font-size:13px;opacity:.85;margin:2px 0;">${addressLine}</div>` : ""}
+            ${detailItems.length > 0 ? `<div style="font-size:13px;opacity:.85;margin:6px 0 0;">${detailItems.join(" &nbsp;&bull;&nbsp; ")}</div>` : ""}
+            ${regItems.length > 0 ? `<div style="font-size:12px;opacity:.7;margin:8px 0 0;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;">${regItems.join(" &nbsp;|&nbsp; ")}</div>` : ""}
+          </td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+function baseHtml(title: string, body: string, company?: EmailCompanyDetails): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,17 +100,7 @@ function baseHtml(title: string, body: string): string {
 </head>
 <body>
   <div class="wrapper">
-    <div class="header">
-      <a href="https://www.tradeworkdesk.co.uk" style="text-decoration:none;color:#fff;" target="_blank">
-        <div class="header-brand">
-          <div class="header-logo">🔥</div>
-          <div>
-            <h1>TradeWorkDesk</h1>
-            <p>Professional Boiler Service Management</p>
-          </div>
-        </div>
-      </a>
-    </div>
+    ${renderCompanyHeader(company)}
     <div class="body">
       ${body}
     </div>
@@ -181,10 +232,15 @@ export async function sendJobFormsEmail(
   companyName: string,
   formLabels: string[],
   attachments: EmailAttachment[],
+  companyDetails?: EmailCompanyDetails,
 ): Promise<void> {
   const formListHtml = formLabels
     .map(label => `<li style="margin:4px 0;font-size:14px;">${escHtml(label)}</li>`)
     .join("\n");
+
+  const contactLine = companyDetails?.phone
+    ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
+    : "please contact your service provider directly.";
 
   const html = baseHtml(escHtml(subject), `
     <h2>Job Forms &mdash; ${escHtml(jobRef)}</h2>
@@ -197,10 +253,10 @@ export async function sendJobFormsEmail(
       </ul>
     </div>
     <p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>
-    <p>If you have any questions about the work carried out, please contact your service provider directly.</p>
+    <p>If you have any questions about the work carried out, ${contactLine}</p>
     <hr class="divider"/>
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
-  `);
+  `, companyDetails);
   if (!resend) {
     throw new Error("Email service is not configured (RESEND_API_KEY missing)");
   }

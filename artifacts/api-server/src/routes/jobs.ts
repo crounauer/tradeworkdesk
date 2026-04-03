@@ -24,7 +24,7 @@ import {
   type InvoiceData,
   type InvoiceLineItem,
 } from "../lib/invoice-export";
-import { sendJobFormsEmail, type EmailAttachment } from "../lib/email";
+import { sendJobFormsEmail, type EmailAttachment, type EmailCompanyDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 
 interface SupabaseJobRow {
@@ -1424,6 +1424,22 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const subject = `Job ${jobRef} — Service Forms from ${companyName}`;
 
   try {
+    const emailCompany: EmailCompanyDetails | undefined = pdfCompany ? {
+      name: pdfCompany.name,
+      trading_name: pdfCompany.trading_name,
+      address_line1: pdfCompany.address_line1,
+      address_line2: pdfCompany.address_line2,
+      city: pdfCompany.city,
+      county: pdfCompany.county,
+      postcode: pdfCompany.postcode,
+      phone: pdfCompany.phone,
+      email: pdfCompany.email,
+      website: pdfCompany.website,
+      gas_safe_number: pdfCompany.gas_safe_number,
+      oftec_number: pdfCompany.oftec_number,
+      vat_number: pdfCompany.vat_number,
+    } : undefined;
+
     await sendJobFormsEmail(
       to,
       cc || null,
@@ -1433,6 +1449,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       companyName,
       formsIncluded.map(f => f.form_label),
       attachments,
+      emailCompany,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send email";
