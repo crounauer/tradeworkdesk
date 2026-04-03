@@ -437,12 +437,31 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
     }
   };
 
+  const handleSendConfirmation = async (jobId: string) => {
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/send-confirmation`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to send email");
+      }
+      toast({ title: "Confirmation email sent", description: `Email sent to ${emailPrompt?.customerEmail}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send email";
+      toast({ title: "Email failed", description: message, variant: "destructive" });
+    } finally {
+      setSendingEmail(false);
+      setEmailPrompt(null);
+      onClose();
+    }
+  };
+
   const onSubmit = async (data: JobFormData) => {
     const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
     const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
 
     try {
-      await createJob.mutateAsync({
+      const newJob = await createJob.mutateAsync({
         data: {
           customer_id: data.customer_id,
           property_id: data.property_id,
@@ -458,12 +477,52 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
       });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Job created successfully" });
-      onClose();
+
+      const selectedCustomer = customers?.find(c => c.id === data.customer_id);
+      if (selectedCustomer?.email) {
+        setEmailPrompt({
+          jobId: newJob.id,
+          customerName: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`,
+          customerEmail: selectedCustomer.email,
+        });
+      } else {
+        onClose();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not create job. Please try again.";
       toast({ title: "Failed to create job", description: message, variant: "destructive" });
     }
   };
+
+  if (emailPrompt) {
+    return (
+      <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">
+        <div className="text-center space-y-4">
+          <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <Mail className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg">Send Confirmation Email?</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Send an appointment confirmation to <strong>{emailPrompt.customerName}</strong> at{" "}
+              <span className="text-primary">{emailPrompt.customerEmail}</span>
+            </p>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={() => handleSendConfirmation(emailPrompt.jobId)}
+              disabled={sendingEmail}
+            >
+              {sendingEmail ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</> : <><Mail className="w-4 h-4 mr-2" /> Send Email</>}
+            </Button>
+            <Button variant="outline" onClick={() => { setEmailPrompt(null); onClose(); }} disabled={sendingEmail}>
+              Skip
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">

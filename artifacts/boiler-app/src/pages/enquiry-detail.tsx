@@ -844,6 +844,8 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
 }) {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [propertyMode, setPropertyMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState("");
@@ -960,7 +962,23 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
       }
       const result = await res.json();
       toast({ title: "Converted!", description: "Enquiry converted to a job." });
-      onConverted(result.job_id);
+
+      let emailAddr: string | undefined;
+      let custName = "";
+      if (customerMode === "new") {
+        emailAddr = newEmail || undefined;
+        custName = `${newFirstName} ${newLastName}`;
+      } else if (customerId) {
+        const cust = customers?.find(c => c.id === customerId);
+        emailAddr = cust?.email || undefined;
+        custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
+      }
+
+      if (emailAddr) {
+        setEmailPrompt({ jobId: result.job_id, customerName: custName, customerEmail: emailAddr });
+      } else {
+        onConverted(result.job_id);
+      }
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
     } finally {
@@ -968,12 +986,63 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
     }
   };
 
+  const handleSendConfirmation = async () => {
+    if (!emailPrompt) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`/api/jobs/${emailPrompt.jobId}/send-confirmation`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to send email");
+      }
+      toast({ title: "Confirmation email sent", description: `Email sent to ${emailPrompt.customerEmail}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send email";
+      toast({ title: "Email failed", description: message, variant: "destructive" });
+    } finally {
+      setSendingEmail(false);
+      const jobId = emailPrompt.jobId;
+      setEmailPrompt(null);
+      onConverted(jobId);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => {
+      if (!v && emailPrompt) {
+        const jobId = emailPrompt.jobId;
+        setEmailPrompt(null);
+        onConverted(jobId);
+        return;
+      }
+      onOpenChange(v);
+    }}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Convert Enquiry to Job</DialogTitle>
+          <DialogTitle>{emailPrompt ? "Send Confirmation Email?" : "Convert Enquiry to Job"}</DialogTitle>
         </DialogHeader>
+        {emailPrompt ? (
+          <div className="text-center space-y-4 py-4">
+            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <Mail className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Send an appointment confirmation to <strong>{emailPrompt.customerName}</strong> at{" "}
+                <span className="text-primary">{emailPrompt.customerEmail}</span>
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={handleSendConfirmation} disabled={sendingEmail}>
+                {sendingEmail ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</> : <><Mail className="w-4 h-4 mr-2" /> Send Email</>}
+              </Button>
+              <Button variant="outline" onClick={() => { const jobId = emailPrompt.jobId; setEmailPrompt(null); onConverted(jobId); }} disabled={sendingEmail}>
+                Skip
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {!emailPrompt ? (
         <form onSubmit={handleConvert} className="space-y-5">
           <div className="flex gap-2 bg-muted rounded-lg p-1">
             <button type="button" className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "new" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setCustomerMode("new")}>
@@ -1112,6 +1181,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </div>
         </form>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
