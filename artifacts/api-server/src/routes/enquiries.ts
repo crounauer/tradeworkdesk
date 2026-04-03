@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
+import { eq, and } from "drizzle-orm";
 import { supabaseAdmin } from "../lib/supabase";
+import { db, jobTypes } from "@workspace/db";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 
@@ -176,12 +178,20 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
   const ownershipChecks: { table: string; id: string }[] = [];
   if (customer_id) ownershipChecks.push({ table: "customers", id: customer_id });
   if (property_id) ownershipChecks.push({ table: "properties", id: property_id });
-  if (job_type_id) ownershipChecks.push({ table: "job_types", id: String(job_type_id) });
 
   if (ownershipChecks.length > 0) {
     const ownershipCheck = await verifyMultipleTenantOwnership(ownershipChecks, req.tenantId);
     if (!ownershipCheck.valid) {
       res.status(403).json({ error: `Invalid reference: ${ownershipCheck.failedTable} does not belong to your organisation` }); return;
+    }
+  }
+
+  if (job_type_id && req.tenantId) {
+    const jtRows = await db.select({ id: jobTypes.id }).from(jobTypes).where(
+      and(eq(jobTypes.id, Number(job_type_id)), eq(jobTypes.tenant_id, req.tenantId))
+    );
+    if (jtRows.length === 0) {
+      res.status(403).json({ error: "Invalid reference: job_types does not belong to your organisation" }); return;
     }
   }
 
