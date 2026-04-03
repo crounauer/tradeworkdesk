@@ -67,10 +67,10 @@ export default function Dashboard() {
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   const stats = [
-    { label: "Total Customers", value: data.stats?.total_customers || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-50" },
-    { label: "Jobs Today", value: data.stats?.total_jobs_today || 0, icon: Briefcase, color: "text-emerald-500", bg: "bg-emerald-50" },
-    { label: "Overdue Services", value: data.stats?.overdue_count || 0, icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-50" },
-    { label: "Completed This Week", value: data.stats?.completed_this_week || 0, icon: CheckCircle2, color: "text-purple-500", bg: "bg-purple-50" },
+    { label: "Total Customers", value: data.stats?.total_customers || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-50", href: "/customers" },
+    { label: "Jobs Today", value: data.stats?.total_jobs_today || 0, icon: Briefcase, color: "text-emerald-500", bg: "bg-emerald-50", href: "/jobs" },
+    { label: "Overdue Services", value: data.stats?.overdue_count || 0, icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-50", href: "/jobs" },
+    { label: "Completed This Week", value: data.stats?.completed_this_week || 0, icon: CheckCircle2, color: "text-purple-500", bg: "bg-purple-50", href: "/jobs" },
   ];
 
   return (
@@ -97,17 +97,19 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
-          <Card key={i} className="p-6 border-0 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
-                <stat.icon className="w-6 h-6" />
+          <Link key={i} href={stat.href}>
+            <Card className="p-6 border-0 shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
+                  <stat.icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </Link>
         ))}
       </div>
 
