@@ -2,7 +2,7 @@ import { useListJobs, useCreateJob, useCreateCustomer, useListProfiles, useListC
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2 } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -288,65 +288,14 @@ function JobsContent() {
           <p className="text-muted-foreground">No jobs found matching your filters.</p>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filteredJobs.map(job => {
-            const isExportable = job.status === "completed" || job.status === "invoiced";
-            const isSelected = selectedIds.has(job.id);
-            return (
-            <div key={job.id} className="flex items-stretch gap-2">
-              {isAdminOrOffice && isExportable && (
-                <div className="flex items-center px-1">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleSelect(job.id)}
-                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                </div>
-              )}
-              {isAdminOrOffice && !isExportable && <div className="w-[28px]" />}
-            <Link href={`/jobs/${job.id}`} className="flex-1">
-              <Card className={`p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${isSelected ? "ring-2 ring-emerald-300 border-emerald-300" : ""}`}>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${getStatusColor(job.status)}`}>
-                      {job.status.replace(/_/g, ' ')}
-                    </span>
-                    <span className="text-sm font-semibold capitalize text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
-                      {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-lg mb-1">{job.customer_name}</h3>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {job.property_address}</span>
-                  </div>
-                </div>
-                <div className="flex sm:flex-col items-center sm:items-end gap-4 sm:gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 sm:border-l border-border/50 sm:pl-5">
-                  <div className="flex items-center gap-1.5 text-foreground font-medium bg-slate-50 px-3 py-1.5 rounded-lg w-full sm:w-auto justify-center">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    {(() => {
-                      const startStr = String(job.scheduled_date).slice(0, 10);
-                      const endStr = job.scheduled_end_date ? String(job.scheduled_end_date).slice(0, 10) : null;
-                      if (endStr && endStr !== startStr) {
-                        return `${formatDate(startStr)} – ${formatDate(endStr)}`;
-                      }
-                      return job.scheduled_time
-                        ? formatDateTime(`${startStr}T${job.scheduled_time}`)
-                        : formatDate(startStr);
-                    })()}
-                  </div>
-                  {job.technician_name && (
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <User className="w-4 h-4" /> {job.technician_name}
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </Link>
-            </div>
-            );
-          })}
-        </div>
+        <JobSections
+          jobs={filteredJobs}
+          getStatusColor={getStatusColor}
+          isAdminOrOffice={isAdminOrOffice}
+          selectedIds={selectedIds}
+          toggleSelect={toggleSelect}
+          statusFilter={statusFilter}
+        />
       )}
 
       {pagination && pagination.totalPages > 1 && (
@@ -373,6 +322,192 @@ function JobsContent() {
         </div>
       )}
       </>}
+    </div>
+  );
+}
+
+function JobCard({
+  job,
+  getStatusColor,
+  isAdminOrOffice,
+  selectedIds,
+  toggleSelect,
+}: {
+  job: Record<string, any>;
+  getStatusColor: (s: string) => string;
+  isAdminOrOffice: boolean;
+  selectedIds: Set<string>;
+  toggleSelect: (id: string) => void;
+}) {
+  const isExportable = job.status === "completed" || job.status === "invoiced";
+  const isSelected = selectedIds.has(job.id);
+  return (
+    <div className="flex items-stretch gap-2">
+      {isAdminOrOffice && isExportable && (
+        <div className="flex items-center px-1">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelect(job.id)}
+            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+          />
+        </div>
+      )}
+      {isAdminOrOffice && !isExportable && <div className="w-[28px]" />}
+      <Link href={`/jobs/${job.id}`} className="flex-1">
+        <Card className={`p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${isSelected ? "ring-2 ring-emerald-300 border-emerald-300" : ""}`}>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${getStatusColor(job.status)}`}>
+                {job.status.replace(/_/g, ' ')}
+              </span>
+              <span className="text-sm font-semibold capitalize text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
+                {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
+              </span>
+            </div>
+            <h3 className="font-bold text-lg mb-1">{job.customer_name}</h3>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {job.property_address}</span>
+            </div>
+          </div>
+          <div className="flex sm:flex-col items-center sm:items-end gap-4 sm:gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 sm:border-l border-border/50 sm:pl-5">
+            <div className="flex items-center gap-1.5 text-foreground font-medium bg-slate-50 px-3 py-1.5 rounded-lg w-full sm:w-auto justify-center">
+              <Calendar className="w-4 h-4 text-primary" />
+              {(() => {
+                const startStr = String(job.scheduled_date).slice(0, 10);
+                const endStr = job.scheduled_end_date ? String(job.scheduled_end_date).slice(0, 10) : null;
+                if (endStr && endStr !== startStr) {
+                  return `${formatDate(startStr)} – ${formatDate(endStr)}`;
+                }
+                return job.scheduled_time
+                  ? formatDateTime(`${startStr}T${job.scheduled_time}`)
+                  : formatDate(startStr);
+              })()}
+            </div>
+            {job.technician_name && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <User className="w-4 h-4" /> {job.technician_name}
+              </div>
+            )}
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
+function JobSections({
+  jobs,
+  getStatusColor,
+  isAdminOrOffice,
+  selectedIds,
+  toggleSelect,
+  statusFilter,
+}: {
+  jobs: Record<string, any>[];
+  getStatusColor: (s: string) => string;
+  isAdminOrOffice: boolean;
+  selectedIds: Set<string>;
+  toggleSelect: (id: string) => void;
+  statusFilter: string;
+}) {
+  const [showCompleted, setShowCompleted] = useState(statusFilter === "completed");
+  const [showInvoiced, setShowInvoiced] = useState(statusFilter === "invoiced");
+  const [showCancelled, setShowCancelled] = useState(statusFilter === "cancelled");
+
+  const active = jobs.filter((j) => {
+    const s = j.status as string;
+    return s === "scheduled" || s === "in_progress" || s === "requires_follow_up";
+  });
+  const completed = jobs.filter((j) => j.status === "completed");
+  const invoiced = jobs.filter((j) => j.status === "invoiced");
+  const cancelled = jobs.filter((j) => j.status === "cancelled");
+
+  const renderCards = (items: Record<string, any>[]) => (
+    <div className="space-y-3">
+      {items.map((job) => (
+        <JobCard
+          key={job.id}
+          job={job}
+          getStatusColor={getStatusColor}
+          isAdminOrOffice={isAdminOrOffice}
+          selectedIds={selectedIds}
+          toggleSelect={toggleSelect}
+        />
+      ))}
+    </div>
+  );
+
+  if (!!statusFilter) {
+    return renderCards(jobs);
+  }
+
+  return (
+    <div className="space-y-6">
+      {active.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-bold text-lg text-foreground">Active Jobs</h2>
+            <span className="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{active.length}</span>
+          </div>
+          {renderCards(active)}
+        </div>
+      )}
+
+      {completed.length > 0 && (
+        <div>
+          <button
+            className="w-full flex items-center gap-2 mb-3 group"
+            onClick={() => setShowCompleted(!showCompleted)}
+          >
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <h2 className="font-bold text-lg text-emerald-700">Completed</h2>
+            <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{completed.length}</span>
+            <div className="flex-1 border-t border-border/50" />
+            {showCompleted ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showCompleted && renderCards(completed)}
+        </div>
+      )}
+
+      {invoiced.length > 0 && (
+        <div>
+          <button
+            className="w-full flex items-center gap-2 mb-3 group"
+            onClick={() => setShowInvoiced(!showInvoiced)}
+          >
+            <Receipt className="w-5 h-5 text-violet-600" />
+            <h2 className="font-bold text-lg text-violet-700">Invoiced</h2>
+            <span className="text-xs font-medium bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">{invoiced.length}</span>
+            <div className="flex-1 border-t border-border/50" />
+            {showInvoiced ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showInvoiced && renderCards(invoiced)}
+        </div>
+      )}
+
+      {cancelled.length > 0 && (
+        <div>
+          <button
+            className="w-full flex items-center gap-2 mb-3 group"
+            onClick={() => setShowCancelled(!showCancelled)}
+          >
+            <XCircle className="w-5 h-5 text-slate-400" />
+            <h2 className="font-bold text-lg text-slate-500">Cancelled</h2>
+            <span className="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{cancelled.length}</span>
+            <div className="flex-1 border-t border-border/50" />
+            {showCancelled ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+          {showCancelled && renderCards(cancelled)}
+        </div>
+      )}
+
+      {active.length === 0 && completed.length === 0 && invoiced.length === 0 && cancelled.length === 0 && (
+        <Card className="p-8 text-center border-dashed">
+          <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-muted-foreground">No jobs found.</p>
+        </Card>
+      )}
     </div>
   );
 }
