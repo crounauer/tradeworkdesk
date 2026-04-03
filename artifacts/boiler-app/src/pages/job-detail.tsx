@@ -68,6 +68,7 @@ export default function JobDetail() {
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
+  const [pricingRefresh, setPricingRefresh] = useState(0);
 
   if (isLoading) return <div className="p-8">Loading job details...</div>;
   if (!job) return <div>Job not found</div>;
@@ -174,12 +175,12 @@ export default function JobDetail() {
               </div>
             </Card>
 
-            <TimeAttendedSection jobId={job.id} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} />
+            <TimeAttendedSection jobId={job.id} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
 
-            <PartsUsedSection jobId={job.id} />
+            <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
-              <PricingSummarySection jobId={job.id} jobStatus={job.status} />
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} refreshKey={pricingRefresh} />
             )}
 
             <PhotosSection jobId={job.id} />
@@ -402,7 +403,7 @@ export default function JobDetail() {
   );
 }
 
-function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId: string; legacyArrival: string | null; legacyDeparture: string | null }) {
+function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged }: { jobId: string; legacyArrival: string | null; legacyDeparture: string | null; onChanged?: () => void }) {
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
@@ -453,6 +454,7 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
       setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
+      onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -464,6 +466,7 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
       await deleteMutation.mutateAsync({ jobId, entryId });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Deleted", description: "Time entry removed" });
+      onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to delete";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -499,6 +502,7 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture }: { jobId:
       cancelEdit();
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Updated", description: "Time entry updated" });
+      onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -716,7 +720,7 @@ function formatTotalTime(totalMinutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function PartsUsedSection({ jobId }: { jobId: string }) {
+function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
   const { toast } = useToast();
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
@@ -759,6 +763,7 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
       setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setShowAdd(false);
       toast({ title: "Added", description: "Part added" });
       fetchParts();
+      onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add part";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -772,6 +777,7 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, { method: "DELETE" });
       toast({ title: "Removed", description: "Part removed" });
       fetchParts();
+      onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to delete";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -787,6 +793,7 @@ function PartsUsedSection({ jobId }: { jobId: string }) {
       });
       setEditingId(null);
       fetchParts();
+      onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update price";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -925,7 +932,7 @@ interface InvoiceSummary {
 
 const CURRENCY_SYMBOLS: Record<string, string> = { GBP: "\u00A3", EUR: "\u20AC", USD: "$" };
 
-function PricingSummarySection({ jobId, jobStatus }: { jobId: string; jobStatus: string }) {
+function PricingSummarySection({ jobId, jobStatus, refreshKey = 0 }: { jobId: string; jobStatus: string; refreshKey?: number }) {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -944,7 +951,7 @@ function PricingSummarySection({ jobId, jobStatus }: { jobId: string; jobStatus:
         setLoading(false);
       }
     })();
-  }, [jobId]);
+  }, [jobId, refreshKey]);
 
   const handleExport = async (format: string) => {
     setExporting(true);
