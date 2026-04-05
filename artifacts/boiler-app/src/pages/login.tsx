@@ -57,14 +57,31 @@ export default function Login() {
       return;
     }
 
-    const verifiedTotp = data.user?.factors?.find(
+    const inlineTotp = data.user?.factors?.find(
       (f: { factor_type: string; status: string }) => f.factor_type === "totp" && f.status === "verified"
     );
-    if (verifiedTotp) {
-      setMfaFactorId(verifiedTotp.id);
+    if (inlineTotp) {
+      setMfaFactorId(inlineTotp.id);
       setShowMfa(true);
       setLoading(false);
       return;
+    }
+
+    try {
+      const factorsResult = await Promise.race([
+        supabase.auth.mfa.listFactors(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+      if (factorsResult && "data" in factorsResult && factorsResult.data?.totp?.length) {
+        const verifiedTotp = factorsResult.data.totp.find((f: { status: string }) => f.status === "verified");
+        if (verifiedTotp) {
+          setMfaFactorId(verifiedTotp.id);
+          setShowMfa(true);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
     }
 
     setLoading(false);
