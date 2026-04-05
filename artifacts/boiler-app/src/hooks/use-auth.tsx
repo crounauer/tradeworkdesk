@@ -84,10 +84,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        queryClient.invalidateQueries();
-      }
-
       if (session) {
         await checkMfaStatus();
       } else {
