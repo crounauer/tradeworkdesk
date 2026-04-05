@@ -25,5 +25,5 @@ app.listen(port, () => {
     seedAllTenantsJobTypes().catch((err) =>
       console.error("[job-types] Startup seeding failed:", err)
     );
-  }, 2000);
+  }, 5000);
 });
