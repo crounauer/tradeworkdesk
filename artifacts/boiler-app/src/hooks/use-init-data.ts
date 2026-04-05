@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import type { PlanFeatures } from "./use-plan-features";
 
 export interface InitData {
@@ -30,7 +32,25 @@ export interface InitData {
   enquiriesCount: number;
 }
 
+function useHasSession() {
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setHasSession(!!data.session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return hasSession;
+}
+
 export function useInitData() {
+  const hasSession = useHasSession();
+
   return useQuery<InitData>({
     queryKey: ["me-init"],
     queryFn: async () => {
@@ -45,6 +65,7 @@ export function useInitData() {
       }
       return res.json();
     },
+    enabled: hasSession,
     staleTime: 30_000,
     refetchInterval: 2 * 60_000,
   });
