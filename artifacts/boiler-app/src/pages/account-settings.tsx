@@ -297,10 +297,10 @@ function rebrandTotpUri(uri: string): string {
   try {
     const url = new URL(uri);
     url.searchParams.set("issuer", "TradeWorkDesk");
-    const path = url.pathname;
-    const labelMatch = path.match(/^\/([^:]*):(.+)$/);
-    if (labelMatch) {
-      const account = labelMatch[2];
+    const path = decodeURIComponent(url.pathname);
+    const lastColon = path.lastIndexOf(":");
+    if (lastColon > 0) {
+      const account = path.substring(lastColon + 1);
       url.pathname = `/TradeWorkDesk:${account}`;
     }
     return url.toString();
