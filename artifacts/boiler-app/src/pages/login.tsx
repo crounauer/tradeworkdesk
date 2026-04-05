@@ -42,7 +42,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -57,29 +57,14 @@ export default function Login() {
       return;
     }
 
-    const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aalError) {
+    const verifiedTotp = data.user?.factors?.find(
+      (f: { factor_type: string; status: string }) => f.factor_type === "totp" && f.status === "verified"
+    );
+    if (verifiedTotp) {
+      setMfaFactorId(verifiedTotp.id);
+      setShowMfa(true);
       setLoading(false);
       return;
-    }
-
-    if (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") {
-      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-      if (factorsError || !factorsData?.totp?.length) {
-        toast({ title: "MFA Error", description: "Could not load MFA factors. Please sign in again.", variant: "destructive" });
-        supabase.auth.signOut({ scope: "local" }).catch(() => {});
-        setLoading(false);
-        return;
-      }
-      const totpFactor = factorsData.totp.find(f => f.status === "verified");
-      if (!totpFactor) {
-        toast({ title: "MFA Error", description: "No verified authenticator found. Contact your administrator.", variant: "destructive" });
-        supabase.auth.signOut({ scope: "local" }).catch(() => {});
-        setLoading(false);
-        return;
-      }
-      setMfaFactorId(totpFactor.id);
-      setShowMfa(true);
     }
 
     setLoading(false);
@@ -101,10 +86,7 @@ export default function Login() {
       });
       if (verifyError) throw verifyError;
 
-      const { data: refreshedAal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (refreshedAal?.currentLevel === "aal2") {
-        setShowMfa(false);
-      }
+      setShowMfa(false);
     } catch (err) {
       toast({
         title: "Verification Failed",

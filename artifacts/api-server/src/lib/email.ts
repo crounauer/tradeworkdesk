@@ -340,6 +340,31 @@ export async function sendJobConfirmationEmail(
   }
 }
 
+export async function sendNewRegistrationNotification(
+  to: string,
+  newCompanyName: string,
+  contactName: string,
+  contactEmail: string,
+  companyType: string,
+): Promise<void> {
+  const typeLabel = companyType === "sole_trader" ? "Sole Trader" : "Company";
+  const html = baseHtml("New Registration", `
+    <h2>New Company Registered</h2>
+    <p>A new account has just been created on TradeWorkDesk.</p>
+    <div class="info-box">
+      <p><strong>Company:</strong> ${escHtml(newCompanyName)}</p>
+      <p><strong>Type:</strong> ${typeLabel}</p>
+      <p><strong>Contact:</strong> ${escHtml(contactName)}</p>
+      <p><strong>Email:</strong> ${escHtml(contactEmail)}</p>
+    </div>
+    <p>They are now on a 14-day free trial. You can view their account in the platform admin panel.</p>
+    <p style="margin-top:24px;">
+      <a href="https://www.tradeworkdesk.co.uk/super-admin" class="btn">Open Platform Admin</a>
+    </p>
+  `);
+  await send(to, `TradeWorkDesk — New registration: ${newCompanyName}`, html);
+}
+
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
   const html = baseHtml("Payment failed", `

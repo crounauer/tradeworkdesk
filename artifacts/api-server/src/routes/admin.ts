@@ -2,7 +2,7 @@ import { Router, type IRouter, type Response } from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
-import { sendConfirmationEmail } from "../lib/email";
+import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
@@ -616,6 +616,25 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   sendConfirmationEmail(contact_email, contact_name, resolvedCompanyName, linkData.properties.action_link).catch((e) =>
     console.error("[email] Confirmation email failed:", e)
   );
+
+  supabaseAdmin
+    .from("profiles")
+    .select("email")
+    .eq("role", "super_admin")
+    .then(({ data: superAdmins }) => {
+      if (superAdmins?.length) {
+        for (const sa of superAdmins) {
+          sendNewRegistrationNotification(
+            sa.email,
+            resolvedCompanyName,
+            contact_name,
+            contact_email,
+            resolvedCompanyType,
+          ).catch((e) => console.error("[email] Super-admin notification failed:", e));
+        }
+      }
+    })
+    .catch((e) => console.error("[email] Failed to fetch super_admins:", e));
 
   res.status(201).json({
     tenant_id: tenant.id,
