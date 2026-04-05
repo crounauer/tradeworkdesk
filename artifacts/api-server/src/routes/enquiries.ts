@@ -1,7 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
 import { supabaseAdmin } from "../lib/supabase";
-import { db, jobTypes } from "@workspace/db";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 
@@ -187,10 +185,12 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
   }
 
   if (job_type_id && req.tenantId) {
-    const jtRows = await db.select({ id: jobTypes.id }).from(jobTypes).where(
-      and(eq(jobTypes.id, Number(job_type_id)), eq(jobTypes.tenant_id, req.tenantId))
-    );
-    if (jtRows.length === 0) {
+    const { data: jtRows } = await supabaseAdmin
+      .from("job_types")
+      .select("id")
+      .eq("id", Number(job_type_id))
+      .eq("tenant_id", req.tenantId);
+    if (!jtRows || jtRows.length === 0) {
       res.status(403).json({ error: "Invalid reference: job_types does not belong to your organisation" }); return;
     }
   }

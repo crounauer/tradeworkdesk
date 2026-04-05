@@ -1,10 +1,12 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import compression from "compression";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import router from "./routes";
 
 const app: Express = express();
 
+app.use(compression());
 app.use(cors());
 
 const registrationLimiter = rateLimit({

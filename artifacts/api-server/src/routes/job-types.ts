@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, jobTypes } from "@workspace/db";
+import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 
@@ -12,17 +11,20 @@ router.get("/job-types", requireAuth, requireTenant, async (req: AuthenticatedRe
 
   const includeInactive = req.query.includeInactive === "true";
 
-  const conditions = includeInactive
-    ? eq(jobTypes.tenant_id, req.tenantId)
-    : and(eq(jobTypes.tenant_id, req.tenantId), eq(jobTypes.is_active, true));
+  let q = supabaseAdmin
+    .from("job_types")
+    .select("*")
+    .eq("tenant_id", req.tenantId)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
 
-  const all = await db
-    .select()
-    .from(jobTypes)
-    .where(conditions)
-    .orderBy(jobTypes.sort_order, jobTypes.name);
+  if (!includeInactive) {
+    q = q.eq("is_active", true);
+  }
 
-  res.json(all);
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
 });
 
 router.post("/job-types", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -41,26 +43,32 @@ router.post("/job-types", requireAuth, requireTenant, requireRole("admin"), asyn
   const cat = category && validCategories.includes(category) ? category : "service";
   const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-  const existing = await db
+  const { data: existing } = await supabaseAdmin
+    .from("job_types")
+    .select("sort_order")
+    .eq("tenant_id", req.tenantId)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+
+  const maxOrder = existing && existing.length > 0 ? existing[0].sort_order : -1;
+
+  const { data: created, error } = await supabaseAdmin
+    .from("job_types")
+    .insert({
+      tenant_id: req.tenantId,
+      name: name.trim(),
+      slug,
+      category: cat,
+      color: color || "#3B82F6",
+      default_duration_minutes: default_duration_minutes || null,
+      is_active: true,
+      is_default: false,
+      sort_order: maxOrder + 1,
+    })
     .select()
-    .from(jobTypes)
-    .where(eq(jobTypes.tenant_id, req.tenantId))
-    .orderBy(jobTypes.sort_order);
+    .single();
 
-  const maxOrder = existing.reduce((max, t) => Math.max(max, t.sort_order), -1);
-
-  const [created] = await db.insert(jobTypes).values({
-    tenant_id: req.tenantId,
-    name: name.trim(),
-    slug,
-    category: cat,
-    color: color || "#3B82F6",
-    default_duration_minutes: default_duration_minutes || null,
-    is_active: true,
-    is_default: false,
-    sort_order: maxOrder + 1,
-  }).returning();
-
+  if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(created);
 });
 
@@ -80,7 +88,7 @@ router.patch("/job-types/:id", requireAuth, requireTenant, requireRole("admin"),
 
   const validCategories = ["service", "breakdown", "installation", "inspection", "follow_up"];
 
-  const updates: Partial<typeof jobTypes.$inferInsert> = {};
+  const updates: Record<string, unknown> = {};
   if (name !== undefined) {
     const trimmed = name.trim();
     if (!trimmed) { res.status(400).json({ error: "Name cannot be empty" }); return; }
@@ -92,12 +100,18 @@ router.patch("/job-types/:id", requireAuth, requireTenant, requireRole("admin"),
   if (default_duration_minutes !== undefined) updates.default_duration_minutes = default_duration_minutes;
   if (is_active !== undefined) updates.is_active = is_active;
 
-  const [updated] = await db
-    .update(jobTypes)
-    .set(updates)
-    .where(and(eq(jobTypes.id, id), eq(jobTypes.tenant_id, req.tenantId)))
-    .returning();
+  const { data: updated, error } = await supabaseAdmin
+    .from("job_types")
+    .update(updates)
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId)
+    .select()
+    .single();
 
+  if (error) {
+    const status = error.code === "PGRST116" ? 404 : 500;
+    res.status(status).json({ error: status === 404 ? "Job type not found" : error.message }); return;
+  }
   if (!updated) { res.status(404).json({ error: "Job type not found" }); return; }
   res.json(updated);
 });

@@ -1,6 +1,4 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
-import { db, jobTypes } from "@workspace/db";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
@@ -72,12 +70,12 @@ async function enrichJobsWithTypeNames(
   const typeIds = [...new Set(jobs.map((j) => j.job_type_id).filter((id): id is number => id != null))];
   if (!typeIds.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
 
-  const types = await db
-    .select({ id: jobTypes.id, name: jobTypes.name })
-    .from(jobTypes)
-    .where(inArray(jobTypes.id, typeIds));
+  const { data: types } = await supabaseAdmin
+    .from("job_types")
+    .select("id, name")
+    .in("id", typeIds);
 
-  const typeMap = new Map(types.map((t) => [t.id, t.name]));
+  const typeMap = new Map((types || []).map((t: { id: number; name: string }) => [t.id, t.name]));
 
   return jobs.map((j) => ({
     ...j,
@@ -162,17 +160,17 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     q = q.or(`description.ilike.%${s}%,notes.ilike.%${s}%,customers.first_name.ilike.%${s}%,customers.last_name.ilike.%${s}%`);
   }
 
-  const [{ data, error }, { count: totalCount }, allTypes, tenantFeatures] = await Promise.all([
+  const [{ data, error }, { count: totalCount }, { data: allTypes }, tenantFeatures] = await Promise.all([
     q,
     countQ,
-    db.select({ id: jobTypes.id, name: jobTypes.name }).from(jobTypes),
+    supabaseAdmin.from("job_types").select("id, name"),
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const hasGeoMapping = !!(tenantFeatures?.geo_mapping);
 
-  const typeMap = new Map(allTypes.map((t) => [t.id, t.name]));
+  const typeMap = new Map((allTypes || []).map((t: { id: number; name: string }) => [t.id, t.name]));
   const rawMapped = (data as SupabaseJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
@@ -227,10 +225,12 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     jobCoreData.job_type ?? "service";
 
   if (jobTypeId && req.tenantId) {
-    const [jt] = await db
-      .select()
-      .from(jobTypes)
-      .where(eq(jobTypes.id, jobTypeId));
+    const { data: jtArr } = await supabaseAdmin
+      .from("job_types")
+      .select("*")
+      .eq("id", jobTypeId)
+      .limit(1);
+    const jt = jtArr?.[0];
     if (jt && jt.tenant_id === req.tenantId && jt.is_active) {
       verifiedJobTypeId = jt.id;
       resolvedJobType = deriveJobTypeEnum(jt.category, jt.slug);
@@ -315,8 +315,12 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
 
   let jobTypeName = job.job_type || "Service";
   if (job.job_type_id) {
-    const [jt] = await db.select().from(jobTypes).where(eq(jobTypes.id, job.job_type_id));
-    if (jt) jobTypeName = jt.name;
+    const { data: jtArr } = await supabaseAdmin
+      .from("job_types")
+      .select("name")
+      .eq("id", job.job_type_id)
+      .limit(1);
+    if (jtArr?.[0]) jobTypeName = jtArr[0].name;
   }
 
   const { data: companySettings } = await supabaseAdmin
@@ -526,7 +530,12 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const updatePayload: Record<string, unknown> = { ...updateCoreData };
 
   if (rawUpdateJobTypeId != null && req.tenantId) {
-    const [jt] = await db.select().from(jobTypes).where(eq(jobTypes.id, rawUpdateJobTypeId));
+    const { data: jtArr } = await supabaseAdmin
+      .from("job_types")
+      .select("*")
+      .eq("id", rawUpdateJobTypeId)
+      .limit(1);
+    const jt = jtArr?.[0];
     if (!jt || jt.tenant_id !== req.tenantId || !jt.is_active) {
       res.status(400).json({ error: "Invalid or inactive job type for this company" }); return;
     }

@@ -52,7 +52,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **Schema:** Defined in `supabase/migration.sql`, with all data tables having `tenant_id NOT NULL`.
 - **Row Level Security (RLS):** Implemented with tenant predicates for all data tables, ensuring data isolation. The API server uses a service role key to bypass RLS for backend operations but enforces authorization at the route handler level.
 - **Foreign Key Ownership Validation:** Write routes validate that referenced foreign keys belong to the requesting user's tenant.
-- **Drizzle ORM:** Used for schema definitions and typed database interactions in `lib/db`.
+- **Drizzle ORM:** Schema definitions remain in `lib/db` for reference but the API server no longer imports from `@workspace/db`. All runtime queries use the Supabase client.
 
 **Monorepo Structure:**
 - **`artifacts/api-server`**: Express API server.
@@ -60,7 +60,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **`lib/api-spec`**: OpenAPI spec and Orval codegen configuration.
 - **`lib/api-client-react`**: Generated React Query hooks for frontend API calls.
 - **`lib/api-zod`**: Generated Zod schemas for validation.
-- **`lib/db`**: Drizzle ORM schema definitions.
+- **`lib/db`**: Drizzle ORM schema definitions (reference only; not imported at runtime by api-server).
 - **`supabase/`**: Database migration and seed scripts.
 
 **Feature Specifications:**

@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -7,6 +8,8 @@ const publicDir = path.join(__dirname, "dist", "public");
 const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = express();
+
+app.use(compression());
 
 app.use(
   "/assets",

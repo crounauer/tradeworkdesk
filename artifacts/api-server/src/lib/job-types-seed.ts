@@ -1,6 +1,4 @@
-import { db } from "@workspace/db";
-import { jobTypes } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { supabaseAdmin } from "./supabase";
 
 interface DefaultJobType {
   name: string;
@@ -23,15 +21,20 @@ const DEFAULT_JOB_TYPES: DefaultJobType[] = [
 ];
 
 export async function seedDefaultJobTypesForTenant(tenantId: string): Promise<void> {
-  const existing = await db
-    .select()
-    .from(jobTypes)
-    .where(eq(jobTypes.tenant_id, tenantId))
+  const { data: existing, error: checkError } = await supabaseAdmin
+    .from("job_types")
+    .select("id")
+    .eq("tenant_id", tenantId)
     .limit(1);
 
-  if (existing.length > 0) return;
+  if (checkError) {
+    console.error(`[job-types] Failed to check existing types for tenant ${tenantId}:`, checkError.message);
+    return;
+  }
 
-  await db.insert(jobTypes).values(
+  if (existing && existing.length > 0) return;
+
+  const { error: insertError } = await supabaseAdmin.from("job_types").insert(
     DEFAULT_JOB_TYPES.map((t) => ({
       tenant_id: tenantId,
       name: t.name,
@@ -44,19 +47,18 @@ export async function seedDefaultJobTypesForTenant(tenantId: string): Promise<vo
       sort_order: t.sort_order,
     }))
   );
+
+  if (insertError) {
+    console.error(`[job-types] Failed to seed defaults for tenant ${tenantId}:`, insertError.message);
+  }
 }
 
 export async function seedAllTenantsJobTypes(): Promise<void> {
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) return;
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const { data: tenants } = await supabase.from("tenants").select("id");
+  const { data: tenants, error } = await supabaseAdmin.from("tenants").select("id");
+  if (error) {
+    console.error("[job-types] Failed to fetch tenants for seeding:", error.message);
+    return;
+  }
   if (!tenants || tenants.length === 0) return;
 
   for (const tenant of tenants) {
