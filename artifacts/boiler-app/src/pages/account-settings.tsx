@@ -28,9 +28,21 @@ export default function AccountSettings() {
 
   const loadFactors = async () => {
     setLoading(true);
-    const { data, error } = await supabase.auth.mfa.listFactors();
-    if (!error && data) {
-      setFactors(data.totp || []);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) {
+        console.error("MFA listFactors error:", error);
+      }
+      if (data) {
+        setFactors(data.totp || []);
+      }
+    } catch (err) {
+      console.error("MFA loadFactors exception:", err);
     }
     setLoading(false);
   };
