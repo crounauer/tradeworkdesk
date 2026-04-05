@@ -84,6 +84,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (event === "SIGNED_IN") {
+        queryClient.invalidateQueries({ queryKey: ["me-init"] });
+      }
+
       if (session) {
         await checkMfaStatus();
       } else {
@@ -119,6 +123,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) return { profile: null };
       return res.json();
     },
+    enabled: !!session,
     staleTime: 30_000,
     refetchInterval: 2 * 60_000,
   });
