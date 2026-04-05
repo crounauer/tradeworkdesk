@@ -145,10 +145,11 @@ export default function AccountSettings() {
       if (unenrollError) throw unenrollError;
 
       toast({ title: "2FA Disabled", description: "Two-factor authentication has been removed from your account." });
+      setFactors((prev) => prev.filter((f) => f.id !== disableFactorId));
       setShowDisable(false);
       setDisableCode("");
       setDisableFactorId("");
-      await loadFactors();
+      loadFactors().catch(() => {});
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to disable 2FA. Check your code.", variant: "destructive" });
     } finally {
