@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
-import { useQueryClient } from "@tanstack/react-query";
-import { useInitData } from "./use-init-data";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 type Profile = {
   id: string;
@@ -91,11 +90,29 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queryClient]);
 
-  const { data: initData } = useInitData();
+  const { data: initData } = useQuery({
+    queryKey: ["me-init"],
+    queryFn: async () => {
+      const res = await fetch("/api/me/init");
+      if (!res.ok) return { profile: null };
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchInterval: 2 * 60_000,
+  });
   const profile = initData?.profile as Profile | null | undefined;
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("signOut error:", e);
+    }
+    setSession(null);
+    setUser(null);
+    setMfaPending(false);
+    queryClient.clear();
+    window.location.href = "/login";
   };
 
   return (
