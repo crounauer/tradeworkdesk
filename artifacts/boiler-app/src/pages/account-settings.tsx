@@ -67,7 +67,8 @@ export default function AccountSettings() {
       const secret = extractSecretFromUri(data.totp.uri);
       setTotpSecret(secret);
 
-      const dataUrl = await QRCode.toDataURL(data.totp.uri, { width: 200, margin: 2 });
+      const brandedUri = rebrandTotpUri(data.totp.uri);
+      const dataUrl = await QRCode.toDataURL(brandedUri, { width: 200, margin: 2 });
       setQrDataUrl(dataUrl);
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to start enrollment", variant: "destructive" });
@@ -288,5 +289,21 @@ function extractSecretFromUri(uri: string): string {
     return url.searchParams.get("secret") || "";
   } catch {
     return "";
+  }
+}
+
+function rebrandTotpUri(uri: string): string {
+  try {
+    const url = new URL(uri);
+    url.searchParams.set("issuer", "TradeWorkDesk");
+    const path = url.pathname;
+    const labelMatch = path.match(/^\/([^:]*):(.+)$/);
+    if (labelMatch) {
+      const account = labelMatch[2];
+      url.pathname = `/TradeWorkDesk:${account}`;
+    }
+    return url.toString();
+  } catch {
+    return uri;
   }
 }
