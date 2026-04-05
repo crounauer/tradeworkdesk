@@ -1,20 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/use-auth";
+import { useInitData } from "./use-init-data";
 
 export function useIsSoleTrader() {
-  const { profile } = useAuth();
+  const { data, isLoading } = useInitData();
 
-  const { data: tenantInfo, isLoading } = useQuery({
-    queryKey: ["me-tenant"],
-    queryFn: async () => {
-      const res = await fetch("/api/me/tenant");
-      if (!res.ok) return null;
-      return res.json();
-    },
-    enabled: !!profile && profile.role !== "super_admin",
-    staleTime: 60_000,
-  });
-
+  const tenantInfo = data?.tenant;
   const isSoleTrader = tenantInfo?.company_type === "sole_trader";
 
   return {

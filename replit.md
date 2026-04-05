@@ -39,8 +39,9 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 **Backend (api-server):**
 - **Technology Stack:** Express 5.
 - **API Design:** All routes are under `/api`.
-- **Authentication:** Verifies JWT tokens via `supabaseAdmin.auth.getUser()`.
+- **Authentication:** Verifies JWT tokens via `supabaseAdmin.auth.getUser()` with a token-level cache (10s TTL, max 500 entries) to reduce Supabase auth round-trips.
 - **Authorization:** Implements role-based access control (`requireRole()`, `requireSuperAdmin()`) and resource-level authorization (technicians restricted to assigned jobs).
+- **Init Endpoint:** `/api/me/init` combines profile, plan features, tenant info, and enquiry count into a single request. Frontend `useInitData()` hook replaces separate fetches for `usePlanFeatures`, `useIsSoleTrader`, and enquiry count.
 - **Multi-tenancy:** All data tables include a `tenant_id` foreign key. Middleware (`requireTenant`) scopes all queries by the user's `tenant_id`. Super admins bypass tenant scoping.
 - **File Storage:** Handles file uploads via `multer`, stores them in Supabase Storage buckets (`service-photos`, `service-documents`, `signatures`), and generates signed URLs for access. Server-side image compression and thumbnail generation are performed using `sharp`.
 - **Data Validation:** Uses Zod schemas (generated from OpenAPI spec) for request and response validation.

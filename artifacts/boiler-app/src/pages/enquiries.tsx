@@ -169,6 +169,7 @@ function EnquiriesContent() {
           onOpenChange={setShowCreate}
           onCreated={() => {
             qc.invalidateQueries({ queryKey: ["enquiries"] });
+            qc.invalidateQueries({ queryKey: ["me-init"] });
             toast({ title: "Enquiry created", description: "New enquiry has been recorded." });
           }}
         />

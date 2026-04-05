@@ -7,7 +7,6 @@ const router: IRouter = Router();
 
 router.get("/job-types", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.status(400).json({ error: "Tenant required" }); return; }
-  await seedDefaultJobTypesForTenant(req.tenantId);
 
   const includeInactive = req.query.includeInactive === "true";
 

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInitData } from "./use-init-data";
 
 export interface PlanFeatures {
   job_management?: boolean;
@@ -18,24 +18,11 @@ export interface PlanFeatures {
   [key: string]: boolean | undefined;
 }
 
-interface TenantPlanInfo {
-  plan_id: string | null;
-  plan_name: string | null;
-  features: PlanFeatures;
-}
-
 export function usePlanFeatures() {
-  const { data, isLoading } = useQuery<TenantPlanInfo>({
-    queryKey: ["tenant-plan-features"],
-    queryFn: async () => {
-      const res = await fetch("/api/me/plan-features");
-      if (!res.ok) return { plan_id: null, plan_name: null, features: {} };
-      return res.json();
-    },
-    staleTime: 60_000,
-  });
+  const { data, isLoading } = useInitData();
 
-  const features = data?.features ?? {};
+  const pf = data?.planFeatures;
+  const features = pf?.features ?? {};
 
   const hasFeature = (key: string): boolean => {
     if (isLoading) return true;
@@ -48,8 +35,8 @@ export function usePlanFeatures() {
     features,
     hasFeature,
     isFormsOnly,
-    planName: data?.plan_name ?? null,
-    planId: data?.plan_id ?? null,
+    planName: pf?.plan_name ?? null,
+    planId: pf?.plan_id ?? null,
     isLoading,
   };
 }

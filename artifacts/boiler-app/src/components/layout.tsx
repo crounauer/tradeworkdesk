@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useInitData } from "@/hooks/use-init-data";
 import { 
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
@@ -32,28 +33,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
   const { hasFeature, isFormsOnly } = usePlanFeatures();
 
-  const { data: tenantInfo } = useQuery({
-    queryKey: ["me-tenant"],
-    queryFn: async () => {
-      const res = await fetch("/api/me/tenant");
-      if (!res.ok) return null;
-      return res.json();
-    },
-    enabled: !!profile && !isSuperAdmin,
-  });
+  const { data: initData } = useInitData();
+  const tenantInfo = initData?.tenant ?? null;
 
   const hasJobManagement = hasFeature("job_management");
 
-  const { data: enquiryCountData } = useQuery({
-    queryKey: ["enquiries-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/enquiries-count");
-      if (!res.ok) return { count: 0 };
-      return res.json();
-    },
-    enabled: !!profile && !isSuperAdmin && hasJobManagement && !isFormsOnly,
-    refetchInterval: 2 * 60 * 1000,
-  });
+  const enquiryCountData = { count: initData?.enquiriesCount ?? 0 };
 
   const { data: announcements } = useQuery({
     queryKey: ["active-announcements"],

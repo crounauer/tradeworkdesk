@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useIsSoleTrader } from "@/hooks/use-sole-trader";
-import { useQuery as useReactQuery } from "@tanstack/react-query";
+import { useInitData } from "@/hooks/use-init-data";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 
 interface JobType {
@@ -52,16 +52,8 @@ export default function Dashboard() {
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
-
-  const { data: enquiryCount } = useReactQuery({
-    queryKey: ["enquiries-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/enquiries-count");
-      if (!res.ok) return { count: 0 };
-      return res.json();
-    },
-    enabled: hasJobManagement,
-  });
+  const { data: initData } = useInitData();
+  const enquiryCount = { count: initData?.enquiriesCount ?? 0 };
 
   if (isLoading) return <div className="p-8">Loading dashboard...</div>;
   if (!data) return null;
@@ -475,7 +467,7 @@ function QuickEnquiryDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         throw new Error(err.error || "Failed to create enquiry");
       }
       qc.invalidateQueries({ queryKey: ["enquiries"] });
-      qc.invalidateQueries({ queryKey: ["enquiries-count"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Enquiry added", description: `Enquiry for ${form.contact_name} created.` });
       onOpenChange(false);
     } catch (err) {

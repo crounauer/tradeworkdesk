@@ -391,6 +391,7 @@ function EnquiryDetailContent() {
       if (!res.ok) throw new Error("Failed to update status");
       qc.invalidateQueries({ queryKey: ["enquiry", id] });
       qc.invalidateQueries({ queryKey: ["enquiries"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Status updated" });
     } catch {
       toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
@@ -474,6 +475,7 @@ function EnquiryDetailContent() {
       const res = await fetch(`/api/enquiries/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       qc.invalidateQueries({ queryKey: ["enquiries"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
       navigate("/enquiries");
       toast({ title: "Enquiry deleted" });
     } catch {
@@ -730,6 +732,7 @@ function EnquiryDetailContent() {
           onConverted={(jobId: string) => {
             qc.invalidateQueries({ queryKey: ["enquiry", id] });
             qc.invalidateQueries({ queryKey: ["enquiries"] });
+            qc.invalidateQueries({ queryKey: ["me-init"] });
             navigate(`/jobs/${jobId}`);
           }}
         />

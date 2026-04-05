@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
+import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 
 const router: IRouter = Router();
 
@@ -127,6 +128,10 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     tenant_id: tenant.id,
     name: company_name,
   });
+
+  seedDefaultJobTypesForTenant(tenant.id).catch((e) =>
+    console.error("[seed] Default job types failed for tenant", tenant.id, e)
+  );
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
@@ -446,6 +451,95 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
   res.json(data);
 });
 
+router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const superAdminFeatures = {
+    job_management: true, invoicing: true, reports: true, team_management: true,
+    social_media: true, heat_pump_forms: true, oil_tank_forms: true,
+    commissioning_forms: true, combustion_analysis: true, api_access: true,
+    scheduling: true, custom_branding: true, priority_support: true,
+  };
+
+  const profilePromise = supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("id", req.userId!)
+    .single();
+
+  if (req.userRole === "super_admin") {
+    const { data: profile } = await profilePromise;
+    res.json({
+      profile: profile || null,
+      planFeatures: { plan_id: null, plan_name: "Super Admin", features: superAdminFeatures },
+      tenant: null,
+      enquiriesCount: 0,
+    });
+    return;
+  }
+
+  const promises: Promise<unknown>[] = [profilePromise];
+
+  if (req.tenantId) {
+    promises.push(
+      supabaseAdmin
+        .from("tenants")
+        .select("plan_id, plans(name, features)")
+        .eq("id", req.tenantId)
+        .single(),
+      supabaseAdmin
+        .from("tenants")
+        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
+        .eq("id", req.tenantId)
+        .single(),
+      supabaseAdmin
+        .from("tenant_subscriptions")
+        .select("*")
+        .eq("tenant_id", req.tenantId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    );
+  }
+
+  const results = await Promise.all(promises);
+
+  const profileRes = results[0] as { data: Record<string, unknown> | null };
+  const profile = profileRes?.data || null;
+
+  let planFeatures = { plan_id: null as string | null, plan_name: null as string | null, features: {} as Record<string, boolean> };
+  let tenant = null;
+  let enquiriesCount = 0;
+
+  if (req.tenantId) {
+    const planRes = results[1] as { data: { plan_id: string; plans: { name?: string; features?: Record<string, boolean> } | null } | null; error: unknown };
+    if (planRes?.data) {
+      const plan = planRes.data.plans;
+      planFeatures = {
+        plan_id: planRes.data.plan_id,
+        plan_name: plan?.name ?? null,
+        features: plan?.features ?? {},
+      };
+    }
+
+    const tenantRes = results[2] as { data: Record<string, unknown> | null; error: unknown };
+    const subscriptionRes = results[3] as { data: Record<string, unknown> | null };
+
+    if (tenantRes?.data) {
+      tenant = { ...tenantRes.data, subscription: subscriptionRes?.data || null };
+    }
+
+    if (planFeatures.features.job_management) {
+      const { count } = await supabaseAdmin
+        .from("enquiries")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["new", "contacted", "quoted"])
+        .eq("tenant_id", req.tenantId);
+      enquiriesCount = count || 0;
+    }
+  }
+
+  res.json({ profile, planFeatures, tenant, enquiriesCount });
+});
+
 router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   if (req.userRole === "super_admin") {
     res.json({ plan_id: null, plan_name: "Super Admin", features: {
@@ -484,23 +578,24 @@ router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, r
 router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.json(null); return; }
 
-  const { data, error } = await supabaseAdmin
-    .from("tenants")
-    .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
-    .eq("id", req.tenantId)
-    .single();
+  const [tenantRes, subscriptionRes] = await Promise.all([
+    supabaseAdmin
+      .from("tenants")
+      .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
+      .eq("id", req.tenantId)
+      .single(),
+    supabaseAdmin
+      .from("tenant_subscriptions")
+      .select("*")
+      .eq("tenant_id", req.tenantId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  if (error || !data) { res.json(null); return; }
+  if (tenantRes.error || !tenantRes.data) { res.json(null); return; }
 
-  const { data: subscription } = await supabaseAdmin
-    .from("tenant_subscriptions")
-    .select("*")
-    .eq("tenant_id", req.tenantId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  res.json({ ...data, subscription: subscription || null });
+  res.json({ ...tenantRes.data, subscription: subscriptionRes.data || null });
 });
 
 router.get("/platform/stats/mrr", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {

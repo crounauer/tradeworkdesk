@@ -5,6 +5,7 @@ import { requireAuth, requireRole, requireTenant, requirePlanFeature, type Authe
 import { sendConfirmationEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
+import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 
 const router: IRouter = Router();
 
@@ -598,6 +599,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     tenant_id: tenant.id,
     name: resolvedCompanyName,
   });
+
+  seedDefaultJobTypesForTenant(tenant.id).catch((e) =>
+    console.error("[seed] Default job types failed for tenant", tenant.id, e)
+  );
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: linkData.user.id,

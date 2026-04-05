@@ -50,9 +50,8 @@ export function useUpgradeToCompany() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["company-type"] });
-      qc.invalidateQueries({ queryKey: ["me-tenant"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["tenant-info"] });
-      qc.invalidateQueries({ queryKey: ["tenant-plan-features"] });
       toast({ title: "Upgraded to Company", description: "Team features are now available. You can invite team members and assign jobs." });
     },
     onError: (e: Error) => {
@@ -76,9 +75,8 @@ export function useDowngradeToSoleTrader() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["company-type"] });
-      qc.invalidateQueries({ queryKey: ["me-tenant"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["tenant-info"] });
-      qc.invalidateQueries({ queryKey: ["tenant-plan-features"] });
       toast({ title: "Switched to Sole Trader", description: "Team features have been deactivated. Jobs will auto-assign to you." });
     },
     onError: (e: Error) => {

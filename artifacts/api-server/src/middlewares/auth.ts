@@ -10,6 +10,24 @@ const PROFILE_CACHE_TTL_MS = 30_000;
 const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
 const MFA_CACHE_TTL_MS = 5_000;
 
+const tokenUserCache = new Map<string, { user: { id: string; email?: string; user_metadata?: Record<string, unknown> }; expiresAt: number }>();
+const TOKEN_CACHE_TTL_MS = 10_000;
+const TOKEN_CACHE_MAX_SIZE = 500;
+
+function cleanTokenCache() {
+  if (tokenUserCache.size <= TOKEN_CACHE_MAX_SIZE) return;
+  const now = Date.now();
+  for (const [key, val] of tokenUserCache) {
+    if (val.expiresAt <= now) tokenUserCache.delete(key);
+  }
+  if (tokenUserCache.size > TOKEN_CACHE_MAX_SIZE) {
+    const entries = [...tokenUserCache.entries()];
+    entries.sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+    const toRemove = entries.slice(0, entries.length - TOKEN_CACHE_MAX_SIZE);
+    for (const [key] of toRemove) tokenUserCache.delete(key);
+  }
+}
+
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   userRole?: string;
@@ -30,17 +48,31 @@ export async function requireAuth(
 
   const token = authHeader.substring(7);
 
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token);
+  const now = Date.now();
+  const cachedToken = tokenUserCache.get(token);
+  let user: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null = null;
 
-  if (error || !user) {
+  if (cachedToken && cachedToken.expiresAt > now) {
+    user = cachedToken.user;
+  } else {
+    const {
+      data: { user: fetchedUser },
+      error,
+    } = await supabaseAdmin.auth.getUser(token);
+
+    if (error || !fetchedUser) {
+      res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+    user = fetchedUser;
+    cleanTokenCache();
+    tokenUserCache.set(token, { user: { id: fetchedUser.id, email: fetchedUser.email, user_metadata: fetchedUser.user_metadata }, expiresAt: now + TOKEN_CACHE_TTL_MS });
+  }
+
+  if (!user) {
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
-
-  const now = Date.now();
 
   const cachedMfa = mfaCache.get(user.id);
   let hasVerifiedTotp: boolean;
