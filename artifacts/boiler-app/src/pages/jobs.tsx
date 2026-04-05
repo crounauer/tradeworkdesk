@@ -12,7 +12,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
-import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
@@ -523,7 +522,6 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const { register, handleSubmit, watch, setValue } = useForm<JobFormData>();
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { isSoleTrader } = useIsSoleTrader();
   const selectedCustomerId = watch("customer_id");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustFirst, setNewCustFirst] = useState("");
@@ -743,17 +741,15 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Scheduled Time</label>
           <Input type="time" {...register("scheduled_time")} />
         </div>
-        {!isSoleTrader && (
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1 block">Assign Technician</label>
-            <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("assigned_technician_id")}>
-              <option value="">Unassigned</option>
-              {technicians?.filter(t => t.role === 'technician').map(t => (
-                <option key={t.id} value={t.id}>{t.full_name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Assign Technician</label>
+          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("assigned_technician_id")}>
+            <option value="">Unassigned</option>
+            {technicians?.filter(t => (t as unknown as { can_be_assigned_jobs?: boolean }).can_be_assigned_jobs === true || t.role === 'technician').map(t => (
+              <option key={t.id} value={t.id}>{t.full_name}{t.role === 'admin' ? ' (Admin)' : ''}</option>
+            ))}
+          </select>
+        </div>
         <div className="md:col-span-2">
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Description</label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("description")} />

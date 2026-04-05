@@ -113,6 +113,36 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
   if (!(await requireNotSoleTrader(req, res))) return;
   const { role = "technician", expires_at, note } = req.body;
 
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("plan_id, plans(max_users)")
+    .eq("id", req.tenantId!)
+    .single();
+
+  if (tenant?.plans) {
+    const maxUsers = (tenant.plans as { max_users?: number }).max_users ?? 999;
+    const { count: currentUsers } = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", req.tenantId!)
+      .eq("is_active", true);
+
+    const { count: activeInvites } = await supabaseAdmin
+      .from("invite_codes")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", req.tenantId!)
+      .eq("is_active", true)
+      .is("used_at", null);
+
+    if ((currentUsers || 0) + (activeInvites || 0) >= maxUsers) {
+      res.status(400).json({
+        error: `You've reached your plan's limit of ${maxUsers} users. Please upgrade your plan to add more team members.`,
+        code: "MAX_USERS_REACHED",
+      });
+      return;
+    }
+  }
+
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
 
   const { data, error } = await supabaseAdmin
@@ -185,7 +215,32 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
     res.status(400).json({ error: "Invite code has expired." }); return;
   }
 
-  const profileUpdates: Record<string, unknown> = { role: inv.role };
+  if (inv.tenant_id) {
+    const { data: invTenant } = await supabaseAdmin
+      .from("tenants")
+      .select("plan_id, plans(max_users)")
+      .eq("id", inv.tenant_id)
+      .single();
+
+    if (invTenant?.plans) {
+      const maxUsers = (invTenant.plans as { max_users?: number }).max_users ?? 999;
+      const { count: currentUsers } = await supabaseAdmin
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", inv.tenant_id)
+        .eq("is_active", true);
+
+      if ((currentUsers || 0) >= maxUsers) {
+        res.status(400).json({
+          error: `This company has reached its maximum number of users (${maxUsers}). Please ask the admin to upgrade the plan.`,
+          code: "MAX_USERS_REACHED",
+        });
+        return;
+      }
+    }
+  }
+
+  const profileUpdates: Record<string, unknown> = { role: inv.role, can_be_assigned_jobs: inv.role === "technician" };
   if (inv.tenant_id) profileUpdates.tenant_id = inv.tenant_id;
 
   await Promise.all([
@@ -563,6 +618,185 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     email: contact_email,
     message: "Check your email to confirm your account.",
   });
+});
+
+router.get("/admin/company-type", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: tenant, error } = await supabaseAdmin
+    .from("tenants")
+    .select("company_type, plan_id, plans(features, name)")
+    .eq("id", req.tenantId!)
+    .single();
+
+  if (error || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const { count: userCount } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true);
+
+  const features = (tenant.plans as { features?: Record<string, boolean> } | null)?.features ?? {};
+
+  res.json({
+    company_type: tenant.company_type,
+    has_team_management: !!features.team_management,
+    plan_name: (tenant.plans as { name?: string } | null)?.name ?? null,
+    active_user_count: userCount || 0,
+  });
+});
+
+router.post("/admin/company-type/upgrade", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("company_type, plan_id, plans(features)")
+    .eq("id", req.tenantId!)
+    .single();
+
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (tenant.company_type === "company") {
+    res.status(400).json({ error: "Already operating as a company." }); return;
+  }
+
+  const features = (tenant.plans as { features?: Record<string, boolean> } | null)?.features ?? {};
+  if (!features.team_management) {
+    res.status(400).json({
+      error: "Your current plan doesn't include team management. Please upgrade your plan first.",
+      code: "PLAN_UPGRADE_REQUIRED",
+    });
+    return;
+  }
+
+  await supabaseAdmin
+    .from("tenants")
+    .update({ company_type: "company" })
+    .eq("id", req.tenantId!);
+
+  await supabaseAdmin
+    .from("profiles")
+    .update({ can_be_assigned_jobs: true })
+    .eq("id", req.userId!)
+    .eq("tenant_id", req.tenantId!);
+
+  res.json({ success: true, company_type: "company" });
+});
+
+router.post("/admin/company-type/downgrade", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("company_type")
+    .eq("id", req.tenantId!)
+    .single();
+
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (tenant.company_type === "sole_trader") {
+    res.status(400).json({ error: "Already operating as a sole trader." }); return;
+  }
+
+  const { count: userCount } = await supabaseAdmin
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true);
+
+  if ((userCount || 0) > 1) {
+    res.status(400).json({
+      error: "You must remove all other team members before switching to sole trader mode. Currently there are " + ((userCount || 0) - 1) + " other user(s).",
+      code: "USERS_EXIST",
+    });
+    return;
+  }
+
+  await supabaseAdmin
+    .from("tenants")
+    .update({ company_type: "sole_trader" })
+    .eq("id", req.tenantId!);
+
+  await supabaseAdmin
+    .from("invite_codes")
+    .update({ is_active: false })
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .is("used_at", null);
+
+  await supabaseAdmin
+    .from("profiles")
+    .update({ can_be_assigned_jobs: true })
+    .eq("id", req.userId!)
+    .eq("tenant_id", req.tenantId!);
+
+  res.json({ success: true, company_type: "sole_trader" });
+});
+
+router.post("/admin/jobs/bulk-reassign", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { from_user_id, to_user_id, date_from, date_to, statuses } = req.body;
+
+  if (!to_user_id) {
+    res.status(400).json({ error: "to_user_id is required" }); return;
+  }
+
+  const { data: targetProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id, can_be_assigned_jobs")
+    .eq("id", to_user_id)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+
+  if (!targetProfile) {
+    res.status(404).json({ error: "Target user not found in this company" }); return;
+  }
+
+  let q = supabaseAdmin
+    .from("jobs")
+    .select("id")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true);
+
+  if (from_user_id === "unassigned") {
+    q = q.is("assigned_technician_id", null);
+  } else if (from_user_id) {
+    q = q.eq("assigned_technician_id", from_user_id);
+  }
+
+  if (date_from) q = q.gte("scheduled_date", date_from);
+  if (date_to) q = q.lte("scheduled_date", date_to);
+
+  const allowedStatuses = statuses && Array.isArray(statuses) && statuses.length > 0
+    ? statuses
+    : ["scheduled", "in_progress", "requires_follow_up"];
+
+  q = q.in("status", allowedStatuses);
+
+  const { data: matchingJobs, error: fetchError } = await q;
+  if (fetchError) { res.status(500).json({ error: fetchError.message }); return; }
+
+  if (!matchingJobs || matchingJobs.length === 0) {
+    res.json({ success: true, reassigned_count: 0 }); return;
+  }
+
+  const jobIds = matchingJobs.map((j: { id: string }) => j.id);
+
+  const { error: updateError } = await supabaseAdmin
+    .from("jobs")
+    .update({ assigned_technician_id: to_user_id, updated_at: new Date().toISOString() })
+    .in("id", jobIds)
+    .eq("tenant_id", req.tenantId!);
+
+  if (updateError) { res.status(500).json({ error: updateError.message }); return; }
+
+  res.json({ success: true, reassigned_count: jobIds.length });
+});
+
+router.get("/admin/assignable-users", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name, role, can_be_assigned_jobs")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .eq("can_be_assigned_jobs", true)
+    .order("full_name");
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
 });
 
 export default router;

@@ -81,7 +81,16 @@ function AdminInviteCodesContent() {
       setNewRole("technician");
       toast({ title: "Invite code created", description: "Share the link with the new team member." });
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      const isMaxUsers = e.message?.includes("MAX_USERS_REACHED") || e.message?.toLowerCase().includes("maximum");
+      toast({
+        title: isMaxUsers ? "Team limit reached" : "Error",
+        description: isMaxUsers
+          ? "Your plan's maximum number of users has been reached. Upgrade your plan to add more team members."
+          : e.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const revokeCode = useMutation({

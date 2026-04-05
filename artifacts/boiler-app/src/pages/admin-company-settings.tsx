@@ -2,17 +2,19 @@ import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useCompanySettings, useUpdateCompanySettings, useUploadCompanyLogo } from "@/hooks/use-company-settings";
 import type { CompanySettings } from "@/hooks/use-company-settings";
+import { useCompanyType, useUpgradeToCompany, useDowngradeToSoleTrader } from "@/hooks/use-company-type";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "wouter";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText,
-  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling, Users
+  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
+  ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 
 type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "logo_storage_path" | "created_at" | "updated_at">;
 
@@ -21,12 +23,16 @@ export default function AdminCompanySettings() {
   const updateSettings = useUpdateCompanySettings();
   const uploadLogo = useUploadCompanyLogo();
   const { toast } = useToast();
-  const { isSoleTrader } = useIsSoleTrader();
-  const queryClient = useQueryClient();
+  const { profile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [switchingToCompany, setSwitchingToCompany] = useState(false);
+  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+  const { companyType, isSoleTrader, isCompany, hasTeamManagement, activeUserCount, isLoading: companyTypeLoading, isError: companyTypeError } = useCompanyType();
+  const upgradeToCompany = useUpgradeToCompany();
+  const downgradeToSoleTrader = useDowngradeToSoleTrader();
+  const isAdmin = profile?.role === "admin";
 
   const { register, handleSubmit, reset, formState: { isDirty } } = useForm<FormValues>();
 
@@ -109,24 +115,6 @@ export default function AdminCompanySettings() {
     }
   };
 
-  const handleSwitchToCompany = async () => {
-    if (!confirm("Switch to Company mode? This will allow you to add team members and manage staff. This action cannot be undone.")) return;
-    setSwitchingToCompany(true);
-    try {
-      const res = await fetch("/api/admin/switch-to-company", { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to switch");
-      }
-      queryClient.invalidateQueries({ queryKey: ["me-tenant"] });
-      queryClient.invalidateQueries({ queryKey: ["tenant-plan-features"] });
-      toast({ title: "Switched to Company mode", description: "You can now add team members and manage staff." });
-    } catch (err) {
-      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
-    } finally {
-      setSwitchingToCompany(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -218,6 +206,122 @@ export default function AdminCompanySettings() {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && !companyTypeLoading && !companyTypeError && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Business Mode
+            </CardTitle>
+            <CardDescription>
+              {isSoleTrader
+                ? "You're currently operating as a sole trader. Upgrade to company mode to unlock team features."
+                : "You're operating as a company with team features enabled."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSoleTrader ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
+                {isSoleTrader ? <Building2 className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{isSoleTrader ? "Sole Trader" : "Company"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isSoleTrader
+                    ? "Single user mode — jobs auto-assign to you"
+                    : `Team mode — ${activeUserCount} active user${activeUserCount !== 1 ? "s" : ""}`}
+                </p>
+              </div>
+            </div>
+
+            {isSoleTrader && (
+              <>
+                {hasTeamManagement ? (
+                  <>
+                    {!showUpgradeConfirm ? (
+                      <Button onClick={() => setShowUpgradeConfirm(true)} className="gap-2">
+                        <ArrowUpCircle className="w-4 h-4" />
+                        Upgrade to Company
+                      </Button>
+                    ) : (
+                      <div className="border border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
+                        <h4 className="font-semibold text-sm">Confirm Upgrade to Company Mode</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1.5">
+                          <li className="flex items-start gap-2"><span className="text-green-600 font-bold mt-0.5">+</span> Team management and invite codes become available</li>
+                          <li className="flex items-start gap-2"><span className="text-green-600 font-bold mt-0.5">+</span> Job assignment dropdown appears for assigning technicians</li>
+                          <li className="flex items-start gap-2"><span className="text-green-600 font-bold mt-0.5">+</span> You can still be assigned jobs as the admin</li>
+                        </ul>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => upgradeToCompany.mutate(undefined, { onSuccess: () => setShowUpgradeConfirm(false) })}
+                            disabled={upgradeToCompany.isPending}
+                          >
+                            {upgradeToCompany.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Upgrading...</> : "Confirm Upgrade"}
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowUpgradeConfirm(false)}>Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-800">Plan upgrade required</p>
+                      <p className="text-amber-700 mt-1">Your current plan doesn't include team management. Upgrade your plan to unlock company mode.</p>
+                      <Link href="/billing">
+                        <Button size="sm" variant="outline" className="mt-2 gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5" /> View Plans
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {isCompany && (
+              <>
+                {!showDowngradeConfirm ? (
+                  <Button variant="outline" onClick={() => setShowDowngradeConfirm(true)} className="gap-2 text-muted-foreground">
+                    <ArrowDownCircle className="w-4 h-4" />
+                    Switch to Sole Trader
+                  </Button>
+                ) : (
+                  <div className="border border-amber-200 rounded-lg p-4 space-y-3 bg-amber-50">
+                    <h4 className="font-semibold text-sm text-amber-800">Switch to Sole Trader Mode</h4>
+                    {activeUserCount > 1 ? (
+                      <div className="flex items-start gap-2 text-sm text-amber-700">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <p>You must remove all other team members before switching to sole trader mode. You currently have {activeUserCount - 1} other user{activeUserCount - 1 !== 1 ? "s" : ""}.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <ul className="text-sm text-muted-foreground space-y-1.5">
+                          <li className="flex items-start gap-2"><span className="text-amber-600 font-bold mt-0.5">-</span> Team management and invite codes will be deactivated</li>
+                          <li className="flex items-start gap-2"><span className="text-amber-600 font-bold mt-0.5">-</span> Active invite codes will be revoked</li>
+                          <li className="flex items-start gap-2"><span className="text-amber-600 font-bold mt-0.5">-</span> Jobs will auto-assign to you</li>
+                        </ul>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="destructive"
+                            onClick={() => downgradeToSoleTrader.mutate(undefined, { onSuccess: () => setShowDowngradeConfirm(false) })}
+                            disabled={downgradeToSoleTrader.isPending}
+                          >
+                            {downgradeToSoleTrader.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Switching...</> : "Confirm Switch"}
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowDowngradeConfirm(false)}>Cancel</Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -400,35 +504,6 @@ export default function AdminCompanySettings() {
         </div>
       </form>
 
-      {isSoleTrader && (
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Growing Your Business?
-            </CardTitle>
-            <CardDescription>
-              You're currently operating as a sole trader. If you're hiring staff or need to manage a team,
-              you can switch to Company mode. This will unlock team management features like invite codes
-              and user roles.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={handleSwitchToCompany}
-              disabled={switchingToCompany}
-              variant="outline"
-              className="border-blue-300 text-blue-700 hover:bg-blue-100"
-            >
-              {switchingToCompany ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Switching...</>
-              ) : (
-                <><Building2 className="w-4 h-4 mr-2" /> Switch to Company Mode</>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

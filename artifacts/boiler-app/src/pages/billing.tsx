@@ -23,6 +23,10 @@ interface Plan {
   features: Record<string, boolean>;
   stripe_price_id: string | null;
   stripe_price_id_annual: string | null;
+  sole_trader_price: number | null;
+  sole_trader_price_annual: number | null;
+  stripe_sole_trader_price_id: string | null;
+  stripe_sole_trader_price_id_annual: string | null;
 }
 
 interface TenantInfo {
@@ -33,6 +37,7 @@ interface TenantInfo {
   plan_id: string | null;
   stripe_customer_id?: string | null;
   subscription_renewal_at?: string | null;
+  company_type?: "sole_trader" | "company";
   plans?: { name: string; monthly_price: number; max_users: number; max_jobs_per_month: number } | null;
 }
 
@@ -309,8 +314,13 @@ export default function Billing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(plans || []).map((plan) => {
             const isCurrent = plan.id === tenantInfo?.plan_id;
-            const price = billingCycle === "annual" ? plan.annual_price / 12 : plan.monthly_price;
-            const hasStripePrice = billingCycle === "annual" ? !!plan.stripe_price_id_annual : !!plan.stripe_price_id;
+            const isSoleTrader = tenantInfo?.company_type === "sole_trader";
+            const effectiveMonthly = isSoleTrader && plan.sole_trader_price != null ? plan.sole_trader_price : plan.monthly_price;
+            const effectiveAnnual = isSoleTrader && plan.sole_trader_price_annual != null ? plan.sole_trader_price_annual : plan.annual_price;
+            const price = billingCycle === "annual" ? effectiveAnnual / 12 : effectiveMonthly;
+            const hasStripePrice = billingCycle === "annual"
+              ? !!(isSoleTrader && plan.stripe_sole_trader_price_id_annual ? plan.stripe_sole_trader_price_id_annual : plan.stripe_price_id_annual)
+              : !!(isSoleTrader && plan.stripe_sole_trader_price_id ? plan.stripe_sole_trader_price_id : plan.stripe_price_id);
             return (
               <Card key={plan.id} className={cn(isCurrent ? "border-primary ring-1 ring-primary/30" : "")}>
                 <CardHeader className="pb-2">
@@ -327,7 +337,10 @@ export default function Billing() {
                     <span className="text-sm font-normal text-muted-foreground">/mo</span>
                   </div>
                   {billingCycle === "annual" && (
-                    <p className="text-xs text-muted-foreground">Billed £{Number(plan.annual_price).toFixed(2)}/year</p>
+                    <p className="text-xs text-muted-foreground">Billed £{Number(effectiveAnnual).toFixed(2)}/year</p>
+                  )}
+                  {isSoleTrader && plan.sole_trader_price != null && (
+                    <p className="text-xs text-green-600 font-medium">Sole trader pricing</p>
                   )}
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Up to {plan.max_users} users</p>

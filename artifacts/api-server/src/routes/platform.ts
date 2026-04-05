@@ -196,7 +196,7 @@ router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmi
 });
 
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
-  const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order";
+  const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order, sole_trader_price, sole_trader_price_annual, stripe_price_id, stripe_price_id_annual, stripe_sole_trader_price_id, stripe_sole_trader_price_id_annual";
   const basicSelect = "id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, sort_order";
 
   let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).order("sort_order");

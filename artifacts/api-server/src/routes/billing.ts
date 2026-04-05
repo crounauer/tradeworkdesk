@@ -16,14 +16,22 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
   const { data: plan } = await supabaseAdmin.from("plans").select("*").eq("id", plan_id).single();
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
 
-  const priceId = billing_cycle === "annual" ? plan.stripe_price_id_annual : plan.stripe_price_id;
+  const { data: tenant } = await supabaseAdmin.from("tenants").select("*").eq("id", req.tenantId!).single();
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const isSoleTrader = tenant.company_type === "sole_trader";
+  let priceId: string | null;
+  if (isSoleTrader && billing_cycle === "annual" && plan.stripe_sole_trader_price_id_annual) {
+    priceId = plan.stripe_sole_trader_price_id_annual;
+  } else if (isSoleTrader && plan.stripe_sole_trader_price_id) {
+    priceId = plan.stripe_sole_trader_price_id;
+  } else {
+    priceId = billing_cycle === "annual" ? plan.stripe_price_id_annual : plan.stripe_price_id;
+  }
   if (!priceId) {
     res.status(400).json({ error: `No Stripe price configured for this plan (${billing_cycle})` });
     return;
   }
-
-  const { data: tenant } = await supabaseAdmin.from("tenants").select("*").eq("id", req.tenantId!).single();
-  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
   let customerId: string | undefined = tenant.stripe_customer_id;
 

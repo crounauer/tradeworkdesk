@@ -28,6 +28,7 @@ export const profiles = pgTable("profiles", {
   full_name: text("full_name").notNull(),
   role: userRoleEnum("role").notNull().default("technician"),
   phone: text("phone"),
+  can_be_assigned_jobs: boolean("can_be_assigned_jobs").notNull().default(false),
   is_active: boolean("is_active").notNull().default(true),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),

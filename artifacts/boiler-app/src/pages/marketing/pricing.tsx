@@ -25,6 +25,7 @@ interface DisplayPlan {
   annualMonthly: string | null;
   annualTotal: string | null;
   savingsPct: number | null;
+  soleTraderPrice: string | null;
 }
 
 interface ApiPlan {
@@ -37,6 +38,8 @@ interface ApiPlan {
   user_note: string | null;
   is_popular: boolean;
   features: Record<string, unknown>;
+  sole_trader_price: number | null;
+  sole_trader_price_annual: number | null;
 }
 
 const FEATURE_ORDER: { key: string; label: string; isBool: boolean }[] = [
@@ -79,6 +82,8 @@ function mapApiToDisplay(apiPlans: ApiPlan[]): DisplayPlan[] {
       ? Math.round((1 - annual / 12 / monthly) * 100)
       : null;
 
+    const soleTraderPrice = p.sole_trader_price != null ? Math.round(Number(p.sole_trader_price)).toString() : null;
+
     return {
       name: p.name,
       base,
@@ -90,6 +95,7 @@ function mapApiToDisplay(apiPlans: ApiPlan[]): DisplayPlan[] {
       annualMonthly,
       annualTotal,
       savingsPct,
+      soleTraderPrice,
     };
   });
 }
@@ -104,6 +110,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
     annualMonthly: "24.17",
     annualTotal: "290",
     savingsPct: 17,
+    soleTraderPrice: null,
     features: [
       { label: "Forms", value: "Unlimited" },
       { label: "Signatures", value: "Unlimited" },
@@ -130,6 +137,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
     annualMonthly: "40.83",
     annualTotal: "490",
     savingsPct: 17,
+    soleTraderPrice: null,
     features: [
       { label: "Forms", value: "Unlimited" },
       { label: "Signatures", value: "Unlimited" },
@@ -155,6 +163,7 @@ const FALLBACK_PLANS: DisplayPlan[] = [
     annualMonthly: "65.83",
     annualTotal: "790",
     savingsPct: 17,
+    soleTraderPrice: null,
     features: [
       { label: "Forms", value: "Unlimited" },
       { label: "Signatures", value: "Unlimited" },
@@ -383,6 +392,11 @@ export default function PricingPage() {
                       <p className={`mt-0.5 text-xs ${plan.popular ? "text-blue-300" : "text-slate-400"}`}>
                         {plan.userNote}
                       </p>
+                      {plan.soleTraderPrice && (
+                        <p className={`mt-1.5 text-xs font-medium ${plan.popular ? "text-green-200" : "text-green-600"}`}>
+                          Sole trader? From £{plan.soleTraderPrice}/mo
+                        </p>
+                      )}
                     </div>
                   </div>
 
