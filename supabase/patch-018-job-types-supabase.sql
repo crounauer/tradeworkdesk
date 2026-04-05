@@ -22,10 +22,15 @@ ALTER TABLE job_types ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'job_types' AND policyname = 'job_types_tenant_isolation'
+    SELECT 1 FROM pg_policies WHERE tablename = 'job_types' AND policyname = 'job_types_tenant'
   ) THEN
-    CREATE POLICY job_types_tenant_isolation ON job_types
-      USING (tenant_id = current_setting('app.tenant_id', true));
+    CREATE POLICY job_types_tenant ON job_types FOR ALL TO authenticated
+      USING (
+        tenant_id = get_user_tenant_id(auth.uid())
+        OR get_user_role(auth.uid()) = 'super_admin'
+      ) WITH CHECK (
+        tenant_id = get_user_tenant_id(auth.uid())
+      );
   END IF;
 END $$;
 
