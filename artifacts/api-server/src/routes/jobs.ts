@@ -163,7 +163,9 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   const [{ data, error }, { count: totalCount }, { data: allTypes }, tenantFeatures] = await Promise.all([
     q,
     countQ,
-    supabaseAdmin.from("job_types").select("id, name"),
+    req.tenantId
+      ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
+      : supabaseAdmin.from("job_types").select("id, name"),
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
   if (error) { res.status(500).json({ error: error.message }); return; }
