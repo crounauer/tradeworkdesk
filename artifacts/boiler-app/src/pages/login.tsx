@@ -67,14 +67,14 @@ export default function Login() {
       const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
       if (factorsError || !factorsData?.totp?.length) {
         toast({ title: "MFA Error", description: "Could not load MFA factors. Please sign in again.", variant: "destructive" });
-        await supabase.auth.signOut();
+        supabase.auth.signOut({ scope: "local" }).catch(() => {});
         setLoading(false);
         return;
       }
       const totpFactor = factorsData.totp.find(f => f.status === "verified");
       if (!totpFactor) {
         toast({ title: "MFA Error", description: "No verified authenticator found. Contact your administrator.", variant: "destructive" });
-        await supabase.auth.signOut();
+        supabase.auth.signOut({ scope: "local" }).catch(() => {});
         setLoading(false);
         return;
       }
@@ -117,11 +117,11 @@ export default function Login() {
     }
   };
 
-  const handleBackToLogin = async () => {
+  const handleBackToLogin = () => {
     setShowMfa(false);
     setMfaCode("");
     setMfaFactorId("");
-    await supabase.auth.signOut();
+    supabase.auth.signOut({ scope: "local" }).catch(() => {});
   };
 
   return (

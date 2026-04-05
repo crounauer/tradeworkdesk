@@ -34,12 +34,14 @@ export default function AccountSettings() {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase.auth.mfa.listFactors();
-      if (error) {
-        console.error("MFA listFactors error:", error);
-      }
-      if (data) {
-        setFactors(data.totp || []);
+      const result = await Promise.race([
+        supabase.auth.mfa.listFactors(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+      if (result && "data" in result && result.data) {
+        setFactors(result.data.totp || []);
+      } else if (result && "error" in result && result.error) {
+        console.error("MFA listFactors error:", result.error);
       }
     } catch (err) {
       console.error("MFA loadFactors exception:", err);

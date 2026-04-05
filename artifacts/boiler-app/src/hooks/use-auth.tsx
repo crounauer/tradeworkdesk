@@ -18,10 +18,17 @@ type AuthContextType = {
   profile: Profile | null | undefined;
   isLoading: boolean;
   mfaPending: boolean;
-  signOut: () => Promise<void>;
+  signOut: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -31,10 +38,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   const checkMfaStatus = async () => {
-    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") {
-      setMfaPending(true);
-    } else {
+    try {
+      const result = await withTimeout(
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        5000
+      );
+      if (result && result.data) {
+        const { data: aalData } = result;
+        if (aalData.nextLevel === "aal2" && aalData.currentLevel === "aal1") {
+          setMfaPending(true);
+        } else {
+          setMfaPending(false);
+        }
+      }
+    } catch {
       setMfaPending(false);
     }
   };
@@ -60,7 +77,16 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      queryClient.clear();
+
+      if (event === "SIGNED_OUT") {
+        queryClient.clear();
+        setMfaPending(false);
+        return;
+      }
+
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        queryClient.invalidateQueries();
+      }
 
       if (session) {
         await checkMfaStatus();
@@ -102,12 +128,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const profile = initData?.profile as Profile | null | undefined;
 
-  const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error("signOut error:", e);
+  const signOut = () => {
+    supabase.auth.signOut({ scope: "local" }).catch(() => {});
+
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("sb-")) {
+        localStorage.removeItem(key);
+      }
     }
+
     setSession(null);
     setUser(null);
     setMfaPending(false);
