@@ -10,7 +10,9 @@ const PROFILE_CACHE_TTL_MS = 30_000;
 const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
 const MFA_CACHE_TTL_MS = 5_000;
 
-const tokenUserCache = new Map<string, { user: { id: string; email?: string; user_metadata?: Record<string, unknown> }; expiresAt: number }>();
+type CachedUser = { id: string; email?: string; user_metadata?: Record<string, unknown> };
+const tokenUserCache = new Map<string, { user: CachedUser; expiresAt: number }>();
+const tokenInflight = new Map<string, Promise<CachedUser | null>>();
 const TOKEN_CACHE_TTL_MS = 10_000;
 const TOKEN_CACHE_MAX_SIZE = 500;
 
@@ -25,6 +27,31 @@ function cleanTokenCache() {
     entries.sort((a, b) => a[1].expiresAt - b[1].expiresAt);
     const toRemove = entries.slice(0, entries.length - TOKEN_CACHE_MAX_SIZE);
     for (const [key] of toRemove) tokenUserCache.delete(key);
+  }
+}
+
+async function resolveTokenUser(token: string): Promise<CachedUser | null> {
+  const now = Date.now();
+  const cached = tokenUserCache.get(token);
+  if (cached && cached.expiresAt > now) return cached.user;
+
+  const inflight = tokenInflight.get(token);
+  if (inflight) return inflight;
+
+  const promise = (async (): Promise<CachedUser | null> => {
+    const { data: { user: fetchedUser }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !fetchedUser) return null;
+    const slim: CachedUser = { id: fetchedUser.id, email: fetchedUser.email, user_metadata: fetchedUser.user_metadata };
+    cleanTokenCache();
+    tokenUserCache.set(token, { user: slim, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
+    return slim;
+  })();
+
+  tokenInflight.set(token, promise);
+  try {
+    return await promise;
+  } finally {
+    tokenInflight.delete(token);
   }
 }
 
@@ -48,31 +75,13 @@ export async function requireAuth(
 
   const token = authHeader.substring(7);
 
-  const now = Date.now();
-  const cachedToken = tokenUserCache.get(token);
-  let user: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null = null;
-
-  if (cachedToken && cachedToken.expiresAt > now) {
-    user = cachedToken.user;
-  } else {
-    const {
-      data: { user: fetchedUser },
-      error,
-    } = await supabaseAdmin.auth.getUser(token);
-
-    if (error || !fetchedUser) {
-      res.status(401).json({ error: "Invalid or expired token" });
-      return;
-    }
-    user = fetchedUser;
-    cleanTokenCache();
-    tokenUserCache.set(token, { user: { id: fetchedUser.id, email: fetchedUser.email, user_metadata: fetchedUser.user_metadata }, expiresAt: now + TOKEN_CACHE_TTL_MS });
-  }
-
+  const user = await resolveTokenUser(token);
   if (!user) {
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
+
+  const now = Date.now();
 
   const cachedMfa = mfaCache.get(user.id);
   let hasVerifiedTotp: boolean;

@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
-import { useGetProfile } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useInitData } from "./use-init-data";
 
 type Profile = {
   id: string;
@@ -91,14 +91,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queryClient]);
 
-  const { data: profile } = useGetProfile();
+  const { data: initData } = useInitData();
+  const profile = initData?.profile as Profile | null | undefined;
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile: profile as Profile | null | undefined, isLoading, mfaPending, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, isLoading, mfaPending, signOut }}>
       {children}
     </AuthContext.Provider>
   );
