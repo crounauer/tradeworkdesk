@@ -912,6 +912,8 @@ export async function buildInvoiceData(
     company_phone: settings?.phone || "",
     company_vat_number: settings?.vat_number || "",
     customer_name: customerName,
+    customer_first_name: customer?.first_name || "",
+    customer_last_name: customer?.last_name || "",
     customer_email: customer?.email || "",
     customer_address: customerAddressParts.join(", "),
     customer_phone: customer?.phone || "",

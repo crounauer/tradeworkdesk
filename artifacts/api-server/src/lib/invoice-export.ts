@@ -16,6 +16,8 @@ export interface InvoiceData {
   company_phone: string;
   company_vat_number: string;
   customer_name: string;
+  customer_first_name: string;
+  customer_last_name: string;
   customer_email: string;
   customer_address: string;
   customer_phone: string;

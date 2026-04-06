@@ -417,6 +417,8 @@ router.post(
         integration.organisation_id || "",
         {
           name: invoiceData.customer_name,
+          first_name: invoiceData.customer_first_name || undefined,
+          last_name: invoiceData.customer_last_name || undefined,
           email: invoiceData.customer_email || undefined,
           phone: invoiceData.customer_phone || undefined,
           mobile: invoiceData.customer_mobile || undefined,

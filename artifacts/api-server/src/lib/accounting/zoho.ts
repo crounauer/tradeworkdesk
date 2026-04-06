@@ -126,6 +126,8 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     organisationId: string,
     contact: {
       name: string;
+      first_name?: string;
+      last_name?: string;
       email?: string;
       phone?: string;
       mobile?: string;
@@ -177,6 +179,17 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     if (contact.email) createBody.email = contact.email;
     if (contact.phone) createBody.phone = contact.phone;
     if (contact.mobile) createBody.mobile = contact.mobile;
+    if (contact.first_name || contact.last_name) {
+      const primaryContact: Record<string, unknown> = {
+        first_name: contact.first_name || "",
+        last_name: contact.last_name || "",
+        is_primary_contact: true,
+      };
+      if (contact.email) primaryContact.email = contact.email;
+      if (contact.phone) primaryContact.phone = contact.phone;
+      if (contact.mobile) primaryContact.mobile = contact.mobile;
+      createBody.contact_persons = [primaryContact];
+    }
     if (Object.keys(billingAddress).length > 1) {
       createBody.billing_address = billingAddress;
     }
