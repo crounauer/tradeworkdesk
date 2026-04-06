@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 
@@ -666,15 +667,14 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
       <h3 className="font-bold text-lg mb-4">Schedule New Job</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Customer *</label>
-          <div className="flex gap-2">
-            <select className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("customer_id")}>
-              <option value="">Select customer...</option>
-              {customers?.map(c => (
-                <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-              ))}
-            </select>
-            <Button type="button" variant="outline" size="icon" className="shrink-0" title="Add new customer" onClick={() => setShowNewCustomer(!showNewCustomer)}>
+          <div className="flex gap-2 items-end">
+            <CustomerAutocomplete
+              customers={customers || []}
+              selectedId={selectedCustomerId}
+              onSelect={(id) => { setValue("customer_id", id); }}
+              className="flex-1 space-y-1"
+            />
+            <Button type="button" variant="outline" size="icon" className="shrink-0 mb-0.5" title="Add new customer" onClick={() => setShowNewCustomer(!showNewCustomer)}>
               {showNewCustomer ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
             </Button>
           </div>
