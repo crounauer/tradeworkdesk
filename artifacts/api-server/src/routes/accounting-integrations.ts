@@ -69,6 +69,15 @@ router.post(
         client_secret: encryptToken(client_secret.trim()),
       };
 
+      const { data: existing } = await supabaseAdmin
+        .from("accounting_integrations")
+        .select("id, access_token")
+        .eq("tenant_id", req.tenantId!)
+        .eq("provider", providerKey)
+        .maybeSingle();
+
+      const alreadyConnected = !!(existing?.access_token);
+
       const { error: upsertError } = await supabaseAdmin
         .from("accounting_integrations")
         .upsert(
@@ -76,6 +85,7 @@ router.post(
             tenant_id: req.tenantId!,
             provider: providerKey,
             extra_config: encryptedConfig,
+            is_active: alreadyConnected,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "tenant_id,provider" }
@@ -165,7 +175,9 @@ router.get(
       const host = req.get("host") || "localhost";
       const redirectUri = `https://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
 
+      console.log(`[accounting] OAuth callback for ${providerKey}, tenant ${tenantId}`);
       const tokens = await provider.exchangeCode(code, redirectUri);
+      console.log(`[accounting] Token exchange successful, org: ${tokens.organisation_id || "none"}`);
 
       await supabaseAdmin
         .from("accounting_integrations")
@@ -173,24 +185,37 @@ router.get(
         .eq("tenant_id", tenantId)
         .neq("provider", providerKey);
 
+      const { data: existingRow } = await supabaseAdmin
+        .from("accounting_integrations")
+        .select("extra_config")
+        .eq("tenant_id", tenantId)
+        .eq("provider", providerKey)
+        .maybeSingle();
+
       const { error: upsertError } = await supabaseAdmin
         .from("accounting_integrations")
-        .update({
-          access_token: encryptToken(tokens.access_token),
-          refresh_token: encryptToken(tokens.refresh_token),
-          token_expires_at: tokens.token_expires_at.toISOString(),
-          organisation_id: tokens.organisation_id || null,
-          connected_at: new Date().toISOString(),
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("tenant_id", tenantId)
-        .eq("provider", providerKey);
+        .upsert(
+          {
+            tenant_id: tenantId,
+            provider: providerKey,
+            access_token: encryptToken(tokens.access_token),
+            refresh_token: encryptToken(tokens.refresh_token),
+            token_expires_at: tokens.token_expires_at.toISOString(),
+            organisation_id: tokens.organisation_id || null,
+            extra_config: existingRow?.extra_config || {},
+            connected_at: new Date().toISOString(),
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "tenant_id,provider" }
+        );
 
       if (upsertError) {
+        console.error(`[accounting] Failed to save integration:`, upsertError);
         res.status(500).send(`Failed to save integration: ${upsertError.message}`);
         return;
       }
+      console.log(`[accounting] Integration saved successfully for tenant ${tenantId}`);
 
       const origin = `https://${host}`;
       const html = `<!DOCTYPE html><html><body>
@@ -362,7 +387,17 @@ router.post(
 
       const integration = await getActiveIntegration(tenantId);
       if (!integration) {
-        res.status(400).json({ error: "No accounting integration connected" });
+        const { data: pendingRow } = await supabaseAdmin
+          .from("accounting_integrations")
+          .select("id, extra_config, access_token")
+          .eq("tenant_id", tenantId)
+          .maybeSingle();
+        const hasCredsBut = pendingRow && pendingRow.extra_config && !pendingRow.access_token;
+        res.status(400).json({
+          error: hasCredsBut
+            ? "Your API credentials are saved but the OAuth connection is not complete. Go to Company Settings → Accounting Integrations and click Connect."
+            : "No accounting integration connected. Go to Company Settings to set one up.",
+        });
         return;
       }
 

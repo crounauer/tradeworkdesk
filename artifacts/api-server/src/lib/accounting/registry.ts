@@ -57,6 +57,7 @@ export async function getActiveIntegration(tenantId: string): Promise<Accounting
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
+    .not("access_token", "is", null)
     .maybeSingle();
   return data as AccountingIntegrationRow | null;
 }
@@ -92,7 +93,7 @@ export async function getAvailableProvidersWithStatus(tenantId: string): Promise
     const hasCreds = !!(config.client_id && config.client_secret);
     return {
       ...p,
-      connected: !!(integration && integration.is_active),
+      connected: !!(integration && integration.is_active && integration.access_token),
       has_credentials: hasCreds,
       organisation_id: integration?.organisation_id ?? null,
       connected_at: integration?.connected_at ?? null,
@@ -115,7 +116,7 @@ export async function ensureFreshToken(integration: AccountingIntegrationRow): P
 
   const refreshed = await provider.refreshTokenIfNeeded(decryptedIntegration);
   if (!refreshed) {
-    if (!decryptedIntegration.access_token) throw new Error("No access token available");
+    if (!decryptedIntegration.access_token) throw new Error("No access token available. Please reconnect your accounting integration in Company Settings.");
     return decryptedIntegration.access_token;
   }
 
