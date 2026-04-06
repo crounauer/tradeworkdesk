@@ -34,6 +34,7 @@ import jobTypesRouter from "./job-types";
 import enquiriesRouter from "./enquiries";
 import geocodingRouter from "./geocoding";
 import emailPreviewRouter from "./email-preview";
+import accountingIntegrationsRouter from "./accounting-integrations";
 
 const router: IRouter = Router();
 
@@ -71,6 +72,7 @@ router.use(socialRouter);
 router.use(jobTypesRouter);
 router.use(enquiriesRouter);
 router.use(geocodingRouter);
+router.use(accountingIntegrationsRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

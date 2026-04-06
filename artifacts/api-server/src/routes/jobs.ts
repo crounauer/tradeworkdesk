@@ -780,7 +780,7 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
   res.json(data);
 });
 
-async function buildInvoiceData(
+export async function buildInvoiceData(
   jobId: string,
   tenantId: string | null | undefined
 ): Promise<InvoiceData | null> {

@@ -10,7 +10,8 @@ import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
-  MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp
+  MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
+  CheckCircle2, Loader2
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -232,7 +233,7 @@ export default function JobDetail() {
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
-              <PricingSummarySection jobId={job.id} jobStatus={job.status} refreshKey={pricingRefresh} />
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={(job as Record<string, unknown>).external_invoice_id as string | null} externalInvoiceProvider={(job as Record<string, unknown>).external_invoice_provider as string | null} refreshKey={pricingRefresh} />
             )}
 
             <PhotosSection jobId={job.id} />
@@ -1021,12 +1022,21 @@ interface InvoiceSummary {
 
 const CURRENCY_SYMBOLS: Record<string, string> = { GBP: "\u00A3", EUR: "\u20AC", USD: "$" };
 
-function PricingSummarySection({ jobId, jobStatus, refreshKey = 0 }: { jobId: string; jobStatus: string; refreshKey?: number }) {
+interface AccountingIntegrationStatus {
+  connected: boolean;
+  provider: string | null;
+  displayName: string;
+}
+
+function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalInvoiceProvider, refreshKey = 0 }: { jobId: string; jobStatus: string; externalInvoiceId?: string | null; externalInvoiceProvider?: string | null; refreshKey?: number }) {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [accountingStatus, setAccountingStatus] = useState<AccountingIntegrationStatus | null>(null);
+  const [sendingToAccounting, setSendingToAccounting] = useState(false);
+  const [sentExternalId, setSentExternalId] = useState<string | null>(externalInvoiceId || null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1041,6 +1051,36 @@ function PricingSummarySection({ jobId, jobStatus, refreshKey = 0 }: { jobId: st
       }
     })();
   }, [jobId, refreshKey]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/accounting-integration/active`) as AccountingIntegrationStatus;
+        setAccountingStatus(data);
+      } catch {
+        setAccountingStatus(null);
+      }
+    })();
+  }, []);
+
+  const handleSendToAccounting = async () => {
+    setSendingToAccounting(true);
+    try {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/send-to-accounting`, {
+        method: "POST",
+      }) as { success: boolean; external_id: string; provider_name: string; invoice_number: string };
+      setSentExternalId(result.external_id);
+      toast({
+        title: "Invoice Sent",
+        description: `Invoice ${result.invoice_number} sent to ${result.provider_name}`,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to send invoice";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSendingToAccounting(false);
+    }
+  };
 
   const handleExport = async (format: string) => {
     setExporting(true);
@@ -1119,6 +1159,37 @@ function PricingSummarySection({ jobId, jobStatus, refreshKey = 0 }: { jobId: st
             ))}
           </div>
           <Button size="sm" variant="ghost" onClick={() => setShowExport(false)}>Cancel</Button>
+        </div>
+      )}
+
+      {canExport && (accountingStatus?.connected || sentExternalId) && (
+        <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
+          {sentExternalId ? (
+            <div className="flex items-center gap-2 text-sm text-green-700">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Invoice sent to {externalInvoiceProvider || accountingStatus?.displayName || "accounting"}</span>
+              <span className="text-xs text-muted-foreground ml-1">(ID: {sentExternalId.substring(0, 12)}...)</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Send to {accountingStatus?.displayName}</p>
+                <p className="text-xs text-muted-foreground">Create this invoice in your accounting software</p>
+              </div>
+              <Button
+                size="sm"
+                disabled={sendingToAccounting}
+                onClick={handleSendToAccounting}
+                className="gap-1.5"
+              >
+                {sendingToAccounting ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                ) : (
+                  <><Send className="w-3.5 h-3.5" /> Send Invoice</>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

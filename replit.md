@@ -12,6 +12,7 @@ Key capabilities include:
 - Integration with Supabase for authentication, database, and file storage.
 - Client-side PDF generation for various certificates and reports.
 - Invoice export functionalities in multiple formats.
+- Pluggable accounting integrations framework (Zoho Invoice first, architecture ready for Xero, QuickBooks, Sage, FreeAgent). Admin connects via OAuth in Company Settings, then sends invoices from job detail with one click.
 - Social media integration for marketing and post scheduling.
 - A comprehensive platform administration panel for managing tenants, plans, and announcements.
 - A public-facing marketing site with SEO-optimized content and a blog.

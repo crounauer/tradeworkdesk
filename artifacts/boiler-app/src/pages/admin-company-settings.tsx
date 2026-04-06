@@ -15,6 +15,7 @@ import {
   Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard
 } from "lucide-react";
+import { AccountingIntegrations } from "@/components/accounting-integrations";
 
 type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "logo_storage_path" | "created_at" | "updated_at">;
 
@@ -418,6 +419,9 @@ export default function AdminCompanySettings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Accounting Integrations */}
+        <AccountingIntegrations />
 
         {/* Pricing & Invoicing */}
         <Card>
