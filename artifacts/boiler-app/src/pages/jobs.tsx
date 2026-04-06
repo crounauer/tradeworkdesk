@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
+import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 
@@ -523,6 +524,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const { register, handleSubmit, watch, setValue } = useForm<JobFormData>();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { isSoleTrader } = useIsSoleTrader();
   const selectedCustomerId = watch("customer_id");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustFirst, setNewCustFirst] = useState("");
