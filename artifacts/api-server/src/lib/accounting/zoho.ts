@@ -163,7 +163,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     }
 
     const billingAddress: Record<string, string> = {};
-    if (contact.address_line1) billingAddress.street = contact.address_line1;
+    if (contact.address_line1) billingAddress.address = contact.address_line1;
     if (contact.address_line2) billingAddress.street2 = contact.address_line2;
     if (contact.city) billingAddress.city = contact.city;
     if (contact.county) billingAddress.state = contact.county;
