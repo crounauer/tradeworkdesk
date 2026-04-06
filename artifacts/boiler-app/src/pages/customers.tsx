@@ -4,15 +4,20 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "wouter";
-import { Search, Plus, MapPin, Phone, Mail } from "lucide-react";
+import { Search, Plus, MapPin, Phone, Mail, Upload } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import CustomerImportDialog from "@/components/customer-import";
 
 export default function Customers() {
   const [search, setSearch] = useState("");
   const { data: customers, isLoading } = useListCustomers({ search: search || undefined });
   const [isAdding, setIsAdding] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const { profile } = useAuth();
+  const canImport = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -21,10 +26,19 @@ export default function Customers() {
           <h1 className="text-3xl font-display font-bold">Customers</h1>
           <p className="text-muted-foreground mt-1">Manage your customer database</p>
         </div>
-        <Button onClick={() => setIsAdding(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Add Customer
-        </Button>
+        <div className="flex gap-2">
+          {canImport && (
+            <Button variant="outline" onClick={() => setShowImport(true)}>
+              <Upload className="w-4 h-4 mr-2" /> Import CSV
+            </Button>
+          )}
+          <Button onClick={() => setIsAdding(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Add Customer
+          </Button>
+        </div>
       </div>
+
+      {canImport && <CustomerImportDialog open={showImport} onOpenChange={setShowImport} />}
 
       <div className="flex items-center relative max-w-md">
         <Search className="w-5 h-5 absolute left-3 text-muted-foreground" />

@@ -12,6 +12,7 @@ import {
   UpdateCustomerResponse,
   DeleteCustomerParams,
 } from "@workspace/api-zod";
+import { z } from "zod";
 
 const router: IRouter = Router();
 
@@ -85,6 +86,137 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   await q;
   res.sendStatus(204);
+});
+
+const ImportCustomerRow = z.object({
+  title: z.string().optional(),
+  first_name: z.string().min(1),
+  last_name: z.string().min(1),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  mobile: z.string().optional(),
+  address_line1: z.string().optional(),
+  address_line2: z.string().optional(),
+  city: z.string().optional(),
+  county: z.string().optional(),
+  postcode: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const ImportCustomersBody = z.object({
+  customers: z.array(z.record(z.string(), z.string().optional())),
+  skipDuplicates: z.boolean().default(true),
+});
+
+router.post("/customers/import", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const parsed = ImportCustomersBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const { customers: rows, skipDuplicates } = parsed.data;
+  const tenantId = req.tenantId!;
+
+  const { data: existing } = await supabaseAdmin
+    .from("customers")
+    .select("email, phone, last_name")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
+
+  const emailSet = new Set<string>();
+  const phoneLastNameSet = new Set<string>();
+  for (const c of existing || []) {
+    if (c.email) emailSet.add(c.email.toLowerCase().trim());
+    if (c.phone && c.last_name) phoneLastNameSet.add(`${c.phone.trim()}|${c.last_name.toLowerCase().trim()}`);
+  }
+
+  let created = 0;
+  let skipped = 0;
+  const failed: { row: number; reason: string }[] = [];
+  const toInsert: Record<string, unknown>[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i];
+    const cleaned: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      cleaned[k] = v?.trim() || undefined;
+    }
+
+    const v = ImportCustomerRow.safeParse(cleaned);
+    if (!v.success) {
+      failed.push({ row: i + 1, reason: "Missing required fields (first_name, last_name)" });
+      continue;
+    }
+
+    const row = v.data;
+    let isDuplicate = false;
+    if (row.email && emailSet.has(row.email.toLowerCase().trim())) {
+      isDuplicate = true;
+    }
+    if (!isDuplicate && row.phone && row.last_name) {
+      const key = `${row.phone.trim()}|${row.last_name.toLowerCase().trim()}`;
+      if (phoneLastNameSet.has(key)) isDuplicate = true;
+    }
+
+    if (isDuplicate && skipDuplicates) {
+      skipped++;
+      continue;
+    }
+
+    toInsert.push({ ...row, tenant_id: tenantId });
+    if (row.email) emailSet.add(row.email.toLowerCase().trim());
+    if (row.phone && row.last_name) phoneLastNameSet.add(`${row.phone.trim()}|${row.last_name.toLowerCase().trim()}`);
+  }
+
+  if (toInsert.length > 0) {
+    const batchSize = 500;
+    for (let i = 0; i < toInsert.length; i += batchSize) {
+      const batch = toInsert.slice(i, i + batchSize);
+      const { error } = await supabaseAdmin.from("customers").insert(batch);
+      if (error) {
+        for (let j = 0; j < batch.length; j++) {
+          failed.push({ row: i + j + 1, reason: error.message });
+        }
+      } else {
+        created += batch.length;
+      }
+    }
+  }
+
+  res.json({ created, skipped, failed, total: rows.length });
+});
+
+router.post("/customers/check-duplicates", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const body = z.object({ customers: z.array(z.record(z.string(), z.string().optional())) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const tenantId = req.tenantId!;
+  const { data: existing } = await supabaseAdmin
+    .from("customers")
+    .select("email, phone, last_name")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
+
+  const emailSet = new Set<string>();
+  const phoneLastNameSet = new Set<string>();
+  for (const c of existing || []) {
+    if (c.email) emailSet.add(c.email.toLowerCase().trim());
+    if (c.phone && c.last_name) phoneLastNameSet.add(`${c.phone.trim()}|${c.last_name.toLowerCase().trim()}`);
+  }
+
+  const duplicates: number[] = [];
+  for (let i = 0; i < body.data.customers.length; i++) {
+    const row = body.data.customers[i];
+    const email = row.email?.trim().toLowerCase();
+    const phone = row.phone?.trim();
+    const lastName = row.last_name?.trim().toLowerCase();
+
+    let isDup = false;
+    if (email && emailSet.has(email)) isDup = true;
+    if (!isDup && phone && lastName && phoneLastNameSet.has(`${phone}|${lastName}`)) isDup = true;
+
+    if (isDup) duplicates.push(i);
+  }
+
+  res.json({ duplicates });
 });
 
 export default router;

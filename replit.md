@@ -15,6 +15,7 @@ Key capabilities include:
 - Social media integration for marketing and post scheduling.
 - A comprehensive platform administration panel for managing tenants, plans, and announcements.
 - A public-facing marketing site with SEO-optimized content and a blog.
+- Customer CSV import with field mapping, duplicate detection, and preview.
 
 # User Preferences
 
