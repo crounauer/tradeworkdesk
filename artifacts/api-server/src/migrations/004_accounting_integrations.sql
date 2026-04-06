@@ -22,5 +22,8 @@ CREATE POLICY "accounting_integrations_tenant_isolation"
   USING (tenant_id = current_setting('app.tenant_id', true))
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true));
 
+CREATE UNIQUE INDEX IF NOT EXISTS accounting_integrations_one_active_per_tenant
+  ON accounting_integrations (tenant_id) WHERE is_active = true;
+
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS external_invoice_id varchar;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS external_invoice_provider varchar;

@@ -64,9 +64,8 @@ router.get(
         expiresAt: Date.now() + 10 * 60 * 1000,
       });
 
-      const protocol = process.env.NODE_ENV === "production" ? "https" : "https";
       const host = req.get("host") || "localhost";
-      const redirectUri = `${protocol}://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
+      const redirectUri = `https://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
 
       const authUrl = provider.getAuthUrl(redirectUri, state);
       res.json({ auth_url: authUrl, state });
@@ -103,9 +102,8 @@ router.get(
         return;
       }
 
-      const protocol = process.env.NODE_ENV === "production" ? "https" : "https";
       const host = req.get("host") || "localhost";
-      const redirectUri = `${protocol}://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
+      const redirectUri = `https://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
 
       const tokens = await provider.exchangeCode(code, redirectUri);
 
@@ -138,7 +136,7 @@ router.get(
         return;
       }
 
-      const origin = `${protocol}://${host}`;
+      const origin = `https://${host}`;
       const html = `<!DOCTYPE html><html><body>
         <script>
           if (window.opener) {
