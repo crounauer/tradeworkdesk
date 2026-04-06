@@ -17,11 +17,16 @@ router.get("/email-preview/job-confirmation", (_req: Request, res: Response) => 
       description: "Annual boiler service and safety check",
     },
     {
+      name: "ABC Heating & Plumbing Ltd",
+      address_line1: "Unit 5, Riverside Industrial Estate",
+      address_line2: "42 Thameside Road",
+      city: "Manchester",
+      county: "Greater Manchester",
+      postcode: "M15 4QR",
       phone: "0161 234 5678",
       email: "office@abcheating.co.uk",
-      gasRegistration: "123456",
-      oftecRegistration: "C/12345",
-      companyLogoUrl: undefined,
+      gas_safe_number: "123456",
+      oftec_number: "C/12345",
     }
   );
 
