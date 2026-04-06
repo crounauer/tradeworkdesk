@@ -17,7 +17,7 @@ export default function Customers() {
   const [isAdding, setIsAdding] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const { profile } = useAuth();
-  const canImport = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+  const canImport = profile?.role === "admin" || profile?.role === "office_staff";
 
   return (
     <div className="space-y-6 animate-in fade-in">

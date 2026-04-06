@@ -131,7 +131,7 @@ router.post("/customers/import", requireAuth, requireTenant, requireRole("admin"
   let created = 0;
   let skipped = 0;
   const failed: { row: number; reason: string }[] = [];
-  const toInsert: Record<string, unknown>[] = [];
+  const toInsert: { data: Record<string, unknown>; csvRow: number }[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
@@ -161,7 +161,7 @@ router.post("/customers/import", requireAuth, requireTenant, requireRole("admin"
       continue;
     }
 
-    toInsert.push({ ...row, tenant_id: tenantId });
+    toInsert.push({ data: { ...row, tenant_id: tenantId }, csvRow: i + 1 });
     if (row.email) emailSet.add(row.email.toLowerCase().trim());
     if (row.phone && row.last_name) phoneLastNameSet.add(`${row.phone.trim()}|${row.last_name.toLowerCase().trim()}`);
   }
@@ -170,10 +170,10 @@ router.post("/customers/import", requireAuth, requireTenant, requireRole("admin"
     const batchSize = 500;
     for (let i = 0; i < toInsert.length; i += batchSize) {
       const batch = toInsert.slice(i, i + batchSize);
-      const { error } = await supabaseAdmin.from("customers").insert(batch);
+      const { error } = await supabaseAdmin.from("customers").insert(batch.map(b => b.data));
       if (error) {
-        for (let j = 0; j < batch.length; j++) {
-          failed.push({ row: i + j + 1, reason: error.message });
+        for (const item of batch) {
+          failed.push({ row: item.csvRow, reason: error.message });
         }
       } else {
         created += batch.length;
