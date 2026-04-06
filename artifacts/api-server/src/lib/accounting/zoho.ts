@@ -197,9 +197,8 @@ export class ZohoInvoiceProvider implements AccountingProvider {
       tax_percentage: item.tax_percentage ?? 0,
     }));
 
-    const body = {
+    const body: Record<string, unknown> = {
       customer_id: invoice.contact_id,
-      invoice_number: invoice.invoice_number,
       date: invoice.date,
       due_date: invoice.due_date,
       currency_code: invoice.currency,
