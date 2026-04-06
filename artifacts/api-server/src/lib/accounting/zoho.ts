@@ -8,7 +8,7 @@ import type {
 } from "./types";
 
 const ZOHO_DC_DOMAINS: Record<string, { accounts: string; api: string }> = {
-  uk: { accounts: "https://accounts.zoho.uk", api: "https://www.zohoapis.uk/invoice/v3" },
+  uk: { accounts: "https://accounts.zoho.uk", api: "https://www.zohoapis.eu/invoice/v3" },
   eu: { accounts: "https://accounts.zoho.eu", api: "https://www.zohoapis.eu/invoice/v3" },
   com: { accounts: "https://accounts.zoho.com", api: "https://www.zohoapis.com/invoice/v3" },
   in: { accounts: "https://accounts.zoho.in", api: "https://www.zohoapis.in/invoice/v3" },
