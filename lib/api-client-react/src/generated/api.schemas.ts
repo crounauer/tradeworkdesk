@@ -242,6 +242,10 @@ export interface Job {
   /** @nullable */
   notes?: string | null;
   is_active: boolean;
+  /** @nullable */
+  external_invoice_id?: string | null;
+  /** @nullable */
+  external_invoice_provider?: string | null;
   created_at: string;
   updated_at: string;
 }

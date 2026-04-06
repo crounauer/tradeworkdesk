@@ -233,7 +233,7 @@ export default function JobDetail() {
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
-              <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={(job as Record<string, unknown>).external_invoice_id as string | null} externalInvoiceProvider={(job as Record<string, unknown>).external_invoice_provider as string | null} refreshKey={pricingRefresh} />
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} refreshKey={pricingRefresh} />
             )}
 
             <PhotosSection jobId={job.id} />
@@ -1185,7 +1185,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
                 {sendingToAccounting ? (
                   <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
                 ) : (
-                  <><Send className="w-3.5 h-3.5" /> Send Invoice</>
+                  <><Send className="w-3.5 h-3.5" /> Send to {accountingStatus?.displayName}</>
                 )}
               </Button>
             </div>
