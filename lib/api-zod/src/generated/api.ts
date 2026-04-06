@@ -998,6 +998,8 @@ export const GetJobResponse = zod
     arrival_time: zod.string().nullish(),
     departure_time: zod.string().nullish(),
     is_active: zod.boolean(),
+    external_invoice_id: zod.string().nullish(),
+    external_invoice_provider: zod.string().nullish(),
     created_at: zod.coerce.date(),
     updated_at: zod.coerce.date(),
   })
