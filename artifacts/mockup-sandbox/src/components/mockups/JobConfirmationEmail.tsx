@@ -9,7 +9,7 @@ export default function JobConfirmationEmail() {
       /__mockup.*/,
       ""
     );
-    fetch(`${apiBase}api/email-preview/job-confirmation`)
+    fetch(`${apiBase}/api/email-preview/job-confirmation`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.text();
