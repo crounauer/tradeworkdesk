@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   getProvider,
+  getProviderForTenant,
   getAvailableProvidersWithStatus,
   getActiveIntegration,
   ensureFreshToken,
@@ -38,6 +39,60 @@ router.get(
   }
 );
 
+router.post(
+  "/admin/accounting-integrations/:provider/credentials",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      if (!isEncryptionConfigured()) {
+        res.status(500).json({ error: "Encryption is not configured. Please contact your system administrator." });
+        return;
+      }
+
+      const providerKey = req.params.provider;
+      const provider = getProvider(providerKey);
+      if (!provider) {
+        res.status(400).json({ error: `Unknown provider: ${providerKey}` });
+        return;
+      }
+
+      const { client_id, client_secret } = req.body as { client_id?: string; client_secret?: string };
+      if (!client_id || !client_secret) {
+        res.status(400).json({ error: "Both client_id and client_secret are required" });
+        return;
+      }
+
+      const encryptedConfig = {
+        client_id: encryptToken(client_id.trim()),
+        client_secret: encryptToken(client_secret.trim()),
+      };
+
+      const { error: upsertError } = await supabaseAdmin
+        .from("accounting_integrations")
+        .upsert(
+          {
+            tenant_id: req.tenantId!,
+            provider: providerKey,
+            extra_config: encryptedConfig,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "tenant_id,provider" }
+        );
+
+      if (upsertError) {
+        res.status(500).json({ error: upsertError.message });
+        return;
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
 router.get(
   "/admin/accounting-integrations/:provider/auth-url",
   requireAuth,
@@ -51,9 +106,14 @@ router.get(
       }
 
       const providerKey = req.params.provider;
-      const provider = getProvider(providerKey);
+      const provider = await getProviderForTenant(providerKey, req.tenantId!);
       if (!provider) {
         res.status(400).json({ error: `Unknown provider: ${providerKey}` });
+        return;
+      }
+
+      if (!provider.hasCredentials()) {
+        res.status(400).json({ error: "Please save your API credentials first before connecting." });
         return;
       }
 
@@ -96,7 +156,7 @@ router.get(
       const providerKey = pending.provider;
       const tenantId = pending.tenantId;
 
-      const provider = getProvider(providerKey);
+      const provider = await getProviderForTenant(providerKey, tenantId);
       if (!provider) {
         res.status(400).send(`Unknown provider: ${providerKey}`);
         return;
@@ -115,21 +175,17 @@ router.get(
 
       const { error: upsertError } = await supabaseAdmin
         .from("accounting_integrations")
-        .upsert(
-          {
-            tenant_id: tenantId,
-            provider: providerKey,
-            access_token: encryptToken(tokens.access_token),
-            refresh_token: encryptToken(tokens.refresh_token),
-            token_expires_at: tokens.token_expires_at.toISOString(),
-            organisation_id: tokens.organisation_id || null,
-            extra_config: tokens.extra_config || {},
-            connected_at: new Date().toISOString(),
-            is_active: true,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "tenant_id,provider" }
-        );
+        .update({
+          access_token: encryptToken(tokens.access_token),
+          refresh_token: encryptToken(tokens.refresh_token),
+          token_expires_at: tokens.token_expires_at.toISOString(),
+          organisation_id: tokens.organisation_id || null,
+          connected_at: new Date().toISOString(),
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("provider", providerKey);
 
       if (upsertError) {
         res.status(500).send(`Failed to save integration: ${upsertError.message}`);

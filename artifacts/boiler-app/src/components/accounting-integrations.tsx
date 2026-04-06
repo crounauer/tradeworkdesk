@@ -3,7 +3,9 @@ import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle, Save, Eye, EyeOff, KeyRound } from "lucide-react";
 
 interface ProviderInfo {
   key: string;
@@ -11,6 +13,7 @@ interface ProviderInfo {
   description: string;
   status: "available" | "coming_soon";
   connected: boolean;
+  has_credentials: boolean;
   organisation_id?: string | null;
   connected_at?: string | null;
 }
@@ -31,11 +34,20 @@ const PROVIDER_COLORS: Record<string, string> = {
   freeagent: "bg-purple-100 text-purple-700",
 };
 
+const PROVIDER_HELP: Record<string, { url: string; label: string }> = {
+  zoho_invoice: {
+    url: "https://api-console.zoho.eu/",
+    label: "Get your credentials from the Zoho API Console",
+  },
+};
+
 export function AccountingIntegrations() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [encryptionConfigured, setEncryptionConfigured] = useState(true);
+  const [credentialForms, setCredentialForms] = useState<Record<string, { clientId: string; clientSecret: string; showSecret: boolean }>>({});
+  const [savingCredentials, setSavingCredentials] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchProviders = useCallback(async () => {
@@ -65,6 +77,52 @@ export function AccountingIntegrations() {
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [toast, fetchProviders]);
+
+  const toggleCredentialForm = (providerKey: string) => {
+    setCredentialForms((prev) => {
+      if (prev[providerKey]) {
+        const next = { ...prev };
+        delete next[providerKey];
+        return next;
+      }
+      return { ...prev, [providerKey]: { clientId: "", clientSecret: "", showSecret: false } };
+    });
+  };
+
+  const updateCredentialForm = (providerKey: string, field: "clientId" | "clientSecret" | "showSecret", value: string | boolean) => {
+    setCredentialForms((prev) => ({
+      ...prev,
+      [providerKey]: { ...prev[providerKey], [field]: value },
+    }));
+  };
+
+  const handleSaveCredentials = async (providerKey: string) => {
+    const form = credentialForms[providerKey];
+    if (!form?.clientId || !form?.clientSecret) {
+      toast({ title: "Missing fields", description: "Both Client ID and Client Secret are required", variant: "destructive" });
+      return;
+    }
+
+    setSavingCredentials(providerKey);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations/${providerKey}/credentials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: form.clientId, client_secret: form.clientSecret }),
+      });
+      toast({ title: "Saved", description: "API credentials saved securely" });
+      setCredentialForms((prev) => {
+        const next = { ...prev };
+        delete next[providerKey];
+        return next;
+      });
+      fetchProviders();
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSavingCredentials(null);
+    }
+  };
 
   const handleConnect = async (providerKey: string) => {
     setActionLoading(providerKey);
@@ -139,76 +197,177 @@ export function AccountingIntegrations() {
           </div>
         )}
         {providers.map((p) => (
-          <div
-            key={p.key}
-            className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-              p.connected
-                ? "border-green-200 bg-green-50/50"
-                : p.status === "coming_soon"
-                  ? "border-border/50 bg-muted/30 opacity-60"
-                  : "border-border hover:border-primary/30 hover:bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg ${PROVIDER_COLORS[p.key] || "bg-gray-100 text-gray-600"}`}>
-                {PROVIDER_LOGOS[p.key] || p.displayName[0]}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{p.displayName}</span>
-                  {p.connected && (
-                    <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3" /> Connected
-                    </span>
-                  )}
-                  {p.status === "coming_soon" && (
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                      <Clock className="w-3 h-3" /> Coming Soon
-                    </span>
+          <div key={p.key} className="space-y-0">
+            <div
+              className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                p.connected
+                  ? "border-green-200 bg-green-50/50"
+                  : p.status === "coming_soon"
+                    ? "border-border/50 bg-muted/30 opacity-60"
+                    : "border-border hover:border-primary/30 hover:bg-slate-50"
+              } ${credentialForms[p.key] ? "rounded-b-none" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg ${PROVIDER_COLORS[p.key] || "bg-gray-100 text-gray-600"}`}>
+                  {PROVIDER_LOGOS[p.key] || p.displayName[0]}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{p.displayName}</span>
+                    {p.connected && (
+                      <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" /> Connected
+                      </span>
+                    )}
+                    {!p.connected && p.has_credentials && p.status === "available" && (
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                        <KeyRound className="w-3 h-3" /> Credentials saved
+                      </span>
+                    )}
+                    {p.status === "coming_soon" && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                        <Clock className="w-3 h-3" /> Coming Soon
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>
+                  {p.connected && p.organisation_id && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Org: {p.organisation_id}
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>
-                {p.connected && p.organisation_id && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Org: {p.organisation_id}
-                  </p>
-                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {p.connected ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive gap-1.5"
+                    disabled={actionLoading === p.key}
+                    onClick={() => handleDisconnect(p.key, p.displayName)}
+                  >
+                    {actionLoading === p.key ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Unlink className="w-3.5 h-3.5" />
+                    )}
+                    Disconnect
+                  </Button>
+                ) : p.status === "available" ? (
+                  <>
+                    {!p.has_credentials && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={!encryptionConfigured}
+                        onClick={() => toggleCredentialForm(p.key)}
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        {credentialForms[p.key] ? "Cancel" : "Set Up"}
+                      </Button>
+                    )}
+                    {p.has_credentials && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-muted-foreground"
+                          disabled={!encryptionConfigured}
+                          onClick={() => toggleCredentialForm(p.key)}
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          {credentialForms[p.key] ? "Cancel" : "Update Keys"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          disabled={actionLoading === p.key || !encryptionConfigured}
+                          onClick={() => handleConnect(p.key)}
+                        >
+                          {actionLoading === p.key ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          )}
+                          Connect
+                        </Button>
+                      </>
+                    )}
+                  </>
+                ) : null}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {p.connected ? (
+            {credentialForms[p.key] && (
+              <div className="border border-t-0 rounded-b-lg p-4 bg-slate-50 space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  Enter your {p.displayName} API credentials. These are stored securely using encryption.
+                </div>
+
+                {PROVIDER_HELP[p.key] && (
+                  <a
+                    href={PROVIDER_HELP[p.key].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    {PROVIDER_HELP[p.key].label}
+                  </a>
+                )}
+
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor={`${p.key}-client-id`} className="text-xs">Client ID</Label>
+                    <Input
+                      id={`${p.key}-client-id`}
+                      placeholder="Enter your Client ID"
+                      value={credentialForms[p.key].clientId}
+                      onChange={(e) => updateCredentialForm(p.key, "clientId", e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`${p.key}-client-secret`} className="text-xs">Client Secret</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id={`${p.key}-client-secret`}
+                        type={credentialForms[p.key].showSecret ? "text" : "password"}
+                        placeholder="Enter your Client Secret"
+                        value={credentialForms[p.key].clientSecret}
+                        onChange={(e) => updateCredentialForm(p.key, "clientSecret", e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateCredentialForm(p.key, "showSecret", !credentialForms[p.key].showSecret)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {credentialForms[p.key].showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="text-destructive hover:text-destructive gap-1.5"
-                  disabled={actionLoading === p.key}
-                  onClick={() => handleDisconnect(p.key, p.displayName)}
-                >
-                  {actionLoading === p.key ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Unlink className="w-3.5 h-3.5" />
-                  )}
-                  Disconnect
-                </Button>
-              ) : p.status === "available" ? (
-                <Button
-                  size="sm"
-                  variant="outline"
                   className="gap-1.5"
-                  disabled={actionLoading === p.key || !encryptionConfigured}
-                  onClick={() => handleConnect(p.key)}
+                  disabled={savingCredentials === p.key || !credentialForms[p.key].clientId || !credentialForms[p.key].clientSecret}
+                  onClick={() => handleSaveCredentials(p.key)}
                 >
-                  {actionLoading === p.key ? (
+                  {savingCredentials === p.key ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <Save className="w-3.5 h-3.5" />
                   )}
-                  Connect
+                  Save Credentials
                 </Button>
-              ) : null}
-            </div>
+              </div>
+            )}
           </div>
         ))}
       </CardContent>

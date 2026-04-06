@@ -3,26 +3,41 @@ import { ZohoInvoiceProvider } from "./zoho";
 import { supabaseAdmin } from "../supabase";
 import { decryptToken, encryptToken } from "./crypto";
 
-const providers: Map<string, AccountingProvider> = new Map();
-
-function ensureProviders() {
-  if (providers.size > 0) return;
-  const zoho = new ZohoInvoiceProvider();
-  providers.set(zoho.name, zoho);
-}
+const providerMeta: Map<string, { displayName: string; description: string }> = new Map([
+  ["zoho_invoice", { displayName: "Zoho Invoice", description: "Send invoices directly to Zoho Invoice" }],
+]);
 
 export function getProvider(name: string): AccountingProvider | undefined {
-  ensureProviders();
-  return providers.get(name);
+  if (name === "zoho_invoice") return new ZohoInvoiceProvider();
+  return undefined;
+}
+
+export function getProviderWithCredentials(name: string, clientId: string, clientSecret: string): AccountingProvider | undefined {
+  if (name === "zoho_invoice") return new ZohoInvoiceProvider(clientId, clientSecret);
+  return undefined;
+}
+
+export async function getProviderForTenant(name: string, tenantId: string): Promise<AccountingProvider | undefined> {
+  const { data: row } = await supabaseAdmin
+    .from("accounting_integrations")
+    .select("extra_config")
+    .eq("tenant_id", tenantId)
+    .eq("provider", name)
+    .maybeSingle();
+
+  const config = (row?.extra_config || {}) as Record<string, unknown>;
+  const clientId = config.client_id ? decryptToken(config.client_id as string) : "";
+  const clientSecret = config.client_secret ? decryptToken(config.client_secret as string) : "";
+
+  if (name === "zoho_invoice") return new ZohoInvoiceProvider(clientId, clientSecret);
+  return undefined;
 }
 
 export function getAllProviderInfo(): Array<{ key: string; displayName: string; description: string; status: "available" | "coming_soon" }> {
-  ensureProviders();
-
-  const available = Array.from(providers.values()).map((p) => ({
-    key: p.name,
-    displayName: p.displayName,
-    description: getProviderDescription(p.name),
+  const available = Array.from(providerMeta.entries()).map(([key, meta]) => ({
+    key,
+    displayName: meta.displayName,
+    description: meta.description,
     status: "available" as const,
   }));
 
@@ -73,9 +88,12 @@ export async function getAvailableProvidersWithStatus(tenantId: string): Promise
 
   return allInfo.map((p) => {
     const integration = intMap.get(p.key);
+    const config = (integration?.extra_config || {}) as Record<string, unknown>;
+    const hasCreds = !!(config.client_id && config.client_secret);
     return {
       ...p,
       connected: !!(integration && integration.is_active),
+      has_credentials: hasCreds,
       organisation_id: integration?.organisation_id ?? null,
       connected_at: integration?.connected_at ?? null,
     };
@@ -83,8 +101,10 @@ export async function getAvailableProvidersWithStatus(tenantId: string): Promise
 }
 
 export async function ensureFreshToken(integration: AccountingIntegrationRow): Promise<string> {
-  ensureProviders();
-  const provider = providers.get(integration.provider);
+  const config = (integration.extra_config || {}) as Record<string, unknown>;
+  const clientId = config.client_id ? decryptToken(config.client_id as string) : "";
+  const clientSecret = config.client_secret ? decryptToken(config.client_secret as string) : "";
+  const provider = getProviderWithCredentials(integration.provider, clientId, clientSecret);
   if (!provider) throw new Error(`Unknown provider: ${integration.provider}`);
 
   const decryptedIntegration = {
@@ -110,13 +130,4 @@ export async function ensureFreshToken(integration: AccountingIntegrationRow): P
     .eq("id", integration.id);
 
   return refreshed.access_token;
-}
-
-function getProviderDescription(key: string): string {
-  switch (key) {
-    case "zoho_invoice":
-      return "Send invoices directly to Zoho Invoice";
-    default:
-      return "";
-  }
 }

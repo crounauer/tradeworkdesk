@@ -41,6 +41,7 @@ export interface AccountingProvider {
   readonly name: string;
   readonly displayName: string;
 
+  hasCredentials(): boolean;
   getAuthUrl(redirectUri: string, state: string): string;
 
   exchangeCode(
@@ -84,6 +85,7 @@ export interface AvailableProvider {
   description: string;
   status: "available" | "coming_soon";
   connected: boolean;
+  has_credentials: boolean;
   organisation_id?: string | null;
   connected_at?: string | null;
 }

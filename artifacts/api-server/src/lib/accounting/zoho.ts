@@ -17,9 +17,18 @@ export class ZohoInvoiceProvider implements AccountingProvider {
   private clientId: string;
   private clientSecret: string;
 
-  constructor() {
-    this.clientId = process.env.ZOHO_CLIENT_ID || "";
-    this.clientSecret = process.env.ZOHO_CLIENT_SECRET || "";
+  constructor(clientId?: string, clientSecret?: string) {
+    this.clientId = clientId || "";
+    this.clientSecret = clientSecret || "";
+  }
+
+  setCredentials(clientId: string, clientSecret: string) {
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+  }
+
+  hasCredentials(): boolean {
+    return !!(this.clientId && this.clientSecret);
   }
 
   getAuthUrl(redirectUri: string, state: string): string {
