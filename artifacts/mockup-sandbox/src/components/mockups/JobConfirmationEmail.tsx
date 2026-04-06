@@ -1,6 +1,6 @@
 export default function JobConfirmationEmail() {
   return (
-    <div style={{ background: "#f8fafc", padding: "40px 20px", minHeight: "100vh" }}>
+    <div style={{ background: "#f8fafc", padding: "40px 20px", minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div
         style={{
           maxWidth: 600,
