@@ -380,14 +380,7 @@ router.post(
         return;
       }
 
-      if (job.external_invoice_id) {
-        res.status(409).json({
-          error: "Invoice already sent",
-          external_invoice_id: job.external_invoice_id,
-          provider: job.external_invoice_provider,
-        });
-        return;
-      }
+      const isResend = !!job.external_invoice_id;
 
       const integration = await getActiveIntegration(tenantId);
       if (!integration) {

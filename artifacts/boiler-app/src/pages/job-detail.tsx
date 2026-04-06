@@ -11,7 +11,7 @@ import {
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
-  CheckCircle2, Loader2
+  CheckCircle2, Loader2, RefreshCw
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -1169,15 +1169,34 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
       {canExport && (accountingStatus?.connected || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
           {sentExternalId ? (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm text-green-700">
-                <CheckCircle2 className="w-4 h-4" />
-                <span className="font-medium">Invoice sent to {sentProviderName || externalInvoiceProvider || accountingStatus?.displayName || "accounting"}</span>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground pl-6">
-                <span>Invoice ID: <span className="font-mono">{sentExternalId}</span></span>
-                {sentTimestamp && (
-                  <span>Sent: {new Date(sentTimestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-green-700">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="font-medium">Invoice sent to {sentProviderName || externalInvoiceProvider || accountingStatus?.displayName || "accounting"}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground pl-6">
+                    <span>Invoice ID: <span className="font-mono">{sentExternalId}</span></span>
+                    {sentTimestamp && (
+                      <span>Sent: {new Date(sentTimestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    )}
+                  </div>
+                </div>
+                {accountingStatus?.connected && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={sendingToAccounting}
+                    onClick={handleSendToAccounting}
+                    className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    {sendingToAccounting ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Resending...</>
+                    ) : (
+                      <><RefreshCw className="w-3.5 h-3.5" /> Resend Invoice</>
+                    )}
+                  </Button>
                 )}
               </div>
             </div>
