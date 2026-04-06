@@ -288,13 +288,12 @@ export interface JobConfirmationDetails {
   description?: string | null;
 }
 
-export async function sendJobConfirmationEmail(
-  to: string,
+export function renderJobConfirmationHtml(
   customerName: string,
   companyName: string,
   jobDetails: JobConfirmationDetails,
   companyDetails?: EmailCompanyDetails,
-): Promise<void> {
+): string {
   const dateStr = new Date(jobDetails.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   let timeStr = "";
@@ -312,7 +311,7 @@ export async function sendJobConfirmationEmail(
 
   const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
 
-  const html = baseHtml(subject, `
+  return baseHtml(subject, `
     <h2>Appointment Confirmation</h2>
     <p>Dear ${escHtml(customerName)},</p>
     <p>We're writing to confirm your upcoming appointment with <strong>${escHtml(companyName)}</strong>.</p>
@@ -328,11 +327,22 @@ export async function sendJobConfirmationEmail(
     <hr class="divider"/>
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
   `, companyDetails);
+}
+
+export async function sendJobConfirmationEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  jobDetails: JobConfirmationDetails,
+  companyDetails?: EmailCompanyDetails,
+): Promise<void> {
+  const html = renderJobConfirmationHtml(customerName, companyName, jobDetails, companyDetails);
 
   if (!resend) {
     throw new Error("Email service is not configured (RESEND_API_KEY missing)");
   }
 
+  const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
   const { error } = await resend.emails.send({ from: FROM, to, subject, html });
   if (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
