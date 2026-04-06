@@ -43,31 +43,10 @@ function renderCompanyHeader(company?: EmailCompanyDetails): string {
   }
 
   const companyName = company.name || company.trading_name || "Your Service Provider";
-  const addressParts = [company.address_line1, company.address_line2, company.city, company.county, company.postcode].filter(Boolean);
-  const addressLine = addressParts.join(", ");
-
-  const detailItems: string[] = [];
-  if (company.phone) detailItems.push(`<span style="white-space:nowrap;">📞 ${company.phone}</span>`);
-  if (company.email) detailItems.push(`<span style="white-space:nowrap;">✉️ ${company.email}</span>`);
-  if (company.website) detailItems.push(`<span style="white-space:nowrap;">🌐 ${company.website}</span>`);
-
-  const regItems: string[] = [];
-  if (company.gas_safe_number) regItems.push(`Gas Safe: ${company.gas_safe_number}`);
-  if (company.oftec_number) regItems.push(`OFTEC: ${company.oftec_number}`);
-  if (company.vat_number) regItems.push(`VAT: ${company.vat_number}`);
 
   return `
-    <div class="header" style="background:#1d4ed8;padding:28px 32px 20px;color:#fff;">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td>
-            <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin:0 0 4px;">${companyName}</div>
-            ${addressLine ? `<div style="font-size:13px;opacity:.85;margin:2px 0;">${addressLine}</div>` : ""}
-            ${detailItems.length > 0 ? `<div style="font-size:13px;opacity:.85;margin:6px 0 0;">${detailItems.join(" &nbsp;&bull;&nbsp; ")}</div>` : ""}
-            ${regItems.length > 0 ? `<div style="font-size:12px;opacity:.7;margin:8px 0 0;border-top:1px solid rgba(255,255,255,.2);padding-top:8px;">${regItems.join(" &nbsp;|&nbsp; ")}</div>` : ""}
-          </td>
-        </tr>
-      </table>
+    <div class="header" style="background:#1d4ed8;padding:28px 32px;color:#fff;">
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin:0;">${companyName}</div>
     </div>`;
 }
 
