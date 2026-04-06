@@ -1,7 +1,7 @@
 import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Users, Briefcase, AlertCircle, CheckCircle2, Plus, MessageSquarePlus, Mail, Send } from "lucide-react";
+import { Users, Briefcase, AlertCircle, CheckCircle2, Plus, MessageSquarePlus, Mail, Send, Home } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -215,6 +215,12 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
   const existingCustomerEmail = selectedCustomer?.email || null;
 
+  const [showAddProperty, setShowAddProperty] = useState(false);
+  const [newPropAddress, setNewPropAddress] = useState("");
+  const [newPropCity, setNewPropCity] = useState("");
+  const [newPropPostcode, setNewPropPostcode] = useState("");
+  const [creatingProperty, setCreatingProperty] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [confirmationState, setConfirmationState] = useState<{
     jobId: string;
@@ -225,8 +231,51 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
 
   const handleClose = () => {
     setConfirmationState(null);
+    setShowAddProperty(false);
+    setNewPropAddress("");
+    setNewPropCity("");
+    setNewPropPostcode("");
     reset();
     onOpenChange(false);
+  };
+
+  const prefillPropertyFromCustomer = () => {
+    if (selectedCustomer) {
+      setNewPropAddress((selectedCustomer as any).address_line1 || "");
+      setNewPropCity((selectedCustomer as any).city || "");
+      setNewPropPostcode((selectedCustomer as any).postcode || "");
+    }
+    setShowAddProperty(true);
+  };
+
+  const handleCreateProperty = async () => {
+    if (!selectedCustomerId || !newPropAddress.trim() || !newPropPostcode.trim()) {
+      toast({ title: "Missing info", description: "Address and postcode are required.", variant: "destructive" });
+      return;
+    }
+    setCreatingProperty(true);
+    try {
+      const propRes = await createProperty.mutateAsync({
+        data: {
+          customer_id: selectedCustomerId,
+          address_line1: newPropAddress.trim(),
+          city: newPropCity.trim() || undefined,
+          postcode: newPropPostcode.trim(),
+        },
+      });
+      const newId = (propRes as { id: string }).id;
+      qc.invalidateQueries({ queryKey: ["/api/properties"] });
+      setValue("property_id", newId);
+      setShowAddProperty(false);
+      setNewPropAddress("");
+      setNewPropCity("");
+      setNewPropPostcode("");
+      toast({ title: "Property added", description: "Property created and selected." });
+    } catch {
+      toast({ title: "Error", description: "Failed to create property.", variant: "destructive" });
+    } finally {
+      setCreatingProperty(false);
+    }
   };
 
   const handleSendConfirmation = async () => {
@@ -406,18 +455,55 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                     <CustomerAutocomplete
                       customers={customers || []}
                       selectedId={selectedCustomerId}
-                      onSelect={(id) => { setValue("customer_id", id); setValue("property_id", ""); }}
+                      onSelect={(id) => { setValue("customer_id", id); setValue("property_id", ""); setShowAddProperty(false); }}
                     />
                     <div className="space-y-1.5">
                       <Label>Property *</Label>
-                      <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
-                        <option value="">Select property...</option>
-                        {filteredProperties?.map(p => (
-                          <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
-                        ))}
-                      </select>
+                      <div className="flex gap-2">
+                        <select className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
+                          <option value="">Select property...</option>
+                          {filteredProperties?.map(p => (
+                            <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
+                          ))}
+                        </select>
+                        {selectedCustomerId && (
+                          <Button type="button" variant="outline" size="icon" className="shrink-0" title="Add new property" onClick={prefillPropertyFromCustomer}>
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  {selectedCustomerId && showAddProperty && (
+                    <div className="border border-primary/20 rounded-lg p-4 bg-background space-y-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Home className="w-4 h-4" /> Add Property
+                        {(selectedCustomer as any)?.address_line1 && (
+                          <span className="text-xs font-normal text-muted-foreground ml-1">(pre-filled from customer)</span>
+                        )}
+                      </h4>
+                      <div className="space-y-1.5">
+                        <Label>Address *</Label>
+                        <Input value={newPropAddress} onChange={e => setNewPropAddress(e.target.value)} placeholder="123 High Street" />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>Town / City</Label>
+                          <Input value={newPropCity} onChange={e => setNewPropCity(e.target.value)} placeholder="Manchester" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Postcode *</Label>
+                          <Input value={newPropPostcode} onChange={e => setNewPropPostcode(e.target.value)} placeholder="M1 1AA" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={handleCreateProperty} disabled={creatingProperty || !newPropAddress.trim() || !newPropPostcode.trim()}>
+                          {creatingProperty ? "Creating..." : "Create Property"}
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddProperty(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
                   {selectedCustomerId && (
                     <div className="flex items-center gap-2 text-sm px-1">
                       <Mail className="w-4 h-4 text-muted-foreground" />
