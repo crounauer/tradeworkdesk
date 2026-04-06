@@ -317,12 +317,12 @@ router.get(
       if (customerIds.length > 0) {
         const { data: customers } = await supabaseAdmin
           .from("customers")
-          .select("id, first_name, last_name, company_name")
+          .select("id, first_name, last_name")
           .in("id", customerIds);
         if (customers) {
           for (const c of customers) {
             const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
-            customerMap[c.id] = c.company_name || name || "Unknown";
+            customerMap[c.id] = name || "Unknown";
           }
         }
       }
