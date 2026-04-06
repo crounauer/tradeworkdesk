@@ -9,7 +9,7 @@ import {
   ensureFreshToken,
 } from "../lib/accounting/registry";
 import type { AccountingIntegrationRow } from "../lib/accounting/types";
-import { encryptToken } from "../lib/accounting/crypto";
+import { encryptToken, isEncryptionConfigured } from "../lib/accounting/crypto";
 import { buildInvoiceData } from "./jobs";
 
 const router: IRouter = Router();
@@ -31,7 +31,7 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const providers = await getAvailableProvidersWithStatus(req.tenantId!);
-      res.json({ providers });
+      res.json({ providers, encryption_configured: isEncryptionConfigured() });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -45,6 +45,11 @@ router.get(
   requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
+      if (!isEncryptionConfigured()) {
+        res.status(500).json({ error: "Accounting integration encryption is not configured. Please set ACCOUNTING_ENCRYPTION_KEY or SOCIAL_ENCRYPTION_KEY." });
+        return;
+      }
+
       const providerKey = req.params.provider;
       const provider = getProvider(providerKey);
       if (!provider) {
@@ -103,6 +108,12 @@ router.get(
       const redirectUri = `${protocol}://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
 
       const tokens = await provider.exchangeCode(code, redirectUri);
+
+      await supabaseAdmin
+        .from("accounting_integrations")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("tenant_id", tenantId)
+        .neq("provider", providerKey);
 
       const { error: upsertError } = await supabaseAdmin
         .from("accounting_integrations")

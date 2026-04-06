@@ -3,7 +3,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 
 interface ProviderInfo {
   key: string;
@@ -35,12 +35,14 @@ export function AccountingIntegrations() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [encryptionConfigured, setEncryptionConfigured] = useState(true);
   const { toast } = useToast();
 
   const fetchProviders = useCallback(async () => {
     try {
-      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations`) as { providers: ProviderInfo[] };
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations`) as { providers: ProviderInfo[]; encryption_configured: boolean };
       setProviders(data.providers);
+      setEncryptionConfigured(data.encryption_configured);
     } catch {
       toast({ title: "Error", description: "Failed to load accounting integrations", variant: "destructive" });
     } finally {
@@ -127,6 +129,15 @@ export function AccountingIntegrations() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {!encryptionConfigured && (
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-800">Encryption not configured</p>
+              <p className="text-amber-700 mt-0.5">An encryption key must be set before connecting accounting integrations. Please contact your system administrator.</p>
+            </div>
+          </div>
+        )}
         {providers.map((p) => (
           <div
             key={p.key}
@@ -186,7 +197,7 @@ export function AccountingIntegrations() {
                   size="sm"
                   variant="outline"
                   className="gap-1.5"
-                  disabled={actionLoading === p.key}
+                  disabled={actionLoading === p.key || !encryptionConfigured}
                   onClick={() => handleConnect(p.key)}
                 >
                   {actionLoading === p.key ? (

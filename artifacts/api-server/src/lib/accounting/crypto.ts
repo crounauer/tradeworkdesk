@@ -5,16 +5,24 @@ const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 const PREFIX = "enc:";
 
-function getKey(): Buffer | null {
+function getKey(): Buffer {
   const hex = process.env.ACCOUNTING_ENCRYPTION_KEY || process.env.SOCIAL_ENCRYPTION_KEY;
-  if (!hex || hex.length !== 64) return null;
+  if (!hex || hex.length !== 64) {
+    throw new Error(
+      "ACCOUNTING_ENCRYPTION_KEY (or SOCIAL_ENCRYPTION_KEY) must be a 64-char hex string (32 bytes). " +
+      "Cannot store accounting tokens without encryption."
+    );
+  }
   return Buffer.from(hex, "hex");
+}
+
+export function isEncryptionConfigured(): boolean {
+  const hex = process.env.ACCOUNTING_ENCRYPTION_KEY || process.env.SOCIAL_ENCRYPTION_KEY;
+  return !!(hex && hex.length === 64);
 }
 
 export function encryptToken(plaintext: string): string {
   const key = getKey();
-  if (!key) return plaintext;
-
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
@@ -23,11 +31,11 @@ export function encryptToken(plaintext: string): string {
 }
 
 export function decryptToken(ciphertext: string): string {
-  if (!ciphertext.startsWith(PREFIX)) return ciphertext;
+  if (!ciphertext.startsWith(PREFIX)) {
+    throw new Error("Token is not encrypted. Re-connect the integration to store tokens securely.");
+  }
 
   const key = getKey();
-  if (!key) return ciphertext;
-
   const buf = Buffer.from(ciphertext.slice(PREFIX.length), "base64");
   const iv = buf.subarray(0, IV_LENGTH);
   const tag = buf.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
