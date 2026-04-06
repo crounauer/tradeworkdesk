@@ -784,7 +784,7 @@ export async function buildInvoiceData(
   jobId: string,
   tenantId: string | null | undefined
 ): Promise<InvoiceData | null> {
-  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email, address_line1, address_line2, city, county, postcode)").eq("id", jobId);
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode)").eq("id", jobId);
   if (tenantId) jobQ = jobQ.eq("tenant_id", tenantId);
   const { data: job } = await jobQ.single();
   if (!job) return null;
@@ -808,7 +808,7 @@ export async function buildInvoiceData(
   const paymentTermsDays = Number(settings?.default_payment_terms_days) || 30;
   const currency = settings?.currency || "GBP";
 
-  const customer = job.customers as { first_name: string; last_name: string; email?: string; address_line1?: string; address_line2?: string; city?: string; county?: string; postcode?: string } | null;
+  const customer = job.customers as { first_name: string; last_name: string; email?: string; phone?: string; mobile?: string; address_line1?: string; address_line2?: string; city?: string; county?: string; postcode?: string } | null;
   const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Unknown";
   const customerAddressParts = [customer?.address_line1, customer?.address_line2, customer?.city, customer?.county, customer?.postcode].filter(Boolean);
 
@@ -914,6 +914,13 @@ export async function buildInvoiceData(
     customer_name: customerName,
     customer_email: customer?.email || "",
     customer_address: customerAddressParts.join(", "),
+    customer_phone: customer?.phone || "",
+    customer_mobile: customer?.mobile || "",
+    customer_address_line1: customer?.address_line1 || "",
+    customer_address_line2: customer?.address_line2 || "",
+    customer_city: customer?.city || "",
+    customer_county: customer?.county || "",
+    customer_postcode: customer?.postcode || "",
     job_id: job.id,
     job_type: job.job_type,
     job_description: job.description || `${job.job_type} job`,

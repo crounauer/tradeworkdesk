@@ -124,7 +124,18 @@ export class ZohoInvoiceProvider implements AccountingProvider {
   async findOrCreateContact(
     accessToken: string,
     organisationId: string,
-    contact: { name: string; email?: string; address?: string }
+    contact: {
+      name: string;
+      email?: string;
+      phone?: string;
+      mobile?: string;
+      address_line1?: string;
+      address_line2?: string;
+      city?: string;
+      county?: string;
+      postcode?: string;
+      address?: string;
+    }
   ): Promise<AccountingContact> {
     const searchParams = new URLSearchParams({
       organization_id: organisationId,
@@ -151,12 +162,23 @@ export class ZohoInvoiceProvider implements AccountingProvider {
       };
     }
 
+    const billingAddress: Record<string, string> = {};
+    if (contact.address_line1) billingAddress.street = contact.address_line1;
+    if (contact.address_line2) billingAddress.street2 = contact.address_line2;
+    if (contact.city) billingAddress.city = contact.city;
+    if (contact.county) billingAddress.state = contact.county;
+    if (contact.postcode) billingAddress.zip = contact.postcode;
+    billingAddress.country = "United Kingdom";
+
     const createBody: Record<string, unknown> = {
       contact_name: contact.name,
+      contact_type: "customer",
     };
     if (contact.email) createBody.email = contact.email;
-    if (contact.address) {
-      createBody.billing_address = { address: contact.address };
+    if (contact.phone) createBody.phone = contact.phone;
+    if (contact.mobile) createBody.mobile = contact.mobile;
+    if (Object.keys(billingAddress).length > 1) {
+      createBody.billing_address = billingAddress;
     }
 
     const createRes = await fetch(

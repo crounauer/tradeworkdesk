@@ -56,7 +56,18 @@ export interface AccountingProvider {
   findOrCreateContact(
     accessToken: string,
     organisationId: string,
-    contact: { name: string; email?: string; address?: string }
+    contact: {
+      name: string;
+      email?: string;
+      phone?: string;
+      mobile?: string;
+      address_line1?: string;
+      address_line2?: string;
+      city?: string;
+      county?: string;
+      postcode?: string;
+      address?: string;
+    }
   ): Promise<AccountingContact>;
 
   createInvoice(

@@ -425,7 +425,13 @@ router.post(
         {
           name: invoiceData.customer_name,
           email: invoiceData.customer_email || undefined,
-          address: invoiceData.customer_address || undefined,
+          phone: invoiceData.customer_phone || undefined,
+          mobile: invoiceData.customer_mobile || undefined,
+          address_line1: invoiceData.customer_address_line1 || undefined,
+          address_line2: invoiceData.customer_address_line2 || undefined,
+          city: invoiceData.customer_city || undefined,
+          county: invoiceData.customer_county || undefined,
+          postcode: invoiceData.customer_postcode || undefined,
         }
       );
 

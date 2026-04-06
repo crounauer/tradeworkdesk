@@ -18,6 +18,13 @@ export interface InvoiceData {
   customer_name: string;
   customer_email: string;
   customer_address: string;
+  customer_phone: string;
+  customer_mobile: string;
+  customer_address_line1: string;
+  customer_address_line2: string;
+  customer_city: string;
+  customer_county: string;
+  customer_postcode: string;
   job_id: string;
   job_type: string;
   job_description: string;
