@@ -18,6 +18,7 @@ router.get("/email-preview/job-confirmation", (_req: Request, res: Response) => 
     },
     {
       name: "ABC Heating & Plumbing Ltd",
+      logo_url: "https://placehold.co/180x60/ffffff/1d4ed8?text=ABC+Heating",
       address_line1: "Unit 5, Riverside Industrial Estate",
       address_line2: "42 Thameside Road",
       city: "Manchester",

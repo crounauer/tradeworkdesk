@@ -345,6 +345,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
   const emailCompany: EmailCompanyDetails = {
     name: (cs?.name as string | null) || (tenant?.company_name as string | null) || null,
     trading_name: (cs?.trading_name as string | null) || null,
+    logo_url: (cs?.logo_url as string | null) || null,
     address_line1: (cs?.address_line1 as string | null) || null,
     address_line2: (cs?.address_line2 as string | null) || null,
     city: (cs?.city as string | null) || null,
@@ -1587,6 +1588,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     const emailCompany: EmailCompanyDetails | undefined = pdfCompany ? {
       name: pdfCompany.name,
       trading_name: pdfCompany.trading_name,
+      logo_url: (companySettings as Record<string, unknown>)?.logo_url as string | null || null,
       address_line1: pdfCompany.address_line1,
       address_line2: pdfCompany.address_line2,
       city: pdfCompany.city,

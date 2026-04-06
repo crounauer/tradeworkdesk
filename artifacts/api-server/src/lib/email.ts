@@ -13,6 +13,7 @@ const FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 export interface EmailCompanyDetails {
   name?: string | null;
   trading_name?: string | null;
+  logo_url?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   city?: string | null;
@@ -44,8 +45,13 @@ function renderCompanyHeader(company?: EmailCompanyDetails): string {
 
   const companyName = company.name || company.trading_name || "Your Service Provider";
 
+  const logoHtml = company.logo_url
+    ? `<img src="${escHtml(company.logo_url)}" alt="${escHtml(companyName)}" style="max-height:60px;max-width:200px;display:block;margin-bottom:12px;" />`
+    : "";
+
   return `
     <div class="header" style="background:#1d4ed8;padding:28px 32px;color:#fff;">
+      ${logoHtml}
       <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin:0;">${companyName}</div>
     </div>`;
 }
