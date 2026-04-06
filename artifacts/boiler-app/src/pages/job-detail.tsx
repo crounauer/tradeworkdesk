@@ -1,6 +1,6 @@
-import { useGetJob, useUpdateJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,17 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanySettings } from "@/hooks/use-company-settings";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type JobEditData = {
   status: string;
@@ -63,9 +74,11 @@ export default function JobDetail() {
   });
   const completedFormTypes = new Set(completedForms?.map(f => f.form_type) || []);
   const updateJob = useUpdateJob();
+  const deleteJob = useDeleteJob();
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const [, navigate] = useLocation();
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
@@ -137,6 +150,44 @@ export default function JobDetail() {
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Job #{job.id.slice(0, 8)}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove the job and it will no longer appear in your jobs list. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleteJob.isPending}
+                    onClick={async () => {
+                      try {
+                        await deleteJob.mutateAsync({ id: job.id });
+                        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+                        qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+                        toast({ title: "Job deleted", description: "The job has been removed." });
+                        navigate("/jobs");
+                      } catch (e: unknown) {
+                        const msg = e instanceof Error ? e.message : "Failed to delete job";
+                        toast({ title: "Delete failed", description: msg, variant: "destructive" });
+                      }
+                    }}
+                  >
+                    {deleteJob.isPending ? "Deleting..." : "Delete Job"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
