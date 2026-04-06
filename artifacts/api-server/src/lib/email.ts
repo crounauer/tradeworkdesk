@@ -46,7 +46,7 @@ function renderCompanyHeader(company?: EmailCompanyDetails): string {
   const companyName = company.name || company.trading_name || "Your Service Provider";
 
   const logoHtml = company.logo_url
-    ? `<img src="${escHtml(company.logo_url)}" alt="${escHtml(companyName)}" style="max-height:60px;max-width:200px;display:block;margin-bottom:12px;" />`
+    ? `<div style="background:#fff;display:inline-block;padding:10px 16px;border-radius:8px;margin-bottom:14px;"><img src="${escHtml(company.logo_url)}" alt="${escHtml(companyName)}" style="max-height:50px;max-width:180px;display:block;" /></div>`
     : "";
 
   return `
