@@ -1,7 +1,7 @@
 import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Users, Briefcase, AlertCircle, CheckCircle2, Plus, MessageSquarePlus } from "lucide-react";
+import { Users, Briefcase, AlertCircle, CheckCircle2, Plus, MessageSquarePlus, Mail, Send } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ type QuickBookData = {
   new_first_name: string;
   new_last_name: string;
   new_phone: string;
+  new_email: string;
   new_address_line1: string;
   new_city: string;
   new_postcode: string;
@@ -210,13 +211,51 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   const selectedCustomerId = watch("customer_id");
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
 
+  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
+  const existingCustomerEmail = selectedCustomer?.email || null;
+
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationState, setConfirmationState] = useState<{
+    jobId: string;
+    customerEmail: string;
+    customerName: string;
+  } | null>(null);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+
+  const handleClose = () => {
+    setConfirmationState(null);
+    reset();
+    onOpenChange(false);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!confirmationState) return;
+    setSendingConfirmation(true);
+    try {
+      const res = await fetch(`/api/jobs/${confirmationState.jobId}/send-confirmation`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to send confirmation email");
+      }
+      toast({ title: "Email sent", description: `Confirmation sent to ${confirmationState.customerEmail}` });
+      handleClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send email";
+      toast({ title: "Email error", description: message, variant: "destructive" });
+    } finally {
+      setSendingConfirmation(false);
+    }
+  };
 
   const onSubmit = async (data: QuickBookData) => {
     setSubmitting(true);
     try {
       let customerId = data.customer_id;
       let propertyId = data.property_id;
+      let customerEmail = "";
+      let customerName = "";
 
       if (data.customer_mode === "new") {
         if (!data.new_first_name || !data.new_last_name) {
@@ -230,15 +269,18 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
           return;
         }
 
+        const trimmedEmail = data.new_email?.trim() || undefined;
         const custRes = await createCustomer.mutateAsync({
           data: {
             first_name: data.new_first_name.trim(),
             last_name: data.new_last_name.trim(),
             phone: data.new_phone?.trim() || undefined,
-            email: undefined,
+            email: trimmedEmail,
           },
         });
         customerId = (custRes as { id: string }).id;
+        customerEmail = trimmedEmail || "";
+        customerName = `${data.new_first_name.trim()} ${data.new_last_name.trim()}`;
 
         const propRes = await createProperty.mutateAsync({
           data: {
@@ -249,6 +291,10 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
           },
         });
         propertyId = (propRes as { id: string }).id;
+      } else {
+        const cust = customers?.find(c => c.id === data.customer_id);
+        customerEmail = cust?.email || "";
+        customerName = cust ? `${cust.first_name} ${cust.last_name}` : "";
       }
 
       if (!customerId || !propertyId) {
@@ -261,7 +307,7 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
 
       const technicianId = isSoleTrader && profile?.id ? profile.id : undefined;
-      await createJob.mutateAsync({
+      const jobRes = await createJob.mutateAsync({
         data: {
           customer_id: customerId,
           property_id: propertyId,
@@ -281,8 +327,14 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
       qc.invalidateQueries({ queryKey: ["/api/properties"] });
 
       toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
-      reset();
-      onOpenChange(false);
+
+      const createdJobId = (jobRes as { id: string }).id;
+      if (customerEmail) {
+        setConfirmationState({ jobId: createdJobId, customerEmail, customerName });
+      } else {
+        reset();
+        onOpenChange(false);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       toast({ title: "Error", description: message, variant: "destructive" });
@@ -292,137 +344,188 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(v); }}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Quick Book Job</DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div className="flex gap-2 bg-muted rounded-lg p-1">
-            <button
-              type="button"
-              className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "existing" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setValue("customer_mode", "existing")}
-            >
-              Existing Customer
-            </button>
-            <button
-              type="button"
-              className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "new" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setValue("customer_mode", "new")}
-            >
-              New Customer
-            </button>
-          </div>
-
-          {customerMode === "existing" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Customer *</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("customer_id")}>
-                  <option value="">Select customer...</option>
-                  {customers?.map(c => (
-                    <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-                  ))}
-                </select>
+        {confirmationState ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl">Send Booking Confirmation?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="flex items-start gap-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
+                <Mail className="w-8 h-8 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Would you like to send a booking confirmation email to the customer?
+                  </p>
+                  <div className="mt-2 text-sm text-muted-foreground space-y-1">
+                    <p><strong>To:</strong> {confirmationState.customerName}</p>
+                    <p><strong>Email:</strong> {confirmationState.customerEmail}</p>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Property *</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
-                  <option value="">Select property...</option>
-                  {filteredProperties?.map(p => (
-                    <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
-                  ))}
-                </select>
+              <div className="flex gap-3">
+                <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="flex-1 gap-2">
+                  <Send className="w-4 h-4" />
+                  {sendingConfirmation ? "Sending..." : "Send Confirmation"}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleClose} disabled={sendingConfirmation}>
+                  Skip
+                </Button>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>First Name *</Label>
-                  <Input {...register("new_first_name")} placeholder="John" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Last Name *</Label>
-                  <Input {...register("new_last_name")} placeholder="Smith" />
-                </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl">Quick Book Job</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div className="flex gap-2 bg-muted rounded-lg p-1">
+                <button
+                  type="button"
+                  className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "existing" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setValue("customer_mode", "existing")}
+                >
+                  Existing Customer
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 text-sm font-medium py-2 rounded-md transition-all ${customerMode === "new" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setValue("customer_mode", "new")}
+                >
+                  New Customer
+                </button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Phone</Label>
-                <Input {...register("new_phone")} placeholder="07700 900000" />
-              </div>
+
+              {customerMode === "existing" ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Customer *</Label>
+                      <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("customer_id")}>
+                        <option value="">Select customer...</option>
+                        {customers?.map(c => (
+                          <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Property *</Label>
+                      <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
+                        <option value="">Select property...</option>
+                        {filteredProperties?.map(p => (
+                          <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {selectedCustomerId && (
+                    <div className="flex items-center gap-2 text-sm px-1">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      {existingCustomerEmail ? (
+                        <span className="text-muted-foreground">{existingCustomerEmail}</span>
+                      ) : (
+                        <span className="text-muted-foreground/60 italic">No email on file</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>First Name *</Label>
+                      <Input {...register("new_first_name")} placeholder="John" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Last Name *</Label>
+                      <Input {...register("new_last_name")} placeholder="Smith" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Phone</Label>
+                      <Input {...register("new_phone")} placeholder="07700 900000" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Email</Label>
+                      <Input {...register("new_email")} placeholder="john@example.com" type="email" />
+                    </div>
+                  </div>
+                  <div className="border-t pt-4 space-y-4">
+                    <p className="text-sm font-medium text-muted-foreground">Property Address</p>
+                    <div className="space-y-1.5">
+                      <Label>Address *</Label>
+                      <Input {...register("new_address_line1")} placeholder="123 High Street" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label>Town / City *</Label>
+                        <Input {...register("new_city")} placeholder="Manchester" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Postcode *</Label>
+                        <Input {...register("new_postcode")} placeholder="M1 1AA" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-4 space-y-4">
-                <p className="text-sm font-medium text-muted-foreground">Property Address</p>
-                <div className="space-y-1.5">
-                  <Label>Address *</Label>
-                  <Input {...register("new_address_line1")} placeholder="123 High Street" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Job Type *</Label>
+                    <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
+                      <option value="">Select type...</option>
+                      {jobTypes.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Priority</Label>
+                    <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("priority")}>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Town / City *</Label>
-                    <Input {...register("new_city")} placeholder="Manchester" />
+                    <Label>Date *</Label>
+                    <Input type="date" required {...register("scheduled_date")} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Postcode *</Label>
-                    <Input {...register("new_postcode")} placeholder="M1 1AA" />
+                    <Label>Time</Label>
+                    <Input type="time" {...register("scheduled_time")} />
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Notes</Label>
+                  <textarea
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]"
+                    placeholder="Any details about the job..."
+                    {...register("description")}
+                  />
+                </div>
               </div>
-            </div>
-          )}
 
-          <div className="border-t pt-4 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Job Type *</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
-                  <option value="">Select type...</option>
-                  {jobTypes.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" disabled={submitting} className="flex-1">
+                  {submitting ? "Booking..." : "Book Job"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Priority</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("priority")}>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Date *</Label>
-                <Input type="date" required {...register("scheduled_date")} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Time</Label>
-                <Input type="time" {...register("scheduled_time")} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <textarea
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]"
-                placeholder="Any details about the job..."
-                {...register("description")}
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={submitting} className="flex-1">
-              {submitting ? "Booking..." : "Book Job"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-          </div>
-        </form>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
