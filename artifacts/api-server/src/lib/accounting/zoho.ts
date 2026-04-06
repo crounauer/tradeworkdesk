@@ -7,8 +7,14 @@ import type {
   AccountingIntegrationRow,
 } from "./types";
 
-const ZOHO_ACCOUNTS_URL = "https://accounts.zoho.eu";
-const ZOHO_INVOICE_API = "https://www.zohoapis.eu/invoice/v3";
+const ZOHO_DC_DOMAINS: Record<string, { accounts: string; api: string }> = {
+  uk: { accounts: "https://accounts.zoho.uk", api: "https://www.zohoapis.uk/invoice/v3" },
+  eu: { accounts: "https://accounts.zoho.eu", api: "https://www.zohoapis.eu/invoice/v3" },
+  com: { accounts: "https://accounts.zoho.com", api: "https://www.zohoapis.com/invoice/v3" },
+  in: { accounts: "https://accounts.zoho.in", api: "https://www.zohoapis.in/invoice/v3" },
+  au: { accounts: "https://accounts.zoho.com.au", api: "https://www.zohoapis.com.au/invoice/v3" },
+  jp: { accounts: "https://accounts.zoho.jp", api: "https://www.zohoapis.jp/invoice/v3" },
+};
 
 export class ZohoInvoiceProvider implements AccountingProvider {
   readonly name = "zoho_invoice";
@@ -16,10 +22,16 @@ export class ZohoInvoiceProvider implements AccountingProvider {
 
   private clientId: string;
   private clientSecret: string;
+  private dc: string;
 
-  constructor(clientId?: string, clientSecret?: string) {
+  constructor(clientId?: string, clientSecret?: string, dc?: string) {
     this.clientId = clientId || "";
     this.clientSecret = clientSecret || "";
+    this.dc = dc || "uk";
+  }
+
+  private get domains() {
+    return ZOHO_DC_DOMAINS[this.dc] || ZOHO_DC_DOMAINS["uk"];
   }
 
   setCredentials(clientId: string, clientSecret: string) {
@@ -41,11 +53,11 @@ export class ZohoInvoiceProvider implements AccountingProvider {
       access_type: "offline",
       prompt: "consent",
     });
-    return `${ZOHO_ACCOUNTS_URL}/oauth/v2/auth?${params.toString()}`;
+    return `${this.domains.accounts}/oauth/v2/auth?${params.toString()}`;
   }
 
   async exchangeCode(code: string, redirectUri: string): Promise<AccountingTokens> {
-    const res = await fetch(`${ZOHO_ACCOUNTS_URL}/oauth/v2/token`, {
+    const res = await fetch(`${this.domains.accounts}/oauth/v2/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -83,7 +95,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     const buffer = 5 * 60 * 1000;
     if (Date.now() < expiresAt - buffer) return null;
 
-    const res = await fetch(`${ZOHO_ACCOUNTS_URL}/oauth/v2/token`, {
+    const res = await fetch(`${this.domains.accounts}/oauth/v2/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -120,7 +132,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     });
 
     const searchRes = await fetch(
-      `${ZOHO_INVOICE_API}/contacts?${searchParams.toString()}`,
+      `${this.domains.api}/contacts?${searchParams.toString()}`,
       {
         headers: {
           Authorization: `Zoho-oauthtoken ${accessToken}`,
@@ -148,7 +160,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     }
 
     const createRes = await fetch(
-      `${ZOHO_INVOICE_API}/contacts?organization_id=${organisationId}`,
+      `${this.domains.api}/contacts?organization_id=${organisationId}`,
       {
         method: "POST",
         headers: {
@@ -197,7 +209,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     };
 
     const res = await fetch(
-      `${ZOHO_INVOICE_API}/invoices?organization_id=${organisationId}`,
+      `${this.domains.api}/invoices?organization_id=${organisationId}`,
       {
         method: "POST",
         headers: {
@@ -223,7 +235,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
   }
 
   private async fetchOrganisationId(accessToken: string): Promise<string> {
-    const res = await fetch(`${ZOHO_INVOICE_API}/organizations`, {
+    const res = await fetch(`${this.domains.api}/organizations`, {
       headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
     });
 

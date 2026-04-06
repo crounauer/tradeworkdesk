@@ -12,8 +12,8 @@ export function getProvider(name: string): AccountingProvider | undefined {
   return undefined;
 }
 
-export function getProviderWithCredentials(name: string, clientId: string, clientSecret: string): AccountingProvider | undefined {
-  if (name === "zoho_invoice") return new ZohoInvoiceProvider(clientId, clientSecret);
+export function getProviderWithCredentials(name: string, clientId: string, clientSecret: string, dc?: string): AccountingProvider | undefined {
+  if (name === "zoho_invoice") return new ZohoInvoiceProvider(clientId, clientSecret, dc);
   return undefined;
 }
 
@@ -29,7 +29,8 @@ export async function getProviderForTenant(name: string, tenantId: string): Prom
   const clientId = config.client_id ? decryptToken(config.client_id as string) : "";
   const clientSecret = config.client_secret ? decryptToken(config.client_secret as string) : "";
 
-  if (name === "zoho_invoice") return new ZohoInvoiceProvider(clientId, clientSecret);
+  const dc = (config.dc as string) || "uk";
+  if (name === "zoho_invoice") return new ZohoInvoiceProvider(clientId, clientSecret, dc);
   return undefined;
 }
 
@@ -105,7 +106,8 @@ export async function ensureFreshToken(integration: AccountingIntegrationRow): P
   const config = (integration.extra_config || {}) as Record<string, unknown>;
   const clientId = config.client_id ? decryptToken(config.client_id as string) : "";
   const clientSecret = config.client_secret ? decryptToken(config.client_secret as string) : "";
-  const provider = getProviderWithCredentials(integration.provider, clientId, clientSecret);
+  const dc = (config.dc as string) || "uk";
+  const provider = getProviderWithCredentials(integration.provider, clientId, clientSecret, dc);
   if (!provider) throw new Error(`Unknown provider: ${integration.provider}`);
 
   const decryptedIntegration = {

@@ -58,15 +58,19 @@ router.post(
         return;
       }
 
-      const { client_id, client_secret } = req.body as { client_id?: string; client_secret?: string };
+      const { client_id, client_secret, dc } = req.body as { client_id?: string; client_secret?: string; dc?: string };
       if (!client_id || !client_secret) {
         res.status(400).json({ error: "Both client_id and client_secret are required" });
         return;
       }
 
+      const validDCs = ["uk", "eu", "com", "in", "au", "jp"];
+      const selectedDC = dc && validDCs.includes(dc) ? dc : "uk";
+
       const encryptedConfig = {
         client_id: encryptToken(client_id.trim()),
         client_secret: encryptToken(client_secret.trim()),
+        dc: selectedDC,
       };
 
       const { data: existing } = await supabaseAdmin

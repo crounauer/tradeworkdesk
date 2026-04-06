@@ -34,9 +34,18 @@ const PROVIDER_COLORS: Record<string, string> = {
   freeagent: "bg-purple-100 text-purple-700",
 };
 
+const ZOHO_DC_CONSOLE_URLS: Record<string, string> = {
+  uk: "https://api-console.zoho.uk/",
+  eu: "https://api-console.zoho.eu/",
+  com: "https://api-console.zoho.com/",
+  in: "https://api-console.zoho.in/",
+  au: "https://api-console.zoho.com.au/",
+  jp: "https://api-console.zoho.jp/",
+};
+
 const PROVIDER_HELP: Record<string, { url: string; label: string }> = {
   zoho_invoice: {
-    url: "https://api-console.zoho.eu/",
+    url: "https://api-console.zoho.uk/",
     label: "Get your credentials from the Zoho API Console",
   },
 };
@@ -46,14 +55,14 @@ export function AccountingIntegrations() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [encryptionConfigured, setEncryptionConfigured] = useState(true);
-  const [credentialForms, setCredentialForms] = useState<Record<string, { clientId: string; clientSecret: string; showSecret: boolean }>>(() => {
+  const [credentialForms, setCredentialForms] = useState<Record<string, { clientId: string; clientSecret: string; showSecret: boolean; dc: string }>>(() => {
     try {
       const saved = sessionStorage.getItem("acct-cred-forms");
       if (saved) {
-        const parsed = JSON.parse(saved) as Record<string, { clientId: string; clientSecret: string }>;
-        const result: Record<string, { clientId: string; clientSecret: string; showSecret: boolean }> = {};
+        const parsed = JSON.parse(saved) as Record<string, { clientId: string; clientSecret: string; dc?: string }>;
+        const result: Record<string, { clientId: string; clientSecret: string; showSecret: boolean; dc: string }> = {};
         for (const [k, v] of Object.entries(parsed)) {
-          result[k] = { ...v, showSecret: false };
+          result[k] = { ...v, showSecret: false, dc: v.dc || "uk" };
         }
         return result;
       }
@@ -64,9 +73,9 @@ export function AccountingIntegrations() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const toStore: Record<string, { clientId: string; clientSecret: string }> = {};
+    const toStore: Record<string, { clientId: string; clientSecret: string; dc: string }> = {};
     for (const [k, v] of Object.entries(credentialForms)) {
-      toStore[k] = { clientId: v.clientId, clientSecret: v.clientSecret };
+      toStore[k] = { clientId: v.clientId, clientSecret: v.clientSecret, dc: v.dc };
     }
     if (Object.keys(toStore).length > 0) {
       sessionStorage.setItem("acct-cred-forms", JSON.stringify(toStore));
@@ -110,11 +119,11 @@ export function AccountingIntegrations() {
         delete next[providerKey];
         return next;
       }
-      return { ...prev, [providerKey]: { clientId: "", clientSecret: "", showSecret: false } };
+      return { ...prev, [providerKey]: { clientId: "", clientSecret: "", showSecret: false, dc: "uk" } };
     });
   };
 
-  const updateCredentialForm = (providerKey: string, field: "clientId" | "clientSecret" | "showSecret", value: string | boolean) => {
+  const updateCredentialForm = (providerKey: string, field: "clientId" | "clientSecret" | "showSecret" | "dc", value: string | boolean) => {
     setCredentialForms((prev) => ({
       ...prev,
       [providerKey]: { ...prev[providerKey], [field]: value },
@@ -133,7 +142,7 @@ export function AccountingIntegrations() {
       await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations/${providerKey}/credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: form.clientId, client_secret: form.clientSecret }),
+        body: JSON.stringify({ client_id: form.clientId, client_secret: form.clientSecret, dc: form.dc }),
       });
       toast({ title: "Saved", description: "API credentials saved securely" });
       setCredentialForms((prev) => {
@@ -333,7 +342,17 @@ export function AccountingIntegrations() {
                   Enter your {p.displayName} API credentials. These are stored securely using encryption.
                 </div>
 
-                {PROVIDER_HELP[p.key] && (
+                {p.key === "zoho_invoice" ? (
+                  <a
+                    href={ZOHO_DC_CONSOLE_URLS[credentialForms[p.key]?.dc || "uk"] || ZOHO_DC_CONSOLE_URLS["uk"]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Get your credentials from the Zoho API Console
+                  </a>
+                ) : PROVIDER_HELP[p.key] ? (
                   <a
                     href={PROVIDER_HELP[p.key].url}
                     target="_blank"
@@ -343,7 +362,7 @@ export function AccountingIntegrations() {
                     <ExternalLink className="w-3 h-3" />
                     {PROVIDER_HELP[p.key].label}
                   </a>
-                )}
+                ) : null}
 
                 <div className="space-y-2">
                   <div>
@@ -376,6 +395,27 @@ export function AccountingIntegrations() {
                       </button>
                     </div>
                   </div>
+                  {p.key === "zoho_invoice" && (
+                    <div>
+                      <Label htmlFor={`${p.key}-dc`} className="text-xs">Data Centre Region</Label>
+                      <select
+                        id={`${p.key}-dc`}
+                        value={credentialForms[p.key].dc}
+                        onChange={(e) => updateCredentialForm(p.key, "dc", e.target.value)}
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="uk">UK (zoho.uk)</option>
+                        <option value="eu">EU (zoho.eu)</option>
+                        <option value="com">US (zoho.com)</option>
+                        <option value="in">India (zoho.in)</option>
+                        <option value="au">Australia (zoho.com.au)</option>
+                        <option value="jp">Japan (zoho.jp)</option>
+                      </select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Select the region matching your Zoho account's data centre
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <Button
