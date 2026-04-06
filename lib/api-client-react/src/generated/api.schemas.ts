@@ -246,6 +246,8 @@ export interface Job {
   external_invoice_id?: string | null;
   /** @nullable */
   external_invoice_provider?: string | null;
+  /** @nullable */
+  external_invoice_sent_at?: string | null;
   created_at: string;
   updated_at: string;
 }

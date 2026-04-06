@@ -40,6 +40,7 @@ const AdminCompanySettings = lazy(() => import("@/pages/admin-company-settings")
 const AdminSocial = lazy(() => import("@/pages/admin-social"));
 const AdminJobTypes = lazy(() => import("@/pages/admin-job-types"));
 const AdminReassignJobs = lazy(() => import("@/pages/admin-reassign-jobs"));
+const AdminInvoiceLog = lazy(() => import("@/pages/admin-invoice-log"));
 const Register = lazy(() => import("@/pages/register"));
 const PlatformDashboard = lazy(() => import("@/pages/platform-dashboard"));
 const PlatformTenants = lazy(() => import("@/pages/platform-tenants"));
@@ -210,6 +211,7 @@ function AppRouter() {
         <Route path="/admin/social" component={() => <ProtectedRoute component={AdminSocial} roles={["admin", "super_admin"]} />} />
         <Route path="/admin/reassign-jobs" component={() => <ProtectedRoute component={AdminReassignJobs} roles={["admin"]} />} />
         <Route path="/admin/job-types" component={() => <ProtectedRoute component={AdminJobTypes} roles={["admin"]} />} />
+        <Route path="/admin/invoice-log" component={() => <ProtectedRoute component={AdminInvoiceLog} roles={["admin", "office_staff"]} />} />
 
         <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
         <Route path="/account" component={() => <ProtectedRoute component={AccountSettings} />} />

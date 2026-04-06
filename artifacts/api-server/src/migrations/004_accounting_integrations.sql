@@ -27,3 +27,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS accounting_integrations_one_active_per_tenant
 
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS external_invoice_id varchar;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS external_invoice_provider varchar;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS external_invoice_sent_at timestamptz;

@@ -9,7 +9,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog
+  Zap, MessageSquarePlus, UserCog, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -88,6 +88,7 @@ export function Layout({ children }: { children: ReactNode }) {
       { href: "/admin/reassign-jobs", label: "Reassign Jobs", icon: Briefcase },
     ] : []),
     { href: "/admin/job-types", label: "Job Types", icon: ListTree },
+    { href: "/admin/invoice-log", label: "Invoice Log", icon: FileText },
     { href: "/admin/lookup-options", label: "Lookup Options", icon: Settings2 },
     ...(hasFeature("social_media") ? [
       { href: "/admin/social", label: "Social Media", icon: Share2 },

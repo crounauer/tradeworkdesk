@@ -233,7 +233,7 @@ export default function JobDetail() {
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
-              <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} refreshKey={pricingRefresh} />
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} externalInvoiceSentAt={job.external_invoice_sent_at} refreshKey={pricingRefresh} />
             )}
 
             <PhotosSection jobId={job.id} />
@@ -1028,7 +1028,7 @@ interface AccountingIntegrationStatus {
   displayName: string;
 }
 
-function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalInvoiceProvider, refreshKey = 0 }: { jobId: string; jobStatus: string; externalInvoiceId?: string | null; externalInvoiceProvider?: string | null; refreshKey?: number }) {
+function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalInvoiceProvider, externalInvoiceSentAt, refreshKey = 0 }: { jobId: string; jobStatus: string; externalInvoiceId?: string | null; externalInvoiceProvider?: string | null; externalInvoiceSentAt?: string | null; refreshKey?: number }) {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -1037,6 +1037,8 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
   const [accountingStatus, setAccountingStatus] = useState<AccountingIntegrationStatus | null>(null);
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
   const [sentExternalId, setSentExternalId] = useState<string | null>(externalInvoiceId || null);
+  const [sentProviderName, setSentProviderName] = useState<string | null>(null);
+  const [sentTimestamp, setSentTimestamp] = useState<string | null>(externalInvoiceSentAt || null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1068,8 +1070,10 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
     try {
       const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/send-to-accounting`, {
         method: "POST",
-      }) as { success: boolean; external_id: string; provider_name: string; invoice_number: string };
+      }) as { success: boolean; external_id: string; provider_name: string; invoice_number: string; sent_at?: string };
       setSentExternalId(result.external_id);
+      setSentProviderName(result.provider_name);
+      setSentTimestamp(result.sent_at || new Date().toISOString());
       toast({
         title: "Invoice Sent",
         description: `Invoice ${result.invoice_number} sent to ${result.provider_name}`,
@@ -1165,10 +1169,17 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
       {canExport && (accountingStatus?.connected || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
           {sentExternalId ? (
-            <div className="flex items-center gap-2 text-sm text-green-700">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Invoice sent to {externalInvoiceProvider || accountingStatus?.displayName || "accounting"}</span>
-              <span className="text-xs text-muted-foreground ml-1">(ID: {sentExternalId.substring(0, 12)}...)</span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-green-700">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="font-medium">Invoice sent to {sentProviderName || externalInvoiceProvider || accountingStatus?.displayName || "accounting"}</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground pl-6">
+                <span>Invoice ID: <span className="font-mono">{sentExternalId}</span></span>
+                {sentTimestamp && (
+                  <span>Sent: {new Date(sentTimestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-between">

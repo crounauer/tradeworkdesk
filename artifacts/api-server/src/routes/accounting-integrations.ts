@@ -263,6 +263,67 @@ router.get(
   }
 );
 
+router.get(
+  "/admin/accounting-integrations/invoice-log",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    try {
+      const tenantId = req.tenantId!;
+      const { data, error } = await supabaseAdmin
+        .from("jobs")
+        .select("id, scheduled_date, status, external_invoice_id, external_invoice_provider, external_invoice_sent_at, customer_id")
+        .eq("tenant_id", tenantId)
+        .not("external_invoice_id", "is", null)
+        .order("external_invoice_sent_at", { ascending: false, nullsFirst: false });
+
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+
+      const customerIds = [...new Set((data || []).map((j) => j.customer_id).filter(Boolean))];
+      let customerMap: Record<string, string> = {};
+      if (customerIds.length > 0) {
+        const { data: customers } = await supabaseAdmin
+          .from("customers")
+          .select("id, first_name, last_name, company_name")
+          .in("id", customerIds);
+        if (customers) {
+          for (const c of customers) {
+            const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
+            customerMap[c.id] = c.company_name || name || "Unknown";
+          }
+        }
+      }
+
+      const providerNames: Record<string, string> = {
+        zoho_invoice: "Zoho Invoice",
+        xero: "Xero",
+        quickbooks: "QuickBooks",
+        sage: "Sage",
+        freeagent: "FreeAgent",
+      };
+
+      const entries = (data || []).map((j) => ({
+        job_id: j.id,
+        job_date: j.scheduled_date,
+        job_status: j.status,
+        customer_name: customerMap[j.customer_id] || "Unknown",
+        external_invoice_id: j.external_invoice_id,
+        provider: j.external_invoice_provider,
+        provider_name: providerNames[j.external_invoice_provider || ""] || j.external_invoice_provider || "Unknown",
+        sent_at: j.external_invoice_sent_at,
+      }));
+
+      res.json({ entries, total: entries.length });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
 router.post(
   "/jobs/:id/send-to-accounting",
   requireAuth,
@@ -348,11 +409,13 @@ router.post(
         }
       );
 
+      const sentAt = new Date().toISOString();
       const { error: updateError } = await supabaseAdmin
         .from("jobs")
         .update({
           external_invoice_id: invoiceResult.external_id,
           external_invoice_provider: integration.provider,
+          external_invoice_sent_at: sentAt,
         })
         .eq("id", jobId)
         .eq("tenant_id", tenantId);
@@ -373,6 +436,7 @@ router.post(
         provider_name: provider.displayName,
         status: invoiceResult.status,
         url: invoiceResult.url,
+        sent_at: sentAt,
       });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
