@@ -307,9 +307,23 @@ export function renderJobConfirmationHtml(
 
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
-    : "please contact your service provider directly.";
+    : `please contact <strong>${escHtml(companyName)}</strong> directly.`;
 
   const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
+
+  const contactDetails: string[] = [];
+  if (companyDetails?.phone) contactDetails.push(`<span>📞 <a href="tel:${escHtml(companyDetails.phone)}" style="color:#1d4ed8;text-decoration:none;">${escHtml(companyDetails.phone)}</a></span>`);
+  if (companyDetails?.email) contactDetails.push(`<span>✉️ <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;text-decoration:none;">${escHtml(companyDetails.email)}</a></span>`);
+  if (companyDetails?.website) contactDetails.push(`<span>🌐 <a href="${escHtml(companyDetails.website.startsWith("http") ? companyDetails.website : `https://${companyDetails.website}`)}" style="color:#1d4ed8;text-decoration:none;" target="_blank">${escHtml(companyDetails.website)}</a></span>`);
+
+  const contactAddressParts = [companyDetails?.address_line1, companyDetails?.address_line2, companyDetails?.city, companyDetails?.county, companyDetails?.postcode].filter(Boolean);
+
+  const contactSection = (contactDetails.length > 0 || contactAddressParts.length > 0) ? `
+    <div class="info-box" style="margin-top:20px;">
+      <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1e293b;">${escHtml(companyName)} — Contact Details</p>
+      ${contactDetails.length > 0 ? `<p style="margin:4px 0;font-size:14px;">${contactDetails.join(" &nbsp;&bull;&nbsp; ")}</p>` : ""}
+      ${contactAddressParts.length > 0 ? `<p style="margin:4px 0;font-size:13px;color:#64748b;">📍 ${escHtml(contactAddressParts.join(", "))}</p>` : ""}
+    </div>` : "";
 
   return baseHtml(subject, `
     <h2>Appointment Confirmation</h2>
@@ -324,6 +338,7 @@ export function renderJobConfirmationHtml(
     </div>
     ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
     <p>Please ensure there is access to the property at the scheduled time. If you need to reschedule or have any questions, ${contactLine}</p>
+    ${contactSection}
     <hr class="divider"/>
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
   `, companyDetails);

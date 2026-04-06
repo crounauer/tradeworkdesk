@@ -325,31 +325,38 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     if (jtArr?.[0]) jobTypeName = jtArr[0].name;
   }
 
-  const { data: companySettings } = await supabaseAdmin
-    .from("company_settings")
-    .select("*")
-    .eq("tenant_id", req.tenantId)
-    .eq("singleton_id", "default")
-    .single();
+  const [{ data: companySettings }, { data: tenant }] = await Promise.all([
+    supabaseAdmin
+      .from("company_settings")
+      .select("*")
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", "default")
+      .single(),
+    supabaseAdmin
+      .from("tenants")
+      .select("company_name")
+      .eq("id", req.tenantId)
+      .single(),
+  ]);
 
   const cs = companySettings as Record<string, unknown> | null;
-  const companyName = (cs?.name as string) || (cs?.trading_name as string) || "Your Service Provider";
+  const companyName = (cs?.name as string) || (cs?.trading_name as string) || (tenant?.company_name as string) || "Your Service Provider";
 
-  const emailCompany: EmailCompanyDetails | undefined = cs ? {
-    name: cs.name as string | null,
-    trading_name: cs.trading_name as string | null,
-    address_line1: cs.address_line1 as string | null,
-    address_line2: cs.address_line2 as string | null,
-    city: cs.city as string | null,
-    county: cs.county as string | null,
-    postcode: cs.postcode as string | null,
-    phone: cs.phone as string | null,
-    email: cs.email as string | null,
-    website: cs.website as string | null,
-    gas_safe_number: cs.gas_safe_number as string | null,
-    oftec_number: cs.oftec_number as string | null,
-    vat_number: cs.vat_number as string | null,
-  } : undefined;
+  const emailCompany: EmailCompanyDetails = {
+    name: (cs?.name as string | null) || (tenant?.company_name as string | null) || null,
+    trading_name: (cs?.trading_name as string | null) || null,
+    address_line1: (cs?.address_line1 as string | null) || null,
+    address_line2: (cs?.address_line2 as string | null) || null,
+    city: (cs?.city as string | null) || null,
+    county: (cs?.county as string | null) || null,
+    postcode: (cs?.postcode as string | null) || null,
+    phone: (cs?.phone as string | null) || null,
+    email: (cs?.email as string | null) || null,
+    website: (cs?.website as string | null) || null,
+    gas_safe_number: (cs?.gas_safe_number as string | null) || null,
+    oftec_number: (cs?.oftec_number as string | null) || null,
+    vat_number: (cs?.vat_number as string | null) || null,
+  };
 
   const jobRef = job.job_ref || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
 

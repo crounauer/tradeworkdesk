@@ -25,6 +25,7 @@ router.get("/email-preview/job-confirmation", (_req: Request, res: Response) => 
       postcode: "M15 4QR",
       phone: "0161 234 5678",
       email: "office@abcheating.co.uk",
+      website: "www.abcheating.co.uk",
       gas_safe_number: "123456",
       oftec_number: "C/12345",
     }
