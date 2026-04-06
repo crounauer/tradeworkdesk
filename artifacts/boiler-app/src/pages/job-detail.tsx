@@ -1457,6 +1457,11 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
   const update = useUpdateJob();
   const { toast } = useToast();
   const { register, handleSubmit, reset } = useForm<JobEditData>();
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+
+  const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
+  const customerName = `${(job.customer as Record<string, unknown>)?.first_name || ""} ${(job.customer as Record<string, unknown>)?.last_name || ""}`.trim();
 
   useEffect(() => {
     reset({
@@ -1469,6 +1474,27 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       description: (job.description as string) || "",
     });
   }, [job, reset]);
+
+  const handleSendConfirmation = async () => {
+    setSendingConfirmation(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/send-confirmation`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to send confirmation email");
+      }
+      toast({ title: "Email sent", description: `Confirmation sent to ${customerEmail}` });
+      setShowEmailPrompt(false);
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send email";
+      toast({ title: "Email error", description: message, variant: "destructive" });
+    } finally {
+      setSendingConfirmation(false);
+    }
+  };
 
   const onSubmit = async (data: JobEditData) => {
     try {
@@ -1485,13 +1511,49 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
         },
       });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Updated", description: "Job updated successfully" });
-      onClose();
+      if (customerEmail) {
+        setShowEmailPrompt(true);
+      } else {
+        onClose();
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       toast({ title: "Error", description: msg, variant: "destructive" });
     }
   };
+
+  if (showEmailPrompt) {
+    return (
+      <Card className="p-6 border-primary/20 shadow-lg">
+        <h3 className="font-bold text-lg mb-4">Send Updated Confirmation?</h3>
+        <div className="space-y-4">
+          <div className="flex items-start gap-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
+            <Mail className="w-8 h-8 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Would you like to send an updated booking confirmation email to the customer?
+              </p>
+              <div className="mt-2 text-sm text-muted-foreground space-y-1">
+                <p><strong>To:</strong> {customerName}</p>
+                <p><strong>Email:</strong> {customerEmail}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="gap-2">
+              <Send className="w-4 h-4" />
+              {sendingConfirmation ? "Sending..." : "Send Confirmation"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={sendingConfirmation}>
+              Skip
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 border-primary/20 shadow-lg">
