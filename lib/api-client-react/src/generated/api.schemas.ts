@@ -207,6 +207,7 @@ export const JobStatus = {
   completed: "completed",
   cancelled: "cancelled",
   requires_follow_up: "requires_follow_up",
+  awaiting_parts: "awaiting_parts",
   invoiced: "invoiced",
 } as const;
 
@@ -693,6 +694,7 @@ export const UpdateJobBodyStatus = {
   completed: "completed",
   cancelled: "cancelled",
   requires_follow_up: "requires_follow_up",
+  awaiting_parts: "awaiting_parts",
   invoiced: "invoiced",
 } as const;
 

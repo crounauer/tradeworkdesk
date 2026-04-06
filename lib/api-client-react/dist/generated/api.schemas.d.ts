@@ -189,6 +189,8 @@ export declare const JobStatus: {
     readonly completed: "completed";
     readonly cancelled: "cancelled";
     readonly requires_follow_up: "requires_follow_up";
+    readonly awaiting_parts: "awaiting_parts";
+    readonly invoiced: "invoiced";
 };
 export type JobPriority = (typeof JobPriority)[keyof typeof JobPriority];
 export declare const JobPriority: {
@@ -612,6 +614,8 @@ export declare const UpdateJobBodyStatus: {
     readonly completed: "completed";
     readonly cancelled: "cancelled";
     readonly requires_follow_up: "requires_follow_up";
+    readonly awaiting_parts: "awaiting_parts";
+    readonly invoiced: "invoiced";
 };
 export type UpdateJobBodyPriority = (typeof UpdateJobBodyPriority)[keyof typeof UpdateJobBodyPriority];
 export declare const UpdateJobBodyPriority: {

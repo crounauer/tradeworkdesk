@@ -786,7 +786,7 @@ router.post("/admin/jobs/bulk-reassign", requireAuth, requireTenant, requireRole
 
   const allowedStatuses = statuses && Array.isArray(statuses) && statuses.length > 0
     ? statuses
-    : ["scheduled", "in_progress", "requires_follow_up"];
+    : ["scheduled", "in_progress", "requires_follow_up", "awaiting_parts"];
 
   q = q.in("status", allowedStatuses);
 

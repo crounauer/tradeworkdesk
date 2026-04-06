@@ -102,13 +102,14 @@ function JobsContent() {
       case 'in_progress': return 'bg-amber-100 text-amber-700';
       case 'completed': return 'bg-emerald-100 text-emerald-700';
       case 'requires_follow_up': return 'bg-rose-100 text-rose-700';
+      case 'awaiting_parts': return 'bg-orange-100 text-orange-700';
       case 'invoiced': return 'bg-violet-100 text-violet-700';
       case 'cancelled': return 'bg-slate-200 text-slate-600';
       default: return 'bg-slate-100 text-slate-700';
     }
   };
 
-  const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up', 'invoiced'];
+  const statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up', 'awaiting_parts', 'invoiced'];
 
   const exportableJobs = filteredJobs?.filter((j) => j.status === "completed" || j.status === "invoiced") || [];
   const selectedExportable = [...selectedIds].filter((id) => exportableJobs.some((j) => j.id === id));
@@ -419,7 +420,7 @@ function JobSections({
 
   const active = jobs.filter((j) => {
     const s = j.status as string;
-    return s === "scheduled" || s === "in_progress" || s === "requires_follow_up";
+    return s === "scheduled" || s === "in_progress" || s === "requires_follow_up" || s === "awaiting_parts";
   });
   const completed = jobs.filter((j) => j.status === "completed");
   const invoiced = jobs.filter((j) => j.status === "invoiced");

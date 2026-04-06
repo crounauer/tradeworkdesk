@@ -1258,6 +1258,7 @@ export const UpdateJobBody = zod.object({
       "completed",
       "cancelled",
       "requires_follow_up",
+      "awaiting_parts",
       "invoiced",
     ])
     .optional(),

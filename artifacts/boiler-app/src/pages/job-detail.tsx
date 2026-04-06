@@ -11,7 +11,7 @@ import {
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
-  CheckCircle2, Loader2, RefreshCw
+  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -84,6 +84,7 @@ export default function JobDetail() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
   const [pricingRefresh, setPricingRefresh] = useState(0);
+  const [showReturnVisit, setShowReturnVisit] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading job details...</div>;
   if (!job) return <div>Job not found</div>;
@@ -94,6 +95,7 @@ export default function JobDetail() {
     completed: "bg-emerald-100 text-emerald-700",
     cancelled: "bg-slate-100 text-slate-500",
     requires_follow_up: "bg-rose-100 text-rose-700",
+    awaiting_parts: "bg-orange-100 text-orange-700",
     invoiced: "bg-violet-100 text-violet-700",
   };
 
@@ -102,7 +104,7 @@ export default function JobDetail() {
       await updateJob.mutateAsync({
         id: job.id,
         data: {
-          status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "invoiced",
+          status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
         },
       });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
@@ -129,7 +131,7 @@ export default function JobDetail() {
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-display font-bold">Job #{job.id.slice(0, 8)}</h1>
             <span className={`px-3 py-1 rounded-md text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
-              {job.status.replace('_', ' ')}
+              {job.status.replace(/_/g, ' ')}
             </span>
           </div>
           <p className="text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
@@ -138,6 +140,16 @@ export default function JobDetail() {
           {canComplete && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
+            </Button>
+          )}
+          {canComplete && job.status !== "awaiting_parts" && (
+            <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleStatusChange("awaiting_parts", "Awaiting Parts")} disabled={updateJob.isPending}>
+              <Package className="w-4 h-4 mr-2" /> Awaiting Parts
+            </Button>
+          )}
+          {(job.status === "requires_follow_up" || job.status === "awaiting_parts") && (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
+              <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Return Visit
             </Button>
           )}
           {canInvoice && isAdmin && (
@@ -191,6 +203,19 @@ export default function JobDetail() {
           )}
         </div>
       </div>
+
+      {showReturnVisit && (
+        <ReturnVisitForm
+          job={job}
+          onClose={() => setShowReturnVisit(false)}
+          onScheduled={() => {
+            setShowReturnVisit(false);
+            qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+            qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+            qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+          }}
+        />
+      )}
 
       {editing ? (
         <EditJobForm job={job as unknown as JobLike} onClose={() => setEditing(false)} />
@@ -1553,6 +1578,89 @@ function CommentsSection({ jobId }: { jobId: string }) {
   );
 }
 
+function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; status: string; scheduled_date: string }; onClose: () => void; onScheduled: () => void }) {
+  const update = useUpdateJob();
+  const createNote = useCreateJobNote();
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+  const [returnDate, setReturnDate] = useState(tomorrowStr);
+  const [returnTime, setReturnTime] = useState("");
+  const [returnNotes, setReturnNotes] = useState("");
+
+  const handleSchedule = async () => {
+    if (!returnDate) {
+      toast({ title: "Missing date", description: "Please select a return visit date.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (returnNotes.trim()) {
+        await createNote.mutateAsync({
+          jobId: job.id,
+          data: {
+            content: `Return visit scheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""}. Reason: ${returnNotes.trim()}`,
+          },
+        });
+      }
+      await update.mutateAsync({
+        id: job.id,
+        data: {
+          status: "scheduled" as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
+          scheduled_date: returnDate,
+          scheduled_time: returnTime || undefined,
+        },
+      });
+      toast({ title: "Return visit scheduled", description: `Job rescheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""}.` });
+      onScheduled();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to schedule return visit";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card className="p-6 border-blue-200 bg-blue-50/50 shadow-lg">
+      <div className="flex items-center gap-3 mb-4">
+        <CalendarPlus className="w-5 h-5 text-blue-600" />
+        <h3 className="font-bold text-lg">Schedule Return Visit</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        Set a new date for the return visit. The job will be moved back to "Scheduled" status. All existing time entries and notes are preserved.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div className="space-y-1.5">
+          <Label>Return Date *</Label>
+          <Input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Time</Label>
+          <Input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-1">
+          <Label>Reason / Notes</Label>
+          <Input value={returnNotes} onChange={e => setReturnNotes(e.target.value)} placeholder="e.g. Waiting for PCB board delivery" />
+        </div>
+      </div>
+      <div className="flex gap-3">
+        <Button onClick={handleSchedule} disabled={submitting || !returnDate} className="gap-2">
+          <RotateCcw className="w-4 h-4" />
+          {submitting ? "Scheduling..." : "Schedule Return Visit"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateJob();
@@ -1602,7 +1710,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       await update.mutateAsync({
         id: job.id,
         data: {
-          status: data.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "invoiced",
+          status: data.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
           priority: data.priority as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
           scheduled_end_date: data.scheduled_end_date || null,
@@ -1669,6 +1777,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
               <option value="requires_follow_up">Requires Follow-up</option>
+              <option value="awaiting_parts">Awaiting Parts</option>
               <option value="invoiced">Invoiced</option>
             </select>
           </div>

@@ -83,6 +83,7 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
   cancelled: "bg-gray-100 text-gray-500 border-gray-200",
   requires_follow_up: "bg-rose-100 text-rose-700 border-rose-200",
+  awaiting_parts: "bg-orange-100 text-orange-700 border-orange-200",
 };
 
 const PRIORITY_DOT: Record<string, string> = {

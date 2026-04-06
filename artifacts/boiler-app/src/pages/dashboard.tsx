@@ -147,7 +147,7 @@ export default function Dashboard() {
         </Card>
 
         <Card className="p-6 border-0 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <h2 className="text-xl font-display font-bold mb-4">Requires Follow-up</h2>
+          <h2 className="text-xl font-display font-bold mb-4">Follow-up / Awaiting Parts</h2>
           <div className="overflow-y-auto flex-1 pr-2 space-y-3">
             {data.follow_up_required?.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No jobs require follow-up.</p>

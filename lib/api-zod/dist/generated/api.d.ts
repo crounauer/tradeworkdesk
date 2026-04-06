@@ -158,7 +158,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -222,7 +222,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -317,7 +317,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -381,7 +381,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1494,7 +1494,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -2171,7 +2171,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -2497,7 +2497,7 @@ export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
     priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
     scheduled_date: zod.ZodDate;
     scheduled_end_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -2567,7 +2567,7 @@ export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodO
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
     priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
     scheduled_date: zod.ZodDate;
     scheduled_end_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -2693,7 +2693,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
     priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
     scheduled_date: zod.ZodDate;
     scheduled_end_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -3714,7 +3714,7 @@ export declare const UpdateJobBody: zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodOptional<zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>>;
-    status: zod.ZodOptional<zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>>;
+    status: zod.ZodOptional<zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>>;
     priority: zod.ZodOptional<zod.ZodEnum<["low", "medium", "high", "urgent"]>>;
     scheduled_date: zod.ZodOptional<zod.ZodDate>;
     scheduled_end_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -3758,7 +3758,7 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+    status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
     priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
     scheduled_date: zod.ZodDate;
     scheduled_end_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -8396,7 +8396,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -8780,7 +8780,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -8901,7 +8901,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
         appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
-        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]>;
+        status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
         priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
         scheduled_date: zod.ZodDate;
         scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;

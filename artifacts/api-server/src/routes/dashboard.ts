@@ -87,7 +87,7 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
     buildJobQuery().eq("status", "completed").order("updated_at", { ascending: false }).limit(5),
-    buildJobQuery().eq("status", "requires_follow_up").order("scheduled_date").limit(10),
+    buildJobQuery().in("status", ["requires_follow_up", "awaiting_parts"]).order("scheduled_date").limit(10),
     buildApplianceQuery()
       .not("next_service_due", "is", null)
       .lt("next_service_due", today)
