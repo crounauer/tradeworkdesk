@@ -369,7 +369,7 @@ export async function sendNewRegistrationNotification(
     </div>
     <p>They are now on a 14-day free trial. You can view their account in the platform admin panel.</p>
     <p style="margin-top:24px;">
-      <a href="https://www.tradeworkdesk.co.uk/super-admin" class="btn">Open Platform Admin</a>
+      <a href="https://www.tradeworkdesk.co.uk/platform" class="btn">Open Platform Admin</a>
     </p>
   `);
   await send(to, `TradeWorkDesk — New registration: ${newCompanyName}`, html);
