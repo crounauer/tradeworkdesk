@@ -46,9 +46,34 @@ export function AccountingIntegrations() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [encryptionConfigured, setEncryptionConfigured] = useState(true);
-  const [credentialForms, setCredentialForms] = useState<Record<string, { clientId: string; clientSecret: string; showSecret: boolean }>>({});
+  const [credentialForms, setCredentialForms] = useState<Record<string, { clientId: string; clientSecret: string; showSecret: boolean }>>(() => {
+    try {
+      const saved = sessionStorage.getItem("acct-cred-forms");
+      if (saved) {
+        const parsed = JSON.parse(saved) as Record<string, { clientId: string; clientSecret: string }>;
+        const result: Record<string, { clientId: string; clientSecret: string; showSecret: boolean }> = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          result[k] = { ...v, showSecret: false };
+        }
+        return result;
+      }
+    } catch { /* ignore */ }
+    return {};
+  });
   const [savingCredentials, setSavingCredentials] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const toStore: Record<string, { clientId: string; clientSecret: string }> = {};
+    for (const [k, v] of Object.entries(credentialForms)) {
+      toStore[k] = { clientId: v.clientId, clientSecret: v.clientSecret };
+    }
+    if (Object.keys(toStore).length > 0) {
+      sessionStorage.setItem("acct-cred-forms", JSON.stringify(toStore));
+    } else {
+      sessionStorage.removeItem("acct-cred-forms");
+    }
+  }, [credentialForms]);
 
   const fetchProviders = useCallback(async () => {
     try {
