@@ -5,15 +5,15 @@ const planFeaturesCache = new Map<string, { features: Record<string, unknown>; e
 const PLAN_CACHE_TTL_MS = 60_000;
 
 const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
-const PROFILE_CACHE_TTL_MS = 30_000;
+const PROFILE_CACHE_TTL_MS = 120_000;
 
 const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
-const MFA_CACHE_TTL_MS = 5_000;
+const MFA_CACHE_TTL_MS = 120_000;
 
 type CachedUser = { id: string; email?: string; user_metadata?: Record<string, unknown> };
 const tokenUserCache = new Map<string, { user: CachedUser; expiresAt: number }>();
 const tokenInflight = new Map<string, Promise<CachedUser | null>>();
-const TOKEN_CACHE_TTL_MS = 10_000;
+const TOKEN_CACHE_TTL_MS = 60_000;
 const TOKEN_CACHE_MAX_SIZE = 500;
 
 function cleanTokenCache() {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -52,10 +52,18 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
   const { data: initData } = useInitData();
   const enquiryCount = { count: initData?.enquiriesCount ?? 0 };
+
+  useEffect(() => {
+    if (!isLoading && data && hasJobManagement) {
+      const timer = setTimeout(() => setShowCalendar(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, data, hasJobManagement]);
 
   if (isLoading) return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6 animate-pulse">
@@ -179,7 +187,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {hasJobManagement && (
+      {hasJobManagement && showCalendar && (
         <Suspense fallback={<Card className="p-8 text-center text-muted-foreground">Loading calendar...</Card>}>
           <ScheduleCalendar />
         </Suspense>

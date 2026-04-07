@@ -47,7 +47,19 @@ router.patch("/auth/profile", requireAuth, async (req: AuthenticatedRequest, res
   res.json(UpdateProfileResponse.parse(data));
 });
 
+const profilesListCache = new Map<string, { data: unknown; ts: number }>();
+const PROFILES_CACHE_TTL_MS = 120_000;
+
 router.get("/auth/profiles", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const cacheKey = req.tenantId || "none";
+  const cached = profilesListCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < PROFILES_CACHE_TTL_MS) {
+    res.set("Cache-Control", "private, max-age=120");
+    res.set("X-Cache", "HIT");
+    res.json(cached.data);
+    return;
+  }
+
   let q = supabaseAdmin
     .from("profiles")
     .select("*")
@@ -63,7 +75,11 @@ router.get("/auth/profiles", requireAuth, requireTenant, async (req: Authenticat
     return;
   }
 
-  res.json(ListProfilesResponse.parse(data || []));
+  const responseBody = ListProfilesResponse.parse(data || []);
+  profilesListCache.set(cacheKey, { data: responseBody, ts: Date.now() });
+  res.set("Cache-Control", "private, max-age=120");
+  res.set("X-Cache", "MISS");
+  res.json(responseBody);
 });
 
 export default router;

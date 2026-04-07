@@ -102,6 +102,16 @@ function deriveJobTypeEnum(
 
 const router: IRouter = Router();
 
+const jobsListCache = new Map<string, { data: unknown; ts: number }>();
+const JOBS_CACHE_TTL_MS = 30_000;
+
+function invalidateJobsCache(tenantId?: string | null) {
+  if (!tenantId) { jobsListCache.clear(); return; }
+  for (const key of jobsListCache.keys()) {
+    if (key.startsWith(`${tenantId}:`)) jobsListCache.delete(key);
+  }
+}
+
 router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListJobsQueryParams.safeParse(req.query);
 
@@ -160,6 +170,15 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     q = q.or(`description.ilike.%${s}%,notes.ilike.%${s}%,customers.first_name.ilike.%${s}%,customers.last_name.ilike.%${s}%`);
   }
 
+  const cacheKey = `${req.tenantId || "none"}:${req.userRole}:${req.userId}:${JSON.stringify(req.query)}`;
+  const cached = jobsListCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < JOBS_CACHE_TTL_MS) {
+    res.set("Cache-Control", "private, max-age=30");
+    res.set("X-Cache", "HIT");
+    res.json(cached.data);
+    return;
+  }
+
   const [{ data, error }, { count: totalCount }, { data: allTypes }, tenantFeatures] = await Promise.all([
     q,
     countQ,
@@ -187,8 +206,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     properties: undefined,
   }));
 
-  res.set("Cache-Control", "private, no-cache");
-  res.json({
+  const responseBody = {
     jobs: rawMapped,
     pagination: {
       page,
@@ -196,7 +214,17 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
       total: totalCount ?? 0,
       totalPages: Math.ceil((totalCount ?? 0) / limit),
     },
-  });
+  };
+  jobsListCache.set(cacheKey, { data: responseBody, ts: Date.now() });
+  if (jobsListCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of jobsListCache) {
+      if (now - v.ts > JOBS_CACHE_TTL_MS) jobsListCache.delete(k);
+    }
+  }
+  res.set("Cache-Control", "private, max-age=30");
+  res.set("X-Cache", "MISS");
+  res.json(responseBody);
 });
 
 router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -269,6 +297,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     res.status(500).json({ error: error.message }); return;
   }
 
+  invalidateJobsCache(req.tenantId);
   res.status(201).json(data);
 });
 
@@ -577,6 +606,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     res.status(!data ? 404 : 500).json({ error: error.message }); return;
   }
   if (!data) { res.status(404).json({ error: "Job not found" }); return; }
+  invalidateJobsCache(req.tenantId);
   res.json(UpdateJobResponse.parse(data));
 });
 
@@ -1766,6 +1796,7 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
   let q = supabaseAdmin.from("jobs").update({ is_active: false }).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   await q;
+  invalidateJobsCache(req.tenantId);
   res.sendStatus(204);
 });
 
