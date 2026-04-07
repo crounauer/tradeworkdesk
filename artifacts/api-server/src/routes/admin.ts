@@ -823,7 +823,7 @@ router.get("/admin/assignable-users", requireAuth, requireTenant, async (req: Au
   res.json(data || []);
 });
 
-router.get("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("callout_rates")
     .select("*")
