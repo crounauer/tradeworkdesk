@@ -53,12 +53,10 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
 
   const techFilter = req.userRole === "technician" ? req.userId : undefined;
 
-  const JOB_DASHBOARD_COLS = "id, customer_id, property_id, status, job_type, scheduled_date, scheduled_time, description, assigned_technician_id, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
-
   const buildJobQuery = () => {
     let q = supabaseAdmin
       .from("jobs")
-      .select(JOB_DASHBOARD_COLS)
+      .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
       .eq("is_active", true);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
