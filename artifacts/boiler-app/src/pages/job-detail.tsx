@@ -1599,14 +1599,13 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
     }
     setSubmitting(true);
     try {
-      if (returnNotes.trim()) {
-        await createNote.mutateAsync({
-          jobId: job.id,
-          data: {
-            content: `Return visit scheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""}. Reason: ${returnNotes.trim()}`,
-          },
-        });
-      }
+      const noteContent = returnNotes.trim()
+        ? `Return visit scheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""}. Reason: ${returnNotes.trim()}`
+        : `Return visit scheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""} (previously ${job.status.replace(/_/g, " ")}).`;
+      await createNote.mutateAsync({
+        jobId: job.id,
+        data: { content: noteContent },
+      });
       await update.mutateAsync({
         id: job.id,
         data: {
