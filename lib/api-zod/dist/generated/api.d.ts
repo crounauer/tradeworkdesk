@@ -169,7 +169,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -186,7 +186,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -233,7 +233,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -250,7 +250,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -328,7 +328,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -345,7 +345,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -392,7 +392,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -409,7 +409,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -456,7 +456,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
     }>>;
 }, "strip", zod.ZodTypeAny, {
     todays_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -478,7 +478,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     upcoming_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -511,7 +511,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         serial_number?: string | null | undefined;
     }[] | undefined;
     recent_completed?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -533,7 +533,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     follow_up_required?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -562,7 +562,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
     } | undefined;
 }, {
     todays_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -584,7 +584,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     upcoming_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -617,7 +617,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         serial_number?: string | null | undefined;
     }[] | undefined;
     recent_completed?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -639,7 +639,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     follow_up_required?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1505,7 +1505,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1522,7 +1522,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1595,7 +1595,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         last_service_date?: Date | null | undefined;
     }[] | undefined;
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1660,7 +1660,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         last_service_date?: Date | null | undefined;
     }[] | undefined;
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2182,7 +2182,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2199,7 +2199,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2230,7 +2230,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
     }>>, "many">>;
 }, "strip", zod.ZodTypeAny, {
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2274,7 +2274,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
     } | undefined;
 }, {
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2509,7 +2509,7 @@ export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2527,7 +2527,7 @@ export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2579,7 +2579,7 @@ export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodO
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2597,7 +2597,7 @@ export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodO
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2704,7 +2704,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2721,7 +2721,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     description?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -3723,7 +3723,7 @@ export declare const UpdateJobBody: zod.ZodObject<{
     description: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
-    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | undefined;
+    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | undefined;
     customer_id?: string | undefined;
     property_id?: string | undefined;
     appliance_id?: string | null | undefined;
@@ -3737,7 +3737,7 @@ export declare const UpdateJobBody: zod.ZodObject<{
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | undefined;
+    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | undefined;
     customer_id?: string | undefined;
     property_id?: string | undefined;
     appliance_id?: string | null | undefined;
@@ -3770,7 +3770,7 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -3788,7 +3788,7 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -8407,7 +8407,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8424,7 +8424,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8518,7 +8518,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         postcode?: string | null | undefined;
     }[] | undefined;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8604,7 +8604,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         postcode?: string | null | undefined;
     }[] | undefined;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8791,7 +8791,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8808,7 +8808,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8842,7 +8842,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8868,7 +8868,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8912,7 +8912,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8929,7 +8929,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8963,7 +8963,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8989,7 +8989,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
         id: string;
         is_active: boolean;
         created_at: Date;

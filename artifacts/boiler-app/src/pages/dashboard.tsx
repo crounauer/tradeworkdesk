@@ -152,15 +152,18 @@ export default function Dashboard() {
             {data.follow_up_required?.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No jobs require follow-up.</p>
             ) : (
-              data.follow_up_required?.map(job => (
-                <Link key={job.id} href={`/jobs/${job.id}`} className="block p-4 rounded-xl border border-rose-200 bg-rose-50/50 hover:border-rose-400 transition-all">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-bold text-rose-700">{job.customer_name}</span>
-                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-rose-100 text-rose-700">Action Needed</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{job.property_address}</p>
-                </Link>
-              ))
+              data.follow_up_required?.map(job => {
+                const isAwaiting = job.status === "awaiting_parts";
+                return (
+                  <Link key={job.id} href={`/jobs/${job.id}`} className={`block p-4 rounded-xl border ${isAwaiting ? "border-orange-200 bg-orange-50/50 hover:border-orange-400" : "border-rose-200 bg-rose-50/50 hover:border-rose-400"} transition-all`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`font-bold ${isAwaiting ? "text-orange-700" : "text-rose-700"}`}>{job.customer_name}</span>
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isAwaiting ? "bg-orange-100 text-orange-700" : "bg-rose-100 text-rose-700"}`}>{isAwaiting ? "Awaiting Parts" : "Follow-up Needed"}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{job.property_address}</p>
+                  </Link>
+                );
+              })
             )}
           </div>
         </Card>
