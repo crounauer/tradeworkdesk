@@ -521,6 +521,8 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
 
   const { job_type_id: rawUpdateJobTypeId, ...updateCoreData } = body.data as typeof body.data & { job_type_id?: number };
 
+  const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
+
   if (updateCoreData.scheduled_end_date != null) {
     let effectiveStartDate: string;
     if (updateCoreData.scheduled_date) {
@@ -538,6 +540,18 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
 
   const updatePayload: Record<string, unknown> = { ...updateCoreData };
+
+  if (rawCalloutRateId !== undefined) {
+    if (rawCalloutRateId === null || rawCalloutRateId === "") {
+      updatePayload.callout_rate_id = null;
+    } else {
+      if (req.tenantId) {
+        const { data: rateCheck } = await supabaseAdmin.from("callout_rates").select("id").eq("id", rawCalloutRateId).eq("tenant_id", req.tenantId).single();
+        if (!rateCheck) { res.status(400).json({ error: "Invalid callout rate for this company" }); return; }
+      }
+      updatePayload.callout_rate_id = rawCalloutRateId;
+    }
+  }
 
   if (rawUpdateJobTypeId != null && req.tenantId) {
     const { data: jtArr } = await supabaseAdmin
@@ -564,6 +578,23 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
   if (!data) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(UpdateJobResponse.parse(data));
+});
+
+router.get("/products/search", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const q = (req.query.q as string || "").trim();
+  let query = supabaseAdmin
+    .from("product_catalogue")
+    .select("id, name, default_price")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .order("name")
+    .limit(20);
+  if (q) {
+    query = query.ilike("name", `%${q}%`);
+  }
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
 });
 
 router.get("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -797,7 +828,7 @@ export async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
-  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate").eq("job_id", jobId);
+  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
 
@@ -814,6 +845,53 @@ export async function buildInvoiceData(
 
   const companyAddressParts = [settings?.address_line1, settings?.address_line2, settings?.city, settings?.county, settings?.postcode].filter(Boolean);
 
+  const hasTimeEntries = !!(timeEntries && timeEntries.length > 0);
+
+  let resolvedCallOutFee = callOutFee;
+  if (hasTimeEntries && tenantId) {
+    const { data: rates } = await supabaseAdmin.from("callout_rates").select("*").eq("tenant_id", tenantId).eq("is_active", true).order("sort_order");
+    if (rates && rates.length > 0) {
+      const firstEntry = (timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[])[0];
+      if (job.callout_rate_id) {
+        const manual = (rates as { id: string; amount: number }[]).find(r => r.id === job.callout_rate_id);
+        if (manual) resolvedCallOutFee = Number(manual.amount);
+      } else if (firstEntry?.arrival_time) {
+        const arrival = new Date(firstEntry.arrival_time);
+        const dayOfWeek = arrival.getDay();
+        const timeStr = arrival.toTimeString().substring(0, 5);
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        let matched: { amount: number } | null = null;
+        for (const rate of rates as { day_type: string; time_from: string | null; time_to: string | null; amount: number; is_default: boolean }[]) {
+          if (rate.day_type === "weekend" && isWeekend) {
+            if (rate.time_from && rate.time_to) {
+              if (timeStr >= rate.time_from.substring(0, 5) && timeStr < rate.time_to.substring(0, 5)) { matched = rate; break; }
+            } else { matched = rate; break; }
+          } else if (rate.day_type === "after_hours" && !isWeekend) {
+            if (rate.time_from && rate.time_to) {
+              const from = rate.time_from.substring(0, 5);
+              const to = rate.time_to.substring(0, 5);
+              if (from > to) { if (timeStr >= from || timeStr < to) { matched = rate; break; } }
+              else { if (timeStr >= from && timeStr < to) { matched = rate; break; } }
+            } else { matched = rate; break; }
+          } else if (rate.day_type === "weekday" && !isWeekend) {
+            if (rate.time_from && rate.time_to) {
+              if (timeStr >= rate.time_from.substring(0, 5) && timeStr < rate.time_to.substring(0, 5)) { matched = rate; break; }
+            } else { matched = rate; break; }
+          } else if (rate.day_type === "any") {
+            if (rate.time_from && rate.time_to) {
+              if (timeStr >= rate.time_from.substring(0, 5) && timeStr < rate.time_to.substring(0, 5)) { matched = rate; break; }
+            } else { matched = rate; break; }
+          }
+        }
+        if (!matched) {
+          const defaultRate = (rates as { is_default: boolean; amount: number }[]).find(r => r.is_default);
+          if (defaultRate) matched = defaultRate;
+        }
+        if (matched) resolvedCallOutFee = Number(matched.amount);
+      }
+    }
+  }
+
   let totalLabourHours = 0;
   let totalLabourCost = 0;
   if (timeEntries) {
@@ -829,7 +907,8 @@ export async function buildInvoiceData(
   }
   totalLabourHours = Math.round(totalLabourHours * 100) / 100;
 
-  const billableHours = callOutFee > 0 ? Math.max(0, totalLabourHours - 1) : totalLabourHours;
+  const effectiveCallOut = hasTimeEntries ? resolvedCallOutFee : 0;
+  const billableHours = effectiveCallOut > 0 ? Math.max(0, totalLabourHours - 1) : totalLabourHours;
 
   if (timeEntries && billableHours > 0) {
     let remainingBillable = billableHours;
@@ -839,7 +918,7 @@ export async function buildInvoiceData(
         const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
         if (diffMs > 0) {
           const hours = diffMs / (1000 * 60 * 60);
-          const coveredByCallout = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
+          const coveredByCallout = effectiveCallOut > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
           const billableForEntry = hours - coveredByCallout;
           if (billableForEntry > 0 && remainingBillable > 0) {
             const actualBillable = Math.min(billableForEntry, remainingBillable);
@@ -856,14 +935,14 @@ export async function buildInvoiceData(
 
   const lines: InvoiceLineItem[] = [];
 
-  if (callOutFee > 0) {
+  if (hasTimeEntries && resolvedCallOutFee > 0) {
     const coveredHrs = Math.min(totalLabourHours, 1);
     const coveredLabel = coveredHrs > 0 ? ` (incl. first ${coveredHrs >= 1 ? "hour" : `${Math.round(coveredHrs * 60)}min`})` : "";
     lines.push({
       description: `Call-out Fee${coveredLabel}`,
       quantity: 1,
-      unit_price: callOutFee,
-      total: callOutFee,
+      unit_price: resolvedCallOutFee,
+      total: resolvedCallOutFee,
     });
   }
 
@@ -882,7 +961,7 @@ export async function buildInvoiceData(
   if (totalLabourCost > 0) {
     const effectiveRate = billableHours > 0 ? Math.round(totalLabourCost / billableHours * 100) / 100 : 0;
     lines.push({
-      description: callOutFee > 0 ? "Labour (after first hour)" : "Labour",
+      description: effectiveCallOut > 0 ? "Labour (after first hour)" : "Labour",
       quantity: Math.round(billableHours * 100) / 100,
       unit_price: effectiveRate,
       total: totalLabourCost,
@@ -891,7 +970,7 @@ export async function buildInvoiceData(
 
   const partsTotal = lines.filter(l => !l.description.startsWith("Labour") && !l.description.startsWith("Call-out Fee")).reduce((sum, l) => sum + l.total, 0);
   const labourTotal = lines.filter(l => l.description.startsWith("Labour")).reduce((sum, l) => sum + l.total, 0);
-  const callOutTotal = callOutFee > 0 ? callOutFee : 0;
+  const callOutTotal = effectiveCallOut > 0 ? resolvedCallOutFee : 0;
 
   const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
   const vatAmount = Math.round(subtotal * vatRate / 100 * 100) / 100;

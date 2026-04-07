@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useCompanySettings, useUpdateCompanySettings, useUploadCompanyLogo } from "@/hooks/use-company-settings";
 import type { CompanySettings } from "@/hooks/use-company-settings";
 import { useCompanyType, useUpgradeToCompany, useDowngradeToSoleTrader } from "@/hooks/use-company-type";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,8 @@ import { Link } from "wouter";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText,
   Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
-  ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard
+  ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
+  Plus, X, Check, Clock, Star, Package, Pencil
 } from "lucide-react";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 
@@ -463,6 +465,9 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
+        <CalloutRatesSection />
+        <ProductCatalogueSection />
+
         {/* Registrations */}
         <Card>
           <CardHeader>
@@ -509,5 +514,324 @@ export default function AdminCompanySettings() {
       </form>
 
     </div>
+  );
+}
+
+type CalloutRate = {
+  id: string;
+  name: string;
+  amount: number;
+  day_type: string;
+  time_from: string | null;
+  time_to: string | null;
+  is_default: boolean;
+  sort_order: number;
+  is_active: boolean;
+};
+
+const DAY_TYPE_LABELS: Record<string, string> = {
+  weekday: "Weekday",
+  weekend: "Weekend",
+  after_hours: "After Hours",
+  any: "Any Day",
+};
+
+function CalloutRatesSection() {
+  const { toast } = useToast();
+  const [rates, setRates] = useState<CalloutRate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", amount: "", day_type: "weekday", time_from: "", time_to: "", is_default: false });
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchRates = useCallback(async () => {
+    try {
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`);
+      setRates(Array.isArray(data) ? data as CalloutRate[] : []);
+    } catch { setRates([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchRates(); }, [fetchRates]);
+
+  const resetForm = () => {
+    setForm({ name: "", amount: "", day_type: "weekday", time_from: "", time_to: "", is_default: false });
+    setShowAdd(false);
+    setEditingId(null);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.amount) return;
+    setSubmitting(true);
+    try {
+      const body = {
+        name: form.name.trim(),
+        amount: Number(form.amount),
+        day_type: form.day_type,
+        time_from: form.time_from || null,
+        time_to: form.time_to || null,
+        is_default: form.is_default,
+      };
+      if (editingId) {
+        await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates/${editingId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        toast({ title: "Updated", description: "Callout rate updated" });
+      } else {
+        await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        toast({ title: "Added", description: "Callout rate added" });
+      }
+      resetForm();
+      fetchRates();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    } finally { setSubmitting(false); }
+  };
+
+  const handleEdit = (r: CalloutRate) => {
+    setForm({
+      name: r.name,
+      amount: String(r.amount),
+      day_type: r.day_type,
+      time_from: r.time_from || "",
+      time_to: r.time_to || "",
+      is_default: r.is_default,
+    });
+    setEditingId(r.id);
+    setShowAdd(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates/${id}`, { method: "DELETE" });
+      toast({ title: "Deleted", description: "Callout rate removed" });
+      fetchRates();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Callout Rate Tiers
+            </CardTitle>
+            <CardDescription>
+              Different callout fees for weekdays, weekends, and after-hours. The system auto-selects based on the first time entry.
+            </CardDescription>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
+            {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Rate</>}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {showAdd && (
+          <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Name *</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Weekday Standard" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Amount *</Label>
+                <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="65.00" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Day Type</Label>
+                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" value={form.day_type} onChange={e => setForm(f => ({ ...f, day_type: e.target.value }))}>
+                  <option value="weekday">Weekday</option>
+                  <option value="weekend">Weekend</option>
+                  <option value="after_hours">After Hours</option>
+                  <option value="any">Any Day</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">From Time (optional)</Label>
+                <Input type="time" value={form.time_from} onChange={e => setForm(f => ({ ...f, time_from: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">To Time (optional)</Label>
+                <Input type="time" value={form.time_to} onChange={e => setForm(f => ({ ...f, time_to: e.target.value }))} />
+              </div>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.is_default} onChange={e => setForm(f => ({ ...f, is_default: e.target.checked }))} className="rounded" />
+                  <Star className="w-3.5 h-3.5 text-amber-500" /> Default rate
+                </label>
+              </div>
+            </div>
+            <Button size="sm" onClick={handleSave} disabled={submitting || !form.name.trim() || !form.amount}>
+              <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : editingId ? "Update" : "Add"}
+            </Button>
+          </div>
+        )}
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : rates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No callout rates configured. The default call-out fee from Pricing above will be used.</p>
+        ) : (
+          <div className="space-y-2">
+            {rates.map(r => (
+              <div key={r.id} className="flex items-center justify-between border rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  {r.is_default && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
+                  <div>
+                    <span className="font-medium text-sm">{r.name}</span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {DAY_TYPE_LABELS[r.day_type] || r.day_type}
+                      {r.time_from && r.time_to && ` (${r.time_from.substring(0,5)}-${r.time_to.substring(0,5)})`}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-sm">&pound;{Number(r.amount).toFixed(2)}</span>
+                  <Button size="sm" variant="ghost" onClick={() => handleEdit(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+type ProductItem = {
+  id: string;
+  name: string;
+  default_price: number | null;
+  is_active: boolean;
+};
+
+function ProductCatalogueSection() {
+  const { toast } = useToast();
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", default_price: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/products`);
+      setProducts(Array.isArray(data) ? data as ProductItem[] : []);
+    } catch { setProducts([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const resetForm = () => { setForm({ name: "", default_price: "" }); setShowAdd(false); setEditingId(null); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setSubmitting(true);
+    try {
+      const body = { name: form.name.trim(), default_price: form.default_price ? Number(form.default_price) : null };
+      if (editingId) {
+        await customFetch(`${import.meta.env.BASE_URL}api/admin/products/${editingId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        toast({ title: "Updated", description: "Product updated" });
+      } else {
+        await customFetch(`${import.meta.env.BASE_URL}api/admin/products`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        toast({ title: "Added", description: "Product added to catalogue" });
+      }
+      resetForm();
+      fetchProducts();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    } finally { setSubmitting(false); }
+  };
+
+  const handleEdit = (p: ProductItem) => {
+    setForm({ name: p.name, default_price: p.default_price != null ? String(p.default_price) : "" });
+    setEditingId(p.id);
+    setShowAdd(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/products/${id}`, { method: "DELETE" });
+      toast({ title: "Deleted", description: "Product removed" });
+      fetchProducts();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Product Catalogue
+            </CardTitle>
+            <CardDescription>
+              Pre-defined parts and materials. Technicians can select these when adding parts to a job.
+            </CardDescription>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
+            {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Product</>}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {showAdd && (
+          <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Product Name *</Label>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Grundfos UPS2 Pump" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Default Price (optional)</Label>
+                <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+              </div>
+            </div>
+            <Button size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
+              <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : editingId ? "Update" : "Add"}
+            </Button>
+          </div>
+        )}
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : products.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No products in catalogue. Add common parts and materials for quick selection on jobs.</p>
+        ) : (
+          <div className="space-y-2">
+            {products.map(p => (
+              <div key={p.id} className={`flex items-center justify-between border rounded-lg px-4 py-3 ${!p.is_active ? "opacity-50" : ""}`}>
+                <div>
+                  <span className="font-medium text-sm">{p.name}</span>
+                  {!p.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  {p.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
+                  <Button size="sm" variant="ghost" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

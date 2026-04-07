@@ -823,4 +823,114 @@ router.get("/admin/assignable-users", requireAuth, requireTenant, async (req: Au
   res.json(data || []);
 });
 
+router.get("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("callout_rates")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .order("sort_order")
+    .order("name");
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { name, amount, day_type, time_from, time_to, is_default, sort_order } = req.body;
+  if (!name || amount == null) { res.status(400).json({ error: "name and amount are required" }); return; }
+  if (!Number.isFinite(Number(amount)) || Number(amount) < 0) { res.status(400).json({ error: "amount must be a valid non-negative number" }); return; }
+
+  if (is_default) {
+    await supabaseAdmin.from("callout_rates").update({ is_default: false }).eq("tenant_id", req.tenantId!);
+  }
+
+  const { data, error } = await supabaseAdmin.from("callout_rates").insert({
+    tenant_id: req.tenantId!,
+    name,
+    amount: Number(amount),
+    day_type: day_type || "weekday",
+    time_from: time_from || null,
+    time_to: time_to || null,
+    is_default: !!is_default,
+    sort_order: sort_order ?? 0,
+  }).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.put("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { name, amount, day_type, time_from, time_to, is_default, sort_order, is_active } = req.body;
+
+  if (is_default) {
+    await supabaseAdmin.from("callout_rates").update({ is_default: false }).eq("tenant_id", req.tenantId!).neq("id", id);
+  }
+
+  if (amount !== undefined && (!Number.isFinite(Number(amount)) || Number(amount) < 0)) {
+    res.status(400).json({ error: "amount must be a valid non-negative number" }); return;
+  }
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (name !== undefined) updates.name = name;
+  if (amount !== undefined) updates.amount = Number(amount);
+  if (day_type !== undefined) updates.day_type = day_type;
+  if (time_from !== undefined) updates.time_from = time_from || null;
+  if (time_to !== undefined) updates.time_to = time_to || null;
+  if (is_default !== undefined) updates.is_default = !!is_default;
+  if (sort_order !== undefined) updates.sort_order = sort_order;
+  if (is_active !== undefined) updates.is_active = is_active;
+
+  const { data, error } = await supabaseAdmin.from("callout_rates").update(updates).eq("id", id).eq("tenant_id", req.tenantId!).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.delete("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { error } = await supabaseAdmin.from("callout_rates").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId!);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
+});
+
+router.get("/admin/products", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("product_catalogue")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .order("name");
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/admin/products", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { name, default_price } = req.body;
+  if (!name) { res.status(400).json({ error: "name is required" }); return; }
+  if (default_price != null && (!Number.isFinite(Number(default_price)) || Number(default_price) < 0)) {
+    res.status(400).json({ error: "default_price must be a valid non-negative number" }); return;
+  }
+  const { data, error } = await supabaseAdmin.from("product_catalogue").insert({
+    tenant_id: req.tenantId!,
+    name,
+    default_price: default_price != null ? Number(default_price) : null,
+  }).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.put("/admin/products/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { name, default_price, is_active } = req.body;
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (name !== undefined) updates.name = name;
+  if (default_price !== undefined) updates.default_price = default_price != null ? Number(default_price) : null;
+  if (is_active !== undefined) updates.is_active = is_active;
+
+  const { data, error } = await supabaseAdmin.from("product_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.delete("/admin/products/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { error } = await supabaseAdmin.from("product_catalogue").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId!);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
+});
+
 export default router;

@@ -847,6 +847,9 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
+  const [productSuggestions, setProductSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const productSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchParts = useCallback(async () => {
     try {
@@ -860,6 +863,24 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   }, [jobId]);
 
   useEffect(() => { fetchParts(); }, [fetchParts]);
+
+  const searchProducts = (query: string) => {
+    if (productSearchTimeout.current) clearTimeout(productSearchTimeout.current);
+    if (!query.trim()) { setProductSuggestions([]); setShowSuggestions(false); return; }
+    productSearchTimeout.current = setTimeout(async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/products/search?q=${encodeURIComponent(query)}`);
+        setProductSuggestions(Array.isArray(data) ? data as { id: string; name: string; default_price: number | null }[] : []);
+        setShowSuggestions(true);
+      } catch { setProductSuggestions([]); }
+    }, 250);
+  };
+
+  const selectProduct = (product: { name: string; default_price: number | null }) => {
+    setPartName(product.name);
+    if (product.default_price != null) setPartPrice(String(product.default_price));
+    setShowSuggestions(false);
+  };
 
   const handleAdd = async () => {
     if (!partName.trim()) return;
@@ -931,9 +952,31 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
       {showAdd && (
         <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
           <div className="grid sm:grid-cols-4 gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <Label className="text-xs">Part Name *</Label>
-              <Input value={partName} onChange={(e) => setPartName(e.target.value)} placeholder="e.g. Pump, Fan, Valve" />
+              <Input
+                value={partName}
+                onChange={(e) => { setPartName(e.target.value); searchProducts(e.target.value); }}
+                onFocus={() => { if (productSuggestions.length > 0) setShowSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Type to search catalogue..."
+                autoComplete="off"
+              />
+              {showSuggestions && productSuggestions.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {productSuggestions.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
+                      onMouseDown={(e) => { e.preventDefault(); selectProduct(p); }}
+                    >
+                      <span>{p.name}</span>
+                      {p.default_price != null && <span className="text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Quantity</Label>
