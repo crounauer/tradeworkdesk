@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import ScheduleCalendar from "@/components/schedule-calendar";
+const ScheduleCalendar = lazy(() => import("@/components/schedule-calendar"));
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { useInitData } from "@/hooks/use-init-data";
@@ -48,7 +48,7 @@ type QuickBookData = {
 };
 
 export default function Dashboard() {
-  const { data, isLoading } = useGetDashboard();
+  const { data, isLoading } = useGetDashboard({ query: { staleTime: 30_000 } });
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
@@ -57,7 +57,17 @@ export default function Dashboard() {
   const { data: initData } = useInitData();
   const enquiryCount = { count: initData?.enquiriesCount ?? 0 };
 
-  if (isLoading) return <div className="p-8">Loading dashboard...</div>;
+  if (isLoading) return (
+    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6 animate-pulse">
+      <div className="h-8 w-48 bg-muted rounded" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => <Card key={i} className="p-6 h-24 border-0 shadow-sm"><div className="h-4 w-20 bg-muted rounded mb-2" /><div className="h-6 w-12 bg-muted rounded" /></Card>)}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {[1,2,3].map(i => <Card key={i} className="p-6 h-[400px] border-0 shadow-sm"><div className="h-5 w-32 bg-muted rounded mb-4" /><div className="space-y-3">{[1,2,3].map(j => <div key={j} className="h-16 bg-muted rounded" />)}</div></Card>)}
+      </div>
+    </div>
+  );
   if (!data) return null;
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
@@ -169,7 +179,11 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {hasJobManagement && <ScheduleCalendar />}
+      {hasJobManagement && (
+        <Suspense fallback={<Card className="p-8 text-center text-muted-foreground">Loading calendar...</Card>}>
+          <ScheduleCalendar />
+        </Suspense>
+      )}
 
       {hasJobManagement && showQuickBook && (
         <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} />

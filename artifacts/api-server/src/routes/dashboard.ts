@@ -35,17 +35,30 @@ interface OverdueApplianceRow {
 
 const router: IRouter = Router();
 
+const dashboardCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL_MS = 15_000;
+
 router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const cacheKey = `${req.tenantId || "none"}:${req.userRole === "technician" ? req.userId : "all"}`;
+  const cached = dashboardCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    res.set("Cache-Control", "private, max-age=15");
+    res.set("X-Cache", "HIT");
+    res.json(cached.data);
+    return;
+  }
   const today = new Date().toISOString().split("T")[0];
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
   const techFilter = req.userRole === "technician" ? req.userId : undefined;
 
+  const JOB_DASHBOARD_COLS = "id, customer_id, property_id, status, job_type, scheduled_date, scheduled_time, description, assigned_technician_id, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
+
   const buildJobQuery = () => {
     let q = supabaseAdmin
       .from("jobs")
-      .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
+      .select(JOB_DASHBOARD_COLS)
       .eq("is_active", true);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
@@ -123,7 +136,7 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     property_id: a.properties?.id || null,
   }));
 
-  res.json(GetDashboardResponse.parse({
+  const responseBody = GetDashboardResponse.parse({
     todays_jobs: (todaysRes.data as DashboardJobRow[] || []).map(mapJob),
     upcoming_jobs: (upcomingRes.data as DashboardJobRow[] || []).map(mapJob),
     overdue_services: mappedOverdue,
@@ -135,7 +148,11 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
       overdue_count: statsRes[2].count || 0,
       completed_this_week: statsRes[3].count || 0,
     },
-  }));
+  });
+  dashboardCache.set(cacheKey, { data: responseBody, ts: Date.now() });
+  res.set("Cache-Control", "private, max-age=15");
+  res.set("X-Cache", "MISS");
+  res.json(responseBody);
 });
 
 export default router;
