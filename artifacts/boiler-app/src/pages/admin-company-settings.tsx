@@ -763,6 +763,18 @@ function ProductCatalogueSection() {
     setShowAdd(true);
   };
 
+  const handleToggleActive = async (id: string, is_active: boolean) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/products/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ is_active }),
+      });
+      toast({ title: is_active ? "Reactivated" : "Deactivated", description: `Product ${is_active ? "reactivated" : "deactivated"}` });
+      fetchProducts();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/admin/products/${id}`, { method: "DELETE" });
@@ -825,6 +837,15 @@ function ProductCatalogueSection() {
                 <div className="flex items-center gap-3">
                   {p.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
                   <Button size="sm" variant="ghost" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={p.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}
+                    onClick={() => handleToggleActive(p.id, !p.is_active)}
+                    title={p.is_active ? "Deactivate" : "Reactivate"}
+                  >
+                    {p.is_active ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                  </Button>
                   <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                 </div>
               </div>
