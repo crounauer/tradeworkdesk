@@ -36,13 +36,13 @@ interface OverdueApplianceRow {
 const router: IRouter = Router();
 
 const dashboardCache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL_MS = 15_000;
+const CACHE_TTL_MS = 60_000;
 
 router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const cacheKey = `${req.tenantId || "none"}:${req.userRole === "technician" ? req.userId : "all"}`;
   const cached = dashboardCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    res.set("Cache-Control", "private, max-age=15");
+    res.set("Cache-Control", "private, max-age=60");
     res.set("X-Cache", "HIT");
     res.json(cached.data);
     return;
@@ -148,7 +148,7 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     },
   });
   dashboardCache.set(cacheKey, { data: responseBody, ts: Date.now() });
-  res.set("Cache-Control", "private, max-age=15");
+  res.set("Cache-Control", "private, max-age=60");
   res.set("X-Cache", "MISS");
   res.json(responseBody);
 });

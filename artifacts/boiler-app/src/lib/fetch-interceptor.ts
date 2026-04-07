@@ -4,6 +4,12 @@ const originalFetch = window.fetch;
 
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
+let tokenReady: Promise<void>;
+let resolveTokenReady: () => void;
+
+tokenReady = new Promise<void>((resolve) => {
+  resolveTokenReady = resolve;
+});
 
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session) {
@@ -13,29 +19,32 @@ supabase.auth.onAuthStateChange((_event, session) => {
     cachedToken = null;
     tokenExpiresAt = 0;
   }
+  resolveTokenReady();
 });
 
-supabase.auth.getSession().then(({ data }) => {
-  if (data.session) {
-    cachedToken = data.session.access_token;
-    tokenExpiresAt = (data.session.expires_at ?? 0) * 1000;
-  }
-});
+async function refreshTokenFromSession(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      cachedToken = data.session.access_token;
+      tokenExpiresAt = (data.session.expires_at ?? 0) * 1000;
+      return cachedToken;
+    }
+  } catch {}
+  return null;
+}
 
 function getTokenWithTimeout(timeoutMs: number): Promise<string | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(cachedToken), timeoutMs);
 
-    supabase.auth.getSession().then(({ data }) => {
+    tokenReady.then(() => {
       clearTimeout(timer);
-      if (data.session) {
-        cachedToken = data.session.access_token;
-        tokenExpiresAt = (data.session.expires_at ?? 0) * 1000;
+      if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
+        resolve(cachedToken);
+      } else {
+        refreshTokenFromSession().then(resolve);
       }
-      resolve(data.session?.access_token ?? null);
-    }).catch(() => {
-      clearTimeout(timer);
-      resolve(cachedToken);
     });
   });
 }

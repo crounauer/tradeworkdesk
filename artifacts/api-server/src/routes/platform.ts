@@ -451,7 +451,19 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
   res.json(data);
 });
 
+const initCache = new Map<string, { data: unknown; ts: number }>();
+const INIT_CACHE_TTL_MS = 60_000;
+
 router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const cacheKey = `${req.tenantId || "none"}:${req.userId}`;
+  const cached = initCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < INIT_CACHE_TTL_MS) {
+    res.set("Cache-Control", "private, max-age=60");
+    res.set("X-Cache", "HIT");
+    res.json(cached.data);
+    return;
+  }
+
   const superAdminFeatures = {
     job_management: true, invoicing: true, reports: true, team_management: true,
     social_media: true, heat_pump_forms: true, oil_tank_forms: true,
@@ -467,12 +479,15 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   if (req.userRole === "super_admin") {
     const { data: profile } = await profilePromise;
-    res.json({
+    const responseBody = {
       profile: profile || null,
       planFeatures: { plan_id: null, plan_name: "Super Admin", features: superAdminFeatures },
       tenant: null,
       enquiriesCount: 0,
-    });
+    };
+    initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
+    res.set("Cache-Control", "private, max-age=60");
+    res.json(responseBody);
     return;
   }
 
@@ -482,12 +497,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     promises.push(
       supabaseAdmin
         .from("tenants")
-        .select("plan_id, plans(name, features)")
-        .eq("id", req.tenantId)
-        .single(),
-      supabaseAdmin
-        .from("tenants")
-        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
+        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, features, monthly_price, max_users, max_jobs_per_month)")
         .eq("id", req.tenantId)
         .single(),
       supabaseAdmin
@@ -497,6 +507,11 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabaseAdmin
+        .from("enquiries")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["new", "contacted", "quoted"])
+        .eq("tenant_id", req.tenantId),
     );
   }
 
@@ -510,34 +525,27 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
   let enquiriesCount = 0;
 
   if (req.tenantId) {
-    const planRes = results[1] as { data: { plan_id: string; plans: { name?: string; features?: Record<string, boolean> } | null } | null; error: unknown };
-    if (planRes?.data) {
-      const plan = planRes.data.plans;
+    const tenantRes = results[1] as { data: Record<string, unknown> & { plan_id?: string; plans?: { name?: string; features?: Record<string, boolean>; monthly_price?: number; max_users?: number; max_jobs_per_month?: number } | null } | null; error: unknown };
+    const subscriptionRes = results[2] as { data: Record<string, unknown> | null };
+    const enquiriesRes = results[3] as { count: number | null };
+
+    if (tenantRes?.data) {
+      const plan = tenantRes.data.plans;
       planFeatures = {
-        plan_id: planRes.data.plan_id,
+        plan_id: tenantRes.data.plan_id ?? null,
         plan_name: plan?.name ?? null,
         features: plan?.features ?? {},
       };
-    }
-
-    const tenantRes = results[2] as { data: Record<string, unknown> | null; error: unknown };
-    const subscriptionRes = results[3] as { data: Record<string, unknown> | null };
-
-    if (tenantRes?.data) {
       tenant = { ...tenantRes.data, subscription: subscriptionRes?.data || null };
     }
 
-    if (planFeatures.features.job_management) {
-      const { count } = await supabaseAdmin
-        .from("enquiries")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["new", "contacted", "quoted"])
-        .eq("tenant_id", req.tenantId);
-      enquiriesCount = count || 0;
-    }
+    enquiriesCount = enquiriesRes?.count || 0;
   }
 
-  res.json({ profile, planFeatures, tenant, enquiriesCount });
+  const responseBody = { profile, planFeatures, tenant, enquiriesCount };
+  initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
+  res.set("Cache-Control", "private, max-age=60");
+  res.json(responseBody);
 });
 
 router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {

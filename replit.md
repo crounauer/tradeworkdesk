@@ -31,7 +31,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **UI/UX:** Uses `shadcn/ui` for a modern, accessible component library. Tailwind CSS ensures a consistent and responsive design. The frontend includes a marketing site with SEO-optimized landing pages and a blog, utilizing a `MarketingLayout` and `SEOHead` component with JSON-LD structured data.
 - **Authentication:** Supabase client-side authentication with a `useAuth` hook.
 - **Routing:** `wouter` for client-side routing, with protected routes ensuring authorization.
-- **API Communication:** Uses generated React Query hooks from `@workspace/api-client-react` for efficient data fetching and caching. A fetch interceptor automatically attaches Supabase JWTs to API requests.
+- **API Communication:** Uses generated React Query hooks from `@workspace/api-client-react` for efficient data fetching and caching. A fetch interceptor automatically attaches Supabase JWTs to API requests using `onAuthStateChange` event-driven token caching (no redundant `getSession()` calls on each request). Critical queries (`me-init`, `dashboard`) are prefetched as soon as the auth session is resolved.
 - **PDF Generation:** Client-side PDF generation for service records, CP12 certificates, and commissioning records using `jsPDF`.
 - **Signature Capture:** Integrated `react-signature-canvas` for digital signature collection.
 - **Invoice Export:** Frontend components for viewing invoice summaries and triggering exports in various formats (CSV, QuickBooks IIF, Xero CSV, Sage CSV).
@@ -43,7 +43,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **API Design:** All routes are under `/api`.
 - **Authentication:** Verifies JWT tokens via `supabaseAdmin.auth.getUser()` with a token-level cache (10s TTL, max 500 entries) to reduce Supabase auth round-trips.
 - **Authorization:** Implements role-based access control (`requireRole()`, `requireSuperAdmin()`) and resource-level authorization (technicians restricted to assigned jobs).
-- **Init Endpoint:** `/api/me/init` combines profile, plan features, tenant info, and enquiry count into a single request. Frontend `useInitData()` hook replaces separate fetches for `usePlanFeatures`, `useIsSoleTrader`, and enquiry count.
+- **Init Endpoint:** `/api/me/init` combines profile, plan features, tenant info, and enquiry count into a single request with all queries running in parallel. Server-side cache (60s TTL, per-user). Frontend `useInitData()` hook replaces separate fetches for `usePlanFeatures`, `useIsSoleTrader`, and enquiry count.
 - **Multi-tenancy:** All data tables include a `tenant_id` foreign key. Middleware (`requireTenant`) scopes all queries by the user's `tenant_id`. Super admins bypass tenant scoping.
 - **File Storage:** Handles file uploads via `multer`, stores them in Supabase Storage buckets (`service-photos`, `service-documents`, `signatures`), and generates signed URLs for access. Server-side image compression and thumbnail generation are performed using `sharp`.
 - **Data Validation:** Uses Zod schemas (generated from OpenAPI spec) for request and response validation.

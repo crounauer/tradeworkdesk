@@ -48,7 +48,7 @@ type QuickBookData = {
 };
 
 export default function Dashboard() {
-  const { data, isLoading } = useGetDashboard({ query: { staleTime: 30_000 } });
+  const { data, isLoading } = useGetDashboard({ query: { staleTime: 60_000 } });
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);

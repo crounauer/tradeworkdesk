@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -30,12 +30,35 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
+function prefetchCriticalData(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.prefetchQuery({
+    queryKey: ["me-init"],
+    queryFn: async () => {
+      const res = await fetch("/api/me/init");
+      if (!res.ok) throw new Error(`me/init failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  queryClient.prefetchQuery({
+    queryKey: ["/api/dashboard"],
+    queryFn: async () => {
+      const res = await fetch("/api/dashboard");
+      if (!res.ok) throw new Error(`dashboard failed: ${res.status}`);
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mfaPending, setMfaPending] = useState(false);
   const queryClient = useQueryClient();
+  const hasPrefetched = useRef(false);
 
   const checkMfaStatus = async () => {
     try {
@@ -66,6 +89,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session) {
+        if (!hasPrefetched.current) {
+          hasPrefetched.current = true;
+          prefetchCriticalData(queryClient);
+        }
         await checkMfaStatus();
       }
       setIsLoading(false);
@@ -79,6 +106,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
 
       if (event === "SIGNED_OUT") {
+        hasPrefetched.current = false;
         queryClient.clear();
         setMfaPending(false);
         return;
@@ -86,6 +114,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === "SIGNED_IN") {
         queryClient.invalidateQueries({ queryKey: ["me-init"] });
+        if (!hasPrefetched.current) {
+          hasPrefetched.current = true;
+          prefetchCriticalData(queryClient);
+        }
       }
 
       if (session) {
@@ -124,7 +156,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       return res.json();
     },
     enabled: !!session,
-    staleTime: 30_000,
+    staleTime: 60_000,
     refetchInterval: 2 * 60_000,
   });
   const profile = initData?.profile as Profile | null | undefined;
@@ -141,6 +173,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setUser(null);
     setMfaPending(false);
+    hasPrefetched.current = false;
     queryClient.clear();
     window.location.href = "/login";
   };
