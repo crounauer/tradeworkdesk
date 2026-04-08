@@ -584,6 +584,8 @@ CREATE TABLE IF NOT EXISTS company_settings (
   company_number TEXT,
   logo_url TEXT,
   logo_storage_path TEXT,
+  rates_url TEXT,
+  trading_terms_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT company_settings_singleton UNIQUE (singleton_id)
@@ -1540,4 +1542,17 @@ DO $$ BEGIN
   ALTER TABLE company_settings
     ADD CONSTRAINT company_settings_singleton UNIQUE (singleton_id, tenant_id);
 EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- =============================================================================
+-- Section 18: Add rates_url and trading_terms_url to company_settings
+-- =============================================================================
+DO $$ BEGIN
+  ALTER TABLE company_settings ADD COLUMN rates_url TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE company_settings ADD COLUMN trading_terms_url TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL;
 END $$;

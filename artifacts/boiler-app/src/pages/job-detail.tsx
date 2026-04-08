@@ -158,7 +158,7 @@ export default function JobDetail() {
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
-            <Mail className="w-4 h-4 mr-2" /> Email Forms
+            <Mail className="w-4 h-4 mr-2" /> Email Customer
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
