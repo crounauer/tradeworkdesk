@@ -120,7 +120,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }, 5000);
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       clearTimeout(sessionTimeout);
       setSession(session);
       setUser(session?.user ?? null);
@@ -129,7 +129,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           hasPrefetched.current = true;
           prefetchCriticalData(queryClient);
         }
-        await checkMfaStatus();
+        checkMfaStatus();
       }
       setIsLoading(false);
     }).catch(() => {

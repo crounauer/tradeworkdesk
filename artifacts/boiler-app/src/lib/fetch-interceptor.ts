@@ -11,6 +11,14 @@ tokenReady = new Promise<void>((resolve) => {
   resolveTokenReady = resolve;
 });
 
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session) {
+    cachedToken = session.access_token;
+    tokenExpiresAt = (session.expires_at ?? 0) * 1000;
+    resolveTokenReady();
+  }
+});
+
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session) {
     cachedToken = session.access_token;

@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, lazy, Suspense, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-const ScheduleCalendar = lazy(() => import("@/components/schedule-calendar"));
+import ScheduleCalendar from "@/components/schedule-calendar";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import AddToHomeScreen from "@/components/add-to-homescreen";
@@ -50,16 +50,8 @@ export default function Dashboard() {
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
-  const [showCalendar, setShowCalendar] = useState(false);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
-
-  useEffect(() => {
-    if (!isLoading && data && hasJobManagement) {
-      const timer = setTimeout(() => setShowCalendar(true), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, data, hasJobManagement]);
 
   const handleDayAction = useCallback((date: string, action: "enquiry" | "job") => {
     setQuickDate(date);
@@ -106,10 +98,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {hasJobManagement && showCalendar && (
-        <Suspense fallback={<Card className="p-8 text-center text-muted-foreground">Loading calendar...</Card>}>
-          <ScheduleCalendar onDayAction={canCreateJobs ? handleDayAction : undefined} />
-        </Suspense>
+      {hasJobManagement && (
+        <ScheduleCalendar onDayAction={canCreateJobs ? handleDayAction : undefined} />
       )}
 
       {hasJobManagement && showQuickBook && (
