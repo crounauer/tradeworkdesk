@@ -192,6 +192,13 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
         }
       }
     }
+    for (const ds of Object.keys(map)) {
+      map[ds].sort((a, b) => {
+        const ta = a.scheduled_time || "99:99";
+        const tb = b.scheduled_time || "99:99";
+        return ta.localeCompare(tb);
+      });
+    }
     return map;
   }, [calendarJobs, days]);
 
