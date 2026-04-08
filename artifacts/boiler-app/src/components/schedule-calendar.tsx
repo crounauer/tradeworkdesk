@@ -171,9 +171,10 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
   const dateToStr = toDateStr(addDays(dateTo, 1));
 
   const isPrefetchHit = !!(
+    prefetchedJobs &&
     prefetchedDateRange &&
     dateFromStr >= prefetchedDateRange.date_from &&
-    dateToStr <= prefetchedDateRange.date_to
+    toDateStr(dateTo) <= prefetchedDateRange.date_to
   );
 
   const { data: jobsResponse } = useListJobs({

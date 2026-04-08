@@ -473,7 +473,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   const profilePromise = supabaseAdmin
     .from("profiles")
-    .select("*")
+    .select("id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at")
     .eq("id", req.userId!)
     .single();
 
@@ -502,7 +502,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         .single(),
       supabaseAdmin
         .from("tenant_subscriptions")
-        .select("*")
+        .select("id, tenant_id, stripe_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at")
         .eq("tenant_id", req.tenantId)
         .order("created_at", { ascending: false })
         .limit(1)

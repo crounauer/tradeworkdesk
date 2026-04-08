@@ -102,7 +102,12 @@ export default function Dashboard() {
       </div>
 
       {hasJobManagement && (
-        <ScheduleCalendar onDayAction={canCreateJobs ? handleDayAction : undefined} />
+        <ScheduleCalendar
+          onDayAction={canCreateJobs ? handleDayAction : undefined}
+          prefetchedJobs={homepageData?.calendar_jobs?.jobs as any}
+          prefetchedProfiles={homepageData?.profiles}
+          prefetchedDateRange={homepageData?.calendar_date_range}
+        />
       )}
 
       {hasJobManagement && showQuickBook && (

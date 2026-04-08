@@ -62,7 +62,7 @@ router.get("/auth/profiles", requireAuth, requireTenant, async (req: Authenticat
 
   let q = supabaseAdmin
     .from("profiles")
-    .select("*")
+    .select("id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at")
     .eq("is_active", true)
     .order("full_name");
 

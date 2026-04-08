@@ -3,6 +3,12 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { GetDashboardResponse } from "@workspace/api-zod";
 
+const DASHBOARD_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, description, notes, is_active, created_at, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
+
+const CALENDAR_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
+
+const PROFILE_FIELDS = "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
+
 interface DashboardJobRow {
   id: string;
   customer_id: string;
@@ -30,14 +36,12 @@ interface CalendarJobRow {
   status: string;
   priority: string;
   description: string | null;
-  notes: string | null;
   scheduled_date: string;
   scheduled_end_date: string | null;
   scheduled_time: string | null;
   estimated_duration: number | null;
   arrival_time: string | null;
   departure_time: string | null;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
   customers?: { first_name: string; last_name: string } | null;
@@ -72,12 +76,14 @@ function cleanExpiredCache() {
 }
 
 router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const t0 = Date.now();
   const cacheKey = `${req.tenantId || "none"}:${req.userRole === "technician" ? req.userId : "all"}`;
   const cached = homepageCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     res.set("Cache-Control", "private, max-age=60");
     res.set("X-Cache", "HIT");
     res.json(cached.data);
+    console.log(`[perf] /homepage cache HIT ${Date.now() - t0}ms`);
     return;
   }
 
@@ -86,10 +92,6 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
   const now = new Date();
-  const dayOfWeek = now.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() + mondayOffset);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const calendarStart = new Date(monthStart);
@@ -107,10 +109,37 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   const buildJobQuery = () => {
     let q = supabaseAdmin
       .from("jobs")
-      .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
+      .select(DASHBOARD_JOB_FIELDS)
       .eq("is_active", true);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
+    return q;
+  };
+
+  const activeToday = `and(scheduled_date.eq.${today},scheduled_end_date.is.null),and(scheduled_date.lte.${today},scheduled_end_date.gte.${today})`;
+
+  const buildCalendarJobsQuery = () => {
+    let q = supabaseAdmin
+      .from("jobs")
+      .select(CALENDAR_JOB_FIELDS)
+      .eq("is_active", true)
+      .or(`scheduled_date.gte.${calDateFrom},scheduled_end_date.gte.${calDateFrom}`)
+      .lte("scheduled_date", calDateTo)
+      .order("scheduled_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (techFilter) q = q.eq("assigned_technician_id", techFilter);
+    return q;
+  };
+
+  const buildProfilesQuery = () => {
+    let q = supabaseAdmin
+      .from("profiles")
+      .select(PROFILE_FIELDS)
+      .eq("is_active", true)
+      .order("full_name");
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     return q;
   };
 
@@ -142,36 +171,10 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     return q;
   };
 
-  const activeToday = `and(scheduled_date.eq.${today},scheduled_end_date.is.null),and(scheduled_date.lte.${today},scheduled_end_date.gte.${today})`;
-
-  const buildCalendarJobsQuery = () => {
-    let q = supabaseAdmin
-      .from("jobs")
-      .select("*, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
-      .eq("is_active", true)
-      .or(`scheduled_date.gte.${calDateFrom},scheduled_end_date.gte.${calDateFrom}`)
-      .lte("scheduled_date", calDateTo)
-      .order("scheduled_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    if (techFilter) q = q.eq("assigned_technician_id", techFilter);
-    return q;
-  };
-
-  const buildProfilesQuery = () => {
-    let q = supabaseAdmin
-      .from("profiles")
-      .select("*")
-      .eq("is_active", true)
-      .order("full_name");
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    return q;
-  };
-
   const [
-    todaysRes, upcomingRes, recentRes, followUpRes, overdueRes, statsRes,
-    calendarJobsRes, profilesRes, tenantFeatures
+    todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
+    customerCountRes, todayCountRes, overdueCountRes, completedCountRes,
+    calendarJobsRes, profilesRes, tenantFeatures, jobTypesRes
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -182,16 +185,20 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
       .lt("next_service_due", today)
       .order("next_service_due")
       .limit(10),
-    Promise.all([
-      buildCustomerCountQuery(),
-      buildTodayCountQuery().or(activeToday).neq("status", "cancelled"),
-      buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today).select("id", { count: "exact", head: true }),
-      buildCompletedCountQuery(),
-    ]),
+    buildCustomerCountQuery(),
+    buildTodayCountQuery().or(activeToday).neq("status", "cancelled"),
+    buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today).select("id", { count: "exact", head: true }),
+    buildCompletedCountQuery(),
     buildCalendarJobsQuery(),
     buildProfilesQuery(),
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
+    req.tenantId
+      ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
+      : supabaseAdmin.from("job_types").select("id, name"),
   ]);
+
+  const tQueries = Date.now();
+  console.log(`[perf] /homepage queries ${tQueries - t0}ms`);
 
   const mapDashboardJob = (j: DashboardJobRow) => ({
     ...j,
@@ -222,24 +229,16 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     recent_completed: (recentRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
     follow_up_required: (followUpRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
     stats: {
-      total_customers: statsRes[0].count || 0,
-      total_jobs_today: statsRes[1].count || 0,
-      overdue_count: statsRes[2].count || 0,
-      completed_this_week: statsRes[3].count || 0,
+      total_customers: customerCountRes.count || 0,
+      total_jobs_today: todayCountRes.count || 0,
+      overdue_count: overdueCountRes.count || 0,
+      completed_this_week: completedCountRes.count || 0,
     },
   });
 
-  const hasGeoMapping = !!(tenantFeatures?.geo_mapping);
+  const hasGeoMapping = !!(tenantFeatures as any)?.geo_mapping;
 
-  const allJobTypes = calendarJobsRes.data
-    ? [...new Set((calendarJobsRes.data as CalendarJobRow[]).map((j) => j.job_type_id).filter((id): id is number => id != null))]
-    : [];
-
-  let typeMap = new Map<number, string>();
-  if (allJobTypes.length > 0) {
-    const { data: types } = await supabaseAdmin.from("job_types").select("id, name").in("id", allJobTypes);
-    typeMap = new Map((types || []).map((t: { id: number; name: string }) => [t.id, t.name]));
-  }
+  const typeMap = new Map(((jobTypesRes as any)?.data || []).map((t: { id: number; name: string }) => [t.id, t.name]));
 
   const calendarJobs = ((calendarJobsRes.data as CalendarJobRow[] || []).map((j) => ({
     ...j,
@@ -273,6 +272,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   res.set("Cache-Control", "private, max-age=60");
   res.set("X-Cache", "MISS");
   res.json(responseBody);
+  console.log(`[perf] /homepage total ${Date.now() - t0}ms (queries: ${tQueries - t0}ms, map+serialize: ${Date.now() - tQueries}ms)`);
 });
 
 export default router;
