@@ -417,6 +417,22 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     if (key in req.body) updates[key] = req.body[key] ?? null;
   }
 
+  for (const urlField of ["rates_url", "trading_terms_url", "website"] as const) {
+    const val = updates[urlField];
+    if (val && typeof val === "string" && val.trim() !== "") {
+      try {
+        const parsed = new URL(val);
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          res.status(400).json({ error: `${urlField} must use http or https` });
+          return;
+        }
+      } catch {
+        res.status(400).json({ error: `${urlField} is not a valid URL` });
+        return;
+      }
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from("company_settings")
     .upsert(updates, { onConflict: "singleton_id,tenant_id" })

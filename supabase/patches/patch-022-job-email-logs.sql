@@ -9,8 +9,14 @@ CREATE TABLE IF NOT EXISTS job_email_logs (
   cc TEXT,
   subject TEXT NOT NULL,
   forms_included JSONB NOT NULL DEFAULT '[]',
+  photos_included JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$ BEGIN
+  ALTER TABLE job_email_logs ADD COLUMN photos_included JSONB;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_job_email_logs_job_id ON job_email_logs(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_email_logs_tenant ON job_email_logs(tenant_id);

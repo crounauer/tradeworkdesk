@@ -1669,22 +1669,26 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
   const attachments: EmailAttachment[] = [];
   let photosAttached = 0;
+  const photosIncluded: Array<{ photo_id: string; file_name: string }> = [];
+  const photosFailed: string[] = [];
 
   if (hasPhotos) {
     for (const photoId of photo_ids!) {
       let pq = supabaseAdmin.from("file_attachments").select("*").eq("id", photoId).eq("entity_id", jobId).eq("entity_type", "job");
       if (req.tenantId) pq = pq.eq("tenant_id", req.tenantId);
       const { data: fileRow } = await pq.maybeSingle();
-      if (!fileRow) continue;
+      if (!fileRow) { photosFailed.push(photoId); continue; }
       const fr = fileRow as Record<string, unknown>;
       const storagePath = fr.storage_path as string;
       const fileName = fr.file_name as string;
       const fileType = fr.file_type as string;
       const bucket = (fileType || "").startsWith("image/") ? "service-photos" : "service-documents";
       const { data: fileData, error: dlErr } = await supabaseAdmin.storage.from(bucket).download(storagePath);
-      if (dlErr || !fileData) { console.error(`[email] Failed to download photo ${photoId}:`, dlErr); continue; }
+      if (dlErr || !fileData) { console.error(`[email] Failed to download photo ${photoId}:`, dlErr); photosFailed.push(photoId); continue; }
       const buf = Buffer.from(await fileData.arrayBuffer());
-      attachments.push({ filename: fileName || `photo_${photoId}.jpg`, content: buf });
+      const name = fileName || `photo_${photoId}.jpg`;
+      attachments.push({ filename: name, content: buf });
+      photosIncluded.push({ photo_id: photoId, file_name: name });
       photosAttached++;
     }
   }
@@ -1778,19 +1782,25 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     cc: cc || null,
     subject,
     forms_included: formsIncluded,
+    photos_included: photosIncluded.length > 0 ? photosIncluded : null,
   });
   if (logErr) {
     console.error("[email] Failed to log email send:", logErr);
   }
 
-  res.json({
+  const response: Record<string, unknown> = {
     success: true,
     message: `Email sent to ${to}`,
     forms_sent: formsIncluded.map(f => f.form_label),
     photos_sent: photosAttached,
     sender_name: (senderProfile as Record<string, unknown>)?.full_name || null,
     log_saved: !logErr,
-  });
+  };
+  if (photosFailed.length > 0) {
+    response.photos_failed = photosFailed.length;
+    response.warning = `${photosFailed.length} photo(s) could not be attached`;
+  }
+  res.json(response);
 });
 
 router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

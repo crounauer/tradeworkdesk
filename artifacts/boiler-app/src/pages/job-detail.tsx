@@ -1991,7 +1991,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     try {
       const formsPayload = completedForms.filter(f => selectedForms.has(f.form_id)).map(f => ({ form_type: f.form_type, form_id: f.form_id }));
       const photoIdsPayload = photos.filter(p => selectedPhotos.has(p.id)).map(p => p.id);
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-forms`, {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-forms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2000,11 +2000,16 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
           forms: formsPayload.length > 0 ? formsPayload : undefined,
           photo_ids: photoIdsPayload.length > 0 ? photoIdsPayload : undefined,
         }),
-      });
+      }) as Record<string, unknown>;
       const parts: string[] = [];
       if (selectedForms.size > 0) parts.push(`${selectedForms.size} form(s)`);
       if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} photo(s)`);
-      toast({ title: "Email Sent", description: `${parts.join(" and ")} emailed to ${to}` });
+      const desc = `${parts.join(" and ")} emailed to ${to}`;
+      if (result.warning) {
+        toast({ title: "Email Sent (with warnings)", description: `${desc}. ${result.warning}`, variant: "default" });
+      } else {
+        toast({ title: "Email Sent", description: desc });
+      }
       onSent();
       onClose();
     } catch (e: unknown) {
