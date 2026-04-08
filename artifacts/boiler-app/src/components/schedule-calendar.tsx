@@ -108,7 +108,14 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date: string, action: "enquiry" | "job") => void } = {}) {
+interface ScheduleCalendarProps {
+  onDayAction?: (date: string, action: "enquiry" | "job") => void;
+  prefetchedJobs?: CalendarJob[];
+  prefetchedProfiles?: unknown[];
+  prefetchedDateRange?: { date_from: string; date_to: string };
+}
+
+export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetchedProfiles, prefetchedDateRange }: ScheduleCalendarProps = {}) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -163,15 +170,24 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
   const dateFromStr = toDateStr(dateFrom);
   const dateToStr = toDateStr(addDays(dateTo, 1));
 
+  const isPrefetchHit = !!(
+    prefetchedDateRange &&
+    dateFromStr >= prefetchedDateRange.date_from &&
+    dateToStr <= prefetchedDateRange.date_to
+  );
+
   const { data: jobsResponse } = useListJobs({
     date_from: dateFromStr,
     date_to: dateToStr,
     limit: 500,
-  } as Record<string, string>);
+  } as Record<string, string>, { query: { enabled: !isPrefetchHit } });
 
-  const calendarJobs = ((jobsResponse as any)?.jobs ?? []) as CalendarJob[];
+  const calendarJobs = isPrefetchHit
+    ? (prefetchedJobs ?? [])
+    : (((jobsResponse as any)?.jobs ?? []) as CalendarJob[]);
 
-  const { data: profiles = [] } = useListProfiles();
+  const { data: fetchedProfiles = [] } = useListProfiles({ query: { enabled: !prefetchedProfiles } });
+  const profiles = (prefetchedProfiles ?? fetchedProfiles) as typeof fetchedProfiles;
 
   const technicians = useMemo(
     () => profiles.filter((p) => p.role === "technician"),

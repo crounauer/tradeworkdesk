@@ -15,6 +15,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
+import { useHomepageData } from "@/hooks/use-homepage-data";
 
 interface JobType {
   id: number;
@@ -45,7 +46,9 @@ type QuickBookData = {
 };
 
 export default function Dashboard() {
-  const { data, isLoading } = useGetDashboard({ query: { staleTime: 60_000 } });
+  const { data: homepageData, isLoading: homepageLoading } = useHomepageData();
+  const data = homepageData?.dashboard as ReturnType<typeof useGetDashboard>["data"];
+  const isLoading = homepageLoading;
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);

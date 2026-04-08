@@ -1,0 +1,100 @@
+One of my API endpoints (especially `/api/active`, possibly `/api/jobs` or `/api/dashboard`) is slow (~500–700ms+). I need you to analyze and optimize it.
+
+### Goals
+
+* Reduce response time to <100–200ms
+* Identify the exact bottleneck (DB query, logic, or external call)
+* Improve efficiency without breaking functionality
+
+### Tasks
+
+1. **Add performance logging**
+   Wrap the endpoint logic with timing logs to identify slow parts:
+
+```js
+console.time("endpoint");
+
+const result = await someFunction();
+console.timeLog("endpoint", "after someFunction");
+
+console.timeEnd("endpoint");
+```
+
+Do this for each step (DB queries, loops, API calls).
+
+---
+
+2. **Optimize database queries**
+
+* Ensure queries use indexes (e.g., on userId, date fields)
+* Avoid full table scans
+* Only select required fields (no `SELECT *`)
+* Combine queries where possible instead of multiple round trips
+
+---
+
+3. **Eliminate sequential awaits**
+   If multiple async calls exist, replace:
+
+```js
+const a = await getA();
+const b = await getB();
+```
+
+With:
+
+```js
+const [a, b] = await Promise.all([getA(), getB()]);
+```
+
+---
+
+4. **Reduce heavy computation**
+
+* Move expensive calculations out of the request if possible
+* Precompute or cache results
+* Avoid large loops or repeated filtering on big datasets
+
+---
+
+5. **Add caching**
+   Cache results per user for 30–60 seconds:
+
+```js
+if (cache[key] && Date.now() - cache[key].time < 60000) {
+  return cache[key].data;
+}
+```
+
+---
+
+6. **Check for unnecessary external calls**
+
+* Remove or defer third-party API calls
+* If required, cache their results
+
+---
+
+7. **Optimize `/api/jobs` specifically (if applicable)**
+
+* Limit date range queried
+* Add indexes on date fields
+* Avoid loading unnecessary related data
+* Paginate or limit results if large
+
+---
+
+8. **Return minimal payload**
+   Only return fields required by the frontend to reduce response size.
+
+---
+
+### Output
+
+* Show before/after timing results
+* Explain what was slow and why
+* Provide optimized code
+
+### Target
+
+Each endpoint should respond in under 100–200ms consistently.

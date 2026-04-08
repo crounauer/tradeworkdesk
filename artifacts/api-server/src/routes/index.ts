@@ -35,9 +35,11 @@ import enquiriesRouter from "./enquiries";
 import geocodingRouter from "./geocoding";
 import emailPreviewRouter from "./email-preview";
 import accountingIntegrationsRouter from "./accounting-integrations";
+import homepageRouter from "./homepage";
 
 const router: IRouter = Router();
 
+router.use(homepageRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(customersRouter);

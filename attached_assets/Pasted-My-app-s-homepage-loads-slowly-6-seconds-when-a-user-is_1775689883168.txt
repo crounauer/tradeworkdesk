@@ -1,0 +1,83 @@
+My app’s homepage loads slowly (~6 seconds) when a user is logged in. The browser shows the page renders quickly (<1s), but multiple API requests continue loading in the background (dashboard, jobs, profiles, active, etc.), causing a slow perceived load time.
+
+Please refactor my backend and frontend to optimize this.
+
+### Goals
+
+* Reduce homepage load time to ~1–2 seconds
+* Minimize number of API requests
+* Improve perceived performance
+
+### Required changes
+
+1. **Combine API endpoints**
+   Create a single endpoint `/api/homepage` that returns all necessary data:
+
+* dashboard data
+* jobs (date range)
+* user profile(s)
+* active status
+
+Use `Promise.all` to fetch data in parallel.
+
+Example structure:
+
+```js
+app.get('/api/homepage', async (req, res) => {
+  const [dashboard, jobs, profiles, active] = await Promise.all([
+    getDashboard(req.user.id),
+    getJobs(req.user.id),
+    getProfiles(req.user.id),
+    getActive(req.user.id)
+  ]);
+
+  res.json({ dashboard, jobs, profiles, active });
+});
+```
+
+2. **Update frontend**
+   Replace multiple fetch calls like:
+
+* `/api/dashboard`
+* `/api/jobs`
+* `/api/profiles`
+* `/api/active`
+
+With a single call:
+
+```js
+const data = await fetch('/api/homepage').then(res => res.json());
+```
+
+3. **Add caching (important)**
+   Cache homepage data per user for 30–60 seconds to reduce repeated database load.
+
+Example:
+
+```js
+const cache = {};
+
+if (cache[userId] && Date.now() - cache[userId].time < 60000) {
+  return res.json(cache[userId].data);
+}
+```
+
+4. **Optimize slow endpoints**
+   Check especially the `/active` endpoint (~700ms). Optimize database queries or reduce work done there.
+
+5. **Do not block rendering**
+   Ensure the UI renders immediately with basic layout, and only depends on essential data first.
+
+6. **General improvements**
+
+* Avoid sequential `await` calls — use `Promise.all`
+* Reduce payload size (only send required fields)
+* Remove redundant API calls
+
+### Expected result
+
+* Initial render under 1 second
+* Full dashboard usable within ~1–2 seconds
+* Fewer network requests and faster responses
+
+Please implement this cleanly without breaking existing functionality.
