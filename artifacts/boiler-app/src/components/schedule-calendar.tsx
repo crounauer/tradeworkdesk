@@ -434,19 +434,22 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
         const ds = toDateStr(anchorDate);
         const dayJobs = jobsByDate[ds] || [];
         const isToday = isSameDay(ds, todayStr);
-        const HOURS = Array.from({ length: 14 }, (_, i) => i + 7);
-
         const jobsByHour: Record<number, CalendarJob[]> = {};
         const unscheduled: CalendarJob[] = [];
+        let minHour = 7;
+        let maxHour = 20;
         for (const job of dayJobs) {
           if (job.scheduled_time) {
             const hour = parseInt(job.scheduled_time.split(":")[0], 10);
+            if (hour < minHour) minHour = hour;
+            if (hour > maxHour) maxHour = hour;
             if (!jobsByHour[hour]) jobsByHour[hour] = [];
             jobsByHour[hour].push(job);
           } else {
             unscheduled.push(job);
           }
         }
+        const HOURS = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
 
         return (
           <div className="border border-border rounded-xl overflow-hidden">
@@ -487,12 +490,9 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
                           data-job-card
                           role="button"
                           tabIndex={0}
-                          draggable={canDrag}
-                          onDragStart={(e) => handleDragStart(e, job.id)}
-                          onDragEnd={() => { didDragRef.current = false; }}
                           onClick={(e) => handleJobClick(e, job.id)}
                           onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} hover:shadow-sm`}
+                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} hover:shadow-sm`}
                         >
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
@@ -530,12 +530,9 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
                           data-job-card
                           role="button"
                           tabIndex={0}
-                          draggable={canDrag}
-                          onDragStart={(e) => handleDragStart(e, job.id)}
-                          onDragEnd={() => { didDragRef.current = false; }}
                           onClick={(e) => handleJobClick(e, job.id)}
                           onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} hover:shadow-sm`}
+                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} hover:shadow-sm`}
                         >
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
