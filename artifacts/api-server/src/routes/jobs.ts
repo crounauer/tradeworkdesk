@@ -386,6 +386,8 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     gas_safe_number: (cs?.gas_safe_number as string | null) || null,
     oftec_number: (cs?.oftec_number as string | null) || null,
     vat_number: (cs?.vat_number as string | null) || null,
+    rates_url: (cs?.rates_url as string | null) || null,
+    trading_terms_url: (cs?.trading_terms_url as string | null) || null,
   };
 
   const jobRef = job.job_ref || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
@@ -1583,17 +1585,21 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const jobId = req.params.jobId;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { to, cc, forms } = req.body as { to?: string; cc?: string; forms?: Array<{ form_type: string; form_id: string }> };
-  if (!to || !forms || !Array.isArray(forms) || forms.length === 0) {
-    res.status(400).json({ error: "to (email) and forms (array of {form_type, form_id}) are required" }); return;
+  const { to, cc, forms, photo_ids } = req.body as { to?: string; cc?: string; forms?: Array<{ form_type: string; form_id: string }>; photo_ids?: string[] };
+  const hasForms = forms && Array.isArray(forms) && forms.length > 0;
+  const hasPhotos = photo_ids && Array.isArray(photo_ids) && photo_ids.length > 0;
+  if (!to || (!hasForms && !hasPhotos)) {
+    res.status(400).json({ error: "to (email) and at least one form or photo are required" }); return;
   }
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRe.test(to)) { res.status(400).json({ error: "Invalid recipient email address" }); return; }
   if (cc && !emailRe.test(cc)) { res.status(400).json({ error: "Invalid CC email address" }); return; }
 
-  for (const f of forms) {
-    if (!f.form_type || !f.form_id) { res.status(400).json({ error: "Each form entry must have form_type and form_id" }); return; }
-    if (!FORM_TABLE_MAP[f.form_type]) { res.status(400).json({ error: `Unknown form type: ${f.form_type}` }); return; }
+  if (hasForms) {
+    for (const f of forms!) {
+      if (!f.form_type || !f.form_id) { res.status(400).json({ error: "Each form entry must have form_type and form_id" }); return; }
+      if (!FORM_TABLE_MAP[f.form_type]) { res.status(400).json({ error: `Unknown form type: ${f.form_type}` }); return; }
+    }
   }
 
   let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email), profiles(full_name), appliances(fuel_type)").eq("id", jobId);
@@ -1662,8 +1668,28 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
 
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
   const attachments: EmailAttachment[] = [];
+  let photosAttached = 0;
 
-  for (const { form_type: formType, form_id: formId } of forms) {
+  if (hasPhotos) {
+    for (const photoId of photo_ids!) {
+      let pq = supabaseAdmin.from("file_attachments").select("*").eq("id", photoId).eq("entity_id", jobId).eq("entity_type", "job");
+      if (req.tenantId) pq = pq.eq("tenant_id", req.tenantId);
+      const { data: fileRow } = await pq.maybeSingle();
+      if (!fileRow) continue;
+      const fr = fileRow as Record<string, unknown>;
+      const storagePath = fr.storage_path as string;
+      const fileName = fr.file_name as string;
+      const fileType = fr.file_type as string;
+      const bucket = (fileType || "").startsWith("image/") ? "service-photos" : "service-documents";
+      const { data: fileData, error: dlErr } = await supabaseAdmin.storage.from(bucket).download(storagePath);
+      if (dlErr || !fileData) { console.error(`[email] Failed to download photo ${photoId}:`, dlErr); continue; }
+      const buf = Buffer.from(await fileData.arrayBuffer());
+      attachments.push({ filename: fileName || `photo_${photoId}.jpg`, content: buf });
+      photosAttached++;
+    }
+  }
+
+  for (const { form_type: formType, form_id: formId } of (forms || [])) {
     const config = FORM_TABLE_MAP[formType];
     if (!config) continue;
 
@@ -1696,11 +1722,14 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     formsIncluded.push({ form_type: formType, form_label: config.label, form_id: formId });
   }
 
-  if (formsIncluded.length === 0) {
-    res.status(400).json({ error: "No completed forms found for the selected entries" }); return;
+  if (formsIncluded.length === 0 && photosAttached === 0) {
+    res.status(400).json({ error: "No completed forms or photos found for the selected entries" }); return;
   }
 
-  const subject = `Job ${jobRef} — Service Forms from ${companyName}`;
+  const subjectParts: string[] = [];
+  if (formsIncluded.length > 0) subjectParts.push("Service Forms");
+  if (photosAttached > 0) subjectParts.push("Photos");
+  const subject = `Job ${jobRef} — ${subjectParts.join(" & ")} from ${companyName}`;
 
   try {
     const emailCompany: EmailCompanyDetails | undefined = pdfCompany ? {
@@ -1718,6 +1747,8 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       gas_safe_number: pdfCompany.gas_safe_number,
       oftec_number: pdfCompany.oftec_number,
       vat_number: pdfCompany.vat_number,
+      rates_url: (companySettings as Record<string, unknown>)?.rates_url as string | null || null,
+      trading_terms_url: (companySettings as Record<string, unknown>)?.trading_terms_url as string | null || null,
     } : undefined;
 
     await sendJobFormsEmail(
@@ -1730,6 +1761,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       formsIncluded.map(f => f.form_label),
       attachments,
       emailCompany,
+      photosAttached,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send email";
@@ -1755,6 +1787,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     success: true,
     message: `Email sent to ${to}`,
     forms_sent: formsIncluded.map(f => f.form_label),
+    photos_sent: photosAttached,
     sender_name: (senderProfile as Record<string, unknown>)?.full_name || null,
     log_saved: !logErr,
   });

@@ -1923,9 +1923,13 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
   const [to, setTo] = useState(customerEmail);
   const [cc, setCc] = useState("");
   const [completedForms, setCompletedForms] = useState<CompletedForm[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedForms, setSelectedForms] = useState<Set<string>>(new Set());
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [loadingForms, setLoadingForms] = useState(true);
+
+  const { data: files } = useListFiles({ entity_type: "job", entity_id: jobId });
+  const photos = (files || []).filter((f) => f.file_type?.startsWith("image/"));
 
   useEffect(() => {
     let cancelled = false;
@@ -1935,7 +1939,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
         if (!cancelled) {
           const forms = data as CompletedForm[];
           setCompletedForms(forms);
-          setSelected(new Set(forms.map(f => f.form_id)));
+          setSelectedForms(new Set(forms.map(f => f.form_id)));
         }
       } catch {
         if (!cancelled) toast({ title: "Error", description: "Failed to load completed forms", variant: "destructive" });
@@ -1946,34 +1950,61 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     return () => { cancelled = true; };
   }, [jobId]);
 
-  const toggle = (formId: string) => {
-    setSelected(prev => {
+  const toggleForm = (formId: string) => {
+    setSelectedForms(prev => {
       const next = new Set(prev);
       if (next.has(formId)) next.delete(formId); else next.add(formId);
       return next;
     });
   };
 
-  const selectAll = () => {
-    if (selected.size === completedForms.length) {
-      setSelected(new Set());
+  const togglePhoto = (photoId: string) => {
+    setSelectedPhotos(prev => {
+      const next = new Set(prev);
+      if (next.has(photoId)) next.delete(photoId); else next.add(photoId);
+      return next;
+    });
+  };
+
+  const selectAllForms = () => {
+    if (selectedForms.size === completedForms.length) {
+      setSelectedForms(new Set());
     } else {
-      setSelected(new Set(completedForms.map(f => f.form_id)));
+      setSelectedForms(new Set(completedForms.map(f => f.form_id)));
     }
   };
 
+  const selectAllPhotos = () => {
+    if (selectedPhotos.size === photos.length) {
+      setSelectedPhotos(new Set());
+    } else {
+      setSelectedPhotos(new Set(photos.map(p => p.id)));
+    }
+  };
+
+  const totalSelected = selectedForms.size + selectedPhotos.size;
+
   const handleSend = async () => {
     if (!to) { toast({ title: "Error", description: "Recipient email is required", variant: "destructive" }); return; }
-    if (selected.size === 0) { toast({ title: "Error", description: "Select at least one form to send", variant: "destructive" }); return; }
+    if (totalSelected === 0) { toast({ title: "Error", description: "Select at least one form or photo to send", variant: "destructive" }); return; }
     setSending(true);
     try {
-      const formsPayload = completedForms.filter(f => selected.has(f.form_id)).map(f => ({ form_type: f.form_type, form_id: f.form_id }));
+      const formsPayload = completedForms.filter(f => selectedForms.has(f.form_id)).map(f => ({ form_type: f.form_type, form_id: f.form_id }));
+      const photoIdsPayload = photos.filter(p => selectedPhotos.has(p.id)).map(p => p.id);
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-forms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, cc: cc || undefined, forms: formsPayload }),
+        body: JSON.stringify({
+          to,
+          cc: cc || undefined,
+          forms: formsPayload.length > 0 ? formsPayload : undefined,
+          photo_ids: photoIdsPayload.length > 0 ? photoIdsPayload : undefined,
+        }),
       });
-      toast({ title: "Email Sent", description: `Forms emailed to ${to}` });
+      const parts: string[] = [];
+      if (selectedForms.size > 0) parts.push(`${selectedForms.size} form(s)`);
+      if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} photo(s)`);
+      toast({ title: "Email Sent", description: `${parts.join(" and ")} emailed to ${to}` });
       onSent();
       onClose();
     } catch (e: unknown) {
@@ -1984,11 +2015,19 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     }
   };
 
+  const sendLabel = () => {
+    if (sending) return "Sending...";
+    const parts: string[] = [];
+    if (selectedForms.size > 0) parts.push(`${selectedForms.size} Form${selectedForms.size !== 1 ? "s" : ""}`);
+    if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} Photo${selectedPhotos.size !== 1 ? "s" : ""}`);
+    return `Send ${parts.join(" & ") || "0 Items"}`;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 bg-background">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-lg flex items-center gap-2"><Mail className="w-5 h-5" /> Email Forms to Customer</h3>
+          <h3 className="font-bold text-lg flex items-center gap-2"><Mail className="w-5 h-5" /> Email to Customer</h3>
           <Button variant="ghost" size="sm" onClick={onClose}><X className="w-4 h-4" /></Button>
         </div>
 
@@ -2008,8 +2047,8 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
             <div className="flex items-center justify-between mb-2">
               <Label>Completed Forms</Label>
               {completedForms.length > 0 && (
-                <Button variant="ghost" size="sm" className="text-xs" onClick={selectAll}>
-                  {selected.size === completedForms.length ? "Deselect All" : "Select All"}
+                <Button variant="ghost" size="sm" className="text-xs" onClick={selectAllForms}>
+                  {selectedForms.size === completedForms.length ? "Deselect All" : "Select All"}
                 </Button>
               )}
             </div>
@@ -2018,10 +2057,11 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
             ) : completedForms.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground text-center border border-border rounded-lg">No completed forms found for this job.</div>
             ) : (
-              <div className="space-y-1 max-h-64 overflow-y-auto border border-border rounded-lg p-2">
+              <div className="space-y-1 max-h-48 overflow-y-auto border border-border rounded-lg p-2">
                 {completedForms.map(f => (
                   <label key={f.form_id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
-                    <input type="checkbox" checked={selected.has(f.form_id)} onChange={() => toggle(f.form_id)} className="rounded border-border" />
+                    <input type="checkbox" checked={selectedForms.has(f.form_id)} onChange={() => toggleForm(f.form_id)} className="rounded border-border" />
+                    <FileText className="w-4 h-4 text-blue-600 shrink-0" />
                     <span className="text-sm">{f.form_label}</span>
                   </label>
                 ))}
@@ -2029,9 +2069,39 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
             )}
           </div>
 
+          {photos.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Photos ({photos.length})</Label>
+                <Button variant="ghost" size="sm" className="text-xs" onClick={selectAllPhotos}>
+                  {selectedPhotos.size === photos.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-2 border border-border rounded-lg p-2 max-h-48 overflow-y-auto">
+                {photos.map(p => (
+                  <label key={p.id} className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-colors ${selectedPhotos.has(p.id) ? "border-primary" : "border-transparent hover:border-muted-foreground/30"}`}>
+                    <input type="checkbox" checked={selectedPhotos.has(p.id)} onChange={() => togglePhoto(p.id)} className="sr-only" />
+                    <img
+                      src={p.thumbnail_signed_url || p.signed_url || ""}
+                      alt={p.file_name || "Photo"}
+                      className="w-full aspect-square object-cover"
+                    />
+                    {selectedPhotos.has(p.id) && (
+                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleSend} disabled={sending || selected.size === 0 || !to || loadingForms} className="flex-1">
-              <Send className="w-4 h-4 mr-2" /> {sending ? "Sending..." : `Send ${selected.size} Form${selected.size !== 1 ? "s" : ""}`}
+            <Button onClick={handleSend} disabled={sending || totalSelected === 0 || !to || loadingForms} className="flex-1">
+              <Send className="w-4 h-4 mr-2" /> {sendLabel()}
             </Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
           </div>

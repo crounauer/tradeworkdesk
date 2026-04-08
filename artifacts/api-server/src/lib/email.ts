@@ -25,6 +25,8 @@ export interface EmailCompanyDetails {
   gas_safe_number?: string | null;
   oftec_number?: string | null;
   vat_number?: string | null;
+  rates_url?: string | null;
+  trading_terms_url?: string | null;
 }
 
 function renderCompanyHeader(company?: EmailCompanyDetails): string {
@@ -53,6 +55,25 @@ function renderCompanyHeader(company?: EmailCompanyDetails): string {
     <div class="header" style="background:#1d4ed8;padding:28px 32px;color:#fff;">
       ${logoHtml}
       <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin:0;">${companyName}</div>
+    </div>`;
+}
+
+function renderDocumentLinks(company?: EmailCompanyDetails): string {
+  if (!company) return "";
+  const links: string[] = [];
+  if (company.rates_url) {
+    const href = company.rates_url.startsWith("http") ? company.rates_url : `https://${company.rates_url}`;
+    links.push(`<a href="${escHtml(href)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:6px;padding:10px 20px;font-weight:600;font-size:13px;margin-right:10px;" target="_blank">View Our Rates</a>`);
+  }
+  if (company.trading_terms_url) {
+    const href = company.trading_terms_url.startsWith("http") ? company.trading_terms_url : `https://${company.trading_terms_url}`;
+    links.push(`<a href="${escHtml(href)}" style="display:inline-block;background:#475569;color:#fff;text-decoration:none;border-radius:6px;padding:10px 20px;font-weight:600;font-size:13px;" target="_blank">View Our Trading Terms</a>`);
+  }
+  if (links.length === 0) return "";
+  return `
+    <div style="margin:20px 0;padding:16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;text-align:center;">
+      <p style="margin:0 0 12px;font-size:13px;color:#0c4a6e;font-weight:600;">Important Documents</p>
+      <div>${links.join("")}</div>
     </div>`;
 }
 
@@ -218,27 +239,51 @@ export async function sendJobFormsEmail(
   formLabels: string[],
   attachments: EmailAttachment[],
   companyDetails?: EmailCompanyDetails,
+  photosAttached?: number,
 ): Promise<void> {
-  const formListHtml = formLabels
-    .map(label => `<li style="margin:4px 0;font-size:14px;">${escHtml(label)}</li>`)
-    .join("\n");
+  const hasForms = formLabels.length > 0;
+  const hasPhotos = (photosAttached || 0) > 0;
+
+  const formListHtml = hasForms
+    ? formLabels.map(label => `<li style="margin:4px 0;font-size:14px;">${escHtml(label)}</li>`).join("\n")
+    : "";
 
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
     : "please contact your service provider directly.";
 
-  const html = baseHtml(escHtml(subject), `
-    <h2>Job Forms &mdash; ${escHtml(jobRef)}</h2>
-    <p>Dear ${escHtml(customerName)},</p>
-    <p>Please find attached the completed service form(s) for your recent job carried out by <strong>${escHtml(companyName)}</strong>.</p>
+  const headingParts: string[] = [];
+  if (hasForms) headingParts.push("Forms");
+  if (hasPhotos) headingParts.push("Photos");
+  const heading = `Job ${headingParts.join(" &amp; ")} &mdash; ${escHtml(jobRef)}`;
+
+  const introParts: string[] = [];
+  if (hasForms) introParts.push("completed service form(s)");
+  if (hasPhotos) introParts.push(`${photosAttached} photo(s)`);
+  const introText = `Please find attached the ${introParts.join(" and ")} for your recent job carried out by <strong>${escHtml(companyName)}</strong>.`;
+
+  const formsSection = hasForms ? `
     <div class="info-box">
       <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Attached Forms:</p>
       <ul style="margin:0;padding-left:20px;">
         ${formListHtml}
       </ul>
-    </div>
+    </div>` : "";
+
+  const photosSection = hasPhotos ? `
+    <div class="info-box">
+      <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Attached Photos: ${photosAttached}</p>
+    </div>` : "";
+
+  const html = baseHtml(escHtml(subject), `
+    <h2>${heading}</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p>${introText}</p>
+    ${formsSection}
+    ${photosSection}
     <p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>
     <p>If you have any questions about the work carried out, ${contactLine}</p>
+    ${renderDocumentLinks(companyDetails)}
     <hr class="divider"/>
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
   `, companyDetails);
@@ -323,6 +368,7 @@ export function renderJobConfirmationHtml(
     </div>
     ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
     <p>Please ensure there is access to the property at the scheduled time. If you need to reschedule or have any questions, ${contactLine}</p>
+    ${renderDocumentLinks(companyDetails)}
     ${contactSection}
     <hr class="divider"/>
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>

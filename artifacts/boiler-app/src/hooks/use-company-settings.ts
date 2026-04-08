@@ -25,6 +25,8 @@ export interface CompanySettings {
   default_vat_rate?: number | null;
   default_payment_terms_days?: number | null;
   currency?: string | null;
+  rates_url?: string | null;
+  trading_terms_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -29,6 +29,8 @@ router.get("/email-preview/job-confirmation", (_req: Request, res: Response) => 
       website: "www.abcheating.co.uk",
       gas_safe_number: "123456",
       oftec_number: "C/12345",
+      rates_url: "https://www.abcheating.co.uk/rates",
+      trading_terms_url: "https://www.abcheating.co.uk/terms",
     }
   );
 

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import {
-  Building2, Phone, Mail, Globe, Shield, FileText,
+  Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
   Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
   Plus, X, Check, Clock, Star, Package, Pencil
@@ -62,6 +62,8 @@ export default function AdminCompanySettings() {
         default_vat_rate: settings.default_vat_rate ?? 20,
         default_payment_terms_days: settings.default_payment_terms_days ?? 30,
         currency: settings.currency ?? "GBP",
+        rates_url: settings.rates_url ?? "",
+        trading_terms_url: settings.trading_terms_url ?? "",
       });
       if (settings.logo_url) setLogoPreview(settings.logo_url);
     }
@@ -493,6 +495,30 @@ export default function AdminCompanySettings() {
                 OFTEC Registration Number
               </Label>
               <Input id="oftec_number" placeholder="e.g. C12345" {...register("oftec_number")} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ExternalLink className="w-4 h-4" />
+              Customer Documents
+            </CardTitle>
+            <CardDescription>
+              Links to your rates sheet and trading terms. When set, these are included in all customer-facing emails.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="rates_url">Rates URL</Label>
+              <Input id="rates_url" type="url" placeholder="e.g. https://www.example.com/rates" {...register("rates_url")} />
+              <p className="text-xs text-muted-foreground">Link to your published rates / price list.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="trading_terms_url">Trading Terms URL</Label>
+              <Input id="trading_terms_url" type="url" placeholder="e.g. https://www.example.com/terms" {...register("trading_terms_url")} />
+              <p className="text-xs text-muted-foreground">Link to your terms and conditions.</p>
             </div>
           </CardContent>
         </Card>
