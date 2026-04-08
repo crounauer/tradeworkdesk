@@ -5,10 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
-import "@/lib/fetch-interceptor";
 
 const Login = lazy(() => import("@/pages/login"));
-const Dashboard = lazy(() => import("@/pages/dashboard"));
+import Dashboard from "@/pages/dashboard";
 const Customers = lazy(() => import("@/pages/customers"));
 const CustomerDetail = lazy(() => import("@/pages/customer-detail"));
 const Properties = lazy(() => import("@/pages/properties"));
@@ -130,9 +129,7 @@ function RootRoute() {
   if (session) {
     return (
       <Layout>
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-          <Dashboard />
-        </Suspense>
+        <Dashboard />
       </Layout>
     );
   }
