@@ -116,7 +116,7 @@ export default function Dashboard() {
         <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} initialDate={quickDate} />
       )}
       {hasJobManagement && showAddEnquiry && (
-        <QuickEnquiryDialog open={showAddEnquiry} onOpenChange={setShowAddEnquiry} />
+        <QuickEnquiryDialog open={showAddEnquiry} onOpenChange={setShowAddEnquiry} initialDate={quickDate} />
       )}
     </div>
   );
@@ -565,16 +565,19 @@ const ENQUIRY_SOURCE_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
-function QuickEnquiryDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean; onOpenChange: (v: boolean) => void; initialDate?: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const datePrefix = initialDate
+    ? `Preferred date: ${new Date(initialDate + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}\n`
+    : "";
   const [form, setForm] = useState({
     contact_name: "",
     contact_phone: "",
     contact_email: "",
     source: "phone",
-    description: "",
+    description: datePrefix,
     address: "",
     priority: "medium",
   });
