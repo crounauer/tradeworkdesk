@@ -455,12 +455,14 @@ const initCache = new Map<string, { data: unknown; ts: number }>();
 const INIT_CACHE_TTL_MS = 60_000;
 
 router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const t0 = Date.now();
   const cacheKey = `${req.tenantId || "none"}:${req.userId}`;
   const cached = initCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < INIT_CACHE_TTL_MS) {
     res.set("Cache-Control", "private, max-age=60");
     res.set("X-Cache", "HIT");
     res.json(cached.data);
+    console.log(`[perf] /me/init cache HIT ${Date.now() - t0}ms`);
     return;
   }
 
@@ -478,12 +480,24 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     .single();
 
   if (req.userRole === "super_admin") {
-    const { data: profile } = await profilePromise;
+    const saNow = new Date();
+    const [profileResult, announcementsResult] = await Promise.all([
+      profilePromise,
+      supabaseAdmin
+        .from("platform_announcements")
+        .select("id, title, body, severity, starts_at, ends_at")
+        .eq("is_active", true)
+        .lte("starts_at", saNow.toISOString())
+        .or(`ends_at.is.null,ends_at.gt.${saNow.toISOString()}`)
+        .order("severity", { ascending: false })
+        .limit(10),
+    ]);
     const responseBody = {
-      profile: profile || null,
+      profile: profileResult.data || null,
       planFeatures: { plan_id: null, plan_name: "Super Admin", features: superAdminFeatures },
       tenant: null,
       enquiriesCount: 0,
+      announcements: announcementsResult.data || [],
     };
     initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
     res.set("Cache-Control", "private, max-age=60");
@@ -515,6 +529,18 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     );
   }
 
+  const now2 = new Date();
+  promises.push(
+    supabaseAdmin
+      .from("platform_announcements")
+      .select("id, title, body, severity, starts_at, ends_at")
+      .eq("is_active", true)
+      .lte("starts_at", now2.toISOString())
+      .or(`ends_at.is.null,ends_at.gt.${now2.toISOString()}`)
+      .order("severity", { ascending: false })
+      .limit(10)
+  );
+
   const results = await Promise.all(promises);
 
   const profileRes = results[0] as { data: Record<string, unknown> | null };
@@ -542,10 +568,15 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     enquiriesCount = enquiriesRes?.count || 0;
   }
 
-  const responseBody = { profile, planFeatures, tenant, enquiriesCount };
+  const announcementsIdx = req.tenantId ? 4 : 1;
+  const announcementsRes = results[announcementsIdx] as { data: unknown[] | null };
+  const announcements = announcementsRes?.data || [];
+
+  const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements };
   initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   res.set("Cache-Control", "private, max-age=60");
   res.json(responseBody);
+  console.log(`[perf] /me/init total ${Date.now() - t0}ms`);
 });
 
 router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {

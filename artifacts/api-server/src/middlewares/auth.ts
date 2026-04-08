@@ -67,6 +67,7 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  const t0 = Date.now();
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Missing or invalid authorization header" });
@@ -166,6 +167,11 @@ export async function requireAuth(
   req.userRole = profile?.role || "technician";
   req.userEmail = user.email;
   req.tenantId = profile?.tenant_id || undefined;
+
+  const authMs = Date.now() - t0;
+  if (authMs > 50) {
+    console.log(`[perf] requireAuth ${req.path} ${authMs}ms`);
+  }
 
   next();
 }

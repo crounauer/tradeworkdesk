@@ -30,20 +30,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
-function getCalendarDateRange() {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const start = new Date(now);
-  start.setDate(start.getDate() + diff);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
-  return {
-    from: start.toISOString().slice(0, 10),
-    to: end.toISOString().slice(0, 10),
-  };
-}
-
 function prefetchCriticalData(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.prefetchQuery({
     queryKey: ["me-init"],
@@ -56,35 +42,13 @@ function prefetchCriticalData(queryClient: ReturnType<typeof useQueryClient>) {
   });
 
   queryClient.prefetchQuery({
-    queryKey: ["/api/dashboard"],
+    queryKey: ["homepage"],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard");
-      if (!res.ok) throw new Error(`dashboard failed: ${res.status}`);
+      const res = await fetch("/api/homepage");
+      if (!res.ok) throw new Error(`homepage failed: ${res.status}`);
       return res.json();
     },
     staleTime: 60_000,
-  });
-
-  const { from, to } = getCalendarDateRange();
-  const calendarParams = new URLSearchParams({ date_from: from, date_to: to, limit: "500" });
-  queryClient.prefetchQuery({
-    queryKey: ["/api/jobs", { date_from: from, date_to: to, limit: "500" }],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs?${calendarParams}`);
-      if (!res.ok) throw new Error(`jobs failed: ${res.status}`);
-      return res.json();
-    },
-    staleTime: 30_000,
-  });
-
-  queryClient.prefetchQuery({
-    queryKey: ["/api/auth/profiles"],
-    queryFn: async () => {
-      const res = await fetch("/api/auth/profiles");
-      if (!res.ok) throw new Error(`profiles failed: ${res.status}`);
-      return res.json();
-    },
-    staleTime: 120_000,
   });
 }
 

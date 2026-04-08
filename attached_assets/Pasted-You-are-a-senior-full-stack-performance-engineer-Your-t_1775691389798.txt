@@ -1,0 +1,295 @@
+You are a senior full-stack performance engineer.
+Your task is to audit, measure, and refactor my app for production-grade performance, focusing on real bottlenecks, not superficial optimisations.
+
+Context
+App built in Replit
+Logged-in homepage feels slow (~6 seconds total)
+Initial UI renders quickly (<1s), but many API requests continue loading
+Key endpoints:
+/api/active (~700ms)
+/api/jobs
+/api/dashboard
+/api/profiles
+/api/init / /api/setup
+Network panel shows:
+~100+ requests
+long waterfall tail
+multiple overlapping fetches
+third-party scripts loading early
+Primary goals
+Reduce perceived homepage load time to ~1–2 seconds
+Reduce critical API response times to <100–200ms where realistic
+Reduce total number of requests on initial load
+Eliminate duplicate and unnecessary data fetching
+Improve backend query efficiency
+Preserve all existing functionality and correctness
+Non-negotiable rules
+Do NOT break auth, permissions, or user-specific filtering
+Do NOT change functionality unless required (and explain if you do)
+Do NOT use mock data
+Do NOT give generic advice — inspect actual code paths
+Measure before and after changes
+Prefer fewer, faster requests over many parallel ones
+Do not assume — verify in code
+PHASE 1 — FULL WATERFALL & DATA FLOW AUDIT (CRITICAL)
+
+You must treat this as a network orchestration problem first, not just a slow query problem.
+
+Do the following:
+Identify ALL requests triggered on homepage load
+For each request, determine:
+What triggered it (component, hook, middleware)
+Whether it is:
+critical (required for initial render)
+required shortly after
+non-essential
+duplicate
+third-party
+Whether it overlaps with data returned elsewhere
+Detect:
+duplicate API calls
+multiple endpoints returning overlapping data
+parent + child components fetching same data
+React useEffect duplication
+Strict Mode double-fetch behaviour
+auth/init flows triggering repeated calls
+Output a clear table like:
+Request	Source	Needed?	Duplicate?	Fix
+PHASE 2 — INSTRUMENTATION (MEASURE BEFORE CHANGING)
+
+Add precise timing logs to all slow endpoints:
+
+const start = performance.now();
+
+// step
+console.log(`[perf] step name: ${performance.now() - start}ms`);
+
+OR:
+
+console.time("GET /api/active total");
+console.time("db");
+// query
+console.timeEnd("db");
+console.timeEnd("GET /api/active total");
+
+Measure:
+
+total request time
+DB query time
+transformation time
+cache hit/miss
+external calls
+
+Do NOT optimise blindly — identify real bottlenecks first.
+
+PHASE 3 — ELIMINATE REQUEST CHAOS (HIGHEST IMPACT)
+You MUST reduce request count aggressively
+
+Refactor so that:
+
+homepage uses ONE primary API call
+no duplicate calls for:
+dashboard
+profiles
+active
+init/setup
+Create:
+GET /api/homepage
+
+Return ONLY required data:
+
+app.get('/api/homepage', requireAuth, async (req, res) => {
+  const userId = req.user.id;
+
+  const [dashboard, jobs, profiles, active] = await Promise.all([
+    getDashboardData(userId),
+    getHomepageJobs(userId),
+    getProfileSummary(userId),
+    getActiveStatus(userId),
+  ]);
+
+  res.json({ dashboard, jobs, profiles, active });
+});
+
+BUT:
+
+inspect real code first
+only include fields actually used
+remove redundant endpoints from initial load
+PHASE 4 — FRONTEND REFACTOR (CRITICAL)
+Replace multiple fetches with one
+
+Remove:
+
+/api/dashboard
+/api/jobs
+/api/profiles
+/api/active
+/api/init
+/api/setup
+
+on initial load.
+
+Replace with:
+
+const data = await fetch('/api/homepage').then(r => r.json());
+Prevent duplicate fetches
+
+Fix:
+
+multiple useEffect calls
+dependency loops
+components fetching same data independently
+re-fetch on every render
+Rendering strategy
+render layout immediately
+show skeletons/placeholders
+do NOT block UI on non-critical data
+defer secondary data
+PHASE 5 — DEFER NON-ESSENTIAL & THIRD-PARTY LOADS
+
+From the network screenshot, you are loading extra scripts early.
+
+You MUST:
+
+defer:
+chat widgets (e.g. Voiceflow)
+analytics
+tracking scripts
+lazy-load after page is usable
+load only on pages that need them
+PHASE 6 — BACKEND OPTIMISATION (AFTER CLEANUP)
+
+Now optimise endpoints properly.
+
+Database
+no SELECT *
+only required fields
+add indexes on:
+userId
+date fields
+join keys
+eliminate N+1 queries
+restrict large datasets (date ranges, limits)
+Async
+
+Replace:
+
+await a();
+await b();
+
+With:
+
+await Promise.all([a(), b()]);
+
+(where safe)
+
+CPU
+remove repeated filtering/mapping
+avoid recalculating same data
+move heavy work out of request path if possible
+Payload
+remove unused fields
+reduce nested objects
+return only what UI needs
+PHASE 7 — FIX /api/active SPECIFICALLY
+
+This endpoint is clearly slow (~700ms).
+
+Investigate:
+
+full table scans
+missing indexes
+repeated calculations
+fetching historical data unnecessarily
+loops doing per-row queries
+
+Refactor and explain EXACTLY what made it slow.
+
+PHASE 8 — ADD SAFE CACHING
+
+Add per-user caching (30–60s):
+
+const key = `homepage:${userId}`;
+
+if (cache[key] && cache[key].expires > Date.now()) {
+  return res.json(cache[key].data);
+}
+
+Requirements:
+
+user-safe (no data leakage)
+include relevant params in key
+log cache hit/miss
+cache only expensive stable data if needed
+PHASE 9 — VALIDATION
+
+After changes:
+
+verify frontend still works
+verify auth correctness
+verify no data leakage
+verify loading states
+verify edge cases
+REQUIRED OUTPUT
+
+You MUST provide:
+
+1. Findings
+what was slow
+why it was slow
+where time was spent
+2. Before vs after timings
+
+For:
+
+/api/active
+/api/jobs
+/api/dashboard
+/api/homepage
+
+Include:
+
+total time
+DB time
+transform time
+cache impact
+3. Code changes
+
+Provide real updated code for:
+
+backend
+queries
+caching
+frontend
+4. Rationale
+
+Explain each major change in 1–3 sentences.
+
+5. Database indexes
+
+Example:
+
+CREATE INDEX idx_jobs_user_date ON jobs(user_id, job_date);
+
+Only include indexes that match real queries.
+
+SUCCESS CRITERIA
+
+Work is only complete if:
+
+homepage becomes usable in ~1–2 seconds
+request count is significantly reduced
+duplicate requests eliminated
+one primary homepage API call exists
+slow endpoints are materially improved
+caching is working safely
+FINAL INSTRUCTION
+
+Work in this order:
+
+inspect → instrument → measure → refactor → measure again
+
+Do NOT guess.
+Do NOT stop at frontend tweaks if backend is the bottleneck.
+Do NOT optimise one endpoint while ignoring request explosion.

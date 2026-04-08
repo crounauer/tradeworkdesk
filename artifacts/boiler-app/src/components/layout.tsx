@@ -1,7 +1,6 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
 import { 
@@ -40,15 +39,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const enquiryCountData = { count: initData?.enquiriesCount ?? 0 };
 
-  const { data: announcements } = useQuery({
-    queryKey: ["active-announcements"],
-    queryFn: async () => {
-      const res = await fetch("/api/platform/announcements/active");
-      if (!res.ok) return [];
-      return res.json();
-    },
-    refetchInterval: 5 * 60 * 1000,
-  });
+  const announcements = initData?.announcements || [];
 
   const isTrial = tenantInfo?.status === "trial";
 

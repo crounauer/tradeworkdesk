@@ -1,6 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { PlanFeatures } from "./use-plan-features";
 
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  severity: string;
+  starts_at: string;
+  ends_at: string | null;
+}
+
 export interface InitData {
   profile: {
     id: string;
@@ -28,6 +37,7 @@ export interface InitData {
     subscription?: Record<string, unknown> | null;
   } | null;
   enquiriesCount: number;
+  announcements?: Announcement[];
 }
 
 export function useInitData() {
