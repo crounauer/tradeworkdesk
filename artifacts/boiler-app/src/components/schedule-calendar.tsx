@@ -430,7 +430,7 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
               <div
                 key={ds}
                 className={`bg-background p-1.5 transition-all relative ${
-                  viewMode === "month" ? "min-h-[100px]" : "min-h-[120px]"
+                  viewMode === "month" ? "min-h-[100px]" : "min-h-[140px]"
                 } ${isToday ? "ring-2 ring-inset ring-primary/30 bg-primary/[0.03]" : ""} ${
                   viewMode === "month" && !isCurrentMonth ? "opacity-40" : ""
                 } ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary/50" : ""} ${
@@ -463,8 +463,8 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
                   )}
                 </div>
 
-                <div className="space-y-0.5 overflow-y-auto max-h-[80px]">
-                  {dayJobs.slice(0, viewMode === "month" ? 3 : 5).map((job) => (
+                <div className="space-y-0.5 overflow-y-auto max-h-[110px]">
+                  {dayJobs.slice(0, viewMode === "month" ? 3 : 6).map((job) => (
                     <div
                       key={job.id}
                       data-job-card
@@ -494,25 +494,17 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
                           {job.job_type?.replace("_", " ")}
                         </span>
                       </div>
-                      {(job.scheduled_time || job.property_address) && (
-                        <div className="ml-2.5 mt-0.5">
-                          {job.scheduled_time && (
-                            <span className="text-[10px] opacity-75">
-                              {formatTime(job.scheduled_time)}
-                            </span>
-                          )}
-                          {job.property_address && (
-                            <span className="text-[10px] opacity-60 truncate block">
-                              {job.property_address}
-                            </span>
-                          )}
+                      {job.scheduled_time && (
+                        <div className="ml-2.5 text-[10px] opacity-75 truncate">
+                          {formatTime(job.scheduled_time)}
+                          {job.property_address && <span className="opacity-80"> · {job.property_address}</span>}
                         </div>
                       )}
                     </div>
                   ))}
-                  {dayJobs.length > (viewMode === "month" ? 3 : 5) && (
+                  {dayJobs.length > (viewMode === "month" ? 3 : 6) && (
                     <span className="text-[10px] text-muted-foreground pl-1.5">
-                      +{dayJobs.length - (viewMode === "month" ? 3 : 5)} more
+                      +{dayJobs.length - (viewMode === "month" ? 3 : 6)} more
                     </span>
                   )}
                 </div>
