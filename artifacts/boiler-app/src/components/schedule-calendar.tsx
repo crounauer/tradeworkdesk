@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Plus, MessageSquarePlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar, Plus, MessageSquarePlus, Clock, MapPin, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,7 +22,7 @@ type CalendarJob = {
   scheduled_end_date?: string | null;
 };
 
-type ViewMode = "week" | "month";
+type ViewMode = "day" | "week" | "month";
 
 function toDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -140,7 +140,9 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
     profile?.role === "super_admin";
 
   const days = useMemo(() => {
-    if (viewMode === "week") {
+    if (viewMode === "day") {
+      return [new Date(anchorDate)];
+    } else if (viewMode === "week") {
       const start = startOfWeek(anchorDate);
       return Array.from({ length: 7 }, (_, i) => addDays(start, i));
     } else {
@@ -227,7 +229,9 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
 
   const navigateCalendar = useCallback(
     (dir: number) => {
-      if (viewMode === "week") {
+      if (viewMode === "day") {
+        setAnchorDate((prev) => addDays(prev, dir));
+      } else if (viewMode === "week") {
         setAnchorDate((prev) => addDays(prev, dir * 7));
       } else {
         setAnchorDate((prev) => {
@@ -241,9 +245,9 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
   );
 
   const goToday = useCallback(() => {
-    setAnchorDate(
-      viewMode === "month" ? startOfMonth(new Date()) : startOfWeek(new Date())
-    );
+    if (viewMode === "day") setAnchorDate(new Date());
+    else if (viewMode === "month") setAnchorDate(startOfMonth(new Date()));
+    else setAnchorDate(startOfWeek(new Date()));
   }, [viewMode]);
 
   const handleDragStart = useCallback(
@@ -334,9 +338,11 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
   );
 
   const headerTitle =
-    viewMode === "month"
-      ? formatMonthTitle(anchorDate)
-      : `${days[0].toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${days[days.length - 1].toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+    viewMode === "day"
+      ? anchorDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+      : viewMode === "month"
+        ? formatMonthTitle(anchorDate)
+        : `${days[0].toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${days[days.length - 1].toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 
   const visibleTechs = useMemo(() => {
     if (profile?.role === "technician") {
@@ -352,6 +358,17 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
 
         <div className="flex items-center gap-2">
           <div className="flex bg-muted rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("day");
+                setAnchorDate(new Date());
+              }}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewMode === "day" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Day
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -413,7 +430,155 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
         {headerTitle}
       </div>
 
-      <div className="hidden sm:block">
+      {viewMode === "day" && (() => {
+        const ds = toDateStr(anchorDate);
+        const dayJobs = jobsByDate[ds] || [];
+        const isToday = isSameDay(ds, todayStr);
+        const HOURS = Array.from({ length: 14 }, (_, i) => i + 7);
+
+        const jobsByHour: Record<number, CalendarJob[]> = {};
+        const unscheduled: CalendarJob[] = [];
+        for (const job of dayJobs) {
+          if (job.scheduled_time) {
+            const hour = parseInt(job.scheduled_time.split(":")[0], 10);
+            if (!jobsByHour[hour]) jobsByHour[hour] = [];
+            jobsByHour[hour].push(job);
+          } else {
+            unscheduled.push(job);
+          }
+        }
+
+        return (
+          <div className="border border-border rounded-xl overflow-hidden">
+            <div className={`px-4 py-3 flex items-center justify-between ${isToday ? "bg-primary/5" : "bg-muted/50"}`}>
+              <div className="flex items-center gap-2">
+                <span className={`text-lg font-bold ${isToday ? "text-primary" : "text-foreground"}`}>
+                  {anchorDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+                </span>
+                {isToday && <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5 font-medium">Today</span>}
+              </div>
+              <span className="text-sm text-muted-foreground font-medium">{dayJobs.length} job{dayJobs.length !== 1 ? "s" : ""}</span>
+            </div>
+
+            {onDayAction && (
+              <div className="flex gap-2 px-4 py-2 border-b border-border bg-background">
+                <button type="button" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors" onClick={() => onDayAction(ds, "enquiry")}>
+                  <MessageSquarePlus className="w-3.5 h-3.5 text-orange-500" /> Add Enquiry
+                </button>
+                <button type="button" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors" onClick={() => onDayAction(ds, "job")}>
+                  <Plus className="w-3.5 h-3.5 text-primary" /> Book Job
+                </button>
+              </div>
+            )}
+
+            <div className="bg-background">
+              {HOURS.map((hour) => {
+                const jobs = jobsByHour[hour] || [];
+                const label = `${hour.toString().padStart(2, "0")}:00`;
+                return (
+                  <div key={hour} className="flex border-b border-border/50 last:border-b-0 min-h-[52px]">
+                    <div className="w-16 shrink-0 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 border-r border-border/50 flex items-start justify-end pt-2">
+                      {label}
+                    </div>
+                    <div className="flex-1 p-1.5 space-y-1">
+                      {jobs.map((job) => (
+                        <div
+                          key={job.id}
+                          data-job-card
+                          role="button"
+                          tabIndex={0}
+                          draggable={canDrag}
+                          onDragStart={(e) => handleDragStart(e, job.id)}
+                          onDragEnd={() => { didDragRef.current = false; }}
+                          onClick={(e) => handleJobClick(e, job.id)}
+                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} hover:shadow-sm`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                            <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
+                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type?.replace("_", " ")}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
+                            {job.scheduled_time && (
+                              <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{formatTime(job.scheduled_time)}</span>
+                            )}
+                            {job.technician_name && (
+                              <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
+                            )}
+                            {job.property_address && (
+                              <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {unscheduled.length > 0 && (
+                <div className="border-t-2 border-dashed border-border">
+                  <div className="flex min-h-[52px]">
+                    <div className="w-16 shrink-0 px-2 py-2 text-[10px] font-medium text-muted-foreground bg-muted/30 border-r border-border/50 flex items-start justify-end pt-2">
+                      No time
+                    </div>
+                    <div className="flex-1 p-1.5 space-y-1">
+                      {unscheduled.map((job) => (
+                        <div
+                          key={job.id}
+                          data-job-card
+                          role="button"
+                          tabIndex={0}
+                          draggable={canDrag}
+                          onDragStart={(e) => handleDragStart(e, job.id)}
+                          onDragEnd={() => { didDragRef.current = false; }}
+                          onClick={(e) => handleJobClick(e, job.id)}
+                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} hover:shadow-sm`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                            <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
+                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type?.replace("_", " ")}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
+                            {job.technician_name && (
+                              <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
+                            )}
+                            {job.property_address && (
+                              <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {visibleTechs.length > 0 && dayJobs.length > 0 && (
+              <div className="flex flex-wrap gap-3 px-4 py-2 border-t border-border bg-muted/30">
+                {visibleTechs.map((tech) => {
+                  const count = techWorkload[ds]?.[tech.id] || 0;
+                  if (count === 0) return null;
+                  return (
+                    <div key={tech.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className={`w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center ${getWorkloadColor(count)}`}>
+                        {getInitials(tech.full_name || "?")}
+                      </span>
+                      <span>{tech.full_name}: {count} job{count > 1 ? "s" : ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {viewMode !== "day" && <div className="hidden sm:block">
         <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden border border-border">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
             <div
@@ -455,10 +620,14 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
               >
                 <div className="flex items-center justify-between mb-1">
                   <span
-                    className={`text-xs font-medium ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setViewMode("day"); setAnchorDate(new Date(day)); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setViewMode("day"); setAnchorDate(new Date(day)); } }}
+                    className={`text-xs font-medium cursor-pointer hover:underline ${
                       isToday
                         ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center"
-                        : "text-muted-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {day.getDate()}
@@ -572,9 +741,9 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
             );
           })}
         </div>
-      </div>
+      </div>}
 
-      <div className="sm:hidden space-y-2">
+      {viewMode !== "day" && <div className="sm:hidden space-y-2">
         {days.map((day) => {
           const ds = toDateStr(day);
           const dayJobs = jobsByDate[ds] || [];
@@ -712,7 +881,7 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {canDrag && (
         <p className="text-[11px] text-muted-foreground mt-3 text-center">
