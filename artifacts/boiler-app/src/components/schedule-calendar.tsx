@@ -142,7 +142,7 @@ export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date:
   const days = useMemo(() => {
     if (viewMode === "week") {
       const start = startOfWeek(anchorDate);
-      return Array.from({ length: 28 }, (_, i) => addDays(start, i));
+      return Array.from({ length: 7 }, (_, i) => addDays(start, i));
     } else {
       const monthStart = startOfMonth(anchorDate);
       const monthEnd = endOfMonth(anchorDate);
