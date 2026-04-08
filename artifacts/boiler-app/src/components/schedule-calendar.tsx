@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback, useRef, DragEvent, MouseEvent } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, DragEvent, MouseEvent } from "react";
 import { useListJobs, useUpdateJob, useListProfiles } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Plus, MessageSquarePlus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -108,7 +108,7 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export default function ScheduleCalendar() {
+export default function ScheduleCalendar({ onDayAction }: { onDayAction?: (date: string, action: "enquiry" | "job") => void } = {}) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -120,6 +120,19 @@ export default function ScheduleCalendar() {
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const didDragRef = useRef(false);
+  const [popoverDate, setPopoverDate] = useState<string | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!popoverDate) return;
+    const handler = (e: Event) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverDate(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [popoverDate]);
 
   const canDrag =
     profile?.role === "admin" ||
@@ -129,7 +142,7 @@ export default function ScheduleCalendar() {
   const days = useMemo(() => {
     if (viewMode === "week") {
       const start = startOfWeek(anchorDate);
-      return Array.from({ length: 14 }, (_, i) => addDays(start, i));
+      return Array.from({ length: 28 }, (_, i) => addDays(start, i));
     } else {
       const monthStart = startOfMonth(anchorDate);
       const monthEnd = endOfMonth(anchorDate);
@@ -341,7 +354,7 @@ export default function ScheduleCalendar() {
               className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewMode === "week" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <CalendarDays className="w-3.5 h-3.5" />
-              2 Weeks
+              4 Weeks
             </button>
             <button
               type="button"
@@ -411,18 +424,27 @@ export default function ScheduleCalendar() {
               viewMode === "month" &&
               day.getMonth() === anchorDate.getMonth();
             const isDropTarget = dragOverDate === ds;
+            const showPopover = popoverDate === ds;
 
             return (
               <div
                 key={ds}
-                className={`bg-background p-1.5 transition-all ${
+                className={`bg-background p-1.5 transition-all relative ${
                   viewMode === "month" ? "min-h-[100px]" : "min-h-[120px]"
                 } ${isToday ? "ring-2 ring-inset ring-primary/30 bg-primary/[0.03]" : ""} ${
                   viewMode === "month" && !isCurrentMonth ? "opacity-40" : ""
-                } ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary/50" : ""}`}
+                } ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary/50" : ""} ${
+                  onDayAction ? "cursor-pointer hover:bg-muted/30" : ""
+                }`}
                 onDragOver={(e) => handleDragOver(e, ds)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, ds)}
+                onClick={(e) => {
+                  if (!onDayAction) return;
+                  if ((e.target as HTMLElement).closest("[data-job-card]")) return;
+                  e.stopPropagation();
+                  setPopoverDate(showPopover ? null : ds);
+                }}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span
@@ -445,6 +467,7 @@ export default function ScheduleCalendar() {
                   {dayJobs.slice(0, viewMode === "month" ? 3 : 5).map((job) => (
                     <div
                       key={job.id}
+                      data-job-card
                       role="button"
                       tabIndex={0}
                       draggable={canDrag}
@@ -518,6 +541,34 @@ export default function ScheduleCalendar() {
                     })}
                   </div>
                 )}
+
+                {showPopover && onDayAction && (
+                  <div
+                    ref={popoverRef}
+                    className="absolute z-50 top-1 right-1 bg-background border border-border rounded-lg shadow-lg p-1.5 min-w-[140px] animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-[10px] font-medium text-muted-foreground px-2 py-1">
+                      {day.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                    </p>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors"
+                      onClick={() => { setPopoverDate(null); onDayAction(ds, "enquiry"); }}
+                    >
+                      <MessageSquarePlus className="w-3.5 h-3.5 text-orange-500" />
+                      Add Enquiry
+                    </button>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors"
+                      onClick={() => { setPopoverDate(null); onDayAction(ds, "job"); }}
+                    >
+                      <Plus className="w-3.5 h-3.5 text-primary" />
+                      Book Job
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -563,6 +614,27 @@ export default function ScheduleCalendar() {
                   </span>
                 )}
               </div>
+
+              {onDayAction && (
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                    onClick={() => onDayAction(ds, "enquiry")}
+                  >
+                    <MessageSquarePlus className="w-3.5 h-3.5 text-orange-500" />
+                    Enquiry
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                    onClick={() => onDayAction(ds, "job")}
+                  >
+                    <Plus className="w-3.5 h-3.5 text-primary" />
+                    Book Job
+                  </button>
+                </div>
+              )}
 
               {dayJobs.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No jobs</p>

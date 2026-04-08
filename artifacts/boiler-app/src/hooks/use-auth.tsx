@@ -37,7 +37,7 @@ function getCalendarDateRange() {
   const start = new Date(now);
   start.setDate(start.getDate() + diff);
   const end = new Date(start);
-  end.setDate(end.getDate() + 14);
+  end.setDate(end.getDate() + 28);
   return {
     from: start.toISOString().slice(0, 10),
     to: end.toISOString().slice(0, 10),

@@ -1,21 +1,18 @@
 import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Users, Briefcase, AlertCircle, CheckCircle2, Plus, MessageSquarePlus, Mail, Send, Home } from "lucide-react";
-import { Link } from "wouter";
-import { formatDateTime, formatDate } from "@/lib/utils";
+import { Plus, MessageSquarePlus, Mail, Send, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, lazy, Suspense, useEffect } from "react";
+import { useState, lazy, Suspense, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 const ScheduleCalendar = lazy(() => import("@/components/schedule-calendar"));
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useIsSoleTrader } from "@/hooks/use-sole-trader";
-import { useInitData } from "@/hooks/use-init-data";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 
@@ -52,11 +49,10 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
+  const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
   const [showCalendar, setShowCalendar] = useState(false);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
-  const { data: initData } = useInitData();
-  const enquiryCount = { count: initData?.enquiriesCount ?? 0 };
 
   useEffect(() => {
     if (!isLoading && data && hasJobManagement) {
@@ -65,29 +61,31 @@ export default function Dashboard() {
     }
   }, [isLoading, data, hasJobManagement]);
 
+  const handleDayAction = useCallback((date: string, action: "enquiry" | "job") => {
+    setQuickDate(date);
+    if (action === "enquiry") {
+      setShowAddEnquiry(true);
+    } else {
+      setShowQuickBook(true);
+    }
+  }, []);
+
   if (isLoading) return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6 animate-pulse">
       <div className="h-8 w-48 bg-muted rounded" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1,2,3,4].map(i => <Card key={i} className="p-6 h-24 border-0 shadow-sm"><div className="h-4 w-20 bg-muted rounded mb-2" /><div className="h-6 w-12 bg-muted rounded" /></Card>)}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[1,2,3].map(i => <Card key={i} className="p-6 h-[400px] border-0 shadow-sm"><div className="h-5 w-32 bg-muted rounded mb-4" /><div className="space-y-3">{[1,2,3].map(j => <div key={j} className="h-16 bg-muted rounded" />)}</div></Card>)}
-      </div>
+      <Card className="p-6 border-0 shadow-sm h-[500px]">
+        <div className="h-5 w-32 bg-muted rounded mb-4" />
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: 28 }, (_, i) => <div key={i} className="h-20 bg-muted rounded" />)}
+        </div>
+      </Card>
     </div>
   );
   if (!data) return null;
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
-  const stats = [
-    { label: "Total Customers", value: data.stats?.total_customers || 0, icon: Users, color: "text-blue-500", bg: "bg-blue-50", href: "/customers" },
-    { label: "Jobs Today", value: data.stats?.total_jobs_today || 0, icon: Briefcase, color: "text-emerald-500", bg: "bg-emerald-50", href: "/jobs" },
-    { label: "Overdue Services", value: data.stats?.overdue_count || 0, icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-50", href: "/jobs" },
-    { label: "Completed This Week", value: data.stats?.completed_this_week || 0, icon: CheckCircle2, color: "text-purple-500", bg: "bg-purple-50", href: "/jobs" },
-  ];
-
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <AddToHomeScreen />
       <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
         <div className="flex-1">
@@ -96,105 +94,26 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-3">
           {canCreateJobs && (
-            <Button size="lg" variant="outline" className="gap-2 text-base px-5 py-3 shadow-sm" onClick={() => setShowAddEnquiry(true)}>
+            <Button size="lg" variant="outline" className="gap-2 text-base px-5 py-3 shadow-sm" onClick={() => { setQuickDate(undefined); setShowAddEnquiry(true); }}>
               <MessageSquarePlus className="w-5 h-5" /> Add Enquiry
             </Button>
           )}
           {canCreateJobs && (
-            <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => setShowQuickBook(true)}>
+            <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => { setQuickDate(undefined); setShowQuickBook(true); }}>
               <Plus className="w-5 h-5" /> Book Job
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => (
-          <Link key={i} href={stat.href}>
-            <Card className="p-6 border-0 shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
-                  <stat.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {hasJobManagement && enquiryCount?.count > 0 && (
-        <Link href="/enquiries">
-          <Card className="p-5 border-0 shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all bg-gradient-to-r from-orange-50/80 to-amber-50/80">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-orange-100 text-orange-600">
-                <MessageSquarePlus className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground">Open Enquiries</p>
-                <p className="text-2xl font-bold text-foreground">{enquiryCount.count}</p>
-              </div>
-              <span className="text-sm text-primary font-medium">View all &rarr;</span>
-            </div>
-          </Card>
-        </Link>
-      )}
-
-      <div className="grid lg:grid-cols-2 gap-8">
-        <Card className="p-6 border-0 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <h2 className="text-xl font-display font-bold mb-4">Today's Jobs</h2>
-          <div className="overflow-y-auto flex-1 pr-2 space-y-3">
-            {data.todays_jobs?.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No jobs scheduled for today.</p>
-            ) : (
-              data.todays_jobs?.map(job => (
-                <Link key={job.id} href={`/jobs/${job.id}`} className="block p-4 rounded-xl border border-border hover:border-primary/50 hover:shadow-md transition-all bg-card">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-bold text-primary">{job.customer_name}</span>
-                    <span className="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700 capitalize">{job.job_type}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-1">{job.property_address}</p>
-                  <p className="text-sm font-medium">{(() => { const d = String(job.scheduled_date).slice(0, 10); return job.scheduled_time ? formatDateTime(`${d}T${job.scheduled_time}`) : formatDate(d); })()}</p>
-                </Link>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-6 border-0 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <h2 className="text-xl font-display font-bold mb-4">Follow-up / Awaiting Parts</h2>
-          <div className="overflow-y-auto flex-1 pr-2 space-y-3">
-            {data.follow_up_required?.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No jobs require follow-up.</p>
-            ) : (
-              data.follow_up_required?.map(job => {
-                const isAwaiting = job.status === "awaiting_parts";
-                return (
-                  <Link key={job.id} href={`/jobs/${job.id}`} className={`block p-4 rounded-xl border ${isAwaiting ? "border-orange-200 bg-orange-50/50 hover:border-orange-400" : "border-rose-200 bg-rose-50/50 hover:border-rose-400"} transition-all`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`font-bold ${isAwaiting ? "text-orange-700" : "text-rose-700"}`}>{job.customer_name}</span>
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isAwaiting ? "bg-orange-100 text-orange-700" : "bg-rose-100 text-rose-700"}`}>{isAwaiting ? "Awaiting Parts" : "Follow-up Needed"}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{job.property_address}</p>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-        </Card>
-      </div>
-
       {hasJobManagement && showCalendar && (
         <Suspense fallback={<Card className="p-8 text-center text-muted-foreground">Loading calendar...</Card>}>
-          <ScheduleCalendar />
+          <ScheduleCalendar onDayAction={canCreateJobs ? handleDayAction : undefined} />
         </Suspense>
       )}
 
       {hasJobManagement && showQuickBook && (
-        <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} />
+        <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} initialDate={quickDate} />
       )}
       {hasJobManagement && showAddEnquiry && (
         <QuickEnquiryDialog open={showAddEnquiry} onOpenChange={setShowAddEnquiry} />
@@ -203,7 +122,7 @@ export default function Dashboard() {
   );
 }
 
-function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; onOpenChange: (v: boolean) => void; initialDate?: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -229,7 +148,7 @@ function QuickBookDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
     defaultValues: {
       customer_mode: "existing",
       priority: "medium",
-      scheduled_date: todayStr,
+      scheduled_date: initialDate || todayStr,
     },
   });
 
