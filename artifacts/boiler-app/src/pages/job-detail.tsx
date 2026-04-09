@@ -11,7 +11,7 @@ import {
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
-  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw
+  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -1133,6 +1133,7 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
   const [sentProviderName, setSentProviderName] = useState<string | null>(null);
   const [sentTimestamp, setSentTimestamp] = useState<string | null>(externalInvoiceSentAt || null);
   const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [calloutRatesError, setCalloutRatesError] = useState(false);
   const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
   const [savingRate, setSavingRate] = useState(false);
   const { toast } = useToast();
@@ -1166,7 +1167,12 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
       try {
         const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`);
         if (Array.isArray(data)) setCalloutRates(data as { id: string; name: string; amount: number }[]);
-      } catch { /* non-admin users won't have access, that's fine */ }
+        setCalloutRatesError(false);
+      } catch (e: unknown) {
+        const status = (e as { status?: number })?.status;
+        if (status === 401 || status === 403) return;
+        setCalloutRatesError(true);
+      }
     })();
   }, []);
 
@@ -1341,6 +1347,13 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
               </Button>
             </div>
           )}
+        </div>
+      )}
+
+      {calloutRatesError && (
+        <div className="flex items-center gap-2 mb-3 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-600">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>Failed to load callout rates</span>
         </div>
       )}
 
