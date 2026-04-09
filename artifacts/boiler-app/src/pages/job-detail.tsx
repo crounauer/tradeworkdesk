@@ -952,7 +952,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                             <span className="font-medium text-emerald-600">£{bd.billableCost.toFixed(2)}</span>
                           </div>
                         )}
-                        {bd.calloutHours > 0 && bd.billableHours > 0 && (
+                        {bd.entryCost > 0 && (
                           <div className="flex justify-between items-center text-xs pt-0.5 border-t border-border/20">
                             <span className="text-muted-foreground font-medium">Entry total</span>
                             <span className="font-semibold text-emerald-700">£{bd.entryCost.toFixed(2)}</span>
