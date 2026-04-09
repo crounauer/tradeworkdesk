@@ -879,103 +879,55 @@ export async function buildInvoiceData(
 
   const hasTimeEntries = !!(timeEntries && timeEntries.length > 0);
 
-  let resolvedCallOutFee = callOutFee;
+  let calloutRatesList: { id: string; name: string; amount: number; hourly_rate: number | null }[] = [];
   if (hasTimeEntries && tenantId) {
     const { data: rates } = await supabaseAdmin.from("callout_rates").select("*").eq("tenant_id", tenantId).eq("is_active", true).order("sort_order");
-    if (rates && rates.length > 0) {
-      const firstEntry = (timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[])[0];
-      if (job.callout_rate_id) {
-        const manual = (rates as { id: string; amount: number }[]).find(r => r.id === job.callout_rate_id);
-        if (manual) resolvedCallOutFee = Number(manual.amount);
-      } else if (firstEntry?.arrival_time) {
-        const arrival = new Date(firstEntry.arrival_time);
-        const dayOfWeek = arrival.getDay();
-        const timeStr = arrival.toTimeString().substring(0, 5);
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        let matched: { amount: number } | null = null;
-        for (const rate of rates as { day_type: string; time_from: string | null; time_to: string | null; amount: number; is_default: boolean }[]) {
-          if (rate.day_type === "weekend" && isWeekend) {
-            if (rate.time_from && rate.time_to) {
-              if (timeStr >= rate.time_from.substring(0, 5) && timeStr < rate.time_to.substring(0, 5)) { matched = rate; break; }
-            } else { matched = rate; break; }
-          } else if (rate.day_type === "after_hours" && !isWeekend) {
-            if (rate.time_from && rate.time_to) {
-              const from = rate.time_from.substring(0, 5);
-              const to = rate.time_to.substring(0, 5);
-              if (from > to) { if (timeStr >= from || timeStr < to) { matched = rate; break; } }
-              else { if (timeStr >= from && timeStr < to) { matched = rate; break; } }
-            } else { matched = rate; break; }
-          } else if (rate.day_type === "weekday" && !isWeekend) {
-            if (rate.time_from && rate.time_to) {
-              if (timeStr >= rate.time_from.substring(0, 5) && timeStr < rate.time_to.substring(0, 5)) { matched = rate; break; }
-            } else { matched = rate; break; }
-          } else if (rate.day_type === "any") {
-            if (rate.time_from && rate.time_to) {
-              if (timeStr >= rate.time_from.substring(0, 5) && timeStr < rate.time_to.substring(0, 5)) { matched = rate; break; }
-            } else { matched = rate; break; }
-          }
-        }
-        if (!matched) {
-          const defaultRate = (rates as { is_default: boolean; amount: number }[]).find(r => r.is_default);
-          if (defaultRate) matched = defaultRate;
-        }
-        if (matched) resolvedCallOutFee = Number(matched.amount);
-      }
-    }
+    if (rates) calloutRatesList = rates as typeof calloutRatesList;
   }
-
-  let totalLabourHours = 0;
-  let totalLabourCost = 0;
-  if (timeEntries) {
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[]) {
-      if (e.arrival_time && e.departure_time) {
-        const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
-        if (diffMs > 0) {
-          const hours = diffMs / (1000 * 60 * 60);
-          totalLabourHours += hours;
-        }
-      }
-    }
-  }
-  totalLabourHours = Math.round(totalLabourHours * 100) / 100;
-
-  const effectiveCallOut = hasTimeEntries ? resolvedCallOutFee : 0;
-  const billableHours = effectiveCallOut > 0 ? Math.max(0, totalLabourHours - 1) : totalLabourHours;
-
-  if (timeEntries && billableHours > 0) {
-    let remainingBillable = billableHours;
-    let hoursProcessed = 0;
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[]) {
-      if (e.arrival_time && e.departure_time) {
-        const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
-        if (diffMs > 0) {
-          const hours = diffMs / (1000 * 60 * 60);
-          const coveredByCallout = effectiveCallOut > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
-          const billableForEntry = hours - coveredByCallout;
-          if (billableForEntry > 0 && remainingBillable > 0) {
-            const actualBillable = Math.min(billableForEntry, remainingBillable);
-            const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
-            if (rate > 0) totalLabourCost += actualBillable * rate;
-            remainingBillable -= actualBillable;
-          }
-          hoursProcessed += hours;
-        }
-      }
-    }
-  }
-  totalLabourCost = Math.round(totalLabourCost * 100) / 100;
 
   const lines: InvoiceLineItem[] = [];
+  let totalLabourCost = 0;
+  let totalCallOutCost = 0;
 
-  if (hasTimeEntries && resolvedCallOutFee > 0) {
-    const coveredHrs = Math.min(totalLabourHours, 1);
-    const coveredLabel = coveredHrs > 0 ? ` (incl. first ${coveredHrs >= 1 ? "hour" : `${Math.round(coveredHrs * 60)}min`})` : "";
-    lines.push({
-      description: `Call-out Fee${coveredLabel}`,
-      quantity: 1,
-      unit_price: resolvedCallOutFee,
-      total: resolvedCallOutFee,
-    });
+  if (timeEntries) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[]) {
+      if (!e.arrival_time || !e.departure_time) continue;
+      const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
+      if (diffMs <= 0) continue;
+
+      const hours = diffMs / (1000 * 60 * 60);
+      const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
+
+      const matchedCallout = calloutRatesList.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
+      const entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : callOutFee;
+      const rateName = matchedCallout?.name || "Standard";
+
+      const calloutHours = entryCalloutFee > 0 ? Math.min(hours, 1) : 0;
+      const calloutCost = Math.round(calloutHours * entryCalloutFee * 100) / 100;
+      const billableHrs = hours - calloutHours;
+      const billableCost = Math.round(billableHrs * rate * 100) / 100;
+
+      if (calloutCost > 0) {
+        lines.push({
+          description: `${rateName} - Call-out (first hour)`,
+          quantity: 1,
+          unit_price: entryCalloutFee,
+          total: calloutCost,
+        });
+        totalCallOutCost += calloutCost;
+      }
+
+      if (billableHrs > 0 && rate > 0) {
+        const roundedHrs = Math.round(billableHrs * 100) / 100;
+        lines.push({
+          description: `${rateName} - Labour (after first hour)`,
+          quantity: roundedHrs,
+          unit_price: rate,
+          total: billableCost,
+        });
+        totalLabourCost += billableCost;
+      }
+    }
   }
 
   if (parts) {
@@ -990,19 +942,9 @@ export async function buildInvoiceData(
     }
   }
 
-  if (totalLabourCost > 0) {
-    const effectiveRate = billableHours > 0 ? Math.round(totalLabourCost / billableHours * 100) / 100 : 0;
-    lines.push({
-      description: effectiveCallOut > 0 ? "Labour (after first hour)" : "Labour",
-      quantity: Math.round(billableHours * 100) / 100,
-      unit_price: effectiveRate,
-      total: totalLabourCost,
-    });
-  }
-
-  const partsTotal = lines.filter(l => !l.description.startsWith("Labour") && !l.description.startsWith("Call-out Fee")).reduce((sum, l) => sum + l.total, 0);
-  const labourTotal = lines.filter(l => l.description.startsWith("Labour")).reduce((sum, l) => sum + l.total, 0);
-  const callOutTotal = effectiveCallOut > 0 ? resolvedCallOutFee : 0;
+  const partsTotal = lines.filter(l => !l.description.includes("Call-out") && !l.description.includes("Labour")).reduce((sum, l) => sum + l.total, 0);
+  const labourTotal = totalLabourCost;
+  const callOutTotal = totalCallOutCost;
 
   const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
   const vatAmount = Math.round(subtotal * vatRate / 100 * 100) / 100;
