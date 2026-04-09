@@ -827,12 +827,15 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
             {callOutFee > 0 && billableHours > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Billable time <span className="text-xs">(after first hour)</span></span>
-                <span className="text-sm text-amber-600">{formatTotalTime(billableHours * 60)}</span>
+                <span className="text-sm text-amber-600">
+                  {formatTotalTime(billableHours * 60)}
+                  {totalLabourCost > 0 && <span className="ml-1 font-medium text-emerald-600">£{totalLabourCost.toFixed(2)}</span>}
+                </span>
               </div>
             )}
-            {totalLabourCost > 0 && (
+            {totalLabourCost > 0 && !callOutFee && (
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">{callOutFee > 0 ? "Additional labour" : "Labour cost"}</span>
+                <span className="text-sm text-muted-foreground">Labour cost</span>
                 <span className="font-medium text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
               </div>
             )}
