@@ -220,6 +220,24 @@ export default function JobDetail() {
       {editing ? (
         <EditJobForm job={job as unknown as JobLike} onClose={() => setEditing(false)} />
       ) : (
+        <>
+        <Card className="p-4 border border-border/50 shadow-sm bg-slate-50/50 mb-6 lg:hidden">
+          <div className="flex items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <Link href={`/customers/${job.customer_id}`} className="font-bold text-sm hover:underline truncate">{job.customer?.first_name} {job.customer?.last_name}</Link>
+                {job.customer?.phone && <span className="text-xs text-muted-foreground">{job.customer.phone}</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <Link href={`/properties/${job.property_id}`} className="text-sm text-muted-foreground hover:underline truncate">
+                  {job.property?.address_line1}{job.property?.postcode ? `, ${job.property.postcode}` : ""}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6 border border-border/50 shadow-sm">
@@ -466,6 +484,7 @@ export default function JobDetail() {
             )}
           </div>
         </div>
+        </>
       )}
 
       {emailModalOpen && (
