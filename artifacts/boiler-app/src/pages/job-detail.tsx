@@ -1293,6 +1293,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = { GBP: "\u00A3", EUR: "\u20AC",
 
 interface AccountingIntegrationStatus {
   connected: boolean;
+  needs_reconnect?: boolean;
   provider: string | null;
   displayName: string;
 }
@@ -1435,9 +1436,24 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       )}
 
-      {canExport && (accountingStatus?.connected || sentExternalId) && (
+      {canExport && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
-          {sentExternalId ? (
+          {accountingStatus?.needs_reconnect && !sentExternalId ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-700">Reconnect {accountingStatus?.displayName}</p>
+                <p className="text-xs text-muted-foreground">Your connection has expired. Please reconnect in Company Settings to send invoices.</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50"
+                onClick={() => window.location.href = "/admin/company-settings"}
+              >
+                Reconnect
+              </Button>
+            </div>
+          ) : sentExternalId ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">

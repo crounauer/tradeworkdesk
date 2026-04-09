@@ -276,16 +276,38 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const integration = await getActiveIntegration(req.tenantId!);
-      if (!integration) {
-        res.json({ connected: false, provider: null });
+      if (integration) {
+        res.json({
+          connected: true,
+          provider: integration.provider,
+          displayName: getProvider(integration.provider)?.displayName || integration.provider,
+          organisation_id: integration.organisation_id,
+        });
         return;
       }
-      res.json({
-        connected: true,
-        provider: integration.provider,
-        displayName: getProvider(integration.provider)?.displayName || integration.provider,
-        organisation_id: integration.organisation_id,
-      });
+
+      const { data: pendingRow } = await supabaseAdmin
+        .from("accounting_integrations")
+        .select("*")
+        .eq("tenant_id", req.tenantId!)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (pendingRow && pendingRow.extra_config) {
+        const config = (pendingRow.extra_config || {}) as Record<string, unknown>;
+        const hasCreds = !!(config.client_id && config.client_secret);
+        if (hasCreds) {
+          res.json({
+            connected: false,
+            needs_reconnect: true,
+            provider: pendingRow.provider,
+            displayName: getProvider(pendingRow.provider)?.displayName || pendingRow.provider,
+          });
+          return;
+        }
+      }
+
+      res.json({ connected: false, provider: null });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -483,5 +505,31 @@ router.post(
     }
   }
 );
+
+async function refreshAllTokens() {
+  try {
+    const { data: rows } = await supabaseAdmin
+      .from("accounting_integrations")
+      .select("*")
+      .eq("is_active", true)
+      .not("access_token", "is", null)
+      .not("refresh_token", "is", null);
+
+    if (!rows || rows.length === 0) return;
+
+    for (const row of rows) {
+      try {
+        await ensureFreshToken(row as AccountingIntegrationRow);
+      } catch (err) {
+        console.error(`[accounting] Background token refresh failed for tenant ${row.tenant_id}, provider ${row.provider}: ${(err as Error).message}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[accounting] Background token refresh sweep error: ${(err as Error).message}`);
+  }
+}
+
+setInterval(refreshAllTokens, 30 * 60 * 1000);
+setTimeout(refreshAllTokens, 10_000);
 
 export default router;

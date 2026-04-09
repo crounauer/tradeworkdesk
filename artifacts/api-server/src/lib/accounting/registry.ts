@@ -116,7 +116,25 @@ export async function ensureFreshToken(integration: AccountingIntegrationRow): P
     refresh_token: integration.refresh_token ? decryptToken(integration.refresh_token) : null,
   };
 
-  const refreshed = await provider.refreshTokenIfNeeded(decryptedIntegration);
+  let refreshed: Awaited<ReturnType<typeof provider.refreshTokenIfNeeded>>;
+  try {
+    refreshed = await provider.refreshTokenIfNeeded(decryptedIntegration);
+  } catch (err) {
+    console.error(`[accounting] Token refresh failed for tenant integration ${integration.id}: ${(err as Error).message}`);
+    if ((err as Error).message?.includes("invalid_code") || (err as Error).message?.includes("invalid_client")) {
+      await supabaseAdmin
+        .from("accounting_integrations")
+        .update({
+          access_token: null,
+          refresh_token: null,
+          token_expires_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id);
+    }
+    throw new Error("Your accounting connection has expired. Please go to Company Settings → Accounting Integrations and click Connect to reconnect.");
+  }
+
   if (!refreshed) {
     if (!decryptedIntegration.access_token) throw new Error("No access token available. Please reconnect your accounting integration in Company Settings.");
     return decryptedIntegration.access_token;
