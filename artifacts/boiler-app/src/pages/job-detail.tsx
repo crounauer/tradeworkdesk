@@ -11,7 +11,7 @@ import {
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
-  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle
+  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink
 } from "lucide-react";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -234,6 +234,9 @@ export default function JobDetail() {
                 <Link href={`/properties/${job.property_id}`} className="text-sm text-muted-foreground hover:underline truncate">
                   {job.property?.address_line1}{job.property?.postcode ? `, ${job.property.postcode}` : ""}
                 </Link>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 flex-shrink-0" title="Open in Maps">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             </div>
           </div>
@@ -472,7 +475,12 @@ export default function JobDetail() {
                 {job.property?.address_line1}<br/>
                 {job.property?.postcode}
               </p>
-              <Link href={`/properties/${job.property_id}`} className="text-sm text-primary hover:underline mt-2 inline-block">View Property</Link>
+              <div className="flex items-center gap-3 mt-2">
+                <Link href={`/properties/${job.property_id}`} className="text-sm text-primary hover:underline">View Property</Link>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                  <ExternalLink className="w-3.5 h-3.5" /> Maps
+                </a>
+              </div>
             </Card>
             
             {job.appliance && (
