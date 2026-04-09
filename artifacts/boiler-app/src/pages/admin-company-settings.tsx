@@ -641,6 +641,7 @@ type CalloutRate = {
   id: string;
   name: string;
   amount: number;
+  hourly_rate: number | null;
   day_type: string;
   time_from: string | null;
   time_to: string | null;
@@ -662,7 +663,7 @@ function CalloutRatesSection() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", amount: "", day_type: "weekday", time_from: "", time_to: "", is_default: false });
+  const [form, setForm] = useState({ name: "", amount: "", hourly_rate: "", day_type: "weekday", time_from: "", time_to: "", is_default: false });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchRates = useCallback(async () => {
@@ -676,7 +677,7 @@ function CalloutRatesSection() {
   useEffect(() => { fetchRates(); }, [fetchRates]);
 
   const resetForm = () => {
-    setForm({ name: "", amount: "", day_type: "weekday", time_from: "", time_to: "", is_default: false });
+    setForm({ name: "", amount: "", hourly_rate: "", day_type: "weekday", time_from: "", time_to: "", is_default: false });
     setShowAdd(false);
     setEditingId(null);
   };
@@ -688,6 +689,7 @@ function CalloutRatesSection() {
       const body = {
         name: form.name.trim(),
         amount: Number(form.amount),
+        hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : null,
         day_type: form.day_type,
         time_from: form.time_from || null,
         time_to: form.time_to || null,
@@ -715,6 +717,7 @@ function CalloutRatesSection() {
     setForm({
       name: r.name,
       amount: String(r.amount),
+      hourly_rate: r.hourly_rate != null ? String(r.hourly_rate) : "",
       day_type: r.day_type,
       time_from: r.time_from || "",
       time_to: r.time_to || "",
@@ -761,8 +764,12 @@ function CalloutRatesSection() {
                 <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Weekday Standard" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Amount *</Label>
+                <Label className="text-xs">Callout Amount *</Label>
                 <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="65.00" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Hourly Rate (after 1st hour)</Label>
+                <Input type="number" step="0.01" min="0" value={form.hourly_rate} onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} placeholder="e.g. 45.00" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Day Type</Label>
@@ -813,7 +820,12 @@ function CalloutRatesSection() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-sm">&pound;{Number(r.amount).toFixed(2)}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-sm">&pound;{Number(r.amount).toFixed(2)}</span>
+                    {r.hourly_rate != null && (
+                      <span className="text-xs text-muted-foreground ml-1.5">(£{Number(r.hourly_rate).toFixed(2)}/hr)</span>
+                    )}
+                  </div>
                   <Button size="sm" variant="ghost" onClick={() => handleEdit(r)}><Pencil className="w-3.5 h-3.5" /></Button>
                   <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                 </div>

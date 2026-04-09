@@ -875,9 +875,12 @@ router.get("/admin/callout-rates", requireAuth, requireTenant, requireRole("admi
 });
 
 router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, amount, day_type, time_from, time_to, is_default, sort_order } = req.body;
+  const { name, amount, day_type, time_from, time_to, is_default, sort_order, hourly_rate } = req.body;
   if (!name || amount == null) { res.status(400).json({ error: "name and amount are required" }); return; }
   if (!Number.isFinite(Number(amount)) || Number(amount) < 0) { res.status(400).json({ error: "amount must be a valid non-negative number" }); return; }
+  if (hourly_rate !== undefined && hourly_rate !== null && (!Number.isFinite(Number(hourly_rate)) || Number(hourly_rate) < 0)) {
+    res.status(400).json({ error: "hourly_rate must be a valid non-negative number" }); return;
+  }
 
   if (is_default) {
     await supabaseAdmin.from("callout_rates").update({ is_default: false }).eq("tenant_id", req.tenantId!);
@@ -892,6 +895,7 @@ router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("adm
     time_to: time_to || null,
     is_default: !!is_default,
     sort_order: sort_order ?? 0,
+    hourly_rate: hourly_rate != null && hourly_rate !== "" ? Number(hourly_rate) : null,
   }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   invalidateCalloutRatesCache(req.tenantId!);
@@ -900,7 +904,7 @@ router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("adm
 
 router.put("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { name, amount, day_type, time_from, time_to, is_default, sort_order, is_active } = req.body;
+  const { name, amount, day_type, time_from, time_to, is_default, sort_order, is_active, hourly_rate } = req.body;
 
   if (is_default) {
     await supabaseAdmin.from("callout_rates").update({ is_default: false }).eq("tenant_id", req.tenantId!).neq("id", id);
@@ -908,6 +912,9 @@ router.put("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("
 
   if (amount !== undefined && (!Number.isFinite(Number(amount)) || Number(amount) < 0)) {
     res.status(400).json({ error: "amount must be a valid non-negative number" }); return;
+  }
+  if (hourly_rate !== undefined && hourly_rate !== null && hourly_rate !== "" && (!Number.isFinite(Number(hourly_rate)) || Number(hourly_rate) < 0)) {
+    res.status(400).json({ error: "hourly_rate must be a valid non-negative number" }); return;
   }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -919,6 +926,7 @@ router.put("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("
   if (is_default !== undefined) updates.is_default = !!is_default;
   if (sort_order !== undefined) updates.sort_order = sort_order;
   if (is_active !== undefined) updates.is_active = is_active;
+  if (hourly_rate !== undefined) updates.hourly_rate = hourly_rate != null && hourly_rate !== "" ? Number(hourly_rate) : null;
 
   const { data, error } = await supabaseAdmin.from("callout_rates").update(updates).eq("id", id).eq("tenant_id", req.tenantId!).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }

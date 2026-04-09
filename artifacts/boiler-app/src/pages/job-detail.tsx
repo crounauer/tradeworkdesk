@@ -521,7 +521,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const [editHourlyRate, setEditHourlyRate] = useState("");
   const departureInputRef = useRef<HTMLInputElement>(null);
   const editDepartureInputRef = useRef<HTMLInputElement>(null);
-  const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number; hourly_rate: number | null }[]>([]);
   const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
   const [savingRate, setSavingRate] = useState(false);
 
@@ -536,6 +536,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const handleCalloutRateChange = async (value: string) => {
     setSelectedCalloutRate(value);
+    const selectedRate = value !== "auto" ? calloutRates.find(r => r.id === value) : null;
+    if (selectedRate?.hourly_rate != null) {
+      setHourlyRate(String(Number(selectedRate.hourly_rate)));
+    }
     setSavingRate(true);
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}`, {
@@ -678,7 +682,9 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
         </h3>
         <Button size="sm" variant="outline" onClick={() => {
           if (!showAdd) {
-            const defaultRate = companySettings?.default_hourly_rate;
+            const selectedRate = selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null;
+            const rateHourly = selectedRate?.hourly_rate;
+            const defaultRate = rateHourly != null ? rateHourly : companySettings?.default_hourly_rate;
             setHourlyRate(defaultRate != null && Number(defaultRate) > 0 ? String(Number(defaultRate)) : "");
           }
           setShowAdd(!showAdd);
@@ -747,7 +753,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                 >
                   <option value="auto">Auto (based on time of day)</option>
                   {calloutRates.map(r => (
-                    <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}</option>
+                    <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
                   ))}
                 </select>
                 {savingRate && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
