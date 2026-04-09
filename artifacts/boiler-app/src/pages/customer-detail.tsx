@@ -16,10 +16,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2 } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -231,9 +232,80 @@ export default function CustomerDetail() {
                 ))}
               </div>
             )}
+
+            <CustomerJobsSection customerId={customer.id} />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CustomerJobsSection({ customerId }: { customerId: string }) {
+  const { data: jobsResponse } = useQuery({
+    queryKey: ["customer-jobs", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${customerId}&limit=100`),
+  });
+  const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; description?: string }> || [];
+
+  const statusColors: Record<string, string> = {
+    scheduled: "bg-blue-100 text-blue-700",
+    in_progress: "bg-amber-100 text-amber-700",
+    completed: "bg-emerald-100 text-emerald-700",
+    cancelled: "bg-slate-100 text-slate-500",
+    requires_follow_up: "bg-rose-100 text-rose-700",
+    awaiting_parts: "bg-orange-100 text-orange-700",
+    invoiced: "bg-violet-100 text-violet-700",
+  };
+
+  const statusLabels: Record<string, string> = {
+    scheduled: "Scheduled",
+    in_progress: "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    requires_follow_up: "Follow Up",
+    awaiting_parts: "Awaiting Parts",
+    invoiced: "Invoiced",
+  };
+
+  if (jobs.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-display font-bold flex items-center gap-2">
+        <Briefcase className="w-5 h-5" /> Jobs
+        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{jobs.length}</span>
+      </h2>
+      <div className="space-y-2">
+        {jobs.map(job => (
+          <Link key={job.id} href={`/jobs/${job.id}`}>
+            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[job.status] || "bg-slate-100 text-slate-600"}`}>
+                    {statusLabels[job.status] || job.status}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">
+                      {job.job_ref ? `#${job.job_ref}` : `#${job.id.slice(0, 8)}`}
+                      {(job.job_type_name || job.job_type) ? ` — ${job.job_type_name || job.job_type}` : ""}
+                    </p>
+                    {job.description && (
+                      <p className="text-xs text-muted-foreground truncate">{job.description}</p>
+                    )}
+                  </div>
+                </div>
+                {job.scheduled_date && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
