@@ -657,6 +657,15 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate("");
   };
 
+  const handleEditCalloutRateChange = (value: string) => {
+    const selectedRate = value !== "auto" ? calloutRates.find(r => r.id === value) : null;
+    if (selectedRate?.hourly_rate != null) {
+      setEditHourlyRate(String(Number(selectedRate.hourly_rate)));
+    } else if (companySettings?.default_hourly_rate) {
+      setEditHourlyRate(String(Number(companySettings.default_hourly_rate)));
+    }
+  };
+
   const handleUpdate = async () => {
     if (!editingId || !editArrival) return;
     try {
@@ -667,7 +676,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
           arrival_time: new Date(editArrival).toISOString(),
           departure_time: editDeparture ? new Date(editDeparture).toISOString() : null,
           notes: editNotes || null,
-          hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+          hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
         } as Record<string, unknown>,
       });
       cancelEdit();
@@ -840,16 +849,38 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Notes</Label>
-                    <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Notes</Label>
+                      <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+                    </div>
+                    {calloutRates.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Callout Rate</Label>
+                        <select
+                          className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
+                          defaultValue="auto"
+                          onChange={(e) => handleEditCalloutRateChange(e.target.value)}
+                        >
+                          <option value="auto">Select to change rate...</option>
+                          {calloutRates.map(r => (
+                            <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
+                  {editHourlyRate && (
+                    <div className="text-xs text-muted-foreground">
+                      Hourly rate: <span className="font-medium">£{parseFloat(editHourlyRate).toFixed(2)}/hr</span>
+                    </div>
+                  )}
                   {editArrival && editDeparture && (
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>Duration: {calcDuration(editArrival, editDeparture)}</span>
-                      {hourlyRate && parseFloat(hourlyRate) > 0 && (
+                      {editHourlyRate && parseFloat(editHourlyRate) > 0 && (
                         <span className="font-medium text-emerald-600">
-                          Cost: £{((new Date(editDeparture).getTime() - new Date(editArrival).getTime()) / 3600000 * parseFloat(hourlyRate)).toFixed(2)}
+                          Cost: £{((new Date(editDeparture).getTime() - new Date(editArrival).getTime()) / 3600000 * parseFloat(editHourlyRate)).toFixed(2)}
                         </span>
                       )}
                     </div>
