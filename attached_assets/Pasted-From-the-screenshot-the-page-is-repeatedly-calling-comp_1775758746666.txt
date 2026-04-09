@@ -1,0 +1,199 @@
+From the screenshot, the page is repeatedly calling company-settings, including multiple 429 responses. That usually means one of these is happening:
+
+a render loop is retriggering the fetch
+an input change is firing a save/fetch on every keystroke
+a React Query hook or mutation is invalidating/refetching continuously
+an error path is causing retries until the page crashes
+the component blanks because state becomes undefined after a failed request
+
+Use this prompt exactly:
+
+I need you to debug and permanently fix a bug in my app.
+
+## Problem
+On the Company Settings page, when I enter a job prefix name, the screen goes blank.
+
+## Strong clues
+In browser dev tools, the Network tab shows repeated requests to the `company-settings` endpoint.
+Many requests return `200`, then some return `429`.
+This strongly suggests a render loop / refetch loop / mutation loop / autosave loop causing rate limiting, then the page crashes or renders blank.
+
+## Your task
+Do a full root-cause investigation and implement a production-grade fix.
+
+## What I want you to do
+
+### 1) Find the exact source of the loop
+Inspect all code related to:
+- Company Settings page/component
+- job prefix input field
+- company settings API fetches
+- React Query hooks (`useQuery`, `useMutation`, `invalidateQueries`, `refetch`)
+- `useEffect` dependencies
+- form state syncing
+- autosave logic
+- debounced handlers
+- any code that writes to state during render
+- any code that sets local state from fetched data repeatedly
+
+Look specifically for patterns like:
+- `useEffect(() => { fetchSettings() }, [settings])`
+- calling mutation inside render
+- calling `refetch()` after every keystroke
+- invalidating the same query in `onSuccess` in a way that loops
+- setting form state from query data every render
+- `value={data.jobPrefix}` with no stable local form state
+- `onChange` triggering API update directly with no debounce / save button
+- retries on 429 causing repeated hammering
+- component crashes because `settings`, `data`, or `companySettings` becomes null/undefined
+
+### 2) Add detailed logging
+Add clear logs to identify:
+- every render of the page
+- every fetch of company settings
+- every mutation/save call
+- every query invalidation/refetch
+- every input change
+- any error caught from the endpoint
+- whether 429 is returned
+- whether the page is re-rendering more than expected
+
+Use logs like:
+```ts
+console.log("[CompanySettings] render");
+console.log("[CompanySettings] input change", { name, value });
+console.log("[CompanySettings] fetch settings");
+console.log("[CompanySettings] save settings");
+console.log("[CompanySettings] mutation success");
+console.log("[CompanySettings] invalidating company-settings");
+console.error("[CompanySettings] error", error);
+3) Fix the UI architecture properly
+
+Refactor the page so that:
+
+fetched settings are loaded once into stable local form state
+typing in the job prefix updates only local state
+typing does NOT trigger repeated network calls
+save only happens:
+on explicit Save button click, or
+via a properly debounced autosave (minimum 500–1000ms)
+query refetching does not loop
+429 responses are handled gracefully
+the page never blanks even if save fails
+4) Apply these technical rules
+
+Implement all of these where relevant:
+
+A. Stable local form state
+
+Use a pattern like:
+
+fetch server data
+populate local state once when data first arrives
+do not keep overwriting local state from query data on every render
+
+Example pattern:
+
+const [form, setForm] = useState({ jobPrefix: "" });
+const [initialized, setInitialized] = useState(false);
+
+useEffect(() => {
+  if (data && !initialized) {
+    setForm({
+      jobPrefix: data.jobPrefix ?? "",
+      ...
+    });
+    setInitialized(true);
+  }
+}, [data, initialized]);
+B. Do not mutate on every keystroke unless debounced
+
+If autosave exists, debounce it properly and ensure only one request is in flight for this field at a time.
+
+C. Prevent React Query loops
+
+If using React Query:
+
+ensure query keys are stable
+disable aggressive refetching where unnecessary
+avoid invalidating the same query repeatedly from a change handler
+do not call mutation from inside useEffect unless strictly guarded
+set sensible retry logic, especially for 429
+
+Example:
+
+retry: (failureCount, error) => {
+  const status = error?.response?.status || error?.status;
+  if (status === 429) return false;
+  return failureCount < 2;
+},
+refetchOnWindowFocus: false,
+refetchOnReconnect: false,
+D. Add defensive rendering
+
+The component must never white-screen because of one failed request.
+Add:
+
+loading state
+error boundary or local error fallback
+safe optional chaining
+defaults for missing values
+graceful inline error message if save fails
+E. Handle 429 safely
+
+If API returns 429:
+
+stop retry storms
+show user-friendly inline message
+do not clear form state
+do not crash page
+do not keep hammering endpoint
+5) Check backend/API route too
+
+Inspect the company-settings endpoint and verify:
+
+it is not recursively calling itself
+it is not saving on GET
+it is not rate-limiting due to bad frontend behaviour only
+it validates input safely
+it returns consistent JSON shape
+it does not return null/invalid data that breaks the frontend
+
+Add backend logs for:
+
+request method
+user/company id
+body payload
+response status
+rate-limit trigger
+validation failures
+6) Deliver the fix
+
+After debugging, make the actual code changes and then give me:
+
+Root cause found
+Files changed
+Exact explanation of why the blank screen happened
+Exact explanation of why repeated company-settings requests were happening
+What you changed to stop it
+Any follow-up improvements recommended
+Quality bar
+
+I do NOT want guesses or surface-level fixes.
+I want the real root cause identified and fixed properly.
+Do not just add try/catch and call it solved.
+Do not just hide the crash.
+Stop the repeated requests, stop the 429s, and make the form stable.
+
+Extra requirement
+
+If the job prefix field is currently bound directly to server data, refactor it so the input is controlled by local form state instead of query response state.
+
+Final output format
+
+Respond with:
+
+Root cause
+Fix implemented
+Files changed
+Remaining risks

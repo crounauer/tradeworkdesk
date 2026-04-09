@@ -37,17 +37,17 @@ export default function AdminCompanySettings() {
   const downgradeToSoleTrader = useDowngradeToSoleTrader();
   const isAdmin = profile?.role === "admin";
 
-  const { register, handleSubmit, reset, watch, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
+  const { register, handleSubmit, reset, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const initialLoadRef = useRef(true);
   const settingsLoadedRef = useRef(false);
 
   const buildFormValues = useCallback((s: NonNullable<typeof settings>) => ({
@@ -77,13 +77,10 @@ export default function AdminCompanySettings() {
   }), []);
 
   useEffect(() => {
-    if (settings) {
-      if (settingsLoadedRef.current && isSavingRef.current) return;
-      if (settingsLoadedRef.current && Object.keys(dirtyRef.current).length > 0) return;
+    if (!settings) return;
+    if (!settingsLoadedRef.current) {
       settingsLoadedRef.current = true;
-      suppressWatchRef.current = true;
       reset(buildFormValues(settings));
-      suppressWatchRef.current = false;
       if (settings.logo_url) setLogoPreview(settings.logo_url);
     }
   }, [settings, reset, buildFormValues]);
@@ -106,7 +103,8 @@ export default function AdminCompanySettings() {
   const isSavingRef = useRef(false);
   const pendingSaveRef = useRef(false);
 
-  const performSave = useCallback(async (values: FormValues, showToast = false) => {
+  const performSave = useCallback(async (showToast = false) => {
+    const values = getValues();
     const version = ++saveVersionRef.current;
     const clean = cleanValues(values);
     isSavingRef.current = true;
@@ -116,9 +114,7 @@ export default function AdminCompanySettings() {
       await updateSettings.mutateAsync(clean as Partial<CompanySettings>);
       if (!isMountedRef.current) return;
       if (saveVersionRef.current === version) {
-        suppressWatchRef.current = true;
-        reset(values);
-        suppressWatchRef.current = false;
+        reset(getValues());
         setAutoSaveStatus("saved");
         if (showToast) {
           toast({ title: "Settings saved", description: "Company information has been updated." });
@@ -135,42 +131,39 @@ export default function AdminCompanySettings() {
       isSavingRef.current = false;
       if (pendingSaveRef.current && isMountedRef.current) {
         pendingSaveRef.current = false;
-        if (Object.keys(dirtyRef.current).length > 0) {
-          performSave(getValues());
-        }
+        scheduleAutoSave();
       }
     }
   }, [cleanValues, updateSettings, reset, toast, getValues]);
 
-  const dirtyRef = useRef(dirtyFields);
-  dirtyRef.current = dirtyFields;
-
-  const suppressWatchRef = useRef(false);
+  const scheduleAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (isSavingRef.current) {
+        pendingSaveRef.current = true;
+        return;
+      }
+      performSave();
+    }, 1500);
+  }, [performSave]);
 
   useEffect(() => {
-    const subscription = watch(() => {
-      if (suppressWatchRef.current) return;
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => {
-        if (Object.keys(dirtyRef.current).length === 0) return;
-        if (isSavingRef.current) {
-          pendingSaveRef.current = true;
-          return;
-        }
-        const current = getValues();
-        performSave(current);
-      }, 1500);
-    });
+    const form = formRef.current;
+    if (!form) return;
+    const handler = () => { scheduleAutoSave(); };
+    form.addEventListener("input", handler);
+    form.addEventListener("change", handler);
     return () => {
-      subscription.unsubscribe();
+      form.removeEventListener("input", handler);
+      form.removeEventListener("change", handler);
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [watch, getValues, performSave]);
+  }, [scheduleAutoSave]);
 
   useEffect(() => {
     return () => {
-      if (Object.keys(dirtyRef.current).length > 0) {
-        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
         const current = getValues();
         const clean = cleanValues(current);
         updateSettings.mutate(clean as Partial<CompanySettings>);
@@ -178,12 +171,12 @@ export default function AdminCompanySettings() {
     };
   }, [getValues, cleanValues, updateSettings]);
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async () => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
     }
-    await performSave(values, true);
+    await performSave(true);
   };
 
   const handleLogoFile = async (file: File) => {
@@ -426,7 +419,7 @@ export default function AdminCompanySettings() {
       )}
 
       {/* Main form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Identity */}
         <Card>
           <CardHeader>
