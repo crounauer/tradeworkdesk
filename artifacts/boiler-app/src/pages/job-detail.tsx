@@ -590,13 +590,19 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const billableHours = callOutFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
 
   const entryBreakdowns = (() => {
-    const map = new Map<string, { totalHours: number; billableHours: number; billableCost: number; hourlyRate: number; entryCost: number }>();
+    const map = new Map<string, { totalHours: number; calloutHours: number; calloutRate: number; calloutCost: number; billableHours: number; hourlyRate: number; billableCost: number; entryCost: number }>();
+    let hoursProcessed = 0;
     for (const e of sortedEntries) {
-      if (!e.departure_time) { map.set(e.id, { totalHours: 0, billableHours: 0, billableCost: 0, hourlyRate: 0, entryCost: 0 }); continue; }
+      if (!e.departure_time) { map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: 0, calloutCost: 0, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: 0 }); continue; }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
       const rate = e.hourly_rate != null ? parseFloat(String(e.hourly_rate)) : 0;
-      const billableCost = hours > 0 && rate > 0 ? hours * rate : 0;
-      map.set(e.id, { totalHours: hours, billableHours: hours, billableCost, hourlyRate: rate, entryCost: billableCost });
+      const calloutHours = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
+      const calloutCost = calloutHours > 0 ? callOutFee * calloutHours : 0;
+      const billableHours = hours - calloutHours;
+      const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
+      const entryCost = calloutCost + billableCost;
+      map.set(e.id, { totalHours: hours, calloutHours, calloutRate: callOutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
+      hoursProcessed += hours;
     }
     return map;
   })();
@@ -927,17 +933,31 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                   {entry.departure_time && (() => {
                     const bd = entryBreakdowns.get(entry.id);
                     if (!bd || bd.totalHours === 0) return null;
-                    if (bd.hourlyRate <= 0) return null;
+                    if (bd.hourlyRate <= 0 && bd.calloutHours <= 0) return null;
                     const matchedRate = calloutRates.find(r => r.hourly_rate != null && Number(r.hourly_rate) === bd.hourlyRate);
                     return (
                       <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
                         {matchedRate && (
                           <div className="text-xs font-medium text-slate-500">{matchedRate.name}</div>
                         )}
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-muted-foreground">{formatTotalTime(bd.totalHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
-                          <span className="font-medium text-emerald-600">£{bd.entryCost.toFixed(2)}</span>
-                        </div>
+                        {bd.calloutHours > 0 && bd.calloutRate > 0 && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">{formatTotalTime(bd.calloutHours * 60)} @ £{bd.calloutRate.toFixed(2)}/hr</span>
+                            <span className="font-medium text-emerald-600">£{bd.calloutCost.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {bd.billableHours > 0 && bd.hourlyRate > 0 && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">{formatTotalTime(bd.billableHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
+                            <span className="font-medium text-emerald-600">£{bd.billableCost.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {bd.calloutHours > 0 && bd.billableHours > 0 && (
+                          <div className="flex justify-between items-center text-xs pt-0.5 border-t border-border/20">
+                            <span className="text-muted-foreground font-medium">Entry total</span>
+                            <span className="font-semibold text-emerald-700">£{bd.entryCost.toFixed(2)}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
