@@ -901,7 +901,7 @@ export async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
-  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate, technician_id").eq("job_id", jobId).order("arrival_time", { ascending: true });
+  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate, created_by").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
 
@@ -934,7 +934,7 @@ export async function buildInvoiceData(
 
   const techNameMap = new Map<string, string>();
   if (timeEntries && timeEntries.length > 0) {
-    const techIds = [...new Set((timeEntries as { technician_id?: string }[]).map(e => e.technician_id).filter(Boolean))] as string[];
+    const techIds = [...new Set((timeEntries as { created_by?: string }[]).map(e => e.created_by).filter(Boolean))] as string[];
     if (techIds.length > 0) {
       const { data: profiles } = await supabaseAdmin.from("profiles").select("id, first_name, last_name").in("id", techIds);
       if (profiles) {
@@ -946,7 +946,7 @@ export async function buildInvoiceData(
   }
 
   if (timeEntries) {
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; technician_id?: string }[]) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; created_by?: string }[]) {
       if (!e.arrival_time || !e.departure_time) continue;
       const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
       if (diffMs <= 0) continue;
@@ -961,7 +961,7 @@ export async function buildInvoiceData(
       const dateStr = arrDate.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
       const arrTime = arrDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
       const depTime = depDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-      const techName = e.technician_id ? techNameMap.get(e.technician_id) : null;
+      const techName = e.created_by ? techNameMap.get(e.created_by) : null;
       attendanceSummaryLines.push(`${dateStr}: ${arrTime} - ${depTime} (${durationStr})${techName ? ` — ${techName}` : ""}`);
 
       const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
