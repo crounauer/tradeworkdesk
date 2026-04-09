@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, Component as ReactComponent } from "react";
+import type { ReactNode, ErrorInfo } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,64 +7,106 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 
-const Login = lazy(() => import("@/pages/login"));
-import Dashboard from "@/pages/dashboard";
-const Customers = lazy(() => import("@/pages/customers"));
-const CustomerDetail = lazy(() => import("@/pages/customer-detail"));
-const Properties = lazy(() => import("@/pages/properties"));
-const PropertyDetail = lazy(() => import("@/pages/property-detail"));
-const Appliances = lazy(() => import("@/pages/appliances"));
-const ApplianceDetail = lazy(() => import("@/pages/appliance-detail"));
-const Jobs = lazy(() => import("@/pages/jobs"));
-const JobDetail = lazy(() => import("@/pages/job-detail"));
-const ServiceRecordForm = lazy(() => import("@/pages/service-record-form"));
-const BreakdownReportForm = lazy(() => import("@/pages/breakdown-report-form"));
-const CommissioningRecordForm = lazy(() => import("@/pages/commissioning-record-form"));
-const OilTankInspectionForm = lazy(() => import("@/pages/oil-tank-inspection-form"));
-const OilTankRiskAssessmentForm = lazy(() => import("@/pages/oil-tank-risk-assessment-form"));
-const CombustionAnalysisForm = lazy(() => import("@/pages/combustion-analysis-form"));
-const BurnerSetupForm = lazy(() => import("@/pages/burner-setup-form"));
-const FireValveTestForm = lazy(() => import("@/pages/fire-valve-test-form"));
-const OilLineVacuumTestForm = lazy(() => import("@/pages/oil-line-vacuum-test-form"));
-const JobCompletionReportForm = lazy(() => import("@/pages/job-completion-report-form"));
-const HeatPumpServiceForm = lazy(() => import("@/pages/heat-pump-service-form"));
-const HeatPumpCommissioningForm = lazy(() => import("@/pages/heat-pump-commissioning-form"));
-const JobFiles = lazy(() => import("@/pages/job-files"));
-const JobSignatures = lazy(() => import("@/pages/job-signatures"));
-const Reports = lazy(() => import("@/pages/reports"));
-const SearchPage = lazy(() => import("@/pages/search"));
-const AdminUsers = lazy(() => import("@/pages/admin-users"));
-const AdminInviteCodes = lazy(() => import("@/pages/admin-invite-codes"));
-const AdminLookupOptions = lazy(() => import("@/pages/admin-lookup-options"));
-const AdminCompanySettings = lazy(() => import("@/pages/admin-company-settings"));
-const AdminSocial = lazy(() => import("@/pages/admin-social"));
-const AdminJobTypes = lazy(() => import("@/pages/admin-job-types"));
-const AdminReassignJobs = lazy(() => import("@/pages/admin-reassign-jobs"));
-const AdminInvoiceLog = lazy(() => import("@/pages/admin-invoice-log"));
-const Register = lazy(() => import("@/pages/register"));
-const PlatformDashboard = lazy(() => import("@/pages/platform-dashboard"));
-const PlatformTenants = lazy(() => import("@/pages/platform-tenants"));
-const PlatformTenantDetail = lazy(() => import("@/pages/platform-tenant-detail"));
-const PlatformPlans = lazy(() => import("@/pages/platform-plans"));
-const PlatformAnnouncements = lazy(() => import("@/pages/platform-announcements"));
-const PlatformAuditLog = lazy(() => import("@/pages/platform-audit-log"));
-const QuickRecord = lazy(() => import("@/pages/quick-record"));
-const Enquiries = lazy(() => import("@/pages/enquiries"));
-const EnquiryDetail = lazy(() => import("@/pages/enquiry-detail"));
-const Billing = lazy(() => import("@/pages/billing"));
-const AccountSettings = lazy(() => import("@/pages/account-settings"));
-const NotFound = lazy(() => import("@/pages/not-found"));
+function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
+  return lazy(() =>
+    importFn().catch(() => {
+      const hasReloaded = sessionStorage.getItem("chunk_reload");
+      if (!hasReloaded) {
+        sessionStorage.setItem("chunk_reload", "1");
+        window.location.reload();
+      }
+      sessionStorage.removeItem("chunk_reload");
+      return importFn();
+    })
+  );
+}
 
-const HomePage = lazy(() => import("@/pages/marketing/home"));
-const FeaturesPage = lazy(() => import("@/pages/marketing/features"));
-const PricingPage = lazy(() => import("@/pages/marketing/pricing"));
-const AboutPage = lazy(() => import("@/pages/marketing/about"));
-const ContactPage = lazy(() => import("@/pages/marketing/contact"));
-const TradeLandingPage = lazy(() => import("@/pages/marketing/trade-landing"));
-const BlogIndex = lazy(() => import("@/pages/marketing/blog-index"));
-const BlogPostPage = lazy(() => import("@/pages/marketing/blog-post"));
-const PrivacyPolicyPage = lazy(() => import("@/pages/marketing/privacy-policy"));
-const TermsOfServicePage = lazy(() => import("@/pages/marketing/terms-of-service"));
+class ChunkErrorBoundary extends ReactComponent<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    if (error.message?.includes("Loading chunk") || error.message?.includes("Failed to fetch") || error.message?.includes("dynamically imported module")) {
+      const hasReloaded = sessionStorage.getItem("chunk_reload");
+      if (!hasReloaded) {
+        sessionStorage.setItem("chunk_reload", "1");
+        window.location.reload();
+      }
+      sessionStorage.removeItem("chunk_reload");
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="text-center space-y-3">
+            <p className="text-muted-foreground">Something went wrong loading this page.</p>
+            <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm" onClick={() => window.location.reload()}>Reload Page</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const Login = lazyRetry(() => import("@/pages/login"));
+import Dashboard from "@/pages/dashboard";
+const Customers = lazyRetry(() => import("@/pages/customers"));
+const CustomerDetail = lazyRetry(() => import("@/pages/customer-detail"));
+const Properties = lazyRetry(() => import("@/pages/properties"));
+const PropertyDetail = lazyRetry(() => import("@/pages/property-detail"));
+const Appliances = lazyRetry(() => import("@/pages/appliances"));
+const ApplianceDetail = lazyRetry(() => import("@/pages/appliance-detail"));
+const Jobs = lazyRetry(() => import("@/pages/jobs"));
+const JobDetail = lazyRetry(() => import("@/pages/job-detail"));
+const ServiceRecordForm = lazyRetry(() => import("@/pages/service-record-form"));
+const BreakdownReportForm = lazyRetry(() => import("@/pages/breakdown-report-form"));
+const CommissioningRecordForm = lazyRetry(() => import("@/pages/commissioning-record-form"));
+const OilTankInspectionForm = lazyRetry(() => import("@/pages/oil-tank-inspection-form"));
+const OilTankRiskAssessmentForm = lazyRetry(() => import("@/pages/oil-tank-risk-assessment-form"));
+const CombustionAnalysisForm = lazyRetry(() => import("@/pages/combustion-analysis-form"));
+const BurnerSetupForm = lazyRetry(() => import("@/pages/burner-setup-form"));
+const FireValveTestForm = lazyRetry(() => import("@/pages/fire-valve-test-form"));
+const OilLineVacuumTestForm = lazyRetry(() => import("@/pages/oil-line-vacuum-test-form"));
+const JobCompletionReportForm = lazyRetry(() => import("@/pages/job-completion-report-form"));
+const HeatPumpServiceForm = lazyRetry(() => import("@/pages/heat-pump-service-form"));
+const HeatPumpCommissioningForm = lazyRetry(() => import("@/pages/heat-pump-commissioning-form"));
+const JobFiles = lazyRetry(() => import("@/pages/job-files"));
+const JobSignatures = lazyRetry(() => import("@/pages/job-signatures"));
+const Reports = lazyRetry(() => import("@/pages/reports"));
+const SearchPage = lazyRetry(() => import("@/pages/search"));
+const AdminUsers = lazyRetry(() => import("@/pages/admin-users"));
+const AdminInviteCodes = lazyRetry(() => import("@/pages/admin-invite-codes"));
+const AdminLookupOptions = lazyRetry(() => import("@/pages/admin-lookup-options"));
+const AdminCompanySettings = lazyRetry(() => import("@/pages/admin-company-settings"));
+const AdminSocial = lazyRetry(() => import("@/pages/admin-social"));
+const AdminJobTypes = lazyRetry(() => import("@/pages/admin-job-types"));
+const AdminReassignJobs = lazyRetry(() => import("@/pages/admin-reassign-jobs"));
+const AdminInvoiceLog = lazyRetry(() => import("@/pages/admin-invoice-log"));
+const Register = lazyRetry(() => import("@/pages/register"));
+const PlatformDashboard = lazyRetry(() => import("@/pages/platform-dashboard"));
+const PlatformTenants = lazyRetry(() => import("@/pages/platform-tenants"));
+const PlatformTenantDetail = lazyRetry(() => import("@/pages/platform-tenant-detail"));
+const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
+const PlatformAnnouncements = lazyRetry(() => import("@/pages/platform-announcements"));
+const PlatformAuditLog = lazyRetry(() => import("@/pages/platform-audit-log"));
+const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
+const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
+const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
+const Billing = lazyRetry(() => import("@/pages/billing"));
+const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
+const NotFound = lazyRetry(() => import("@/pages/not-found"));
+
+const HomePage = lazyRetry(() => import("@/pages/marketing/home"));
+const FeaturesPage = lazyRetry(() => import("@/pages/marketing/features"));
+const PricingPage = lazyRetry(() => import("@/pages/marketing/pricing"));
+const AboutPage = lazyRetry(() => import("@/pages/marketing/about"));
+const ContactPage = lazyRetry(() => import("@/pages/marketing/contact"));
+const TradeLandingPage = lazyRetry(() => import("@/pages/marketing/trade-landing"));
+const BlogIndex = lazyRetry(() => import("@/pages/marketing/blog-index"));
+const BlogPostPage = lazyRetry(() => import("@/pages/marketing/blog-post"));
+const PrivacyPolicyPage = lazyRetry(() => import("@/pages/marketing/privacy-policy"));
+const TermsOfServicePage = lazyRetry(() => import("@/pages/marketing/terms-of-service"));
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -235,9 +278,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppRouter />
-          </WouterRouter>
+          <ChunkErrorBoundary>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppRouter />
+            </WouterRouter>
+          </ChunkErrorBoundary>
           <Toaster />
         </TooltipProvider>
       </AuthProvider>
