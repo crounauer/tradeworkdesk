@@ -48,41 +48,45 @@ export default function AdminCompanySettings() {
   }, []);
 
   const initialLoadRef = useRef(true);
-  const justSavedRef = useRef(false);
+  const settingsLoadedRef = useRef(false);
+
+  const buildFormValues = useCallback((s: NonNullable<typeof settings>) => ({
+    name: s.name ?? "",
+    trading_name: s.trading_name ?? "",
+    address_line1: s.address_line1 ?? "",
+    address_line2: s.address_line2 ?? "",
+    city: s.city ?? "",
+    county: s.county ?? "",
+    postcode: s.postcode ?? "",
+    country: s.country ?? "United Kingdom",
+    phone: s.phone ?? "",
+    email: s.email ?? "",
+    website: s.website ?? "",
+    gas_safe_number: s.gas_safe_number ?? "",
+    oftec_number: s.oftec_number ?? "",
+    vat_number: s.vat_number ?? "",
+    company_number: s.company_number ?? "",
+    default_hourly_rate: String(Number(s.default_hourly_rate ?? 0)),
+    call_out_fee: String(Number(s.call_out_fee ?? 0)),
+    default_vat_rate: String(Number(s.default_vat_rate ?? 20)),
+    default_payment_terms_days: String(Number(s.default_payment_terms_days ?? 30)),
+    currency: s.currency ?? "GBP",
+    rates_url: s.rates_url ?? "",
+    trading_terms_url: s.trading_terms_url ?? "",
+    job_number_prefix: s.job_number_prefix ?? "",
+  }), []);
 
   useEffect(() => {
     if (settings) {
-      if (justSavedRef.current) { justSavedRef.current = false; return; }
-      if (!initialLoadRef.current && Object.keys(dirtyRef.current).length > 0) return;
-      initialLoadRef.current = false;
-      reset({
-        name: settings.name ?? "",
-        trading_name: settings.trading_name ?? "",
-        address_line1: settings.address_line1 ?? "",
-        address_line2: settings.address_line2 ?? "",
-        city: settings.city ?? "",
-        county: settings.county ?? "",
-        postcode: settings.postcode ?? "",
-        country: settings.country ?? "United Kingdom",
-        phone: settings.phone ?? "",
-        email: settings.email ?? "",
-        website: settings.website ?? "",
-        gas_safe_number: settings.gas_safe_number ?? "",
-        oftec_number: settings.oftec_number ?? "",
-        vat_number: settings.vat_number ?? "",
-        company_number: settings.company_number ?? "",
-        default_hourly_rate: String(Number(settings.default_hourly_rate ?? 0)),
-        call_out_fee: String(Number(settings.call_out_fee ?? 0)),
-        default_vat_rate: String(Number(settings.default_vat_rate ?? 20)),
-        default_payment_terms_days: String(Number(settings.default_payment_terms_days ?? 30)),
-        currency: settings.currency ?? "GBP",
-        rates_url: settings.rates_url ?? "",
-        trading_terms_url: settings.trading_terms_url ?? "",
-        job_number_prefix: settings.job_number_prefix ?? "",
-      });
+      if (settingsLoadedRef.current && isSavingRef.current) return;
+      if (settingsLoadedRef.current && Object.keys(dirtyRef.current).length > 0) return;
+      settingsLoadedRef.current = true;
+      suppressWatchRef.current = true;
+      reset(buildFormValues(settings));
+      suppressWatchRef.current = false;
       if (settings.logo_url) setLogoPreview(settings.logo_url);
     }
-  }, [settings, reset]);
+  }, [settings, reset, buildFormValues]);
 
   const numericFields = new Set(["default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days"]);
 
@@ -106,13 +110,15 @@ export default function AdminCompanySettings() {
     const version = ++saveVersionRef.current;
     const clean = cleanValues(values);
     isSavingRef.current = true;
+    if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
     try {
       setAutoSaveStatus("saving");
       await updateSettings.mutateAsync(clean as Partial<CompanySettings>);
       if (!isMountedRef.current) return;
       if (saveVersionRef.current === version) {
-        justSavedRef.current = true;
+        suppressWatchRef.current = true;
         reset(values);
+        suppressWatchRef.current = false;
         setAutoSaveStatus("saved");
         if (showToast) {
           toast({ title: "Settings saved", description: "Company information has been updated." });
@@ -139,8 +145,11 @@ export default function AdminCompanySettings() {
   const dirtyRef = useRef(dirtyFields);
   dirtyRef.current = dirtyFields;
 
+  const suppressWatchRef = useRef(false);
+
   useEffect(() => {
     const subscription = watch(() => {
+      if (suppressWatchRef.current) return;
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => {
         if (Object.keys(dirtyRef.current).length === 0) return;
