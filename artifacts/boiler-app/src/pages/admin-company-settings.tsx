@@ -37,7 +37,15 @@ export default function AdminCompanySettings() {
   const downgradeToSoleTrader = useDowngradeToSoleTrader();
   const isAdmin = profile?.role === "admin";
 
-  const { register, handleSubmit, reset, formState: { isDirty } } = useForm<FormValues>();
+  const { register, handleSubmit, reset, watch, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     if (settings) {
@@ -71,7 +79,7 @@ export default function AdminCompanySettings() {
 
   const numericFields = new Set(["default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days"]);
 
-  const onSubmit = async (values: FormValues) => {
+  const cleanValues = useCallback((values: FormValues) => {
     const clean: Record<string, string | number | null> = {};
     for (const [k, v] of Object.entries(values)) {
       if (numericFields.has(k)) {
@@ -80,13 +88,85 @@ export default function AdminCompanySettings() {
         clean[k] = (v as string)?.trim() || null;
       }
     }
+    return clean;
+  }, []);
+
+  const saveVersionRef = useRef(0);
+  const isSavingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
+
+  const performSave = useCallback(async (values: FormValues, showToast = false) => {
+    const version = ++saveVersionRef.current;
+    const clean = cleanValues(values);
+    isSavingRef.current = true;
     try {
+      setAutoSaveStatus("saving");
       await updateSettings.mutateAsync(clean as Partial<CompanySettings>);
-      toast({ title: "Settings saved", description: "Company information has been updated." });
-      reset(values);
+      if (!isMountedRef.current) return;
+      if (saveVersionRef.current === version) {
+        reset(values);
+        setAutoSaveStatus("saved");
+        if (showToast) {
+          toast({ title: "Settings saved", description: "Company information has been updated." });
+        }
+        setTimeout(() => {
+          if (isMountedRef.current) setAutoSaveStatus("idle");
+        }, 2000);
+      }
     } catch (err) {
+      if (!isMountedRef.current) return;
+      setAutoSaveStatus("idle");
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      isSavingRef.current = false;
+      if (pendingSaveRef.current && isMountedRef.current) {
+        pendingSaveRef.current = false;
+        if (Object.keys(dirtyRef.current).length > 0) {
+          performSave(getValues());
+        }
+      }
     }
+  }, [cleanValues, updateSettings, reset, toast, getValues]);
+
+  const dirtyRef = useRef(dirtyFields);
+  dirtyRef.current = dirtyFields;
+
+  useEffect(() => {
+    const subscription = watch(() => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
+        if (Object.keys(dirtyRef.current).length === 0) return;
+        if (isSavingRef.current) {
+          pendingSaveRef.current = true;
+          return;
+        }
+        const current = getValues();
+        performSave(current);
+      }, 1500);
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [watch, getValues, performSave]);
+
+  useEffect(() => {
+    return () => {
+      if (Object.keys(dirtyRef.current).length > 0) {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        const current = getValues();
+        const clean = cleanValues(current);
+        updateSettings.mutate(clean as Partial<CompanySettings>);
+      }
+    };
+  }, [getValues, cleanValues, updateSettings]);
+
+  const onSubmit = async (values: FormValues) => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    await performSave(values, true);
   };
 
   const handleLogoFile = async (file: File) => {
@@ -523,13 +603,23 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex items-center justify-end gap-3 pt-2">
+          {autoSaveStatus === "saving" && (
+            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+            </span>
+          )}
+          {autoSaveStatus === "saved" && !isDirty && (
+            <span className="text-sm text-emerald-600 flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" /> Saved
+            </span>
+          )}
           {isDirty && (
             <Button type="button" variant="outline" onClick={() => reset()}>
               Discard Changes
             </Button>
           )}
-          <Button type="submit" disabled={updateSettings.isPending}>
+          <Button type="submit" disabled={updateSettings.isPending || autoSaveStatus === "saving"}>
             {updateSettings.isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
             ) : (
