@@ -590,25 +590,20 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const billableHours = callOutFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
 
   const entryBreakdowns = (() => {
-    const map = new Map<string, { totalHours: number; coveredByCallout: number; billableHours: number; billableCost: number; hourlyRate: number; calloutFeeShare: number }>();
-    let hoursProcessed = 0;
+    const map = new Map<string, { totalHours: number; billableHours: number; billableCost: number; hourlyRate: number; entryCost: number }>();
     for (const e of sortedEntries) {
-      if (!e.departure_time) { map.set(e.id, { totalHours: 0, coveredByCallout: 0, billableHours: 0, billableCost: 0, hourlyRate: 0, calloutFeeShare: 0 }); continue; }
+      if (!e.departure_time) { map.set(e.id, { totalHours: 0, billableHours: 0, billableCost: 0, hourlyRate: 0, entryCost: 0 }); continue; }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
       const rate = e.hourly_rate != null ? parseFloat(String(e.hourly_rate)) : 0;
-      const coveredByCallout = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
-      const billableHours = hours - coveredByCallout;
-      const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
-      const calloutFeeShare = coveredByCallout > 0 && callOutFee > 0 ? (coveredByCallout / 1) * callOutFee : 0;
-      map.set(e.id, { totalHours: hours, coveredByCallout, billableHours, billableCost, hourlyRate: rate, calloutFeeShare });
-      hoursProcessed += hours;
+      const billableCost = hours > 0 && rate > 0 ? hours * rate : 0;
+      map.set(e.id, { totalHours: hours, billableHours: hours, billableCost, hourlyRate: rate, entryCost: billableCost });
     }
     return map;
   })();
 
   const totalLabourCost = (() => {
     let cost = 0;
-    for (const b of entryBreakdowns.values()) cost += b.billableCost;
+    for (const b of entryBreakdowns.values()) cost += b.entryCost;
     return cost;
   })();
 
@@ -901,26 +896,13 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                   {entry.departure_time && (() => {
                     const bd = entryBreakdowns.get(entry.id);
                     if (!bd || bd.totalHours === 0) return null;
+                    if (bd.hourlyRate <= 0) return null;
                     return (
-                      <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
-                        {bd.calloutFeeShare > 0 && (
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">Call-out fee ({formatTotalTime(bd.coveredByCallout * 60)} covered)</span>
-                            <span className="font-medium text-emerald-600">£{bd.calloutFeeShare.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {bd.billableHours > 0 && bd.hourlyRate > 0 && (
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">{formatTotalTime(bd.billableHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
-                            <span className="font-medium text-emerald-600">£{bd.billableCost.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {bd.calloutFeeShare > 0 && bd.billableCost > 0 && (
-                          <div className="flex justify-between items-center text-xs pt-0.5 border-t border-border/20">
-                            <span className="text-muted-foreground font-medium">Entry total</span>
-                            <span className="font-semibold text-emerald-700">£{(bd.calloutFeeShare + bd.billableCost).toFixed(2)}</span>
-                          </div>
-                        )}
+                      <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-muted-foreground">{formatTotalTime(bd.totalHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
+                          <span className="font-medium text-emerald-600">£{bd.entryCost.toFixed(2)}</span>
+                        </div>
                       </div>
                     );
                   })()}
@@ -933,31 +915,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               <span className="text-sm font-medium text-muted-foreground">Total Time</span>
               <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
             </div>
-            {callOutFee > 0 && hasEntries && (
+            {totalLabourCost > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Call-out Fee <span className="text-xs">(covers first hour)</span></span>
-                <span className="font-medium text-emerald-600">£{callOutFee.toFixed(2)}</span>
-              </div>
-            )}
-            {callOutFee > 0 && billableHours > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Billable time <span className="text-xs">(after first hour)</span></span>
-                <span className="text-sm text-amber-600">
-                  {formatTotalTime(billableHours * 60)}
-                  {totalLabourCost > 0 && <span className="ml-1 font-medium text-emerald-600">£{totalLabourCost.toFixed(2)}</span>}
-                </span>
-              </div>
-            )}
-            {totalLabourCost > 0 && !callOutFee && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Labour cost</span>
-                <span className="font-medium text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
-              </div>
-            )}
-            {callOutFee > 0 && hasEntries && (
-              <div className="flex justify-between items-center pt-1 border-t border-border/30">
-                <span className="text-sm font-medium">Total</span>
-                <span className="font-bold text-emerald-600">£{(callOutFee + totalLabourCost).toFixed(2)}</span>
+                <span className="text-sm text-muted-foreground">Labour Total</span>
+                <span className="font-bold text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
               </div>
             )}
           </div>
