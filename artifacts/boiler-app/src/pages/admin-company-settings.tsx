@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { useCompanySettings, useUpdateCompanySettings, useUploadCompanyLogo } from "@/hooks/use-company-settings";
+import { useCompanySettings, useUploadCompanyLogo } from "@/hooks/use-company-settings";
 import type { CompanySettings } from "@/hooks/use-company-settings";
 import { useCompanyType, useUpgradeToCompany, useDowngradeToSoleTrader } from "@/hooks/use-company-type";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,7 +23,6 @@ type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "lo
 
 export default function AdminCompanySettings() {
   const { data: settings, isLoading } = useCompanySettings();
-  const updateSettings = useUpdateCompanySettings();
   const uploadLogo = useUploadCompanyLogo();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -42,52 +41,64 @@ export default function AdminCompanySettings() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const settingsLoadedRef = useRef(false);
+  const isSavingRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const settingsLoadedRef = useRef(false);
-
-  const buildFormValues = useCallback((s: NonNullable<typeof settings>) => ({
-    name: s.name ?? "",
-    trading_name: s.trading_name ?? "",
-    address_line1: s.address_line1 ?? "",
-    address_line2: s.address_line2 ?? "",
-    city: s.city ?? "",
-    county: s.county ?? "",
-    postcode: s.postcode ?? "",
-    country: s.country ?? "United Kingdom",
-    phone: s.phone ?? "",
-    email: s.email ?? "",
-    website: s.website ?? "",
-    gas_safe_number: s.gas_safe_number ?? "",
-    oftec_number: s.oftec_number ?? "",
-    vat_number: s.vat_number ?? "",
-    company_number: s.company_number ?? "",
-    default_hourly_rate: String(Number(s.default_hourly_rate ?? 0)),
-    call_out_fee: String(Number(s.call_out_fee ?? 0)),
-    default_vat_rate: String(Number(s.default_vat_rate ?? 20)),
-    default_payment_terms_days: String(Number(s.default_payment_terms_days ?? 30)),
-    currency: s.currency ?? "GBP",
-    rates_url: s.rates_url ?? "",
-    trading_terms_url: s.trading_terms_url ?? "",
-    job_number_prefix: s.job_number_prefix ?? "",
-  }), []);
-
   useEffect(() => {
-    if (!settings) return;
-    if (!settingsLoadedRef.current) {
-      settingsLoadedRef.current = true;
-      reset(buildFormValues(settings));
-      if (settings.logo_url) setLogoPreview(settings.logo_url);
-    }
-  }, [settings, reset, buildFormValues]);
+    if (!settings || settingsLoadedRef.current) return;
+    settingsLoadedRef.current = true;
+    reset({
+      name: settings.name ?? "",
+      trading_name: settings.trading_name ?? "",
+      address_line1: settings.address_line1 ?? "",
+      address_line2: settings.address_line2 ?? "",
+      city: settings.city ?? "",
+      county: settings.county ?? "",
+      postcode: settings.postcode ?? "",
+      country: settings.country ?? "United Kingdom",
+      phone: settings.phone ?? "",
+      email: settings.email ?? "",
+      website: settings.website ?? "",
+      gas_safe_number: settings.gas_safe_number ?? "",
+      oftec_number: settings.oftec_number ?? "",
+      vat_number: settings.vat_number ?? "",
+      company_number: settings.company_number ?? "",
+      default_hourly_rate: String(Number(settings.default_hourly_rate ?? 0)),
+      call_out_fee: String(Number(settings.call_out_fee ?? 0)),
+      default_vat_rate: String(Number(settings.default_vat_rate ?? 20)),
+      default_payment_terms_days: String(Number(settings.default_payment_terms_days ?? 30)),
+      currency: settings.currency ?? "GBP",
+      rates_url: settings.rates_url ?? "",
+      trading_terms_url: settings.trading_terms_url ?? "",
+      job_number_prefix: settings.job_number_prefix ?? "",
+    });
+    if (settings.logo_url) setLogoPreview(settings.logo_url);
+  }, [settings, reset]);
 
   const numericFields = new Set(["default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days"]);
 
-  const cleanValues = useCallback((values: FormValues) => {
+  const saveToServer = useCallback(async (values: Record<string, unknown>) => {
+    const res = await fetch("/api/admin/company-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || "Failed to save settings");
+    }
+  }, []);
+
+  const doSave = useCallback(async (showToast = false) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
+    const values = getValues();
     const clean: Record<string, string | number | null> = {};
     for (const [k, v] of Object.entries(values)) {
       if (numericFields.has(k)) {
@@ -96,87 +107,54 @@ export default function AdminCompanySettings() {
         clean[k] = (v as string)?.trim() || null;
       }
     }
-    return clean;
-  }, []);
-
-  const saveVersionRef = useRef(0);
-  const isSavingRef = useRef(false);
-  const pendingSaveRef = useRef(false);
-
-  const performSave = useCallback(async (showToast = false) => {
-    const values = getValues();
-    const version = ++saveVersionRef.current;
-    const clean = cleanValues(values);
-    isSavingRef.current = true;
-    if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
     try {
       setAutoSaveStatus("saving");
-      await updateSettings.mutateAsync(clean as Partial<CompanySettings>);
+      await saveToServer(clean);
       if (!isMountedRef.current) return;
-      if (saveVersionRef.current === version) {
-        reset(getValues());
-        setAutoSaveStatus("saved");
-        if (showToast) {
-          toast({ title: "Settings saved", description: "Company information has been updated." });
-        }
-        setTimeout(() => {
-          if (isMountedRef.current) setAutoSaveStatus("idle");
-        }, 2000);
+      setAutoSaveStatus("saved");
+      if (showToast) {
+        toast({ title: "Settings saved", description: "Company information has been updated." });
       }
+      setTimeout(() => { if (isMountedRef.current) setAutoSaveStatus("idle"); }, 2000);
     } catch (err) {
       if (!isMountedRef.current) return;
       setAutoSaveStatus("idle");
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
     } finally {
       isSavingRef.current = false;
-      if (pendingSaveRef.current && isMountedRef.current) {
-        pendingSaveRef.current = false;
-        scheduleAutoSave();
-      }
     }
-  }, [cleanValues, updateSettings, reset, toast, getValues]);
-
-  const scheduleAutoSave = useCallback(() => {
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      if (isSavingRef.current) {
-        pendingSaveRef.current = true;
-        return;
-      }
-      performSave();
-    }, 1500);
-  }, [performSave]);
+  }, [getValues, saveToServer, toast]);
 
   useEffect(() => {
     const form = formRef.current;
     if (!form) return;
-    const handler = () => { scheduleAutoSave(); };
+    const handler = () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => { doSave(); }, 1500);
+    };
     form.addEventListener("input", handler);
     form.addEventListener("change", handler);
     return () => {
       form.removeEventListener("input", handler);
       form.removeEventListener("change", handler);
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [scheduleAutoSave]);
+  }, [doSave]);
 
   useEffect(() => {
     return () => {
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
-        const current = getValues();
-        const clean = cleanValues(current);
-        updateSettings.mutate(clean as Partial<CompanySettings>);
+        autoSaveTimerRef.current = null;
       }
     };
-  }, [getValues, cleanValues, updateSettings]);
+  }, []);
 
   const onSubmit = async () => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
     }
-    await performSave(true);
+    await doSave(true);
   };
 
   const handleLogoFile = async (file: File) => {
@@ -642,8 +620,8 @@ export default function AdminCompanySettings() {
               Discard Changes
             </Button>
           )}
-          <Button type="submit" disabled={updateSettings.isPending || autoSaveStatus === "saving"}>
-            {updateSettings.isPending ? (
+          <Button type="submit" disabled={autoSaveStatus === "saving"}>
+            {autoSaveStatus === "saving" ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
             ) : (
               <><Save className="w-4 h-4 mr-2" /> Save Settings</>
