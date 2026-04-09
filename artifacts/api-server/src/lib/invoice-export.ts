@@ -39,6 +39,7 @@ export interface InvoiceData {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  attendance_summary?: string;
 }
 
 function escapeCSV(val: string | number | null | undefined): string {

@@ -901,7 +901,7 @@ export async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
-  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate").eq("job_id", jobId).order("arrival_time", { ascending: true });
+  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate, technician_id, profiles(first_name, last_name)").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
 
@@ -930,13 +930,27 @@ export async function buildInvoiceData(
   let totalLabourCost = 0;
   let totalCallOutCost = 0;
 
+  const attendanceSummaryLines: string[] = [];
+
   if (timeEntries) {
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null }[]) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; technician_id?: string; profiles?: { first_name: string; last_name: string } | null }[]) {
       if (!e.arrival_time || !e.departure_time) continue;
       const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
       if (diffMs <= 0) continue;
 
       const hours = diffMs / (1000 * 60 * 60);
+      const totalMins = Math.round(diffMs / 60000);
+      const durationH = Math.floor(totalMins / 60);
+      const durationM = totalMins % 60;
+      const durationStr = durationH > 0 ? `${durationH}h ${durationM}m` : `${durationM}m`;
+      const arrDate = new Date(e.arrival_time);
+      const depDate = new Date(e.departure_time);
+      const dateStr = arrDate.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+      const arrTime = arrDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const depTime = depDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const techName = e.profiles ? `${e.profiles.first_name} ${e.profiles.last_name}`.trim() : null;
+      attendanceSummaryLines.push(`${dateStr}: ${arrTime} - ${depTime} (${durationStr})${techName ? ` — ${techName}` : ""}`);
+
       const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
 
       const matchedCallout = calloutRatesList.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
@@ -1029,6 +1043,9 @@ export async function buildInvoiceData(
     vat_rate: vatRate,
     vat_amount: vatAmount,
     total,
+    attendance_summary: attendanceSummaryLines.length > 0
+      ? `Attendance:\n${attendanceSummaryLines.join("\n")}`
+      : undefined,
   };
 }
 

@@ -452,6 +452,12 @@ router.post(
         }
       );
 
+      const notesParts: string[] = [];
+      if (invoiceData.job_ref) notesParts.push(`Job Ref: ${invoiceData.job_ref}`);
+      if (invoiceData.job_description) notesParts.push(invoiceData.job_description);
+      if (invoiceData.attendance_summary) notesParts.push(invoiceData.attendance_summary);
+      const notes = notesParts.join("\n\n");
+
       const invoiceResult = await provider.createInvoice(
         accessToken,
         integration.organisation_id || "",
@@ -467,7 +473,8 @@ router.post(
             unit_price: l.unit_price,
             tax_percentage: invoiceData.vat_rate,
           })),
-          reference: jobId.substring(0, 8),
+          reference: invoiceData.job_ref || jobId.substring(0, 8),
+          notes,
         }
       );
 
