@@ -500,6 +500,8 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
   const [editDeparture, setEditDeparture] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editHourlyRate, setEditHourlyRate] = useState("");
+  const departureInputRef = useRef<HTMLInputElement>(null);
+  const editDepartureInputRef = useRef<HTMLInputElement>(null);
 
   const callOutFee = Number(companySettings?.call_out_fee) || 0;
 
@@ -633,14 +635,34 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
             <div className="space-y-1">
               <Label className="text-xs">Arrival *</Label>
               <div className="flex gap-1.5">
-                <Input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} className="flex-1" />
-                <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setArrival(toLocalDatetimeStr(new Date()))}>Now</Button>
+                <Input type="datetime-local" value={arrival} onChange={(e) => {
+                  const val = e.target.value;
+                  setArrival(val);
+                  if (val && !departure) {
+                    const datePart = val.split("T")[0];
+                    if (datePart) {
+                      setDeparture(datePart + "T00:00");
+                      setTimeout(() => departureInputRef.current?.focus(), 0);
+                    }
+                  }
+                }} className="flex-1" />
+                <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
+                  const now = toLocalDatetimeStr(new Date());
+                  setArrival(now);
+                  if (!departure) {
+                    const datePart = now.split("T")[0];
+                    if (datePart) {
+                      setDeparture(datePart + "T00:00");
+                      setTimeout(() => departureInputRef.current?.focus(), 0);
+                    }
+                  }
+                }}>Now</Button>
               </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Departure</Label>
               <div className="flex gap-1.5">
-                <Input type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} className="flex-1" />
+                <Input ref={departureInputRef} type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} className="flex-1" />
                 <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
               </div>
             </div>
@@ -688,14 +710,34 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
                     <div className="space-y-1">
                       <Label className="text-xs">Arrival *</Label>
                       <div className="flex gap-1.5">
-                        <Input type="datetime-local" value={editArrival} onChange={(e) => setEditArrival(e.target.value)} className="flex-1" />
-                        <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setEditArrival(toLocalDatetimeStr(new Date()))}>Now</Button>
+                        <Input type="datetime-local" value={editArrival} onChange={(e) => {
+                          const val = e.target.value;
+                          setEditArrival(val);
+                          if (val && !editDeparture) {
+                            const datePart = val.split("T")[0];
+                            if (datePart) {
+                              setEditDeparture(datePart + "T00:00");
+                              setTimeout(() => editDepartureInputRef.current?.focus(), 0);
+                            }
+                          }
+                        }} className="flex-1" />
+                        <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
+                          const now = toLocalDatetimeStr(new Date());
+                          setEditArrival(now);
+                          if (!editDeparture) {
+                            const datePart = now.split("T")[0];
+                            if (datePart) {
+                              setEditDeparture(datePart + "T00:00");
+                              setTimeout(() => editDepartureInputRef.current?.focus(), 0);
+                            }
+                          }
+                        }}>Now</Button>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Departure</Label>
                       <div className="flex gap-1.5">
-                        <Input type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} className="flex-1" />
+                        <Input ref={editDepartureInputRef} type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} className="flex-1" />
                         <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setEditDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
                       </div>
                     </div>
