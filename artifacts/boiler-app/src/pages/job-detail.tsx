@@ -258,7 +258,7 @@ export default function JobDetail() {
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
-              <PricingSummarySection jobId={job.id} jobStatus={job.status} calloutRateId={(job as unknown as Record<string, unknown>).callout_rate_id as string | null} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} externalInvoiceSentAt={job.external_invoice_sent_at} refreshKey={pricingRefresh} onCalloutRateChange={() => setPricingRefresh(k => k + 1)} />
+              <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} externalInvoiceSentAt={job.external_invoice_sent_at} refreshKey={pricingRefresh} />
             )}
 
             <PhotosSection jobId={job.id} />
@@ -1224,7 +1224,7 @@ interface AccountingIntegrationStatus {
   displayName: string;
 }
 
-function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoiceId, externalInvoiceProvider, externalInvoiceSentAt, refreshKey = 0, onCalloutRateChange }: { jobId: string; jobStatus: string; calloutRateId?: string | null; externalInvoiceId?: string | null; externalInvoiceProvider?: string | null; externalInvoiceSentAt?: string | null; refreshKey?: number; onCalloutRateChange?: () => void }) {
+function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalInvoiceProvider, externalInvoiceSentAt, refreshKey = 0 }: { jobId: string; jobStatus: string; externalInvoiceId?: string | null; externalInvoiceProvider?: string | null; externalInvoiceSentAt?: string | null; refreshKey?: number }) {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -1235,10 +1235,6 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
   const [sentExternalId, setSentExternalId] = useState<string | null>(externalInvoiceId || null);
   const [sentProviderName, setSentProviderName] = useState<string | null>(null);
   const [sentTimestamp, setSentTimestamp] = useState<string | null>(externalInvoiceSentAt || null);
-  const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number }[]>([]);
-  const [calloutRatesError, setCalloutRatesError] = useState(false);
-  const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
-  const [savingRate, setSavingRate] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1264,36 +1260,6 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
       }
     })();
   }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`);
-        if (Array.isArray(data)) setCalloutRates(data as { id: string; name: string; amount: number }[]);
-        setCalloutRatesError(false);
-      } catch (e: unknown) {
-        const status = (e as { status?: number })?.status;
-        if (status === 401 || status === 403) return;
-        setCalloutRatesError(true);
-      }
-    })();
-  }, []);
-
-  const handleCalloutRateChange = async (value: string) => {
-    setSelectedCalloutRate(value);
-    setSavingRate(true);
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callout_rate_id: value === "auto" ? null : value }),
-      });
-      toast({ title: "Updated", description: "Callout rate override saved" });
-      onCalloutRateChange?.();
-    } catch (e: unknown) {
-      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to update", variant: "destructive" });
-    } finally { setSavingRate(false); }
-  };
 
   const handleSendToAccounting = async () => {
     setSendingToAccounting(true);
@@ -1450,31 +1416,6 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
               </Button>
             </div>
           )}
-        </div>
-      )}
-
-      {calloutRatesError && (
-        <div className="flex items-center gap-2 mb-3 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-600">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>Failed to load callout rates</span>
-        </div>
-      )}
-
-      {calloutRates.length > 0 && (
-        <div className="flex items-center gap-3 mb-3 p-3 bg-slate-50/50 rounded-lg border">
-          <label className="text-sm font-medium whitespace-nowrap">Callout Rate:</label>
-          <select
-            className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
-            value={selectedCalloutRate}
-            onChange={(e) => handleCalloutRateChange(e.target.value)}
-            disabled={savingRate}
-          >
-            <option value="auto">Auto (based on time entry)</option>
-            {calloutRates.map(r => (
-              <option key={r.id} value={r.id}>{r.name} - &pound;{Number(r.amount).toFixed(2)}</option>
-            ))}
-          </select>
-          {savingRate && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
       )}
 
