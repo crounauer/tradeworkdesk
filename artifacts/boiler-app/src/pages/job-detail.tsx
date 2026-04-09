@@ -85,9 +85,30 @@ export default function JobDetail() {
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
   const [pricingRefresh, setPricingRefresh] = useState(0);
   const [showReturnVisit, setShowReturnVisit] = useState(false);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
 
   if (isLoading) return <div className="p-8">Loading job details...</div>;
   if (!job) return <div>Job not found</div>;
+
+  const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
+
+  const handleSendConfirmationDirect = async () => {
+    setSendingConfirmation(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/send-confirmation`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to send confirmation email");
+      }
+      toast({ title: "Email sent", description: `Appointment confirmation sent to ${customerEmail}` });
+      setEmailLogRefresh(k => k + 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send email";
+      toast({ title: "Email error", description: message, variant: "destructive" });
+    } finally {
+      setSendingConfirmation(false);
+    }
+  };
 
   const statusColors: Record<string, string> = {
     scheduled: "bg-blue-100 text-blue-700",
@@ -272,6 +293,14 @@ export default function JobDetail() {
                   <p className="text-foreground whitespace-pre-wrap">{job.description || 'No description provided.'}</p>
                 </div>
               </div>
+              {(profile?.role === "admin" || profile?.role === "office_staff") && customerEmail && (
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <Button variant="outline" size="sm" onClick={handleSendConfirmationDirect} disabled={sendingConfirmation} className="gap-2">
+                    <Mail className="w-4 h-4" />
+                    {sendingConfirmation ? "Sending..." : "Email Appointment Confirmation"}
+                  </Button>
+                </div>
+              )}
             </Card>
 
             <TimeAttendedSection jobId={job.id} calloutRateId={(job as unknown as Record<string, unknown>).callout_rate_id as string | null} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
