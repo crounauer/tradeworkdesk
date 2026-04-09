@@ -253,7 +253,7 @@ export default function JobDetail() {
               </div>
             </Card>
 
-            <TimeAttendedSection jobId={job.id} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
+            <TimeAttendedSection jobId={job.id} calloutRateId={(job as unknown as Record<string, unknown>).callout_rate_id as string | null} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
@@ -481,7 +481,7 @@ export default function JobDetail() {
   );
 }
 
-function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged }: { jobId: string; legacyArrival: string | null; legacyDeparture: string | null; onChanged?: () => void }) {
+function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDeparture, onChanged }: { jobId: string; calloutRateId?: string | null; legacyArrival: string | null; legacyDeparture: string | null; onChanged?: () => void }) {
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
@@ -502,8 +502,41 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
   const [editHourlyRate, setEditHourlyRate] = useState("");
   const departureInputRef = useRef<HTMLInputElement>(null);
   const editDepartureInputRef = useRef<HTMLInputElement>(null);
+  const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number }[]>([]);
+  const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
+  const [savingRate, setSavingRate] = useState(false);
 
-  const callOutFee = Number(companySettings?.call_out_fee) || 0;
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`);
+        if (Array.isArray(data)) setCalloutRates(data as { id: string; name: string; amount: number }[]);
+      } catch { /* silently ignore auth errors */ }
+    })();
+  }, []);
+
+  const handleCalloutRateChange = async (value: string) => {
+    setSelectedCalloutRate(value);
+    setSavingRate(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callout_rate_id: value === "auto" ? null : value }),
+      });
+      onChanged?.();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to update", variant: "destructive" });
+    } finally { setSavingRate(false); }
+  };
+
+  const selectedRateAmount = (() => {
+    if (selectedCalloutRate === "auto") return Number(companySettings?.call_out_fee) || 0;
+    const found = calloutRates.find(r => r.id === selectedCalloutRate);
+    return found ? Number(found.amount) : Number(companySettings?.call_out_fee) || 0;
+  })();
+
+  const callOutFee = selectedRateAmount;
 
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
@@ -624,7 +657,13 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
         <h3 className="font-bold text-lg flex items-center gap-2 text-amber-600">
           <Clock className="w-5 h-5" /> Time Attended
         </h3>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
+        <Button size="sm" variant="outline" onClick={() => {
+          if (!showAdd) {
+            const defaultRate = companySettings?.default_hourly_rate;
+            setHourlyRate(defaultRate != null && Number(defaultRate) > 0 ? String(Number(defaultRate)) : "");
+          }
+          setShowAdd(!showAdd);
+        }}>
           <Plus className="w-4 h-4 mr-1" /> Add Entry
         </Button>
       </div>
@@ -677,6 +716,25 @@ function TimeAttendedSection({ jobId, legacyArrival, legacyDeparture, onChanged 
               <Input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="e.g. 45.00" />
             </div>
           </div>
+          {calloutRates.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs">Callout Rate</Label>
+              <div className="flex items-center gap-2">
+                <select
+                  className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
+                  value={selectedCalloutRate}
+                  onChange={(e) => handleCalloutRateChange(e.target.value)}
+                  disabled={savingRate}
+                >
+                  <option value="auto">Auto (based on time of day)</option>
+                  {calloutRates.map(r => (
+                    <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}</option>
+                  ))}
+                </select>
+                {savingRate && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+              </div>
+            </div>
+          )}
           {arrival && departure && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>Duration: {calcDuration(arrival, departure)}</span>
