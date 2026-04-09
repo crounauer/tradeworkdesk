@@ -849,7 +849,11 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const [editPrice, setEditPrice] = useState("");
   const [productSuggestions, setProductSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchedQuery, setSearchedQuery] = useState("");
+  const [searchError, setSearchError] = useState(false);
   const productSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchSeqRef = useRef(0);
 
   const fetchParts = useCallback(async () => {
     try {
@@ -866,13 +870,28 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
 
   const searchProducts = (query: string) => {
     if (productSearchTimeout.current) clearTimeout(productSearchTimeout.current);
-    if (!query.trim()) { setProductSuggestions([]); setShowSuggestions(false); return; }
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    if (!query.trim()) { setProductSuggestions([]); setShowSuggestions(false); setSearchedQuery(""); setSearchError(false); return; }
     productSearchTimeout.current = setTimeout(async () => {
+      const seq = ++searchSeqRef.current;
+      const abortCtrl = new AbortController();
+      searchAbortRef.current = abortCtrl;
       try {
-        const data = await customFetch(`${import.meta.env.BASE_URL}api/products/search?q=${encodeURIComponent(query)}`);
-        setProductSuggestions(Array.isArray(data) ? data as { id: string; name: string; default_price: number | null }[] : []);
+        setSearchError(false);
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/products/search?q=${encodeURIComponent(query)}`, { signal: abortCtrl.signal });
+        if (seq !== searchSeqRef.current) return;
+        const results = Array.isArray(data) ? data as { id: string; name: string; default_price: number | null }[] : [];
+        setProductSuggestions(results);
+        setSearchedQuery(query.trim());
         setShowSuggestions(true);
-      } catch { setProductSuggestions([]); }
+      } catch (e: unknown) {
+        if (seq !== searchSeqRef.current) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setProductSuggestions([]);
+        setSearchedQuery(query.trim());
+        setSearchError(true);
+        setShowSuggestions(true);
+      }
     }, 250);
   };
 
@@ -962,19 +981,25 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                 placeholder="Type to search catalogue..."
                 autoComplete="off"
               />
-              {showSuggestions && productSuggestions.length > 0 && (
+              {showSuggestions && searchedQuery && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {productSuggestions.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
-                      onMouseDown={(e) => { e.preventDefault(); selectProduct(p); }}
-                    >
-                      <span>{p.name}</span>
-                      {p.default_price != null && <span className="text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
-                    </button>
-                  ))}
+                  {searchError ? (
+                    <div className="px-3 py-2 text-sm text-red-500">Failed to search catalogue</div>
+                  ) : productSuggestions.length > 0 ? (
+                    productSuggestions.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
+                        onMouseDown={(e) => { e.preventDefault(); selectProduct(p); }}
+                      >
+                        <span>{p.name}</span>
+                        {p.default_price != null && <span className="text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
+                  )}
                 </div>
               )}
             </div>
@@ -1319,7 +1344,7 @@ function PricingSummarySection({ jobId, jobStatus, calloutRateId, externalInvoic
         </div>
       )}
 
-      {expanded && calloutRates.length > 0 && (
+      {calloutRates.length > 0 && (
         <div className="flex items-center gap-3 mb-3 p-3 bg-slate-50/50 rounded-lg border">
           <label className="text-sm font-medium whitespace-nowrap">Callout Rate:</label>
           <select

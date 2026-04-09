@@ -840,7 +840,24 @@ router.get("/admin/assignable-users", requireAuth, requireTenant, async (req: Au
   res.json(data || []);
 });
 
+const calloutRatesCache = new Map<string, { data: unknown; ts: number; ver: number }>();
+const calloutRatesCacheVer = new Map<string, number>();
+const CALLOUT_RATES_CACHE_TTL = 30_000;
+
+function invalidateCalloutRatesCache(tenantId: string) {
+  calloutRatesCacheVer.set(tenantId, (calloutRatesCacheVer.get(tenantId) || 0) + 1);
+  calloutRatesCache.delete(tenantId);
+}
+
 router.get("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const cacheKey = req.tenantId!;
+  const cached = calloutRatesCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CALLOUT_RATES_CACHE_TTL) {
+    res.set("Cache-Control", "private, max-age=30");
+    res.json(cached.data);
+    return;
+  }
+  const verBefore = calloutRatesCacheVer.get(cacheKey) || 0;
   const { data, error } = await supabaseAdmin
     .from("callout_rates")
     .select("*")
@@ -848,7 +865,13 @@ router.get("/admin/callout-rates", requireAuth, requireTenant, requireRole("admi
     .order("sort_order")
     .order("name");
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || []);
+  const result = data || [];
+  const verAfter = calloutRatesCacheVer.get(cacheKey) || 0;
+  if (verBefore === verAfter) {
+    calloutRatesCache.set(cacheKey, { data: result, ts: Date.now(), ver: verAfter });
+  }
+  res.set("Cache-Control", "private, max-age=30");
+  res.json(result);
 });
 
 router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -871,6 +894,7 @@ router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("adm
     sort_order: sort_order ?? 0,
   }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  invalidateCalloutRatesCache(req.tenantId!);
   res.json(data);
 });
 
@@ -898,12 +922,14 @@ router.put("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("
 
   const { data, error } = await supabaseAdmin.from("callout_rates").update(updates).eq("id", id).eq("tenant_id", req.tenantId!).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  invalidateCalloutRatesCache(req.tenantId!);
   res.json(data);
 });
 
 router.delete("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { error } = await supabaseAdmin.from("callout_rates").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId!);
   if (error) { res.status(500).json({ error: error.message }); return; }
+  invalidateCalloutRatesCache(req.tenantId!);
   res.json({ success: true });
 });
 
