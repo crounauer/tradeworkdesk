@@ -17,6 +17,7 @@ Key capabilities include:
 - A comprehensive platform administration panel for managing tenants, plans, and announcements.
 - A public-facing marketing site with SEO-optimized content and a blog.
 - Customer CSV import with field mapping, duplicate detection, and preview.
+- Configurable job number prefixes (e.g. NNE0001) via Company Settings, with auto-incrementing sequential numbering. DB columns: `company_settings.job_number_prefix`, `company_settings.job_number_next`, `jobs.job_ref`.
 
 # User Preferences
 

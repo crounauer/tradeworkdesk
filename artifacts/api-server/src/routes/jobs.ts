@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
+
+const SINGLETON_ID = "default";
 import {
   ListJobsQueryParams,
   ListJobsResponse,
@@ -127,7 +129,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -287,16 +289,36 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
       .from("company_settings")
       .select("job_number_prefix, job_number_next")
       .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", SINGLETON_ID)
       .maybeSingle();
     const prefix = (cs?.job_number_prefix ?? "").trim().toUpperCase();
     const nextNum = cs?.job_number_next ?? 1;
     generatedJobRef = prefix
       ? `${prefix}${String(nextNum).padStart(4, "0")}`
       : `JOB-${String(nextNum).padStart(4, "0")}`;
-    await supabaseAdmin
+    const { error: updErr } = await supabaseAdmin
       .from("company_settings")
       .update({ job_number_next: nextNum + 1 })
-      .eq("tenant_id", req.tenantId);
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", SINGLETON_ID)
+      .eq("job_number_next", nextNum);
+    if (updErr || !cs) {
+      const retryResult = await supabaseAdmin
+        .from("company_settings")
+        .select("job_number_next")
+        .eq("tenant_id", req.tenantId)
+        .eq("singleton_id", SINGLETON_ID)
+        .maybeSingle();
+      const retryNum = retryResult.data?.job_number_next ?? nextNum + 1;
+      generatedJobRef = prefix
+        ? `${prefix}${String(retryNum).padStart(4, "0")}`
+        : `JOB-${String(retryNum).padStart(4, "0")}`;
+      await supabaseAdmin
+        .from("company_settings")
+        .update({ job_number_next: retryNum + 1 })
+        .eq("tenant_id", req.tenantId)
+        .eq("singleton_id", SINGLETON_ID);
+    }
   }
 
   const insertPayload = {
@@ -996,6 +1018,7 @@ export async function buildInvoiceData(
     customer_county: customer?.county || "",
     customer_postcode: customer?.postcode || "",
     job_id: job.id,
+    job_ref: job.job_ref || `JOB-${job.id.slice(0, 8).toUpperCase()}`,
     job_type: job.job_type,
     job_description: job.description || `${job.job_type} job`,
     lines,
@@ -1529,13 +1552,13 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
     config.label,
     record as Record<string, unknown>,
     config.fieldMap,
-    { jobRef: job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate },
+    { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate },
     pdfCompany,
     fuelType,
   );
 
   const safeLabel = config.label.replace(/[^a-zA-Z0-9]/g, "_");
-  const filename = `${safeLabel}_${job.id.slice(0, 8).toUpperCase()}.pdf`;
+  const filename = `${safeLabel}_${job.job_ref || job.id.slice(0, 8).toUpperCase()}.pdf`;
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -1603,7 +1626,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Customer";
   const techProfile = job.profiles as { full_name: string } | null;
   const technicianName = techProfile?.full_name || "Technician";
-  const jobRef = `#${job.id.slice(0, 8)}`;
+  const jobRef = job.job_ref || `#${job.id.slice(0, 8)}`;
 
   let propertyAddress = "";
   if (job.property_id) {
@@ -1625,7 +1648,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const scheduledDate = job.scheduled_date || "";
   const appliance = job.appliances as { fuel_type: string } | null;
   const fuelType = appliance?.fuel_type || "oil";
-  const formCtx = { jobRef: job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
+  const formCtx = { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
 
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
   const attachments: EmailAttachment[] = [];

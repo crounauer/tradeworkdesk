@@ -28,6 +28,7 @@ export interface InvoiceData {
   customer_county: string;
   customer_postcode: string;
   job_id: string;
+  job_ref?: string;
   job_type: string;
   job_description: string;
   lines: InvoiceLineItem[];
@@ -79,7 +80,7 @@ export function generateUniversalCSV(invoices: InvoiceData[]): string {
         escapeCSV(isFirst ? inv.customer_name : ""),
         escapeCSV(isFirst ? inv.customer_email : ""),
         escapeCSV(isFirst ? inv.customer_address : ""),
-        escapeCSV(isFirst ? inv.job_id : ""),
+        escapeCSV(isFirst ? (inv.job_ref || inv.job_id) : ""),
         escapeCSV(isFirst ? inv.job_type : ""),
         escapeCSV(isFirst ? inv.job_description : ""),
         escapeCSV(line.description),
@@ -104,7 +105,7 @@ export function generateUniversalCSV(invoices: InvoiceData[]): string {
         escapeCSV(inv.customer_name),
         escapeCSV(inv.customer_email),
         escapeCSV(inv.customer_address),
-        escapeCSV(inv.job_id),
+        escapeCSV(inv.job_ref || inv.job_id),
         escapeCSV(inv.job_type),
         escapeCSV(inv.job_description),
         "", "", "", "",
@@ -225,7 +226,7 @@ export function generateSageCSV(invoices: InvoiceData[]): string {
         escapeCSV(inv.vat_rate > 0 ? "T1" : "T0"),
         escapeCSV((line.total * inv.vat_rate / 100).toFixed(2)),
         escapeCSV("1.00"),
-        escapeCSV(inv.job_id.substring(0, 8)),
+        escapeCSV(inv.job_ref || inv.job_id.substring(0, 8)),
         "", "", "", "",
       ].join(","));
     }
