@@ -901,7 +901,7 @@ export async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
-  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate, technician_id, profiles(first_name, last_name)").eq("job_id", jobId).order("arrival_time", { ascending: true });
+  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate, technician_id").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
 
@@ -932,8 +932,21 @@ export async function buildInvoiceData(
 
   const attendanceSummaryLines: string[] = [];
 
+  const techNameMap = new Map<string, string>();
+  if (timeEntries && timeEntries.length > 0) {
+    const techIds = [...new Set((timeEntries as { technician_id?: string }[]).map(e => e.technician_id).filter(Boolean))] as string[];
+    if (techIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin.from("profiles").select("id, first_name, last_name").in("id", techIds);
+      if (profiles) {
+        for (const p of profiles as { id: string; first_name: string; last_name: string }[]) {
+          techNameMap.set(p.id, `${p.first_name} ${p.last_name}`.trim());
+        }
+      }
+    }
+  }
+
   if (timeEntries) {
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; technician_id?: string; profiles?: { first_name: string; last_name: string } | null }[]) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; technician_id?: string }[]) {
       if (!e.arrival_time || !e.departure_time) continue;
       const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
       if (diffMs <= 0) continue;
@@ -948,7 +961,7 @@ export async function buildInvoiceData(
       const dateStr = arrDate.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
       const arrTime = arrDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
       const depTime = depDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-      const techName = e.profiles ? `${e.profiles.first_name} ${e.profiles.last_name}`.trim() : null;
+      const techName = e.technician_id ? techNameMap.get(e.technician_id) : null;
       attendanceSummaryLines.push(`${dateStr}: ${arrTime} - ${depTime} (${durationStr})${techName ? ` — ${techName}` : ""}`);
 
       const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
