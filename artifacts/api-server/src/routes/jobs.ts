@@ -458,6 +458,18 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     res.status(500).json({ error: msg }); return;
   }
 
+  const { data: senderProfile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", req.userId!).single();
+  const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
+    job_id: jobId,
+    tenant_id: req.tenantId,
+    sent_by: req.userId,
+    sent_to: customer.email,
+    cc: null,
+    subject: `Job Confirmation — ${jobRef}`,
+    forms_included: [{ form_type: "confirmation", form_label: "Appointment Confirmation", form_id: jobId }],
+  });
+  if (logErr) console.error("[email] Failed to log confirmation email:", logErr);
+
   res.json({ success: true, sent_to: customer.email });
 });
 

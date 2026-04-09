@@ -218,7 +218,7 @@ export default function JobDetail() {
       )}
 
       {editing ? (
-        <EditJobForm job={job as unknown as JobLike} onClose={() => setEditing(false)} />
+        <EditJobForm job={job as unknown as JobLike} onClose={() => setEditing(false)} onEmailSent={() => setEmailLogRefresh(k => k + 1)} />
       ) : (
         <>
         <Card className="p-4 border border-border/50 shadow-sm bg-slate-50/50 mb-6 lg:hidden">
@@ -1921,7 +1921,7 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
   );
 }
 
-function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
+function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () => void; onEmailSent?: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateJob();
   const { toast } = useToast();
@@ -1956,6 +1956,7 @@ function EditJobForm({ job, onClose }: { job: JobLike; onClose: () => void }) {
       }
       toast({ title: "Email sent", description: `Confirmation sent to ${customerEmail}` });
       setShowEmailPrompt(false);
+      onEmailSent?.();
       onClose();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send email";
