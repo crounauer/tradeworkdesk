@@ -28,6 +28,9 @@ export interface CompanySettings {
   rates_url?: string | null;
   trading_terms_url?: string | null;
   job_number_prefix?: string | null;
+  google_calendar_enabled?: boolean | null;
+  google_client_id?: string | null;
+  google_client_secret?: string | null;
   created_at?: string;
   updated_at?: string;
 }

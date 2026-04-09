@@ -13,6 +13,7 @@ Key capabilities include:
 - Client-side PDF generation for various certificates and reports.
 - Invoice export functionalities in multiple formats.
 - Pluggable accounting integrations framework (Zoho Invoice first, architecture ready for Xero, QuickBooks, Sage, FreeAgent). Admin connects via OAuth in Company Settings, then sends invoices from job detail with one click.
+- Google Calendar sync settings in Company Settings: toggle to enable/disable, fields for Google Client ID and Client Secret. DB columns: `company_settings.google_calendar_enabled`, `company_settings.google_client_id`, `company_settings.google_client_secret`. Migration: `supabase/patch-019-google-calendar-settings.sql`.
 - Social media integration for marketing and post scheduling.
 - A comprehensive platform administration panel for managing tenants, plans, and announcements.
 - A public-facing marketing site with SEO-optimized content and a blog.

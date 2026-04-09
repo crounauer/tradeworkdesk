@@ -15,7 +15,7 @@ import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
   Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
-  Plus, X, Check, Clock, Star, Package, Pencil
+  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync
 } from "lucide-react";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 
@@ -74,11 +74,15 @@ export default function AdminCompanySettings() {
       rates_url: settings.rates_url ?? "",
       trading_terms_url: settings.trading_terms_url ?? "",
       job_number_prefix: settings.job_number_prefix ?? "",
+      google_calendar_enabled: settings.google_calendar_enabled ?? false,
+      google_client_id: settings.google_client_id ?? "",
+      google_client_secret: settings.google_client_secret ?? "",
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days"]);
+  const booleanFields = new Set(["google_calendar_enabled"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -97,9 +101,11 @@ export default function AdminCompanySettings() {
     isSavingRef.current = true;
     if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
     const values = getValues();
-    const clean: Record<string, string | number | null> = {};
+    const clean: Record<string, string | number | boolean | null> = {};
     for (const [k, v] of Object.entries(values)) {
-      if (numericFields.has(k)) {
+      if (booleanFields.has(k)) {
+        clean[k] = Boolean(v);
+      } else if (numericFields.has(k)) {
         clean[k] = v != null && v !== "" ? Number(v) : null;
       } else {
         clean[k] = (v as string)?.trim() || null;
@@ -589,6 +595,43 @@ export default function AdminCompanySettings() {
               <Label htmlFor="trading_terms_url">Trading Terms URL</Label>
               <Input id="trading_terms_url" type="url" placeholder="e.g. https://www.example.com/terms" {...register("trading_terms_url")} />
               <p className="text-xs text-muted-foreground">Link to your terms and conditions.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarSync className="w-4 h-4" />
+              Google Calendar Sync
+            </CardTitle>
+            <CardDescription>
+              Sync scheduled jobs to Google Calendar automatically. Enter your Google OAuth credentials to enable this feature.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="google_calendar_enabled"
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                {...register("google_calendar_enabled")}
+              />
+              <Label htmlFor="google_calendar_enabled" className="cursor-pointer">
+                Enable Google Calendar sync
+              </Label>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="google_client_id">Google Client ID</Label>
+                <Input id="google_client_id" placeholder="e.g. 123456789.apps.googleusercontent.com" {...register("google_client_id")} />
+                <p className="text-xs text-muted-foreground">From your Google Cloud Console OAuth 2.0 credentials.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="google_client_secret">Google Client Secret</Label>
+                <Input id="google_client_secret" type="password" placeholder="Enter client secret" {...register("google_client_secret")} />
+                <p className="text-xs text-muted-foreground">Keep this value secret. It will be stored encrypted.</p>
+              </div>
             </div>
           </CardContent>
         </Card>

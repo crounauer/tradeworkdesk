@@ -410,6 +410,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "gas_safe_number", "oftec_number", "vat_number", "company_number",
     "default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days", "currency",
     "rates_url", "trading_terms_url", "job_number_prefix",
+    "google_calendar_enabled", "google_client_id", "google_client_secret",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };
