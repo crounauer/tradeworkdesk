@@ -589,19 +589,26 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const totalHours = totalMinutes / 60;
   const billableHours = callOutFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
 
-  const totalLabourCost = (() => {
-    let cost = 0;
+  const entryBreakdowns = (() => {
+    const map = new Map<string, { totalHours: number; coveredByCallout: number; billableHours: number; billableCost: number; hourlyRate: number; calloutFeeShare: number }>();
     let hoursProcessed = 0;
     for (const e of sortedEntries) {
-      if (!e.departure_time || !e.hourly_rate) continue;
+      if (!e.departure_time) { map.set(e.id, { totalHours: 0, coveredByCallout: 0, billableHours: 0, billableCost: 0, hourlyRate: 0, calloutFeeShare: 0 }); continue; }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
+      const rate = e.hourly_rate != null ? parseFloat(String(e.hourly_rate)) : 0;
       const coveredByCallout = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
-      const billableForEntry = hours - coveredByCallout;
-      if (billableForEntry > 0) {
-        cost += billableForEntry * parseFloat(String(e.hourly_rate));
-      }
+      const billableHours = hours - coveredByCallout;
+      const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
+      const calloutFeeShare = coveredByCallout > 0 && callOutFee > 0 ? (coveredByCallout / 1) * callOutFee : 0;
+      map.set(e.id, { totalHours: hours, coveredByCallout, billableHours, billableCost, hourlyRate: rate, calloutFeeShare });
       hoursProcessed += hours;
     }
+    return map;
+  })();
+
+  const totalLabourCost = (() => {
+    let cost = 0;
+    for (const b of entryBreakdowns.values()) cost += b.billableCost;
     return cost;
   })();
 
@@ -862,43 +869,61 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                   </div>
                 </div>
               ) : (
-                <div key={entry.id} className="flex items-center justify-between border rounded-lg px-3 py-2 bg-white">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{formatEntryDate(entry.arrival_time)}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {formatEntryTime(entry.arrival_time)}
-                        {entry.departure_time ? ` - ${formatEntryTime(entry.departure_time)}` : " - ongoing"}
-                      </span>
-                      {entry.departure_time && (
-                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
-                          {calcDuration(entry.arrival_time, entry.departure_time)}
+                <div key={entry.id} className="border rounded-lg bg-white overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm">{formatEntryDate(entry.arrival_time)}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {formatEntryTime(entry.arrival_time)}
+                          {entry.departure_time ? ` - ${formatEntryTime(entry.departure_time)}` : " - ongoing"}
                         </span>
-                      )}
-                      {entry.hourly_rate != null && (
-                        <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                          £{parseFloat(String(entry.hourly_rate)).toFixed(2)}/hr
-                        </span>
-                      )}
-                      {entry.departure_time && entry.hourly_rate != null && (
-                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
-                          £{((new Date(entry.departure_time).getTime() - new Date(entry.arrival_time).getTime()) / 3600000 * parseFloat(String(entry.hourly_rate))).toFixed(2)}
-                        </span>
-                      )}
+                        {entry.departure_time && (
+                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                            {calcDuration(entry.arrival_time, entry.departure_time)}
+                          </span>
+                        )}
+                      </div>
+                      {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
+                      {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
                     </div>
-                    {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
-                    {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
+                    {canModify(entry.created_by) && (
+                      <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => startEdit(entry)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(entry.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  {canModify(entry.created_by) && (
-                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => startEdit(entry)}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(entry.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  )}
+                  {entry.departure_time && (() => {
+                    const bd = entryBreakdowns.get(entry.id);
+                    if (!bd || bd.totalHours === 0) return null;
+                    return (
+                      <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
+                        {bd.calloutFeeShare > 0 && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Call-out fee ({formatTotalTime(bd.coveredByCallout * 60)} covered)</span>
+                            <span className="font-medium text-emerald-600">£{bd.calloutFeeShare.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {bd.billableHours > 0 && bd.hourlyRate > 0 && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">{formatTotalTime(bd.billableHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
+                            <span className="font-medium text-emerald-600">£{bd.billableCost.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {bd.calloutFeeShare > 0 && bd.billableCost > 0 && (
+                          <div className="flex justify-between items-center text-xs pt-0.5 border-t border-border/20">
+                            <span className="text-muted-foreground font-medium">Entry total</span>
+                            <span className="font-semibold text-emerald-700">£{(bd.calloutFeeShare + bd.billableCost).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )
             ))}
