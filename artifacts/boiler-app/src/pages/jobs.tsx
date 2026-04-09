@@ -421,13 +421,18 @@ function JobSections({
   const [showInvoiced, setShowInvoiced] = useState(statusFilter === "invoiced");
   const [showCancelled, setShowCancelled] = useState(statusFilter === "cancelled");
 
+  const sortByDate = (a: Record<string, any>, b: Record<string, any>) => {
+    const da = a.scheduled_date ? new Date(a.scheduled_date + "T" + (a.scheduled_time || "00:00")).getTime() : 0;
+    const db = b.scheduled_date ? new Date(b.scheduled_date + "T" + (b.scheduled_time || "00:00")).getTime() : 0;
+    return db - da;
+  };
   const active = jobs.filter((j) => {
     const s = j.status as string;
     return s === "scheduled" || s === "in_progress" || s === "requires_follow_up" || s === "awaiting_parts";
-  });
-  const completed = jobs.filter((j) => j.status === "completed");
-  const invoiced = jobs.filter((j) => j.status === "invoiced");
-  const cancelled = jobs.filter((j) => j.status === "cancelled");
+  }).sort(sortByDate);
+  const completed = jobs.filter((j) => j.status === "completed").sort(sortByDate);
+  const invoiced = jobs.filter((j) => j.status === "invoiced").sort(sortByDate);
+  const cancelled = jobs.filter((j) => j.status === "cancelled").sort(sortByDate);
 
   const renderCards = (items: Record<string, any>[]) => (
     <div className="space-y-3">
