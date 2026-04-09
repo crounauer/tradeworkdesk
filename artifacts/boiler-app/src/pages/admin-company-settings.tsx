@@ -610,6 +610,18 @@ export default function AdminCompanySettings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
+              <p className="font-medium">How to get your Google Calendar credentials:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
+                <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline font-medium">Google Cloud Console</a></li>
+                <li>Create a project (or select an existing one)</li>
+                <li>Enable the <strong>Google Calendar API</strong> under "APIs &amp; Services"</li>
+                <li>Go to <strong>Credentials</strong> &rarr; <strong>Create Credentials</strong> &rarr; <strong>OAuth 2.0 Client ID</strong></li>
+                <li>Set the application type to <strong>Web application</strong></li>
+                <li>Add <code className="bg-blue-100 px-1 rounded">https://www.tradeworkdesk.co.uk/api/google/callback</code> as an authorised redirect URI</li>
+                <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the fields below</li>
+              </ol>
+            </div>
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
@@ -630,7 +642,6 @@ export default function AdminCompanySettings() {
               <div className="space-y-1.5">
                 <Label htmlFor="google_client_secret">Google Client Secret</Label>
                 <Input id="google_client_secret" type="password" placeholder="Enter client secret" {...register("google_client_secret")} />
-                <p className="text-xs text-muted-foreground">Keep this value secret. It will be stored encrypted.</p>
               </div>
             </div>
           </CardContent>
