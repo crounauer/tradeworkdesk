@@ -129,7 +129,7 @@ export default function JobDetail() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-display font-bold">Job #{job.id.slice(0, 8)}</h1>
+            <h1 className="text-3xl font-display font-bold">{job.job_ref ? `Job ${job.job_ref}` : `Job #${job.id.slice(0, 8)}`}</h1>
             <span className={`px-3 py-1 rounded-md text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
               {job.status.replace(/_/g, ' ')}
             </span>
@@ -172,7 +172,7 @@ export default function JobDetail() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Job #{job.id.slice(0, 8)}?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete Job {job.job_ref || `#${job.id.slice(0, 8)}`}?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will remove the job and it will no longer appear in your jobs list. This action cannot be undone.
                   </AlertDialogDescription>

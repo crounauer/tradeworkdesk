@@ -368,7 +368,10 @@ function JobCard({
                 {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
               </span>
             </div>
-            <h3 className="font-bold text-lg mb-1">{job.customer_name}</h3>
+            <h3 className="font-bold text-lg mb-1">
+              {job.job_ref && <span className="text-muted-foreground font-mono text-sm mr-2">{job.job_ref}</span>}
+              {job.customer_name}
+            </h3>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {job.property_address}</span>
             </div>

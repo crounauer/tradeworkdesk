@@ -27,6 +27,7 @@ export interface CompanySettings {
   currency?: string | null;
   rates_url?: string | null;
   trading_terms_url?: string | null;
+  job_number_prefix?: string | null;
   created_at?: string;
   updated_at?: string;
 }

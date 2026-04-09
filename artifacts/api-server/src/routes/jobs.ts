@@ -281,12 +281,31 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     }
   }
 
+  let generatedJobRef: string | undefined;
+  if (req.tenantId) {
+    const { data: cs } = await supabaseAdmin
+      .from("company_settings")
+      .select("job_number_prefix, job_number_next")
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle();
+    const prefix = (cs?.job_number_prefix ?? "").trim().toUpperCase();
+    const nextNum = cs?.job_number_next ?? 1;
+    generatedJobRef = prefix
+      ? `${prefix}${String(nextNum).padStart(4, "0")}`
+      : `JOB-${String(nextNum).padStart(4, "0")}`;
+    await supabaseAdmin
+      .from("company_settings")
+      .update({ job_number_next: nextNum + 1 })
+      .eq("tenant_id", req.tenantId);
+  }
+
   const insertPayload = {
     ...jobCoreData,
     assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
     tenant_id: req.tenantId,
     ...(verifiedJobTypeId ? { job_type_id: verifiedJobTypeId } : {}),
+    ...(generatedJobRef ? { job_ref: generatedJobRef } : {}),
   };
 
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();

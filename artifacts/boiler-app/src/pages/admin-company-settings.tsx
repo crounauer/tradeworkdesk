@@ -76,6 +76,7 @@ export default function AdminCompanySettings() {
         currency: settings.currency ?? "GBP",
         rates_url: settings.rates_url ?? "",
         trading_terms_url: settings.trading_terms_url ?? "",
+        job_number_prefix: settings.job_number_prefix ?? "",
       });
       if (settings.logo_url) setLogoPreview(settings.logo_url);
     }
@@ -547,6 +548,19 @@ export default function AdminCompanySettings() {
                 <option value="EUR">EUR - Euro</option>
                 <option value="USD">USD - US Dollar</option>
               </select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="job_number_prefix">Job Number Prefix</Label>
+              <Input
+                id="job_number_prefix"
+                placeholder="e.g. NNE"
+                maxLength={10}
+                className="uppercase"
+                {...register("job_number_prefix")}
+              />
+              <p className="text-xs text-muted-foreground">
+                New jobs will be numbered as <span className="font-mono font-medium">{(watch("job_number_prefix") || "JOB-").toString().trim().toUpperCase()}0001</span>, <span className="font-mono font-medium">{(watch("job_number_prefix") || "JOB-").toString().trim().toUpperCase()}0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
+              </p>
             </div>
           </CardContent>
         </Card>

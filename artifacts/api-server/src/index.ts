@@ -2,6 +2,7 @@ import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";
 import { seedAllTenantsJobTypes } from "./lib/job-types-seed";
+import { runStartupMigrations } from "./lib/migrations";
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +25,9 @@ app.listen(port, () => {
     startSocialScheduler();
     seedAllTenantsJobTypes().catch((err) =>
       console.error("[job-types] Startup seeding failed:", err)
+    );
+    runStartupMigrations().catch((err) =>
+      console.error("[migrations] Startup check failed:", err)
     );
   }, 5000);
 });
