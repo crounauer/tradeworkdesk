@@ -591,18 +591,18 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const entryBreakdowns = (() => {
     const map = new Map<string, { totalHours: number; calloutHours: number; calloutRate: number; calloutCost: number; billableHours: number; hourlyRate: number; billableCost: number; entryCost: number }>();
-    let hoursProcessed = 0;
     for (const e of sortedEntries) {
       if (!e.departure_time) { map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: 0, calloutCost: 0, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: 0 }); continue; }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
       const rate = e.hourly_rate != null ? parseFloat(String(e.hourly_rate)) : 0;
-      const calloutHours = callOutFee > 0 ? Math.min(hours, Math.max(0, 1 - hoursProcessed)) : 0;
-      const calloutCost = calloutHours > 0 ? callOutFee * calloutHours : 0;
+      const matchedCallout = calloutRates.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
+      const entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : (callOutFee > 0 ? callOutFee : 0);
+      const calloutHours = entryCalloutFee > 0 ? Math.min(hours, 1) : 0;
+      const calloutCost = calloutHours > 0 ? entryCalloutFee * calloutHours : 0;
       const billableHours = hours - calloutHours;
       const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
       const entryCost = calloutCost + billableCost;
-      map.set(e.id, { totalHours: hours, calloutHours, calloutRate: callOutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
-      hoursProcessed += hours;
+      map.set(e.id, { totalHours: hours, calloutHours, calloutRate: entryCalloutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
     }
     return map;
   })();
