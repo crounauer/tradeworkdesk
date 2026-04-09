@@ -997,6 +997,11 @@ export async function buildInvoiceData(
     }
   }
 
+  if (lines.length === 0) {
+    const desc = job.description || `${job.job_type || "Service"} job`;
+    lines.push({ description: desc, quantity: 1, unit_price: 0, total: 0 });
+  }
+
   const partsTotal = lines.filter(l => !l.description.includes("Call-out") && !l.description.includes("Labour")).reduce((sum, l) => sum + l.total, 0);
   const labourTotal = totalLabourCost;
   const callOutTotal = totalCallOutCost;
