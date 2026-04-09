@@ -1053,6 +1053,8 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("");
   const [productSuggestions, setProductSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchedQuery, setSearchedQuery] = useState("");
@@ -1161,6 +1163,24 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
     }
   };
 
+  const handleSaveQty = async (partId: string) => {
+    const qty = Number(editQty);
+    if (!qty || qty < 1) return;
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      setEditingQtyId(null);
+      fetchParts();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update quantity";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
   const partsSubtotal = parts.reduce((sum, p) => sum + (Number(p.unit_price) || 0) * p.quantity, 0);
 
   return (
@@ -1249,7 +1269,34 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
               {parts.map((p) => (
                 <tr key={p.id} className="border-b last:border-0">
                   <td className="px-4 py-2">{p.part_name}</td>
-                  <td className="px-4 py-2">{p.quantity}</td>
+                  <td className="px-4 py-2">
+                    {editingQtyId === p.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number" min="1" step="1"
+                          value={editQty}
+                          onChange={(e) => setEditQty(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(p.id); if (e.key === "Escape") setEditingQtyId(null); }}
+                          className="w-16 h-7 text-xs"
+                          autoFocus
+                        />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSaveQty(p.id)}>
+                          <Check className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingQtyId(null)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span
+                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
+                        onClick={() => { setEditingQtyId(p.id); setEditQty(String(p.quantity)); }}
+                      >
+                        {p.quantity}
+                        <Pencil className="w-3 h-3 opacity-40" />
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-right">
                     {editingId === p.id ? (
                       <div className="flex items-center gap-1 justify-end">
