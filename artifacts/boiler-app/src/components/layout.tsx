@@ -55,7 +55,6 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
-    { href: "/appliances", label: "Appliances", icon: Flame },
     ...(isFormsOnly ? [
       { href: "/quick-record", label: "Quick Record", icon: Zap },
     ] : [
