@@ -928,8 +928,12 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     const bd = entryBreakdowns.get(entry.id);
                     if (!bd || bd.totalHours === 0) return null;
                     if (bd.hourlyRate <= 0) return null;
+                    const matchedRate = calloutRates.find(r => r.hourly_rate != null && Number(r.hourly_rate) === bd.hourlyRate);
                     return (
-                      <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5">
+                      <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
+                        {matchedRate && (
+                          <div className="text-xs font-medium text-slate-500">{matchedRate.name}</div>
+                        )}
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-muted-foreground">{formatTotalTime(bd.totalHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
                           <span className="font-medium text-emerald-600">£{bd.entryCost.toFixed(2)}</span>
