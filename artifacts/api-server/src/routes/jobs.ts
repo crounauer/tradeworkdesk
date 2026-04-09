@@ -970,19 +970,19 @@ export async function buildInvoiceData(
       const entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : callOutFee;
       const rateName = matchedCallout?.name || "Standard";
 
-      const calloutHours = entryCalloutFee > 0 ? Math.min(hours, 1) : 0;
-      const calloutCost = Math.round(calloutHours * entryCalloutFee * 100) / 100;
-      const billableHrs = hours - calloutHours;
+      const hasCallout = entryCalloutFee > 0;
+      const calloutCost = hasCallout ? entryCalloutFee : 0;
+      const billableHrs = hasCallout ? Math.max(0, hours - 1) : hours;
       const billableCost = Math.round(billableHrs * rate * 100) / 100;
 
-      if (calloutCost > 0) {
+      if (hasCallout) {
         lines.push({
           description: `${rateName} - Call-out (first hour)`,
           quantity: 1,
           unit_price: entryCalloutFee,
-          total: calloutCost,
+          total: entryCalloutFee,
         });
-        totalCallOutCost += calloutCost;
+        totalCallOutCost += entryCalloutFee;
       }
 
       if (billableHrs > 0 && rate > 0) {

@@ -597,9 +597,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       const rate = e.hourly_rate != null ? parseFloat(String(e.hourly_rate)) : 0;
       const matchedCallout = calloutRates.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
       const entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : (callOutFee > 0 ? callOutFee : 0);
-      const calloutHours = entryCalloutFee > 0 ? Math.min(hours, 1) : 0;
-      const calloutCost = calloutHours > 0 ? entryCalloutFee * calloutHours : 0;
-      const billableHours = hours - calloutHours;
+      const hasCallout = entryCalloutFee > 0;
+      const calloutCost = hasCallout ? entryCalloutFee : 0;
+      const calloutHours = hasCallout ? Math.min(hours, 1) : 0;
+      const billableHours = hasCallout ? Math.max(0, hours - 1) : hours;
       const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
       const entryCost = calloutCost + billableCost;
       map.set(e.id, { totalHours: hours, calloutHours, calloutRate: entryCalloutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
@@ -940,9 +941,9 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                         {matchedRate && (
                           <div className="text-xs font-medium text-slate-500">{matchedRate.name}</div>
                         )}
-                        {bd.calloutHours > 0 && bd.calloutRate > 0 && (
+                        {bd.calloutRate > 0 && (
                           <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">{formatTotalTime(bd.calloutHours * 60)} @ £{bd.calloutRate.toFixed(2)}/hr</span>
+                            <span className="text-muted-foreground">Call-out (min. 1hr)</span>
                             <span className="font-medium text-emerald-600">£{bd.calloutCost.toFixed(2)}</span>
                           </div>
                         )}
