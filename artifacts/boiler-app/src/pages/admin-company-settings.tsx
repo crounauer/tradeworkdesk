@@ -68,8 +68,6 @@ export default function AdminCompanySettings() {
       oftec_number: settings.oftec_number ?? "",
       vat_number: settings.vat_number ?? "",
       company_number: settings.company_number ?? "",
-      default_hourly_rate: String(Number(settings.default_hourly_rate ?? 0)),
-      call_out_fee: String(Number(settings.call_out_fee ?? 0)),
       default_vat_rate: String(Number(settings.default_vat_rate ?? 20)),
       default_payment_terms_days: String(Number(settings.default_payment_terms_days ?? 30)),
       currency: settings.currency ?? "GBP",
@@ -80,7 +78,7 @@ export default function AdminCompanySettings() {
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
-  const numericFields = new Set(["default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days"]);
+  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -507,15 +505,6 @@ export default function AdminCompanySettings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="default_hourly_rate">Default Hourly Labour Rate</Label>
-              <Input id="default_hourly_rate" type="number" step="0.01" min="0" placeholder="e.g. 55.00" {...register("default_hourly_rate")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="call_out_fee">Call-out Fee</Label>
-              <Input id="call_out_fee" type="number" step="0.01" min="0" placeholder="e.g. 65.00" {...register("call_out_fee")} />
-              <p className="text-xs text-muted-foreground">Fixed fee covering the first hour. Additional time billed at the hourly rate.</p>
-            </div>
             <div className="space-y-1.5">
               <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>
               <Input id="default_vat_rate" type="number" step="0.01" min="0" max="100" placeholder="e.g. 20.00" {...register("default_vat_rate")} />
