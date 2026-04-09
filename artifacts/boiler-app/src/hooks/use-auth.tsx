@@ -84,24 +84,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }, 5000);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      clearTimeout(sessionTimeout);
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session) {
-        if (!hasPrefetched.current) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "INITIAL_SESSION") {
+        clearTimeout(sessionTimeout);
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session && !hasPrefetched.current) {
           hasPrefetched.current = true;
           prefetchCriticalData(queryClient);
         }
-        checkMfaStatus();
+        setIsLoading(false);
+        if (session) checkMfaStatus();
+        return;
       }
-      setIsLoading(false);
-    }).catch(() => {
-      clearTimeout(sessionTimeout);
-      setIsLoading(false);
-    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -121,7 +117,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (session) {
-        await checkMfaStatus();
+        checkMfaStatus();
       } else {
         setMfaPending(false);
       }

@@ -32,26 +32,45 @@ function cleanTokenCache() {
 
 async function resolveTokenUser(token: string): Promise<CachedUser | null> {
   const now = Date.now();
+
   const cached = tokenUserCache.get(token);
   if (cached && cached.expiresAt > now) return cached.user;
 
   const inflight = tokenInflight.get(token);
   if (inflight) return inflight;
 
+  const payload = decodeJwtPayload(token);
+  const jwtSub = payload?.sub as string | undefined;
+  if (jwtSub) {
+    const uidInflight = tokenInflight.get(`uid:${jwtSub}`);
+    if (uidInflight) {
+      return uidInflight.then((u) => {
+        if (u) {
+          const entry = { user: u, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS };
+          tokenUserCache.set(token, entry);
+        }
+        return u;
+      });
+    }
+  }
+
   const promise = (async (): Promise<CachedUser | null> => {
     const { data: { user: fetchedUser }, error } = await supabaseAdmin.auth.getUser(token);
     if (error || !fetchedUser) return null;
     const slim: CachedUser = { id: fetchedUser.id, email: fetchedUser.email, user_metadata: fetchedUser.user_metadata };
+    const entry = { user: slim, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS };
     cleanTokenCache();
-    tokenUserCache.set(token, { user: slim, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
+    tokenUserCache.set(token, entry);
     return slim;
   })();
 
   tokenInflight.set(token, promise);
+  if (jwtSub) tokenInflight.set(`uid:${jwtSub}`, promise);
   try {
     return await promise;
   } finally {
     tokenInflight.delete(token);
+    if (jwtSub) tokenInflight.delete(`uid:${jwtSub}`);
   }
 }
 
@@ -85,18 +104,41 @@ export async function requireAuth(
   const now = Date.now();
 
   const cachedMfa = mfaCache.get(user.id);
-  let hasVerifiedTotp: boolean;
-  if (cachedMfa && cachedMfa.expiresAt > now) {
-    hasVerifiedTotp = cachedMfa.hasVerifiedTotp;
-  } else {
-    const { data: factors, error: mfaError } = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
-    if (mfaError) {
-      res.status(503).json({ error: "Unable to verify MFA status" });
-      return;
-    }
-    hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
-    mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: now + MFA_CACHE_TTL_MS });
+  const cachedProfile = profileCache.get(user.id);
+  const needsMfa = !cachedMfa || cachedMfa.expiresAt <= now;
+  const needsProfile = !cachedProfile || cachedProfile.expiresAt <= now;
+
+  const parallel: Promise<unknown>[] = [];
+
+  if (needsMfa) {
+    parallel.push(
+      supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id }).then(({ data: factors, error: mfaError }) => {
+        if (mfaError) return;
+        const hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
+        mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: Date.now() + MFA_CACHE_TTL_MS });
+      })
+    );
   }
+
+  if (needsProfile) {
+    parallel.push(
+      supabaseAdmin
+        .from("profiles")
+        .select("role, tenant_id")
+        .eq("id", user.id)
+        .single()
+        .then(({ data: dbProfile }) => {
+          if (dbProfile) {
+            profileCache.set(user.id, { ...dbProfile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
+          }
+        })
+    );
+  }
+
+  if (parallel.length > 0) await Promise.all(parallel);
+
+  const mfaEntry = mfaCache.get(user.id);
+  const hasVerifiedTotp = mfaEntry?.hasVerifiedTotp ?? false;
 
   if (hasVerifiedTotp) {
     const decoded = decodeJwtPayload(token);
@@ -106,60 +148,47 @@ export async function requireAuth(
     }
   }
 
-  const cachedProfile = profileCache.get(user.id);
+  const profileEntry = profileCache.get(user.id);
+  let profile: { role: string; tenant_id: string | null } | null = profileEntry
+    ? { role: profileEntry.role, tenant_id: profileEntry.tenant_id }
+    : null;
 
-  let profile: { role: string; tenant_id: string | null } | null = null;
+  if (!profile) {
+    const fullName =
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "User";
 
-  if (cachedProfile && cachedProfile.expiresAt > now) {
-    profile = cachedProfile;
-  } else {
-    const { data: dbProfile } = await supabaseAdmin
+    const { count: adminCount } = await supabaseAdmin
       .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    const role = (adminCount ?? 0) === 0 ? "admin" : "technician";
+
+    const { data: created } = await supabaseAdmin
+      .from("profiles")
+      .insert({ id: user.id, email: user.email, full_name: fullName, role })
       .select("role, tenant_id")
-      .eq("id", user.id)
       .single();
 
-    if (!dbProfile) {
-      const fullName =
-        user.user_metadata?.full_name ||
-        user.email?.split("@")[0] ||
-        "User";
-
-      const { count: adminCount } = await supabaseAdmin
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "admin");
-
-      const role = (adminCount ?? 0) === 0 ? "admin" : "technician";
-
-      const { data: created } = await supabaseAdmin
-        .from("profiles")
-        .insert({ id: user.id, email: user.email, full_name: fullName, role })
-        .select("role, tenant_id")
-        .single();
-
-      profile = created;
-    } else if (dbProfile.role === "technician") {
-      const { count: adminCount } = await supabaseAdmin
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "admin");
-
-      if ((adminCount ?? 0) === 0) {
-        await supabaseAdmin
-          .from("profiles")
-          .update({ role: "admin" })
-          .eq("id", user.id);
-        profile = { ...dbProfile, role: "admin" };
-      } else {
-        profile = dbProfile;
-      }
-    } else {
-      profile = dbProfile;
-    }
-
+    profile = created;
     if (profile) {
-      profileCache.set(user.id, { ...profile, expiresAt: now + PROFILE_CACHE_TTL_MS });
+      profileCache.set(user.id, { ...profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
+    }
+  } else if (profile.role === "technician") {
+    const { count: adminCount } = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    if ((adminCount ?? 0) === 0) {
+      await supabaseAdmin
+        .from("profiles")
+        .update({ role: "admin" })
+        .eq("id", user.id);
+      profile = { ...profile, role: "admin" };
+      profileCache.set(user.id, { ...profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
     }
   }
 
@@ -170,7 +199,7 @@ export async function requireAuth(
 
   const authMs = Date.now() - t0;
   if (authMs > 50) {
-    console.log(`[perf] requireAuth ${req.path} ${authMs}ms`);
+    console.log(`[perf] requireAuth ${req.path} ${authMs}ms (user:${user.id.slice(0,8)})`);
   }
 
   next();

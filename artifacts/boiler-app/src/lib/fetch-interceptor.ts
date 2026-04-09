@@ -11,14 +11,6 @@ tokenReady = new Promise<void>((resolve) => {
   resolveTokenReady = resolve;
 });
 
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session) {
-    cachedToken = session.access_token;
-    tokenExpiresAt = (session.expires_at ?? 0) * 1000;
-    resolveTokenReady();
-  }
-});
-
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session) {
     cachedToken = session.access_token;
@@ -30,29 +22,13 @@ supabase.auth.onAuthStateChange((_event, session) => {
   resolveTokenReady();
 });
 
-async function refreshTokenFromSession(): Promise<string | null> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      cachedToken = data.session.access_token;
-      tokenExpiresAt = (data.session.expires_at ?? 0) * 1000;
-      return cachedToken;
-    }
-  } catch {}
-  return null;
-}
-
 function getTokenWithTimeout(timeoutMs: number): Promise<string | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(cachedToken), timeoutMs);
 
     tokenReady.then(() => {
       clearTimeout(timer);
-      if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
-        resolve(cachedToken);
-      } else {
-        refreshTokenFromSession().then(resolve);
-      }
+      resolve(cachedToken);
     });
   });
 }
