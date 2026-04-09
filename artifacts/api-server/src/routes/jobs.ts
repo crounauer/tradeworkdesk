@@ -901,7 +901,7 @@ export async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
-  let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, hourly_rate, created_by").eq("job_id", jobId).order("arrival_time", { ascending: true });
+  let timeQ = supabaseAdmin.from("job_time_entries").select("*").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
 
