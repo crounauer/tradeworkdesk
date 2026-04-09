@@ -131,8 +131,9 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     .from("jobs")
     .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
     .eq("is_active", true)
-    .order("scheduled_date", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
+    .order("scheduled_date", { ascending: true, nullsFirst: false })
+    .order("scheduled_time", { ascending: true, nullsFirst: true })
+    .order("created_at", { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (req.tenantId) {

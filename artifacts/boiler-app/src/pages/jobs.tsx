@@ -424,7 +424,7 @@ function JobSections({
   const sortByDate = (a: Record<string, any>, b: Record<string, any>) => {
     const da = a.scheduled_date ? new Date(a.scheduled_date + "T" + (a.scheduled_time || "00:00")).getTime() : 0;
     const db = b.scheduled_date ? new Date(b.scheduled_date + "T" + (b.scheduled_time || "00:00")).getTime() : 0;
-    return db - da;
+    return da - db;
   };
   const active = jobs.filter((j) => {
     const s = j.status as string;
