@@ -47,8 +47,12 @@ export default function AdminCompanySettings() {
     return () => { isMountedRef.current = false; };
   }, []);
 
+  const initialLoadRef = useRef(true);
+
   useEffect(() => {
     if (settings) {
+      if (!initialLoadRef.current && Object.keys(dirtyRef.current).length > 0) return;
+      initialLoadRef.current = false;
       reset({
         name: settings.name ?? "",
         trading_name: settings.trading_name ?? "",
@@ -65,10 +69,10 @@ export default function AdminCompanySettings() {
         oftec_number: settings.oftec_number ?? "",
         vat_number: settings.vat_number ?? "",
         company_number: settings.company_number ?? "",
-        default_hourly_rate: settings.default_hourly_rate ?? 0,
-        call_out_fee: settings.call_out_fee ?? 0,
-        default_vat_rate: settings.default_vat_rate ?? 20,
-        default_payment_terms_days: settings.default_payment_terms_days ?? 30,
+        default_hourly_rate: String(settings.default_hourly_rate ?? 0),
+        call_out_fee: String(settings.call_out_fee ?? 0),
+        default_vat_rate: String(settings.default_vat_rate ?? 20),
+        default_payment_terms_days: String(settings.default_payment_terms_days ?? 30),
         currency: settings.currency ?? "GBP",
         rates_url: settings.rates_url ?? "",
         trading_terms_url: settings.trading_terms_url ?? "",
