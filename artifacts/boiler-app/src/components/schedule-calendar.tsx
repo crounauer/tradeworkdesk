@@ -125,8 +125,8 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
   const updateJob = useUpdateJob();
 
   const [, navigate] = useLocation();
-  const [viewMode, setViewMode] = useState<ViewMode>("week");
-  const [anchorDate, setAnchorDate] = useState(() => startOfWeek(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [anchorDate, setAnchorDate] = useState(() => startOfMonth(new Date()));
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const didDragRef = useRef(false);
