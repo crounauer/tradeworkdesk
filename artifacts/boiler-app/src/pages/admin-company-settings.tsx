@@ -48,9 +48,11 @@ export default function AdminCompanySettings() {
   }, []);
 
   const initialLoadRef = useRef(true);
+  const justSavedRef = useRef(false);
 
   useEffect(() => {
     if (settings) {
+      if (justSavedRef.current) { justSavedRef.current = false; return; }
       if (!initialLoadRef.current && Object.keys(dirtyRef.current).length > 0) return;
       initialLoadRef.current = false;
       reset({
@@ -109,6 +111,7 @@ export default function AdminCompanySettings() {
       await updateSettings.mutateAsync(clean as Partial<CompanySettings>);
       if (!isMountedRef.current) return;
       if (saveVersionRef.current === version) {
+        justSavedRef.current = true;
         reset(values);
         setAutoSaveStatus("saved");
         if (showToast) {
@@ -559,7 +562,7 @@ export default function AdminCompanySettings() {
                 {...register("job_number_prefix")}
               />
               <p className="text-xs text-muted-foreground">
-                New jobs will be numbered as <span className="font-mono font-medium">{(watch("job_number_prefix") || "JOB-").toString().trim().toUpperCase()}0001</span>, <span className="font-mono font-medium">{(watch("job_number_prefix") || "JOB-").toString().trim().toUpperCase()}0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
+                Set a prefix for your job numbers. For example, entering <span className="font-mono font-medium">NNE</span> will number jobs as <span className="font-mono font-medium">NNE0001</span>, <span className="font-mono font-medium">NNE0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
               </p>
             </div>
           </CardContent>
