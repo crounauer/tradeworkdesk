@@ -553,6 +553,15 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     } finally { setSavingRate(false); }
   };
 
+  useEffect(() => {
+    if (!hourlyRate && companySettings?.default_hourly_rate) {
+      const selectedRate = selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null;
+      const rateHourly = selectedRate?.hourly_rate;
+      const defaultRate = rateHourly != null ? rateHourly : companySettings.default_hourly_rate;
+      if (Number(defaultRate) > 0) setHourlyRate(String(Number(defaultRate)));
+    }
+  }, [companySettings?.default_hourly_rate, calloutRates, selectedCalloutRate]);
+
   const selectedRateAmount = (() => {
     if (selectedCalloutRate === "auto") return Number(companySettings?.call_out_fee) || 0;
     const found = calloutRates.find(r => r.id === selectedCalloutRate);
@@ -648,7 +657,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
           arrival_time: new Date(editArrival).toISOString(),
           departure_time: editDeparture ? new Date(editDeparture).toISOString() : null,
           notes: editNotes || null,
-          hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
+          hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
         } as Record<string, unknown>,
       });
       cancelEdit();
@@ -736,30 +745,26 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               <Label className="text-xs">Notes (optional)</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Hourly Rate (£)</Label>
-              <Input type="number" step="0.01" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="e.g. 45.00" />
-            </div>
-          </div>
-          {calloutRates.length > 0 && (
-            <div className="space-y-1">
-              <Label className="text-xs">Callout Rate</Label>
-              <div className="flex items-center gap-2">
-                <select
-                  className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
-                  value={selectedCalloutRate}
-                  onChange={(e) => handleCalloutRateChange(e.target.value)}
-                  disabled={savingRate}
-                >
-                  <option value="auto">Auto (based on time of day)</option>
-                  {calloutRates.map(r => (
-                    <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
-                  ))}
-                </select>
-                {savingRate && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+            {calloutRates.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Callout Rate</Label>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
+                    value={selectedCalloutRate}
+                    onChange={(e) => handleCalloutRateChange(e.target.value)}
+                    disabled={savingRate}
+                  >
+                    <option value="auto">Auto (based on time of day)</option>
+                    {calloutRates.map(r => (
+                      <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
+                    ))}
+                  </select>
+                  {savingRate && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
           {arrival && departure && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>Duration: {calcDuration(arrival, departure)}</span>
@@ -825,22 +830,16 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                       </div>
                     </div>
                   </div>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Notes</Label>
-                      <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Hourly Rate (£)</Label>
-                      <Input type="number" step="0.01" min="0" value={editHourlyRate} onChange={(e) => setEditHourlyRate(e.target.value)} placeholder="e.g. 45.00" />
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Notes</Label>
+                    <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
                   </div>
                   {editArrival && editDeparture && (
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>Duration: {calcDuration(editArrival, editDeparture)}</span>
-                      {editHourlyRate && parseFloat(editHourlyRate) > 0 && (
+                      {hourlyRate && parseFloat(hourlyRate) > 0 && (
                         <span className="font-medium text-emerald-600">
-                          Cost: £{((new Date(editDeparture).getTime() - new Date(editArrival).getTime()) / 3600000 * parseFloat(editHourlyRate)).toFixed(2)}
+                          Cost: £{((new Date(editDeparture).getTime() - new Date(editArrival).getTime()) / 3600000 * parseFloat(hourlyRate)).toFixed(2)}
                         </span>
                       )}
                     </div>
