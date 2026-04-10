@@ -229,10 +229,10 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col">
+      <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col overflow-x-hidden">
         {isTrial && trialDaysLeft !== null && (
           <div className={cn(
-            "border-b px-4 py-2.5 flex items-center justify-center gap-2 text-sm",
+            "border-b px-4 py-2.5 flex flex-wrap items-center justify-center gap-2 text-sm",
             trialDaysLeft <= 7 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-200 text-blue-800"
           )}>
             {trialDaysLeft <= 7 ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Info className="w-4 h-4 shrink-0" />}
@@ -243,7 +243,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </span>
             {isAdmin && !isSuperAdmin && (
               <Link href="/billing">
-                <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="ml-2 h-7 text-xs">
+                <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="h-7 text-xs">
                   <CreditCard className="w-3 h-3 mr-1" />
                   Upgrade Plan
                 </Button>
