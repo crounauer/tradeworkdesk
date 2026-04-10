@@ -145,7 +145,7 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50/50 w-full overflow-x-hidden">
+    <div className="flex min-h-screen bg-slate-50/50 w-full">
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
         <div className="px-6 py-5 flex items-center gap-2.5 border-b border-border/50">
           <Flame className="w-5 h-5 text-primary shrink-0" />
@@ -229,7 +229,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full md:w-[calc(100%-16rem)]">
+      <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         {isTrial && trialDaysLeft !== null && (
           <div className={cn(
             "border-b px-4 py-2.5 flex flex-wrap items-center justify-center gap-2 text-sm",
@@ -285,7 +285,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         ))}
 
-        <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0 overflow-x-hidden box-border">
+        <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0">
           {children}
         </div>
       </main>

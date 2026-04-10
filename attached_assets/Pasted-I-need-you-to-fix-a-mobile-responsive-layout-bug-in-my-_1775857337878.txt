@@ -1,0 +1,133 @@
+I need you to fix a **mobile responsive layout bug** in my app.
+
+### Problem
+
+On a **Pixel 7 width viewport**, the **main page content is overflowing horizontally / not fitting cleanly inside the screen**. The job detail page is wider than the viewport and some elements are forcing the layout too wide.
+
+### What I want
+
+Do a **proper production-grade responsive fix**, not a cosmetic patch.
+
+### Your task
+
+Audit the page and identify exactly which elements are causing horizontal overflow, then fix them properly.
+
+### Requirements
+
+1. **Find and eliminate all horizontal overflow**
+
+   * Inspect the job detail page and any shared layout/container components.
+   * Check for:
+
+     * fixed widths like `width: 100vw`
+     * `min-width`
+     * large fixed padding/margins
+     * flex rows that do not wrap
+     * buttons/cards wider than their parent
+     * absolute-positioned elements extending off-screen
+     * `overflow-x-hidden` being used as a band-aid instead of fixing the source
+   * Use DevTools logic or code inspection to identify the real cause.
+
+2. **Fix mobile layout correctly**
+
+   * The entire page must fit within **320px–430px mobile widths** with **no horizontal scrolling**.
+   * Ensure all cards, headers, action buttons, badges, and text blocks stay inside the viewport.
+   * Containers should use:
+
+     * `width: 100%`
+     * `max-width: 100%`
+     * `box-sizing: border-box`
+   * Prevent children from exceeding parent width.
+
+3. **Fix action button layout**
+
+   * The row with:
+
+     * Mark Complete
+     * Awaiting Parts
+     * Email Customer
+     * Edit
+     * Delete
+       is likely contributing to overflow.
+   * Make this layout responsive:
+
+     * allow wrapping
+     * reduce button min widths if needed
+     * stack buttons on very small screens if necessary
+     * preserve good spacing and tap targets
+
+4. **Audit the top-level layout**
+
+   * Check the main app wrapper, page wrapper, card components, header, and any reusable `Container`, `Page`, or `Card` components.
+   * Remove any use of `100vw` on inner containers. Prefer `width: 100%`.
+   * Ensure the page respects the device width and safe area.
+
+5. **Confirm viewport setup**
+
+   * Make sure the app has the correct viewport meta tag:
+
+     ```html
+     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+     ```
+
+6. **Add defensive CSS**
+   Apply safe responsive rules where appropriate, for example:
+
+   ```css
+   * {
+     box-sizing: border-box;
+   }
+
+   img, svg, canvas, video {
+     max-width: 100%;
+     height: auto;
+   }
+
+   .page-container,
+   .card,
+   .content-wrapper {
+     width: 100%;
+     max-width: 100%;
+   }
+   ```
+
+   But do not blindly apply styles unless they match the actual component structure.
+
+7. **Do not hide the bug**
+
+   * Do **not** solve this by just adding `overflow-x: hidden` to `body` or the root app unless you have already fixed the actual overflowing element.
+   * I want the root cause fixed, not masked.
+
+### Deliverables
+
+1. Make the code changes.
+2. Show me **which element(s)** caused the overflow.
+3. Explain **why** the overflow happened.
+4. Summarise the exact fixes made.
+5. Confirm that the page now works correctly on:
+
+   * 320px width
+   * 360px width
+   * 393px width
+   * 412px width
+
+### Acceptance criteria
+
+* No horizontal scrolling on the job detail page
+* No clipped cards or content
+* Buttons remain usable and visually clean on mobile
+* Layout still looks good on tablet and desktop
+* No regression to other pages using the same shared components
+
+If helpful, add a temporary debug script to detect overflow sources, such as:
+
+```js
+[...document.querySelectorAll('*')].forEach(el => {
+  const r = el.getBoundingClientRect();
+  if (r.right > window.innerWidth || r.left < 0) {
+    console.log('Overflowing element:', el, r);
+  }
+});
+```
+
+Then remove any debug-only code before finishing.

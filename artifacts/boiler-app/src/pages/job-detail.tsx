@@ -142,22 +142,22 @@ export default function JobDetail() {
   const canInvoice = job.status === "completed";
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-20">
+    <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
       <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
       </Link>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 min-w-0">
+      <div className="flex flex-col gap-4 min-w-0 max-w-full">
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-3xl font-display font-bold truncate">{job.job_ref ? `Job ${job.job_ref}` : `Job #${job.id.slice(0, 8)}`}</h1>
-            <span className={`px-3 py-1 rounded-md text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{job.job_ref ? `Job ${job.job_ref}` : `Job #${job.id.slice(0, 8)}`}</h1>
+            <span className={`px-3 py-1 rounded-md text-xs sm:text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
               {job.status.replace(/_/g, ' ')}
             </span>
           </div>
-          <p className="text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
+          <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           {canComplete && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
@@ -262,11 +262,11 @@ export default function JobDetail() {
             </div>
           </div>
         </Card>
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6 border border-border/50 shadow-sm">
+        <div className="grid lg:grid-cols-3 gap-6 max-w-full min-w-0">
+          <div className="lg:col-span-2 space-y-6 min-w-0">
+            <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
               <h3 className="font-bold text-lg mb-4">Job Information</h3>
-              <div className="grid sm:grid-cols-2 gap-y-4 gap-x-8">
+              <div className="grid sm:grid-cols-2 gap-y-4 gap-x-6">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Calendar className="w-4 h-4"/> Scheduled</p>
                   <p className="font-medium text-foreground">
@@ -739,7 +739,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   };
 
   return (
-    <Card className="p-6 border border-border/50 shadow-sm">
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-lg flex items-center gap-2 text-amber-600">
           <Clock className="w-5 h-5" /> Time Attended
@@ -1184,7 +1184,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const partsSubtotal = parts.reduce((sum, p) => sum + (Number(p.unit_price) || 0) * p.quantity, 0);
 
   return (
-    <Card className="p-6 border border-border/50 shadow-sm">
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-lg flex items-center gap-2 text-blue-600">
           <Package className="w-5 h-5" /> Parts Used
@@ -1196,8 +1196,8 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
 
       {showAdd && (
         <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid sm:grid-cols-4 gap-3">
-            <div className="space-y-1 relative">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1 relative col-span-2 sm:col-span-1">
               <Label className="text-xs">Part Name *</Label>
               <Input
                 value={partName}
@@ -1253,23 +1253,23 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
       ) : parts.length === 0 ? (
         <p className="text-sm text-muted-foreground">No parts recorded yet.</p>
       ) : (
-        <div className="border rounded-lg overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
+        <div className="border rounded-lg overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+          <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-medium">Part</th>
-                <th className="text-left px-4 py-2 font-medium">Qty</th>
-                <th className="text-right px-4 py-2 font-medium">Unit Price</th>
-                <th className="text-right px-4 py-2 font-medium">Line Total</th>
-                <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Serial #</th>
-                <th className="w-10"></th>
+                <th className="text-left px-2 sm:px-4 py-2 font-medium">Part</th>
+                <th className="text-left px-2 sm:px-4 py-2 font-medium">Qty</th>
+                <th className="text-right px-2 sm:px-4 py-2 font-medium">Price</th>
+                <th className="text-right px-2 sm:px-4 py-2 font-medium">Total</th>
+                <th className="text-left px-2 sm:px-4 py-2 font-medium hidden sm:table-cell">Serial #</th>
+                <th className="w-8 sm:w-10"></th>
               </tr>
             </thead>
             <tbody>
               {parts.map((p) => (
                 <tr key={p.id} className="border-b last:border-0">
-                  <td className="px-4 py-2">{p.part_name}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-2 sm:px-4 py-2 break-words max-w-[120px] sm:max-w-none">{p.part_name}</td>
+                  <td className="px-2 sm:px-4 py-2">
                     {editingQtyId === p.id ? (
                       <div className="flex items-center gap-1">
                         <Input
@@ -1277,7 +1277,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                           value={editQty}
                           onChange={(e) => setEditQty(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(p.id); if (e.key === "Escape") setEditingQtyId(null); }}
-                          className="w-16 h-7 text-xs"
+                          className="w-14 h-7 text-xs"
                           autoFocus
                         />
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSaveQty(p.id)}>
@@ -1297,14 +1297,14 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-2 sm:px-4 py-2 text-right">
                     {editingId === p.id ? (
                       <div className="flex items-center gap-1 justify-end">
                         <Input
                           type="number" step="0.01" min="0"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
-                          className="w-20 h-7 text-xs"
+                          className="w-16 h-7 text-xs"
                         />
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(p.id)}>
                           <Check className="w-3.5 h-3.5" />
@@ -1323,11 +1323,11 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right font-medium">
+                  <td className="px-2 sm:px-4 py-2 text-right font-medium">
                     {p.unit_price != null ? (Number(p.unit_price) * p.quantity).toFixed(2) : "—"}
                   </td>
-                  <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.serial_number || "—"}</td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 sm:px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.serial_number || "—"}</td>
+                  <td className="px-1 sm:px-2 py-2">
                     <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(p.id)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -1338,8 +1338,8 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
             {partsSubtotal > 0 && (
               <tfoot className="bg-slate-50 border-t">
                 <tr>
-                  <td colSpan={3} className="px-4 py-2 font-semibold text-right">Parts Subtotal</td>
-                  <td className="px-4 py-2 font-bold text-right">{partsSubtotal.toFixed(2)}</td>
+                  <td colSpan={3} className="px-2 sm:px-4 py-2 font-semibold text-right">Parts Subtotal</td>
+                  <td className="px-2 sm:px-4 py-2 font-bold text-right">{partsSubtotal.toFixed(2)}</td>
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>
@@ -1469,7 +1469,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
   const canExport = jobStatus === "completed" || jobStatus === "invoiced";
 
   return (
-    <Card className="p-6 border border-border/50 shadow-sm">
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h3
           className="font-bold text-lg flex items-center gap-2 text-emerald-600 cursor-pointer select-none"
@@ -1715,9 +1715,9 @@ function PhotosSection({ jobId }: { jobId: string }) {
   };
 
   return (
-    <Card className="p-6 border border-border/50 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg flex items-center gap-2 text-violet-600">
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-violet-600 shrink-0">
           <Camera className="w-5 h-5" /> Photos
         </h3>
         <div className="flex gap-2">
@@ -1843,7 +1843,7 @@ function CommentsSection({ jobId }: { jobId: string }) {
   const canDelete = (authorId: string) => isOwn(authorId) || profile?.role === "admin";
 
   return (
-    <Card className="p-6 border border-border/50 shadow-sm">
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
       <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-green-600">
         <MessageSquare className="w-5 h-5" /> Comments
       </h3>
@@ -2399,7 +2399,7 @@ function EmailLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: num
   if (logs.length === 0) return null;
 
   return (
-    <Card className="p-6 border border-border/50 shadow-sm mt-6">
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm mt-6 max-w-full min-w-0">
       <button
         className="w-full flex items-center justify-between"
         onClick={() => setExpanded(!expanded)}
