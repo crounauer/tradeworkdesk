@@ -191,7 +191,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50">
+      <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50 box-border">
         <div className="flex items-center gap-2">
           <Flame className="w-5 h-5 text-primary" />
           <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
