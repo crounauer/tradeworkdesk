@@ -230,8 +230,8 @@ function AdminInviteCodesContent() {
       {past.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Past</h2>
-          <Card className="overflow-hidden border-0 shadow-sm">
-            <table className="w-full text-sm">
+          <Card className="overflow-x-auto border-0 shadow-sm">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b border-border bg-slate-50/70">
                   <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Code</th>

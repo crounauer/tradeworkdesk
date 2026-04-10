@@ -147,10 +147,10 @@ export default function JobDetail() {
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
       </Link>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-display font-bold">{job.job_ref ? `Job ${job.job_ref}` : `Job #${job.id.slice(0, 8)}`}</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 min-w-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
+            <h1 className="text-3xl font-display font-bold truncate">{job.job_ref ? `Job ${job.job_ref}` : `Job #${job.id.slice(0, 8)}`}</h1>
             <span className={`px-3 py-1 rounded-md text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
               {job.status.replace(/_/g, ' ')}
             </span>
@@ -1253,8 +1253,8 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
       ) : parts.length === 0 ? (
         <p className="text-sm text-muted-foreground">No parts recorded yet.</p>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="border rounded-lg overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
             <thead className="bg-slate-50 border-b">
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Part</th>
@@ -1470,7 +1470,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
 
   return (
     <Card className="p-6 border border-border/50 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h3
           className="font-bold text-lg flex items-center gap-2 text-emerald-600 cursor-pointer select-none"
           onClick={() => setExpanded(!expanded)}
@@ -1516,7 +1516,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
       {canExport && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
           {accountingStatus?.needs_reconnect && !sentExternalId ? (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-medium text-amber-700">Reconnect {accountingStatus?.displayName}</p>
                 <p className="text-xs text-muted-foreground">Your connection has expired. Please reconnect in Company Settings to send invoices.</p>
@@ -1532,14 +1532,14 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
             </div>
           ) : sentExternalId ? (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 text-sm text-green-700">
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span className="font-medium">Invoice sent to {sentProviderName || externalInvoiceProvider || accountingStatus?.displayName || "accounting"}</span>
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground pl-6">
-                    <span>Invoice ID: <span className="font-mono">{sentExternalId}</span></span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pl-6">
+                    <span>Invoice ID: <span className="font-mono break-all">{sentExternalId}</span></span>
                     {sentTimestamp && (
                       <span>Sent: {new Date(sentTimestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                     )}
@@ -1563,7 +1563,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-medium">Send to {accountingStatus?.displayName}</p>
                 <p className="text-xs text-muted-foreground">Create this invoice in your accounting software</p>
