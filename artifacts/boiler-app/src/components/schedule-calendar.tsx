@@ -376,7 +376,7 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
         <h2 className="text-xl font-display font-bold flex-1">Schedule</h2>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex bg-muted rounded-lg p-0.5">
             <button
               type="button"
@@ -384,7 +384,7 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                 setViewMode("day");
                 setAnchorDate(new Date());
               }}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewMode === "day" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${viewMode === "day" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Calendar className="w-3.5 h-3.5" />
               Day
@@ -395,7 +395,7 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                 setViewMode("week");
                 setAnchorDate(startOfWeek(new Date()));
               }}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewMode === "week" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${viewMode === "week" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <CalendarDays className="w-3.5 h-3.5" />
               Week
@@ -406,7 +406,7 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                 setViewMode("month");
                 setAnchorDate(startOfMonth(new Date()));
               }}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${viewMode === "month" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${viewMode === "month" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
               <CalendarRange className="w-3.5 h-3.5" />
               Month
