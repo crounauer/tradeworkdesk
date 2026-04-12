@@ -205,7 +205,7 @@ Yes. Gas Safe Register accepts electronic records and many inspectors prefer the
     updatedAt: "2026-03-01",
     readingTimeMinutes: 8,
     category: "Reviews",
-    body: `Finding the right software for a heating engineering business isn't straightforward. Most job management platforms are built for general field service — plumbing, electrical, HVAC — and don't understand the specific needs of gas and oil engineers working in the UK market.
+    body: `Finding the right software for a heating and plumbing business isn't straightforward. Most job management platforms are built for general field service — electrical, HVAC, landscaping — and don't understand the specific needs of gas, oil, and heat pump engineers or plumbers working in the UK market.
 
 ## What Heating Engineers Actually Need
 

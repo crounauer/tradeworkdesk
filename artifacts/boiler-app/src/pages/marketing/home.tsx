@@ -78,8 +78,8 @@ export default function HomePage() {
   return (
     <MarketingLayout>
       <SEOHead
-        title="TradeWorkDesk — Boiler Service Management Software for Gas Engineers"
-        description="The all-in-one platform for boiler service companies. Manage jobs, customers, digital forms, and compliance from one place. Start your free trial today."
+        title="TradeWorkDesk — Job Management Software for Gas, Oil, Heat Pump Engineers & Plumbers"
+        description="The all-in-one platform for heating and plumbing businesses. Manage jobs, customers, digital forms, and compliance — built for gas, oil, heat pump engineers and plumbers. Start your free trial today."
         canonical={SITE_URL}
         schema={[organizationSchema(), webSiteSchema(), softwareApplicationSchema()]}
       />
@@ -90,7 +90,7 @@ export default function HomePage() {
             <div className="flex-1 min-w-0">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
                 <Flame className="w-4 h-4" />
-                Built for Gas & Oil Engineers
+                Built for Gas, Oil, Heat Pump &amp; Plumbing Engineers
               </div>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight">
                 Run your trade business{" "}
@@ -144,7 +144,7 @@ export default function HomePage() {
               Everything you need to run your heating business
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              Purpose-built tools for gas and oil engineers — not a generic field service app
+              Purpose-built tools for gas, oil, heat pump engineers and plumbers — not a generic field service app
               adapted for your trade.
             </p>
           </div>

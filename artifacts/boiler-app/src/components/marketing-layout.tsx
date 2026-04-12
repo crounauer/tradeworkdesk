@@ -116,7 +116,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
                 <span className="text-lg font-bold tracking-tight text-white">TradeWorkDesk</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
-                The all-in-one platform for boiler service companies. Manage jobs, customers, and compliance from one place.
+                The all-in-one platform for gas, oil, heat pump engineers and plumbers. Manage jobs, customers, and compliance from one place.
               </p>
             </div>
 
@@ -125,8 +125,21 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
               <ul className="space-y-2.5 text-sm">
                 <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
                 <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link href="/industries" className="hover:text-white transition-colors">Industries</Link></li>
+                <li><Link href="/alternatives" className="hover:text-white transition-colors">Alternatives</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-display font-semibold text-white mb-4 text-sm">Trades</h4>
+              <ul className="space-y-2.5 text-sm">
                 <li><Link href="/gas-engineer-software" className="hover:text-white transition-colors">Gas Engineer Software</Link></li>
-                <li><Link href="/boiler-service-management-software" className="hover:text-white transition-colors">Boiler Service Software</Link></li>
+                <li><Link href="/oil-engineer-software" className="hover:text-white transition-colors">Oil Engineer Software</Link></li>
+                <li><Link href="/heat-pump-engineer-software" className="hover:text-white transition-colors">Heat Pump Software</Link></li>
+                <li><Link href="/plumber-software" className="hover:text-white transition-colors">Plumber Software</Link></li>
+                <li><Link href="/landlord-gas-safety-software" className="hover:text-white transition-colors">Landlord Gas Safety</Link></li>
+                <li><Link href="/sole-trader-software" className="hover:text-white transition-colors">Sole Trader Software</Link></li>
+                <li><Link href="/heating-company-software" className="hover:text-white transition-colors">Heating Company Software</Link></li>
               </ul>
             </div>
 
@@ -136,12 +149,6 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
                 <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
                 <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
                 <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-display font-semibold text-white mb-4 text-sm">Legal</h4>
-              <ul className="space-y-2.5 text-sm">
                 <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
                 <li><Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link></li>
               </ul>
@@ -153,7 +160,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
               &copy; {new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.
             </p>
             <p className="text-sm text-slate-500">
-              Registered in England & Wales. Made for heating engineers, by heating engineers.
+              Registered in England & Wales. Made for gas, oil, heat pump engineers &amp; plumbers.
             </p>
           </div>
         </div>

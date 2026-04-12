@@ -13,6 +13,8 @@ export function organizationSchema() {
       email: "support@tradeworkdesk.co.uk",
       availableLanguage: "English",
     },
+    description:
+      "TradeWorkDesk provides job management software for gas engineers, oil engineers, heat pump engineers and general plumbers across the UK.",
     sameAs: [],
   };
 }
@@ -49,7 +51,7 @@ export function softwareApplicationSchema() {
       offerCount: "3",
     },
     description:
-      "Boiler service management software for gas engineers. Manage jobs, customers, digital forms, and reports from one platform.",
+      "Job management software for gas engineers, oil engineers, heat pump engineers and plumbers. Manage jobs, customers, digital forms, compliance, and reports from one platform.",
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "4.8",

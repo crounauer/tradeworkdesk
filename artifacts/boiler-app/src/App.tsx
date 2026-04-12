@@ -103,6 +103,8 @@ const PricingPage = lazyRetry(() => import("@/pages/marketing/pricing"));
 const AboutPage = lazyRetry(() => import("@/pages/marketing/about"));
 const ContactPage = lazyRetry(() => import("@/pages/marketing/contact"));
 const TradeLandingPage = lazyRetry(() => import("@/pages/marketing/trade-landing"));
+const IndustriesPage = lazyRetry(() => import("@/pages/marketing/industries"));
+const AlternativesPage = lazyRetry(() => import("@/pages/marketing/alternatives"));
 const BlogIndex = lazyRetry(() => import("@/pages/marketing/blog-index"));
 const BlogPostPage = lazyRetry(() => import("@/pages/marketing/blog-post"));
 const PrivacyPolicyPage = lazyRetry(() => import("@/pages/marketing/privacy-policy"));
@@ -209,6 +211,14 @@ function AppRouter() {
         <Route path="/gas-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="gas-engineer-software" />} />
         <Route path="/boiler-service-management-software" component={() => <PublicPage component={TradeLandingPage} slug="boiler-service-management-software" />} />
         <Route path="/job-management-software-heating-engineers" component={() => <PublicPage component={TradeLandingPage} slug="job-management-software-heating-engineers" />} />
+        <Route path="/oil-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="oil-engineer-software" />} />
+        <Route path="/heat-pump-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="heat-pump-engineer-software" />} />
+        <Route path="/plumber-software" component={() => <PublicPage component={TradeLandingPage} slug="plumber-software" />} />
+        <Route path="/landlord-gas-safety-software" component={() => <PublicPage component={TradeLandingPage} slug="landlord-gas-safety-software" />} />
+        <Route path="/sole-trader-software" component={() => <PublicPage component={TradeLandingPage} slug="sole-trader-software" />} />
+        <Route path="/heating-company-software" component={() => <PublicPage component={TradeLandingPage} slug="heating-company-software" />} />
+        <Route path="/industries" component={() => <PublicPage component={IndustriesPage} />} />
+        <Route path="/alternatives" component={() => <PublicPage component={AlternativesPage} />} />
         <Route path="/privacy-policy" component={() => <PublicPage component={PrivacyPolicyPage} />} />
         <Route path="/terms-of-service" component={() => <PublicPage component={TermsOfServicePage} />} />
 

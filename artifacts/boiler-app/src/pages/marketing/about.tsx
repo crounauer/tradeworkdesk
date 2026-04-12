@@ -9,40 +9,40 @@ const team = [
   {
     name: "James Harrison",
     role: "Founder & Lead Engineer",
-    bio: "Gas Safe registered engineer with 15+ years in the heating industry. Built TradeWorkDesk after experiencing the pain of paper-based job management first-hand.",
+    bio: "Gas Safe and OFTEC registered engineer with 15+ years across gas, oil, and heat pump installations. Built TradeWorkDesk after experiencing the pain of paper-based job management first-hand — and realising every heating and plumbing trade deserved better tooling.",
   },
   {
     name: "Sarah Mitchell",
     role: "Head of Product",
-    bio: "Former operations manager at a 30-engineer heating firm. Understands the day-to-day challenges of running a service company from the office side.",
+    bio: "Former operations manager at a 30-engineer firm covering gas servicing, oil boiler maintenance, heat pump commissioning, and general plumbing. Understands the day-to-day challenges of running a multi-trade service company from the office side.",
   },
   {
     name: "David Chen",
     role: "Technical Director",
-    bio: "Software engineer with a decade of experience building field service platforms. Passionate about making technology that works in a boiler cupboard.",
+    bio: "Software engineer with a decade of experience building field service platforms. Works closely with Gas Safe, OFTEC, and MCS registered engineers to ensure every workflow reflects real-world trade requirements.",
   },
 ];
 
 const values = [
   {
     icon: Wrench,
-    title: "Built by Engineers, for Engineers",
-    desc: "We're not a Silicon Valley startup guessing what tradespeople need. Our founder is a Gas Safe registered engineer who built this because he needed it.",
+    title: "Built by Tradespeople, for Tradespeople",
+    desc: "We're not a Silicon Valley startup guessing what tradespeople need. Our founder is a Gas Safe and OFTEC registered engineer who built this because gas, oil, heat pump engineers and plumbers all deserved purpose-built software.",
   },
   {
     icon: Shield,
     title: "Compliance First",
-    desc: "Every form, every workflow, every record structure is designed around UK gas safety regulations. We stay up to date so you don't have to.",
+    desc: "Every form, every workflow, every record structure is designed around UK industry regulations — Gas Safe, OFTEC, MCS, and CIPHE standards. We stay up to date so you don't have to.",
   },
   {
     icon: Users,
     title: "UK-Based Support",
-    desc: "When you call us, you speak to someone who understands the heating industry. No offshore call centres, no chatbots.",
+    desc: "When you call us, you speak to someone who understands the heating and plumbing industry. No offshore call centres, no chatbots.",
   },
   {
     icon: Award,
     title: "Continuous Improvement",
-    desc: "We ship updates every week based on feedback from real engineers in the field. If something isn't working, we fix it fast.",
+    desc: "We ship updates every week based on feedback from real gas, oil, heat pump engineers and plumbers in the field. If something isn't working, we fix it fast.",
   },
 ];
 
@@ -50,8 +50,8 @@ export default function AboutPage() {
   return (
     <MarketingLayout>
       <SEOHead
-        title="About TradeWorkDesk — Built by Heating Engineers"
-        description="TradeWorkDesk was founded by a Gas Safe registered engineer who understood the industry's need for purpose-built job management software. Meet the team behind the platform."
+        title="About TradeWorkDesk — Built by Gas, Oil, Heat Pump & Plumbing Engineers"
+        description="TradeWorkDesk was founded by a Gas Safe and OFTEC registered engineer who understood the heating and plumbing industry's need for purpose-built job management software. Meet the team behind the platform."
         canonical={`${SITE_URL}/about`}
         schema={[
           breadcrumbSchema([
@@ -67,17 +67,17 @@ export default function AboutPage() {
           <div className="flex flex-col lg:flex-row items-start gap-10 lg:gap-14">
             <div className="flex-1 min-w-0">
               <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
-                Built by heating engineers, for heating engineers
+                Built by tradespeople, for tradespeople
               </h1>
               <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-                TradeWorkDesk started in 2023 when our founder — a Gas Safe registered engineer
-                with 15 years in the trade — got fed up with paper forms, lost records, and
-                software that didn't understand his industry.
+                TradeWorkDesk started in 2023 when our founder — a Gas Safe and OFTEC registered engineer
+                with 15 years across gas, oil, and heat pump work — got fed up with paper forms, lost records, and
+                software that didn't understand the heating and plumbing industry.
               </p>
               <p className="mt-4 text-lg text-slate-600 leading-relaxed">
                 He built the tool he wished existed: a platform that speaks the language of
-                gas engineers, handles compliance naturally, and works from a phone in a
-                boiler cupboard with no signal.
+                gas engineers, oil technicians, heat pump installers, and plumbers — handles compliance naturally,
+                and works from a phone on site with no signal.
               </p>
             </div>
           </div>
