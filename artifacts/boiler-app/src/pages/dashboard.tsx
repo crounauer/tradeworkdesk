@@ -523,13 +523,12 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Fuel Category</Label>
+                  <Label>Forms Required</Label>
                   <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_category")}>
-                    <option value="">Select fuel category...</option>
+                    <option value="">Select...</option>
                     <option value="gas">Gas</option>
                     <option value="oil">Oil</option>
-                    <option value="heat_pump">Heat Pump</option>
-                    <option value="general">General / Plumbing</option>
+                    <option value="general">Plumbing</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

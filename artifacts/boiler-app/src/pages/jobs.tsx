@@ -734,13 +734,12 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           </select>
         </div>
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Fuel Category</label>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Forms Required</label>
           <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_category")}>
-            <option value="">Select fuel category...</option>
+            <option value="">Select...</option>
             <option value="gas">Gas</option>
             <option value="oil">Oil</option>
-            <option value="heat_pump">Heat Pump</option>
-            <option value="general">General / Plumbing</option>
+            <option value="general">Plumbing</option>
           </select>
         </div>
         <div>
