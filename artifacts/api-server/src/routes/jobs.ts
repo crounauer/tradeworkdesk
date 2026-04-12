@@ -246,7 +246,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   const { job_type_id: rawJobTypeId, fuel_category: parsedFuelCategory, ...jobCoreData } = parsed.data as typeof parsed.data & { fuel_category?: string | null };
 
-  const fuelCategory = parsedFuelCategory || null;
+  const validFuelCategories = ["gas", "oil", "heat_pump", "general"];
+  const fuelCategory = parsedFuelCategory && validFuelCategories.includes(parsedFuelCategory) ? parsedFuelCategory : null;
 
   const postStartIso = new Date(jobCoreData.scheduled_date as unknown as string).toISOString().slice(0, 10);
   if (jobCoreData.scheduled_end_date && jobCoreData.scheduled_end_date < postStartIso) {

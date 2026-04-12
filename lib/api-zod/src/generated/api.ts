@@ -958,7 +958,7 @@ export const CreateJobBody = zod.object({
     "follow_up",
   ]),
   job_type_id: zod.number().int().positive().optional(),
-  fuel_category: zod.enum(["gas", "oil", "heat_pump"]).nullish(),
+  fuel_category: zod.enum(["gas", "oil", "heat_pump", "general"]).nullish(),
   priority: zod.enum(["low", "medium", "high", "urgent"]).optional(),
   scheduled_date: zod.coerce.date(),
   scheduled_end_date: zod.string().nullish(),
@@ -989,7 +989,7 @@ export const GetJobResponse = zod
       "inspection",
       "follow_up",
     ]),
-    fuel_category: zod.enum(["gas", "oil", "heat_pump"]).nullish(),
+    fuel_category: zod.enum(["gas", "oil", "heat_pump", "general"]).nullish(),
     status: zod.enum([
       "scheduled",
       "in_progress",
@@ -1261,7 +1261,7 @@ export const UpdateJobBody = zod.object({
   job_type: zod
     .enum(["service", "breakdown", "installation", "inspection", "follow_up"])
     .optional(),
-  fuel_category: zod.enum(["gas", "oil", "heat_pump"]).nullish(),
+  fuel_category: zod.enum(["gas", "oil", "heat_pump", "general"]).nullish(),
   status: zod
     .enum([
       "scheduled",
@@ -1297,7 +1297,7 @@ export const UpdateJobResponse = zod.object({
     "inspection",
     "follow_up",
   ]),
-  fuel_category: zod.enum(["gas", "oil", "heat_pump"]).nullish(),
+  fuel_category: zod.enum(["gas", "oil", "heat_pump", "general"]).nullish(),
   status: zod.enum([
     "scheduled",
     "in_progress",

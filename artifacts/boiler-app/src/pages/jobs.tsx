@@ -740,6 +740,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
             <option value="gas">Gas</option>
             <option value="oil">Oil</option>
             <option value="heat_pump">Heat Pump</option>
+            <option value="general">General / Plumbing</option>
           </select>
         </div>
         <div>

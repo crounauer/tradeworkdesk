@@ -529,6 +529,7 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                     <option value="gas">Gas</option>
                     <option value="oil">Oil</option>
                     <option value="heat_pump">Heat Pump</option>
+                    <option value="general">General / Plumbing</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

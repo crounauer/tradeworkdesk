@@ -8,6 +8,6 @@ BEGIN
   ) THEN
     ALTER TABLE jobs
       ADD CONSTRAINT jobs_fuel_category_check
-      CHECK (fuel_category IS NULL OR fuel_category IN ('gas', 'oil', 'heat_pump'));
+      CHECK (fuel_category IS NULL OR fuel_category IN ('gas', 'oil', 'heat_pump', 'general'));
   END IF;
 END $$;
