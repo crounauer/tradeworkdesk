@@ -39,6 +39,7 @@ type QuickBookData = {
   new_city: string;
   new_postcode: string;
   job_type_id: string;
+  fuel_category: string;
   priority: string;
   scheduled_date: string;
   scheduled_time: string;
@@ -305,6 +306,7 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
           property_id: propertyId,
           job_type: jobTypeCategory,
           job_type_id: selectedType ? selectedType.id : undefined,
+          fuel_category: data.fuel_category || undefined,
           priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
           scheduled_time: data.scheduled_time || undefined,
@@ -519,6 +521,15 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                       <option value="urgent">Urgent</option>
                     </select>
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fuel Category</Label>
+                  <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_category")}>
+                    <option value="">Auto-detect from appliance</option>
+                    <option value="gas">Gas</option>
+                    <option value="oil">Oil</option>
+                    <option value="heat_pump">Heat Pump</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

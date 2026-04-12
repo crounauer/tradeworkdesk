@@ -35,6 +35,7 @@ interface SupabaseJobRow {
   assigned_technician_id: string | null;
   job_type: string;
   job_type_id: number | null;
+  fuel_category: string | null;
   status: string;
   priority: string;
   description: string | null;
@@ -129,7 +130,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, fuel_category, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: true, nullsFirst: false })
     .order("scheduled_time", { ascending: true, nullsFirst: true })
@@ -243,7 +244,9 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const { job_type_id: rawJobTypeId, ...jobCoreData } = parsed.data;
+  const { job_type_id: rawJobTypeId, fuel_category: parsedFuelCategory, ...jobCoreData } = parsed.data as typeof parsed.data & { fuel_category?: string | null };
+
+  const fuelCategory = parsedFuelCategory || null;
 
   const postStartIso = new Date(jobCoreData.scheduled_date as unknown as string).toISOString().slice(0, 10);
   if (jobCoreData.scheduled_end_date && jobCoreData.scheduled_end_date < postStartIso) {
@@ -329,6 +332,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     tenant_id: req.tenantId,
     ...(verifiedJobTypeId ? { job_type_id: verifiedJobTypeId } : {}),
     ...(generatedJobRef ? { job_ref: generatedJobRef } : {}),
+    ...(fuelCategory ? { fuel_category: fuelCategory } : {}),
   };
 
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();

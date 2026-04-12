@@ -32,6 +32,7 @@ type JobFormData = {
   customer_id: string;
   property_id: string;
   job_type_id: string;
+  fuel_category: string;
   priority: string;
   scheduled_date: string;
   scheduled_end_date?: string;
@@ -616,13 +617,14 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           property_id: data.property_id,
           job_type: jobTypeCategory,
           job_type_id: selectedType ? selectedType.id : undefined,
+          fuel_category: data.fuel_category || undefined,
           priority: data.priority as "low" | "medium" | "high" | "urgent",
           scheduled_date: data.scheduled_date,
           scheduled_end_date: data.scheduled_end_date || undefined,
           scheduled_time: data.scheduled_time || undefined,
           description: data.description || undefined,
           assigned_technician_id: technicianId,
-        }
+        },
       });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Job created successfully" });
@@ -729,6 +731,15 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
             {jobTypes.map(t => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Fuel Category</label>
+          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_category")}>
+            <option value="">Auto-detect from appliance</option>
+            <option value="gas">Gas</option>
+            <option value="oil">Oil</option>
+            <option value="heat_pump">Heat Pump</option>
           </select>
         </div>
         <div>

@@ -315,177 +315,193 @@ export default function JobDetail() {
 
             <CommentsSection jobId={job.id} />
 
-            <h3 className="font-display font-bold text-xl mt-8 mb-4">Actions & Forms</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Link href={`/jobs/${job.id}/service-record`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-primary hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("service_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-blue-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("service_record") ? "bg-emerald-500 text-white" : "bg-blue-100 text-blue-600"}`}><FileText className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Service Record</h4>
-                      {completedFormTypes.has("service_record") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("service_record") ? "Completed — tap to view or edit" : "Complete full inspection"}</p>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link href={`/jobs/${job.id}/breakdown-report`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-rose-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("breakdown_report") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-rose-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("breakdown_report") ? "bg-emerald-500 text-white" : "bg-rose-100 text-rose-600"}`}><Wrench className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Breakdown Report</h4>
-                      {completedFormTypes.has("breakdown_report") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("breakdown_report") ? "Completed — tap to view or edit" : "Record faults and fixes"}</p>
-                  </div>
-                </Card>
-              </Link>
+            {(() => {
+              const effectiveFuel = (job as unknown as { fuel_category?: string | null }).fuel_category || (job.appliance as unknown as { fuel_type?: string })?.fuel_type || null;
+              const showGasForms = !effectiveFuel || effectiveFuel === "gas" || effectiveFuel === "oil" || effectiveFuel === "natural_gas" || effectiveFuel === "lpg";
+              const showOilForms = effectiveFuel === "oil";
+              const showHeatPumpForms = effectiveFuel === "heat_pump";
+              return (
+                <>
+                  <h3 className="font-display font-bold text-xl mt-8 mb-4">Actions & Forms</h3>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {showGasForms && (
+                      <Link href={`/jobs/${job.id}/service-record`}>
+                        <Card className={`p-5 flex items-center gap-4 hover:border-primary hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("service_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-blue-50/50 to-white"}`}>
+                          <div className={`p-3 rounded-xl ${completedFormTypes.has("service_record") ? "bg-emerald-500 text-white" : "bg-blue-100 text-blue-600"}`}><FileText className="w-6 h-6"/></div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold">Service Record</h4>
+                              {completedFormTypes.has("service_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{completedFormTypes.has("service_record") ? "Completed — tap to view or edit" : "Complete full inspection"}</p>
+                          </div>
+                        </Card>
+                      </Link>
+                    )}
 
-              {job.job_type === "installation" && (
-                <Link href={`/jobs/${job.id}/commissioning`}>
-                  <Card className={`p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("commissioning_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-emerald-50/50 to-white"}`}>
-                    <div className={`p-3 rounded-xl ${completedFormTypes.has("commissioning_record") ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><ClipboardCheck className="w-6 h-6"/></div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold">Commissioning Record</h4>
-                        {completedFormTypes.has("commissioning_record") && <Check className="w-4 h-4 text-emerald-600" />}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{completedFormTypes.has("commissioning_record") ? "Completed — tap to view or edit" : "New installation commissioning"}</p>
-                    </div>
-                  </Card>
-                </Link>
-              )}
-
-              <Link href={`/jobs/${job.id}/job-completion`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completionReport ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-emerald-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completionReport ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><ClipboardList className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Job Completion Report</h4>
-                      {completionReport && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {completionReport ? "Completed — tap to view or edit" : "Summarise work & sign-off"}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-            </div>
-
-            {(job.appliance as unknown as { fuel_type?: string })?.fuel_type === "heat_pump" && (
-              <>
-                <h3 className="font-display font-bold text-xl mt-8 mb-4">Heat Pump Records</h3>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <Link href={`/jobs/${job.id}/heat-pump-service`}>
-                    <Card className={`p-5 flex items-center gap-4 hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("heat_pump_service_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-cyan-50/50 to-white"}`}>
-                      <div className={`p-3 rounded-xl ${completedFormTypes.has("heat_pump_service_record") ? "bg-emerald-500 text-white" : "bg-cyan-100 text-cyan-600"}`}><Wind className="w-6 h-6"/></div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold">Heat Pump Service</h4>
-                          {completedFormTypes.has("heat_pump_service_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                    <Link href={`/jobs/${job.id}/breakdown-report`}>
+                      <Card className={`p-5 flex items-center gap-4 hover:border-rose-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("breakdown_report") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-rose-50/50 to-white"}`}>
+                        <div className={`p-3 rounded-xl ${completedFormTypes.has("breakdown_report") ? "bg-emerald-500 text-white" : "bg-rose-100 text-rose-600"}`}><Wrench className="w-6 h-6"/></div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold">Breakdown Report</h4>
+                            {completedFormTypes.has("breakdown_report") && <Check className="w-4 h-4 text-emerald-600" />}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{completedFormTypes.has("breakdown_report") ? "Completed — tap to view or edit" : "Record faults and fixes"}</p>
                         </div>
-                        <p className="text-sm text-muted-foreground">{completedFormTypes.has("heat_pump_service_record") ? "Completed — tap to view or edit" : "Refrigerant, temps & COP readings"}</p>
-                      </div>
-                    </Card>
-                  </Link>
-                  <Link href={`/jobs/${job.id}/heat-pump-commissioning`}>
-                    <Card className={`p-5 flex items-center gap-4 hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("heat_pump_commissioning_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-cyan-50/50 to-white"}`}>
-                      <div className={`p-3 rounded-xl ${completedFormTypes.has("heat_pump_commissioning_record") ? "bg-emerald-500 text-white" : "bg-cyan-100 text-cyan-600"}`}><ClipboardCheck className="w-6 h-6"/></div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold">Heat Pump Commissioning</h4>
-                          {completedFormTypes.has("heat_pump_commissioning_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                      </Card>
+                    </Link>
+
+                    {showGasForms && job.job_type === "installation" && (
+                      <Link href={`/jobs/${job.id}/commissioning`}>
+                        <Card className={`p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("commissioning_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-emerald-50/50 to-white"}`}>
+                          <div className={`p-3 rounded-xl ${completedFormTypes.has("commissioning_record") ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><ClipboardCheck className="w-6 h-6"/></div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold">Commissioning Record</h4>
+                              {completedFormTypes.has("commissioning_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{completedFormTypes.has("commissioning_record") ? "Completed — tap to view or edit" : "New installation commissioning"}</p>
+                          </div>
+                        </Card>
+                      </Link>
+                    )}
+
+                    <Link href={`/jobs/${job.id}/job-completion`}>
+                      <Card className={`p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completionReport ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-emerald-50/50 to-white"}`}>
+                        <div className={`p-3 rounded-xl ${completionReport ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><ClipboardList className="w-6 h-6"/></div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold">Job Completion Report</h4>
+                            {completionReport && <Check className="w-4 h-4 text-emerald-600" />}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {completionReport ? "Completed — tap to view or edit" : "Summarise work & sign-off"}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">{completedFormTypes.has("heat_pump_commissioning_record") ? "Completed — tap to view or edit" : "MCS-style commissioning record"}</p>
+                      </Card>
+                    </Link>
+                  </div>
+
+                  {showHeatPumpForms && (
+                    <>
+                      <h3 className="font-display font-bold text-xl mt-8 mb-4">Heat Pump Records</h3>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Link href={`/jobs/${job.id}/heat-pump-service`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("heat_pump_service_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-cyan-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("heat_pump_service_record") ? "bg-emerald-500 text-white" : "bg-cyan-100 text-cyan-600"}`}><Wind className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Heat Pump Service</h4>
+                                {completedFormTypes.has("heat_pump_service_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("heat_pump_service_record") ? "Completed — tap to view or edit" : "Refrigerant, temps & COP readings"}</p>
+                            </div>
+                          </Card>
+                        </Link>
+                        <Link href={`/jobs/${job.id}/heat-pump-commissioning`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("heat_pump_commissioning_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-cyan-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("heat_pump_commissioning_record") ? "bg-emerald-500 text-white" : "bg-cyan-100 text-cyan-600"}`}><ClipboardCheck className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Heat Pump Commissioning</h4>
+                                {completedFormTypes.has("heat_pump_commissioning_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("heat_pump_commissioning_record") ? "Completed — tap to view or edit" : "MCS-style commissioning record"}</p>
+                            </div>
+                          </Card>
+                        </Link>
                       </div>
-                    </Card>
-                  </Link>
-                </div>
-              </>
-            )}
+                    </>
+                  )}
 
-            <h3 className="font-display font-bold text-xl mt-8 mb-4">Oil Service Records</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Link href={`/jobs/${job.id}/oil-tank-inspection`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-blue-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_tank_inspection") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-blue-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_tank_inspection") ? "bg-emerald-500 text-white" : "bg-blue-100 text-blue-600"}`}><Droplets className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Oil Tank Inspection</h4>
-                      {completedFormTypes.has("oil_tank_inspection") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("oil_tank_inspection") ? "Completed — tap to view or edit" : "Tank details & condition"}</p>
-                  </div>
-                </Card>
-              </Link>
+                  {showOilForms && (
+                    <>
+                      <h3 className="font-display font-bold text-xl mt-8 mb-4">Oil Service Records</h3>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Link href={`/jobs/${job.id}/oil-tank-inspection`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-blue-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_tank_inspection") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-blue-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_tank_inspection") ? "bg-emerald-500 text-white" : "bg-blue-100 text-blue-600"}`}><Droplets className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Oil Tank Inspection</h4>
+                                {completedFormTypes.has("oil_tank_inspection") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("oil_tank_inspection") ? "Completed — tap to view or edit" : "Tank details & condition"}</p>
+                            </div>
+                          </Card>
+                        </Link>
 
-              <Link href={`/jobs/${job.id}/oil-tank-risk-assessment`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-orange-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_tank_risk_assessment") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-orange-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_tank_risk_assessment") ? "bg-emerald-500 text-white" : "bg-orange-100 text-orange-600"}`}><ShieldAlert className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Oil Tank Risk Assessment</h4>
-                      {completedFormTypes.has("oil_tank_risk_assessment") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("oil_tank_risk_assessment") ? "Completed — tap to view or edit" : "Hazards & risk ratings"}</p>
-                  </div>
-                </Card>
-              </Link>
+                        <Link href={`/jobs/${job.id}/oil-tank-risk-assessment`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-orange-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_tank_risk_assessment") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-orange-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_tank_risk_assessment") ? "bg-emerald-500 text-white" : "bg-orange-100 text-orange-600"}`}><ShieldAlert className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Oil Tank Risk Assessment</h4>
+                                {completedFormTypes.has("oil_tank_risk_assessment") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("oil_tank_risk_assessment") ? "Completed — tap to view or edit" : "Hazards & risk ratings"}</p>
+                            </div>
+                          </Card>
+                        </Link>
 
-              <Link href={`/jobs/${job.id}/combustion-analysis`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-indigo-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("combustion_analysis_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-indigo-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("combustion_analysis_record") ? "bg-emerald-500 text-white" : "bg-indigo-100 text-indigo-600"}`}><Gauge className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Combustion Analysis</h4>
-                      {completedFormTypes.has("combustion_analysis_record") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("combustion_analysis_record") ? "Completed — tap to view or edit" : "Flue gas readings & efficiency"}</p>
-                  </div>
-                </Card>
-              </Link>
+                        <Link href={`/jobs/${job.id}/combustion-analysis`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-indigo-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("combustion_analysis_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-indigo-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("combustion_analysis_record") ? "bg-emerald-500 text-white" : "bg-indigo-100 text-indigo-600"}`}><Gauge className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Combustion Analysis</h4>
+                                {completedFormTypes.has("combustion_analysis_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("combustion_analysis_record") ? "Completed — tap to view or edit" : "Flue gas readings & efficiency"}</p>
+                            </div>
+                          </Card>
+                        </Link>
 
-              <Link href={`/jobs/${job.id}/burner-setup`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-orange-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("burner_setup_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-amber-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("burner_setup_record") ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-600"}`}><Settings className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Burner Setup Record</h4>
-                      {completedFormTypes.has("burner_setup_record") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("burner_setup_record") ? "Completed — tap to view or edit" : "Nozzle, pressure & electrodes"}</p>
-                  </div>
-                </Card>
-              </Link>
+                        <Link href={`/jobs/${job.id}/burner-setup`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-orange-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("burner_setup_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-amber-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("burner_setup_record") ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-600"}`}><Settings className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Burner Setup Record</h4>
+                                {completedFormTypes.has("burner_setup_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("burner_setup_record") ? "Completed — tap to view or edit" : "Nozzle, pressure & electrodes"}</p>
+                            </div>
+                          </Card>
+                        </Link>
 
-              <Link href={`/jobs/${job.id}/fire-valve-test`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-red-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("fire_valve_test_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-red-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("fire_valve_test_record") ? "bg-emerald-500 text-white" : "bg-red-100 text-red-600"}`}><ShieldCheck className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Fire Valve Test</h4>
-                      {completedFormTypes.has("fire_valve_test_record") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("fire_valve_test_record") ? "Completed — tap to view or edit" : "Test result & remedial action"}</p>
-                  </div>
-                </Card>
-              </Link>
+                        <Link href={`/jobs/${job.id}/fire-valve-test`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-red-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("fire_valve_test_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-red-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("fire_valve_test_record") ? "bg-emerald-500 text-white" : "bg-red-100 text-red-600"}`}><ShieldCheck className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Fire Valve Test</h4>
+                                {completedFormTypes.has("fire_valve_test_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("fire_valve_test_record") ? "Completed — tap to view or edit" : "Test result & remedial action"}</p>
+                            </div>
+                          </Card>
+                        </Link>
 
-              <Link href={`/jobs/${job.id}/oil-line-vacuum-test`}>
-                <Card className={`p-5 flex items-center gap-4 hover:border-teal-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_line_vacuum_test") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-teal-50/50 to-white"}`}>
-                  <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_line_vacuum_test") ? "bg-emerald-500 text-white" : "bg-teal-100 text-teal-600"}`}><Pipette className="w-6 h-6"/></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold">Oil Line Vacuum Test</h4>
-                      {completedFormTypes.has("oil_line_vacuum_test") && <Check className="w-4 h-4 text-emerald-600" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{completedFormTypes.has("oil_line_vacuum_test") ? "Completed — tap to view or edit" : "Pipework & vacuum readings"}</p>
-                  </div>
-                </Card>
-              </Link>
-            </div>
+                        <Link href={`/jobs/${job.id}/oil-line-vacuum-test`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-teal-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_line_vacuum_test") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-teal-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_line_vacuum_test") ? "bg-emerald-500 text-white" : "bg-teal-100 text-teal-600"}`}><Pipette className="w-6 h-6"/></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Oil Line Vacuum Test</h4>
+                                {completedFormTypes.has("oil_line_vacuum_test") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("oil_line_vacuum_test") ? "Completed — tap to view or edit" : "Pipework & vacuum readings"}</p>
+                            </div>
+                          </Card>
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
             <EmailLogSection jobId={job.id} refreshKey={emailLogRefresh} />
           </div>
