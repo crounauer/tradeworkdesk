@@ -525,7 +525,7 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                 <div className="space-y-1.5">
                   <Label>Fuel Category</Label>
                   <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_category")}>
-                    <option value="">Auto-detect from appliance</option>
+                    <option value="">Select fuel category...</option>
                     <option value="gas">Gas</option>
                     <option value="oil">Oil</option>
                     <option value="heat_pump">Heat Pump</option>

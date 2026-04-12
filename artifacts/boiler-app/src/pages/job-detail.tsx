@@ -316,11 +316,9 @@ export default function JobDetail() {
             <CommentsSection jobId={job.id} />
 
             {(() => {
-              const jobFuelCategory = (job as unknown as { fuel_category?: string | null }).fuel_category;
-              const applianceFuelType = (job.appliance as unknown as { fuel_type?: string })?.fuel_type || null;
-              const effectiveFuel = jobFuelCategory || applianceFuelType;
-              const isGeneral = jobFuelCategory === "general" || (!jobFuelCategory && !applianceFuelType);
-              const showGasForms = !isGeneral && (effectiveFuel === "gas" || effectiveFuel === "oil" || effectiveFuel === "natural_gas" || effectiveFuel === "lpg");
+              const effectiveFuel = (job as unknown as { fuel_category?: string | null }).fuel_category || null;
+              const isGeneral = effectiveFuel === "general" || !effectiveFuel;
+              const showGasForms = !isGeneral && (effectiveFuel === "gas" || effectiveFuel === "oil");
               const showOilForms = !isGeneral && effectiveFuel === "oil";
               const showHeatPumpForms = !isGeneral && effectiveFuel === "heat_pump";
               return (
