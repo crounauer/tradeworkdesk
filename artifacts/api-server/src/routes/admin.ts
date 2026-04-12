@@ -536,7 +536,7 @@ router.post("/admin/switch-to-company", requireAuth, requireTenant, requireRole(
 });
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type } = req.body;
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type, addon_ids, addon_quantities = {} } = req.body;
 
   const resolvedCompanyType = company_type === "sole_trader" ? "sole_trader" : "company";
   const resolvedCompanyName = resolvedCompanyType === "sole_trader" && !company_name ? contact_name : company_name;
@@ -553,6 +553,19 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString();
 
+  let resolvedPlanId = plan_id;
+  if (!resolvedPlanId) {
+    const { data: basePlan } = await supabaseAdmin
+      .from("plans")
+      .select("id")
+      .eq("is_active", true)
+      .eq("is_legacy", false)
+      .order("monthly_price", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    resolvedPlanId = basePlan?.id || "00000000-0000-0000-0000-000000000001";
+  }
+
   const { data: tenant, error: tenantError } = await supabaseAdmin
     .from("tenants")
     .insert({
@@ -561,7 +574,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       contact_email,
       contact_phone: contact_phone || null,
       status: "trial",
-      plan_id: plan_id || "00000000-0000-0000-0000-000000000001",
+      plan_id: resolvedPlanId,
       trial_ends_at: trialEnds,
       company_type: resolvedCompanyType,
     })
@@ -610,6 +623,27 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     );
   if (profileError) {
     console.error("[register] profile upsert failed:", JSON.stringify(profileError));
+  }
+
+  if (Array.isArray(addon_ids) && addon_ids.length > 0) {
+    const { data: validAddons } = await supabaseAdmin
+      .from("addons")
+      .select("id")
+      .in("id", addon_ids)
+      .eq("is_active", true);
+
+    if (validAddons && validAddons.length > 0) {
+      const inserts = validAddons.map((a: { id: string }) => ({
+        tenant_id: tenant.id,
+        addon_id: a.id,
+        is_active: true,
+        quantity: Math.max(1, Math.floor(addon_quantities?.[a.id] || 1)),
+        activated_at: new Date().toISOString(),
+      }));
+      await supabaseAdmin.from("tenant_addons").upsert(inserts, { onConflict: "tenant_id,addon_id" }).then(({ error }) => {
+        if (error) console.error("[register] addon insert failed:", error.message);
+      });
+    }
   }
 
   await supabaseAdmin.from("company_settings").insert({

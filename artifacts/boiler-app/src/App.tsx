@@ -90,6 +90,7 @@ const PlatformTenantDetail = lazyRetry(() => import("@/pages/platform-tenant-det
 const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformAnnouncements = lazyRetry(() => import("@/pages/platform-announcements"));
 const PlatformAuditLog = lazyRetry(() => import("@/pages/platform-audit-log"));
+const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
 const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
@@ -270,6 +271,7 @@ function AppRouter() {
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} />} />
         <Route path="/platform/tenants" component={() => <ProtectedRoute component={PlatformTenants} />} />
         <Route path="/platform/plans" component={() => <ProtectedRoute component={PlatformPlans} />} />
+        <Route path="/platform/addons" component={() => <ProtectedRoute component={PlatformAddons} />} />
         <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} />} />
         <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} />} />
 

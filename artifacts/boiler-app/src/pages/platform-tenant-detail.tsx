@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -40,6 +40,46 @@ export default function PlatformTenantDetail() {
       if (!res.ok) throw new Error("Failed to load plans");
       return res.json();
     },
+  });
+
+  const { data: allAddons } = useQuery({
+    queryKey: ["platform-addons"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/addons");
+      if (!res.ok) throw new Error("Failed to load addons");
+      return res.json();
+    },
+  });
+
+  const { data: tenantAddons, refetch: refetchTenantAddons } = useQuery({
+    queryKey: ["platform-tenant-addons", params.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/addons`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!params.id,
+  });
+
+  const [addonSelections, setAddonSelections] = useState<Set<string>>(new Set());
+  const [showAddonEditor, setShowAddonEditor] = useState(false);
+
+  const saveAddonsMutation = useMutation({
+    mutationFn: async (addonIds: string[]) => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/addons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addon_ids: addonIds }),
+      });
+      if (!res.ok) throw new Error("Failed to update add-ons");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchTenantAddons();
+      toast({ title: "Tenant add-ons updated" });
+      setShowAddonEditor(false);
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -300,6 +340,92 @@ export default function PlatformTenantDetail() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Package className="w-4 h-4" /> Add-ons
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={() => {
+            const activeIds = (tenantAddons || [])
+              .filter((ta: { is_active: boolean }) => ta.is_active)
+              .map((ta: { addon_id: string }) => ta.addon_id);
+            setAddonSelections(new Set(activeIds));
+            setShowAddonEditor(true);
+          }}>
+            Manage Add-ons
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {tenantAddons && tenantAddons.filter((ta: { is_active: boolean }) => ta.is_active).length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {tenantAddons
+                .filter((ta: { is_active: boolean }) => ta.is_active)
+                .map((ta: { id: string; addons?: { name: string } | null }) => (
+                  <Badge key={ta.id} variant="secondary" className="text-sm">
+                    {ta.addons?.name || "Unknown"}
+                  </Badge>
+                ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No active add-ons</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {tenant.plan_id && (plans || []).some((p: { id: string; is_legacy?: boolean }) =>
+        p.id === tenant.plan_id && p.is_legacy
+      ) && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <div className="flex-1">
+            <strong>Legacy plan detected.</strong> This tenant is on an older pricing tier. Consider migrating them to the base + add-ons model.
+          </div>
+        </div>
+      )}
+
+      <Dialog open={showAddonEditor} onOpenChange={setShowAddonEditor}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage Tenant Add-ons</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {(allAddons || []).map((addon: { id: string; name: string; description: string | null; is_active: boolean }) => (
+              <label key={addon.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                addonSelections.has(addon.id) ? "border-primary bg-primary/5" : "border-slate-200"
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={addonSelections.has(addon.id)}
+                  onChange={() => {
+                    setAddonSelections(prev => {
+                      const next = new Set(prev);
+                      if (next.has(addon.id)) next.delete(addon.id);
+                      else next.add(addon.id);
+                      return next;
+                    });
+                  }}
+                  className="rounded border-gray-300"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{addon.name}</p>
+                  {addon.description && <p className="text-xs text-muted-foreground">{addon.description}</p>}
+                </div>
+                {!addon.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddonEditor(false)}>Cancel</Button>
+            <Button
+              onClick={() => saveAddonsMutation.mutate([...addonSelections])}
+              disabled={saveAddonsMutation.isPending}
+            >
+              {saveAddonsMutation.isPending ? "Saving..." : "Save Add-ons"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
         <DialogContent>

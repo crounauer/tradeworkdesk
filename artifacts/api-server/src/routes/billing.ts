@@ -8,13 +8,36 @@ const router = Router();
 const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
 
 router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { plan_id, billing_cycle = "monthly" } = req.body;
-  if (!plan_id) { res.status(400).json({ error: "plan_id is required" }); return; }
+  const { plan_id, billing_cycle = "monthly", addon_ids = [], addon_quantities = {} } = req.body as {
+    plan_id?: string;
+    billing_cycle?: string;
+    addon_ids?: string[];
+    addon_quantities?: Record<string, number>;
+  };
 
   const stripeClient = requireStripe();
 
-  const { data: plan } = await supabaseAdmin.from("plans").select("*").eq("id", plan_id).single();
-  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+  let plan;
+  if (plan_id) {
+    const { data } = await supabaseAdmin.from("plans").select("*").eq("id", plan_id).eq("is_active", true).single();
+    if (data && (data as Record<string, unknown>).is_legacy) {
+      res.status(400).json({ error: "This plan is no longer available. Please use the current base plan." });
+      return;
+    }
+    plan = data;
+  }
+  if (!plan) {
+    const { data } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("is_active", true)
+      .eq("is_legacy", false)
+      .order("monthly_price", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    plan = data;
+  }
+  if (!plan) { res.status(404).json({ error: "No base plan found" }); return; }
 
   const { data: tenant } = await supabaseAdmin.from("tenants").select("*").eq("id", req.tenantId!).single();
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -45,13 +68,39 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
     await supabaseAdmin.from("tenants").update({ stripe_customer_id: customerId }).eq("id", req.tenantId!);
   }
 
+  const lineItems: Array<{ price: string; quantity: number }> = [{ price: priceId, quantity: 1 }];
+
+  const validatedAddonIds: string[] = [];
+  if (Array.isArray(addon_ids) && addon_ids.length > 0) {
+    const { data: addons } = await supabaseAdmin
+      .from("addons")
+      .select("*")
+      .in("id", addon_ids)
+      .eq("is_active", true);
+
+    if (addons) {
+      for (const addon of addons) {
+        const addonPriceId = billing_cycle === "annual" ? addon.stripe_price_id_annual : addon.stripe_price_id;
+        if (addonPriceId) {
+          const qty = addon.is_per_seat ? Math.max(1, Math.floor(addon_quantities?.[addon.id] || 1)) : 1;
+          lineItems.push({ price: addonPriceId, quantity: qty });
+          validatedAddonIds.push(addon.id);
+        }
+      }
+    }
+  }
+
   const session = await stripeClient.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: lineItems,
     success_url: `${APP_URL}/billing?success=1`,
     cancel_url: `${APP_URL}/billing?cancelled=1`,
-    metadata: { tenant_id: req.tenantId!, plan_id, billing_cycle },
+    metadata: {
+      tenant_id: req.tenantId!,
+      plan_id: plan.id,
+      billing_cycle,
+    },
     allow_promotion_codes: true,
   });
 

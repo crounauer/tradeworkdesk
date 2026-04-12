@@ -254,17 +254,37 @@ export async function getTenantFeatures(tenantId: string): Promise<Record<string
     return cached.features;
   }
 
-  const { data: tenant, error } = await supabaseAdmin
-    .from("tenants")
-    .select("plan_id, plans(features)")
-    .eq("id", tenantId)
-    .single();
+  const [tenantRes, addonsRes] = await Promise.all([
+    supabaseAdmin
+      .from("tenants")
+      .select("plan_id, plans(features)")
+      .eq("id", tenantId)
+      .single(),
+    supabaseAdmin
+      .from("tenant_addons")
+      .select("addon_id, addons(feature_keys)")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true),
+  ]);
 
-  if (error || !tenant) return null;
+  if (tenantRes.error || !tenantRes.data) return null;
 
-  const features =
-    (tenant.plans as { features?: Record<string, unknown> } | null)
+  const planFeatures =
+    (tenantRes.data.plans as { features?: Record<string, unknown> } | null)
       ?.features ?? {};
+
+  const features: Record<string, unknown> = { ...planFeatures };
+
+  if (addonsRes.data) {
+    for (const ta of addonsRes.data) {
+      const addon = ta.addons as { feature_keys?: string[] } | null;
+      if (addon?.feature_keys) {
+        for (const key of addon.feature_keys) {
+          features[key] = true;
+        }
+      }
+    }
+  }
 
   planFeaturesCache.set(tenantId, { features, expiresAt: now + PLAN_CACHE_TTL_MS });
   return features;

@@ -10,6 +10,12 @@ export interface Announcement {
   ends_at: string | null;
 }
 
+export interface ActiveAddon {
+  addon_id: string;
+  name: string | null;
+  feature_keys: string[];
+}
+
 export interface InitData {
   profile: {
     id: string;
@@ -38,6 +44,7 @@ export interface InitData {
   } | null;
   enquiriesCount: number;
   announcements?: Announcement[];
+  activeAddons?: ActiveAddon[];
 }
 
 export function useInitData() {

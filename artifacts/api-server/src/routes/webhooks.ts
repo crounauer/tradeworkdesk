@@ -61,6 +61,48 @@ router.post(
 
           await supabaseAdmin.from("tenants").update(updates).eq("id", tenantId);
 
+          if (session.subscription) {
+            try {
+              const sub = await stripeClient.subscriptions.retrieve(session.subscription);
+              const { data: allDbAddons } = await supabaseAdmin
+                .from("addons")
+                .select("id, stripe_price_id, stripe_price_id_annual");
+
+              if (allDbAddons && sub.items?.data) {
+                const priceToAddon = new Map<string, string>();
+                for (const a of allDbAddons) {
+                  if (a.stripe_price_id) priceToAddon.set(a.stripe_price_id, a.id);
+                  if (a.stripe_price_id_annual) priceToAddon.set(a.stripe_price_id_annual, a.id);
+                }
+
+                const activeAddonMap = new Map<string, number>();
+                for (const item of sub.items.data) {
+                  const addonId = priceToAddon.get(item.price.id);
+                  if (addonId) activeAddonMap.set(addonId, item.quantity || 1);
+                }
+
+                await supabaseAdmin
+                  .from("tenant_addons")
+                  .update({ is_active: false, deactivated_at: new Date().toISOString() })
+                  .eq("tenant_id", tenantId)
+                  .eq("is_active", true);
+
+                if (activeAddonMap.size > 0) {
+                  const inserts = [...activeAddonMap.entries()].map(([addon_id, quantity]) => ({
+                    tenant_id: tenantId,
+                    addon_id,
+                    is_active: true,
+                    quantity,
+                    activated_at: new Date().toISOString(),
+                  }));
+                  await supabaseAdmin.from("tenant_addons").upsert(inserts, { onConflict: "tenant_id,addon_id" });
+                }
+              }
+            } catch (e) {
+              console.error("[webhook] Failed to sync addon entitlements from subscription:", e);
+            }
+          }
+
           await supabaseAdmin.from("platform_audit_log").insert({
             event_type: "subscription_activated",
             entity_type: "tenant",
@@ -141,6 +183,64 @@ router.post(
                 invoice.currency,
                 BILLING_URL,
               );
+            }
+          }
+          break;
+        }
+
+        case "customer.subscription.updated": {
+          const sub = event.data.object as {
+            customer?: string;
+            items?: { data: Array<{ price: { id: string }; quantity?: number }> };
+          };
+
+          const { data: tenant } = await supabaseAdmin
+            .from("tenants")
+            .select("id")
+            .eq("stripe_customer_id", sub.customer!)
+            .maybeSingle();
+
+          if (tenant && sub.items?.data) {
+            const { data: allDbAddons } = await supabaseAdmin
+              .from("addons")
+              .select("id, stripe_price_id, stripe_price_id_annual");
+
+            if (allDbAddons) {
+              const priceToAddon = new Map<string, string>();
+              for (const a of allDbAddons) {
+                if (a.stripe_price_id) priceToAddon.set(a.stripe_price_id, a.id);
+                if (a.stripe_price_id_annual) priceToAddon.set(a.stripe_price_id_annual, a.id);
+              }
+
+              const activeAddonMap = new Map<string, number>();
+              for (const item of sub.items.data) {
+                const addonId = priceToAddon.get(item.price.id);
+                if (addonId) activeAddonMap.set(addonId, item.quantity || 1);
+              }
+
+              await supabaseAdmin
+                .from("tenant_addons")
+                .update({ is_active: false, deactivated_at: new Date().toISOString() })
+                .eq("tenant_id", tenant.id)
+                .eq("is_active", true);
+
+              if (activeAddonMap.size > 0) {
+                const inserts = [...activeAddonMap.entries()].map(([addon_id, quantity]) => ({
+                  tenant_id: tenant.id,
+                  addon_id,
+                  is_active: true,
+                  quantity,
+                  activated_at: new Date().toISOString(),
+                }));
+                await supabaseAdmin.from("tenant_addons").upsert(inserts, { onConflict: "tenant_id,addon_id" });
+              }
+
+              await supabaseAdmin.from("platform_audit_log").insert({
+                event_type: "subscription_addons_synced",
+                entity_type: "tenant",
+                entity_id: tenant.id,
+                detail: { active_addon_ids: [...activeAddonMap.keys()] },
+              });
             }
           }
           break;

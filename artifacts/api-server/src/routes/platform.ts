@@ -204,9 +204,9 @@ router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order, sole_trader_price, sole_trader_price_annual, stripe_price_id, stripe_price_id_annual, stripe_sole_trader_price_id, stripe_sole_trader_price_id_annual";
   const basicSelect = "id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, sort_order";
 
-  let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).order("sort_order");
+  let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).eq("is_legacy", false).order("monthly_price", { ascending: true }).limit(1);
   if (result.error?.code === "42703") {
-    result = await supabaseAdmin.from("plans").select(basicSelect).eq("is_active", true).order("sort_order");
+    result = await supabaseAdmin.from("plans").select(basicSelect).eq("is_active", true).order("monthly_price", { ascending: true }).limit(1);
   }
   if (result.error) { res.status(500).json({ error: result.error.message }); return; }
   res.json(result.data || []);
@@ -526,6 +526,11 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         .select("id", { count: "exact", head: true })
         .in("status", ["new", "contacted", "quoted"])
         .eq("tenant_id", req.tenantId),
+      supabaseAdmin
+        .from("tenant_addons")
+        .select("addon_id, addons(id, name, feature_keys)")
+        .eq("tenant_id", req.tenantId)
+        .eq("is_active", true),
     );
   }
 
@@ -550,17 +555,31 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
   let tenant = null;
   let enquiriesCount = 0;
 
+  let activeAddons: Array<{ addon_id: string; addons: { id: string; name: string; feature_keys: string[] } | null }> = [];
+
   if (req.tenantId) {
     const tenantRes = results[1] as { data: Record<string, unknown> & { plan_id?: string; plans?: { name?: string; features?: Record<string, boolean>; monthly_price?: number; max_users?: number; max_jobs_per_month?: number } | null } | null; error: unknown };
     const subscriptionRes = results[2] as { data: Record<string, unknown> | null };
     const enquiriesRes = results[3] as { count: number | null };
+    const addonsRes = results[4] as { data: typeof activeAddons | null };
+    activeAddons = addonsRes?.data || [];
 
     if (tenantRes?.data) {
       const plan = tenantRes.data.plans;
+      const baseFeatures: Record<string, boolean> = { ...(plan?.features ?? {}) };
+
+      for (const ta of activeAddons) {
+        if (ta.addons?.feature_keys) {
+          for (const key of ta.addons.feature_keys) {
+            baseFeatures[key] = true;
+          }
+        }
+      }
+
       planFeatures = {
         plan_id: tenantRes.data.plan_id ?? null,
         plan_name: plan?.name ?? null,
-        features: plan?.features ?? {},
+        features: baseFeatures,
       };
       tenant = { ...tenantRes.data, subscription: subscriptionRes?.data || null };
     }
@@ -568,11 +587,17 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     enquiriesCount = enquiriesRes?.count || 0;
   }
 
-  const announcementsIdx = req.tenantId ? 4 : 1;
+  const announcementsIdx = req.tenantId ? 5 : 1;
   const announcementsRes = results[announcementsIdx] as { data: unknown[] | null };
   const announcements = announcementsRes?.data || [];
 
-  const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements };
+  const addonsList = activeAddons.map(a => ({
+    addon_id: a.addon_id,
+    name: a.addons?.name ?? null,
+    feature_keys: a.addons?.feature_keys ?? [],
+  }));
+
+  const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements, activeAddons: addonsList };
   initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   res.set("Cache-Control", "private, max-age=60");
   res.json(responseBody);
@@ -595,22 +620,42 @@ router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, r
     return;
   }
 
-  const { data: tenant, error } = await supabaseAdmin
-    .from("tenants")
-    .select("plan_id, plans(name, features)")
-    .eq("id", req.tenantId)
-    .single();
+  const [tenantRes, addonsRes] = await Promise.all([
+    supabaseAdmin
+      .from("tenants")
+      .select("plan_id, plans(name, features)")
+      .eq("id", req.tenantId)
+      .single(),
+    supabaseAdmin
+      .from("tenant_addons")
+      .select("addon_id, addons(feature_keys)")
+      .eq("tenant_id", req.tenantId)
+      .eq("is_active", true),
+  ]);
 
-  if (error || !tenant) {
+  if (tenantRes.error || !tenantRes.data) {
     res.json({ plan_id: null, plan_name: null, features: {} });
     return;
   }
 
-  const plan = tenant.plans as { name?: string; features?: Record<string, boolean> } | null;
+  const plan = tenantRes.data.plans as { name?: string; features?: Record<string, boolean> } | null;
+  const features: Record<string, boolean> = { ...(plan?.features ?? {}) };
+
+  if (addonsRes.data) {
+    for (const ta of addonsRes.data) {
+      const addon = ta.addons as { feature_keys?: string[] } | null;
+      if (addon?.feature_keys) {
+        for (const key of addon.feature_keys) {
+          features[key] = true;
+        }
+      }
+    }
+  }
+
   res.json({
-    plan_id: tenant.plan_id,
+    plan_id: tenantRes.data.plan_id,
     plan_name: plan?.name ?? null,
-    features: plan?.features ?? {},
+    features,
   });
 });
 
@@ -620,7 +665,7 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
   const [tenantRes, subscriptionRes] = await Promise.all([
     supabaseAdmin
       .from("tenants")
-      .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users, max_jobs_per_month)")
+      .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, stripe_subscription_id, plans(name, monthly_price, max_users, max_jobs_per_month, is_legacy)")
       .eq("id", req.tenantId)
       .single(),
     supabaseAdmin

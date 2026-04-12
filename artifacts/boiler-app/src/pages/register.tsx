@@ -34,16 +34,17 @@ export default function Register() {
 
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState("");
   const [companyType, setCompanyType] = useState<CompanyType>("company");
+  const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
+  const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const { data: plans } = useQuery({
-    queryKey: ["public-plans"],
+  const { data: addons } = useQuery({
+    queryKey: ["public-addons"],
     queryFn: async () => {
-      const res = await fetch("/api/platform/plans/public");
+      const res = await fetch("/api/platform/addons/public");
       if (!res.ok) return [];
       return res.json();
     },
@@ -139,7 +140,8 @@ export default function Register() {
           contact_email: email,
           contact_phone: phone || undefined,
           password,
-          plan_id: selectedPlan || undefined,
+          addon_ids: [...selectedAddons],
+          addon_quantities: addonQuantities,
           company_type: companyType,
         }),
       });
@@ -162,7 +164,7 @@ export default function Register() {
   };
 
   const canAdvanceStep1 = (companyType === "sole_trader" || companyName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
-  const canAdvanceStep2 = true;
+  const canAdvanceStep2 = true; // add-on selection is optional
 
   if (done) {
     return (
@@ -323,40 +325,69 @@ export default function Register() {
                   </div>
                 </div>
                 <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
-                  Next: Choose Plan <ArrowRight className="w-4 h-4 ml-2" />
+                  Next: Choose Add-ons <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
             )}
 
             {step === 2 && (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground text-center">Select your plan</p>
-                {plans && plans.length > 0 ? (
-                  <div className="space-y-3">
-                    {plans.filter((p: { is_active: boolean }) => p.is_active).map((p: { id: string; name: string; monthly_price: number; max_users?: number; max_jobs_per_month?: number }) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                          selectedPlan === p.id
-                            ? "border-primary bg-primary/5 shadow-sm"
+                <p className="text-sm text-muted-foreground text-center">
+                  Everyone starts with our Base Plan. Optionally add extras you need.
+                </p>
+                {addons && addons.length > 0 ? (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {addons.map((a: { id: string; name: string; description?: string; monthly_price: number }) => (
+                      <label
+                        key={a.id}
+                        className={`flex items-center gap-3 w-full p-3 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                          selectedAddons.has(a.id)
+                            ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/30 hover:bg-slate-50"
                         }`}
-                        onClick={() => setSelectedPlan(p.id)}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-base">{p.name}</span>
-                          <span className="text-lg font-bold text-primary">£{Number(p.monthly_price).toFixed(2)}<span className="text-xs text-muted-foreground font-normal">/mo</span></span>
+                        <input
+                          type="checkbox"
+                          checked={selectedAddons.has(a.id)}
+                          onChange={() => {
+                            setSelectedAddons(prev => {
+                              const next = new Set(prev);
+                              if (next.has(a.id)) next.delete(a.id);
+                              else next.add(a.id);
+                              return next;
+                            });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-sm">{a.name}</span>
+                          {a.description && <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>}
+                          {(a as Record<string, unknown>).is_per_seat && selectedAddons.has(a.id) && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">Seats:</span>
+                              <button
+                                type="button"
+                                className="w-6 h-6 rounded border text-xs font-bold"
+                                onClick={(e) => { e.preventDefault(); setAddonQuantities(prev => ({ ...prev, [a.id]: Math.max(1, (prev[a.id] || 1) - 1) })); }}
+                              >-</button>
+                              <span className="text-xs font-medium w-6 text-center">{addonQuantities[a.id] || 1}</span>
+                              <button
+                                type="button"
+                                className="w-6 h-6 rounded border text-xs font-bold"
+                                onClick={(e) => { e.preventDefault(); setAddonQuantities(prev => ({ ...prev, [a.id]: (prev[a.id] || 1) + 1 })); }}
+                              >+</button>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                          {p.max_users && <span>{p.max_users} users</span>}
-                          {p.max_jobs_per_month && <span>{p.max_jobs_per_month} jobs/mo</span>}
-                        </div>
-                      </button>
+                        <span className="text-sm font-semibold text-primary whitespace-nowrap">
+                          +£{(Number(a.monthly_price) * ((a as Record<string, unknown>).is_per_seat ? (addonQuantities[a.id] || 1) : 1)).toFixed(2)}/mo
+                          {(a as Record<string, unknown>).is_per_seat ? ' per seat' : ''}
+                        </span>
+                      </label>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Loading plans...</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No add-ons available yet. You can add them later from your billing page.</p>
                 )}
                 <div className="flex gap-3">
                   <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(1)}>
@@ -366,7 +397,7 @@ export default function Register() {
                     Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
-                <p className="text-xs text-center text-muted-foreground">You can skip plan selection for a default trial.</p>
+                <p className="text-xs text-center text-muted-foreground">Add-ons are optional and can be changed anytime.</p>
               </div>
             )}
 

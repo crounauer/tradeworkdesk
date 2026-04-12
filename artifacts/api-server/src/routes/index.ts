@@ -36,6 +36,7 @@ import geocodingRouter from "./geocoding";
 import emailPreviewRouter from "./email-preview";
 import accountingIntegrationsRouter from "./accounting-integrations";
 import homepageRouter from "./homepage";
+import addonsRouter from "./addons";
 
 const router: IRouter = Router();
 
@@ -75,6 +76,7 @@ router.use(jobTypesRouter);
 router.use(enquiriesRouter);
 router.use(geocodingRouter);
 router.use(accountingIntegrationsRouter);
+router.use(addonsRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

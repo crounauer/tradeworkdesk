@@ -469,6 +469,7 @@ export default function PlatformPlans() {
                     <CardTitle className="text-lg flex items-center gap-2">
                       <CreditCard className="w-4 h-4" />{plan.name}
                       {plan.is_popular && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+                      {(plan as Record<string, unknown>).is_legacy && <Badge variant="outline" className="ml-1 text-amber-700 border-amber-300">Legacy</Badge>}
                     </CardTitle>
                     {plan.description && <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>}
                   </div>

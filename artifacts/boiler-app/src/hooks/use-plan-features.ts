@@ -37,6 +37,7 @@ export function usePlanFeatures() {
     isFormsOnly,
     planName: pf?.plan_name ?? null,
     planId: pf?.plan_id ?? null,
+    activeAddons: data?.activeAddons ?? [],
     isLoading,
   };
 }
