@@ -49,6 +49,8 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "time_attended", label: "Time Attended", description: "Track arrival/departure times per job visit" },
   { key: "photos", label: "Photos", description: "Attach photos to jobs" },
   { key: "parts_used", label: "Parts Used", description: "Record parts and materials used on jobs" },
+  { key: "customer_email_forms", label: "Customer Email Forms", description: "Email completed forms to customers" },
+  { key: "customer_email_photos", label: "Customer Email Photos", description: "Email job photos to customers" },
 ];
 
 const EMPTY_FORM: AddonFormState = {
