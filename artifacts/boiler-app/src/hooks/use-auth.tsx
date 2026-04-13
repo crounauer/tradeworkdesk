@@ -110,11 +110,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (event === "SIGNED_IN") {
-        queryClient.invalidateQueries({ queryKey: ["me-init"] });
-        if (!hasPrefetched.current) {
-          hasPrefetched.current = true;
-          prefetchCriticalData(queryClient);
-        }
+        queryClient.removeQueries({ queryKey: ["me-init"] });
+        hasPrefetched.current = false;
+        prefetchCriticalData(queryClient);
+        hasPrefetched.current = true;
       }
 
       if (session) {
