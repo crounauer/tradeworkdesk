@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-qu
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
 
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
@@ -98,6 +99,14 @@ const Billing = lazyRetry(() => import("@/pages/billing"));
 const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
 const NotFound = lazyRetry(() => import("@/pages/not-found"));
 
+const PortalLogin = lazyRetry(() => import("@/pages/portal/portal-login"));
+const PortalRegister = lazyRetry(() => import("@/pages/portal/portal-register"));
+const PortalDashboard = lazyRetry(() => import("@/pages/portal/portal-dashboard"));
+const PortalProperties = lazyRetry(() => import("@/pages/portal/portal-properties"));
+const PortalPropertyDetail = lazyRetry(() => import("@/pages/portal/portal-property-detail"));
+const PortalJobs = lazyRetry(() => import("@/pages/portal/portal-jobs"));
+const PortalJobDetail = lazyRetry(() => import("@/pages/portal/portal-job-detail"));
+
 const HomePage = lazyRetry(() => import("@/pages/marketing/home"));
 const FeaturesPage = lazyRetry(() => import("@/pages/marketing/features"));
 const PricingPage = lazyRetry(() => import("@/pages/marketing/pricing"));
@@ -187,12 +196,45 @@ function RootRoute() {
   );
 }
 
+function PortalProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { session, isLoading } = usePortalAuth();
+
+  if (isLoading) return <PageFallback />;
+  if (!session) return <Redirect to="/portal/login" />;
+
+  return (
+    <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <Component />
+    </Suspense>
+  );
+}
+
+function PortalRoutes() {
+  return (
+    <PortalAuthProvider>
+      <Suspense fallback={<PageFallback />}>
+        <Switch>
+          <Route path="/portal/login" component={() => <Suspense fallback={<PageFallback />}><PortalLogin /></Suspense>} />
+          <Route path="/portal/register" component={() => <Suspense fallback={<PageFallback />}><PortalRegister /></Suspense>} />
+          <Route path="/portal" component={() => <PortalProtectedRoute component={PortalDashboard} />} />
+          <Route path="/portal/properties" component={() => <PortalProtectedRoute component={PortalProperties} />} />
+          <Route path="/portal/properties/:id" component={() => <PortalProtectedRoute component={PortalPropertyDetail} />} />
+          <Route path="/portal/jobs" component={() => <PortalProtectedRoute component={PortalJobs} />} />
+          <Route path="/portal/jobs/:id" component={() => <PortalProtectedRoute component={PortalJobDetail} />} />
+        </Switch>
+      </Suspense>
+    </PortalAuthProvider>
+  );
+}
+
 function AppRouter() {
   const { session, mfaPending } = useAuth();
 
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
+        <Route path="/portal/:rest*" component={PortalRoutes} />
+
         <Route path="/login">
           {session && !mfaPending ? <Redirect to="/" /> : <Login />}
         </Route>

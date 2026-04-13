@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -234,6 +234,8 @@ export default function CustomerDetail() {
             )}
 
             <CustomerJobsSection customerId={customer.id} />
+
+            <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
           </div>
         </div>
       )}
@@ -427,6 +429,131 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
         </div>
       </form>
     </Card>
+  );
+}
+
+function PortalAccessSection({ customerId, customerEmail }: { customerId: string; customerEmail?: string | null }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const { data: portalStatus, isLoading } = useQuery({
+    queryKey: ["portal-status", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-status`),
+    staleTime: 30_000,
+  });
+
+  const status = portalStatus as { has_portal: boolean; is_active: boolean; is_registered: boolean; invite_expires_at?: string; created_at?: string } | undefined;
+
+  const sendInvite = async () => {
+    if (!customerEmail) {
+      toast({ title: "No email", description: "Customer must have an email address to receive a portal invitation.", variant: "destructive" });
+      return;
+    }
+    setSendingInvite(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-invite`, {
+        method: "POST",
+      });
+      toast({ title: "Invite sent", description: "Portal invitation has been sent to the customer." });
+      qc.invalidateQueries({ queryKey: ["portal-status", customerId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to send invite";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+  const toggleAccess = async () => {
+    if (!status?.has_portal) return;
+    setToggling(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-toggle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !status.is_active }),
+      });
+      toast({ title: status.is_active ? "Portal disabled" : "Portal enabled", description: `Customer portal access has been ${status.is_active ? "disabled" : "enabled"}.` });
+      qc.invalidateQueries({ queryKey: ["portal-status", customerId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to toggle access";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-display font-bold flex items-center gap-2">
+        <Globe className="w-5 h-5" /> Customer Portal
+      </h2>
+      <Card className="p-5 border border-border/50 shadow-sm">
+        {!status?.has_portal ? (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                This customer doesn't have portal access yet. Send an invitation to let them view their service history, properties, and certificates online.
+              </p>
+              {!customerEmail && (
+                <p className="text-sm text-amber-600 mt-1">An email address is required to send an invitation.</p>
+              )}
+            </div>
+            <Button size="sm" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
+              {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+              {sendingInvite ? "Sending..." : "Send Portal Invite"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                    {status.is_active ? "Active" : "Disabled"}
+                  </span>
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_registered ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                    {status.is_registered ? "Registered" : "Invite Pending"}
+                  </span>
+                </div>
+                {!status.is_registered && status.invite_expires_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Invite expires: {new Date(status.invite_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!status.is_registered && (
+                  <Button size="sm" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
+                    {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                    Resend Invite
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={status.is_active ? "destructive" : "default"}
+                  onClick={toggleAccess}
+                  disabled={toggling}
+                >
+                  {toggling ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : status.is_active ? (
+                    <ToggleRight className="w-4 h-4 mr-2" />
+                  ) : (
+                    <ToggleLeft className="w-4 h-4 mr-2" />
+                  )}
+                  {status.is_active ? "Disable Access" : "Enable Access"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 

@@ -421,6 +421,29 @@ export async function sendNewRegistrationNotification(
   await send(to, `TradeWorkDesk — New registration: ${newCompanyName}`, html);
 }
 
+export async function sendPortalInviteEmail(to: string, customerName: string, companyName: string, registerUrl: string): Promise<void> {
+  const html = baseHtml(`${companyName} — Customer Portal Invitation`, `
+    <h2>You've been invited to the Customer Portal</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p><strong>${escHtml(companyName)}</strong> has invited you to access your service records, certificates, and property details through our secure customer portal.</p>
+    <div class="info-box">
+      <p><strong>What you can do:</strong></p>
+      <ul style="margin:8px 0 0;padding-left:20px;">
+        <li>View your property details and appliance information</li>
+        <li>Access service history and job records</li>
+        <li>Download certificates and reports as PDFs</li>
+        <li>See upcoming appointments</li>
+      </ul>
+    </div>
+    <p style="margin-top:24px;">
+      <a href="${escHtml(registerUrl)}" class="btn">Create Your Account</a>
+    </p>
+    <hr class="divider"/>
+    <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
+  `);
+  await send(to, `${companyName} — You're invited to the Customer Portal`, html);
+}
+
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
   const html = baseHtml("Payment failed", `

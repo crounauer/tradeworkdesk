@@ -439,6 +439,19 @@ export const jobTypes = pgTable("job_types", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const customerPortalUsers = pgTable("customer_portal_users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  auth_user_id: uuid("auth_user_id").unique(),
+  customer_id: uuid("customer_id").notNull().references(() => customers.id),
+  tenant_id: text("tenant_id").notNull(),
+  invite_token: text("invite_token").notNull(),
+  invite_email: text("invite_email"),
+  invite_expires_at: timestamp("invite_expires_at").notNull(),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type Profile = typeof profiles.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Property = typeof properties.$inferSelect;
@@ -458,3 +471,4 @@ export type JobNote = typeof jobNotes.$inferSelect;
 export type FileAttachment = typeof fileAttachments.$inferSelect;
 export type Signature = typeof signatures.$inferSelect;
 export type JobType = typeof jobTypes.$inferSelect;
+export type CustomerPortalUser = typeof customerPortalUsers.$inferSelect;

@@ -37,6 +37,7 @@ import emailPreviewRouter from "./email-preview";
 import accountingIntegrationsRouter from "./accounting-integrations";
 import homepageRouter from "./homepage";
 import addonsRouter from "./addons";
+import portalRouter from "./portal";
 
 const router: IRouter = Router();
 
@@ -77,6 +78,7 @@ router.use(enquiriesRouter);
 router.use(geocodingRouter);
 router.use(accountingIntegrationsRouter);
 router.use(addonsRouter);
+router.use(portalRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

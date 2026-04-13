@@ -13,6 +13,8 @@ import {
   DeleteCustomerParams,
 } from "@workspace/api-zod";
 import { z } from "zod";
+import { generateInviteToken, portalUserCache } from "./portal";
+import { sendPortalInviteEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -217,6 +219,161 @@ router.post("/customers/check-duplicates", requireAuth, requireTenant, requireRo
   }
 
   res.json({ duplicates });
+});
+
+router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  let q = supabaseAdmin.from("customers").select("id, first_name, last_name, email, tenant_id").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: customer, error: custErr } = await q.single();
+
+  if (custErr || !customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+
+  if (!customer.email) {
+    res.status(400).json({ error: "Customer does not have an email address. Add an email first." });
+    return;
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, auth_user_id, is_active")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (existing?.auth_user_id && existing.is_active) {
+    res.status(400).json({ error: "Customer already has portal access" });
+    return;
+  }
+
+  const token = generateInviteToken();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  if (existing) {
+    await supabaseAdmin
+      .from("customer_portal_users")
+      .update({
+        invite_token: token,
+        invite_email: customer.email.toLowerCase().trim(),
+        invite_expires_at: expiresAt,
+        is_active: true,
+        auth_user_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    const { error: insertErr } = await supabaseAdmin
+      .from("customer_portal_users")
+      .insert({
+        customer_id: id,
+        tenant_id: req.tenantId!,
+        invite_token: token,
+        invite_email: customer.email.toLowerCase().trim(),
+        invite_expires_at: expiresAt,
+      });
+
+    if (insertErr) {
+      res.status(500).json({ error: "Failed to create portal invite" });
+      return;
+    }
+  }
+
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("company_name")
+    .eq("id", req.tenantId!)
+    .single();
+
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name, phone, email, website, logo_url")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const companyName = (cs as any)?.name || (cs as any)?.trading_name || tenant?.company_name || "Your Service Provider";
+
+  const baseUrl = process.env.REPLIT_DEV_DOMAIN
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+    : process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const registerUrl = `${baseUrl}/portal/register?token=${token}`;
+
+  const customerName = `${customer.first_name} ${customer.last_name}`;
+
+  try {
+    await sendPortalInviteEmail(customer.email, customerName, companyName, registerUrl);
+  } catch (e) {
+    console.error("[portal] Failed to send invite email:", e);
+  }
+
+  res.json({ success: true, sent_to: customer.email });
+});
+
+router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: portalUser } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, auth_user_id, is_active, invite_expires_at, created_at")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!portalUser) {
+    res.json({ has_portal: false, is_active: false, is_registered: false });
+    return;
+  }
+
+  res.json({
+    has_portal: true,
+    is_active: portalUser.is_active,
+    is_registered: !!portalUser.auth_user_id,
+    invite_expires_at: portalUser.invite_expires_at,
+    created_at: portalUser.created_at,
+  });
+});
+
+router.patch("/customers/:id/portal-toggle", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { is_active } = req.body;
+
+  if (typeof is_active !== "boolean") {
+    res.status(400).json({ error: "is_active must be a boolean" });
+    return;
+  }
+
+  const { data: portalUser, error } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!portalUser) {
+    res.status(404).json({ error: "No portal record found for this customer" });
+    return;
+  }
+
+  const { data: fullPortalUser } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, auth_user_id")
+    .eq("id", portalUser.id)
+    .single();
+
+  await supabaseAdmin
+    .from("customer_portal_users")
+    .update({ is_active, updated_at: new Date().toISOString() })
+    .eq("id", portalUser.id);
+
+  if (fullPortalUser?.auth_user_id) {
+    portalUserCache.delete(fullPortalUser.auth_user_id);
+  }
+
+  res.json({ success: true, is_active });
 });
 
 export default router;
