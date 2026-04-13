@@ -76,11 +76,11 @@ export async function getActiveInviteCount(tenantId: string): Promise<number> {
 
 export async function getJobsThisMonth(tenantId: string): Promise<number> {
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const startOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const { count } = await supabaseAdmin
     .from("jobs")
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
-    .gte("created_at", startOfMonth);
+    .gte("created_at", startOfMonthUTC);
   return count || 0;
 }
