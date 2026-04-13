@@ -8,10 +8,13 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { OfflineBanner } from "./offline-indicator";
+import { useOffline } from "@/contexts/offline-context";
+import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -27,6 +30,9 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem("dismissed_announcements", JSON.stringify([...dismissedAnnouncements]));
   }, [dismissedAnnouncements]);
+
+  const { isOnline, pendingMutations } = useOffline();
+  useOfflineReferenceDataSync();
 
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
@@ -150,6 +156,12 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-6 py-5 flex items-center gap-2.5 border-b border-border/50">
           <Flame className="w-5 h-5 text-primary shrink-0" />
           <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+          {!isOnline && (
+            <span className="ml-auto flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+              <WifiOff className="w-3 h-3" />
+              Offline
+            </span>
+          )}
         </div>
 
         
@@ -195,6 +207,11 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-2">
           <Flame className="w-5 h-5 text-primary" />
           <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+          {!isOnline && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+              <WifiOff className="w-3 h-3" />
+            </span>
+          )}
         </div>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -230,6 +247,8 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
+        <OfflineBanner />
+
         {isTrial && trialDaysLeft !== null && (
           <div className={cn(
             "border-b px-4 py-2.5 flex flex-wrap items-center justify-center gap-2 text-sm",

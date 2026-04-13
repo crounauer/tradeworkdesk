@@ -1,12 +1,12 @@
-import { useListJobs, useCreateJob, useCreateCustomer, useListProfiles, useListCustomers, useListProperties } from "@workspace/api-client-react";
+import { useListJobs, useCreateJob, useCreateCustomer, useListProfiles, useListCustomers, useListProperties, getListCustomersQueryKey, getListPropertiesQueryKey, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -15,6 +15,9 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useIsSoleTrader } from "@/hooks/use-sole-trader";
+import { useOffline } from "@/contexts/offline-context";
+import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTechnicians, useCacheJobTypes } from "@/hooks/use-offline-data";
+import { PendingSyncBadge, OfflineMutationsList } from "@/components/offline-indicator";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 
@@ -79,6 +82,16 @@ function JobsContent() {
   const jobs = jobsResponse?.jobs;
   const pagination = jobsResponse?.pagination;
 
+  const { isOnline, pendingMutations, failedMutations } = useOffline();
+
+  const pendingJobIds = new Set<string>();
+  [...pendingMutations, ...failedMutations].forEach((m) => {
+    if (m.type === "update-job" || m.type === "create-job-note") {
+      const jobId = m.payload.jobId as string | undefined;
+      if (jobId) pendingJobIds.add(jobId);
+    }
+  });
+
   const { data: jobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
     queryFn: async () => {
@@ -86,7 +99,10 @@ function JobsContent() {
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: isOnline,
   });
+
+  useCacheJobTypes(jobTypes.length > 0 ? jobTypes : undefined);
 
   const filteredJobs = jobTypeIdFilter
     ? jobs?.filter((j) => {
@@ -170,6 +186,7 @@ function JobsContent() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-display font-bold">Jobs</h1>
+          <PendingSyncBadge />
           <p className="text-muted-foreground mt-1">Manage all service visits</p>
         </div>
         <div className="flex gap-2">
@@ -210,6 +227,8 @@ function JobsContent() {
       </div>
 
       {showForm && <AddJobForm onClose={() => setShowForm(false)} jobTypes={jobTypes} />}
+
+      <OfflineMutationsList />
 
       {viewTab === "map" && !hasFeature("geo_mapping") && (
         <UpgradePrompt feature="geo_mapping" />
@@ -299,6 +318,7 @@ function JobsContent() {
           selectedIds={selectedIds}
           toggleSelect={toggleSelect}
           statusFilter={statusFilter}
+          pendingJobIds={pendingJobIds}
         />
       )}
 
@@ -336,12 +356,14 @@ function JobCard({
   isAdminOrOffice,
   selectedIds,
   toggleSelect,
+  hasPending,
 }: {
   job: Record<string, any>;
   getStatusColor: (s: string) => string;
   isAdminOrOffice: boolean;
   selectedIds: Set<string>;
   toggleSelect: (id: string) => void;
+  hasPending?: boolean;
 }) {
   const isExportable = job.status === "completed" || job.status === "invoiced";
   const isSelected = selectedIds.has(job.id);
@@ -368,6 +390,11 @@ function JobCard({
               <span className="text-sm font-semibold capitalize text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
                 {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
               </span>
+              {hasPending && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                  <CloudOff className="w-3 h-3" /> Pending sync
+                </span>
+              )}
             </div>
             <h3 className="font-bold text-lg mb-1">
               {job.job_ref && <span className="text-muted-foreground font-mono text-sm mr-2">{job.job_ref}</span>}
@@ -410,6 +437,7 @@ function JobSections({
   selectedIds,
   toggleSelect,
   statusFilter,
+  pendingJobIds,
 }: {
   jobs: Record<string, any>[];
   getStatusColor: (s: string) => string;
@@ -417,6 +445,7 @@ function JobSections({
   selectedIds: Set<string>;
   toggleSelect: (id: string) => void;
   statusFilter: string;
+  pendingJobIds?: Set<string>;
 }) {
   const [showCompleted, setShowCompleted] = useState(statusFilter === "completed");
   const [showInvoiced, setShowInvoiced] = useState(statusFilter === "invoiced");
@@ -445,6 +474,7 @@ function JobSections({
           isAdminOrOffice={isAdminOrOffice}
           selectedIds={selectedIds}
           toggleSelect={toggleSelect}
+          hasPending={pendingJobIds?.has(job.id)}
         />
       ))}
     </div>
@@ -528,9 +558,35 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const qc = useQueryClient();
   const createJob = useCreateJob();
   const createCustomer = useCreateCustomer();
-  const { data: customers } = useListCustomers();
-  const { data: properties } = useListProperties();
-  const { data: technicians } = useListProfiles();
+  const { isOnline, queueJobCreation, getCachedData } = useOffline();
+  const { data: onlineCustomers } = useListCustomers(undefined, {
+    query: { queryKey: getListCustomersQueryKey(), enabled: isOnline },
+  });
+  const { data: onlineProperties } = useListProperties(undefined, {
+    query: { queryKey: getListPropertiesQueryKey(), enabled: isOnline },
+  });
+  const { data: onlineTechnicians } = useListProfiles({
+    query: { queryKey: getListProfilesQueryKey(), enabled: isOnline },
+  });
+  const [cachedCustomers, setCachedCustomers] = useState<Array<Record<string, unknown>>>([]);
+  const [cachedProperties, setCachedProperties] = useState<Array<Record<string, unknown>>>([]);
+  const [cachedTechnicians, setCachedTechnicians] = useState<Array<Record<string, unknown>>>([]);
+  const [cachedJobTypesData, setCachedJobTypesData] = useState<JobType[]>([]);
+
+  useEffect(() => {
+    if (!isOnline) {
+      getCachedCustomers(getCachedData).then(d => d && setCachedCustomers(d));
+      getCachedProperties(getCachedData).then(d => d && setCachedProperties(d));
+      getCachedTechnicians(getCachedData).then(d => d && setCachedTechnicians(d));
+      getCachedJobTypes(getCachedData).then(d => d && setCachedJobTypesData(d as unknown as JobType[]));
+    }
+  }, [isOnline, getCachedData]);
+
+  const customers = isOnline ? onlineCustomers : (cachedCustomers as unknown as typeof onlineCustomers);
+  const properties = isOnline ? onlineProperties : (cachedProperties as unknown as typeof onlineProperties);
+  const technicians = isOnline ? onlineTechnicians : (cachedTechnicians as unknown as typeof onlineTechnicians);
+  const effectiveJobTypes = isOnline ? jobTypes : (cachedJobTypesData.length > 0 ? cachedJobTypesData : jobTypes);
+
   const { register, handleSubmit, watch, setValue } = useForm<JobFormData>();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -606,26 +662,40 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   };
 
   const onSubmit = async (data: JobFormData) => {
-    const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
+    const selectedType = effectiveJobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
     const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
 
+    const technicianId = isSoleTrader && profile?.id ? profile.id : (data.assigned_technician_id || undefined);
+    const jobPayload = {
+      customer_id: data.customer_id,
+      property_id: data.property_id,
+      job_type: jobTypeCategory,
+      job_type_id: selectedType ? selectedType.id : undefined,
+      fuel_category: data.fuel_category || undefined,
+      priority: data.priority as "low" | "medium" | "high" | "urgent",
+      scheduled_date: data.scheduled_date,
+      scheduled_end_date: data.scheduled_end_date || undefined,
+      scheduled_time: data.scheduled_time || undefined,
+      description: data.description || undefined,
+      assigned_technician_id: technicianId,
+    };
+
+    if (!isOnline) {
+      try {
+        await queueJobCreation(jobPayload);
+        toast({
+          title: "Job saved offline",
+          description: "It will sync automatically when you're back online.",
+        });
+        onClose();
+      } catch {
+        toast({ title: "Failed to save job offline", variant: "destructive" });
+      }
+      return;
+    }
+
     try {
-      const technicianId = isSoleTrader && profile?.id ? profile.id : (data.assigned_technician_id || undefined);
-      const newJob = await createJob.mutateAsync({
-        data: {
-          customer_id: data.customer_id,
-          property_id: data.property_id,
-          job_type: jobTypeCategory,
-          job_type_id: selectedType ? selectedType.id : undefined,
-          fuel_category: data.fuel_category || undefined,
-          priority: data.priority as "low" | "medium" | "high" | "urgent",
-          scheduled_date: data.scheduled_date,
-          scheduled_end_date: data.scheduled_end_date || undefined,
-          scheduled_time: data.scheduled_time || undefined,
-          description: data.description || undefined,
-          assigned_technician_id: technicianId,
-        },
-      });
+      const newJob = await createJob.mutateAsync({ data: jobPayload });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Job created successfully" });
 
@@ -677,7 +747,15 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
 
   return (
     <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">
-      <h3 className="font-bold text-lg mb-4">Schedule New Job</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg">Schedule New Job</h3>
+        {!isOnline && (
+          <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+            <WifiOff className="w-3 h-3" />
+            Offline — will sync later
+          </span>
+        )}
+      </div>
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <div className="flex gap-2 items-end">
@@ -687,9 +765,11 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
               onSelect={(id) => { setValue("customer_id", id); }}
               className="flex-1 space-y-1"
             />
-            <Button type="button" variant="outline" size="icon" className="shrink-0 mb-0.5" title="Add new customer" onClick={() => setShowNewCustomer(!showNewCustomer)}>
-              {showNewCustomer ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-            </Button>
+            {isOnline && (
+              <Button type="button" variant="outline" size="icon" className="shrink-0 mb-0.5" title="Add new customer" onClick={() => setShowNewCustomer(!showNewCustomer)}>
+                {showNewCustomer ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+              </Button>
+            )}
           </div>
         </div>
         {showNewCustomer && (
@@ -728,7 +808,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Job Type *</label>
           <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
             <option value="">Select job type...</option>
-            {jobTypes.map(t => (
+            {effectiveJobTypes.map(t => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>

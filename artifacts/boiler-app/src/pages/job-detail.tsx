@@ -1,4 +1,4 @@
-import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob, type JobDetail as JobDetailType } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -11,8 +11,10 @@ import {
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
-  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink
+  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff
 } from "lucide-react";
+import { useOffline } from "@/contexts/offline-context";
+import { cacheJob, getCachedJob } from "@/lib/offline-db";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -66,7 +68,8 @@ interface JobPart {
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data: job, isLoading } = useGetJob(id);
+  const { isOnline, queueJobUpdate, pendingMutations, failedMutations } = useOffline();
+  const { data: onlineJob, isLoading } = useGetJob(id);
   const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } });
   const { data: completedForms } = useQuery({
     queryKey: [`/api/jobs/${id}/completed-forms`],
@@ -86,9 +89,37 @@ export default function JobDetail() {
   const [pricingRefresh, setPricingRefresh] = useState(0);
   const [showReturnVisit, setShowReturnVisit] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [cachedJob, setCachedJob] = useState<Record<string, unknown> | null>(null);
+  const [loadingCache, setLoadingCache] = useState(false);
 
-  if (isLoading) return <div className="p-8">Loading job details...</div>;
-  if (!job) return <div>Job not found</div>;
+  useEffect(() => {
+    if (isOnline && onlineJob && id) {
+      cacheJob(id, onlineJob as unknown as Record<string, unknown>);
+    }
+  }, [isOnline, onlineJob, id]);
+
+  useEffect(() => {
+    if (!isOnline && !onlineJob && !isLoading && id) {
+      setLoadingCache(true);
+      getCachedJob(id).then((cached) => {
+        setCachedJob(cached);
+        setLoadingCache(false);
+      });
+    }
+  }, [isOnline, onlineJob, isLoading, id]);
+
+  if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
+
+  const effectiveJob = onlineJob || cachedJob;
+  const isFromCache = !onlineJob && !!cachedJob;
+
+  if (!effectiveJob) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
+
+  const job = effectiveJob as unknown as JobDetailType;
+
+  const jobHasPendingSync = [...pendingMutations, ...failedMutations].some(
+    (m) => (m.type === "update-job" || m.type === "create-job-note") && m.payload.jobId === id
+  );
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
 
@@ -122,6 +153,11 @@ export default function JobDetail() {
 
   const handleStatusChange = async (newStatus: string, label: string) => {
     try {
+      if (!isOnline) {
+        await queueJobUpdate(job.id, { status: newStatus });
+        toast({ title: "Queued offline", description: `Status change to "${label}" will sync when online.` });
+        return;
+      }
       await updateJob.mutateAsync({
         id: job.id,
         data: {
@@ -146,6 +182,20 @@ export default function JobDetail() {
       <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
       </Link>
+
+      {isFromCache && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-2 text-sm text-amber-800">
+          <WifiOff className="w-4 h-4 shrink-0" />
+          <span>Viewing cached data from your last visit. Some details may be outdated. Changes you make will sync when you're back online.</span>
+        </div>
+      )}
+
+      {jobHasPendingSync && !isFromCache && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2 text-sm text-amber-800">
+          <CloudOff className="w-4 h-4 shrink-0" />
+          <span>This job has offline changes waiting to sync.</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 min-w-0 max-w-full">
         <div className="min-w-0">
@@ -1834,6 +1884,7 @@ function CommentsSection({ jobId }: { jobId: string }) {
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
+  const { isOnline, queueJobNote } = useOffline();
   const { data: notes, isLoading } = useListJobNotes(jobId);
   const createMutation = useCreateJobNote();
   const [newComment, setNewComment] = useState("");
@@ -1845,6 +1896,18 @@ function CommentsSection({ jobId }: { jobId: string }) {
 
   const handlePost = async () => {
     if (!newComment.trim()) return;
+
+    if (!isOnline) {
+      try {
+        await queueJobNote(jobId, newComment.trim());
+        setNewComment("");
+        toast({ title: "Note saved offline", description: "It will sync when you're back online." });
+      } catch {
+        toast({ title: "Error", description: "Failed to save note offline", variant: "destructive" });
+      }
+      return;
+    }
+
     try {
       await createMutation.mutateAsync({ jobId, data: { content: newComment.trim() } });
       setNewComment("");
@@ -1968,6 +2031,7 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
   const update = useUpdateJob();
   const createNote = useCreateJobNote();
   const { toast } = useToast();
+  const { isOnline, queueJobUpdate, queueJobNote } = useOffline();
   const [submitting, setSubmitting] = useState(false);
 
   const tomorrow = new Date();
@@ -1988,6 +2052,19 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
       const noteContent = returnNotes.trim()
         ? `Return visit scheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""}. Reason: ${returnNotes.trim()}`
         : `Return visit scheduled for ${returnDate}${returnTime ? ` at ${returnTime}` : ""} (previously ${job.status.replace(/_/g, " ")}).`;
+
+      if (!isOnline) {
+        await queueJobNote(job.id, noteContent);
+        await queueJobUpdate(job.id, {
+          status: "scheduled",
+          scheduled_date: returnDate,
+          scheduled_time: returnTime || undefined,
+        });
+        toast({ title: "Queued offline", description: "Return visit will sync when online." });
+        onScheduled();
+        return;
+      }
+
       await createNote.mutateAsync({
         jobId: job.id,
         data: { content: noteContent },
@@ -2050,6 +2127,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   const qc = useQueryClient();
   const update = useUpdateJob();
   const { toast } = useToast();
+  const { isOnline, queueJobUpdate } = useOffline();
   const { register, handleSubmit, reset } = useForm<JobEditData>();
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
@@ -2093,6 +2171,23 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
 
   const onSubmit = async (data: JobEditData) => {
     try {
+      const updatePayload = {
+        status: data.status,
+        priority: data.priority,
+        scheduled_date: data.scheduled_date,
+        scheduled_end_date: data.scheduled_end_date || null,
+        scheduled_time: data.scheduled_time || undefined,
+        estimated_duration: data.estimated_duration ? Number(data.estimated_duration) : undefined,
+        description: data.description || undefined,
+      };
+
+      if (!isOnline) {
+        await queueJobUpdate(job.id, updatePayload);
+        toast({ title: "Queued offline", description: "Job update will sync when online." });
+        onClose();
+        return;
+      }
+
       await update.mutateAsync({
         id: job.id,
         data: {

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
+import { OfflineProvider } from "@/contexts/offline-context";
 
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
   return lazy(() =>
@@ -329,14 +330,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <ChunkErrorBoundary>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AppRouter />
-            </WouterRouter>
-          </ChunkErrorBoundary>
-          <Toaster />
-        </TooltipProvider>
+        <OfflineProvider>
+          <TooltipProvider>
+            <ChunkErrorBoundary>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <AppRouter />
+              </WouterRouter>
+            </ChunkErrorBoundary>
+            <Toaster />
+          </TooltipProvider>
+        </OfflineProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
