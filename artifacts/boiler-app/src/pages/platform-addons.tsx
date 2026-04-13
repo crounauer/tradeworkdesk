@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, X, Save, Trash2, Package, Settings } from "lucide-react";
+import { Plus, Pencil, X, Save, Trash2, Package, Settings, Check } from "lucide-react";
 
 interface Addon {
   id: string;
@@ -34,6 +34,13 @@ interface AddonFormState {
   is_per_seat: boolean;
   sort_order: number | string;
 }
+
+const AVAILABLE_FEATURE_KEYS = [
+  { key: "job_management", label: "Job Management", description: "Full jobs page access" },
+  { key: "geo_mapping", label: "Geo Mapping", description: "Map views on jobs, properties & customers" },
+  { key: "advanced_analytics", label: "Advanced Analytics", description: "Advanced reporting features" },
+  { key: "report_export", label: "Report Export", description: "Export reports to PDF/CSV" },
+];
 
 const EMPTY_FORM: AddonFormState = {
   name: "",
@@ -182,10 +189,36 @@ export default function PlatformAddons() {
           </div>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs">Feature Keys (comma-separated)</Label>
-          <Input value={form.feature_keys} onChange={(e) => setForm({ ...form, feature_keys: e.target.value })} placeholder="e.g. api_access, custom_branding" />
-          <p className="text-xs text-muted-foreground">These keys control which features are unlocked when this add-on is active.</p>
+        <div className="space-y-2">
+          <Label className="text-xs">Feature Keys</Label>
+          <div className="flex flex-wrap gap-2">
+            {AVAILABLE_FEATURE_KEYS.map(({ key, label, description }) => {
+              const currentKeys = form.feature_keys.split(",").map(s => s.trim()).filter(Boolean);
+              const isSelected = currentKeys.includes(key);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  title={description}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"}`}
+                  onClick={() => {
+                    if (isSelected) {
+                      const updated = currentKeys.filter(k => k !== key).join(", ");
+                      setForm({ ...form, feature_keys: updated });
+                    } else {
+                      const updated = [...currentKeys, key].join(", ");
+                      setForm({ ...form, feature_keys: updated });
+                    }
+                  }}
+                >
+                  {isSelected ? <Check className="w-3 h-3" /> : null}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <Input value={form.feature_keys} onChange={(e) => setForm({ ...form, feature_keys: e.target.value })} placeholder="Or type custom keys (comma-separated)" className="text-xs" />
+          <p className="text-xs text-muted-foreground">Click to toggle, or type custom keys below. These control which features are unlocked.</p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
