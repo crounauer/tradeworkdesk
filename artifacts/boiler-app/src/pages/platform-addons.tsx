@@ -51,6 +51,8 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "parts_used", label: "Parts Used", description: "Record parts and materials used on jobs" },
   { key: "customer_email_forms", label: "Customer Email Forms", description: "Email completed forms to customers" },
   { key: "customer_email_photos", label: "Customer Email Photos", description: "Email job photos to customers" },
+  { key: "additional_users", label: "Additional Users", description: "Allow more users on the account" },
+  { key: "jobs_per_month", label: "Jobs Per Month", description: "Increase monthly job allowance" },
 ];
 
 const EMPTY_FORM: AddonFormState = {
