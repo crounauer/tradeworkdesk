@@ -421,7 +421,7 @@ const tradePages: Record<string, TradePageConfig> = {
       "No per-job fees — flat monthly pricing",
     ],
     credentials: [
-      { label: "Gas Safe & OFTEC Compliance", body: "All gas and oil compliance forms are included, so your team produces consistent, regulation-ready documentation across every engineer." },
+      { label: "Gas Safe & OFTEC Compliance", body: "Gas and oil compliance forms are available as add-ons, so your team produces consistent, regulation-ready documentation across every engineer." },
       { label: "MCS Certification Support", body: "Heat pump commissioning and service records meet MCS requirements, supporting companies that operate across multiple fuel types." },
       { label: "Built for Growing Businesses", body: "Designed with input from multi-engineer heating and plumbing companies who need role-based access, team oversight, and consistent compliance across their workforce." },
     ],
