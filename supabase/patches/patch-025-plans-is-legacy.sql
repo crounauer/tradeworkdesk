@@ -18,15 +18,27 @@ WHERE NOT EXISTS (
   SELECT 1 FROM plans WHERE name = 'Base Plan' AND is_legacy = false
 );
 
--- Step 4: Deactivate old plans so they don't appear in the UI
+-- Step 4: Ensure Base Plan has correct pricing and limits
+UPDATE plans SET
+  monthly_price = 8.50,
+  annual_price = 85,
+  max_users = 1,
+  max_jobs_per_month = 50,
+  description = 'Core platform access with digital forms',
+  is_active = true,
+  is_legacy = false,
+  sort_order = 0
+WHERE name = 'Base Plan' AND is_legacy = false;
+
+-- Step 5: Deactivate old plans so they don't appear in the UI
 UPDATE plans SET is_active = false WHERE is_legacy = true;
 
--- Step 5: Move all tenants to the Base Plan with trial status
+-- Step 6: Move all tenants to the Base Plan with trial status
 UPDATE tenants SET
   plan_id = (SELECT id FROM plans WHERE name = 'Base Plan' AND is_legacy = false LIMIT 1),
   status = 'trial';
 
--- Step 6: Subscribe all tenants to all active add-ons (upsert with quantity enforcement)
+-- Step 7: Subscribe all tenants to all active add-ons (upsert with quantity enforcement)
 INSERT INTO tenant_addons (tenant_id, addon_id, is_active, quantity, activated_at)
 SELECT t.id, a.id, true, 1, NOW()
 FROM tenants t
