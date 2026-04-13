@@ -364,6 +364,15 @@ export default function Billing() {
                 <p className="text-muted-foreground">
                   You're on the free plan. Upgrade to unlock more features, users, and jobs.
                 </p>
+                {isAdmin && (
+                  <Button className="w-full" onClick={() => {
+                    setSelectedPlan("37421994-c20d-49f8-aee1-a896e030a5f5");
+                    setShowUpgrade(true);
+                  }}>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Upgrade to Base Plan
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -562,10 +571,17 @@ export default function Billing() {
                     </Button>
                   )}
 
-                  {isFreePlan && hasChanges && (
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                      Upgrade to the Base Plan to enable add-ons.
-                    </p>
+                  {isFreePlan && (
+                    <Button
+                      className="w-full mt-2"
+                      onClick={() => {
+                        setSelectedPlan("37421994-c20d-49f8-aee1-a896e030a5f5");
+                        setShowUpgrade(true);
+                      }}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Upgrade to Base Plan — £{grandTotal.toFixed(2)}/mo
+                    </Button>
                   )}
                 </div>
               );
