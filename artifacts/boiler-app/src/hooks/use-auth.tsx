@@ -172,7 +172,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setMfaPending(false);
     hasPrefetched.current = false;
     queryClient.clear();
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   return (
