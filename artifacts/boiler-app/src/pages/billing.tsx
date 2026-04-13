@@ -551,7 +551,7 @@ export default function Billing() {
                     <p className="text-xs text-muted-foreground text-right">Billed £{(grandTotal * 12).toFixed(2)}/year</p>
                   )}
 
-                  {hasChanges && tenantInfo?.status === "active" && (
+                  {hasChanges && tenantInfo?.status === "active" && !isFreePlan && (
                     <Button
                       className="w-full mt-2"
                       onClick={() => updateAddonsMutation.mutate([...selectedAddonIds])}
@@ -562,20 +562,10 @@ export default function Billing() {
                     </Button>
                   )}
 
-                  {tenantInfo?.status !== "active" && (
-                    <Button
-                      className="w-full mt-2"
-                      onClick={() => {
-                        const paidPlan = (plans || []).find((p: Plan) => p.stripe_price_id && p.id !== FREE_PLAN_ID) || (plans || [])[0];
-                        if (paidPlan) {
-                          setSelectedPlan(paidPlan.id);
-                          setShowUpgrade(true);
-                        }
-                      }}
-                    >
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Upgrade to Paid Plan — £{grandTotal.toFixed(2)}/mo
-                    </Button>
+                  {isFreePlan && hasChanges && (
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      Upgrade to the Base Plan to enable add-ons.
+                    </p>
                   )}
                 </div>
               );
