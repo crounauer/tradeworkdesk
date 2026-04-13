@@ -154,8 +154,9 @@ function ProtectedRoute({ component: Component, roles }: { component: React.Comp
   if (!session) return <Redirect to="/login" />;
   if (mfaPending) return <Redirect to="/login" />;
 
-  if (roles && profile && !roles.includes(profile.role)) {
-    return <Redirect to="/dashboard" />;
+  if (roles) {
+    if (!profile) return <PageFallback />;
+    if (!roles.includes(profile.role)) return <Redirect to="/dashboard" />;
   }
 
   return (
@@ -313,12 +314,12 @@ function AppRouter() {
         <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
         <Route path="/account" component={() => <ProtectedRoute component={AccountSettings} />} />
 
-        <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} />} />
-        <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} />} />
-        <Route path="/platform/tenants" component={() => <ProtectedRoute component={PlatformTenants} />} />
-        <Route path="/platform/addons" component={() => <ProtectedRoute component={PlatformAddons} />} />
-        <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} />} />
-        <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} />} />
+        <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} roles={["super_admin"]} />} />
+        <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />
+        <Route path="/platform/tenants" component={() => <ProtectedRoute component={PlatformTenants} roles={["super_admin"]} />} />
+        <Route path="/platform/addons" component={() => <ProtectedRoute component={PlatformAddons} roles={["super_admin"]} />} />
+        <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} roles={["super_admin"]} />} />
+        <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} roles={["super_admin"]} />} />
 
         <Route component={() => (
           <Suspense fallback={<PageFallback />}>
