@@ -64,6 +64,20 @@ export default function PlatformTenantDetail() {
   const [addonSelections, setAddonSelections] = useState<Set<string>>(new Set());
   const [showAddonEditor, setShowAddonEditor] = useState(false);
 
+  const grantFreeAccessMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/grant-free-access`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to grant free access");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant-addons", params.id] });
+      toast({ title: "Free access granted", description: "Base Plan + all add-ons activated at no cost." });
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const saveAddonsMutation = useMutation({
     mutationFn: async (addonIds: string[]) => {
       const res = await fetch(`/api/platform/tenants/${params.id}/addons`, {
@@ -220,6 +234,15 @@ export default function PlatformTenantDetail() {
         <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={() => grantFreeAccessMutation.mutate()}
+              disabled={grantFreeAccessMutation.isPending}
+            >
+              <Package className="w-4 h-4 mr-2" />
+              {grantFreeAccessMutation.isPending ? "Granting…" : "Grant Free Access"}
+            </Button>
             {tenant.stripe_customer_id && (
               <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>
                 <ExternalLink className="w-4 h-4 mr-2" />{portalLoading ? "Opening…" : "Billing Portal"}

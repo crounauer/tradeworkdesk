@@ -100,6 +100,53 @@ router.patch("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req
   res.json(data);
 });
 
+router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const BASE_PLAN_ID = "37421994-c20d-49f8-aee1-a896e030a5f5";
+
+  const { data: tenant, error: tErr } = await supabaseAdmin
+    .from("tenants")
+    .update({ plan_id: BASE_PLAN_ID, status: "active", trial_ends_at: null })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (tErr || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const { data: allAddons } = await supabaseAdmin
+    .from("addons")
+    .select("id")
+    .eq("is_active", true);
+
+  if (allAddons && allAddons.length > 0) {
+    await supabaseAdmin
+      .from("tenant_addons")
+      .update({ is_active: false })
+      .eq("tenant_id", id)
+      .eq("is_active", true);
+
+    const inserts = allAddons.map(a => ({
+      tenant_id: id,
+      addon_id: a.id,
+      is_active: true,
+      quantity: 1,
+      activated_at: new Date().toISOString(),
+    }));
+    await supabaseAdmin.from("tenant_addons").upsert(inserts, { onConflict: "tenant_id,addon_id" });
+  }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "granted_free_access",
+    entity_type: "tenant",
+    entity_id: id,
+    detail: { plan_id: BASE_PLAN_ID, addons_activated: allAddons?.length || 0 },
+  });
+
+  res.json({ success: true, tenant });
+});
+
 router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { company_name, contact_name, contact_email, contact_phone, plan_id, status } = req.body;
   if (!company_name || !contact_email) {
