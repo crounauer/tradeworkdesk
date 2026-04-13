@@ -209,15 +209,30 @@ export default function PlatformAddons() {
             {AVAILABLE_FEATURE_KEYS.map(({ key, label, description }) => {
               const currentKeys = form.feature_keys.split(",").map(s => s.trim()).filter(Boolean);
               const isSelected = currentKeys.includes(key);
+              const FEATURE_DEPS: Record<string, { requires: string[]; message: string }> = {
+                accounting_integration: { requires: ["time_attended", "parts_used"], message: "Requires Time Attended and/or Parts Used" },
+              };
+              const dep = FEATURE_DEPS[key];
+              const isDisabled = dep ? !dep.requires.some(r => currentKeys.includes(r)) : false;
               return (
                 <button
                   key={key}
                   type="button"
-                  title={description}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"}`}
+                  title={isDisabled && dep ? dep.message : description}
+                  disabled={isDisabled}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${isDisabled ? "bg-muted/30 text-muted-foreground/50 border-border/50 cursor-not-allowed" : isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-muted/50 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"}`}
                   onClick={() => {
+                    if (isDisabled) return;
                     if (isSelected) {
-                      const updated = currentKeys.filter(k => k !== key).join(", ");
+                      let keysToRemove = [key];
+                      const dependents = Object.entries(FEATURE_DEPS).filter(([, d]) => d.requires.includes(key));
+                      for (const [depKey, depVal] of dependents) {
+                        const remainingReqs = depVal.requires.filter(r => r !== key);
+                        if (!remainingReqs.some(r => currentKeys.includes(r))) {
+                          keysToRemove.push(depKey);
+                        }
+                      }
+                      const updated = currentKeys.filter(k => !keysToRemove.includes(k)).join(", ");
                       setForm({ ...form, feature_keys: updated });
                     } else {
                       const updated = [...currentKeys, key].join(", ");
@@ -227,6 +242,7 @@ export default function PlatformAddons() {
                 >
                   {isSelected ? <Check className="w-3 h-3" /> : null}
                   {label}
+                  {isDisabled && dep ? <span className="text-[10px] opacity-60 ml-1">(needs prerequisite)</span> : null}
                 </button>
               );
             })}
