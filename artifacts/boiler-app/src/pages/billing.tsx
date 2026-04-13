@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, RefreshCw, Loader2,
-  ChevronRight, Calendar, Users, Briefcase, X as XIcon, Package
+  ChevronRight, Calendar, Users, Briefcase, Package, Plus, Minus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { FEATURE_LABELS } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
 
 interface Plan {
@@ -57,6 +56,7 @@ interface TenantInfo {
   plan_id: string | null;
   stripe_customer_id?: string | null;
   subscription_renewal_at?: string | null;
+  stripe_subscription_id?: string | null;
   company_type?: "sole_trader" | "company";
   plans?: { name: string; monthly_price: number; max_users: number; max_jobs_per_month: number } | null;
 }
@@ -84,7 +84,6 @@ export default function Billing() {
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [showAddonManager, setShowAddonManager] = useState(false);
 
   const isAdmin = profile?.role === "admin";
   const { data: initData } = useInitData();
@@ -194,10 +193,22 @@ export default function Billing() {
       queryClient.invalidateQueries({ queryKey: ["my-addons"] });
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-ons updated successfully" });
-      setShowAddonManager(false);
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  useEffect(() => {
+    if (myAddons && myAddons.length > 0) {
+      setSelectedAddonIds(new Set(myAddons.map(a => a.addon_id)));
+      const quantities: Record<string, number> = {};
+      myAddons.forEach(a => {
+        if (a.quantity > 1) quantities[a.addon_id] = a.quantity;
+      });
+      if (Object.keys(quantities).length > 0) {
+        setAddonQuantities(prev => ({ ...prev, ...quantities }));
+      }
+    }
+  }, [myAddons]);
 
   const statusColor = (status: string) => {
     if (status === "active") return "bg-green-100 text-green-700 border-green-200";
@@ -212,8 +223,6 @@ export default function Billing() {
 
   const currentPlan = plans?.find((p: Plan) => p.id === tenantInfo?.plan_id);
   const isLegacyPlan = !!(tenantInfo?.plans as Record<string, unknown> | null)?.is_legacy;
-  const activeAddonIds = new Set((myAddons || []).map(a => a.addon_id));
-
   const urlParams = new URLSearchParams(window.location.search);
   const justSucceeded = urlParams.get("success") === "1";
   const wasCancelled = urlParams.get("cancelled") === "1";
@@ -390,58 +399,159 @@ export default function Billing() {
         </div>
       )}
 
-      {myAddons && myAddons.length > 0 && (
+      {availableAddons && availableAddons.length > 0 && isAdmin && (
         <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Package className="w-4 h-4" />
-              Active Add-ons ({myAddons.length})
+              Add-ons
             </CardTitle>
-            {isAdmin && tenantInfo?.status === "active" && (
-              <Button variant="outline" size="sm" onClick={() => {
-                setSelectedAddonIds(new Set(myAddons.map(a => a.addon_id)));
-                setShowAddonManager(true);
-              }}>
-                Manage Add-ons
-              </Button>
-            )}
+            <p className="text-xs text-muted-foreground mt-1">Toggle add-ons on or off. Your total updates instantly.</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {myAddons.map(ta => (
-                <div key={ta.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border">
-                  <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium truncate">{ta.addons?.name || "Add-on"}</p>
-                      {ta.addons && (
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          £{(Number(billingCycle === "annual" ? ta.addons.annual_price / 12 : ta.addons.monthly_price) * (ta.quantity || 1)).toFixed(2)}/mo
-                          {ta.addons.is_per_seat && (ta.quantity || 1) > 1 && (
-                            <span className="ml-1">×{ta.quantity}</span>
-                          )}
-                        </span>
+            <div className="space-y-2">
+              {availableAddons.map(addon => {
+                const isActive = selectedAddonIds.has(addon.id);
+                const unitPrice = billingCycle === "annual" ? Number(addon.annual_price) / 12 : Number(addon.monthly_price);
+                const qty = addon.is_per_seat ? (addonQuantities[addon.id] || 1) : 1;
+                const lineTotal = unitPrice * qty;
+                return (
+                  <div
+                    key={addon.id}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer",
+                      isActive
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    )}
+                    onClick={() => {
+                      setSelectedAddonIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(addon.id)) next.delete(addon.id);
+                        else next.add(addon.id);
+                        return next;
+                      });
+                    }}
+                  >
+                    <div className="pt-0.5">
+                      {isActive ? (
+                        <div className="w-5 h-5 rounded bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded border-2 border-slate-300" />
                       )}
                     </div>
-                    {ta.addons?.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{ta.addons.description}</p>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn("text-sm font-medium", !isActive && "text-muted-foreground")}>{addon.name}</p>
+                        <span className={cn("text-sm font-semibold whitespace-nowrap", isActive ? "text-foreground" : "text-muted-foreground")}>
+                          £{lineTotal.toFixed(2)}<span className="text-xs font-normal">/mo</span>
+                        </span>
+                      </div>
+                      {addon.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{addon.description}</p>
+                      )}
+                      {addon.is_per_seat && isActive && (
+                        <div className="flex items-center gap-2 mt-2" onClick={e => e.stopPropagation()}>
+                          <span className="text-xs text-muted-foreground">Qty:</span>
+                          <button
+                            type="button"
+                            className="w-6 h-6 rounded border border-slate-300 text-xs font-bold flex items-center justify-center hover:bg-slate-50"
+                            onClick={() => setAddonQuantities(prev => ({ ...prev, [addon.id]: Math.max(1, (prev[addon.id] || 1) - 1) }))}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-sm font-medium w-6 text-center">{qty}</span>
+                          <button
+                            type="button"
+                            className="w-6 h-6 rounded border border-slate-300 text-xs font-bold flex items-center justify-center hover:bg-slate-50"
+                            onClick={() => setAddonQuantities(prev => ({ ...prev, [addon.id]: (prev[addon.id] || 1) + 1 }))}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs text-muted-foreground ml-1">× £{unitPrice.toFixed(2)} each</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
             {(() => {
-              const total = myAddons.reduce((sum, ta) => {
-                if (!ta.addons) return sum;
-                const price = billingCycle === "annual" ? Number(ta.addons.annual_price) / 12 : Number(ta.addons.monthly_price);
-                return sum + price * (ta.quantity || 1);
+              const addonsTotal = availableAddons.reduce((sum, addon) => {
+                if (!selectedAddonIds.has(addon.id)) return sum;
+                const unitPrice = billingCycle === "annual" ? Number(addon.annual_price) / 12 : Number(addon.monthly_price);
+                const qty = addon.is_per_seat ? (addonQuantities[addon.id] || 1) : 1;
+                return sum + unitPrice * qty;
               }, 0);
+
+              const cp = (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id) || (plans || [])[0];
+              const isSoleTrader = tenantInfo?.company_type === "sole_trader";
+              const planMonthly = cp
+                ? (isSoleTrader && cp.sole_trader_price != null
+                  ? (billingCycle === "annual" ? Number(cp.sole_trader_price_annual || cp.annual_price) / 12 : Number(cp.sole_trader_price))
+                  : (billingCycle === "annual" ? Number(cp.annual_price) / 12 : Number(cp.monthly_price)))
+                : 0;
+              const grandTotal = planMonthly + addonsTotal;
+
+              const currentAddonIds = new Set((myAddons || []).map(a => a.addon_id));
+              const idsChanged = selectedAddonIds.size !== currentAddonIds.size ||
+                [...selectedAddonIds].some(id => !currentAddonIds.has(id)) ||
+                [...currentAddonIds].some(id => !selectedAddonIds.has(id));
+              const qtyChanged = (myAddons || []).some(a => {
+                if (!selectedAddonIds.has(a.addon_id)) return false;
+                const currentQty = a.quantity || 1;
+                const newQty = addonQuantities[a.addon_id] || 1;
+                return currentQty !== newQty;
+              });
+              const hasChanges = idsChanged || qtyChanged;
+
               return (
-                <div className="flex items-center justify-between pt-3 border-t text-sm">
-                  <span className="text-muted-foreground">Total add-ons cost</span>
-                  <span className="font-semibold">£{total.toFixed(2)}/mo</span>
+                <div className="rounded-lg bg-slate-50 border p-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Base Plan</span>
+                    <span className="font-medium">£{planMonthly.toFixed(2)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Add-ons ({selectedAddonIds.size})</span>
+                    <span className="font-medium">£{addonsTotal.toFixed(2)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t text-sm">
+                    <span className="font-semibold">Estimated Total</span>
+                    <span className="text-lg font-bold">£{grandTotal.toFixed(2)}<span className="text-xs font-normal text-muted-foreground">/mo</span></span>
+                  </div>
+                  {billingCycle === "annual" && (
+                    <p className="text-xs text-muted-foreground text-right">Billed £{(grandTotal * 12).toFixed(2)}/year</p>
+                  )}
+
+                  {hasChanges && tenantInfo?.status === "active" && (
+                    <Button
+                      className="w-full mt-2"
+                      onClick={() => updateAddonsMutation.mutate([...selectedAddonIds])}
+                      disabled={updateAddonsMutation.isPending}
+                    >
+                      {updateAddonsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Package className="w-4 h-4 mr-2" />}
+                      Save Add-on Changes
+                    </Button>
+                  )}
+
+                  {hasChanges && tenantInfo?.status !== "active" && (
+                    <Button
+                      className="w-full mt-2"
+                      onClick={() => {
+                        const basePlan = (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id) || (plans || [])[0];
+                        if (basePlan) {
+                          setSelectedPlan(basePlan.id);
+                          setShowUpgrade(true);
+                        }
+                      }}
+                    >
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Upgrade to Paid Plan — £{grandTotal.toFixed(2)}/mo
+                    </Button>
+                  )}
                 </div>
               );
             })()}
@@ -449,17 +559,30 @@ export default function Billing() {
         </Card>
       )}
 
-      {isAdmin && tenantInfo?.status === "active" && (!myAddons || myAddons.length === 0) && (
+      {availableAddons && availableAddons.length > 0 && !isAdmin && myAddons && myAddons.length > 0 && (
         <Card>
-          <CardContent className="py-6 text-center">
-            <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground mb-3">No add-ons active. Boost your plan with extra features.</p>
-            <Button variant="outline" size="sm" onClick={() => {
-              setSelectedAddonIds(new Set());
-              setShowAddonManager(true);
-            }}>
-              Browse Add-ons
-            </Button>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Active Add-ons ({myAddons.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {myAddons.map(ta => (
+                <div key={ta.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border">
+                  <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{ta.addons?.name || "Add-on"}</p>
+                    {ta.addons?.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{ta.addons.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -541,7 +664,7 @@ export default function Billing() {
 
       {showUpgrade && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <Card className="w-full max-w-lg">
             <CardHeader>
               <CardTitle>Confirm Upgrade</CardTitle>
             </CardHeader>
@@ -549,59 +672,57 @@ export default function Billing() {
               {(() => {
                 const plan = plans?.find((p) => p.id === selectedPlan);
                 if (!plan) return null;
-                const price = billingCycle === "annual" ? plan.annual_price : plan.monthly_price;
+                const isSoleTrader = tenantInfo?.company_type === "sole_trader";
+                const planMonthly = isSoleTrader && plan.sole_trader_price != null
+                  ? (billingCycle === "annual" ? Number(plan.sole_trader_price_annual || plan.annual_price) / 12 : Number(plan.sole_trader_price))
+                  : (billingCycle === "annual" ? Number(plan.annual_price) / 12 : Number(plan.monthly_price));
+
+                const selectedAddonsWithPrice = (availableAddons || [])
+                  .filter(a => selectedAddonIds.has(a.id))
+                  .map(a => {
+                    const unitPrice = billingCycle === "annual" ? Number(a.annual_price) / 12 : Number(a.monthly_price);
+                    const qty = a.is_per_seat ? (addonQuantities[a.id] || 1) : 1;
+                    return { ...a, unitPrice, qty, lineTotal: unitPrice * qty };
+                  });
+                const addonsTotal = selectedAddonsWithPrice.reduce((sum, a) => sum + a.lineTotal, 0);
+                const grandTotal = planMonthly + addonsTotal;
+
                 return (
                   <>
                     <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span className="font-semibold">{plan.name}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Billing</span><span className="capitalize">{billingCycle}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">£{Number(price).toFixed(2)}/{billingCycle === "annual" ? "year" : "mo"}</span></div>
-                    </div>
-
-                    {availableAddons && availableAddons.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium mb-2">Select add-ons (optional):</p>
-                        <div className="space-y-2">
-                          {availableAddons.map(addon => {
-                            const selected = selectedAddonIds.has(addon.id);
-                            const addonPrice = billingCycle === "annual" ? Number(addon.annual_price) / 12 : Number(addon.monthly_price);
-                            return (
-                              <label key={addon.id} className={cn(
-                                "flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                                selected ? "border-primary bg-primary/5" : "border-slate-200 hover:border-slate-300"
-                              )}>
-                                <input
-                                  type="checkbox"
-                                  checked={selected}
-                                  onChange={() => {
-                                    setSelectedAddonIds(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(addon.id)) next.delete(addon.id);
-                                      else next.add(addon.id);
-                                      return next;
-                                    });
-                                  }}
-                                  className="rounded border-gray-300"
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium">{addon.name}</p>
-                                  {addon.description && <p className="text-xs text-muted-foreground">{addon.description}</p>}
-                                  {addon.is_per_seat && selected && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-xs text-muted-foreground">Seats:</span>
-                                      <button type="button" className="w-6 h-6 rounded border text-xs font-bold" onClick={(e) => { e.preventDefault(); setAddonQuantities(prev => ({ ...prev, [addon.id]: Math.max(1, (prev[addon.id] || 1) - 1) })); }}>-</button>
-                                      <span className="text-xs font-medium w-6 text-center">{addonQuantities[addon.id] || 1}</span>
-                                      <button type="button" className="w-6 h-6 rounded border text-xs font-bold" onClick={(e) => { e.preventDefault(); setAddonQuantities(prev => ({ ...prev, [addon.id]: (prev[addon.id] || 1) + 1 })); }}>+</button>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className="text-sm font-semibold shrink-0">£{(addonPrice * (addon.is_per_seat ? (addonQuantities[addon.id] || 1) : 1)).toFixed(2)}/mo{addon.is_per_seat ? ' per seat' : ''}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Plan</span>
+                        <span className="font-semibold">{plan.name}</span>
                       </div>
-                    )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Billing</span>
+                        <span className="capitalize">{billingCycle}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Base Plan</span>
+                        <span className="font-medium">£{planMonthly.toFixed(2)}/mo</span>
+                      </div>
+                      {selectedAddonsWithPrice.length > 0 && (
+                        <>
+                          <div className="pt-1 border-t">
+                            <span className="text-muted-foreground text-xs">Add-ons ({selectedAddonsWithPrice.length}):</span>
+                          </div>
+                          {selectedAddonsWithPrice.map(a => (
+                            <div key={a.id} className="flex justify-between pl-2">
+                              <span className="text-muted-foreground">{a.name}{a.qty > 1 ? ` ×${a.qty}` : ""}</span>
+                              <span className="font-medium">£{a.lineTotal.toFixed(2)}/mo</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      <div className="flex justify-between pt-2 border-t font-semibold">
+                        <span>Total</span>
+                        <span className="text-lg">£{grandTotal.toFixed(2)}/mo</span>
+                      </div>
+                      {billingCycle === "annual" && (
+                        <p className="text-xs text-muted-foreground text-right">Billed £{(grandTotal * 12).toFixed(2)}/year</p>
+                      )}
+                    </div>
 
                     <p className="text-sm text-muted-foreground">You'll be redirected to our secure payment page to complete your subscription.</p>
                     <div className="flex gap-2">
@@ -611,9 +732,9 @@ export default function Billing() {
                         disabled={checkoutMutation.isPending}
                       >
                         {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
-                        Continue to Payment
+                        Continue to Payment — £{grandTotal.toFixed(2)}/mo
                       </Button>
-                      <Button variant="outline" onClick={() => { setShowUpgrade(false); setSelectedPlan(null); setSelectedAddonIds(new Set()); }}>Cancel</Button>
+                      <Button variant="outline" onClick={() => { setShowUpgrade(false); setSelectedPlan(null); }}>Cancel</Button>
                     </div>
                   </>
                 );
@@ -623,84 +744,6 @@ export default function Billing() {
         </div>
       )}
 
-      {showAddonManager && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>Manage Add-ons</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">Toggle the add-ons you want. Changes will be prorated on your next invoice.</p>
-
-              <div className="space-y-2">
-                {(availableAddons || []).map(addon => {
-                  const selected = selectedAddonIds.has(addon.id);
-                  const addonPrice = billingCycle === "annual" ? Number(addon.annual_price) / 12 : Number(addon.monthly_price);
-                  return (
-                    <label key={addon.id} className={cn(
-                      "flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                      selected ? "border-primary bg-primary/5" : "border-slate-200 hover:border-slate-300"
-                    )}>
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => {
-                          setSelectedAddonIds(prev => {
-                            const next = new Set(prev);
-                            if (next.has(addon.id)) next.delete(addon.id);
-                            else next.add(addon.id);
-                            return next;
-                          });
-                        }}
-                        className="rounded border-gray-300"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{addon.name}</p>
-                        {addon.description && <p className="text-xs text-muted-foreground">{addon.description}</p>}
-                        {addon.is_per_seat && selected && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-muted-foreground">Seats:</span>
-                            <button
-                              type="button"
-                              className="w-6 h-6 rounded border text-xs font-bold"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setAddonQuantities(prev => ({ ...prev, [addon.id]: Math.max(1, (prev[addon.id] || 1) - 1) }));
-                              }}
-                            >-</button>
-                            <span className="text-xs font-medium w-6 text-center">{addonQuantities[addon.id] || 1}</span>
-                            <button
-                              type="button"
-                              className="w-6 h-6 rounded border text-xs font-bold"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setAddonQuantities(prev => ({ ...prev, [addon.id]: (prev[addon.id] || 1) + 1 }));
-                              }}
-                            >+</button>
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-sm font-semibold shrink-0">£{(addonPrice * (addon.is_per_seat ? (addonQuantities[addon.id] || 1) : 1)).toFixed(2)}/mo</span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button
-                  className="flex-1"
-                  onClick={() => updateAddonsMutation.mutate([...selectedAddonIds])}
-                  disabled={updateAddonsMutation.isPending}
-                >
-                  {updateAddonsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Package className="w-4 h-4 mr-2" />}
-                  Save Changes
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddonManager(false)}>Cancel</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
