@@ -60,7 +60,7 @@ router.post("/platform/addons", requireAuth, requireSuperAdmin, async (req: Auth
 router.patch("/platform/addons/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const allowed = ["name", "description", "feature_keys", "monthly_price", "annual_price", "stripe_price_id", "stripe_price_id_annual", "is_active", "is_per_seat", "sort_order"];
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
   }
