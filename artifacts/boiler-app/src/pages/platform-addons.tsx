@@ -146,7 +146,7 @@ export default function PlatformAddons() {
     setShowNew(false);
   };
 
-  const AddonForm = ({ isNew }: { isNew: boolean }) => (
+  const renderAddonForm = (isNew: boolean) => (
     <Card className="border-primary/30">
       <CardContent className="p-4 space-y-4">
         <p className="text-sm font-bold">{isNew ? "New Add-on" : "Edit Add-on"}</p>
@@ -352,7 +352,7 @@ export default function PlatformAddons() {
 
       <h2 className="text-lg font-semibold">Add-on Packages</h2>
 
-      {showNew && <AddonForm isNew />}
+      {showNew && renderAddonForm(true)}
 
       {isLoading ? (
         <div className="space-y-3">{[...Array(3)].map((_, i) => <Card key={i}><CardContent className="p-4"><div className="h-16 bg-slate-100 rounded animate-pulse" /></CardContent></Card>)}</div>
@@ -360,7 +360,7 @@ export default function PlatformAddons() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {(addons || []).map((addon) =>
             editingId === addon.id ? (
-              <AddonForm key={addon.id} isNew={false} />
+              <div key={addon.id}>{renderAddonForm(false)}</div>
             ) : (
               <Card key={addon.id} className={`${!addon.is_active ? "opacity-60" : ""}`}>
                 <CardHeader className="pb-2 flex flex-row items-start justify-between">
