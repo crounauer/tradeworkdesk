@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, RefreshCw, Loader2,
-  ChevronRight, Calendar, Users, Briefcase, Package, Plus, Minus
+  Calendar, Users, Briefcase, Package, Plus, Minus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInitData } from "@/hooks/use-init-data";
@@ -427,10 +427,26 @@ export default function Billing() {
       {availableAddons && availableAddons.length > 0 && isAdmin && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Add-ons
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Add-ons
+              </CardTitle>
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                <button
+                  onClick={() => setBillingCycle("monthly")}
+                  className={cn("px-3 py-1 text-sm rounded-md transition-colors", billingCycle === "monthly" ? "bg-white shadow-sm font-medium" : "text-muted-foreground")}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingCycle("annual")}
+                  className={cn("px-3 py-1 text-sm rounded-md transition-colors", billingCycle === "annual" ? "bg-white shadow-sm font-medium" : "text-muted-foreground")}
+                >
+                  Annual <span className="text-xs text-green-600 font-medium">Save</span>
+                </button>
+              </div>
+            </div>
             <p className="text-xs text-muted-foreground mt-1">Toggle add-ons on or off. Your total updates instantly.</p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -562,13 +578,13 @@ export default function Billing() {
                     </Button>
                   )}
 
-                  {hasChanges && tenantInfo?.status !== "active" && (
+                  {tenantInfo?.status !== "active" && (
                     <Button
                       className="w-full mt-2"
                       onClick={() => {
-                        const basePlan = (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id) || (plans || [])[0];
-                        if (basePlan) {
-                          setSelectedPlan(basePlan.id);
+                        const paidPlan = (plans || []).find((p: Plan) => p.stripe_price_id && p.id !== FREE_PLAN_ID) || (plans || [])[0];
+                        if (paidPlan) {
+                          setSelectedPlan(paidPlan.id);
                           setShowUpgrade(true);
                         }
                       }}
@@ -612,80 +628,6 @@ export default function Billing() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CreditCard className="w-4 h-4" />
-              Your Plan
-            </CardTitle>
-            {isAdmin && (
-              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-                <button
-                  onClick={() => setBillingCycle("monthly")}
-                  className={cn("px-3 py-1 text-sm rounded-md transition-colors", billingCycle === "monthly" ? "bg-white shadow-sm font-medium" : "text-muted-foreground")}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setBillingCycle("annual")}
-                  className={cn("px-3 py-1 text-sm rounded-md transition-colors", billingCycle === "annual" ? "bg-white shadow-sm font-medium" : "text-muted-foreground")}
-                >
-                  Annual <span className="text-xs text-green-600 font-medium">Save</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {(() => {
-            const currentPlan = (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id) || (plans || [])[0];
-            if (!currentPlan) return <p className="text-sm text-muted-foreground">No plan information available</p>;
-            const isSoleTrader = tenantInfo?.company_type === "sole_trader";
-            const effectiveMonthly = isSoleTrader && currentPlan.sole_trader_price != null ? currentPlan.sole_trader_price : currentPlan.monthly_price;
-            const effectiveAnnual = isSoleTrader && currentPlan.sole_trader_price_annual != null ? currentPlan.sole_trader_price_annual : currentPlan.annual_price;
-            const price = billingCycle === "annual" ? effectiveAnnual / 12 : effectiveMonthly;
-            return (
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">{currentPlan.name || "Base Plan"}</h3>
-                  {currentPlan.description && <p className="text-sm text-muted-foreground">{currentPlan.description}</p>}
-                  <div className="text-sm text-muted-foreground mt-2 space-y-1">
-                    <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Up to {usageLimits ? usageLimits.maxUsers : currentPlan.max_users} users{usageLimits && usageLimits.addonExtraUsers > 0 ? ` (${usageLimits.baseMaxUsers} base + ${usageLimits.addonExtraUsers} add-on)` : ""}</p>
-                    <p className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {(usageLimits ? usageLimits.maxJobsPerMonth : currentPlan.max_jobs_per_month) === 9999 ? "Unlimited" : `Up to ${usageLimits ? usageLimits.maxJobsPerMonth : currentPlan.max_jobs_per_month}`} jobs/month{usageLimits && usageLimits.addonExtraJobs > 0 ? ` (${usageLimits.baseMaxJobsPerMonth} base + ${usageLimits.addonExtraJobs} add-on)` : ""}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold">
-                    £{Number(price).toFixed(2)}
-                    <span className="text-sm font-normal text-muted-foreground">/mo</span>
-                  </div>
-                  {billingCycle === "annual" && (
-                    <p className="text-xs text-muted-foreground">Billed £{Number(effectiveAnnual).toFixed(2)}/year</p>
-                  )}
-                  {isSoleTrader && currentPlan.sole_trader_price != null && (
-                    <p className="text-xs text-green-600 font-medium">Sole trader pricing</p>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-          {isAdmin && (!tenantInfo?.stripe_subscription_id || isFreePlan) && (
-            <Button
-              className="w-full"
-              onClick={() => {
-                const paidPlan = (plans || []).find((p: Plan) => p.stripe_price_id && p.id !== FREE_PLAN_ID);
-                if (paidPlan) {
-                  setSelectedPlan(paidPlan.id);
-                  setShowUpgrade(true);
-                }
-              }}
-            >
-              Upgrade to Paid Plan <ChevronRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          )}
-        </CardContent>
-      </Card>
 
       {showUpgrade && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
