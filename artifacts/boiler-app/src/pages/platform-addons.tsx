@@ -306,45 +306,161 @@ export default function PlatformAddons() {
     </Card>
   );
 
-  const { data: basePlan, refetch: refetchBasePlan } = useQuery({
-    queryKey: ["platform-base-plan"],
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
+  const BASE_PLAN_ID = "37421994-c20d-49f8-aee1-a896e030a5f5";
+
+  const { data: allPlans, refetch: refetchPlans } = useQuery({
+    queryKey: ["platform-all-plans"],
     queryFn: async () => {
       const res = await fetch("/api/platform/plans");
-      if (!res.ok) return null;
-      const plans = await res.json();
-      return plans.find((p: { is_active: boolean; is_legacy?: boolean }) => p.is_active && !p.is_legacy) || plans[0] || null;
+      if (!res.ok) return [];
+      return res.json();
     },
   });
 
-  const [editingBasePlan, setEditingBasePlan] = useState(false);
-  const [basePlanForm, setBasePlanForm] = useState({
-    name: "", monthly_price: "", annual_price: "", stripe_price_id: "", stripe_price_id_annual: "",
+  const freePlan = (allPlans || []).find((p: { id: string }) => p.id === FREE_PLAN_ID) || null;
+  const basePlan = (allPlans || []).find((p: { id: string }) => p.id === BASE_PLAN_ID) || null;
+
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [planForm, setPlanForm] = useState({
+    name: "", description: "", monthly_price: "", annual_price: "", max_users: "", max_jobs_per_month: "",
+    stripe_price_id: "", stripe_price_id_annual: "",
   });
 
-  const updateBasePlanMutation = useMutation({
-    mutationFn: async () => {
-      if (!basePlan?.id) return;
-      const res = await fetch(`/api/platform/plans/${basePlan.id}`, {
+  const updatePlanMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await fetch(`/api/platform/plans/${planId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: basePlanForm.name,
-          monthly_price: Number(basePlanForm.monthly_price) || 0,
-          annual_price: Number(basePlanForm.annual_price) || 0,
-          stripe_price_id: basePlanForm.stripe_price_id || null,
-          stripe_price_id_annual: basePlanForm.stripe_price_id_annual || null,
+          name: planForm.name,
+          description: planForm.description || null,
+          monthly_price: Number(planForm.monthly_price) || 0,
+          annual_price: Number(planForm.annual_price) || 0,
+          max_users: Number(planForm.max_users) || 1,
+          max_jobs_per_month: Number(planForm.max_jobs_per_month) || 5,
+          stripe_price_id: planForm.stripe_price_id || null,
+          stripe_price_id_annual: planForm.stripe_price_id_annual || null,
         }),
       });
-      if (!res.ok) throw new Error("Failed to update base plan");
+      if (!res.ok) throw new Error("Failed to update plan");
       return res.json();
     },
     onSuccess: () => {
-      refetchBasePlan();
-      toast({ title: "Base plan updated" });
-      setEditingBasePlan(false);
+      refetchPlans();
+      toast({ title: "Plan updated" });
+      setEditingPlanId(null);
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  function startEditingPlan(plan: Record<string, unknown>) {
+    setPlanForm({
+      name: String(plan.name || ""),
+      description: String(plan.description || ""),
+      monthly_price: String(plan.monthly_price ?? ""),
+      annual_price: String(plan.annual_price ?? ""),
+      max_users: String(plan.max_users ?? ""),
+      max_jobs_per_month: String(plan.max_jobs_per_month ?? ""),
+      stripe_price_id: String(plan.stripe_price_id || ""),
+      stripe_price_id_annual: String(plan.stripe_price_id_annual || ""),
+    });
+    setEditingPlanId(String(plan.id));
+  }
+
+  function renderPlanCard(plan: Record<string, unknown> | null, label: string, icon: React.ReactNode, borderClass: string) {
+    if (!plan) return null;
+    const isEditing = editingPlanId === String(plan.id);
+    return (
+      <Card className={borderClass}>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            {icon} {label}
+          </CardTitle>
+          {!isEditing && (
+            <Button variant="outline" size="sm" onClick={() => startEditingPlan(plan)}>
+              <Pencil className="w-3 h-3 mr-1" /> Edit
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isEditing ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Plan Name</Label>
+                  <Input value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Description</Label>
+                  <Input value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Monthly £</Label>
+                  <Input type="number" step="0.01" value={planForm.monthly_price} onChange={e => setPlanForm({ ...planForm, monthly_price: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Annual £</Label>
+                  <Input type="number" step="0.01" value={planForm.annual_price} onChange={e => setPlanForm({ ...planForm, annual_price: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Max Users</Label>
+                  <Input type="number" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Max Jobs/Month</Label>
+                  <Input type="number" value={planForm.max_jobs_per_month} onChange={e => setPlanForm({ ...planForm, max_jobs_per_month: e.target.value })} />
+                </div>
+              </div>
+              {String(plan.id) !== FREE_PLAN_ID && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Stripe Price ID (Monthly)</Label>
+                    <Input value={planForm.stripe_price_id} onChange={e => setPlanForm({ ...planForm, stripe_price_id: e.target.value })} placeholder="price_xxx" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Stripe Price ID (Annual)</Label>
+                    <Input value={planForm.stripe_price_id_annual} onChange={e => setPlanForm({ ...planForm, stripe_price_id_annual: e.target.value })} placeholder="price_xxx" />
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => updatePlanMutation.mutate(String(plan.id))} disabled={updatePlanMutation.isPending}>
+                  <Save className="w-3 h-3 mr-1" /> {updatePlanMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingPlanId(null)}>
+                  <X className="w-3 h-3 mr-1" /> Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+              <div>
+                <span className="text-muted-foreground">Name:</span> <span className="font-medium">{String(plan.name)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Monthly:</span> <span className="font-medium">£{Number(plan.monthly_price).toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Annual:</span> <span className="font-medium">£{Number(plan.annual_price).toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Users:</span> <span className="font-medium">{String(plan.max_users)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Jobs/mo:</span> <span className="font-medium">{String(plan.max_jobs_per_month)}</span>
+              </div>
+              {plan.stripe_price_id && (
+                <Badge variant="secondary" className="text-xs">Stripe configured</Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -358,82 +474,33 @@ export default function PlatformAddons() {
         </Button>
       </div>
 
-      {basePlan && (
-        <Card className="border-primary/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Settings className="w-4 h-4" /> Base Plan
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {renderPlanCard(freePlan, "Free Plan", <Package className="w-4 h-4 text-slate-500" />, "border-slate-200")}
+        {renderPlanCard(basePlan, "Base Plan", <Settings className="w-4 h-4 text-primary" />, "border-primary/30")}
+        <Card className="border-amber-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Check className="w-4 h-4 text-amber-500" /> Trial
             </CardTitle>
-            {!editingBasePlan && (
-              <Button variant="outline" size="sm" onClick={() => {
-                setBasePlanForm({
-                  name: basePlan.name || "",
-                  monthly_price: String(basePlan.monthly_price ?? ""),
-                  annual_price: String(basePlan.annual_price ?? ""),
-                  stripe_price_id: basePlan.stripe_price_id || "",
-                  stripe_price_id_annual: basePlan.stripe_price_id_annual || "",
-                });
-                setEditingBasePlan(true);
-              }}>
-                <Pencil className="w-3 h-3 mr-1" /> Edit
-              </Button>
-            )}
           </CardHeader>
           <CardContent>
-            {editingBasePlan ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Plan Name</Label>
-                    <Input value={basePlanForm.name} onChange={e => setBasePlanForm({ ...basePlanForm, name: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Monthly Price</Label>
-                    <Input type="number" step="0.01" value={basePlanForm.monthly_price} onChange={e => setBasePlanForm({ ...basePlanForm, monthly_price: e.target.value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Annual Price</Label>
-                    <Input type="number" step="0.01" value={basePlanForm.annual_price} onChange={e => setBasePlanForm({ ...basePlanForm, annual_price: e.target.value })} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Stripe Price ID</Label>
-                    <Input value={basePlanForm.stripe_price_id} onChange={e => setBasePlanForm({ ...basePlanForm, stripe_price_id: e.target.value })} placeholder="price_xxx" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Annual Stripe Price ID</Label>
-                    <Input value={basePlanForm.stripe_price_id_annual} onChange={e => setBasePlanForm({ ...basePlanForm, stripe_price_id_annual: e.target.value })} placeholder="price_xxx" />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => updateBasePlanMutation.mutate()} disabled={updateBasePlanMutation.isPending}>
-                    <Save className="w-3 h-3 mr-1" /> {updateBasePlanMutation.isPending ? "Saving..." : "Save"}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingBasePlan(false)}>
-                    <X className="w-3 h-3 mr-1" /> Cancel
-                  </Button>
-                </div>
+            <div className="space-y-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Duration:</span> <span className="font-medium">30 days</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-6 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Name:</span> <span className="font-medium">{basePlan.name}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Monthly:</span> <span className="font-medium">£{Number(basePlan.monthly_price).toFixed(2)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Annual:</span> <span className="font-medium">£{Number(basePlan.annual_price).toFixed(2)}</span>
-                </div>
-                {basePlan.stripe_price_id && (
-                  <Badge variant="secondary" className="text-xs">Stripe configured</Badge>
-                )}
+              <div>
+                <span className="text-muted-foreground">Plan:</span> <span className="font-medium">{basePlan?.name || "Base Plan"}</span>
               </div>
-            )}
+              <div>
+                <span className="text-muted-foreground">Add-ons:</span> <span className="font-medium">All included</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                New users get the Base Plan with all add-ons for 30 days. After expiry, they move to the Free Plan with add-ons deactivated.
+              </p>
+            </div>
           </CardContent>
         </Card>
-      )}
+      </div>
 
       <h2 className="text-lg font-semibold">Add-on Packages</h2>
 
