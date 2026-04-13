@@ -8,7 +8,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -52,6 +52,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const trialDaysLeft = tenantInfo?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(tenantInfo.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
+
+  const trialExpired = isTrial && trialDaysLeft === 0;
+  const accountSuspended = tenantInfo?.status === "suspended";
+  const accountCancelled = tenantInfo?.status === "cancelled";
+  const isLockedOut = !isSuperAdmin && (trialExpired || accountSuspended || accountCancelled);
+  const allowedLockedPaths = ["/billing", "/account"];
+  const isOnAllowedPath = allowedLockedPaths.some(p => location === p || location.startsWith(p + "/"));
 
   const visibleAnnouncements = (announcements || []).filter(
     (a: { id: string }) => !dismissedAnnouncements.has(a.id)
@@ -252,16 +259,14 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
 
-        {isTrial && trialDaysLeft !== null && !isSuperAdmin && (
+        {isTrial && trialDaysLeft !== null && trialDaysLeft > 0 && !isSuperAdmin && (
           <div className={cn(
             "border-b px-4 py-2.5 flex flex-wrap items-center justify-center gap-2 text-sm",
             trialDaysLeft <= 7 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-200 text-blue-800"
           )}>
             {trialDaysLeft <= 7 ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Info className="w-4 h-4 shrink-0" />}
             <span>
-              {trialDaysLeft === 0
-                ? "Your trial has expired."
-                : <>Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.</>}
+              Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.
             </span>
             {isAdmin && !isSuperAdmin && (
               <Link href="/billing">
@@ -308,7 +313,46 @@ export function Layout({ children }: { children: ReactNode }) {
         ))}
 
         <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0">
-          {children}
+          {isLockedOut && !isOnAllowedPath ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="max-w-md w-full text-center space-y-6 p-8">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                  <Lock className="w-8 h-8 text-red-600" />
+                </div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {trialExpired && "Your trial has expired"}
+                  {accountSuspended && "Account suspended"}
+                  {accountCancelled && "Account cancelled"}
+                </h1>
+                <p className="text-muted-foreground">
+                  {trialExpired && "Your 14-day free trial has ended. Upgrade to a paid plan to continue using TradeWorkDesk and keep access to all your data."}
+                  {accountSuspended && "Your account has been suspended due to a payment issue. Please update your payment method to restore access."}
+                  {accountCancelled && "This account has been cancelled. Please contact support if you believe this is an error."}
+                </p>
+                {isAdmin && (trialExpired || accountSuspended) && (
+                  <Link href="/billing">
+                    <Button size="lg" className="w-full">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      {trialExpired ? "Upgrade Now" : "Update Payment"}
+                    </Button>
+                  </Link>
+                )}
+                {!isAdmin && (
+                  <p className="text-sm text-muted-foreground">
+                    Please ask your company admin to upgrade the plan.
+                  </p>
+                )}
+                <div className="flex justify-center gap-4 pt-2">
+                  <Link href="/account" className="text-sm text-primary hover:underline">
+                    Account Settings
+                  </Link>
+                  <button onClick={signOut} className="text-sm text-muted-foreground hover:underline">
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : children}
         </div>
       </main>
     </div>

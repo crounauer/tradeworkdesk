@@ -4,6 +4,9 @@ import { supabaseAdmin } from "../lib/supabase";
 const planFeaturesCache = new Map<string, { features: Record<string, unknown>; expiresAt: number }>();
 const PLAN_CACHE_TTL_MS = 60_000;
 
+const tenantStatusCache = new Map<string, { status: string; trial_ends_at: string | null; expiresAt: number }>();
+const TENANT_STATUS_CACHE_TTL_MS = 60_000;
+
 const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
 const PROFILE_CACHE_TTL_MS = 120_000;
 
@@ -231,11 +234,11 @@ export function requireSuperAdmin(
   next();
 }
 
-export function requireTenant(
+export async function requireTenant(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
   if (req.userRole === "super_admin") {
     next();
     return;
@@ -244,6 +247,40 @@ export function requireTenant(
     res.status(403).json({ error: "No tenant associated with this account" });
     return;
   }
+
+  const now = Date.now();
+  let cached = tenantStatusCache.get(req.tenantId);
+  if (!cached || cached.expiresAt <= now) {
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("status, trial_ends_at")
+      .eq("id", req.tenantId)
+      .single();
+
+    if (tenant) {
+      cached = { status: tenant.status, trial_ends_at: tenant.trial_ends_at, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS };
+      tenantStatusCache.set(req.tenantId, cached);
+    }
+  }
+
+  if (cached) {
+    if (cached.status === "cancelled") {
+      res.status(403).json({ error: "account_cancelled", message: "This account has been cancelled." });
+      return;
+    }
+    if (cached.status === "suspended") {
+      res.status(403).json({ error: "account_suspended", message: "This account has been suspended. Please contact support or update your payment method." });
+      return;
+    }
+    if (cached.status === "trial" && cached.trial_ends_at) {
+      const trialEnd = new Date(cached.trial_ends_at).getTime();
+      if (trialEnd < now) {
+        res.status(403).json({ error: "trial_expired", message: "Your free trial has expired. Please upgrade to continue using TradeWorkDesk." });
+        return;
+      }
+    }
+  }
+
   next();
 }
 
