@@ -4,6 +4,7 @@ import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../mi
 import { sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
+import { getEffectiveLimits, getCurrentUserCount, getJobsThisMonth } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -597,7 +598,26 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     feature_keys: a.addons?.feature_keys ?? [],
   }));
 
-  const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements, activeAddons: addonsList };
+  let usageLimits = null;
+  if (req.tenantId) {
+    const [limits, userCount, jobCount] = await Promise.all([
+      getEffectiveLimits(req.tenantId),
+      getCurrentUserCount(req.tenantId),
+      getJobsThisMonth(req.tenantId),
+    ]);
+    usageLimits = {
+      maxUsers: limits.maxUsers,
+      currentUsers: userCount,
+      baseMaxUsers: limits.baseMaxUsers,
+      addonExtraUsers: limits.addonExtraUsers,
+      maxJobsPerMonth: limits.maxJobsPerMonth,
+      currentJobsThisMonth: jobCount,
+      baseMaxJobsPerMonth: limits.baseMaxJobsPerMonth,
+      addonExtraJobs: limits.addonExtraJobs,
+    };
+  }
+
+  const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements, activeAddons: addonsList, usageLimits };
   initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   res.set("Cache-Control", "private, max-age=60");
   res.json(responseBody);

@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Users, ShieldCheck, Wrench, UserCog } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { useInitData } from "@/hooks/use-init-data";
 
 type Profile = {
   id: string;
@@ -41,6 +42,8 @@ function AdminUsersContent() {
   const { profile: me } = useAuth();
   const queryClient = useQueryClient();
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
+  const { data: initData } = useInitData();
+  const usageLimits = initData?.usageLimits;
 
   const { data: users, isLoading } = useQuery<Profile[]>({
     queryKey: ["admin-users"],
@@ -88,7 +91,9 @@ function AdminUsersContent() {
         </div>
         <Badge variant="outline" className="text-sm">
           <Users className="w-4 h-4 mr-1.5" />
-          {users?.length ?? 0} {users?.length === 1 ? "member" : "members"}
+          {usageLimits
+            ? `${usageLimits.currentUsers} of ${usageLimits.maxUsers} seats used`
+            : `${users?.length ?? 0} ${users?.length === 1 ? "member" : "members"}`}
         </Badge>
       </div>
 

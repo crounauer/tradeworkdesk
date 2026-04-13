@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
+import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 
 const SINGLETON_ID = "default";
 import {
@@ -234,6 +235,19 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateJobBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const [limits, jobsThisMonth] = await Promise.all([
+    getEffectiveLimits(req.tenantId!),
+    getJobsThisMonth(req.tenantId!),
+  ]);
+
+  if (limits.maxJobsPerMonth !== 9999 && jobsThisMonth >= limits.maxJobsPerMonth) {
+    res.status(400).json({
+      error: `You've reached your monthly limit of ${limits.maxJobsPerMonth} jobs (${limits.baseMaxJobsPerMonth} from plan + ${limits.addonExtraJobs} from add-ons). Purchase additional job capacity to create more jobs this month.`,
+      code: "MAX_JOBS_REACHED",
+    });
+    return;
+  }
 
   const fkChecks: Array<{ table: string; id: string | undefined | null }> = [
     { table: "customers", id: parsed.data.customer_id },

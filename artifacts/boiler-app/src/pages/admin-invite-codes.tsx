@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Copy, Plus, X, CheckCircle2, Clock, Ban, Link } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { useInitData } from "@/hooks/use-init-data";
 
 type InviteCode = {
   id: string;
@@ -57,6 +58,8 @@ function AdminInviteCodesContent() {
   const [newNote, setNewNote] = useState("");
   const [newExpiry, setNewExpiry] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { data: initData } = useInitData();
+  const usageLimits = initData?.usageLimits;
 
   const { data: codes, isLoading } = useQuery<InviteCode[]>({
     queryKey: ["invite-codes"],
@@ -123,6 +126,14 @@ function AdminInviteCodesContent() {
         <div>
           <h1 className="text-3xl font-display font-bold">Invite Codes</h1>
           <p className="text-muted-foreground mt-1">Generate single-use links to invite new team members</p>
+          {usageLimits && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {usageLimits.currentUsers} of {usageLimits.maxUsers} user seats used
+              {usageLimits.addonExtraUsers > 0 && (
+                <span> ({usageLimits.baseMaxUsers} base + {usageLimits.addonExtraUsers} add-on)</span>
+              )}
+            </p>
+          )}
         </div>
         <Button onClick={() => setShowForm(true)} className="gap-2">
           <Plus className="w-4 h-4" /> New Invite

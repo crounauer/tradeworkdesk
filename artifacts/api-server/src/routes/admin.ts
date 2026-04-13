@@ -6,6 +6,7 @@ import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/e
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
+import { getEffectiveLimits, getCurrentUserCount, getActiveInviteCount } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -114,34 +115,18 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
   if (!(await requireNotSoleTrader(req, res))) return;
   const { role = "technician", expires_at, note } = req.body;
 
-  const { data: tenant } = await supabaseAdmin
-    .from("tenants")
-    .select("plan_id, plans(max_users)")
-    .eq("id", req.tenantId!)
-    .single();
+  const [limits, currentUsers, activeInvites] = await Promise.all([
+    getEffectiveLimits(req.tenantId!),
+    getCurrentUserCount(req.tenantId!),
+    getActiveInviteCount(req.tenantId!),
+  ]);
 
-  if (tenant?.plans) {
-    const maxUsers = (tenant.plans as { max_users?: number }).max_users ?? 999;
-    const { count: currentUsers } = await supabaseAdmin
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", req.tenantId!)
-      .eq("is_active", true);
-
-    const { count: activeInvites } = await supabaseAdmin
-      .from("invite_codes")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", req.tenantId!)
-      .eq("is_active", true)
-      .is("used_at", null);
-
-    if ((currentUsers || 0) + (activeInvites || 0) >= maxUsers) {
-      res.status(400).json({
-        error: `You've reached your plan's limit of ${maxUsers} users. Please upgrade your plan to add more team members.`,
-        code: "MAX_USERS_REACHED",
-      });
-      return;
-    }
+  if (currentUsers + activeInvites >= limits.maxUsers) {
+    res.status(400).json({
+      error: `You've reached your limit of ${limits.maxUsers} users (${limits.baseMaxUsers} from plan + ${limits.addonExtraUsers} from add-ons). Purchase additional user seats to add more team members.`,
+      code: "MAX_USERS_REACHED",
+    });
+    return;
   }
 
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
@@ -217,27 +202,17 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
   }
 
   if (inv.tenant_id) {
-    const { data: invTenant } = await supabaseAdmin
-      .from("tenants")
-      .select("plan_id, plans(max_users)")
-      .eq("id", inv.tenant_id)
-      .single();
+    const [limits, currentUsers] = await Promise.all([
+      getEffectiveLimits(inv.tenant_id),
+      getCurrentUserCount(inv.tenant_id),
+    ]);
 
-    if (invTenant?.plans) {
-      const maxUsers = (invTenant.plans as { max_users?: number }).max_users ?? 999;
-      const { count: currentUsers } = await supabaseAdmin
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", inv.tenant_id)
-        .eq("is_active", true);
-
-      if ((currentUsers || 0) >= maxUsers) {
-        res.status(400).json({
-          error: `This company has reached its maximum number of users (${maxUsers}). Please ask the admin to upgrade the plan.`,
-          code: "MAX_USERS_REACHED",
-        });
-        return;
-      }
+    if (currentUsers >= limits.maxUsers) {
+      res.status(400).json({
+        error: `This company has reached its maximum number of users (${limits.maxUsers}). Please ask the admin to upgrade the plan or purchase additional user seats.`,
+        code: "MAX_USERS_REACHED",
+      });
+      return;
     }
   }
 

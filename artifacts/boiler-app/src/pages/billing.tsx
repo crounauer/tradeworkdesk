@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FEATURE_LABELS } from "@/hooks/use-plan-features";
+import { useInitData } from "@/hooks/use-init-data";
 
 interface Plan {
   id: string;
@@ -85,6 +86,8 @@ export default function Billing() {
   const [showAddonManager, setShowAddonManager] = useState(false);
 
   const isAdmin = profile?.role === "admin";
+  const { data: initData } = useInitData();
+  const usageLimits = initData?.usageLimits;
 
   const { data: tenantInfo, isLoading: tenantLoading } = useQuery<TenantInfo | null>({
     queryKey: ["tenant-info"],
@@ -311,20 +314,32 @@ export default function Billing() {
                   </span>
                 </div>
               )}
-              {(() => {
-                const planData = (tenantInfo.plans || currentPlan) as Record<string, unknown> | null;
-                if (!planData) return null;
-                return (<>
+              {usageLimits && (<>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Max users</span>
-                    <span>{planData.max_users as number}</span>
+                    <span className="text-muted-foreground flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Users</span>
+                    <span className="font-medium">
+                      {usageLimits.currentUsers} of {usageLimits.maxUsers}
+                      {usageLimits.addonExtraUsers > 0 && (
+                        <span className="text-xs text-muted-foreground ml-1">({usageLimits.baseMaxUsers} + {usageLimits.addonExtraUsers} add-on)</span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> Max jobs/mo</span>
-                    <span>{(planData.max_jobs_per_month as number) === 9999 ? "Unlimited" : planData.max_jobs_per_month as number}</span>
+                    <span className="text-muted-foreground flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> Jobs this month</span>
+                    <span className="font-medium">
+                      {usageLimits.maxJobsPerMonth === 9999 ? (
+                        <>{usageLimits.currentJobsThisMonth} (Unlimited)</>
+                      ) : (
+                        <>
+                          {usageLimits.currentJobsThisMonth} of {usageLimits.maxJobsPerMonth}
+                          {usageLimits.addonExtraJobs > 0 && (
+                            <span className="text-xs text-muted-foreground ml-1">({usageLimits.baseMaxJobsPerMonth} + {usageLimits.addonExtraJobs} add-on)</span>
+                          )}
+                        </>
+                      )}
+                    </span>
                   </div>
-                </>);
-              })()}
+                </>)}
             </CardContent>
           </Card>
 
@@ -462,8 +477,8 @@ export default function Billing() {
                   <h3 className="font-semibold text-lg">{currentPlan.name || "Base Plan"}</h3>
                   {currentPlan.description && <p className="text-sm text-muted-foreground">{currentPlan.description}</p>}
                   <div className="text-sm text-muted-foreground mt-2 space-y-1">
-                    <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Up to {currentPlan.max_users} users</p>
-                    <p className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {currentPlan.max_jobs_per_month === 9999 ? "Unlimited" : `Up to ${currentPlan.max_jobs_per_month}`} jobs/month</p>
+                    <p className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Up to {usageLimits ? usageLimits.maxUsers : currentPlan.max_users} users{usageLimits && usageLimits.addonExtraUsers > 0 ? ` (${usageLimits.baseMaxUsers} base + ${usageLimits.addonExtraUsers} add-on)` : ""}</p>
+                    <p className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {(usageLimits ? usageLimits.maxJobsPerMonth : currentPlan.max_jobs_per_month) === 9999 ? "Unlimited" : `Up to ${usageLimits ? usageLimits.maxJobsPerMonth : currentPlan.max_jobs_per_month}`} jobs/month{usageLimits && usageLimits.addonExtraJobs > 0 ? ` (${usageLimits.baseMaxJobsPerMonth} base + ${usageLimits.addonExtraJobs} add-on)` : ""}</p>
                   </div>
                 </div>
                 <div className="text-right">

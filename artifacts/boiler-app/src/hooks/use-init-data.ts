@@ -16,6 +16,17 @@ export interface ActiveAddon {
   feature_keys: string[];
 }
 
+export interface UsageLimits {
+  maxUsers: number;
+  currentUsers: number;
+  baseMaxUsers: number;
+  addonExtraUsers: number;
+  maxJobsPerMonth: number;
+  currentJobsThisMonth: number;
+  baseMaxJobsPerMonth: number;
+  addonExtraJobs: number;
+}
+
 export interface InitData {
   profile: {
     id: string;
@@ -45,6 +56,7 @@ export interface InitData {
   enquiriesCount: number;
   announcements?: Announcement[];
   activeAddons?: ActiveAddon[];
+  usageLimits?: UsageLimits | null;
 }
 
 export function useInitData() {

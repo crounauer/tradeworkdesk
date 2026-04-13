@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
+import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -239,6 +240,19 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
 
     if (!finalCustomerId || !finalPropertyId) {
       res.status(400).json({ error: "Customer and property are required" }); return;
+    }
+
+    const [limits, jobsThisMonth] = await Promise.all([
+      getEffectiveLimits(req.tenantId!),
+      getJobsThisMonth(req.tenantId!),
+    ]);
+
+    if (limits.maxJobsPerMonth !== 9999 && jobsThisMonth >= limits.maxJobsPerMonth) {
+      res.status(400).json({
+        error: `You've reached your monthly limit of ${limits.maxJobsPerMonth} jobs. Purchase additional job capacity to create more jobs this month.`,
+        code: "MAX_JOBS_REACHED",
+      });
+      return;
     }
 
     const validJobTypes = ["service", "breakdown", "installation", "inspection", "follow_up"];
