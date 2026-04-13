@@ -40,6 +40,7 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "geo_mapping", label: "Geo Mapping", description: "Map views on jobs, properties & customers" },
   { key: "advanced_analytics", label: "Advanced Analytics", description: "Advanced reporting features" },
   { key: "report_export", label: "Report Export", description: "Export reports to PDF/CSV" },
+  { key: "google_calendar", label: "Google Calendar Sync", description: "Sync jobs to Google Calendar" },
 ];
 
 const EMPTY_FORM: AddonFormState = {
