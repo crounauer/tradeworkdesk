@@ -128,7 +128,10 @@ export default function PlatformAddons() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(toPayload(form)),
       });
-      if (!res.ok) throw new Error("Failed to update add-on");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to update add-on (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: () => {

@@ -66,7 +66,8 @@ router.patch("/platform/addons/:id", requireAuth, requireSuperAdmin, async (req:
   }
 
   const { data, error } = await supabaseAdmin.from("addons").update(updates).eq("id", id).select().single();
-  if (error || !data) { res.status(404).json({ error: "Add-on not found" }); return; }
+  if (error) { console.error("[addons] update error:", error.message, error.details); res.status(400).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Add-on not found" }); return; }
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
