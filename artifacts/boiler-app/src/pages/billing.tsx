@@ -44,8 +44,9 @@ interface TenantAddon {
   id: string;
   addon_id: string;
   is_active: boolean;
+  quantity: number;
   activated_at: string;
-  addons: Addon | null;
+  addons: (Addon & { is_per_seat?: boolean }) | null;
 }
 
 interface TenantInfo {
@@ -394,7 +395,7 @@ export default function Billing() {
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Package className="w-4 h-4" />
-              Active Add-ons
+              Active Add-ons ({myAddons.length})
             </CardTitle>
             {isAdmin && tenantInfo?.status === "active" && (
               <Button variant="outline" size="sm" onClick={() => {
@@ -405,20 +406,45 @@ export default function Billing() {
               </Button>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {myAddons.map(ta => (
-                <div key={ta.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border">
-                  <Package className="w-4 h-4 text-primary shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">{ta.addons?.name || "Add-on"}</p>
+                <div key={ta.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border">
+                  <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium truncate">{ta.addons?.name || "Add-on"}</p>
+                      {ta.addons && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          £{(Number(billingCycle === "annual" ? ta.addons.annual_price / 12 : ta.addons.monthly_price) * (ta.quantity || 1)).toFixed(2)}/mo
+                          {ta.addons.is_per_seat && (ta.quantity || 1) > 1 && (
+                            <span className="ml-1">×{ta.quantity}</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                     {ta.addons?.description && (
-                      <p className="text-xs text-muted-foreground">{ta.addons.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{ta.addons.description}</p>
                     )}
                   </div>
                 </div>
               ))}
             </div>
+            {(() => {
+              const total = myAddons.reduce((sum, ta) => {
+                if (!ta.addons) return sum;
+                const price = billingCycle === "annual" ? Number(ta.addons.annual_price) / 12 : Number(ta.addons.monthly_price);
+                return sum + price * (ta.quantity || 1);
+              }, 0);
+              return (
+                <div className="flex items-center justify-between pt-3 border-t text-sm">
+                  <span className="text-muted-foreground">Total add-ons cost</span>
+                  <span className="font-semibold">£{total.toFixed(2)}/mo</span>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}

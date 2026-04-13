@@ -110,11 +110,15 @@ router.delete("/platform/addons/:id", requireAuth, requireSuperAdmin, async (req
   res.sendStatus(204);
 });
 
-router.get("/me/addons", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/me/addons", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!req.tenantId) {
+    res.status(403).json({ error: "No tenant associated with this account" });
+    return;
+  }
   const { data, error } = await supabaseAdmin
     .from("tenant_addons")
-    .select("id, addon_id, is_active, activated_at, addons(id, name, description, feature_keys, monthly_price, annual_price)")
-    .eq("tenant_id", req.tenantId!)
+    .select("id, addon_id, is_active, quantity, activated_at, addons(id, name, description, feature_keys, monthly_price, annual_price, is_per_seat)")
+    .eq("tenant_id", req.tenantId)
     .eq("is_active", true);
 
   if (error) { res.status(500).json({ error: error.message }); return; }
