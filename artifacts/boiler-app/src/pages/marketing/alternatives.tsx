@@ -37,7 +37,7 @@ const faqs = [
   {
     question: "Is TradeWorkDesk more expensive than generic alternatives?",
     answer:
-      "TradeWorkDesk starts at just £8.50/month for the Base Plan — more affordable than most field service apps. Add only the features you need with individual add-ons. The difference is you're paying for software that works for your trade immediately, without spending hours on setup and customisation. No contracts, no hidden fees, and a 14-day free trial to prove it works for you.",
+      "TradeWorkDesk starts at just £8.50/month for the Base Plan — more affordable than most field service apps. Add only the features you need with individual add-ons. The difference is you're paying for software that works for your trade immediately, without spending hours on setup and customisation. No contracts, no hidden fees, and a 30-day free trial to prove it works for you.",
   },
   {
     question: "Can I switch to TradeWorkDesk from another platform?",
@@ -167,7 +167,7 @@ export default function AlternativesPage() {
             Ready to try purpose-built software?
           </h2>
           <p className="mt-4 text-lg text-blue-100">
-            14-day free trial. No credit card required. Set up in under 5 minutes.
+            30-day free trial. No credit card required. Set up in under 5 minutes.
           </p>
           <Link href="/register">
             <Button size="lg" className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12">

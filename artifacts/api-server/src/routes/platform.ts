@@ -206,9 +206,9 @@ router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order, sole_trader_price, sole_trader_price_annual, stripe_price_id, stripe_price_id_annual, stripe_sole_trader_price_id, stripe_sole_trader_price_id_annual";
   const basicSelect = "id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, sort_order";
 
-  let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).eq("is_legacy", false).order("monthly_price", { ascending: true }).limit(1);
+  let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).eq("is_legacy", false).order("sort_order", { ascending: true });
   if (result.error?.code === "42703") {
-    result = await supabaseAdmin.from("plans").select(basicSelect).eq("is_active", true).order("monthly_price", { ascending: true }).limit(1);
+    result = await supabaseAdmin.from("plans").select(basicSelect).eq("is_active", true).order("sort_order", { ascending: true });
   }
   if (result.error) { res.status(500).json({ error: result.error.message }); return; }
   res.json(result.data || []);

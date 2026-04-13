@@ -41,8 +41,8 @@ export default function TermsOfServicePage() {
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">4. Subscriptions and Payment</h2>
-            <p><strong>Free trial:</strong> New accounts receive a 14-day free trial with full access to the features of your chosen plan. No payment information is required during the trial.</p>
-            <p><strong>Billing:</strong> After the trial period, you must subscribe to a paid plan to continue using the Service. Subscriptions are billed monthly or annually, depending on your chosen billing cycle.</p>
+            <p><strong>Free trial:</strong> New accounts receive a 30-day free trial with full access to the features of your chosen plan. No payment information is required during the trial.</p>
+            <p><strong>Billing:</strong> After the trial period, you may subscribe to a paid plan or continue on the free tier with limited features. Paid subscriptions are billed monthly or annually, depending on your chosen billing cycle.</p>
             <p><strong>Price changes:</strong> We may change our prices with 30 days' notice. Price changes take effect at the start of your next billing cycle.</p>
             <p><strong>Refunds:</strong> Monthly subscriptions are not refundable. Annual subscriptions may be refunded on a pro-rata basis within the first 30 days.</p>
           </section>

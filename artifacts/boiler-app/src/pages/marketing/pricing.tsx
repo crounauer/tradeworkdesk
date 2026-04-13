@@ -27,20 +27,34 @@ interface ApiAddon {
   sort_order: number;
 }
 
-const BASE_FEATURES = [
+const FREE_FEATURES = [
   "Job management & scheduling",
+  "Gas service record forms",
   "Customer & property tracking",
-  "Basic reporting & dashboard",
-  "Up to 50 jobs/month",
+  "Up to 5 jobs/month",
   "1 user included",
   "Mobile-friendly interface",
-  "14-day free trial",
+  "Free forever — no credit card",
+];
+
+const BASE_FEATURES = [
+  "Everything in Free, plus:",
+  "Unlimited job types & forms",
+  "Basic reporting & dashboard",
+  "Up to 50 jobs/month",
+  "1 user included (expandable)",
+  "Mobile-friendly interface",
+  "30-day free trial",
 ];
 
 const faqs = [
   {
+    question: "Is there a free plan?",
+    answer: "Yes! Our Free Forever plan includes basic job management, scheduling, and gas service record forms for 1 user with up to 5 jobs per month. No credit card required. You can upgrade to a paid plan at any time for more features.",
+  },
+  {
     question: "Is there a free trial?",
-    answer: "Yes. The base plan comes with a 14-day free trial. No credit card is required to start. You get full access to all base features during the trial period.",
+    answer: "Yes. The base plan comes with a 30-day free trial. No credit card is required to start. You get full access to all base features during the trial period. When the trial ends, you can subscribe or continue on the free plan.",
   },
   {
     question: "How do add-ons work?",
@@ -108,7 +122,7 @@ export default function PricingPage() {
     retry: 2,
   });
 
-  const basePlan = apiPlans?.[0];
+  const basePlan = apiPlans?.find(p => Number(p.monthly_price) > 0) ?? apiPlans?.[1] ?? apiPlans?.[0];
   const baseMonthly = basePlan ? Number(basePlan.monthly_price) : 8.50;
   const baseAnnual = basePlan && basePlan.annual_price ? Number(basePlan.annual_price) : 85;
   const basePrice = isAnnual ? baseAnnual / 12 : baseMonthly;
@@ -191,14 +205,48 @@ export default function PricingPage() {
             </div>
           </div>
 
-          <div className="max-w-xl mx-auto mb-12">
-            <div className="rounded-2xl bg-primary text-white p-8 shadow-xl">
+          <div className="max-w-4xl mx-auto mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-2xl bg-white border-2 border-slate-200 p-8 shadow-sm">
+              <span className="inline-block px-3 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full mb-4">
+                Free Forever
+              </span>
+              <h2 className="font-display text-2xl font-bold text-slate-900">Get started for free</h2>
+              <p className="mt-2 text-slate-500 text-sm">
+                Basic tools to manage jobs and gas service records.
+              </p>
+
+              <div className="mt-6 flex items-baseline gap-1">
+                <span className="text-5xl font-display font-bold text-slate-900">£0</span>
+                <span className="text-slate-400 text-lg">/month</span>
+              </div>
+              <p className="mt-1 text-sm text-green-600 font-medium">No credit card required</p>
+
+              <ul className="mt-6 space-y-2.5">
+                {FREE_FEATURES.map(feature => (
+                  <li key={feature} className="flex items-center gap-2.5 text-sm text-slate-700">
+                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8">
+                <Link href="/register?plan=free">
+                  <Button variant="outline" className="w-full font-semibold text-base py-5 border-2">
+                    Start Free
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-primary text-white p-8 shadow-xl relative">
               <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
                 Base Plan
               </span>
-              <h2 className="font-display text-2xl font-bold">Everything you need to get started</h2>
+              <h2 className="font-display text-2xl font-bold">Everything you need to grow</h2>
               <p className="mt-2 text-blue-100 text-sm">
-                Core tools for managing your heating engineering business.
+                Full tools for managing your heating engineering business.
               </p>
 
               <div className="mt-6 flex items-baseline gap-1">
@@ -225,7 +273,7 @@ export default function PricingPage() {
               <div className="mt-8">
                 <Link href="/register">
                   <Button className="w-full bg-white text-primary hover:bg-blue-50 font-semibold text-base py-5">
-                    Start Free Trial
+                    Start 30-Day Free Trial
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -333,7 +381,7 @@ export default function PricingPage() {
           )}
 
           <p className="mt-8 text-center text-sm text-slate-500">
-            All prices exclude VAT. 14-day free trial included. No credit card required.
+            All prices exclude VAT. Free plan available. 30-day free trial on paid plans. No credit card required.
           </p>
         </div>
       </section>

@@ -523,7 +523,7 @@ router.post("/admin/switch-to-company", requireAuth, requireTenant, requireRole(
 });
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type, addon_ids, addon_quantities = {}, beta_code } = req.body;
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type, addon_ids, addon_quantities = {}, beta_code, start_on_free } = req.body;
 
   if (!beta_code?.trim()) {
     res.status(400).json({ error: "A beta invite code is required to register during the beta period." });
@@ -583,15 +583,19 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString();
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
+  const trialEnds = new Date(Date.now() + 30 * 86400000).toISOString();
 
   let resolvedPlanId = plan_id;
-  if (!resolvedPlanId) {
+  if (start_on_free) {
+    resolvedPlanId = FREE_PLAN_ID;
+  } else if (!resolvedPlanId) {
     const { data: basePlan } = await supabaseAdmin
       .from("plans")
       .select("id")
       .eq("is_active", true)
       .eq("is_legacy", false)
+      .gt("monthly_price", 0)
       .order("monthly_price", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -605,9 +609,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       contact_name,
       contact_email,
       contact_phone: contact_phone || null,
-      status: "trial",
+      status: start_on_free ? "active" as const : "trial" as const,
       plan_id: resolvedPlanId,
-      trial_ends_at: trialEnds,
+      trial_ends_at: start_on_free ? null : trialEnds,
       company_type: resolvedCompanyType,
     })
     .select()

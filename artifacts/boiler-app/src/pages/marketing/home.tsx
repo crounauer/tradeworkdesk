@@ -102,7 +102,7 @@ export default function HomePage() {
                 </Link>
               </div>
               <p className="mt-4 text-sm text-slate-500">
-                14-day free trial. No credit card required.
+                30-day free trial. No credit card required.
               </p>
             </div>
           </div>
@@ -175,7 +175,7 @@ export default function HomePage() {
               </div>
               <p className="mt-1 text-sm text-blue-200">or £85/year (save 17%)</p>
               <ul className="mt-6 space-y-3">
-                {["Job management & scheduling", "Customer & property records", "Basic reporting & dashboard", "Up to 50 jobs/month", "Mobile-friendly interface", "14-day free trial"].map((f) => (
+                {["Job management & scheduling", "Customer & property records", "Basic reporting & dashboard", "Up to 50 jobs/month", "Mobile-friendly interface", "30-day free trial"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm">
                     <CheckCircle className="w-4 h-4 text-blue-200 shrink-0" />
                     {f}
@@ -217,7 +217,7 @@ export default function HomePage() {
           </h2>
           <p className="mt-4 text-lg text-blue-100">
             Join hundreds of heating engineers who've switched to TradeWorkDesk.
-            Start your 14-day free trial today — no credit card required.
+            Start your 30-day free trial today — no credit card required.
           </p>
           <Link href="/register">
             <Button

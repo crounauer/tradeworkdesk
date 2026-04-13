@@ -52,7 +52,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **Callout Rate Tiers:** Configurable callout rates based on time windows, with auto-resolution and manual overrides.
 - **Product Catalogue:** Searchable product catalogue for parts and materials.
 - **Invoice Export:** Supports CSV, QuickBooks IIF, Xero CSV, and Sage CSV formats.
-- **Plan Feature Gating:** Base plan plus selectable add-ons, with features derived from a union of plan and add-on capabilities.
+- **Plan Feature Gating:** Base plan plus selectable add-ons, with features derived from a union of plan and add-on capabilities. A "Free" plan (£0, 1 user, 5 jobs/month, job_management + scheduling only) exists as a permanent freemium tier. Trial period is 30 days. When a trial expires, users can subscribe to a paid plan or continue on the free tier via `POST /api/me/switch-to-free`.
 - **Email to Customer:** Allows sending completed forms and photos as email attachments, with dynamic email content.
 - **Company Document URLs:** Optional `rates_url` and `trading_terms_url` for customer-facing emails.
 - **Customer Login Portal:** A separate frontend for customers to view their properties, appliances, service history, and download reports.

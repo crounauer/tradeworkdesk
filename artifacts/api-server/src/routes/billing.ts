@@ -32,6 +32,7 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
       .select("*")
       .eq("is_active", true)
       .eq("is_legacy", false)
+      .gt("monthly_price", 0)
       .order("monthly_price", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -148,6 +149,51 @@ router.get("/billing/payment-method", requireAuth, requireTenant, requireRole("a
     exp_month: pm.card?.exp_month,
     exp_year: pm.card?.exp_year,
   });
+});
+
+const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
+
+router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("id, status, plan_id")
+    .eq("id", req.tenantId!)
+    .single();
+
+  if (!tenant) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
+  if (tenant.status !== "trial") {
+    res.status(400).json({ error: "Only trial accounts can switch to the free plan" });
+    return;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("tenants")
+    .update({
+      plan_id: FREE_PLAN_ID,
+      status: "active" as const,
+      trial_ends_at: null,
+    })
+    .eq("id", req.tenantId!);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "switched_to_free_plan",
+    entity_type: "tenant",
+    entity_id: req.tenantId,
+    detail: { previous_status: tenant.status, previous_plan_id: tenant.plan_id },
+  });
+
+  res.json({ success: true });
 });
 
 export default router;

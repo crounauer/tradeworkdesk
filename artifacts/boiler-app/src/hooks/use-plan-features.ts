@@ -36,13 +36,16 @@ export function usePlanFeatures() {
     return addons.some((a) => a.feature_keys?.includes(featureKey));
   };
 
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const isFormsOnly = !hasFeature("job_management");
+  const isFreePlan = pf?.plan_id === FREE_PLAN_ID;
 
   return {
     features,
     hasFeature,
     hasAddon,
     isFormsOnly,
+    isFreePlan,
     planName: pf?.plan_name ?? null,
     planId: pf?.plan_id ?? null,
     activeAddons: addons,

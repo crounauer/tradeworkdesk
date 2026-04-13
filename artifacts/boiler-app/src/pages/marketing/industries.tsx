@@ -191,7 +191,7 @@ export default function IndustriesPage() {
             Ready to try software built for your trade?
           </h2>
           <p className="mt-4 text-lg text-blue-100">
-            14-day free trial. No credit card required. Set up in under 5 minutes.
+            30-day free trial. No credit card required. Set up in under 5 minutes.
           </p>
           <Link href="/register">
             <Button size="lg" className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12">

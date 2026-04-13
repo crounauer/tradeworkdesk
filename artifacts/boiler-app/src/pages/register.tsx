@@ -18,6 +18,11 @@ function getBetaCodeFromUrl() {
   return params.get("beta") ?? "";
 }
 
+function getStartOnFreeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("plan") === "free";
+}
+
 type ValidateResult = { valid: boolean; role: string } | null;
 type RegisterMode = "invite" | "company";
 type CompanyType = "sole_trader" | "company";
@@ -42,6 +47,8 @@ export default function Register() {
   const [companyType, setCompanyType] = useState<CompanyType>("company");
   const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
+
+  const [startOnFree, setStartOnFree] = useState(getStartOnFreeFromUrl);
 
   const [betaCode, setBetaCode] = useState(getBetaCodeFromUrl);
   const [betaValid, setBetaValid] = useState<boolean | null>(null);
@@ -187,10 +194,11 @@ export default function Register() {
           contact_email: email,
           contact_phone: phone || undefined,
           password,
-          addon_ids: [...selectedAddons],
-          addon_quantities: addonQuantities,
+          addon_ids: startOnFree ? [] : [...selectedAddons],
+          addon_quantities: startOnFree ? {} : addonQuantities,
           company_type: companyType,
           beta_code: betaCode.trim().toUpperCase(),
+          start_on_free: startOnFree,
         }),
       });
 
@@ -405,8 +413,20 @@ export default function Register() {
                     <Input placeholder="07xxx" value={phone} onChange={e => setPhone(e.target.value)} />
                   </div>
                 </div>
-                <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
-                  Next: Choose Add-ons <ArrowRight className="w-4 h-4 ml-2" />
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border mt-2">
+                  <input
+                    type="checkbox"
+                    id="start-on-free"
+                    checked={startOnFree}
+                    onChange={(e) => setStartOnFree(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="start-on-free" className="text-sm text-muted-foreground cursor-pointer">
+                    Start on the <strong>Free plan</strong> instead (1 user, 5 jobs/month, skip the trial)
+                  </label>
+                </div>
+                <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(startOnFree ? 3 : 2)}>
+                  {startOnFree ? "Next: Credentials" : "Next: Choose Add-ons"} <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
             )}
@@ -501,14 +521,16 @@ export default function Register() {
                   <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(2)}>
+                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(startOnFree ? 1 : 2)}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
                   <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
-                    {loading ? "Setting up..." : "Start Free Trial"}
+                    {loading ? "Setting up..." : startOnFree ? "Start Free Plan" : "Start 30-Day Trial"}
                   </Button>
                 </div>
-                <p className="text-xs text-center text-muted-foreground">No credit card required. 14-day free trial.</p>
+                <p className="text-xs text-center text-muted-foreground">
+                  {startOnFree ? "Free plan — 1 user, 5 jobs/month. Upgrade anytime." : "No credit card required. 30-day free trial."}
+                </p>
               </form>
             )}
           </>

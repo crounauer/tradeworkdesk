@@ -184,7 +184,7 @@ export default function FeaturesPage() {
             See it in action
           </h2>
           <p className="mt-4 text-lg text-blue-100">
-            Start your 14-day free trial and explore every feature. No credit card required.
+            Start your 30-day free trial and explore every feature. No credit card required.
           </p>
           <Link href="/register">
             <Button

@@ -61,7 +61,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 30-day free trial — no credit card required.",
       },
     ],
   },
@@ -205,7 +205,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 30-day free trial — no credit card required.",
       },
     ],
   },
@@ -253,7 +253,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 30-day free trial — no credit card required.",
       },
     ],
   },
@@ -301,7 +301,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 30-day free trial — no credit card required.",
       },
     ],
   },
@@ -349,7 +349,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 30-day free trial — no credit card required.",
       },
     ],
   },
@@ -370,7 +370,7 @@ const tradePages: Record<string, TradePageConfig> = {
       "Revenue and job completion reporting",
       "Works on mobile — your office in your pocket",
       "No contracts — monthly billing, cancel anytime",
-      "14-day free trial, no credit card required",
+      "30-day free trial, no credit card required",
     ],
     credentials: [
       { label: "Gas Safe, OFTEC & MCS Compliance", body: "Gas Safe service records, OFTEC inspection forms, and MCS commissioning documentation are available as affordable add-ons — built specifically for trade professionals." },
@@ -444,7 +444,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost for a team?",
         answer:
-          "The Base Plan is £8.50/month for 1 user. Add extra team members with the Additional Users add-on and increase job capacity with the Jobs Per Month add-on. No contracts — start with a 14-day free trial.",
+          "The Base Plan is £8.50/month for 1 user. Add extra team members with the Additional Users add-on and increase job capacity with the Jobs Per Month add-on. No contracts — start with a 30-day free trial.",
       },
     ],
   },
@@ -556,7 +556,7 @@ export default function TradeLandingPage({ slug }: { slug: string }) {
             Ready to get started?
           </h2>
           <p className="mt-4 text-lg text-blue-100">
-            14-day free trial. No credit card required. Set up in under 5 minutes.
+            30-day free trial. No credit card required. Set up in under 5 minutes.
           </p>
           <Link href="/register">
             <Button size="lg" className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12">

@@ -85,7 +85,7 @@ export default function ContactPage() {
             Prefer to try it yourself?
           </h2>
           <p className="mt-4 text-slate-600">
-            Start a 14-day free trial — no credit card required. Most questions are
+            Start a 30-day free trial — no credit card required. Most questions are
             answered once you see the platform in action.
           </p>
         </div>

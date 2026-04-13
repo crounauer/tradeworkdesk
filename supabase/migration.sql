@@ -1556,3 +1556,16 @@ DO $$ BEGIN
   ALTER TABLE company_settings ADD COLUMN trading_terms_url TEXT;
 EXCEPTION WHEN duplicate_column THEN NULL;
 END $$;
+
+-- =============================================================================
+-- Section 19: Add Free plan for freemium tier
+-- =============================================================================
+INSERT INTO plans (id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, sort_order, features)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  'Free',
+  'Free forever plan with basic job management',
+  0, 0, 1, 5, 0,
+  '{"job_management": true, "scheduling": true, "heat_pump_forms": false, "combustion_analysis": false, "reports": false, "api_access": false, "invoicing": false, "team_management": false, "social_media": false, "oil_tank_forms": false, "commissioning_forms": false, "custom_branding": false, "priority_support": false}'::jsonb
+)
+ON CONFLICT (id) DO NOTHING;

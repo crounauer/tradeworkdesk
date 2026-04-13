@@ -55,8 +55,8 @@ interface TenantInfo {
   trial_ends_at: string | null;
   plan_id: string | null;
   stripe_customer_id?: string | null;
-  subscription_renewal_at?: string | null;
   stripe_subscription_id?: string | null;
+  subscription_renewal_at?: string | null;
   company_type?: "sole_trader" | "company";
   plans?: { name: string; monthly_price: number; max_users: number; max_jobs_per_month: number } | null;
 }
@@ -221,7 +221,9 @@ export default function Billing() {
 
   const statusLabel = (status: string) => status.replace("_", " ");
 
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const currentPlan = plans?.find((p: Plan) => p.id === tenantInfo?.plan_id);
+  const isFreePlan = tenantInfo?.plan_id === FREE_PLAN_ID;
   const isLegacyPlan = !!(tenantInfo?.plans as Record<string, unknown> | null)?.is_legacy;
   const urlParams = new URLSearchParams(window.location.search);
   const justSucceeded = urlParams.get("success") === "1";
@@ -353,49 +355,72 @@ export default function Billing() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Payment Method</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {pmLoading ? (
-                <div className="h-8 bg-slate-100 rounded animate-pulse" />
-              ) : paymentMethod ? (
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border">
-                  <CreditCard className="w-5 h-5 text-slate-500" />
-                  <div>
-                    <p className="font-medium capitalize">{BRAND_LABEL[paymentMethod.brand] || paymentMethod.brand} ending {paymentMethod.last4}</p>
-                    <p className="text-xs text-muted-foreground">Expires {paymentMethod.exp_month}/{paymentMethod.exp_year}</p>
+          {isFreePlan ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Free Plan</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p className="text-muted-foreground">
+                  You're on the free plan. Upgrade to unlock more features, users, and jobs.
+                </p>
+                {isAdmin && (
+                  <Button className="w-full" onClick={() => {
+                    const firstPaid = (plans || []).find((p) => p.stripe_price_id && p.id !== FREE_PLAN_ID);
+                    if (firstPaid) { setSelectedPlan(firstPaid.id); }
+                    setShowUpgrade(true);
+                  }}>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Upgrade to Paid Plan
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Payment Method</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {pmLoading ? (
+                  <div className="h-8 bg-slate-100 rounded animate-pulse" />
+                ) : paymentMethod ? (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border">
+                    <CreditCard className="w-5 h-5 text-slate-500" />
+                    <div>
+                      <p className="font-medium capitalize">{BRAND_LABEL[paymentMethod.brand] || paymentMethod.brand} ending {paymentMethod.last4}</p>
+                      <p className="text-xs text-muted-foreground">Expires {paymentMethod.exp_month}/{paymentMethod.exp_year}</p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground italic">No payment method on file</p>
-              )}
+                ) : (
+                  <p className="text-muted-foreground italic">No payment method on file</p>
+                )}
 
-              {isAdmin && (tenantInfo.status === "active" || tenantInfo.status === "payment_overdue") && tenantInfo.stripe_customer_id && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => manageBillingMutation.mutate()}
-                  disabled={manageBillingMutation.isPending}
-                >
-                  {manageBillingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
-                  Manage Billing
-                </Button>
-              )}
+                {isAdmin && (tenantInfo.status === "active" || tenantInfo.status === "payment_overdue") && tenantInfo.stripe_customer_id && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => manageBillingMutation.mutate()}
+                    disabled={manageBillingMutation.isPending}
+                  >
+                    {manageBillingMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+                    Manage Billing
+                  </Button>
+                )}
 
-              {isAdmin && tenantInfo.status !== "active" && (
-                <Button className="w-full" onClick={() => {
-                  const firstPaid = (plans || []).find((p) => p.stripe_price_id);
-                  if (firstPaid) { setSelectedPlan(firstPaid.id); }
-                  setShowUpgrade(true);
-                }}>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Upgrade to Paid Plan
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+                {isAdmin && tenantInfo.status !== "active" && (
+                  <Button className="w-full" onClick={() => {
+                    const firstPaid = (plans || []).find((p) => p.stripe_price_id && p.id !== FREE_PLAN_ID);
+                    if (firstPaid) { setSelectedPlan(firstPaid.id); }
+                    setShowUpgrade(true);
+                  }}>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Upgrade to Paid Plan
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -645,13 +670,13 @@ export default function Billing() {
               </div>
             );
           })()}
-          {isAdmin && !tenantInfo?.stripe_subscription_id && (
+          {isAdmin && (!tenantInfo?.stripe_subscription_id || isFreePlan) && (
             <Button
               className="w-full"
               onClick={() => {
-                const basePlan = (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id) || (plans || [])[0];
-                if (basePlan) {
-                  setSelectedPlan(basePlan.id);
+                const paidPlan = (plans || []).find((p: Plan) => p.stripe_price_id && p.id !== FREE_PLAN_ID);
+                if (paidPlan) {
+                  setSelectedPlan(paidPlan.id);
                   setShowUpgrade(true);
                 }
               }}
