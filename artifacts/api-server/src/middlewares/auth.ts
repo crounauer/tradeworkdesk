@@ -275,8 +275,14 @@ export async function requireTenant(
     if (cached.status === "trial" && cached.trial_ends_at) {
       const trialEnd = new Date(cached.trial_ends_at).getTime();
       if (trialEnd < now) {
-        res.status(403).json({ error: "trial_expired", message: "Your free trial has expired. Please upgrade to continue using TradeWorkDesk." });
-        return;
+        const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
+        await supabaseAdmin
+          .from("tenants")
+          .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+          .eq("id", req.tenantId);
+        cached.status = "active";
+        cached.trial_ends_at = null;
+        tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
       }
     }
   }

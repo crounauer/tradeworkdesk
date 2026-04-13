@@ -3,13 +3,12 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, Loader2
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -54,10 +53,9 @@ export function Layout({ children }: { children: ReactNode }) {
     ? Math.max(0, Math.ceil((new Date(tenantInfo.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     : null;
 
-  const trialExpired = isTrial && trialDaysLeft === 0;
   const accountSuspended = tenantInfo?.status === "suspended";
   const accountCancelled = tenantInfo?.status === "cancelled";
-  const isLockedOut = !isSuperAdmin && (trialExpired || accountSuspended || accountCancelled);
+  const isLockedOut = !isSuperAdmin && (accountSuspended || accountCancelled);
   const allowedLockedPaths = ["/billing", "/account"];
   const isOnAllowedPath = allowedLockedPaths.some(p => location === p || location.startsWith(p + "/"));
 
@@ -316,7 +314,6 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0">
           {isLockedOut && !isOnAllowedPath ? (
             <LockedOutScreen
-              trialExpired={trialExpired}
               accountSuspended={accountSuspended}
               accountCancelled={accountCancelled}
               isAdmin={isAdmin}
@@ -329,32 +326,12 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-function LockedOutScreen({ trialExpired, accountSuspended, accountCancelled, isAdmin, signOut }: {
-  trialExpired: boolean;
+function LockedOutScreen({ accountSuspended, accountCancelled, isAdmin, signOut }: {
   accountSuspended: boolean;
   accountCancelled: boolean;
   isAdmin: boolean;
   signOut: () => void;
 }) {
-  const [, navigate] = useLocation();
-  const queryClient = useQueryClient();
-
-  const switchToFreeMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/me/switch-to-free", { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to switch to free plan");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["me-init"] });
-      queryClient.invalidateQueries({ queryKey: ["tenant-info"] });
-      navigate("/");
-    },
-  });
-
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="max-w-md w-full text-center space-y-6 p-8">
@@ -362,38 +339,13 @@ function LockedOutScreen({ trialExpired, accountSuspended, accountCancelled, isA
           <Lock className="w-8 h-8 text-red-600" />
         </div>
         <h1 className="text-2xl font-bold text-foreground">
-          {trialExpired && "Your trial has expired"}
           {accountSuspended && "Account suspended"}
           {accountCancelled && "Account cancelled"}
         </h1>
         <p className="text-muted-foreground">
-          {trialExpired && "Your 30-day free trial has ended. Subscribe to a paid plan for full access, or continue on our free tier with basic features."}
           {accountSuspended && "Your account has been suspended due to a payment issue. Please update your payment method to restore access."}
           {accountCancelled && "This account has been cancelled. Please contact support if you believe this is an error."}
         </p>
-        {isAdmin && trialExpired && (
-          <div className="space-y-3">
-            <Link href="/billing">
-              <Button size="lg" className="w-full">
-                <CreditCard className="w-4 h-4 mr-2" />
-                Subscribe to Paid Plan
-              </Button>
-            </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full"
-              onClick={() => switchToFreeMutation.mutate()}
-              disabled={switchToFreeMutation.isPending}
-            >
-              {switchToFreeMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Continue on Free Plan
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Free plan includes job management and scheduling for 1 user with up to 5 jobs/month.
-            </p>
-          </div>
-        )}
         {isAdmin && accountSuspended && (
           <Link href="/billing">
             <Button size="lg" className="w-full">
