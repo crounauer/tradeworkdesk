@@ -576,16 +576,24 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
             .select("name, features, monthly_price, max_users, max_jobs_per_month")
             .eq("id", FREE_PLAN_ID)
             .single();
-          await supabaseAdmin
-            .from("tenants")
-            .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
-            .eq("id", req.tenantId!);
+          await Promise.all([
+            supabaseAdmin
+              .from("tenants")
+              .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+              .eq("id", req.tenantId!),
+            supabaseAdmin
+              .from("tenant_addons")
+              .update({ is_active: false })
+              .eq("tenant_id", req.tenantId!)
+              .eq("is_active", true),
+          ]);
           tenantRes.data.plan_id = FREE_PLAN_ID;
           tenantRes.data.status = "active";
           tenantRes.data.trial_ends_at = null;
           if (freePlan) {
             tenantRes.data.plans = freePlan as typeof tenantRes.data.plans;
           }
+          activeAddons = [];
         }
       }
       const plan = tenantRes.data.plans;

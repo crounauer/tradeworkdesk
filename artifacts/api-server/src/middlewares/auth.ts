@@ -276,10 +276,17 @@ export async function requireTenant(
       const trialEnd = new Date(cached.trial_ends_at).getTime();
       if (trialEnd < now) {
         const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
-        await supabaseAdmin
-          .from("tenants")
-          .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
-          .eq("id", req.tenantId);
+        await Promise.all([
+          supabaseAdmin
+            .from("tenants")
+            .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+            .eq("id", req.tenantId),
+          supabaseAdmin
+            .from("tenant_addons")
+            .update({ is_active: false })
+            .eq("tenant_id", req.tenantId!)
+            .eq("is_active", true),
+        ]);
         cached.status = "active";
         cached.trial_ends_at = null;
         tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
