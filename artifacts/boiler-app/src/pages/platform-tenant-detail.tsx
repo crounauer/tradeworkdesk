@@ -357,18 +357,31 @@ export default function PlatformTenantDetail() {
           </Button>
         </CardHeader>
         <CardContent>
-          {tenantAddons && tenantAddons.filter((ta: { is_active: boolean }) => ta.is_active).length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {tenantAddons
-                .filter((ta: { is_active: boolean }) => ta.is_active)
-                .map((ta: { id: string; addons?: { name: string } | null }) => (
-                  <Badge key={ta.id} variant="secondary" className="text-sm">
-                    {ta.addons?.name || "Unknown"}
-                  </Badge>
-                ))}
+          {allAddons && allAddons.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {(allAddons as { id: string; name: string; is_active: boolean }[])
+                .filter((a) => a.is_active)
+                .map((addon) => {
+                  const isEnabled = (tenantAddons || []).some(
+                    (ta: { addon_id: string; is_active: boolean }) => ta.addon_id === addon.id && ta.is_active
+                  );
+                  return (
+                    <div
+                      key={addon.id}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
+                        isEnabled
+                          ? "border-green-200 bg-green-50 text-green-800"
+                          : "border-slate-200 bg-slate-50 text-muted-foreground"
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${isEnabled ? "bg-green-500" : "bg-slate-300"}`} />
+                      {addon.name}
+                    </div>
+                  );
+                })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No active add-ons</p>
+            <p className="text-sm text-muted-foreground">No add-ons available</p>
           )}
         </CardContent>
       </Card>
