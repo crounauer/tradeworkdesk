@@ -364,16 +364,6 @@ export default function Billing() {
                 <p className="text-muted-foreground">
                   You're on the free plan. Upgrade to unlock more features, users, and jobs.
                 </p>
-                {isAdmin && (
-                  <Button className="w-full" onClick={() => {
-                    const firstPaid = (plans || []).find((p) => p.stripe_price_id && p.id !== FREE_PLAN_ID);
-                    if (firstPaid) { setSelectedPlan(firstPaid.id); }
-                    setShowUpgrade(true);
-                  }}>
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Upgrade to Paid Plan
-                  </Button>
-                )}
               </CardContent>
             </Card>
           ) : (
@@ -518,7 +508,10 @@ export default function Billing() {
                 return sum + unitPrice * qty;
               }, 0);
 
-              const cp = (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id) || (plans || [])[0];
+              const basePlan = isFreePlan
+                ? (plans || []).find((p: Plan) => p.stripe_price_id && p.id !== FREE_PLAN_ID)
+                : (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id);
+              const cp = basePlan || (plans || [])[0];
               const isSoleTrader = tenantInfo?.company_type === "sole_trader";
               const planMonthly = cp
                 ? (isSoleTrader && cp.sole_trader_price != null
