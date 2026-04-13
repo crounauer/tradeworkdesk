@@ -37,7 +37,7 @@ const faqs = [
   {
     question: "Is TradeWorkDesk more expensive than generic alternatives?",
     answer:
-      "TradeWorkDesk starts at £29/month for solo traders — competitive with most field service apps. The difference is you're paying for software that works for your trade immediately, without spending hours on setup and customisation. No contracts, no hidden fees, and a 14-day free trial to prove it works for you.",
+      "TradeWorkDesk starts at just £8.50/month for the Base Plan — more affordable than most field service apps. Add only the features you need with individual add-ons. The difference is you're paying for software that works for your trade immediately, without spending hours on setup and customisation. No contracts, no hidden fees, and a 14-day free trial to prove it works for you.",
   },
   {
     question: "Can I switch to TradeWorkDesk from another platform?",

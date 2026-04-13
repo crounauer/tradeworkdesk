@@ -360,10 +360,9 @@ const tradePages: Record<string, TradePageConfig> = {
     description:
       "Affordable job management software for sole trader gas engineers, oil engineers, heat pump installers, and plumbers. All the tools you need at a price that works for a one-person business.",
     intro:
-      "You don't need enterprise software to run a professional trade business. TradeWorkDesk's Base Plan gives sole trader engineers and plumbers everything they need — job management, digital forms, customer records, and compliance tools — at just £8.50/month.",
+      "You don't need enterprise software to run a professional trade business. TradeWorkDesk's Base Plan gives sole trader engineers and plumbers the core tools they need — job management, customer records, scheduling, and reporting — at just £8.50/month. Add digital forms, compliance tools, and more as you need them.",
     features: [
       "Full job management for a single user",
-      "All digital forms — service records, breakdown reports, commissioning",
       "Customer and property database",
       "Annual service reminders and scheduling",
       "Digital signatures and photo documentation",
@@ -374,7 +373,7 @@ const tradePages: Record<string, TradePageConfig> = {
       "14-day free trial, no credit card required",
     ],
     credentials: [
-      { label: "Gas Safe, OFTEC & MCS Compliance", body: "All compliant forms are included on every plan — Gas Safe service records, OFTEC inspection forms, and MCS commissioning documentation are never a premium add-on." },
+      { label: "Gas Safe, OFTEC & MCS Compliance", body: "Gas Safe service records, OFTEC inspection forms, and MCS commissioning documentation are available as affordable add-ons — built specifically for trade professionals." },
       { label: "Affordable Professional Tools", body: "The Base Plan at £8.50/month includes core features, and you can add digital forms, compliance tools, and more with affordable add-ons. Sole traders get the same professional tools as larger companies." },
       { label: "Built for One-Person Businesses", body: "Designed by a founder who started as a sole trader and knows that affordability and simplicity are essential for independent engineers and plumbers." },
     ],
@@ -418,7 +417,7 @@ const tradePages: Record<string, TradePageConfig> = {
       "Centralised customer and property database",
       "Compliance oversight — track certifications and form completion",
       "Digital forms for gas, oil, heat pump, and plumbing work",
-      "Unlimited jobs on all team plans",
+      "50 jobs/month included — add more with the Jobs Per Month add-on",
       "No per-job fees — flat monthly pricing",
     ],
     credentials: [
@@ -430,7 +429,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How many engineers can use TradeWorkDesk?",
         answer:
-          "The Professional plan supports up to 5 users and the Business plan offers unlimited users. Each engineer gets their own login with appropriate access levels.",
+          "The Base Plan includes 1 user. Add more team members with the Additional Users add-on — each extra seat adds another engineer. Every user gets their own login with appropriate access levels.",
       },
       {
         question: "Can office staff manage jobs without going on site?",
@@ -445,7 +444,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost for a team?",
         answer:
-          "The Professional plan (up to 5 users) is £59/month. The Business plan (unlimited users) is £99/month. No contracts, no per-user fees beyond the plan limit. Start with a 14-day free trial.",
+          "The Base Plan is £8.50/month for 1 user. Add extra team members with the Additional Users add-on and increase job capacity with the Jobs Per Month add-on. No contracts — start with a 14-day free trial.",
       },
     ],
   },

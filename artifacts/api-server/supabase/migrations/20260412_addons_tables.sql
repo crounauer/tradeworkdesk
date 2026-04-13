@@ -43,7 +43,7 @@ BEGIN
     VALUES (
       'Base Plan',
       'Core tools for managing your heating engineering business',
-      9.99, 99.99,
+      8.50, 85.00,
       1, 50,
       '{"job_management": true, "scheduling": true, "invoicing": true, "reports": true}'::jsonb,
       true, false, 0

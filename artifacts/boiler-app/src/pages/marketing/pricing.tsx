@@ -31,7 +31,8 @@ const BASE_FEATURES = [
   "Job management & scheduling",
   "Customer & property tracking",
   "Basic reporting & dashboard",
-  "Unlimited jobs",
+  "Up to 50 jobs/month",
+  "1 user included",
   "Mobile-friendly interface",
   "14-day free trial",
 ];

@@ -20,7 +20,7 @@ const contactMethods = [
     icon: Clock,
     title: "Support Hours",
     detail: "Mon - Fri, 8am - 6pm",
-    desc: "Emergency support available for Business plan customers.",
+    desc: "Emergency support available for all customers.",
   },
   {
     icon: MapPin,

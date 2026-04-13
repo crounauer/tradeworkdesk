@@ -270,7 +270,7 @@ The key is to choose a platform that was built specifically for your trade, not 
 ## Frequently Asked Questions
 
 **How much should I expect to pay?**
-Purpose-built software for heating engineers typically costs between £29-£99 per month depending on team size and features. Be wary of platforms significantly cheaper (they're usually missing key features) or significantly more expensive (you're paying for features you won't use).
+Purpose-built software for heating engineers typically starts from around £8.50 per month for a base plan, with optional add-ons for extra features like digital forms, team management, and accounting integration. Look for transparent pricing with no hidden fees.
 
 **Can I import my existing customer data?**
 Most modern platforms support CSV imports for customer data. Some also offer migration assistance to help you bring across property and appliance records.
