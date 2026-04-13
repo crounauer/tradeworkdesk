@@ -70,6 +70,12 @@ export default function Register() {
   });
 
   useEffect(() => {
+    if (addons && addons.length > 0 && selectedAddons.size === 0) {
+      setSelectedAddons(new Set(addons.map((a: { id: string }) => a.id)));
+    }
+  }, [addons]);
+
+  useEffect(() => {
     const initial = getCodeFromUrl();
     if (initial) validateCode(initial);
   }, []);
