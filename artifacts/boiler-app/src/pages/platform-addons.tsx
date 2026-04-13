@@ -41,6 +41,8 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "advanced_analytics", label: "Advanced Analytics", description: "Advanced reporting features" },
   { key: "report_export", label: "Report Export", description: "Export reports to PDF/CSV" },
   { key: "google_calendar", label: "Google Calendar Sync", description: "Sync jobs to Google Calendar" },
+  { key: "accounting_integration", label: "Accounting Integration", description: "Connect to Xero, QuickBooks, or Sage" },
+  { key: "invoice_export", label: "Invoice Export", description: "Export invoices to PDF/CSV" },
 ];
 
 const EMPTY_FORM: AddonFormState = {
