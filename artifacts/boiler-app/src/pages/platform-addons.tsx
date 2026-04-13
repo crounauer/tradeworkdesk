@@ -43,6 +43,9 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "google_calendar", label: "Google Calendar Sync", description: "Sync jobs to Google Calendar" },
   { key: "accounting_integration", label: "Accounting Integration", description: "Connect to Xero, QuickBooks, or Sage" },
   { key: "invoice_export", label: "Invoice Export", description: "Export invoices to PDF/CSV" },
+  { key: "time_attended", label: "Time Attended", description: "Track arrival/departure times per job visit" },
+  { key: "photos", label: "Photos", description: "Attach photos to jobs" },
+  { key: "parts_used", label: "Parts Used", description: "Record parts and materials used on jobs" },
 ];
 
 const EMPTY_FORM: AddonFormState = {
