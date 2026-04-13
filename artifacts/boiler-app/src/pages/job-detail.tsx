@@ -173,6 +173,33 @@ export default function JobDetail() {
               <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Return Visit
             </Button>
           )}
+          {job.status === "completed" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" disabled={updateJob.isPending}>
+                  <RotateCcw className="w-4 h-4 mr-2" /> Reopen Job
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reopen Job {job.job_ref || `#${job.id.slice(0, 8)}`}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will move the job back to "In Progress". All time entries, notes, and forms will be preserved.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-amber-600 text-white hover:bg-amber-700"
+                    disabled={updateJob.isPending}
+                    onClick={() => handleStatusChange("in_progress", "In Progress")}
+                  >
+                    {updateJob.isPending ? "Reopening..." : "Reopen Job"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {canInvoice && isAdmin && (
             <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending}>
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
