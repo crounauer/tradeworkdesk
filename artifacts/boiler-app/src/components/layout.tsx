@@ -249,7 +249,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
 
-        {isTrial && trialDaysLeft !== null && (
+        {isTrial && trialDaysLeft !== null && !isSuperAdmin && (
           <div className={cn(
             "border-b px-4 py-2.5 flex flex-wrap items-center justify-center gap-2 text-sm",
             trialDaysLeft <= 7 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-200 text-blue-800"
