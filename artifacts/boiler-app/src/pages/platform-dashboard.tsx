@@ -216,9 +216,9 @@ export default function PlatformDashboard() {
               <p className="font-medium text-sm">Manage Companies</p>
               <p className="text-xs text-muted-foreground">View, edit, and manage all tenant companies</p>
             </Link>
-            <Link href="/platform/plans" className="block p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-border">
-              <p className="font-medium text-sm flex items-center gap-2"><CreditCard className="w-4 h-4" /> Pricing Plans ({stats?.plans?.length || 0})</p>
-              <p className="text-xs text-muted-foreground">Configure subscription tiers and features</p>
+            <Link href="/platform/addons" className="block p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-border">
+              <p className="font-medium text-sm flex items-center gap-2"><CreditCard className="w-4 h-4" /> Pricing & Add-ons</p>
+              <p className="text-xs text-muted-foreground">Manage base plan and add-on packages</p>
             </Link>
             <Link href="/platform/announcements" className="block p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-border">
               <p className="font-medium text-sm">Announcements</p>
