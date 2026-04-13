@@ -500,7 +500,7 @@ export default function Billing() {
 
       {showUpgrade && selectedPlan && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <CardTitle>Confirm Upgrade</CardTitle>
             </CardHeader>
@@ -520,7 +520,7 @@ export default function Billing() {
                     {availableAddons && availableAddons.length > 0 && (
                       <div>
                         <p className="text-sm font-medium mb-2">Select add-ons (optional):</p>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                        <div className="space-y-2">
                           {availableAddons.map(addon => {
                             const selected = selectedAddonIds.has(addon.id);
                             const addonPrice = billingCycle === "annual" ? Number(addon.annual_price) / 12 : Number(addon.monthly_price);
@@ -584,14 +584,14 @@ export default function Billing() {
 
       {showAddonManager && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <CardTitle>Manage Add-ons</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">Toggle the add-ons you want. Changes will be prorated on your next invoice.</p>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2">
                 {(availableAddons || []).map(addon => {
                   const selected = selectedAddonIds.has(addon.id);
                   const addonPrice = billingCycle === "annual" ? Number(addon.annual_price) / 12 : Number(addon.monthly_price);
