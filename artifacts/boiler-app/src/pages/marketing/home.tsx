@@ -52,26 +52,13 @@ const stats = [
   { value: "4.8/5", label: "Average Rating" },
 ];
 
-const plans = [
-  {
-    name: "Starter",
-    price: "29",
-    desc: "For solo engineers getting started",
-    features: ["1 user", "Job management", "Digital forms", "Customer records", "Mobile access"],
-  },
-  {
-    name: "Professional",
-    price: "59",
-    desc: "For growing teams",
-    features: ["Up to 5 users", "Everything in Starter", "Team scheduling", "Reports & analytics", "Priority support"],
-    popular: true,
-  },
-  {
-    name: "Business",
-    price: "99",
-    desc: "For established companies",
-    features: ["Unlimited users", "Everything in Professional", "API access", "Custom branding", "Dedicated account manager"],
-  },
+const addons = [
+  "Digital Forms & Certificates",
+  "Digital Signatures",
+  "Team Management",
+  "Accounting Integration",
+  "Social Media & AI Marketing",
+  "Custom Branding",
 ];
 
 export default function HomePage() {
@@ -172,50 +159,53 @@ export default function HomePage() {
               Simple, transparent pricing
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              No long contracts. No hidden fees. Cancel anytime.
+              One affordable base plan. Add only what you need. No long contracts.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`rounded-2xl p-8 ${
-                  plan.popular
-                    ? "bg-primary text-white ring-2 ring-primary shadow-xl scale-105"
-                    : "bg-white border border-slate-200"
-                }`}
-              >
-                {plan.popular && (
-                  <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
-                    Most Popular
-                  </span>
-                )}
-                <h3 className="font-display text-xl font-bold">{plan.name}</h3>
-                <p className={`mt-1 text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
-                  {plan.desc}
-                </p>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-display font-bold">£{plan.price}</span>
-                  <span className={`text-sm ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>/month</span>
-                </div>
-                <ul className="mt-6 space-y-3">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className={`w-4 h-4 shrink-0 ${plan.popular ? "text-blue-200" : "text-green-500"}`} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/register">
-                  <Button
-                    className={`w-full mt-8 ${plan.popular ? "bg-white text-primary hover:bg-blue-50" : ""}`}
-                    variant={plan.popular ? "secondary" : "default"}
-                  >
-                    Start Free Trial
-                  </Button>
-                </Link>
+          <div className="max-w-xl mx-auto">
+            <div className="rounded-2xl bg-primary text-white p-8 shadow-xl">
+              <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
+                Base Plan
+              </span>
+              <h3 className="font-display text-2xl font-bold">Everything you need to get started</h3>
+              <p className="mt-2 text-blue-100 text-sm">Core tools for managing your trade business.</p>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="text-5xl font-display font-bold">£8.50</span>
+                <span className="text-blue-100 text-lg">/month</span>
               </div>
-            ))}
+              <p className="mt-1 text-sm text-blue-200">or £85/year (save 17%)</p>
+              <ul className="mt-6 space-y-3">
+                {["Job management & scheduling", "Customer & property records", "Basic reporting & dashboard", "Up to 50 jobs/month", "Mobile-friendly interface", "14-day free trial"].map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-blue-200 shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register">
+                <Button className="w-full mt-8 bg-white text-primary hover:bg-blue-50 font-semibold text-base py-5">
+                  Start Free Trial
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+            <div className="mt-8 text-center">
+              <h3 className="font-display text-lg font-semibold text-slate-900 mb-3">Supercharge with add-ons</h3>
+              <p className="text-sm text-slate-600 mb-4">Pick only what you need — toggle on or off any time.</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {addons.map((a) => (
+                  <span key={a} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-sm text-slate-700">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                    {a}
+                  </span>
+                ))}
+              </div>
+              <Link href="/pricing">
+                <Button variant="link" className="mt-4 text-primary">
+                  See all add-ons & pricing <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

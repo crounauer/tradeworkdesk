@@ -108,8 +108,8 @@ export default function PricingPage() {
   });
 
   const basePlan = apiPlans?.[0];
-  const baseMonthly = basePlan ? Number(basePlan.monthly_price) : 19;
-  const baseAnnual = basePlan && basePlan.annual_price ? Number(basePlan.annual_price) : baseMonthly * 10;
+  const baseMonthly = basePlan ? Number(basePlan.monthly_price) : 8.50;
+  const baseAnnual = basePlan && basePlan.annual_price ? Number(basePlan.annual_price) : 85;
   const basePrice = isAnnual ? baseAnnual / 12 : baseMonthly;
 
   const addons = apiAddons || [];
@@ -131,7 +131,7 @@ export default function PricingPage() {
 
   const annualSavings = isAnnual
     ? (() => {
-        const monthlyTotal = (basePlan ? Number(basePlan.monthly_price) : 19) + addons
+        const monthlyTotal = (basePlan ? Number(basePlan.monthly_price) : 8.50) + addons
           .filter(a => selectedAddons.has(a.id))
           .reduce((sum, a) => sum + Number(a.monthly_price), 0);
         return Math.round((1 - totalMonthly / monthlyTotal) * 100);

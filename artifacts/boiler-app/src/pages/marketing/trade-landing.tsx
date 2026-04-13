@@ -61,7 +61,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "Plans start at £29/month for solo engineers. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
       },
     ],
   },
@@ -94,7 +94,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "Can I manage multiple engineers?",
         answer:
-          "Yes. The Professional plan supports up to 5 users and the Business plan offers unlimited users. You can assign jobs to specific engineers, track their workload, and manage team access with different role levels.",
+          "Yes. The Base Plan includes 1 user, and you can add more team members with the Additional Users add-on. You can assign jobs to specific engineers, track their workload, and manage team access with different role levels.",
       },
       {
         question: "Can I import my existing customer data?",
@@ -157,7 +157,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "Is there a limit on the number of jobs?",
         answer:
-          "No. All plans include unlimited jobs. Whether you complete 10 jobs a week or 100, the pricing stays the same.",
+          "The Base Plan includes 50 jobs per month, and you can increase this with the Jobs Per Month add-on. Add extra capacity as your business grows.",
       },
     ],
   },
@@ -205,7 +205,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "Plans start at £29/month for solo engineers. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
       },
     ],
   },
@@ -253,7 +253,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "Plans start at £29/month for solo engineers. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
       },
     ],
   },
@@ -301,7 +301,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "Plans start at £29/month for solo plumbers. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
       },
     ],
   },
@@ -349,7 +349,7 @@ const tradePages: Record<string, TradePageConfig> = {
       {
         question: "How much does it cost?",
         answer:
-          "Plans start at £29/month for solo engineers. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
+          "The Base Plan starts at £8.50/month with optional add-ons for extra features. No contracts, no hidden fees. Start with a 14-day free trial — no credit card required.",
       },
     ],
   },
@@ -360,7 +360,7 @@ const tradePages: Record<string, TradePageConfig> = {
     description:
       "Affordable job management software for sole trader gas engineers, oil engineers, heat pump installers, and plumbers. All the tools you need at a price that works for a one-person business.",
     intro:
-      "You don't need enterprise software to run a professional trade business. TradeWorkDesk's Starter plan gives sole trader engineers and plumbers everything they need — job management, digital forms, customer records, and compliance tools — at a price that makes sense for a one-person operation.",
+      "You don't need enterprise software to run a professional trade business. TradeWorkDesk's Base Plan gives sole trader engineers and plumbers everything they need — job management, digital forms, customer records, and compliance tools — at just £8.50/month.",
     features: [
       "Full job management for a single user",
       "All digital forms — service records, breakdown reports, commissioning",
@@ -375,29 +375,29 @@ const tradePages: Record<string, TradePageConfig> = {
     ],
     credentials: [
       { label: "Gas Safe, OFTEC & MCS Compliance", body: "All compliant forms are included on every plan — Gas Safe service records, OFTEC inspection forms, and MCS commissioning documentation are never a premium add-on." },
-      { label: "Affordable Professional Tools", body: "The Starter plan at £29/month includes every compliance feature and digital form, so sole traders get the same professional tools as larger companies." },
+      { label: "Affordable Professional Tools", body: "The Base Plan at £8.50/month includes core features, and you can add digital forms, compliance tools, and more with affordable add-ons. Sole traders get the same professional tools as larger companies." },
       { label: "Built for One-Person Businesses", body: "Designed by a founder who started as a sole trader and knows that affordability and simplicity are essential for independent engineers and plumbers." },
     ],
     faqs: [
       {
-        question: "Is the Starter plan genuinely enough for a sole trader?",
+        question: "Is the Base Plan genuinely enough for a sole trader?",
         answer:
-          "Yes. The Starter plan at £29/month includes unlimited jobs, all digital forms, customer records, scheduling, and reporting. The only limits are on user count (1 user) and some advanced team features you don't need as a sole trader.",
+          "Yes. The Base Plan at £8.50/month includes job management, customer records, scheduling, and reporting for 1 user with up to 50 jobs/month. Add digital forms, compliance tools, and more capacity with affordable add-ons as you need them.",
       },
       {
         question: "Can I upgrade later if I take on staff?",
         answer:
-          "Absolutely. You can upgrade to Professional (up to 5 users) or Business (unlimited users) at any time. All your data carries over — no migration needed.",
+          "Absolutely. You can add extra user seats with the Additional Users add-on at any time. All your data carries over — no migration needed.",
       },
       {
-        question: "Do I still get compliance features on the Starter plan?",
+        question: "Do I still get compliance features?",
         answer:
-          "Yes. Gas Safe, OFTEC, and MCS compliant forms are included on every plan. Compliance isn't a premium feature — it's fundamental to every trade.",
+          "Gas Safe, OFTEC, and MCS compliant forms are available as add-ons. Compliance tools are affordable and accessible to every trade business, regardless of size.",
       },
       {
         question: "Is there a discount for annual billing?",
         answer:
-          "We keep things simple with monthly billing and no contracts. You pay £29/month and can cancel anytime — no annual commitment required.",
+          "Yes. Pay annually and save — the Base Plan is £85/year (equivalent to £7.08/month). Add-ons also offer annual savings. No contracts, cancel anytime.",
       },
     ],
   },
