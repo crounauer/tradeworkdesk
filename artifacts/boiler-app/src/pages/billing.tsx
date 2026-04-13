@@ -508,8 +508,9 @@ export default function Billing() {
                 return sum + unitPrice * qty;
               }, 0);
 
+              const BASE_PLAN_ID = "37421994-c20d-49f8-aee1-a896e030a5f5";
               const basePlan = isFreePlan
-                ? (plans || []).find((p: Plan) => p.stripe_price_id && p.id !== FREE_PLAN_ID)
+                ? (plans || []).find((p: Plan) => p.id === BASE_PLAN_ID)
                 : (plans || []).find((p: { id: string }) => p.id === tenantInfo?.plan_id);
               const cp = basePlan || (plans || [])[0];
               const isSoleTrader = tenantInfo?.company_type === "sole_trader";
