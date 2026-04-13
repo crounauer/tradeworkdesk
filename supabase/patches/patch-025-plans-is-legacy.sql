@@ -44,4 +44,4 @@ SELECT t.id, a.id, true, 1, NOW()
 FROM tenants t
 CROSS JOIN addons a
 WHERE a.is_active = true
-ON CONFLICT (tenant_id, addon_id) DO UPDATE SET is_active = true, quantity = 1, activated_at = NOW();
+ON CONFLICT (tenant_id, addon_id) DO UPDATE SET is_active = true, quantity = 1;
