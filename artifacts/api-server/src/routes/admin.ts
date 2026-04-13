@@ -584,7 +584,16 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
-  const trialEnds = new Date(Date.now() + 30 * 86400000).toISOString();
+  let trialDays = 30;
+  try {
+    const { data: setting } = await supabaseAdmin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "trial_duration_days")
+      .single();
+    if (setting?.value && Number(setting.value) > 0) trialDays = Number(setting.value);
+  } catch {}
+  const trialEnds = new Date(Date.now() + trialDays * 86400000).toISOString();
 
   let resolvedPlanId = plan_id;
   if (start_on_free) {

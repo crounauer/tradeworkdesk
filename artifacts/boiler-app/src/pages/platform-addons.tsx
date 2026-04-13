@@ -92,6 +92,40 @@ export default function PlatformAddons() {
     } catch {}
   }, [form, showNew, editingId]);
 
+  const [trialDays, setTrialDays] = useState<number | string>("");
+  const [trialEditing, setTrialEditing] = useState(false);
+
+  const { data: trialSetting } = useQuery({
+    queryKey: ["platform-settings", "trial_duration_days"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/settings/trial_duration_days");
+      if (!res.ok) return { value: 30 };
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (trialSetting?.value != null) setTrialDays(Number(trialSetting.value));
+  }, [trialSetting]);
+
+  const saveTrialDuration = useMutation({
+    mutationFn: async (days: number) => {
+      const res = await fetch("/api/platform/settings/trial_duration_days", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: days }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-settings", "trial_duration_days"] });
+      toast({ title: "Trial duration updated" });
+      setTrialEditing(false);
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const { data: addons, isLoading } = useQuery({
     queryKey: ["platform-addons"],
     queryFn: async () => {
@@ -479,14 +513,57 @@ export default function PlatformAddons() {
         {renderPlanCard(basePlan, "Base Plan", <Settings className="w-4 h-4 text-primary" />, "border-primary/30")}
         <Card className="border-amber-200">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Check className="w-4 h-4 text-amber-500" /> Trial
+            <CardTitle className="flex items-center justify-between text-base">
+              <span className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500" /> Trial</span>
+              {!trialEditing && (
+                <Button variant="ghost" size="sm" onClick={() => setTrialEditing(true)}>
+                  <Pencil className="w-3 h-3" />
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Duration:</span> <span className="font-medium">30 days</span>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Duration:</span>
+                {trialEditing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={365}
+                      className="w-20 h-7 text-sm"
+                      value={trialDays}
+                      onChange={(e) => setTrialDays(e.target.value)}
+                    />
+                    <span className="text-sm">days</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      disabled={saveTrialDuration.isPending}
+                      onClick={() => {
+                        const d = Number(trialDays);
+                        if (d > 0 && d <= 365) saveTrialDuration.mutate(d);
+                      }}
+                    >
+                      <Save className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => {
+                        setTrialDays(Number(trialSetting?.value) || 30);
+                        setTrialEditing(false);
+                      }}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="font-medium">{Number(trialDays) || 30} days</span>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">Plan:</span> <span className="font-medium">{basePlan?.name || "Base Plan"}</span>
@@ -495,7 +572,7 @@ export default function PlatformAddons() {
                 <span className="text-muted-foreground">Add-ons:</span> <span className="font-medium">All included</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1">
-                New users get the Base Plan with all add-ons for 30 days. After expiry, they move to the Free Plan with add-ons deactivated.
+                New users get the Base Plan with all add-ons for {Number(trialDays) || 30} days. After expiry, they move to the Free Plan with add-ons deactivated.
               </p>
             </div>
           </CardContent>

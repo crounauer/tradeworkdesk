@@ -154,7 +154,16 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     return;
   }
 
-  const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString();
+  let trialDays = 30;
+  try {
+    const { data: setting } = await supabaseAdmin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "trial_duration_days")
+      .single();
+    if (setting?.value && Number(setting.value) > 0) trialDays = Number(setting.value);
+  } catch {}
+  const trialEnds = new Date(Date.now() + trialDays * 86400000).toISOString();
 
   const { data: tenant, error } = await supabaseAdmin
     .from("tenants")
@@ -310,6 +319,37 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
   });
 
   res.status(201).json(data);
+});
+
+router.get("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const { key } = req.params;
+  const { data, error } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value, updated_at")
+    .eq("key", key)
+    .single();
+  if (error || !data) { res.status(404).json({ error: "Setting not found" }); return; }
+  res.json(data);
+});
+
+router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { key } = req.params;
+  const { value } = req.body;
+  const { data, error } = await supabaseAdmin
+    .from("platform_settings")
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" })
+    .select()
+    .single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "setting_updated",
+    entity_type: "platform_setting",
+    entity_id: key,
+    detail: { value },
+  });
+  res.json(data);
 });
 
 router.patch("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
