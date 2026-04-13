@@ -17,6 +17,7 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null | undefined;
   isLoading: boolean;
+  profileReady: boolean;
   mfaPending: boolean;
   signOut: () => void;
 };
@@ -144,7 +145,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queryClient]);
 
-  const { data: initData } = useQuery({
+  const { data: initData, isLoading: profileLoading } = useQuery({
     queryKey: ["me-init"],
     queryFn: async () => {
       const res = await fetch("/api/me/init");
@@ -156,6 +157,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     refetchInterval: 2 * 60_000,
   });
   const profile = initData?.profile as Profile | null | undefined;
+  const profileReady = !session || !profileLoading;
 
   const signOut = () => {
     supabase.auth.signOut({ scope: "local" }).catch(() => {});
@@ -175,7 +177,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, isLoading, mfaPending, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, isLoading, profileReady, mfaPending, signOut }}>
       {children}
     </AuthContext.Provider>
   );

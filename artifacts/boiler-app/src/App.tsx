@@ -177,10 +177,12 @@ function PublicPage<P extends Record<string, unknown>>({ component: Component, .
 }
 
 function RootRoute() {
-  const { session, isLoading, mfaPending, profile } = useAuth();
+  const { session, isLoading, mfaPending, profile, profileReady } = useAuth();
 
   if (isLoading) return <PageFallback />;
   if (mfaPending) return <Redirect to="/login" />;
+
+  if (session && !profileReady) return <PageFallback />;
 
   if (session && profile?.role === "super_admin") {
     return <Redirect to="/platform" />;
