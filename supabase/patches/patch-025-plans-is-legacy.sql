@@ -13,18 +13,21 @@ WHERE name IN ('Starter', 'Professional', 'Enterprise', 'Forms Only')
 
 -- Step 3: Create the new Base Plan (idempotent — skip if a non-legacy plan named 'Base Plan' already exists)
 INSERT INTO plans (name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, is_legacy, sort_order)
-SELECT 'Base Plan', 'Core platform access with digital forms', 8.50, 85, 1, 50, '{}'::jsonb, true, false, 0
+SELECT 'Base Plan', 'Core platform access with digital forms', 8.50, 85, 1, 50,
+  '{"scheduling":true,"job_management":true,"invoicing":true,"reports":true,"team_management":true,"commissioning_forms":true,"combustion_analysis":true,"custom_branding":true}'::jsonb,
+  true, false, 0
 WHERE NOT EXISTS (
   SELECT 1 FROM plans WHERE name = 'Base Plan' AND is_legacy = false
 );
 
--- Step 4: Ensure Base Plan has correct pricing and limits
+-- Step 4: Ensure Base Plan has correct pricing, limits, and core features
 UPDATE plans SET
   monthly_price = 8.50,
   annual_price = 85,
   max_users = 1,
   max_jobs_per_month = 50,
   description = 'Core platform access with digital forms',
+  features = '{"scheduling":true,"job_management":true,"invoicing":true,"reports":true,"team_management":true,"commissioning_forms":true,"combustion_analysis":true,"custom_branding":true}'::jsonb,
   is_active = true,
   is_legacy = false,
   sort_order = 0
