@@ -63,5 +63,5 @@ INSERT INTO addons (name, description, feature_keys, monthly_price, annual_price
   ('Extra Storage', 'Expand your photo and document storage beyond the base allowance. Ideal for businesses that capture extensive on-site photography and documentation.', ARRAY['extra_storage'], 4.99, 49.99, false, 9),
   ('Specialist Forms', 'Industry-specific forms for oil tank inspections, heat pump commissioning, and combustion analysis. Designed around OFTEC and MCS compliance requirements.', ARRAY['oil_tank_forms', 'heat_pump_forms', 'combustion_analysis'], 9.99, 99.99, false, 10),
   ('Additional Users', 'Add extra user seats to your account. Each unit adds one additional team member with full access to job management, forms, and scheduling.', ARRAY['additional_users'], 4.99, 49.99, true, 11),
-  ('Jobs Per Month', 'Increase your monthly job capacity beyond the base allowance. Each unit adds 50 extra jobs per month to handle busier periods and growing workloads.', ARRAY['jobs_per_month'], 2.99, 29.99, false, 12)
+  ('Jobs Per Month', 'Add 25 extra jobs per month to your allowance', ARRAY['jobs_per_month'], 1, 10, false, 12)
 ON CONFLICT (name) DO NOTHING;

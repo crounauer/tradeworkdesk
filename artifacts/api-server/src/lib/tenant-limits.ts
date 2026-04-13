@@ -9,7 +9,7 @@ interface EffectiveLimits {
   addonExtraJobs: number;
 }
 
-const JOBS_PER_ADDON_UNIT = 50;
+const JOBS_PER_ADDON_UNIT = 25;
 
 export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLimits> {
   const [tenantRes, addonsRes] = await Promise.all([
