@@ -523,7 +523,52 @@ router.post("/admin/switch-to-company", requireAuth, requireTenant, requireRole(
 });
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type, addon_ids, addon_quantities = {} } = req.body;
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type, addon_ids, addon_quantities = {}, beta_code } = req.body;
+
+  if (!beta_code?.trim()) {
+    res.status(400).json({ error: "A beta invite code is required to register during the beta period." });
+    return;
+  }
+
+  const trimmedBetaCode = beta_code.trim().toUpperCase();
+
+  const { data: betaInvite, error: betaError } = await supabaseAdmin
+    .from("beta_invites")
+    .select("*")
+    .eq("code", trimmedBetaCode)
+    .eq("is_active", true)
+    .single();
+
+  if (betaError || !betaInvite) {
+    res.status(400).json({ error: "Invalid beta invite code." });
+    return;
+  }
+  if (betaInvite.expires_at && new Date(betaInvite.expires_at) < new Date()) {
+    res.status(400).json({ error: "This beta invite code has expired." });
+    return;
+  }
+  if (betaInvite.used_count >= betaInvite.max_uses) {
+    res.status(400).json({ error: "This beta invite code has reached its usage limit." });
+    return;
+  }
+  if (betaInvite.email && betaInvite.email.toLowerCase() !== (contact_email || "").toLowerCase()) {
+    res.status(400).json({ error: "This beta code is reserved for a different email address." });
+    return;
+  }
+
+  const { data: claimed, error: claimError } = await supabaseAdmin
+    .from("beta_invites")
+    .update({ used_count: betaInvite.used_count + 1 })
+    .eq("code", trimmedBetaCode)
+    .eq("is_active", true)
+    .lt("used_count", betaInvite.max_uses)
+    .select("id")
+    .maybeSingle();
+
+  if (claimError || !claimed) {
+    res.status(400).json({ error: "This beta invite code is no longer available." });
+    return;
+  }
 
   const resolvedCompanyType = company_type === "sole_trader" ? "sole_trader" : "company";
   const resolvedCompanyName = resolvedCompanyType === "sole_trader" && !company_name ? contact_name : company_name;

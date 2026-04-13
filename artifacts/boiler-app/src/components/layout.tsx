@@ -8,7 +8,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -97,6 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform", label: "Overview", icon: Globe },
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
+    { href: "/platform/beta-invites", label: "Beta Invites", icon: Ticket },
     { href: "/platform/announcements", label: "Announcements", icon: Megaphone },
     { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];

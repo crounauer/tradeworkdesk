@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, User } from "lucide-react";
+import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, User, Loader2, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,11 @@ import { useQuery } from "@tanstack/react-query";
 function getCodeFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return params.get("code") ?? "";
+}
+
+function getBetaCodeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("beta") ?? "";
 }
 
 type ValidateResult = { valid: boolean; role: string } | null;
@@ -38,6 +43,12 @@ export default function Register() {
   const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
+  const [betaCode, setBetaCode] = useState(getBetaCodeFromUrl);
+  const [betaValid, setBetaValid] = useState<boolean | null>(null);
+  const [betaError, setBetaError] = useState("");
+  const [betaValidating, setBetaValidating] = useState(false);
+  const [betaLockedEmail, setBetaLockedEmail] = useState<string | null>(null);
+
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -55,6 +66,41 @@ export default function Register() {
     const initial = getCodeFromUrl();
     if (initial) validateCode(initial);
   }, []);
+
+  useEffect(() => {
+    const initial = getBetaCodeFromUrl();
+    if (initial) validateBetaCode(initial);
+  }, []);
+
+  async function validateBetaCode(c: string) {
+    const trimmed = c.trim().toUpperCase();
+    if (!trimmed) { setBetaValid(null); setBetaError(""); return; }
+    setBetaValidating(true);
+    setBetaError("");
+    setBetaValid(null);
+    try {
+      const res = await fetch("/api/auth/validate-beta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: trimmed }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setBetaValid(true);
+        if (data.email) {
+          setBetaLockedEmail(data.email);
+          setEmail(data.email);
+        }
+      } else {
+        setBetaValid(false);
+        setBetaError(data.error || "Invalid beta code");
+      }
+    } catch {
+      setBetaError("Could not validate beta code.");
+    } finally {
+      setBetaValidating(false);
+    }
+  }
 
   async function validateCode(c: string) {
     const trimmed = c.trim().toUpperCase();
@@ -124,6 +170,7 @@ export default function Register() {
 
   async function handleCompanySubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!betaValid) { toast({ title: "A valid beta invite code is required", variant: "destructive" }); return; }
     const effectiveCompanyName = companyType === "sole_trader" ? (companyName || fullName) : companyName;
     if (!effectiveCompanyName) { toast({ title: "Company name is required", variant: "destructive" }); return; }
     if (password !== confirmPassword) { toast({ title: "Passwords do not match", variant: "destructive" }); return; }
@@ -143,6 +190,7 @@ export default function Register() {
           addon_ids: [...selectedAddons],
           addon_quantities: addonQuantities,
           company_type: companyType,
+          beta_code: betaCode.trim().toUpperCase(),
         }),
       });
 
@@ -163,7 +211,7 @@ export default function Register() {
     technician: "Technician",
   };
 
-  const canAdvanceStep1 = (companyType === "sole_trader" || companyName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
+  const canAdvanceStep1 = betaValid === true && (companyType === "sole_trader" || companyName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
   const canAdvanceStep2 = true; // add-on selection is optional
 
   if (done) {
@@ -212,6 +260,39 @@ export default function Register() {
             <Flame className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground">Join TradeWorkDesk</h1>
+        </div>
+
+        <div className="space-y-2 mb-5">
+          <Label className="flex items-center gap-1.5">
+            <Ticket className="w-4 h-4" />
+            Beta Invite Code
+          </Label>
+          <div className="relative">
+            <Input
+              value={betaCode}
+              onChange={(e) => { setBetaCode(e.target.value); setBetaValid(null); setBetaError(""); }}
+              onBlur={() => validateBetaCode(betaCode)}
+              placeholder="e.g. BETA-A1B2C3D4"
+              className={`font-mono uppercase pr-10 ${betaValid === true ? "border-emerald-400 focus-visible:ring-emerald-300" : betaError ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
+              required
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {betaValidating && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+              {betaValid === true && !betaValidating && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+              {betaError && !betaValidating && <AlertCircle className="w-4 h-4 text-destructive" />}
+            </div>
+          </div>
+          {betaValid === true && (
+            <p className="text-xs text-emerald-600 font-medium">
+              Valid beta code{betaLockedEmail ? ` — locked to ${betaLockedEmail}` : ""}
+            </p>
+          )}
+          {betaError && <p className="text-xs text-destructive">{betaError}</p>}
+          {betaValid === null && !betaError && !betaValidating && (
+            <p className="text-xs text-muted-foreground">
+              TradeWorkDesk is in private beta. Enter your invite code to continue.
+            </p>
+          )}
         </div>
 
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
@@ -317,7 +398,7 @@ export default function Register() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Email Address</Label>
-                    <Input type="email" placeholder="jane@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                    <Input type="email" placeholder="jane@company.com" value={email} onChange={e => setEmail(e.target.value)} required readOnly={!!betaLockedEmail} />
                   </div>
                   <div className="space-y-2">
                     <Label>Phone (optional)</Label>

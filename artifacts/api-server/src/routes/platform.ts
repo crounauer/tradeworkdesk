@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import crypto from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
@@ -817,6 +818,118 @@ router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: 
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: message });
   }
+});
+
+function generateBetaCode(): string {
+  return "BETA-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+}
+
+router.get("/platform/beta-invites", requireAuth, requireSuperAdmin, async (_req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("beta_invites")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.post("/platform/beta-invites", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { count = 1, max_uses = 1, email, expires_at, notes } = req.body;
+  const batchSize = Math.min(Math.max(1, Number(count) || 1), 50);
+
+  const codes = Array.from({ length: batchSize }, () => ({
+    code: generateBetaCode(),
+    max_uses: Math.max(1, Number(max_uses) || 1),
+    email: email?.trim() || null,
+    expires_at: expires_at || null,
+    is_active: true,
+    created_by: req.userId,
+    notes: notes?.trim() || null,
+  }));
+
+  const { data, error } = await supabaseAdmin
+    .from("beta_invites")
+    .insert(codes)
+    .select();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail || "super_admin",
+    event_type: "beta_invites_created",
+    entity_type: "beta_invite",
+    entity_id: null,
+    detail: { count: batchSize, notes },
+  });
+
+  res.status(201).json(data);
+});
+
+router.patch("/platform/beta-invites/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { is_active, max_uses, notes, expires_at } = req.body;
+
+  const updates: Record<string, unknown> = {};
+  if (is_active !== undefined) updates.is_active = is_active;
+  if (max_uses !== undefined) updates.max_uses = Math.max(1, Number(max_uses) || 1);
+  if (notes !== undefined) updates.notes = notes?.trim() || null;
+  if (expires_at !== undefined) updates.expires_at = expires_at || null;
+
+  const { data, error } = await supabaseAdmin
+    .from("beta_invites")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.delete("/platform/beta-invites/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { error } = await supabaseAdmin
+    .from("beta_invites")
+    .delete()
+    .eq("id", id);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ ok: true });
+});
+
+router.post("/auth/validate-beta", async (req, res): Promise<void> => {
+  const { code } = req.body;
+  if (!code?.trim()) {
+    res.status(400).json({ valid: false, error: "Beta code is required" });
+    return;
+  }
+
+  const trimmed = code.trim().toUpperCase();
+  const { data: invite, error } = await supabaseAdmin
+    .from("beta_invites")
+    .select("*")
+    .eq("code", trimmed)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !invite) {
+    res.status(404).json({ valid: false, error: "Invalid beta code" });
+    return;
+  }
+
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    res.json({ valid: false, error: "This beta code has expired" });
+    return;
+  }
+
+  if (invite.used_count >= invite.max_uses) {
+    res.json({ valid: false, error: "This beta code has reached its usage limit" });
+    return;
+  }
+
+  res.json({ valid: true, email: invite.email || null });
 });
 
 export default router;

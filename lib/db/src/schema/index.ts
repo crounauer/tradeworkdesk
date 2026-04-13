@@ -472,3 +472,18 @@ export type FileAttachment = typeof fileAttachments.$inferSelect;
 export type Signature = typeof signatures.$inferSelect;
 export type JobType = typeof jobTypes.$inferSelect;
 export type CustomerPortalUser = typeof customerPortalUsers.$inferSelect;
+
+export const betaInvites = pgTable("beta_invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: varchar("code", { length: 32 }).notNull().unique(),
+  email: text("email"),
+  max_uses: integer("max_uses").notNull().default(1),
+  used_count: integer("used_count").notNull().default(0),
+  expires_at: timestamp("expires_at"),
+  is_active: boolean("is_active").notNull().default(true),
+  created_by: uuid("created_by"),
+  notes: text("notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type BetaInvite = typeof betaInvites.$inferSelect;

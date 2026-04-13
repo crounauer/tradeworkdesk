@@ -46,7 +46,8 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 **Feature Specifications:**
 - **Dynamic Forms:** Service record forms adapt based on appliance fuel type (gas/oil). Commissioning records for installations.
 - **Platform Admin:** Super_admin management of tenants, plans, announcements, and audit logs.
-- **Registration:** Multi-step company signup and invite-code registration.
+- **Registration:** Multi-step company signup and invite-code registration. Gated behind a beta invite code system during private beta.
+- **Beta Invite System:** Super admins can generate, manage, and track beta invite codes from `/platform/beta-invites`. Codes support max uses, optional email locking, expiry dates, and batch generation. Registration requires a valid beta code. Invite consumption is atomic (race-condition safe).
 - **Sole Trader / Company Lifecycle:** Supports switching between sole trader and company modes, affecting pricing, team management, and job assignment.
 - **Callout Rate Tiers:** Configurable callout rates based on time windows, with auto-resolution and manual overrides.
 - **Product Catalogue:** Searchable product catalogue for parts and materials.
