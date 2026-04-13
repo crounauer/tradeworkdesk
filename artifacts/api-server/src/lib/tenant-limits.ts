@@ -74,6 +74,21 @@ export async function getActiveInviteCount(tenantId: string): Promise<number> {
   return count || 0;
 }
 
+export async function hasActiveAddon(tenantId: string, featureKey: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("tenant_addons")
+    .select("id, addons(feature_keys)")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
+
+  if (!data) return false;
+
+  return data.some((ta) => {
+    const keys = (ta.addons as { feature_keys?: string[] } | null)?.feature_keys ?? [];
+    return keys.includes(featureKey);
+  });
+}
+
 export async function getJobsThisMonth(tenantId: string): Promise<number> {
   const now = new Date();
   const startOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();

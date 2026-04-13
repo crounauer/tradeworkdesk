@@ -36,7 +36,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
-  const { hasFeature, isFormsOnly } = usePlanFeatures();
+  const { hasFeature, hasAddon, isFormsOnly } = usePlanFeatures();
 
   const { data: initData } = useInitData();
   const tenantInfo = initData?.tenant ?? null;
@@ -80,7 +80,9 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
     ...(hasFeature("team_management") && isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
-      { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
+      ...(hasAddon("additional_users") ? [
+        { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
+      ] : []),
       { href: "/admin/reassign-jobs", label: "Reassign Jobs", icon: Briefcase },
     ] : []),
     { href: "/admin/job-types", label: "Job Types", icon: ListTree },

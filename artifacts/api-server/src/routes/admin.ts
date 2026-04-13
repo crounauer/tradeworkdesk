@@ -6,7 +6,7 @@ import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/e
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
-import { getEffectiveLimits, getCurrentUserCount, getActiveInviteCount } from "../lib/tenant-limits";
+import { getEffectiveLimits, getCurrentUserCount, getActiveInviteCount, hasActiveAddon } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -86,6 +86,10 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
 
 router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
+  if (req.userRole !== "super_admin" && !(await hasActiveAddon(req.tenantId!, "additional_users"))) {
+    res.status(402).json({ error: "Additional Users add-on required", code: "ADDON_REQUIRED" });
+    return;
+  }
   let q = supabaseAdmin
     .from("invite_codes")
     .select("*")
@@ -113,6 +117,10 @@ router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin
 
 router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
+  if (req.userRole !== "super_admin" && !(await hasActiveAddon(req.tenantId!, "additional_users"))) {
+    res.status(402).json({ error: "Additional Users add-on required", code: "ADDON_REQUIRED" });
+    return;
+  }
   const { role = "technician", expires_at, note } = req.body;
 
   const [limits, currentUsers, activeInvites] = await Promise.all([
@@ -150,6 +158,10 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
 
 router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
+  if (req.userRole !== "super_admin" && !(await hasActiveAddon(req.tenantId!, "additional_users"))) {
+    res.status(402).json({ error: "Additional Users add-on required", code: "ADDON_REQUIRED" });
+    return;
+  }
   const { id } = req.params;
 
   let q = supabaseAdmin.from("invite_codes").update({ is_active: false }).eq("id", id);

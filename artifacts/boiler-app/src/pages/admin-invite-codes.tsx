@@ -11,6 +11,14 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useInitData } from "@/hooks/use-init-data";
 
+class ApiError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
 type InviteCode = {
   id: string;
   code: string;
@@ -61,10 +69,27 @@ function AdminInviteCodesContent() {
   const { data: initData } = useInitData();
   const usageLimits = initData?.usageLimits;
 
-  const { data: codes, isLoading } = useQuery<InviteCode[]>({
+  const { data: codes, isLoading, error } = useQuery<InviteCode[]>({
     queryKey: ["invite-codes"],
-    queryFn: () => fetch("/api/admin/invite-codes").then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/admin/invite-codes");
+      if (!r.ok) {
+        const body = await r.json();
+        throw new ApiError(body.error, body.code);
+      }
+      return r.json();
+    },
   });
+
+  if (error instanceof ApiError && error.code === "ADDON_REQUIRED") {
+    return (
+      <UpgradePrompt
+        feature="additional_users"
+        title="Additional Users Required"
+        description="To invite team members, you need to purchase the Additional Users add-on from the Billing page."
+      />
+    );
+  }
 
   const createCode = useMutation({
     mutationFn: () =>
@@ -278,10 +303,24 @@ function AdminInviteCodesContent() {
 }
 
 export default function AdminInviteCodes() {
-  const { hasFeature } = usePlanFeatures();
+  const { hasFeature, hasAddon, isLoading } = usePlanFeatures();
+
+  if (isLoading) {
+    return null;
+  }
 
   if (!hasFeature("team_management")) {
     return <UpgradePrompt feature="team_management" />;
+  }
+
+  if (!hasAddon("additional_users")) {
+    return (
+      <UpgradePrompt
+        feature="additional_users"
+        title="Additional Users Required"
+        description="To invite team members, you need to purchase the Additional Users add-on from the Billing page."
+      />
+    );
   }
 
   return <AdminInviteCodesContent />;

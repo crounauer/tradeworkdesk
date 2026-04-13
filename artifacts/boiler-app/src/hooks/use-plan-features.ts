@@ -29,15 +29,23 @@ export function usePlanFeatures() {
     return !!features[key];
   };
 
+  const addons = data?.activeAddons ?? [];
+
+  const hasAddon = (featureKey: string): boolean => {
+    if (isLoading) return true;
+    return addons.some((a) => a.feature_keys?.includes(featureKey));
+  };
+
   const isFormsOnly = !hasFeature("job_management");
 
   return {
     features,
     hasFeature,
+    hasAddon,
     isFormsOnly,
     planName: pf?.plan_name ?? null,
     planId: pf?.plan_id ?? null,
-    activeAddons: data?.activeAddons ?? [],
+    activeAddons: addons,
     isLoading,
   };
 }
