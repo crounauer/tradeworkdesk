@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,9 +51,26 @@ const EMPTY_FORM: AddonFormState = {
 export default function PlatformAddons() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState<AddonFormState>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(() => {
+    try { return sessionStorage.getItem("addon-editingId") || null; } catch { return null; }
+  });
+  const [showNew, setShowNew] = useState(() => {
+    try { return sessionStorage.getItem("addon-showNew") === "true"; } catch { return false; }
+  });
+  const [form, setForm] = useState<AddonFormState>(() => {
+    try {
+      const saved = sessionStorage.getItem("addon-form");
+      return saved ? JSON.parse(saved) : EMPTY_FORM;
+    } catch { return EMPTY_FORM; }
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("addon-form", JSON.stringify(form));
+      sessionStorage.setItem("addon-showNew", String(showNew));
+      sessionStorage.setItem("addon-editingId", editingId || "");
+    } catch {}
+  }, [form, showNew, editingId]);
 
   const { data: addons, isLoading } = useQuery({
     queryKey: ["platform-addons"],
@@ -92,6 +109,7 @@ export default function PlatformAddons() {
       toast({ title: "Add-on created" });
       setShowNew(false);
       setForm(EMPTY_FORM);
+      try { sessionStorage.removeItem("addon-form"); sessionStorage.removeItem("addon-showNew"); sessionStorage.removeItem("addon-editingId"); } catch {}
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -110,6 +128,8 @@ export default function PlatformAddons() {
       queryClient.invalidateQueries({ queryKey: ["platform-addons"] });
       toast({ title: "Add-on updated" });
       setEditingId(null);
+      setForm(EMPTY_FORM);
+      try { sessionStorage.removeItem("addon-form"); sessionStorage.removeItem("addon-showNew"); sessionStorage.removeItem("addon-editingId"); } catch {}
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -213,7 +233,7 @@ export default function PlatformAddons() {
           >
             <Save className="w-3 h-3 mr-1" />{isNew ? "Create" : "Save"}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditingId(null); setForm(EMPTY_FORM); }}>
+          <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditingId(null); setForm(EMPTY_FORM); try { sessionStorage.removeItem("addon-form"); sessionStorage.removeItem("addon-showNew"); sessionStorage.removeItem("addon-editingId"); } catch {} }}>
             <X className="w-3 h-3 mr-1" />Cancel
           </Button>
         </div>
