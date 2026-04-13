@@ -168,6 +168,11 @@ export default function JobDetail() {
               <Package className="w-4 h-4 mr-2" /> Awaiting Parts
             </Button>
           )}
+          {job.status === "awaiting_parts" && (
+            <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={() => handleStatusChange("in_progress", "In Progress")} disabled={updateJob.isPending}>
+              <RotateCcw className="w-4 h-4 mr-2" /> Resume Job
+            </Button>
+          )}
           {(job.status === "requires_follow_up" || job.status === "awaiting_parts") && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Return Visit
