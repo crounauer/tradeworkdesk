@@ -460,7 +460,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
   const cacheKey = `${req.tenantId || "none"}:${req.userId}`;
   const cached = initCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < INIT_CACHE_TTL_MS) {
-    res.set("Cache-Control", "private, max-age=60");
+    res.set("Cache-Control", "no-store");
     res.set("X-Cache", "HIT");
     res.json(cached.data);
     console.log(`[perf] /me/init cache HIT ${Date.now() - t0}ms`);
@@ -501,7 +501,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
       announcements: announcementsResult.data || [],
     };
     initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
-    res.set("Cache-Control", "private, max-age=60");
+    res.set("Cache-Control", "no-store");
     res.json(responseBody);
     return;
   }
@@ -619,7 +619,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements, activeAddons: addonsList, usageLimits };
   initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
-  res.set("Cache-Control", "private, max-age=60");
+  res.set("Cache-Control", "no-store");
   res.json(responseBody);
   console.log(`[perf] /me/init total ${Date.now() - t0}ms`);
 });
