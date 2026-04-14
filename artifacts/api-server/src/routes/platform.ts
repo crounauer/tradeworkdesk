@@ -147,6 +147,38 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
   res.json({ success: true, tenant });
 });
 
+router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
+
+  const { data: tenant, error: tErr } = await supabaseAdmin
+    .from("tenants")
+    .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (tErr || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  const { count } = await supabaseAdmin
+    .from("tenant_addons")
+    .update({ is_active: false })
+    .eq("tenant_id", id)
+    .eq("is_active", true)
+    .select("id", { count: "exact", head: true });
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "revoked_free_access",
+    entity_type: "tenant",
+    entity_id: id,
+    detail: { plan_id: FREE_PLAN_ID, addons_deactivated: count || 0 },
+  });
+
+  res.json({ success: true, tenant });
+});
+
 router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { company_name, contact_name, contact_email, contact_phone, plan_id, status } = req.body;
   if (!company_name || !contact_email) {

@@ -78,6 +78,20 @@ export default function PlatformTenantDetail() {
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const revokeFreeAccessMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/revoke-free-access`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to revoke free access");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant-addons", params.id] });
+      toast({ title: "Free access revoked", description: "Downgraded to Free Plan, all add-ons deactivated." });
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const saveAddonsMutation = useMutation({
     mutationFn: async (addonIds: string[]) => {
       const res = await fetch(`/api/platform/tenants/${params.id}/addons`, {
@@ -234,15 +248,27 @@ export default function PlatformTenantDetail() {
         <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Button
-              variant="outline"
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              onClick={() => grantFreeAccessMutation.mutate()}
-              disabled={grantFreeAccessMutation.isPending}
-            >
-              <Package className="w-4 h-4 mr-2" />
-              {grantFreeAccessMutation.isPending ? "Granting…" : "Grant Free Access"}
-            </Button>
+            {tenant.plan_id !== "00000000-0000-0000-0000-000000000000" && !tenant.stripe_subscription_id ? (
+              <Button
+                variant="outline"
+                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                onClick={() => revokeFreeAccessMutation.mutate()}
+                disabled={revokeFreeAccessMutation.isPending}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                {revokeFreeAccessMutation.isPending ? "Revoking…" : "Revoke Free Access"}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => grantFreeAccessMutation.mutate()}
+                disabled={grantFreeAccessMutation.isPending}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                {grantFreeAccessMutation.isPending ? "Granting…" : "Grant Free Access"}
+              </Button>
+            )}
             {tenant.stripe_customer_id && (
               <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>
                 <ExternalLink className="w-4 h-4 mr-2" />{portalLoading ? "Opening…" : "Billing Portal"}
