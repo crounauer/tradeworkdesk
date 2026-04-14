@@ -226,7 +226,6 @@ export default function Register() {
   };
 
   const canAdvanceStep1 = betaValid === true && (companyType === "sole_trader" || companyName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
-  const canAdvanceStep2 = true; // add-on selection is optional
 
   if (done) {
     return (
@@ -247,14 +246,14 @@ export default function Register() {
 
   const stepIndicator = (
     <div className="flex items-center justify-center gap-2 mb-5">
-      {[1, 2, 3].map((s) => (
+      {[1, 2].map((s) => (
         <div key={s} className="flex items-center gap-2">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
             s < step ? "bg-primary text-white" : s === step ? "bg-primary/10 text-primary border-2 border-primary" : "bg-slate-100 text-slate-400"
           }`}>
             {s < step ? <Check className="w-4 h-4" /> : s}
           </div>
-          {s < 3 && <div className={`w-8 h-0.5 ${s < step ? "bg-primary" : "bg-slate-200"}`} />}
+          {s < 2 && <div className={`w-8 h-0.5 ${s < step ? "bg-primary" : "bg-slate-200"}`} />}
         </div>
       ))}
     </div>
@@ -431,84 +430,13 @@ export default function Register() {
                     Start on the <strong>Free plan</strong> instead (1 user, 5 jobs/month, skip the trial)
                   </label>
                 </div>
-                <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(startOnFree ? 3 : 2)}>
-                  {startOnFree ? "Next: Credentials" : "Next: Choose Add-ons"} <ArrowRight className="w-4 h-4 ml-2" />
+                <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
+                  Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
             )}
 
             {step === 2 && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground text-center">
-                  Everyone starts with our Base Plan. Optionally add extras you need.
-                </p>
-                {addons && addons.length > 0 ? (
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {addons.map((a: { id: string; name: string; description?: string; monthly_price: number }) => (
-                      <label
-                        key={a.id}
-                        className={`flex items-center gap-3 w-full p-3 rounded-xl border-2 text-left cursor-pointer transition-all ${
-                          selectedAddons.has(a.id)
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/30 hover:bg-slate-50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAddons.has(a.id)}
-                          onChange={() => {
-                            setSelectedAddons(prev => {
-                              const next = new Set(prev);
-                              if (next.has(a.id)) next.delete(a.id);
-                              else next.add(a.id);
-                              return next;
-                            });
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-sm">{a.name}</span>
-                          {a.description && <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>}
-                          {(a as Record<string, unknown>).is_per_seat && selectedAddons.has(a.id) && (
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-muted-foreground">Seats:</span>
-                              <button
-                                type="button"
-                                className="w-6 h-6 rounded border text-xs font-bold"
-                                onClick={(e) => { e.preventDefault(); setAddonQuantities(prev => ({ ...prev, [a.id]: Math.max(1, (prev[a.id] || 1) - 1) })); }}
-                              >-</button>
-                              <span className="text-xs font-medium w-6 text-center">{addonQuantities[a.id] || 1}</span>
-                              <button
-                                type="button"
-                                className="w-6 h-6 rounded border text-xs font-bold"
-                                onClick={(e) => { e.preventDefault(); setAddonQuantities(prev => ({ ...prev, [a.id]: (prev[a.id] || 1) + 1 })); }}
-                              >+</button>
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-sm font-semibold text-primary whitespace-nowrap">
-                          +£{(Number(a.monthly_price) * ((a as Record<string, unknown>).is_per_seat ? (addonQuantities[a.id] || 1) : 1)).toFixed(2)}/mo
-                          {(a as Record<string, unknown>).is_per_seat ? ' per seat' : ''}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No add-ons available yet. You can add them later from your billing page.</p>
-                )}
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(1)}>
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                  </Button>
-                  <Button className="flex-1 h-12" disabled={!canAdvanceStep2} onClick={() => setStep(3)}>
-                    Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-muted-foreground">Add-ons are optional and can be changed anytime.</p>
-              </div>
-            )}
-
-            {step === 3 && (
               <form onSubmit={handleCompanySubmit} className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">Set your login credentials</p>
                 <div className="p-3 rounded-lg bg-slate-50 border text-sm">
@@ -527,7 +455,7 @@ export default function Register() {
                   <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(startOnFree ? 1 : 2)}>
+                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(1)}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
                   <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
@@ -535,7 +463,7 @@ export default function Register() {
                   </Button>
                 </div>
                 <p className="text-xs text-center text-muted-foreground">
-                  {startOnFree ? "Free plan — 1 user, 5 jobs/month. Upgrade anytime." : "No credit card required. 30-day free trial."}
+                  {startOnFree ? "Free plan — 1 user, 5 jobs/month. Upgrade anytime." : "No credit card required. Full access to all features during your trial."}
                 </p>
               </form>
             )}
