@@ -7,6 +7,7 @@ interface EffectiveLimits {
   baseMaxJobsPerMonth: number;
   addonExtraUsers: number;
   addonExtraJobs: number;
+  isTrial: boolean;
 }
 
 const JOBS_PER_ADDON_UNIT = 25;
@@ -15,7 +16,7 @@ export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLim
   const [tenantRes, addonsRes] = await Promise.all([
     supabaseAdmin
       .from("tenants")
-      .select("plan_id, plans(max_users, max_jobs_per_month)")
+      .select("plan_id, status, trial_ends_at, plans(max_users, max_jobs_per_month)")
       .eq("id", tenantId)
       .single(),
     supabaseAdmin
@@ -24,6 +25,9 @@ export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLim
       .eq("tenant_id", tenantId)
       .eq("is_active", true),
   ]);
+
+  const tenantData = tenantRes.data as { status?: string; trial_ends_at?: string } | null;
+  const isTrial = tenantData?.status === "trial" && !!tenantData?.trial_ends_at && new Date(tenantData.trial_ends_at) > new Date();
 
   const plans = tenantRes.data?.plans as { max_users?: number; max_jobs_per_month?: number } | null;
   const baseMaxUsers = plans?.max_users ?? 999;
@@ -46,12 +50,13 @@ export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLim
   }
 
   return {
-    maxUsers: baseMaxUsers + addonExtraUsers,
-    maxJobsPerMonth: baseMaxJobsPerMonth === 9999 ? 9999 : baseMaxJobsPerMonth + addonExtraJobs,
+    maxUsers: isTrial ? 999 : baseMaxUsers + addonExtraUsers,
+    maxJobsPerMonth: isTrial ? 9999 : (baseMaxJobsPerMonth === 9999 ? 9999 : baseMaxJobsPerMonth + addonExtraJobs),
     baseMaxUsers,
     baseMaxJobsPerMonth,
     addonExtraUsers,
     addonExtraJobs,
+    isTrial,
   };
 }
 
