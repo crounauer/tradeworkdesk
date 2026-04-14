@@ -710,7 +710,13 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     detail: { company_name: resolvedCompanyName },
   });
 
-  sendConfirmationEmail(contact_email, contact_name, resolvedCompanyName, linkData.properties.action_link).catch((e) =>
+  let confirmLink = linkData.properties.action_link;
+  const PROD_URL = "https://www.tradeworkdesk.co.uk";
+  if (confirmLink && confirmLink.includes("localhost")) {
+    confirmLink = confirmLink.replace(/https?:\/\/localhost:\d+/, PROD_URL);
+  }
+
+  sendConfirmationEmail(contact_email, contact_name, resolvedCompanyName, confirmLink).catch((e) =>
     console.error("[email] Confirmation email failed:", e)
   );
 
