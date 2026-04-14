@@ -59,6 +59,16 @@ export default function Register() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
+  const { data: trialInfo } = useQuery({
+    queryKey: ["trial-info"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/trial-info");
+      if (!res.ok) return { trial_duration_days: 30 };
+      return res.json();
+    },
+  });
+  const trialDays = trialInfo?.trial_duration_days || 30;
+
   const { data: addons } = useQuery({
     queryKey: ["public-addons"],
     queryFn: async () => {
@@ -459,7 +469,7 @@ export default function Register() {
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
                   <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
-                    {loading ? "Setting up..." : startOnFree ? "Start Free Plan" : "Start 30-Day Trial"}
+                    {loading ? "Setting up..." : startOnFree ? "Start Free Plan" : `Start ${trialDays}-Day Trial`}
                   </Button>
                 </div>
                 <p className="text-xs text-center text-muted-foreground">

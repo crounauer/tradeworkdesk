@@ -14,6 +14,19 @@ router.get("/platform/addons", requireAuth, requireSuperAdmin, async (_req, res)
   res.json(data || []);
 });
 
+router.get("/platform/trial-info", async (_req, res): Promise<void> => {
+  let trialDays = 30;
+  try {
+    const { data: setting } = await supabaseAdmin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "trial_duration_days")
+      .single();
+    if (setting?.value && Number(setting.value) > 0) trialDays = Number(setting.value);
+  } catch {}
+  res.json({ trial_duration_days: trialDays });
+});
+
 router.get("/platform/addons/public", async (_req, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("addons")
