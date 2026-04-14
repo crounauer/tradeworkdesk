@@ -130,9 +130,21 @@ export default function PlatformTenantDetail() {
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const [deleteConfirmData, setDeleteConfirmData] = useState<{ user_count: number; users: { id: string; email: string }[] } | null>(null);
+
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/platform/tenants/${params.id}`, { method: "DELETE" });
+    mutationFn: async (confirmed?: boolean) => {
+      const url = confirmed
+        ? `/api/platform/tenants/${params.id}?confirm=true`
+        : `/api/platform/tenants/${params.id}`;
+      const res = await fetch(url, { method: "DELETE" });
+      if (res.status === 409) {
+        const data = await res.json();
+        if (data.error === "confirm_required") {
+          setDeleteConfirmData({ user_count: data.user_count, users: data.users });
+          throw new Error("__confirm_required__");
+        }
+      }
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Delete failed");
@@ -143,7 +155,10 @@ export default function PlatformTenantDetail() {
       toast({ title: "Tenant deleted" });
       navigate("/platform/tenants");
     },
-    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e) => {
+      if (e.message === "__confirm_required__") return;
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   if (isLoading) {
@@ -496,7 +511,7 @@ export default function PlatformTenantDetail() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             {confirmAction?.status === "__delete__"
-              ? `Are you sure you want to permanently delete "${tenant.company_name}"? This cannot be undone. Tenants with active users cannot be deleted.`
+              ? `Are you sure you want to permanently delete "${tenant.company_name}"? This cannot be undone.`
               : `Are you sure you want to ${confirmAction?.action?.toLowerCase()} "${tenant.company_name}"? This will change their status to "${confirmAction?.status}".`
             }
           </p>
@@ -506,14 +521,52 @@ export default function PlatformTenantDetail() {
               variant="destructive"
               disabled={updateMutation.isPending || deleteMutation.isPending}
               onClick={() => {
+                setConfirmAction(null);
                 if (confirmAction?.status === "__delete__") {
-                  deleteMutation.mutate();
+                  deleteMutation.mutate(false);
                 } else {
                   confirmStatusChange();
                 }
               }}
             >
               {confirmAction?.action}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteConfirmData} onOpenChange={() => setDeleteConfirmData(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Company & All Users</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              <strong>"{tenant.company_name}"</strong> has <strong>{deleteConfirmData?.user_count}</strong> user(s) that will be permanently deleted:
+            </p>
+            <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-1">
+              {deleteConfirmData?.users.map(u => (
+                <div key={u.id} className="text-sm flex items-center gap-2 py-1 px-2 bg-red-50 rounded">
+                  <span className="text-red-600 font-mono text-xs">✕</span>
+                  <span>{u.email}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm font-medium text-red-600">
+              This will permanently delete the company, all users, add-ons, and settings. This cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmData(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                setDeleteConfirmData(null);
+                deleteMutation.mutate(true);
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : `Delete Company & ${deleteConfirmData?.user_count} User(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>

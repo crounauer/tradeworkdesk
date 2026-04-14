@@ -243,15 +243,35 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
 
 router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
+  const confirm = req.query.confirm === "true";
 
   const { data: tenant } = await supabaseAdmin.from("tenants").select("company_name").eq("id", id).single();
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
-  const { count } = await supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("tenant_id", id);
-  if ((count || 0) > 0) {
-    res.status(400).json({ error: "Cannot delete tenant with active users. Suspend or cancel instead." });
+  const { data: users } = await supabaseAdmin.from("profiles").select("id, email").eq("tenant_id", id);
+  const userCount = users?.length || 0;
+
+  if (userCount > 0 && !confirm) {
+    res.status(409).json({
+      error: "confirm_required",
+      message: `This company has ${userCount} user(s). Deleting will permanently remove the company and all associated users.`,
+      user_count: userCount,
+      users: users?.map(u => ({ id: u.id, email: u.email })),
+    });
     return;
   }
+
+  if (userCount > 0 && users) {
+    for (const user of users) {
+      await supabaseAdmin.auth.admin.deleteUser(user.id).catch(e =>
+        console.error(`[delete-tenant] Failed to delete auth user ${user.id}:`, e.message)
+      );
+    }
+    await supabaseAdmin.from("profiles").delete().eq("tenant_id", id);
+  }
+
+  await supabaseAdmin.from("tenant_addons").delete().eq("tenant_id", id);
+  await supabaseAdmin.from("company_settings").delete().eq("tenant_id", id);
 
   const { error } = await supabaseAdmin.from("tenants").delete().eq("id", id);
   if (error) { res.status(500).json({ error: error.message }); return; }
@@ -262,7 +282,7 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
     event_type: "tenant_deleted",
     entity_type: "tenant",
     entity_id: id,
-    detail: { company_name: tenant.company_name },
+    detail: { company_name: tenant.company_name, users_deleted: userCount },
   });
 
   res.sendStatus(204);
