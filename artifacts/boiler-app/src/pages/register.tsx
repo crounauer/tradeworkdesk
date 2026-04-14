@@ -18,11 +18,6 @@ function getBetaCodeFromUrl() {
   return params.get("beta") ?? "";
 }
 
-function getStartOnFreeFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("plan") === "free";
-}
-
 type ValidateResult = { valid: boolean; role: string } | null;
 type RegisterMode = "invite" | "company";
 type CompanyType = "sole_trader" | "company";
@@ -48,7 +43,7 @@ export default function Register() {
   const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
-  const [startOnFree, setStartOnFree] = useState(getStartOnFreeFromUrl);
+  const [signupPath, setSignupPath] = useState<"trial" | "subscribe">("trial");
 
   const [betaCode, setBetaCode] = useState(getBetaCodeFromUrl);
   const [betaValid, setBetaValid] = useState<boolean | null>(null);
@@ -210,11 +205,11 @@ export default function Register() {
           contact_email: email,
           contact_phone: phone || undefined,
           password,
-          addon_ids: startOnFree ? [] : [...selectedAddons],
-          addon_quantities: startOnFree ? {} : addonQuantities,
+          addon_ids: signupPath === "trial" ? [] : [...selectedAddons],
+          addon_quantities: signupPath === "trial" ? {} : addonQuantities,
           company_type: companyType,
           beta_code: betaCode.trim().toUpperCase(),
-          start_on_free: startOnFree,
+          start_on_free: false,
         }),
       });
 
@@ -254,16 +249,17 @@ export default function Register() {
     );
   }
 
+  const totalSteps = signupPath === "trial" ? 2 : 3;
   const stepIndicator = (
     <div className="flex items-center justify-center gap-2 mb-5">
-      {[1, 2].map((s) => (
+      {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
         <div key={s} className="flex items-center gap-2">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
             s < step ? "bg-primary text-white" : s === step ? "bg-primary/10 text-primary border-2 border-primary" : "bg-slate-100 text-slate-400"
           }`}>
             {s < step ? <Check className="w-4 h-4" /> : s}
           </div>
-          {s < 2 && <div className={`w-8 h-0.5 ${s < step ? "bg-primary" : "bg-slate-200"}`} />}
+          {s < totalSteps && <div className={`w-8 h-0.5 ${s < step ? "bg-primary" : "bg-slate-200"}`} />}
         </div>
       ))}
     </div>
@@ -428,25 +424,96 @@ export default function Register() {
                     <Input placeholder="07xxx" value={phone} onChange={e => setPhone(e.target.value)} />
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border mt-2">
-                  <input
-                    type="checkbox"
-                    id="start-on-free"
-                    checked={startOnFree}
-                    onChange={(e) => setStartOnFree(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <label htmlFor="start-on-free" className="text-sm text-muted-foreground cursor-pointer">
-                    Start on the <strong>Free plan</strong> instead (1 user, 5 jobs/month, skip the trial)
-                  </label>
+                <div className="space-y-2 mt-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">How would you like to start?</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        signupPath === "trial"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                      onClick={() => setSignupPath("trial")}
+                    >
+                      <p className="font-medium text-sm">Free {trialDays}-Day Trial</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Full access, no card needed</p>
+                    </button>
+                    <button
+                      type="button"
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        signupPath === "subscribe"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                      onClick={() => setSignupPath("subscribe")}
+                    >
+                      <p className="font-medium text-sm">Subscribe Now</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Choose your plan & add-ons</p>
+                    </button>
+                  </div>
                 </div>
                 <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
-                  Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
+                  {signupPath === "trial" ? "Next: Credentials" : "Next: Choose Add-ons"} <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
             )}
 
-            {step === 2 && (
+            {step === 2 && signupPath === "subscribe" && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Choose the add-ons you need. You can change these anytime.
+                </p>
+                {addons && addons.length > 0 ? (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {addons.map((a: { id: string; name: string; description?: string; monthly_price: number }) => (
+                      <label
+                        key={a.id}
+                        className={`flex items-center gap-3 w-full p-3 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                          selectedAddons.has(a.id)
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/30 hover:bg-slate-50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedAddons.has(a.id)}
+                          onChange={() => {
+                            setSelectedAddons(prev => {
+                              const next = new Set(prev);
+                              if (next.has(a.id)) next.delete(a.id);
+                              else next.add(a.id);
+                              return next;
+                            });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-sm">{a.name}</span>
+                          {a.description && <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>}
+                        </div>
+                        <span className="text-sm font-semibold text-primary whitespace-nowrap">
+                          +£{Number(a.monthly_price).toFixed(2)}/mo
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No add-ons available yet.</p>
+                )}
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(1)}>
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                  </Button>
+                  <Button className="flex-1 h-12" onClick={() => setStep(3)}>
+                    Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+                <p className="text-xs text-center text-muted-foreground">Add-ons are optional and can be changed anytime.</p>
+              </div>
+            )}
+
+            {((step === 2 && signupPath === "trial") || (step === 3 && signupPath === "subscribe")) && (
               <form onSubmit={handleCompanySubmit} className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">Set your login credentials</p>
                 <div className="p-3 rounded-lg bg-slate-50 border text-sm">
@@ -465,15 +532,15 @@ export default function Register() {
                   <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(1)}>
+                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(signupPath === "trial" ? 1 : 2)}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
                   <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
-                    {loading ? "Setting up..." : startOnFree ? "Start Free Plan" : `Start ${trialDays}-Day Trial`}
+                    {loading ? "Setting up..." : signupPath === "trial" ? `Start ${trialDays}-Day Trial` : "Subscribe & Create Account"}
                   </Button>
                 </div>
                 <p className="text-xs text-center text-muted-foreground">
-                  {startOnFree ? "Free plan — 1 user, 5 jobs/month. Upgrade anytime." : "No credit card required. Full access to all features during your trial."}
+                  {signupPath === "trial" ? "No credit card required. Full access to all features during your trial." : "You'll set up payment after creating your account."}
                 </p>
               </form>
             )}
