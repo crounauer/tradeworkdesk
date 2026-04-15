@@ -86,6 +86,9 @@ router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "off
   if (!original_job_id) {
     res.status(400).json({ error: "original_job_id is required" }); return;
   }
+  if (!parts_description || typeof parts_description !== "string" || !parts_description.trim()) {
+    res.status(400).json({ error: "parts_description is required" }); return;
+  }
 
   let jobQ = supabaseAdmin.from("jobs").select("id, customer_id, property_id, tenant_id").eq("id", original_job_id);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
