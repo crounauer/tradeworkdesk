@@ -341,6 +341,8 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
       qc.invalidateQueries({ queryKey: ["/api/properties"] });
+      qc.invalidateQueries({ queryKey: ["homepage"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
 
       toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
 
@@ -633,6 +635,7 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
       }
       qc.invalidateQueries({ queryKey: ["enquiries"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
+      qc.invalidateQueries({ queryKey: ["homepage"] });
       toast({ title: "Enquiry added", description: `Enquiry for ${form.contact_name} created.` });
       onOpenChange(false);
     } catch (err) {
