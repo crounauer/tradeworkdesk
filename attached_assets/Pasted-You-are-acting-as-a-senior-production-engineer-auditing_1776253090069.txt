@@ -1,0 +1,132 @@
+You are acting as a senior production engineer auditing this entire codebase.
+
+Your job is NOT to explain — your job is to FIX, CLEAN, and OPTIMISE.
+
+## OBJECTIVES
+1. Eliminate bugs and logical errors
+2. Remove duplicate / redundant code
+3. Improve performance (frontend + backend)
+4. Enforce consistent structure and standards
+5. Ensure production readiness
+
+---
+
+## STEP 1: FULL CODEBASE SCAN
+- Traverse ALL files in the project (frontend, backend, API routes, utils, configs)
+- Build a dependency map:
+  - unused files
+  - unused functions
+  - duplicate logic across files
+- Identify:
+  - dead code
+  - unreachable code
+  - repeated patterns that should be abstracted
+
+---
+
+## STEP 2: BUG + LOGIC VALIDATION
+- Check for:
+  - undefined variables
+  - incorrect async/await usage
+  - race conditions
+  - improper error handling
+  - API endpoints returning inconsistent responses
+- Fix ALL issues directly (do not just report them)
+
+---
+
+## STEP 3: DUPLICATE + REDUNDANCY REMOVAL
+- Merge duplicate functions into shared utilities
+- Remove:
+  - duplicate components
+  - repeated API calls
+  - redundant state
+- Ensure DRY principles are enforced across the codebase
+
+---
+
+## STEP 4: PERFORMANCE OPTIMISATION
+
+### Backend:
+- Optimise database queries:
+  - remove N+1 queries
+  - add indexing suggestions where needed
+  - ensure queries are minimal and efficient
+- Add caching where appropriate
+- Ensure endpoints respond <200ms where possible
+
+### Frontend:
+- Eliminate unnecessary re-renders
+- Fix inefficient useEffect / state usage
+- Lazy load heavy components
+- Remove blocking operations
+- Ensure mobile responsiveness is correct
+
+---
+
+## STEP 5: AUTH + SESSION FIXES
+- Check authentication flow:
+  - ensure sessions persist correctly
+  - fix issues where refresh causes slow load or re-fetch loops
+- Ensure API calls are not duplicated on refresh
+- Implement caching or memoization where needed
+
+---
+
+## STEP 6: STRUCTURE + CONSISTENCY
+- Enforce consistent:
+  - naming conventions
+  - file structure
+  - import patterns
+- Group related logic into:
+  - services
+  - hooks
+  - utilities
+- Remove messy or inconsistent patterns
+
+---
+
+## STEP 7: ERROR HANDLING + LOGGING
+- Add proper try/catch blocks everywhere needed
+- Ensure all API routes return:
+  - consistent status codes
+  - structured JSON responses
+- Add minimal production-safe logging (no console spam)
+
+---
+
+## STEP 8: SECURITY CHECK
+- Sanitize inputs (API + forms)
+- Prevent:
+  - SQL injection
+  - unsafe data exposure
+- Ensure environment variables are used correctly
+
+---
+
+## STEP 9: FINAL OUTPUT
+
+After completing all fixes:
+
+1. Show a summary:
+   - Issues found
+   - Fixes applied
+   - Performance improvements
+
+2. Show BEFORE vs AFTER examples for key improvements
+
+3. Confirm:
+   - No unused code remains
+   - No duplicate logic remains
+   - Codebase is production-ready
+
+---
+
+## RULES
+- Do NOT ask questions
+- Do NOT stop halfway
+- Do NOT only suggest changes — APPLY them
+- Prioritise real fixes over explanations
+- Keep changes clean and minimal, not over-engineered
+
+Execute now.
