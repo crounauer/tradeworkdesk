@@ -368,26 +368,6 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
           <Label>Notes</Label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("notes")} />
         </div>
-        {hasFeature("geo_mapping") && (
-          <div className="space-y-2 border-t border-border/50 pt-4">
-            <Label>Property Location</Label>
-            <Suspense fallback={<div className="h-8 bg-slate-100 rounded animate-pulse" />}>
-              <PropertyLocationLookup
-                address={addressForLookup}
-                latitude={watchedLat}
-                longitude={watchedLng}
-                onLocationFound={(lat, lng) => {
-                  setValue("latitude", lat);
-                  setValue("longitude", lng);
-                }}
-                onClearLocation={() => {
-                  setValue("latitude", null);
-                  setValue("longitude", null);
-                }}
-              />
-            </Suspense>
-          </div>
-        )}
         <div className="flex gap-3">
           <Button type="submit" disabled={update.isPending}>
             <Check className="w-4 h-4 mr-2" /> {update.isPending ? "Saving..." : "Save Changes"}

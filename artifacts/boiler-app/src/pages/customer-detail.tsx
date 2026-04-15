@@ -666,26 +666,6 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
         <Input placeholder="Access Notes" {...register("access_notes")} />
         <Input placeholder="Parking Notes" {...register("parking_notes")} />
         </div>
-        {hasFeature("geo_mapping") && (
-          <div className="border-t border-border/50 pt-3">
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">Property Location</label>
-            <Suspense fallback={<div className="h-8 bg-slate-100 rounded animate-pulse" />}>
-              <PropertyLocationLookup
-                address={addressForLookup}
-                latitude={watchedLat}
-                longitude={watchedLng}
-                onLocationFound={(lat, lng) => {
-                  setValue("latitude", lat);
-                  setValue("longitude", lng);
-                }}
-                onClearLocation={() => {
-                  setValue("latitude", null);
-                  setValue("longitude", null);
-                }}
-              />
-            </Suspense>
-          </div>
-        )}
         <div className="flex gap-3">
           <Button type="submit" disabled={create.isPending}>
             {create.isPending ? "Adding..." : "Add Property"}
