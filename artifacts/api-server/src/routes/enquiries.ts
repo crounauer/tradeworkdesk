@@ -164,6 +164,37 @@ router.post("/enquiries/:id/notes", requireAuth, requireTenant, requirePlanFeatu
   res.status(201).json(data);
 });
 
+router.delete("/enquiries/:id/notes/:noteId", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff", "super_admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id, noteId } = req.params;
+
+  let noteQ = supabaseAdmin.from("enquiry_notes").select("id, enquiry_id, author_id").eq("id", noteId).eq("enquiry_id", id);
+  if (req.tenantId) noteQ = noteQ.eq("tenant_id", req.tenantId);
+  const { data: note, error: noteErr } = await noteQ.single();
+  if (noteErr || !note) { res.status(404).json({ error: "Note not found" }); return; }
+
+  const isAdminRole = req.userRole === "admin" || req.userRole === "super_admin";
+  if (!isAdminRole && note.author_id !== req.userId) {
+    res.status(403).json({ error: "You can only delete your own notes" }); return;
+  }
+
+  const { data: attachedFiles } = await supabaseAdmin
+    .from("files")
+    .select("id")
+    .eq("note_id", noteId)
+    .eq("entity_type", "enquiry")
+    .eq("entity_id", id);
+
+  if (attachedFiles && attachedFiles.length > 0) {
+    for (const file of attachedFiles) {
+      await supabaseAdmin.from("files").delete().eq("id", file.id);
+    }
+  }
+
+  const { error } = await supabaseAdmin.from("enquiry_notes").delete().eq("id", noteId);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.sendStatus(204);
+});
+
 router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const { customer_id, new_customer, property_id, new_property, job_type, job_type_id, priority, scheduled_date, scheduled_time, description } = req.body;

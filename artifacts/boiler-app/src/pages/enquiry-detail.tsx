@@ -606,18 +606,45 @@ function EnquiryDetailContent() {
               <p className="text-muted-foreground text-sm text-center py-4">No notes yet. Add a follow-up note below.</p>
             ) : (
               <div className="space-y-3 mb-4">
-                {notes.map((note: Record<string, unknown>) => (
-                  <div key={note.id as string} className="border-l-2 border-primary/30 pl-4 py-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold">{(note.author as Record<string, string>)?.full_name || "Unknown"}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(note.created_at as string).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </span>
+                {notes.map((note: Record<string, unknown>) => {
+                  const noteAuthorId = note.author_id as string | undefined;
+                  const canDeleteNote = isAdmin || noteAuthorId === profile?.id;
+                  return (
+                    <div key={note.id as string} className="border-l-2 border-primary/30 pl-4 py-1 group/note">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold">{(note.author as Record<string, string>)?.full_name || "Unknown"}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(note.created_at as string).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        {canDeleteNote && canEdit && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Delete this note?")) return;
+                              try {
+                                const res = await fetch(`/api/enquiries/${id}/notes/${note.id}`, { method: "DELETE" });
+                                if (!res.ok) {
+                                  const err = await res.json().catch(() => ({}));
+                                  throw new Error(err.error || "Failed to delete note");
+                                }
+                                qc.invalidateQueries({ queryKey: ["enquiry-notes", id] });
+                                qc.invalidateQueries({ queryKey: ["enquiry-photos", id] });
+                                toast({ title: "Note deleted" });
+                              } catch (err) {
+                                toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to delete note", variant: "destructive" });
+                              }
+                            }}
+                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover/note:opacity-100 transition-opacity"
+                            title="Delete note"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{note.content as string}</p>
+                      <NotePhotos noteId={note.id as string} photos={allPhotos} enquiryId={id!} userId={profile?.id} isAdmin={isAdmin} />
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{note.content as string}</p>
-                    <NotePhotos noteId={note.id as string} photos={allPhotos} enquiryId={id!} userId={profile?.id} isAdmin={isAdmin} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
