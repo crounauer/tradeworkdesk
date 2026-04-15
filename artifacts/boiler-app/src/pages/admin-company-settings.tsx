@@ -77,6 +77,7 @@ export default function AdminCompanySettings() {
       google_calendar_enabled: settings.google_calendar_enabled ?? false,
       google_client_id: settings.google_client_id ?? "",
       google_client_secret: settings.google_client_secret ?? "",
+      google_geocode_api_key: settings.google_geocode_api_key ?? "",
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
@@ -643,6 +644,36 @@ export default function AdminCompanySettings() {
                 <Label htmlFor="google_client_secret">Google Client Secret</Label>
                 <Input id="google_client_secret" type="password" placeholder="Enter client secret" {...register("google_client_secret")} />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Google Maps Geocoding
+            </CardTitle>
+            <CardDescription>
+              Use Google Maps for accurate property location lookups. This gives the best results for rural and hard-to-find UK addresses.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
+              <p className="font-medium">How to get your Google Geocoding API key:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
+                <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline font-medium">Google Cloud Console</a></li>
+                <li>Create a project (or select an existing one)</li>
+                <li>Enable the <strong>Geocoding API</strong> under "APIs &amp; Services" &rarr; "Library"</li>
+                <li>Go to <strong>Credentials</strong> &rarr; <strong>Create Credentials</strong> &rarr; <strong>API key</strong></li>
+                <li>Restrict the key to the <strong>Geocoding API</strong> only (recommended)</li>
+                <li>Copy the API key into the field below</li>
+              </ol>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="google_geocode_api_key">Google Geocoding API Key</Label>
+              <Input id="google_geocode_api_key" type="password" placeholder="Enter your Google API key" {...register("google_geocode_api_key")} />
+              <p className="text-xs text-muted-foreground">Your key is stored securely and used only for address lookups.</p>
             </div>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { supabaseAdmin } from "../lib/supabase";
 
 const router: IRouter = Router();
 
@@ -62,7 +63,17 @@ router.post("/geocode", requireAuth, requireTenant, requirePlanFeature("geo_mapp
   }
 
   try {
-    const googleApiKey = process.env.GOOGLE_GEOCODE_API_KEY;
+    let tenantGoogleKey: string | null = null;
+    if (req.tenantId) {
+      const { data: cs } = await supabaseAdmin
+        .from("company_settings")
+        .select("google_geocode_api_key")
+        .eq("tenant_id", req.tenantId)
+        .maybeSingle();
+      if (cs?.google_geocode_api_key) tenantGoogleKey = cs.google_geocode_api_key;
+    }
+
+    const googleApiKey = tenantGoogleKey || process.env.GOOGLE_GEOCODE_API_KEY;
     if (googleApiKey) {
       const result = await googleGeocode(address, googleApiKey);
       if (result) {
