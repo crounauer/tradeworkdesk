@@ -615,14 +615,28 @@ export default function JobDetail() {
 
           <div className="space-y-6">
             <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
-              <h3 className="font-bold mb-4 flex items-center gap-2"><User className="w-5 h-5"/> Customer</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold flex items-center gap-2"><User className="w-5 h-5"/> Customer</h3>
+                {isAdmin && (
+                  <Link href={`/customers/${job.customer_id}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                    <Edit className="w-3 h-3" /> Edit
+                  </Link>
+                )}
+              </div>
               <p className="font-bold text-lg">{job.customer?.first_name} {job.customer?.last_name}</p>
               <p className="text-sm text-muted-foreground mt-1">{job.customer?.phone}</p>
               <Link href={`/customers/${job.customer_id}`} className="text-sm text-primary hover:underline mt-2 inline-block">View Profile</Link>
             </Card>
 
             <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
-              <h3 className="font-bold mb-4 flex items-center gap-2"><MapPin className="w-5 h-5"/> Location</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold flex items-center gap-2"><MapPin className="w-5 h-5"/> Location</h3>
+                {isAdmin && (
+                  <Link href={`/properties/${job.property_id}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                    <Edit className="w-3 h-3" /> Edit
+                  </Link>
+                )}
+              </div>
               <div className="font-medium text-sm leading-relaxed">
                 {job.property?.address_line1 && <div>{job.property.address_line1}</div>}
                 {job.property?.address_line2 && <div>{job.property.address_line2}</div>}
