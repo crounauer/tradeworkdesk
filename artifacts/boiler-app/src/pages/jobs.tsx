@@ -913,7 +913,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
         {showNewProperty && selectedCustomerId && (
           <div className="md:col-span-2 border border-primary/20 rounded-lg p-4 bg-background space-y-3">
             <h4 className="text-sm font-semibold flex items-center gap-2"><Home className="w-4 h-4" /> Quick Add Property</h4>
-            {hasFeature("geo_mapping") && (
+            {hasFeature("uk_address_lookup") && (
               <Suspense fallback={null}>
                 <PostcodeAddressFinder
                   onAddressSelected={(addr) => {

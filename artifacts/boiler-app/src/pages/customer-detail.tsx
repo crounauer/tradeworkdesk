@@ -634,7 +634,7 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
         )}
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {hasFeature("geo_mapping") && (
+        {hasFeature("uk_address_lookup") && (
           <Suspense fallback={null}>
             <PostcodeAddressFinder
               onAddressSelected={(addr) => {

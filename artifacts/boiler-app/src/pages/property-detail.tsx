@@ -282,7 +282,7 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
     <Card className="p-6 border-primary/20 shadow-lg">
       <h3 className="font-bold text-lg mb-4">Edit Property</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {hasFeature("geo_mapping") && (
+        {hasFeature("uk_address_lookup") && (
           <Suspense fallback={null}>
             <PostcodeAddressFinder
               initialPostcode={property.postcode || ""}
