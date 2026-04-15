@@ -55,6 +55,12 @@ export function PostcodeAddressFinder({ onAddressSelected, initialPostcode }: Po
         body: JSON.stringify({ postcode: pc }),
       });
 
+      if (res.status === 402) {
+        const data = await res.json();
+        toast({ title: "Add-on required", description: data.error || "UK Address Lookup add-on is required for this feature", variant: "destructive" });
+        return;
+      }
+
       if (res.status === 404) {
         const data = await res.json();
         toast({ title: "Not found", description: data.error || "No addresses found for this postcode", variant: "destructive" });

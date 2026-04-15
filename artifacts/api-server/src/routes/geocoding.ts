@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
+import { hasActiveAddon } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -24,6 +25,12 @@ router.post("/postcode-lookup", requireAuth, requireTenant, async (req: Authenti
   const { postcode } = req.body;
   if (!postcode || typeof postcode !== "string") {
     res.status(400).json({ error: "Postcode is required" });
+    return;
+  }
+
+  const addonActive = await hasActiveAddon(req.tenantId!, "uk_address_lookup");
+  if (!addonActive) {
+    res.status(402).json({ error: "UK Address Lookup add-on required. Contact your administrator to activate this feature." });
     return;
   }
 
