@@ -3,12 +3,13 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
+import { useHomepageData } from "@/hooks/use-homepage-data";
 import { 
   LayoutDashboard, Users, Home, Flame, 
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -48,6 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const activeFollowUpsCount = initData?.activeFollowUpsCount ?? 0;
 
   const announcements = initData?.announcements || [];
+  const { data: homepageData } = useHomepageData();
 
   const isTrial = tenantInfo?.status === "trial";
 
@@ -147,6 +149,31 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   };
 
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, i);
+    return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
+  };
+
+  const renderStorageIndicator = (mobile?: boolean) => {
+    const storage = homepageData?.storage;
+    if (!storage || !isAdmin || isSuperAdmin) return null;
+    return (
+      <div className={cn(mobile ? "pt-3 mt-2" : "pt-4 mt-3", "border-t border-border/50")}>
+        <div className={cn("flex items-center gap-2.5 rounded-xl text-sm", mobile ? "px-4 py-2" : "px-3 py-2")}>
+          <HardDrive className="w-4 h-4 text-muted-foreground shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground">Storage</p>
+            <p className="text-sm font-semibold text-foreground">{formatBytes(storage.used_bytes)}</p>
+          </div>
+          <span className="text-xs text-muted-foreground">{storage.file_count} file{storage.file_count !== 1 ? "s" : ""}</span>
+        </div>
+      </div>
+    );
+  };
+
   const renderSection = (title: string, items: typeof navItems, onClick?: () => void, mobile?: boolean) => (
     <div className={cn(mobile ? "pt-3 mt-2" : "pt-4 mt-3", "border-t border-border/50")}>
       <p className={cn("text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2", mobile ? "px-4" : "px-3")}>
@@ -185,6 +212,8 @@ export function Layout({ children }: { children: ReactNode }) {
         
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
           {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item))}
+
+          {renderStorageIndicator()}
 
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
 
@@ -240,6 +269,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16">
           <div className="p-4 space-y-2">
             {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
+            {renderStorageIndicator(true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>
