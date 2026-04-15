@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,8 @@ import AddToHomeScreen from "@/components/add-to-homescreen";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useHomepageData } from "@/hooks/use-homepage-data";
 import { useInitData } from "@/hooks/use-init-data";
+
+const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 
 interface JobType {
   id: number;
@@ -37,8 +39,12 @@ type QuickBookData = {
   new_phone: string;
   new_email: string;
   new_address_line1: string;
+  new_address_line2: string;
   new_city: string;
+  new_county: string;
   new_postcode: string;
+  new_latitude: number | null;
+  new_longitude: number | null;
   job_type_id: string;
   fuel_category: string;
   priority: string;
@@ -318,8 +324,12 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
           data: {
             customer_id: customerId,
             address_line1: data.new_address_line1.trim(),
+            address_line2: data.new_address_line2?.trim() || undefined,
             city: data.new_city.trim(),
+            county: data.new_county?.trim() || undefined,
             postcode: data.new_postcode.trim(),
+            latitude: data.new_latitude ?? undefined,
+            longitude: data.new_longitude ?? undefined,
           },
         });
         propertyId = (propRes as { id: string }).id;
@@ -524,15 +534,42 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                   </div>
                   <div className="border-t pt-4 space-y-4">
                     <p className="text-sm font-medium text-muted-foreground">Property Address</p>
+                    {hasFeature("uk_address_lookup") && (
+                      <Suspense fallback={null}>
+                        <PostcodeAddressFinder
+                          onAddressSelected={(addr) => {
+                            setValue("new_address_line1", addr.address_line1);
+                            setValue("new_address_line2", addr.address_line2);
+                            setValue("new_city", addr.city);
+                            setValue("new_county", addr.county);
+                            setValue("new_postcode", addr.postcode);
+                            if (addr.latitude && addr.longitude) {
+                              setValue("new_latitude", addr.latitude);
+                              setValue("new_longitude", addr.longitude);
+                            }
+                          }}
+                        />
+                      </Suspense>
+                    )}
                     <div className="space-y-1.5">
                       <Label>Address *</Label>
                       <Input {...register("new_address_line1")} placeholder="123 High Street" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Address Line 2</Label>
+                      <Input {...register("new_address_line2")} placeholder="Flat 2, etc." />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label>Town / City *</Label>
                         <Input {...register("new_city")} placeholder="Manchester" />
                       </div>
+                      <div className="space-y-1.5">
+                        <Label>County</Label>
+                        <Input {...register("new_county")} placeholder="Greater Manchester" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label>Postcode *</Label>
                         <Input {...register("new_postcode")} placeholder="M1 1AA" />
