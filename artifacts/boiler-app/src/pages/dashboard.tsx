@@ -1,7 +1,7 @@
 import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Plus, MessageSquarePlus, Mail, Send, Home, AlertTriangle } from "lucide-react";
+import { Plus, MessageSquarePlus, Mail, Send, Home, AlertTriangle, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -156,6 +156,10 @@ export default function Dashboard() {
         />
       )}
 
+      {homepageData?.storage && (profile?.role === "admin" || profile?.role === "super_admin") && (
+        <StorageUsageCard storage={homepageData.storage} />
+      )}
+
       {hasJobManagement && showQuickBook && (
         <QuickBookDialog open={showQuickBook} onOpenChange={setShowQuickBook} initialDate={quickDate} />
       )}
@@ -163,6 +167,33 @@ export default function Dashboard() {
         <QuickEnquiryDialog open={showAddEnquiry} onOpenChange={setShowAddEnquiry} initialDate={quickDate} />
       )}
     </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, i);
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
+}
+
+function StorageUsageCard({ storage }: { storage: { used_bytes: number; file_count: number } }) {
+  return (
+    <Card className="p-4 sm:p-5 border border-border/50 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-lg bg-blue-50">
+          <HardDrive className="w-5 h-5 text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-muted-foreground">Storage Used</p>
+          <p className="text-xl font-bold text-foreground">{formatBytes(storage.used_bytes)}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-muted-foreground">{storage.file_count} file{storage.file_count !== 1 ? "s" : ""}</p>
+        </div>
+      </div>
+    </Card>
   );
 }
 

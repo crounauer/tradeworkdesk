@@ -171,10 +171,16 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     return q;
   };
 
+  const buildStorageUsageQuery = () => {
+    let q = supabaseAdmin.from("file_attachments").select("file_size");
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    return q;
+  };
+
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
     customerCountRes, todayCountRes, overdueCountRes, completedCountRes,
-    calendarJobsRes, profilesRes, tenantFeatures, jobTypesRes
+    calendarJobsRes, profilesRes, tenantFeatures, jobTypesRes, storageRes
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -195,6 +201,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     req.tenantId
       ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
       : supabaseAdmin.from("job_types").select("id, name"),
+    buildStorageUsageQuery(),
   ]);
 
   const tQueries = Date.now();
@@ -256,6 +263,10 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
 
   const profiles = profilesRes.data || [];
 
+  const storageRows = (storageRes.data || []) as Array<{ file_size: number }>;
+  const storageUsedBytes = storageRows.reduce((sum, r) => sum + (r.file_size || 0), 0);
+  const storageFileCount = storageRows.length;
+
   const responseBody = {
     dashboard,
     calendar_jobs: {
@@ -264,6 +275,10 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     },
     calendar_date_range: { date_from: calDateFrom, date_to: calDateTo },
     profiles,
+    storage: {
+      used_bytes: storageUsedBytes,
+      file_count: storageFileCount,
+    },
   };
 
   homepageCache.set(cacheKey, { data: responseBody, ts: Date.now() });
