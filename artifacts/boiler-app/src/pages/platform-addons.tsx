@@ -53,6 +53,7 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "customer_email_photos", label: "Customer Email Photos", description: "Email job photos to customers" },
   { key: "additional_users", label: "Additional Users", description: "Allow more users on the account" },
   { key: "jobs_per_month", label: "Jobs Per Month", description: "Increase monthly job allowance" },
+  { key: "uk_address_lookup", label: "UK Address Lookup", description: "Find addresses by postcode with auto-fill" },
 ];
 
 const EMPTY_FORM: AddonFormState = {
