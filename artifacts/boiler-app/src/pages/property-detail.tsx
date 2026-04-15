@@ -109,14 +109,21 @@ export default function PropertyDetail() {
           <Card className="p-6 border border-border/50 shadow-sm">
             <h3 className="font-bold text-lg border-b border-border/50 pb-2 mb-4">Details</h3>
             <div className="space-y-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Address:</span>
+                <div className="font-medium mt-1">
+                  <div>{property.address_line1}</div>
+                  {property.address_line2 && <div>{property.address_line2}</div>}
+                  {property.city && <div>{property.city}</div>}
+                  {property.county && <div>{property.county}</div>}
+                  {property.postcode && <div>{property.postcode}</div>}
+                </div>
+              </div>
               {property.property_type && (
                 <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{property.property_type}</span></div>
               )}
               {property.occupancy_type && (
                 <div><span className="text-muted-foreground">Occupancy:</span> <span className="font-medium capitalize">{property.occupancy_type.replace('_', ' ')}</span></div>
-              )}
-              {property.address_line2 && (
-                <div><span className="text-muted-foreground">Address Line 2:</span> <span className="font-medium">{property.address_line2}</span></div>
               )}
               {property.access_notes && (
                 <div><span className="text-muted-foreground">Access:</span> <span className="font-medium">{property.access_notes}</span></div>
