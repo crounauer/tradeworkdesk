@@ -99,7 +99,7 @@ export default function PlatformAddons() {
   const { data: trialSetting } = useQuery({
     queryKey: ["platform-settings", "trial_duration_days"],
     queryFn: async () => {
-      const res = await fetch("/api/platform/settings/trial_duration_days");
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/trial_duration_days`);
       if (!res.ok) return { value: 30 };
       return res.json();
     },
@@ -111,7 +111,7 @@ export default function PlatformAddons() {
 
   const saveTrialDuration = useMutation({
     mutationFn: async (days: number) => {
-      const res = await fetch("/api/platform/settings/trial_duration_days", {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/trial_duration_days`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value: days }),
@@ -130,7 +130,7 @@ export default function PlatformAddons() {
   const { data: addons, isLoading } = useQuery({
     queryKey: ["platform-addons"],
     queryFn: async () => {
-      const res = await fetch("/api/platform/addons");
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/addons`);
       if (!res.ok) throw new Error("Failed");
       return res.json() as Promise<Addon[]>;
     },
@@ -151,7 +151,7 @@ export default function PlatformAddons() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/platform/addons", {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/addons`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(toPayload(form)),
@@ -171,7 +171,7 @@ export default function PlatformAddons() {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/platform/addons/${editingId}`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/addons/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(toPayload(form)),
@@ -194,7 +194,7 @@ export default function PlatformAddons() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/platform/addons/${id}`, { method: "DELETE" });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/addons/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to delete add-on");
@@ -347,7 +347,7 @@ export default function PlatformAddons() {
   const { data: allPlans, refetch: refetchPlans } = useQuery({
     queryKey: ["platform-all-plans"],
     queryFn: async () => {
-      const res = await fetch("/api/platform/plans");
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/plans`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -364,7 +364,7 @@ export default function PlatformAddons() {
 
   const updatePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const res = await fetch(`/api/platform/plans/${planId}`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/plans/${planId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
