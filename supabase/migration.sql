@@ -1569,3 +1569,45 @@ VALUES (
   '{"job_management": true, "scheduling": true, "heat_pump_forms": false, "combustion_analysis": false, "reports": false, "api_access": false, "invoicing": false, "team_management": false, "social_media": false, "oil_tank_forms": false, "commissioning_forms": false, "custom_branding": false, "priority_support": false}'::jsonb
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- Section 20: Follow-Ups table for tracking jobs awaiting parts / return visits
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS follow_ups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  original_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+  work_description TEXT,
+  parts_description TEXT,
+  expected_parts_date DATE,
+  status TEXT NOT NULL DEFAULT 'awaiting_parts'
+    CHECK (status IN ('awaiting_parts', 'parts_arrived', 'booked', 'cancelled')),
+  new_job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
+  notes TEXT,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_follow_ups_tenant ON follow_ups(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_follow_ups_status ON follow_ups(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_follow_ups_original_job ON follow_ups(original_job_id);
+CREATE INDEX IF NOT EXISTS idx_follow_ups_expected_date ON follow_ups(tenant_id, expected_parts_date)
+  WHERE status = 'awaiting_parts';
+
+ALTER TABLE follow_ups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "follow_ups_tenant_isolation" ON follow_ups
+  FOR ALL
+  USING (
+    tenant_id IN (
+      SELECT p.tenant_id FROM profiles p WHERE p.id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    tenant_id IN (
+      SELECT p.tenant_id FROM profiles p WHERE p.id = auth.uid()
+    )
+  );

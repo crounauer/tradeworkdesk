@@ -135,7 +135,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   const { id } = req.params;
   const { scheduled_date, scheduled_time, assigned_technician_id } = req.body;
 
-  let fuQ = supabaseAdmin.from("follow_ups").select("*").eq("id", id);
+  let fuQ = supabaseAdmin.from("follow_ups").select("*, original_job:jobs!follow_ups_original_job_id_fkey(id, job_ref)").eq("id", id);
   if (req.tenantId) fuQ = fuQ.eq("tenant_id", req.tenantId);
   const { data: followUp, error: fuErr } = await fuQ.single();
 
@@ -145,6 +145,8 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   }
 
   const tenantId = req.tenantId || followUp.tenant_id;
+  const origJob = followUp.original_job as { id: string; job_ref?: string } | null;
+  const origRef = origJob?.job_ref || followUp.original_job_id;
 
   let generatedJobRef: string | undefined;
   const { data: cs } = await supabaseAdmin
@@ -164,6 +166,13 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     .eq("tenant_id", tenantId)
     .eq("singleton_id", "default");
 
+  const descriptionParts = [
+    `Follow-up from ${origRef} (original job ID: ${followUp.original_job_id})`,
+    followUp.work_description ? `Work: ${followUp.work_description}` : null,
+    followUp.parts_description ? `Parts: ${followUp.parts_description}` : null,
+    followUp.notes ? `Notes: ${followUp.notes}` : null,
+  ].filter(Boolean).join("\n");
+
   const jobInsert: Record<string, unknown> = {
     tenant_id: tenantId,
     customer_id: followUp.customer_id,
@@ -174,11 +183,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
     scheduled_time: scheduled_time || null,
     assigned_technician_id: assigned_technician_id || null,
-    description: [
-      followUp.work_description ? `Follow-up work: ${followUp.work_description}` : null,
-      followUp.parts_description ? `Parts: ${followUp.parts_description}` : null,
-      followUp.notes ? `Notes: ${followUp.notes}` : null,
-    ].filter(Boolean).join("\n") || `Follow-up from job`,
+    description: descriptionParts,
     job_ref: generatedJobRef,
   };
 
@@ -191,7 +196,11 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (req.tenantId) updateQ = updateQ.eq("tenant_id", req.tenantId);
-  await updateQ;
+  const { error: updateErr } = await updateQ;
+  if (updateErr) {
+    await supabaseAdmin.from("jobs").delete().eq("id", newJob.id);
+    res.status(500).json({ error: "Failed to link follow-up to new job" }); return;
+  }
 
   res.status(201).json({ follow_up_id: id, job_id: newJob.id, job_ref: newJob.job_ref });
 });
