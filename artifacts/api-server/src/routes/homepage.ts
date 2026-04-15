@@ -66,7 +66,7 @@ interface OverdueApplianceRow {
 const router: IRouter = Router();
 
 const homepageCache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 3 * 60_000;
 
 function cleanExpiredCache() {
   const now = Date.now();

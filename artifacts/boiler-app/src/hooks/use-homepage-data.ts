@@ -16,7 +16,8 @@ export function useHomepageData() {
       if (!res.ok) throw new Error("Failed to fetch homepage data");
       return res.json();
     },
-    staleTime: 60_000,
-    refetchInterval: 2 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+    refetchInterval: 3 * 60_000,
   });
 }
