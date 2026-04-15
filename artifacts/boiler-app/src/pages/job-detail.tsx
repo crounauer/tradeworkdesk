@@ -325,6 +325,7 @@ export default function JobDetail() {
             qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
             qc.invalidateQueries({ queryKey: ["/api/jobs"] });
             qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+            qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}/schedule-history`] });
           }}
         />
       )}
