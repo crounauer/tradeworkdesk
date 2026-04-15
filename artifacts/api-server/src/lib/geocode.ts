@@ -13,6 +13,41 @@ export interface GeoResult {
   display_name: string;
 }
 
+export async function getIdealPostcodesKey(): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "ideal_postcodes_api_key")
+    .maybeSingle();
+  return data?.value || null;
+}
+
+export interface IdealPostcodesAddress {
+  line_1: string;
+  line_2: string;
+  line_3: string;
+  post_town: string;
+  county: string;
+  postcode: string;
+  country: string;
+  building_name: string;
+  building_number: string;
+  sub_building_name: string;
+  thoroughfare: string;
+  latitude: number;
+  longitude: number;
+  udprn: number;
+}
+
+export async function idealPostcodesLookup(postcode: string, apiKey: string): Promise<IdealPostcodesAddress[]> {
+  const url = `https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(postcode)}?api_key=${apiKey}`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = await response.json() as { result: IdealPostcodesAddress[]; code: number };
+  if (data.code !== 2000 || !data.result) return [];
+  return data.result;
+}
+
 export async function googleGeocode(address: string, apiKey: string): Promise<GeoResult | null> {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:GB&key=${apiKey}`;
   const response = await fetch(url);
@@ -51,19 +86,32 @@ export async function nominatimSearch(query: string): Promise<Array<{ lat: strin
   return Array.isArray(results) ? results : [];
 }
 
-export async function geocodeAddress(address: string, tenantId?: string): Promise<GeoResult | null> {
+export async function geocodeAddress(address: string, _tenantId?: string): Promise<GeoResult | null> {
   try {
-    let tenantGoogleKey: string | null = null;
-    if (tenantId) {
-      const { data: cs } = await supabaseAdmin
-        .from("company_settings")
-        .select("google_geocode_api_key")
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
-      if (cs?.google_geocode_api_key) tenantGoogleKey = cs.google_geocode_api_key;
+    const idealKey = await getIdealPostcodesKey().catch(() => null);
+    if (idealKey) {
+      const postcode = extractPostcode(address);
+      if (postcode) {
+        const addresses = await idealPostcodesLookup(postcode, idealKey);
+        if (addresses.length > 0) {
+          const addressLower = address.toLowerCase();
+          const match = addresses.find(a => {
+            const line1 = a.line_1.toLowerCase();
+            return addressLower.includes(line1) || line1.includes(addressLower.split(",")[0].trim());
+          });
+          const best = match || addresses[0];
+          if (best.latitude && best.longitude) {
+            return {
+              latitude: best.latitude,
+              longitude: best.longitude,
+              display_name: [best.line_1, best.line_2, best.post_town, best.postcode].filter(Boolean).join(", "),
+            };
+          }
+        }
+      }
     }
 
-    const googleApiKey = tenantGoogleKey || process.env.GOOGLE_GEOCODE_API_KEY;
+    const googleApiKey = process.env.GOOGLE_GEOCODE_API_KEY;
     if (googleApiKey) {
       const result = await googleGeocode(address, googleApiKey);
       if (result) return result;

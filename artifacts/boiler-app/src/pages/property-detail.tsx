@@ -14,6 +14,7 @@ import { useLookupOptions } from "@/hooks/use-lookup-options";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
+const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
 
 type ApplianceFormData = {
@@ -283,6 +284,22 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
     <Card className="p-6 border-primary/20 shadow-lg">
       <h3 className="font-bold text-lg mb-4">Edit Property</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Suspense fallback={null}>
+          <PostcodeAddressFinder
+            initialPostcode={property.postcode || ""}
+            onAddressSelected={(addr) => {
+              setValue("address_line1", addr.address_line1);
+              setValue("address_line2", addr.address_line2);
+              setValue("city", addr.city);
+              setValue("county", addr.county);
+              setValue("postcode", addr.postcode);
+              if (addr.latitude && addr.longitude) {
+                setValue("latitude", addr.latitude);
+                setValue("longitude", addr.longitude);
+              }
+            }}
+          />
+        </Suspense>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Address Line 1 *</Label>

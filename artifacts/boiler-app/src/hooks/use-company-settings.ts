@@ -31,7 +31,6 @@ export interface CompanySettings {
   google_calendar_enabled?: boolean | null;
   google_client_id?: string | null;
   google_client_secret?: string | null;
-  google_geocode_api_key?: string | null;
   created_at?: string;
   updated_at?: string;
 }

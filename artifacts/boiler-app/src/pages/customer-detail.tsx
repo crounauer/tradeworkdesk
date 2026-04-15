@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
+const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 
 type PropertyFormData = {
   address_line1: string;
@@ -632,7 +633,23 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
           </Button>
         )}
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Suspense fallback={null}>
+          <PostcodeAddressFinder
+            onAddressSelected={(addr) => {
+              setValue("address_line1", addr.address_line1);
+              setValue("address_line2", addr.address_line2);
+              setValue("city", addr.city);
+              setValue("county", addr.county);
+              setValue("postcode", addr.postcode);
+              if (addr.latitude && addr.longitude) {
+                setValue("latitude", addr.latitude);
+                setValue("longitude", addr.longitude);
+              }
+            }}
+          />
+        </Suspense>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input placeholder="Address Line 1 *" required {...register("address_line1")} />
         <Input placeholder="Address Line 2" {...register("address_line2")} />
         <Input placeholder="City" {...register("city")} />
@@ -646,8 +663,9 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
         </select>
         <Input placeholder="Access Notes" {...register("access_notes")} />
         <Input placeholder="Parking Notes" {...register("parking_notes")} />
+        </div>
         {hasFeature("geo_mapping") && (
-          <div className="md:col-span-2 border-t border-border/50 pt-3">
+          <div className="border-t border-border/50 pt-3">
             <label className="text-sm font-medium text-muted-foreground mb-2 block">Property Location</label>
             <Suspense fallback={<div className="h-8 bg-slate-100 rounded animate-pulse" />}>
               <PropertyLocationLookup
@@ -666,7 +684,7 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
             </Suspense>
           </div>
         )}
-        <div className="md:col-span-2 flex gap-3">
+        <div className="flex gap-3">
           <Button type="submit" disabled={create.isPending}>
             {create.isPending ? "Adding..." : "Add Property"}
           </Button>

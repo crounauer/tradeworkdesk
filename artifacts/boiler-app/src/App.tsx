@@ -93,6 +93,7 @@ const PlatformAnnouncements = lazyRetry(() => import("@/pages/platform-announcem
 const PlatformAuditLog = lazyRetry(() => import("@/pages/platform-audit-log"));
 const PlatformBetaInvites = lazyRetry(() => import("@/pages/platform-beta-invites"));
 const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
+const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
 const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
@@ -326,6 +327,7 @@ function AppRouter() {
         <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} roles={["super_admin"]} />} />
         <Route path="/platform/beta-invites" component={() => <ProtectedRoute component={PlatformBetaInvites} roles={["super_admin"]} />} />
         <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} roles={["super_admin"]} />} />
+        <Route path="/platform/settings" component={() => <ProtectedRoute component={PlatformSettingsPage} roles={["super_admin"]} />} />
 
         <Route component={() => (
           <Suspense fallback={<PageFallback />}>
