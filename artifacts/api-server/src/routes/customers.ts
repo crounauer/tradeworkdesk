@@ -298,9 +298,8 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
 
   const companyName = (cs as any)?.name || (cs as any)?.trading_name || tenant?.company_name || "Your Service Provider";
 
-  const baseUrl = process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const baseUrl = process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://tradeworkdesk.co.uk");
   const registerUrl = `${baseUrl}/portal/register?token=${token}`;
 
   const customerName = `${customer.first_name} ${customer.last_name}`;
