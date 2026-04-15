@@ -115,10 +115,10 @@ export default function PropertyDetail() {
                   </Link>
                 </div>
               )}
-              {hasFeature("geo_mapping") && property.latitude != null && property.longitude != null && (
+              {property.latitude != null && property.longitude != null && (
                 <div className="pt-3 border-t border-border/50 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Location:</span>
+                    <span className="text-muted-foreground">Coordinates:</span>
                     <button
                       className="text-xs text-primary hover:underline flex items-center gap-1"
                       onClick={() => {
@@ -133,9 +133,7 @@ export default function PropertyDetail() {
                       <MapPin className="w-3 h-3" /> Navigate
                     </button>
                   </div>
-                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
-                    <PropertyMapPreview latitude={property.latitude} longitude={property.longitude} />
-                  </Suspense>
+                  <p className="text-xs text-muted-foreground font-mono">{property.latitude.toFixed(6)}, {property.longitude.toFixed(6)}</p>
                 </div>
               )}
             </div>
