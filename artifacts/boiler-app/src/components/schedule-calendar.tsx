@@ -523,7 +523,7 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                 return (
                   <div
                     key={hour}
-                    className={`flex border-b border-border/50 last:border-b-0 min-h-[52px] transition-colors ${isSlotTarget ? "bg-primary/10" : ""}`}
+                    className={`flex border-b border-border/50 last:border-b-0 min-h-[52px] transition-colors ${isSlotTarget ? "bg-primary/10 ring-1 ring-inset ring-primary/40" : ""}`}
                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverSlot(slotKey); setDragOverDate(null); }}
                     onDragLeave={() => setDragOverSlot(null)}
                     onDrop={(e) => handleDrop(e, ds, timeStr)}
@@ -947,7 +947,9 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
 
       {canDrag && (
         <p className="text-[11px] text-muted-foreground mt-3 text-center">
-          Drag and drop jobs between days to reschedule
+          {viewMode === "day"
+            ? "Drag and drop jobs to different time slots to reschedule"
+            : "Drag and drop jobs between days to reschedule"}
         </p>
       )}
     </Card>
