@@ -1987,7 +1987,6 @@ function PhotosSection({ jobId }: { jobId: string }) {
             type="file"
             className="hidden"
             accept="image/*"
-            capture="environment"
             multiple
             onChange={handleUpload}
           />
