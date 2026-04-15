@@ -49,7 +49,7 @@ export function useOfflineReferenceDataSync() {
     },
   });
   const { data: jobTypes } = useQuery<Array<Record<string, unknown>>>({
-    queryKey: ["job-types-offline-cache"],
+    queryKey: ["job-types"],
     queryFn: async () => {
       const res = await fetch("/api/job-types");
       if (!res.ok) return [];

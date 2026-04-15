@@ -11,19 +11,10 @@ import {
   GetCommissioningRecordByJobParams,
   GetCommissioningRecordByJobResponse,
 } from "@workspace/api-zod";
+import { verifyJobAccess } from "../lib/verify-job-access";
 
 const router: IRouter = Router();
 
-async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
-  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  const { data: job } = await q.single();
-  if (!job) return { allowed: false, error: "Job not found" };
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
-    return { allowed: false, error: "You can only modify commissioning records for jobs assigned to you" };
-  }
-  return { allowed: true };
-}
 
 router.get("/commissioning-records", requireAuth, requireTenant, requirePlanFeature("commissioning_forms"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let query = supabaseAdmin.from("commissioning_records").select("*").order("created_at", { ascending: false });

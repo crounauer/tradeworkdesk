@@ -11,19 +11,10 @@ import {
   GetJobCompletionReportByJobParams,
   GetJobCompletionReportByJobResponse,
 } from "@workspace/api-zod";
+import { verifyJobAccess } from "../lib/verify-job-access";
 
 const router: IRouter = Router();
 
-async function verifyJobAccess(req: AuthenticatedRequest, jobId: string): Promise<{ allowed: boolean; error?: string }> {
-  let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
-  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  const { data: job } = await q.single();
-  if (!job) return { allowed: false, error: "Job not found" };
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
-    return { allowed: false, error: "You can only access records for jobs assigned to you" };
-  }
-  return { allowed: true };
-}
 
 router.post("/job-completion-reports", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateJobCompletionReportBody.safeParse(req.body);

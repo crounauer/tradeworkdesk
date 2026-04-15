@@ -669,7 +669,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         .eq("tenant_id", req.tenantId),
       supabaseAdmin
         .from("tenant_addons")
-        .select("addon_id, addons(id, name, feature_keys)")
+        .select("addon_id, quantity, addons(id, name, feature_keys)")
         .eq("tenant_id", req.tenantId)
         .eq("is_active", true),
       supabaseAdmin
@@ -776,11 +776,13 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   let usageLimits = null;
   if (req.tenantId) {
-    const tenantRes = results[1] as { data: Record<string, any> | null };
-    const addonsRes = results[4] as { data: Array<{ quantity?: number; addons?: { feature_keys?: string[] } | null }> | null };
+    const tenantResForLimits = results[1] as { data: Record<string, any> | null };
+    const effectiveAddons = activeAddons.length > 0
+      ? (results[4] as { data: Array<{ quantity?: number; addons?: { feature_keys?: string[] } | null }> | null })?.data || null
+      : null;
     const limits = getEffectiveLimitsFromCache(
-      tenantRes?.data as { status?: string; trial_ends_at?: string | null; plans?: { max_users?: number; max_jobs_per_month?: number } | null } | null,
-      addonsRes?.data || null,
+      tenantResForLimits?.data as { status?: string; trial_ends_at?: string | null; plans?: { max_users?: number; max_jobs_per_month?: number } | null } | null,
+      effectiveAddons,
     );
     const [userCount, jobCount] = await Promise.all([
       getCurrentUserCount(req.tenantId),

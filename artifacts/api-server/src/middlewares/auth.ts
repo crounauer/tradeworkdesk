@@ -13,6 +13,8 @@ const PROFILE_CACHE_TTL_MS = 120_000;
 const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
 const MFA_CACHE_TTL_MS = 120_000;
 
+let adminExistsConfirmedUntil = 0;
+
 type CachedUser = { id: string; email?: string; user_metadata?: Record<string, unknown> };
 const tokenUserCache = new Map<string, { user: CachedUser; expiresAt: number }>();
 const tokenInflight = new Map<string, Promise<CachedUser | null>>();
@@ -179,7 +181,7 @@ export async function requireAuth(
     if (profile) {
       profileCache.set(user.id, { ...profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
     }
-  } else if (profile.role === "technician") {
+  } else if (profile.role === "technician" && Date.now() > adminExistsConfirmedUntil) {
     const { count: adminCount } = await supabaseAdmin
       .from("profiles")
       .select("id", { count: "exact", head: true })
@@ -192,6 +194,8 @@ export async function requireAuth(
         .eq("id", user.id);
       profile = { ...profile, role: "admin" };
       profileCache.set(user.id, { ...profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS });
+    } else {
+      adminExistsConfirmedUntil = Date.now() + 5 * 60_000;
     }
   }
 
@@ -201,7 +205,7 @@ export async function requireAuth(
   req.tenantId = profile?.tenant_id || undefined;
 
   const authMs = Date.now() - t0;
-  if (authMs > 50) {
+  if (authMs > 200) {
     console.log(`[perf] requireAuth ${req.path} ${authMs}ms (user:${user.id.slice(0,8)})`);
   }
 

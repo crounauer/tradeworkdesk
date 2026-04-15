@@ -29,7 +29,8 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **Technology Stack:** Express 5.
 - **Authentication:** Verifies JWT tokens via `supabaseAdmin.auth.getUser()` with token caching.
 - **Authorization:** Role-based access control and resource-level authorization.
-- **Init/Homepage Endpoints:** Optimized single endpoints to fetch combined initial data and dashboard statistics with server-side caching.
+- **Init/Homepage Endpoints:** Optimized single endpoints to fetch combined initial data and dashboard statistics with server-side caching. `/me/init` uses pre-fetched data for usage limit calculations to avoid redundant DB queries.
+- **Shared Utilities:** `verifyJobAccess` helper in `lib/verify-job-access.ts` used by all form route files (service records, inspections, etc.) to centralize job-level tenant and technician authorization checks.
 - **Multi-tenancy:** All data is scoped by `tenant_id` with middleware enforcement. `requireTenant` also enforces tenant status — blocks API access for expired trials, suspended, and cancelled accounts (with 60s cached tenant status lookup). Exempt routes: `/me/init`, `/billing`, `/account`.
 - **File Storage:** Handles file uploads to Supabase Storage, including server-side image compression and thumbnail generation with `sharp`.
 - **Data Validation:** Uses Zod schemas for request and response validation.

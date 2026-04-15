@@ -46,7 +46,7 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (duration > 200) {
+    if (duration > 500) {
       console.log(`[SLOW] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
     }
   });
