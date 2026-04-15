@@ -8,7 +8,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -44,6 +44,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const hasJobManagement = hasFeature("job_management");
 
   const enquiryCountData = { count: initData?.enquiriesCount ?? 0 };
+  const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
 
   const announcements = initData?.announcements || [];
 
@@ -72,6 +73,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ] : [
       ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
       { href: "/jobs", label: "Jobs", icon: Briefcase },
+      ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
       { href: "/search", label: "Search", icon: Search },
     ]),
     ...(hasFeature("reports") ? [
@@ -118,7 +120,9 @@ export function Layout({ children }: { children: ReactNode }) {
     const isActive = item.href === "/" 
       ? location === "/" 
       : location === item.href || location.startsWith(item.href + "/");
-    const badge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
+    const enquiryBadge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
+    const followUpBadge = item.href === "/follow-ups" && overdueFollowUpsCount > 0 ? overdueFollowUpsCount : null;
+    const badge = enquiryBadge || followUpBadge;
     return (
       <Link key={item.href} href={item.href} onClick={onClick} className={cn(
         "flex items-center gap-3 rounded-xl text-sm font-medium transition-colors",
@@ -130,7 +134,10 @@ export function Layout({ children }: { children: ReactNode }) {
         <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "")} />
         <span className="flex-1">{item.label}</span>
         {badge !== null && (
-          <span className="ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full bg-orange-500 text-white min-w-[20px] text-center">
+          <span className={cn(
+            "ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full text-white min-w-[20px] text-center",
+            followUpBadge ? "bg-red-500" : "bg-orange-500"
+          )}>
             {badge > 99 ? "99+" : badge}
           </span>
         )}

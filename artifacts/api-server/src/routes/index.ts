@@ -38,6 +38,7 @@ import accountingIntegrationsRouter from "./accounting-integrations";
 import homepageRouter from "./homepage";
 import addonsRouter from "./addons";
 import portalRouter from "./portal";
+import followUpsRouter from "./follow-ups";
 
 const router: IRouter = Router();
 
@@ -79,6 +80,7 @@ router.use(geocodingRouter);
 router.use(accountingIntegrationsRouter);
 router.use(addonsRouter);
 router.use(portalRouter);
+router.use(followUpsRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

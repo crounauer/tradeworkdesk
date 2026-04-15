@@ -672,6 +672,12 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         .select("addon_id, addons(id, name, feature_keys)")
         .eq("tenant_id", req.tenantId)
         .eq("is_active", true),
+      supabaseAdmin
+        .from("follow_ups")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["awaiting_parts", "parts_arrived"])
+        .lt("expected_parts_date", new Date().toISOString().split("T")[0])
+        .eq("tenant_id", req.tenantId),
     );
   }
 
@@ -704,6 +710,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     const enquiriesRes = results[3] as { count: number | null };
     const addonsRes = results[4] as { data: typeof activeAddons | null };
     activeAddons = addonsRes?.data || [];
+    const overdueFollowUpsRes = results[5] as { count: number | null };
 
     if (tenantRes?.data) {
       if (tenantRes.data.status === "trial" && tenantRes.data.trial_ends_at) {
@@ -757,7 +764,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     enquiriesCount = enquiriesRes?.count || 0;
   }
 
-  const announcementsIdx = req.tenantId ? 5 : 1;
+  const announcementsIdx = req.tenantId ? 6 : 1;
   const announcementsRes = results[announcementsIdx] as { data: unknown[] | null };
   const announcements = announcementsRes?.data || [];
 
@@ -786,7 +793,12 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     };
   }
 
-  const responseBody = { profile, planFeatures, tenant, enquiriesCount, announcements, activeAddons: addonsList, usageLimits };
+  let overdueFollowUpsCount = 0;
+  if (req.tenantId) {
+    const ofuRes = results[5] as { count: number | null } | undefined;
+    overdueFollowUpsCount = ofuRes?.count || 0;
+  }
+  const responseBody = { profile, planFeatures, tenant, enquiriesCount, overdueFollowUpsCount, announcements, activeAddons: addonsList, usageLimits };
   initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   res.set("Cache-Control", "no-store");
   res.json(responseBody);

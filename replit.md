@@ -58,6 +58,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **Customer Login Portal:** A separate frontend for customers to view their properties, appliances, service history, and download reports.
 - **Enquiry Photos:** Photo uploads for enquiries with compression and thumbnail generation.
 - **Geo Mapping:** Properties have optional `latitude`/`longitude`, with geocoding of addresses and an interactive map view for jobs.
+- **Follow-Up Reminders:** Track jobs awaiting parts with a dedicated `follow_ups` table. Create follow-ups from completed/invoiced/awaiting-parts jobs via job detail page. Dedicated `/follow-ups` list page with status tabs (awaiting_parts, parts_arrived, booked, cancelled). Dashboard alert for overdue follow-ups and sidebar badge count. API routes: GET/POST/PATCH/DELETE `/api/follow-ups`, GET `/api/follow-ups/overdue-count`. Overdue count also included in `/api/me/init` response.
 
 # External Dependencies
 

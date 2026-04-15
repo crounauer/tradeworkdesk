@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
-  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon,
+  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff
 } from "lucide-react";
@@ -173,9 +173,13 @@ export default function JobDetail() {
     }
   };
 
+  const [showFollowUpForm, setShowFollowUpForm] = useState(false);
+  const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+  const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
   const canComplete = job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled";
   const canInvoice = job.status === "completed";
+  const canCreateFollowUp = isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
 
   return (
     <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
@@ -260,6 +264,11 @@ export default function JobDetail() {
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>
           )}
+          {canCreateFollowUp && (
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowFollowUpForm(true)}>
+              <ClipboardList className="w-4 h-4 mr-2" /> Create Follow-Up
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
             <Mail className="w-4 h-4 mr-2" /> Email Customer
           </Button>
@@ -316,6 +325,21 @@ export default function JobDetail() {
             qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
             qc.invalidateQueries({ queryKey: ["/api/jobs"] });
             qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+          }}
+        />
+      )}
+
+      {showFollowUpForm && (
+        <CreateFollowUpForm
+          jobId={job.id}
+          onClose={() => setShowFollowUpForm(false)}
+          onCreated={() => {
+            setShowFollowUpForm(false);
+            setCreatingFollowUp(false);
+            qc.invalidateQueries({ queryKey: ["follow-ups"] });
+            qc.invalidateQueries({ queryKey: ["homepage"] });
+            qc.invalidateQueries({ queryKey: ["me-init"] });
+            toast({ title: "Follow-up created", description: "The follow-up reminder has been saved." });
           }}
         />
       )}
@@ -2608,4 +2632,95 @@ function calcDuration(start: string, end: string): string {
   const m = mins % 60;
   if (h === 0) return `${m}m`;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onClose: () => void; onCreated: () => void }) {
+  const [workDesc, setWorkDesc] = useState("");
+  const [partsDesc, setPartsDesc] = useState("");
+  const [expectedDate, setExpectedDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partsDesc.trim()) {
+      toast({ title: "Missing info", description: "Please describe the parts needed.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/follow-ups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          original_job_id: jobId,
+          work_description: workDesc.trim() || null,
+          parts_description: partsDesc.trim(),
+          expected_parts_date: expectedDate || null,
+          notes: notes.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to create follow-up");
+      }
+      onCreated();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create follow-up";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card className="p-4 sm:p-6 border-2 border-indigo-200 bg-indigo-50/30 shadow-sm">
+      <h3 className="font-bold text-lg flex items-center gap-2 mb-4 text-indigo-700">
+        <ClipboardList className="w-5 h-5" /> Create Follow-Up Reminder
+      </h3>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label>Parts Needed *</Label>
+          <Textarea
+            value={partsDesc}
+            onChange={(e) => setPartsDesc(e.target.value)}
+            placeholder="e.g. Boiler PCB board, Model XYZ-123"
+            rows={2}
+            required
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label>Expected Delivery Date</Label>
+            <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Work to Complete</Label>
+          <Textarea
+            value={workDesc}
+            onChange={(e) => setWorkDesc(e.target.value)}
+            placeholder="Describe the follow-up work needed..."
+            rows={2}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Any additional notes..."
+            rows={2}
+          />
+        </div>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700">
+            {submitting ? "Creating..." : "Create Follow-Up"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+        </div>
+      </form>
+    </Card>
+  );
 }

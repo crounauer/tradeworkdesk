@@ -1,7 +1,7 @@
 import { useGetDashboard, useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Plus, MessageSquarePlus, Mail, Send, Home } from "lucide-react";
+import { Plus, MessageSquarePlus, Mail, Send, Home, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,9 +102,26 @@ export default function Dashboard() {
   if (!data) return null;
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
+  const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <AddToHomeScreen />
+
+      {hasJobManagement && overdueFollowUpsCount > 0 && (
+        <a href="/follow-ups" className="block">
+          <Card className="p-4 border-orange-300 bg-orange-50 shadow-sm flex items-center gap-3 hover:bg-orange-100 transition-colors cursor-pointer">
+            <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-orange-800">
+                {overdueFollowUpsCount} overdue follow-up{overdueFollowUpsCount !== 1 ? "s" : ""} awaiting action
+              </p>
+              <p className="text-xs text-orange-600">Parts expected dates have passed. Click to review.</p>
+            </div>
+          </Card>
+        </a>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
         <div className="flex-1">
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>

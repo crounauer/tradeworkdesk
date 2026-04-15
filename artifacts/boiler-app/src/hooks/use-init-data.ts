@@ -54,6 +54,7 @@ export interface InitData {
     subscription?: Record<string, unknown> | null;
   } | null;
   enquiriesCount: number;
+  overdueFollowUpsCount: number;
   announcements?: Announcement[];
   activeAddons?: ActiveAddon[];
   usageLimits?: UsageLimits | null;
@@ -70,6 +71,7 @@ export function useInitData() {
           planFeatures: { plan_id: null, plan_name: null, features: {} },
           tenant: null,
           enquiriesCount: 0,
+          overdueFollowUpsCount: 0,
         };
       }
       return res.json();
