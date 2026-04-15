@@ -6,7 +6,7 @@ import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText,
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -18,6 +18,7 @@ import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import { useOffline } from "@/contexts/offline-context";
 import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTechnicians, useCacheJobTypes } from "@/hooks/use-offline-data";
 import { PendingSyncBadge, OfflineMutationsList } from "@/components/offline-indicator";
+import { cacheJob, getAllCachedJobs, type CachedJob } from "@/lib/offline-db";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 
@@ -74,19 +75,55 @@ function JobsContent() {
 
   const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff";
 
-  const { data: jobsResponse, isLoading } = useListJobs({
+  const { data: jobsResponse, isLoading: onlineLoading } = useListJobs({
     status: statusFilter || undefined,
     page: currentPage,
     limit: 50,
   });
-  const jobs = jobsResponse?.jobs;
+  const onlineJobs = jobsResponse?.jobs;
   const pagination = jobsResponse?.pagination;
 
   const { isOnline, pendingMutations, failedMutations } = useOffline();
 
+  const [cachedJobsList, setCachedJobsList] = useState<Record<string, unknown>[] | null>(null);
+  const [cachedLoading, setCachedLoading] = useState(!isOnline);
+
+  useEffect(() => {
+    if (onlineJobs && onlineJobs.length > 0) {
+      for (const j of onlineJobs) {
+        cacheJob(j.id, j as unknown as Record<string, unknown>);
+      }
+    }
+  }, [onlineJobs]);
+
+  useEffect(() => {
+    if (!isOnline) {
+      setCachedLoading(true);
+      getAllCachedJobs().then((cached: CachedJob[]) => {
+        let list = cached.map((c) => c.data);
+        if (statusFilter) {
+          list = list.filter((j) => j.status === statusFilter);
+        }
+        list.sort((a, b) => {
+          const da = a.scheduled_date ? new Date(a.scheduled_date as string).getTime() : 0;
+          const db = b.scheduled_date ? new Date(b.scheduled_date as string).getTime() : 0;
+          return db - da;
+        });
+        setCachedJobsList(list);
+        setCachedLoading(false);
+      });
+    } else {
+      setCachedJobsList(null);
+      setCachedLoading(false);
+    }
+  }, [isOnline, statusFilter]);
+
+  const jobs = isOnline ? onlineJobs : cachedJobsList;
+  const isLoading = isOnline ? onlineLoading : cachedLoading;
+
   const pendingJobIds = new Set<string>();
   [...pendingMutations, ...failedMutations].forEach((m) => {
-    if (m.type === "update-job" || m.type === "create-job-note") {
+    if (m.type === "update-job" || m.type === "create-job-note" || m.type === "create-time-entry" || m.type === "create-job-part") {
       const jobId = m.payload.jobId as string | undefined;
       if (jobId) pendingJobIds.add(jobId);
     }
@@ -301,6 +338,13 @@ function JobsContent() {
         </Card>
       )}
 
+      {!isOnline && !isLoading && jobs && jobs.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          <WifiOff className="w-4 h-4 flex-shrink-0" />
+          Showing cached jobs. Changes will sync when you're back online.
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />)}
@@ -308,7 +352,7 @@ function JobsContent() {
       ) : !filteredJobs?.length ? (
         <Card className="p-8 text-center border-dashed">
           <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-muted-foreground">No jobs found matching your filters.</p>
+          <p className="text-muted-foreground">{!isOnline ? "No cached jobs available. Jobs will appear after viewing them online." : "No jobs found matching your filters."}</p>
         </Card>
       ) : (
         <JobSections
@@ -322,7 +366,7 @@ function JobsContent() {
         />
       )}
 
-      {pagination && pagination.totalPages > 1 && (
+      {isOnline && pagination && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pt-4">
           <Button
             variant="outline"

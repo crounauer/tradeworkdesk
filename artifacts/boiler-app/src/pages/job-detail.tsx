@@ -120,7 +120,7 @@ export default function JobDetail() {
   const job = effectiveJob as unknown as JobDetailType;
 
   const jobHasPendingSync = [...pendingMutations, ...failedMutations].some(
-    (m) => (m.type === "update-job" || m.type === "create-job-note") && m.payload.jobId === id
+    (m) => (m.type === "update-job" || m.type === "create-job-note" || m.type === "create-time-entry" || m.type === "create-job-part") && m.payload.jobId === id
   );
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
@@ -664,6 +664,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
+  const { isOnline, queueTimeEntry } = useOffline();
   const { data: entries, isLoading } = useListJobTimeEntries(jobId);
   const { data: companySettings } = useCompanySettings();
   const createMutation = useCreateJobTimeEntry();
@@ -769,17 +770,34 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const hasEntries = sortedEntries.length > 0;
   const showLegacy = !hasEntries && (legacyArrival || legacyDeparture);
 
+  const [offlineSubmitting, setOfflineSubmitting] = useState(false);
+
   const handleAdd = async () => {
     if (!arrival) return;
+    const entryData = {
+      arrival_time: new Date(arrival).toISOString(),
+      departure_time: departure ? new Date(departure).toISOString() : null,
+      notes: notes || null,
+      hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+    };
+    if (!isOnline) {
+      if (offlineSubmitting) return;
+      setOfflineSubmitting(true);
+      try {
+        await queueTimeEntry(jobId, entryData);
+        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setShowAdd(false);
+        toast({ title: "Saved offline", description: "Time entry will sync when you're back online." });
+      } catch {
+        toast({ title: "Error", description: "Failed to save time entry offline", variant: "destructive" });
+      } finally {
+        setOfflineSubmitting(false);
+      }
+      return;
+    }
     try {
       await createMutation.mutateAsync({
         jobId,
-        data: {
-          arrival_time: new Date(arrival).toISOString(),
-          departure_time: departure ? new Date(departure).toISOString() : null,
-          notes: notes || null,
-          hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
-        } as Record<string, unknown>,
+        data: entryData as Record<string, unknown>,
       });
       setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
@@ -954,8 +972,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             </div>
           )}
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || !arrival}>
-              <Check className="w-4 h-4 mr-1" /> {createMutation.isPending ? "Saving..." : "Save Entry"}
+            <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
+              <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
             </Button>
             <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); }}>
               Cancel
@@ -1166,6 +1184,7 @@ function formatTotalTime(totalMinutes: number): string {
 
 function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
   const { toast } = useToast();
+  const { isOnline, queueJobPart } = useOffline();
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -1235,16 +1254,29 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const handleAdd = async () => {
     if (!partName.trim()) return;
     setSubmitting(true);
+    const partData = {
+      part_name: partName.trim(),
+      quantity: Number(partQty) || 1,
+      serial_number: partSerial || null,
+      unit_price: partPrice ? Number(partPrice) : null,
+    };
+    if (!isOnline) {
+      try {
+        await queueJobPart(jobId, partData);
+        setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setShowAdd(false);
+        toast({ title: "Saved offline", description: "Part will sync when you're back online." });
+      } catch {
+        toast({ title: "Error", description: "Failed to save part offline", variant: "destructive" });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          part_name: partName.trim(),
-          quantity: Number(partQty) || 1,
-          serial_number: partSerial || null,
-          unit_price: partPrice ? Number(partPrice) : null,
-        }),
+        body: JSON.stringify(partData),
       });
       setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setShowAdd(false);
       toast({ title: "Added", description: "Part added" });

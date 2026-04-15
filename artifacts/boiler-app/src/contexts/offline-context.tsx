@@ -27,6 +27,8 @@ interface OfflineContextValue {
   queueJobCreation: (payload: Record<string, unknown>) => Promise<string>;
   queueJobNote: (jobId: string, content: string) => Promise<string>;
   queueJobUpdate: (jobId: string, updates: Record<string, unknown>) => Promise<string>;
+  queueTimeEntry: (jobId: string, data: { arrival_time: string; departure_time?: string | null; notes?: string | null; hourly_rate?: number | null }) => Promise<string>;
+  queueJobPart: (jobId: string, data: { part_name: string; quantity?: number; serial_number?: string | null; unit_price?: number | null }) => Promise<string>;
   triggerSync: () => Promise<void>;
   discardPendingMutation: (id: string) => Promise<void>;
   retryFailedMutation: (id: string) => Promise<void>;
@@ -104,7 +106,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey;
-            return Array.isArray(key) && typeof key[0] === "string" && key[0].includes("/notes");
+            if (!Array.isArray(key) || typeof key[0] !== "string") return false;
+            return key[0].includes("/notes") || key[0].includes("/time-entries");
           },
         });
       } else if (event.type === "mutation-queued") {
@@ -157,6 +160,22 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     return id;
   }, []);
 
+  const queueTimeEntry = useCallback(async (jobId: string, data: { arrival_time: string; departure_time?: string | null; notes?: string | null; hourly_rate?: number | null }) => {
+    const id = await queueOfflineMutation("create-time-entry", { jobId, ...data });
+    if (supportsBackgroundSync()) {
+      registerBackgroundSync();
+    }
+    return id;
+  }, []);
+
+  const queueJobPart = useCallback(async (jobId: string, data: { part_name: string; quantity?: number; serial_number?: string | null; unit_price?: number | null }) => {
+    const id = await queueOfflineMutation("create-job-part", { jobId, ...data });
+    if (supportsBackgroundSync()) {
+      registerBackgroundSync();
+    }
+    return id;
+  }, []);
+
   const triggerSync = useCallback(async () => {
     if (!isOnline) return;
     await processMutationQueue();
@@ -194,6 +213,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         queueJobCreation,
         queueJobNote,
         queueJobUpdate,
+        queueTimeEntry,
+        queueJobPart,
         triggerSync,
         discardPendingMutation,
         retryFailedMutation,

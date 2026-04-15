@@ -114,6 +114,10 @@ export function OfflineMutationsList() {
         return `Add Note to Job`;
       case "update-job":
         return `Update Job`;
+      case "create-time-entry":
+        return "Add Time Entry";
+      case "create-job-part":
+        return "Add Part";
       default:
         return "Unknown";
     }

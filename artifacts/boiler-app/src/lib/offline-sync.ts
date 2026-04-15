@@ -122,6 +122,26 @@ async function executeMutation(mutation: OfflineMutation): Promise<{ success: bo
         const { jobId: _jobId, ...updateData } = mutation.payload;
         body = JSON.stringify(updateData);
         break;
+      case "create-time-entry":
+        url = `${baseUrl}api/jobs/${mutation.payload.jobId}/time-entries`;
+        method = "POST";
+        body = JSON.stringify({
+          arrival_time: mutation.payload.arrival_time,
+          departure_time: mutation.payload.departure_time ?? null,
+          notes: mutation.payload.notes ?? null,
+          hourly_rate: mutation.payload.hourly_rate ?? null,
+        });
+        break;
+      case "create-job-part":
+        url = `${baseUrl}api/jobs/${mutation.payload.jobId}/parts`;
+        method = "POST";
+        body = JSON.stringify({
+          part_name: mutation.payload.part_name,
+          quantity: mutation.payload.quantity ?? 1,
+          serial_number: mutation.payload.serial_number ?? null,
+          unit_price: mutation.payload.unit_price ?? null,
+        });
+        break;
       default:
         return { success: false, error: `Unknown mutation type: ${mutation.type}` };
     }
