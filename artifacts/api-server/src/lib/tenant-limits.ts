@@ -12,36 +12,36 @@ interface EffectiveLimits {
 
 const JOBS_PER_ADDON_UNIT = 25;
 
-export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLimits> {
-  const [tenantRes, addonsRes] = await Promise.all([
-    supabaseAdmin
-      .from("tenants")
-      .select("plan_id, status, trial_ends_at, plans(max_users, max_jobs_per_month)")
-      .eq("id", tenantId)
-      .single(),
-    supabaseAdmin
-      .from("tenant_addons")
-      .select("quantity, addons(feature_keys)")
-      .eq("tenant_id", tenantId)
-      .eq("is_active", true),
-  ]);
+interface PreFetchedTenantData {
+  status?: string;
+  trial_ends_at?: string | null;
+  plans?: { max_users?: number; max_jobs_per_month?: number } | null;
+}
 
-  const raw = tenantRes.data as Record<string, any> | null;
-  const tenantStatus = raw?.status as string | undefined;
-  const trialEndsAt = raw?.trial_ends_at as string | undefined;
+interface PreFetchedAddon {
+  quantity?: number;
+  addons?: { feature_keys?: string[] } | null;
+}
+
+function computeLimitsFromData(
+  tenant: PreFetchedTenantData | null,
+  addons: PreFetchedAddon[] | null,
+): EffectiveLimits {
+  const tenantStatus = tenant?.status;
+  const trialEndsAt = tenant?.trial_ends_at;
   const isTrial = tenantStatus === "trial" && !!trialEndsAt && new Date(trialEndsAt) > new Date();
 
-  const plans = raw?.plans as { max_users?: number; max_jobs_per_month?: number } | null;
+  const plans = tenant?.plans;
   const baseMaxUsers = plans?.max_users ?? 999;
   const baseMaxJobsPerMonth = plans?.max_jobs_per_month ?? 9999;
 
   let addonExtraUsers = 0;
   let addonExtraJobs = 0;
 
-  if (addonsRes.data) {
-    for (const ta of addonsRes.data) {
-      const keys = (ta.addons as { feature_keys?: string[] } | null)?.feature_keys ?? [];
-      const qty = (ta as { quantity?: number }).quantity ?? 1;
+  if (addons) {
+    for (const ta of addons) {
+      const keys = ta.addons?.feature_keys ?? [];
+      const qty = ta.quantity ?? 1;
       if (keys.includes("additional_users")) {
         addonExtraUsers += qty;
       }
@@ -60,6 +60,33 @@ export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLim
     addonExtraJobs,
     isTrial,
   };
+}
+
+export function getEffectiveLimitsFromCache(
+  tenant: PreFetchedTenantData | null,
+  addons: PreFetchedAddon[] | null,
+): EffectiveLimits {
+  return computeLimitsFromData(tenant, addons);
+}
+
+export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLimits> {
+  const [tenantRes, addonsRes] = await Promise.all([
+    supabaseAdmin
+      .from("tenants")
+      .select("plan_id, status, trial_ends_at, plans(max_users, max_jobs_per_month)")
+      .eq("id", tenantId)
+      .single(),
+    supabaseAdmin
+      .from("tenant_addons")
+      .select("quantity, addons(feature_keys)")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true),
+  ]);
+
+  return computeLimitsFromData(
+    tenantRes.data as PreFetchedTenantData | null,
+    addonsRes.data as PreFetchedAddon[] | null,
+  );
 }
 
 export async function getCurrentUserCount(tenantId: string): Promise<number> {

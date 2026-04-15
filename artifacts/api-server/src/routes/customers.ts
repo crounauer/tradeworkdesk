@@ -86,7 +86,8 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
 
   let q = supabaseAdmin.from("customers").update({ is_active: false }).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  await q;
+  const { error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
   res.sendStatus(204);
 });
 

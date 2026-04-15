@@ -5,7 +5,7 @@ import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../mi
 import { sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
-import { getEffectiveLimits, getCurrentUserCount, getJobsThisMonth } from "../lib/tenant-limits";
+import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -776,8 +776,13 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   let usageLimits = null;
   if (req.tenantId) {
-    const [limits, userCount, jobCount] = await Promise.all([
-      getEffectiveLimits(req.tenantId),
+    const tenantRes = results[1] as { data: Record<string, any> | null };
+    const addonsRes = results[4] as { data: Array<{ quantity?: number; addons?: { feature_keys?: string[] } | null }> | null };
+    const limits = getEffectiveLimitsFromCache(
+      tenantRes?.data as { status?: string; trial_ends_at?: string | null; plans?: { max_users?: number; max_jobs_per_month?: number } | null } | null,
+      addonsRes?.data || null,
+    );
+    const [userCount, jobCount] = await Promise.all([
       getCurrentUserCount(req.tenantId),
       getJobsThisMonth(req.tenantId),
     ]);

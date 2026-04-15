@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useOffline } from "@/contexts/offline-context";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -17,25 +17,35 @@ const CACHE_KEYS = {
   technicians: "ref:technicians",
 } as const;
 
+const DEFER_MS = 3000;
+
 export function useOfflineReferenceDataSync() {
   const { isOnline, setCachedData } = useOffline();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => setReady(true), DEFER_MS);
+    return () => clearTimeout(id);
+  }, []);
+
+  const enabled = isOnline && ready;
 
   const { data: customers } = useListCustomers(undefined, {
     query: {
       queryKey: getListCustomersQueryKey(),
-      enabled: isOnline,
+      enabled,
     },
   });
   const { data: properties } = useListProperties(undefined, {
     query: {
       queryKey: getListPropertiesQueryKey(),
-      enabled: isOnline,
+      enabled,
     },
   });
   const { data: technicians } = useListProfiles({
     query: {
       queryKey: getListProfilesQueryKey(),
-      enabled: isOnline,
+      enabled,
     },
   });
   const { data: jobTypes } = useQuery<Array<Record<string, unknown>>>({
@@ -45,7 +55,7 @@ export function useOfflineReferenceDataSync() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: isOnline,
+    enabled,
     staleTime: 5 * 60 * 1000,
   });
 
