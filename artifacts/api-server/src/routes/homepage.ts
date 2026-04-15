@@ -177,10 +177,16 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     return q;
   };
 
+  const buildSignatureCountQuery = () => {
+    let q = supabaseAdmin.from("signatures").select("id", { count: "exact", head: true });
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    return q;
+  };
+
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
     customerCountRes, todayCountRes, overdueCountRes, completedCountRes,
-    calendarJobsRes, profilesRes, tenantFeatures, jobTypesRes, storageRes
+    calendarJobsRes, profilesRes, tenantFeatures, jobTypesRes, storageRes, signatureCountRes
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -202,6 +208,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
       ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
       : supabaseAdmin.from("job_types").select("id, name"),
     buildStorageUsageQuery(),
+    buildSignatureCountQuery(),
   ]);
 
   const tQueries = Date.now();
@@ -266,6 +273,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   const storageRows = (storageRes.data || []) as Array<{ file_size: number }>;
   const storageUsedBytes = storageRows.reduce((sum, r) => sum + (r.file_size || 0), 0);
   const storageFileCount = storageRows.length;
+  const signatureCount = signatureCountRes.count || 0;
 
   const responseBody = {
     dashboard,
@@ -278,6 +286,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     storage: {
       used_bytes: storageUsedBytes,
       file_count: storageFileCount,
+      signature_count: signatureCount,
     },
   };
 

@@ -178,7 +178,11 @@ function formatBytes(bytes: number): string {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
-function StorageUsageCard({ storage }: { storage: { used_bytes: number; file_count: number } }) {
+function StorageUsageCard({ storage }: { storage: { used_bytes: number; file_count: number; signature_count: number } }) {
+  const parts: string[] = [];
+  if (storage.file_count > 0) parts.push(`${storage.file_count} file${storage.file_count !== 1 ? "s" : ""}`);
+  if (storage.signature_count > 0) parts.push(`${storage.signature_count} signature${storage.signature_count !== 1 ? "s" : ""}`);
+
   return (
     <Card className="p-4 sm:p-5 border border-border/50 shadow-sm">
       <div className="flex items-center gap-3">
@@ -190,7 +194,7 @@ function StorageUsageCard({ storage }: { storage: { used_bytes: number; file_cou
           <p className="text-xl font-bold text-foreground">{formatBytes(storage.used_bytes)}</p>
         </div>
         <div className="text-right">
-          <p className="text-sm text-muted-foreground">{storage.file_count} file{storage.file_count !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-muted-foreground">{parts.join(", ")}</p>
         </div>
       </div>
     </Card>
