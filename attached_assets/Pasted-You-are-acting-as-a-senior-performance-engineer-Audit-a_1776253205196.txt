@@ -1,0 +1,243 @@
+You are acting as a senior performance engineer. Audit and optimise this codebase for real production performance.
+
+Your goal is to identify and FIX the actual causes of slow page loads, slow refreshes, duplicate API calls, unnecessary re-renders, auth/session delays, and backend latency.
+
+Do not just describe problems. Apply the fixes directly.
+
+## PRIMARY PERFORMANCE GOALS
+- Reduce slow page refreshes and route transitions
+- Eliminate duplicate API requests
+- Fix auth/session-related delays
+- Reduce backend endpoint latency
+- Improve frontend render efficiency
+- Make the app feel fast on mobile and desktop
+- Keep functionality exactly the same unless a change is required for performance or correctness
+
+---
+
+## STEP 1: INSTRUMENT THE APP
+Add performance logging so bottlenecks are measurable before and after fixes.
+
+### Backend
+For all major API routes, especially:
+- /api/active
+- /api/jobs
+- /api/dashboard
+- auth/session endpoints
+- any route used during page load
+
+Wrap each route and major section with timing logs such as:
+- request start
+- auth/session lookup
+- database query
+- transformation/mapping
+- response serialization
+
+Use structured logs, not noisy console spam.
+
+Example pattern:
+- request received
+- auth complete
+- db query complete
+- mapping complete
+- response sent
+- total duration
+
+### Frontend
+Measure:
+- initial page render
+- auth resolution time
+- API fetch start/end
+- hydration issues
+- repeated renders
+- duplicate requests on refresh
+- expensive components
+
+Add temporary debug logging where needed, then clean up anything too noisy.
+
+---
+
+## STEP 2: FIND AND FIX DUPLICATE FETCHING
+Audit the frontend for:
+- multiple useEffect calls triggering the same fetch
+- fetches triggered on both server and client unnecessarily
+- duplicate requests caused by auth state changes
+- fetch loops caused by dependency arrays
+- data being loaded in parent and child unnecessarily
+- repeated dashboard/job/active calls on refresh or route change
+
+Fix all of the above.
+
+Requirements:
+- each dataset should be fetched once per intended lifecycle
+- deduplicate concurrent requests
+- prevent refetch storms
+- use memoization or shared data state where appropriate
+- remove unnecessary polling unless explicitly required
+
+---
+
+## STEP 3: FIX AUTH / SESSION PERFORMANCE
+Deeply inspect auth/session flow.
+
+Look for:
+- session lookup happening multiple times per page load
+- auth state not being cached
+- token refresh or user fetch being repeated unnecessarily
+- protected routes blocking too long before rendering
+- slow refreshes caused by waiting for auth before every downstream fetch
+- server/client mismatch causing re-checks or loading loops
+
+Fix this by:
+- centralising auth/session resolution
+- caching session/user state appropriately
+- preventing duplicate auth checks
+- ensuring refresh does not cause multiple full data reload chains
+- making route guards efficient and predictable
+
+If logged-out → logged-in state changes behave differently from hard refresh, find the reason and fix it.
+
+---
+
+## STEP 4: OPTIMISE API ENDPOINTS
+Audit the slowest endpoints first, especially anything used for dashboard or homepage data.
+
+For every slow endpoint:
+- identify exact bottleneck
+- reduce work done per request
+- remove redundant queries
+- remove unnecessary joins or repeated data transformations
+- fix N+1 query patterns
+- ensure only required fields are selected
+- paginate where needed
+- move expensive derived calculations out of hot paths if possible
+
+Where relevant:
+- add indexes
+- batch related queries
+- cache repeated reads
+- simplify response payloads
+
+Target:
+- normal API responses ideally under 100–200ms unless there is a hard reason otherwise
+
+---
+
+## STEP 5: FRONTEND RENDER OPTIMISATION
+Audit the UI for render inefficiencies.
+
+Find and fix:
+- components re-rendering due to unstable props
+- unnecessary state updates
+- derived values recalculated every render
+- huge components doing too much work
+- expensive filtering/sorting inside render
+- blocking synchronous work on page load
+- poor list rendering
+- unnecessary global state causing broad rerenders
+
+Apply:
+- memoization only where it provides real value
+- stable callbacks where needed
+- splitting large components
+- lazy loading for heavy sections
+- moving expensive calculations outside render paths
+- skeleton/loading states that do not block the whole app
+
+Do not over-engineer. Prefer simple performance wins.
+
+---
+
+## STEP 6: FIX REFRESH-SPECIFIC SLOWNESS
+There is a known issue where performance is much worse on refresh than after logging out and back in.
+
+Investigate this specifically.
+
+Check for:
+- duplicate bootstrap calls
+- auth/session hydration mismatch
+- stale client state on refresh
+- cache not being reused
+- SSR/CSR duplication
+- requests firing before auth is ready, then firing again after auth resolves
+- repeated user/profile loading
+- dashboard boot sequence doing too much serially
+
+Fix the refresh path so it is as fast as or faster than the post-login path.
+
+This is a priority issue.
+
+---
+
+## STEP 7: NETWORK + PAYLOAD OPTIMISATION
+Audit request and response efficiency.
+
+- remove oversized JSON payloads
+- avoid sending unused fields
+- compress where relevant
+- reduce chained sequential requests
+- parallelise independent requests
+- avoid waterfall loading patterns
+- preload only critical data
+- defer non-critical data
+
+The first visible screen should load with the minimum required data only.
+
+---
+
+## STEP 8: DATABASE + DATA ACCESS REVIEW
+Review all database access patterns.
+
+Check:
+- repeated queries for the same entity in one request
+- missing indexes on common filters/sorts/joins
+- large scans where a targeted query is possible
+- unnecessary COUNTs
+- expensive sorts without indexes
+- poor query shapes
+
+Then:
+- optimise the query structure
+- propose indexes and APPLY them where safe
+- ensure ORM/query builder usage is not causing hidden inefficiency
+
+---
+
+## STEP 9: CACHING STRATEGY
+Introduce sensible caching where it materially improves performance.
+
+Consider:
+- request-level deduplication
+- in-memory caching for stable dashboard metadata
+- frontend cache for recently fetched user/job data
+- stale-while-revalidate patterns where appropriate
+
+Do NOT cache sensitive or highly dynamic data incorrectly.
+Do NOT introduce stale auth/session bugs.
+Use caching only where correctness remains intact.
+
+---
+
+## STEP 10: FINAL VALIDATION
+After all changes:
+
+1. Show the main bottlenecks found
+2. Show exactly what was fixed
+3. Show before/after timings for the slowest routes and page load flows
+4. Confirm whether duplicate API calls were eliminated
+5. Confirm whether refresh performance was fixed
+6. Confirm whether auth/session inefficiency was fixed
+7. Flag any remaining architectural limits honestly
+
+---
+
+## RULES
+- Do not stop at analysis
+- Do not only make suggestions
+- Implement the changes
+- Preserve existing behaviour unless a change is necessary for correctness or performance
+- Prefer simple robust fixes over clever fragile ones
+- Remove temporary debug noise before finishing, but keep useful structured performance logging
+- Treat slow refresh while logged in as a top-priority defect
+
+Start now.
