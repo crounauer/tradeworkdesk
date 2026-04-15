@@ -1,8 +1,8 @@
-import { useListJobs, useCreateJob, useCreateCustomer, useListProfiles, useListCustomers, useListProperties, getListCustomersQueryKey, getListPropertiesQueryKey, getListProfilesQueryKey } from "@workspace/api-client-react";
+import { useListJobs, useCreateJob, useCreateCustomer, useCreateProperty, useListProfiles, useListCustomers, useListProperties, getListCustomersQueryKey, getListPropertiesQueryKey, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff, Home } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { PendingSyncBadge, OfflineMutationsList } from "@/components/offline-ind
 import { cacheJob, getAllCachedJobs, type CachedJob } from "@/lib/offline-db";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
+const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 
 interface JobType {
   id: number;
@@ -602,6 +603,7 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const qc = useQueryClient();
   const createJob = useCreateJob();
   const createCustomer = useCreateCustomer();
+  const createPropertyMut = useCreateProperty();
   const { isOnline, queueJobCreation, getCachedData } = useOffline();
   const { data: onlineCustomers } = useListCustomers(undefined, {
     query: { queryKey: getListCustomersQueryKey(), enabled: isOnline },
@@ -636,12 +638,22 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
   const { profile } = useAuth();
   const { isSoleTrader } = useIsSoleTrader();
   const selectedCustomerId = watch("customer_id");
+  const { hasFeature } = usePlanFeatures();
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustFirst, setNewCustFirst] = useState("");
   const [newCustLast, setNewCustLast] = useState("");
   const [newCustEmail, setNewCustEmail] = useState("");
   const [newCustPhone, setNewCustPhone] = useState("");
   const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [showNewProperty, setShowNewProperty] = useState(false);
+  const [newPropAddr1, setNewPropAddr1] = useState("");
+  const [newPropAddr2, setNewPropAddr2] = useState("");
+  const [newPropCity, setNewPropCity] = useState("");
+  const [newPropCounty, setNewPropCounty] = useState("");
+  const [newPropPostcode, setNewPropPostcode] = useState("");
+  const [newPropLat, setNewPropLat] = useState<number | null>(null);
+  const [newPropLng, setNewPropLng] = useState<number | null>(null);
+  const [creatingProperty, setCreatingProperty] = useState(false);
   const [prevCustomerId, setPrevCustomerId] = useState("");
   const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -683,6 +695,48 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setCreatingCustomer(false);
+    }
+  };
+
+  const handleCreateProperty = async () => {
+    if (!selectedCustomerId) {
+      toast({ title: "Error", description: "Select or create a customer first", variant: "destructive" });
+      return;
+    }
+    if (!newPropAddr1 || !newPropPostcode) {
+      toast({ title: "Error", description: "Address line 1 and postcode are required", variant: "destructive" });
+      return;
+    }
+    setCreatingProperty(true);
+    try {
+      const newProp = await createPropertyMut.mutateAsync({
+        data: {
+          customer_id: selectedCustomerId,
+          address_line1: newPropAddr1,
+          address_line2: newPropAddr2 || undefined,
+          city: newPropCity || undefined,
+          county: newPropCounty || undefined,
+          postcode: newPropPostcode,
+          latitude: newPropLat,
+          longitude: newPropLng,
+        } as { customer_id: string; address_line1: string; postcode: string },
+      });
+      await qc.refetchQueries({ queryKey: getListPropertiesQueryKey() });
+      setTimeout(() => setValue("property_id", newProp.id), 50);
+      setShowNewProperty(false);
+      setNewPropAddr1("");
+      setNewPropAddr2("");
+      setNewPropCity("");
+      setNewPropCounty("");
+      setNewPropPostcode("");
+      setNewPropLat(null);
+      setNewPropLng(null);
+      toast({ title: "Property created", description: `${newPropAddr1}, ${newPropPostcode} added` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not create property";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setCreatingProperty(false);
     }
   };
 
@@ -834,20 +888,71 @@ function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobT
           </div>
         )}
         <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Property *</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("property_id")}>
-            <option value="">Select property...</option>
-            {filteredProperties?.map(p => (
-              <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
-            ))}
-          </select>
-          {selectedCustomerId && filteredProperties?.length === 0 && (
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-muted-foreground mb-1 block">Property *</label>
+              <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required={!showNewProperty} {...register("property_id")}>
+                <option value="">Select property...</option>
+                {filteredProperties?.map(p => (
+                  <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
+                ))}
+              </select>
+            </div>
+            {isOnline && selectedCustomerId && (
+              <Button type="button" variant="outline" size="icon" className="shrink-0 mb-0.5" title="Add new property" onClick={() => setShowNewProperty(!showNewProperty)}>
+                {showNewProperty ? <X className="w-4 h-4" /> : <Home className="w-4 h-4" />}
+              </Button>
+            )}
+          </div>
+          {selectedCustomerId && filteredProperties?.length === 0 && !showNewProperty && (
             <p className="text-xs text-amber-600 mt-1">
-              No properties found for this customer.{" "}
-              <Link href={`/customers/${selectedCustomerId}?addProperty=1`} className="underline font-medium">Add a property first</Link>
+              No properties for this customer. Click <Home className="w-3 h-3 inline" /> to add one.
             </p>
           )}
         </div>
+        {showNewProperty && selectedCustomerId && (
+          <div className="md:col-span-2 border border-primary/20 rounded-lg p-4 bg-background space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2"><Home className="w-4 h-4" /> Quick Add Property</h4>
+            {hasFeature("geo_mapping") && (
+              <Suspense fallback={null}>
+                <PostcodeAddressFinder
+                  onAddressSelected={(addr) => {
+                    setNewPropAddr1(addr.address_line1);
+                    setNewPropAddr2(addr.address_line2);
+                    setNewPropCity(addr.city);
+                    setNewPropCounty(addr.county);
+                    setNewPropPostcode(addr.postcode);
+                    if (addr.latitude && addr.longitude) {
+                      setNewPropLat(addr.latitude);
+                      setNewPropLng(addr.longitude);
+                    }
+                  }}
+                />
+              </Suspense>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input placeholder="Address Line 1 *" value={newPropAddr1} onChange={e => setNewPropAddr1(e.target.value)} />
+              <Input placeholder="Address Line 2" value={newPropAddr2} onChange={e => setNewPropAddr2(e.target.value)} />
+              <Input placeholder="City" value={newPropCity} onChange={e => setNewPropCity(e.target.value)} />
+              <Input placeholder="County" value={newPropCounty} onChange={e => setNewPropCounty(e.target.value)} />
+              <Input placeholder="Postcode *" value={newPropPostcode} onChange={e => setNewPropPostcode(e.target.value)} />
+            </div>
+            {newPropLat != null && newPropLng != null && (
+              <p className="text-xs text-muted-foreground font-mono">Coordinates: {newPropLat.toFixed(6)}, {newPropLng.toFixed(6)}</p>
+            )}
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={handleCreateProperty} disabled={creatingProperty || !newPropAddr1 || !newPropPostcode}>
+                {creatingProperty ? "Creating..." : "Create Property"}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewProperty(false)}>Cancel</Button>
+            </div>
+          </div>
+        )}
+        {showNewProperty && !selectedCustomerId && (
+          <div className="md:col-span-2">
+            <p className="text-xs text-amber-600">Select or create a customer first before adding a property.</p>
+          </div>
+        )}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-1 block">Job Type *</label>
           <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
