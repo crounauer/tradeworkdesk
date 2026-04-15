@@ -150,8 +150,37 @@ router.post("/portal/register", async (req: CustomerPortalRequest, res): Promise
   });
 
   if (authErr) {
-    if (authErr.message?.includes("already been registered") || authErr.message?.includes("already exists")) {
-      res.status(400).json({ error: "An account with this email already exists. Please sign in instead." });
+    const isDuplicate = authErr.message?.includes("already been registered") || authErr.message?.includes("already exists");
+    if (isDuplicate) {
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+      const existingUser = listData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase().trim());
+      if (!existingUser) {
+        const { data: allUsers } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const found = allUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase().trim());
+        if (!found) {
+          res.status(400).json({ error: "An account with this email already exists but could not be resolved. Please contact support." });
+          return;
+        }
+        const { error: linkErr } = await supabaseAdmin
+          .from("customer_portal_users")
+          .update({ auth_user_id: found.id, updated_at: new Date().toISOString() })
+          .eq("id", invite.id);
+        if (linkErr) {
+          res.status(500).json({ error: "Failed to link existing account. Contact your service provider." });
+          return;
+        }
+        res.json({ success: true, message: "Your existing account has been linked. You can now sign in with your existing password." });
+        return;
+      }
+      const { error: linkErr } = await supabaseAdmin
+        .from("customer_portal_users")
+        .update({ auth_user_id: existingUser.id, updated_at: new Date().toISOString() })
+        .eq("id", invite.id);
+      if (linkErr) {
+        res.status(500).json({ error: "Failed to link existing account. Contact your service provider." });
+        return;
+      }
+      res.json({ success: true, message: "Your existing account has been linked. You can now sign in with your existing password." });
       return;
     }
     res.status(400).json({ error: authErr.message || "Failed to create account" });
