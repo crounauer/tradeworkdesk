@@ -3,19 +3,6 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { GlobalSearchQueryParams, GlobalSearchResponse } from "@workspace/api-zod";
 
-interface ApplianceSearchRow {
-  id: string;
-  manufacturer: string | null;
-  model: string | null;
-  serial_number: string | null;
-  boiler_type: string | null;
-  fuel_type: string | null;
-  is_active: boolean;
-  property_id: string;
-  properties?: { address_line1: string } | null;
-  [key: string]: unknown;
-}
-
 interface JobSearchRow {
   id: string;
   customer_id: string;
@@ -52,12 +39,6 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
     .limit(10);
   if (tid) propertiesQ = propertiesQ.eq("tenant_id", tid);
 
-  let appliancesQ = supabaseAdmin
-    .from("appliances").select("*, properties(address_line1)").eq("is_active", true)
-    .or(`manufacturer.ilike.${s},model.ilike.${s},serial_number.ilike.${s}`)
-    .limit(10);
-  if (tid) appliancesQ = appliancesQ.eq("tenant_id", tid);
-
   let jobsQuery = supabaseAdmin
     .from("jobs")
     .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
@@ -70,15 +51,9 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
     jobsQuery = jobsQuery.eq("assigned_technician_id", req.userId!);
   }
 
-  const [customersRes, propertiesRes, appliancesRes, jobsRes] = await Promise.all([
-    customersQ, propertiesQ, appliancesQ, jobsQuery,
+  const [customersRes, propertiesRes, jobsRes] = await Promise.all([
+    customersQ, propertiesQ, jobsQuery,
   ]);
-
-  const mappedAppliances = (appliancesRes.data as ApplianceSearchRow[] || []).map((a) => ({
-    ...a,
-    property_address: a.properties?.address_line1 || null,
-    properties: undefined,
-  }));
 
   const mappedJobs = (jobsRes.data as JobSearchRow[] || []).map((j) => ({
     ...j,
@@ -93,7 +68,7 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
   res.json(GlobalSearchResponse.parse({
     customers: customersRes.data || [],
     properties: propertiesRes.data || [],
-    appliances: mappedAppliances,
+    appliances: [],
     jobs: mappedJobs,
   }));
 });

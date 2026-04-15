@@ -57,8 +57,6 @@ const Customers = lazyRetry(() => import("@/pages/customers"));
 const CustomerDetail = lazyRetry(() => import("@/pages/customer-detail"));
 const Properties = lazyRetry(() => import("@/pages/properties"));
 const PropertyDetail = lazyRetry(() => import("@/pages/property-detail"));
-const Appliances = lazyRetry(() => import("@/pages/appliances"));
-const ApplianceDetail = lazyRetry(() => import("@/pages/appliance-detail"));
 const Jobs = lazyRetry(() => import("@/pages/jobs"));
 const JobDetail = lazyRetry(() => import("@/pages/job-detail"));
 const ServiceRecordForm = lazyRetry(() => import("@/pages/service-record-form"));
@@ -280,9 +278,6 @@ function AppRouter() {
 
         <Route path="/properties" component={() => <ProtectedRoute component={Properties} />} />
         <Route path="/properties/:id" component={() => <ProtectedRoute component={PropertyDetail} />} />
-
-        <Route path="/appliances" component={() => <ProtectedRoute component={Appliances} />} />
-        <Route path="/appliances/:id" component={() => <ProtectedRoute component={ApplianceDetail} />} />
 
         <Route path="/jobs" component={() => <ProtectedRoute component={Jobs} />} />
         <Route path="/jobs/:id" component={() => <ProtectedRoute component={JobDetail} />} />

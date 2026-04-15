@@ -16,14 +16,13 @@ function SearchContent() {
   const totalResults =
     (data?.customers?.length || 0) +
     (data?.properties?.length || 0) +
-    (data?.appliances?.length || 0) +
     (data?.jobs?.length || 0);
 
   return (
     <div className="space-y-6 animate-in fade-in">
       <div>
         <h1 className="text-3xl font-display font-bold">Search</h1>
-        <p className="text-muted-foreground mt-1">Find customers, properties, appliances, and jobs</p>
+        <p className="text-muted-foreground mt-1">Find customers, properties, and jobs</p>
       </div>
 
       <div className="flex items-center relative max-w-xl">
@@ -78,24 +77,6 @@ function SearchContent() {
                         <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                           <p className="font-bold">{p.address_line1}</p>
                           <p className="text-sm text-muted-foreground">{p.city} {p.postcode}</p>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {data?.appliances && data.appliances.length > 0 && (
-                <div>
-                  <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-orange-500" /> Appliances ({data.appliances.length})
-                  </h2>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.appliances.map((a) => (
-                      <Link key={a.id} href={`/appliances/${a.id}`}>
-                        <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
-                          <p className="font-bold">{a.manufacturer} {a.model}</p>
-                          <p className="text-sm text-muted-foreground font-mono">SN: {a.serial_number}</p>
                         </Card>
                       </Link>
                     ))}

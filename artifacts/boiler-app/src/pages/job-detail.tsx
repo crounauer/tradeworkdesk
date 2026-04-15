@@ -635,13 +635,6 @@ export default function JobDetail() {
               </div>
             </Card>
             
-            {job.appliance && (
-              <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
-                <h3 className="font-bold mb-4 flex items-center gap-2"><Flame className="w-5 h-5"/> Appliance</h3>
-                <p className="font-bold">{job.appliance.manufacturer} {job.appliance.model}</p>
-                <p className="text-sm text-muted-foreground font-mono mt-1">SN: {job.appliance.serial_number}</p>
-              </Card>
-            )}
           </div>
         </div>
         </>

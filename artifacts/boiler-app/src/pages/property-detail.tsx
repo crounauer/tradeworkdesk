@@ -1,10 +1,10 @@
-import { useGetProperty, useCreateAppliance, useUpdateProperty } from "@workspace/api-client-react";
+import { useGetProperty, useUpdateProperty } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Home, Flame, MapPin, Briefcase, Plus, X, Edit, Check } from "lucide-react";
+import { ArrowLeft, Home, MapPin, Briefcase, X, Edit, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
@@ -16,14 +16,6 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
-
-type ApplianceFormData = {
-  manufacturer: string;
-  model: string;
-  boiler_type?: string;
-  fuel_type?: string;
-  installation_date?: string;
-};
 
 type PropertyEditData = {
   address_line1: string;
@@ -46,7 +38,6 @@ type PropertyEditData = {
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: property, isLoading, error } = useGetProperty(id);
-  const [showApplianceForm, setShowApplianceForm] = useState(false);
   const [editing, setEditing] = useState(false);
   const { hasFeature } = usePlanFeatures();
 
@@ -140,44 +131,6 @@ export default function PropertyDetail() {
           </Card>
 
           <div className="lg:col-span-2 space-y-6">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-display font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> Appliances</h2>
-                <Button size="sm" variant="secondary" onClick={() => setShowApplianceForm(!showApplianceForm)}>
-                  {showApplianceForm ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Plus className="w-4 h-4 mr-2"/> Add Appliance</>}
-                </Button>
-              </div>
-
-              {showApplianceForm && (
-                <AddApplianceForm propertyId={property.id} onClose={() => setShowApplianceForm(false)} />
-              )}
-
-              {!property.appliances || property.appliances.length === 0 ? (
-                <Card className="p-8 text-center border-dashed">
-                  <Flame className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-muted-foreground">No appliances at this property.</p>
-                </Card>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {property.appliances.map((app) => (
-                    <Link key={app.id} href={`/appliances/${app.id}`}>
-                      <Card className="p-5 border border-border/50 hover:border-orange-500/30 transition-colors cursor-pointer">
-                        <h4 className="font-bold">{app.manufacturer} {app.model}</h4>
-                        {app.boiler_type && <p className="text-sm text-muted-foreground capitalize mt-1">{app.boiler_type} - {app.fuel_type}</p>}
-                        {app.next_service_due && (
-                          <p className="text-sm mt-2">
-                            Next service: <span className={new Date(app.next_service_due) < new Date() ? "text-destructive font-bold" : "text-emerald-600 font-medium"}>
-                              {formatDate(app.next_service_due)}
-                            </span>
-                          </p>
-                        )}
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {property.recent_jobs && property.recent_jobs.length > 0 && (
               <div>
                 <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-purple-500" /> Recent Jobs</h2>
@@ -377,64 +330,3 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
   );
 }
 
-function AddApplianceForm({ propertyId, onClose }: { propertyId: string; onClose: () => void }) {
-  const qc = useQueryClient();
-  const create = useCreateAppliance();
-  const { toast } = useToast();
-  const { register, handleSubmit } = useForm<ApplianceFormData>();
-  const { data: boilerTypes } = useLookupOptions("boiler_type");
-  const { data: fuelTypes } = useLookupOptions("fuel_type");
-
-  const onSubmit = async (data: ApplianceFormData) => {
-    try {
-      await create.mutateAsync({
-        data: {
-          property_id: propertyId,
-          manufacturer: data.manufacturer || undefined,
-          model: data.model || undefined,
-          boiler_type: data.boiler_type || undefined,
-          fuel_type: data.fuel_type || undefined,
-          installation_date: data.installation_date || undefined,
-        }
-      });
-      qc.invalidateQueries({ queryKey: [`/api/properties/${propertyId}`] });
-      toast({ title: "Added", description: "Appliance added successfully" });
-      onClose();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  return (
-    <Card className="p-6 border-orange-500/20 shadow-lg bg-orange-50/50 mb-4">
-      <h3 className="font-bold text-lg mb-4">Add New Appliance</h3>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input placeholder="Manufacturer" {...register("manufacturer")} />
-        <Input placeholder="Model" {...register("model")} />
-        <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("boiler_type")}>
-          <option value="">Boiler Type...</option>
-          {(boilerTypes || []).map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_type")}>
-          <option value="">Fuel Type...</option>
-          {(fuelTypes || []).map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <div>
-          <label className="text-sm text-muted-foreground mb-1 block">Installation Date</label>
-          <Input type="date" {...register("installation_date")} />
-        </div>
-        <div className="md:col-span-2 flex gap-3">
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Adding..." : "Add Appliance"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        </div>
-      </form>
-    </Card>
-  );
-}

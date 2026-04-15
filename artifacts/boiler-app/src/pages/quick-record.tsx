@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useListCustomers, useListProperties } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,20 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Zap, ChevronRight, ChevronLeft, Users, Home, Flame,
+  Zap, ChevronRight, ChevronLeft, Users, Home,
   FileText, Wrench, ClipboardCheck, Droplets, ShieldAlert,
   Gauge, Settings, ShieldCheck as ShieldCheckIcon, Pipette, ClipboardList, Wind,
   Plus, X
 } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 
-interface Appliance {
-  id: string;
-  manufacturer: string;
-  model: string;
-  serial_number: string;
-  property_id: string;
-}
+
 
 const FORM_TYPES = [
   { key: "service-record", label: "Service Record", icon: FileText, color: "blue", description: "Complete full inspection", feature: null },
@@ -169,7 +163,6 @@ export default function QuickRecord() {
   const [step, setStep] = useState(0);
   const [customerId, setCustomerId] = useState("");
   const [propertyId, setPropertyId] = useState("");
-  const [applianceId, setApplianceId] = useState("");
   const [formType, setFormType] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -185,16 +178,6 @@ export default function QuickRecord() {
 
   const { data: customers } = useListCustomers();
   const { data: properties } = useListProperties();
-  const { data: appliances } = useQuery<Appliance[]>({
-    queryKey: ["appliances-for-property", propertyId],
-    queryFn: async () => {
-      if (!propertyId) return [];
-      const res = await fetch(`/api/appliances?property_id=${propertyId}`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!propertyId,
-  });
 
   const filteredCustomers = customers?.filter((c) => {
     if (!searchTerm) return true;
@@ -220,7 +203,6 @@ export default function QuickRecord() {
         body: JSON.stringify({
           customer_id: customerId,
           property_id: propertyId,
-          appliance_id: applianceId || undefined,
           form_type: formType,
         }),
       });
@@ -242,15 +224,13 @@ export default function QuickRecord() {
   const steps = [
     { label: "Customer", icon: Users },
     { label: "Property", icon: Home },
-    { label: "Appliance", icon: Flame },
     { label: "Form Type", icon: FileText },
   ];
 
   const canProceed = () => {
     if (step === 0) return !!customerId;
     if (step === 1) return !!propertyId;
-    if (step === 2) return true;
-    if (step === 3) return !!formType;
+    if (step === 2) return !!formType;
     return false;
   };
 
@@ -299,7 +279,6 @@ export default function QuickRecord() {
                 onCreated={(id) => {
                   setCustomerId(id);
                   setPropertyId("");
-                  setApplianceId("");
                   setShowCreateCustomer(false);
                 }}
                 onCancel={() => setShowCreateCustomer(false)}
@@ -314,7 +293,7 @@ export default function QuickRecord() {
               {filteredCustomers?.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => { setCustomerId(c.id); setPropertyId(""); setApplianceId(""); }}
+                  onClick={() => { setCustomerId(c.id); setPropertyId(""); }}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                     customerId === c.id
                       ? "bg-primary/10 border border-primary/30 text-primary font-semibold"
@@ -350,7 +329,6 @@ export default function QuickRecord() {
                 customerId={customerId}
                 onCreated={(id) => {
                   setPropertyId(id);
-                  setApplianceId("");
                   setShowCreateProperty(false);
                 }}
                 onCancel={() => setShowCreateProperty(false)}
@@ -360,7 +338,7 @@ export default function QuickRecord() {
               {filteredProperties?.map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => { setPropertyId(p.id); setApplianceId(""); }}
+                  onClick={() => { setPropertyId(p.id); }}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                     propertyId === p.id
                       ? "bg-primary/10 border border-primary/30 text-primary font-semibold"
@@ -384,41 +362,6 @@ export default function QuickRecord() {
         )}
 
         {step === 2 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold flex items-center gap-2"><Flame className="w-5 h-5" /> Select Appliance (Optional)</h2>
-            <p className="text-sm text-muted-foreground">
-              Property: <span className="font-semibold text-foreground">{selectedProperty?.address_line1}</span>
-            </p>
-            <div className="max-h-64 overflow-y-auto space-y-1">
-              <button
-                onClick={() => setApplianceId("")}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                  !applianceId
-                    ? "bg-primary/10 border border-primary/30 text-primary font-semibold"
-                    : "hover:bg-slate-50 border border-transparent"
-                }`}
-              >
-                <p className="font-medium">No appliance / General</p>
-              </button>
-              {appliances?.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => setApplianceId(a.id)}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    applianceId === a.id
-                      ? "bg-primary/10 border border-primary/30 text-primary font-semibold"
-                      : "hover:bg-slate-50 border border-transparent"
-                  }`}
-                >
-                  <p className="font-medium">{a.manufacturer} {a.model}</p>
-                  <p className="text-xs text-muted-foreground font-mono">SN: {a.serial_number}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold flex items-center gap-2"><FileText className="w-5 h-5" /> Select Form Type</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -452,7 +395,7 @@ export default function QuickRecord() {
             <ChevronLeft className="w-4 h-4 mr-1" /> Back
           </Button>
 
-          {step < 3 ? (
+          {step < 2 ? (
             <Button onClick={() => setStep(step + 1)} disabled={!canProceed()}>
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </Button>

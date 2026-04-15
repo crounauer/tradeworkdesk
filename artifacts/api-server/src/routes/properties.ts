@@ -109,8 +109,6 @@ router.get("/properties/:id", requireAuth, requireTenant, async (req: Authentica
 
   const { data: customer } = await supabaseAdmin
     .from("customers").select("*").eq("id", property.customer_id).single();
-  const { data: appliances } = await supabaseAdmin
-    .from("appliances").select("*").eq("property_id", params.data.id).eq("is_active", true);
   const { data: jobs } = await supabaseAdmin
     .from("jobs").select("*, customers(first_name, last_name), profiles(full_name)")
     .eq("property_id", params.data.id).eq("is_active", true).order("scheduled_date", { ascending: false }).limit(10);
@@ -127,7 +125,7 @@ router.get("/properties/:id", requireAuth, requireTenant, async (req: Authentica
   res.json(GetPropertyResponse.parse({
     ...property,
     customer: customer || undefined,
-    appliances: appliances || [],
+    appliances: [],
     recent_jobs: mappedJobs,
   }));
 });

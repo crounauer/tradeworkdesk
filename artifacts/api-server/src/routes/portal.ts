@@ -294,37 +294,6 @@ router.get("/portal/properties", requireCustomerAuth, async (req: CustomerPortal
   res.json(properties || []);
 });
 
-router.get("/portal/properties/:propertyId/appliances", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const { propertyId } = req.params;
-
-  const { data: property } = await supabaseAdmin
-    .from("properties")
-    .select("id")
-    .eq("id", propertyId)
-    .eq("customer_id", req.customerId!)
-    .eq("is_active", true)
-    .single();
-
-  if (!property) {
-    res.status(404).json({ error: "Property not found" });
-    return;
-  }
-
-  const { data: appliances, error } = await supabaseAdmin
-    .from("appliances")
-    .select("id, manufacturer, model, serial_number, boiler_type, fuel_type, installation_date, last_service_date, next_service_due")
-    .eq("property_id", propertyId)
-    .eq("is_active", true)
-    .order("manufacturer");
-
-  if (error) {
-    res.status(500).json({ error: error.message });
-    return;
-  }
-
-  res.json(appliances || []);
-});
-
 router.get("/portal/jobs", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
   const { data: jobs, error } = await supabaseAdmin
     .from("jobs")

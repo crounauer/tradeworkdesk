@@ -141,15 +141,6 @@ export default function PortalJobDetail() {
               <p className="font-medium text-slate-900">{job.property_address}</p>
             </Card>
           )}
-          {job.appliance_name && (
-            <Card className="p-4 border border-slate-200">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                <Wrench className="w-4 h-4" />
-                <span>Appliance</span>
-              </div>
-              <p className="font-medium text-slate-900">{job.appliance_name}</p>
-            </Card>
-          )}
         </div>
 
         {job.description && (
