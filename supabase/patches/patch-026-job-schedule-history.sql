@@ -2,10 +2,10 @@
 -- Run this in your Supabase SQL Editor
 
 CREATE TABLE IF NOT EXISTS job_schedule_history (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  changed_by UUID REFERENCES auth.users(id),
+  changed_by UUID REFERENCES profiles(id),
   previous_date DATE,
   previous_time TIME,
   new_date DATE,
