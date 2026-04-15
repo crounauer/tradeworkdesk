@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
+import { geocodeAddress } from "../lib/geocode";
 import {
   ListPropertiesQueryParams,
   ListPropertiesResponse,
@@ -81,7 +82,18 @@ router.post("/properties", requireAuth, requireTenant, requireRole("admin", "off
   );
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const { data, error } = await supabaseAdmin.from("properties").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
+  const insertData: Record<string, unknown> = { ...parsed.data, tenant_id: req.tenantId };
+
+  if (insertData.latitude == null || insertData.longitude == null) {
+    const addressStr = [parsed.data.address_line1, parsed.data.address_line2, parsed.data.city, parsed.data.county, parsed.data.postcode].filter(Boolean).join(", ");
+    const geo = await geocodeAddress(addressStr, req.tenantId).catch(() => null);
+    if (geo) {
+      insertData.latitude = geo.latitude;
+      insertData.longitude = geo.longitude;
+    }
+  }
+
+  const { data, error } = await supabaseAdmin.from("properties").insert(insertData).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(data);
 });
@@ -133,7 +145,25 @@ router.patch("/properties/:id", requireAuth, requireTenant, requireRole("admin",
     if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
   }
 
-  let q = supabaseAdmin.from("properties").update(body.data).eq("id", params.data.id);
+  const updateData: Record<string, unknown> = { ...body.data };
+
+  const addressChanged = body.data.address_line1 != null || body.data.address_line2 != null || body.data.city != null || body.data.county != null || body.data.postcode != null;
+  const hasExplicitCoords = body.data.latitude != null || body.data.longitude != null;
+
+  if (addressChanged && !hasExplicitCoords) {
+    let existingQ = supabaseAdmin.from("properties").select("address_line1, address_line2, city, county, postcode").eq("id", params.data.id);
+    if (req.tenantId) existingQ = existingQ.eq("tenant_id", req.tenantId);
+    const { data: existing } = await existingQ.single();
+    const merged = { ...existing, ...body.data };
+    const addressStr = [merged.address_line1, merged.address_line2, merged.city, merged.county, merged.postcode].filter(Boolean).join(", ");
+    const geo = await geocodeAddress(addressStr, req.tenantId).catch(() => null);
+    if (geo) {
+      updateData.latitude = geo.latitude;
+      updateData.longitude = geo.longitude;
+    }
+  }
+
+  let q = supabaseAdmin.from("properties").update(updateData).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Property not found" }); return; }

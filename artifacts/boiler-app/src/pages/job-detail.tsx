@@ -361,7 +361,7 @@ export default function JobDetail() {
                 <Link href={`/properties/${job.property_id}`} className="text-sm text-muted-foreground hover:underline truncate">
                   {job.property?.address_line1}{job.property?.postcode ? `, ${job.property.postcode}` : ""}
                 </Link>
-                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 flex-shrink-0" title="Open in Maps">
+                <a href={job.property?.latitude != null && job.property?.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${job.property.latitude},${job.property.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 flex-shrink-0" title="Open in Maps">
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
@@ -629,7 +629,7 @@ export default function JobDetail() {
               </p>
               <div className="flex items-center gap-3 mt-2">
                 <Link href={`/properties/${job.property_id}`} className="text-sm text-primary hover:underline">View Property</Link>
-                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                <a href={job.property?.latitude != null && job.property?.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${job.property.latitude},${job.property.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
                   <ExternalLink className="w-3.5 h-3.5" /> Maps
                 </a>
               </div>
