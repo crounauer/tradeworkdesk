@@ -303,10 +303,13 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
     setDragOverDate(null);
   }, []);
 
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+
   const handleDrop = useCallback(
-    async (e: DragEvent<HTMLDivElement>, newDateStr: string) => {
+    async (e: DragEvent<HTMLDivElement>, newDateStr: string, newTime?: string | null) => {
       e.preventDefault();
       setDragOverDate(null);
+      setDragOverSlot(null);
       setDragJobId(null);
       if (!canDrag) return;
 
@@ -317,13 +320,20 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
       if (!job) return;
 
       const oldDateStr = String(job.scheduled_date).slice(0, 10);
-      if (oldDateStr === newDateStr) return;
+      const oldTime = job.scheduled_time || null;
+      const timeChanged = newTime !== undefined && newTime !== oldTime;
+      const dateChanged = oldDateStr !== newDateStr;
+      if (!dateChanged && !timeChanged) return;
 
-      const updateData: Record<string, string> = {
-        scheduled_date: newDateStr,
-      };
+      const updateData: Record<string, string | null> = {};
+      if (dateChanged) {
+        updateData.scheduled_date = newDateStr;
+      }
+      if (newTime !== undefined) {
+        updateData.scheduled_time = newTime;
+      }
 
-      if (job.scheduled_end_date) {
+      if (dateChanged && job.scheduled_end_date) {
         const oldStart = new Date(oldDateStr + "T00:00:00");
         const oldEnd = new Date(
           String(job.scheduled_end_date).slice(0, 10) + "T00:00:00"
@@ -342,9 +352,19 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
         });
         qc.invalidateQueries({ queryKey: ["/api/jobs"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+        qc.invalidateQueries({ queryKey: ["homepage"] });
+        const parts: string[] = [];
+        if (dateChanged) {
+          parts.push(new Date(newDateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }));
+        }
+        if (timeChanged && newTime) {
+          parts.push(formatTime(newTime));
+        } else if (timeChanged && !newTime) {
+          parts.push("no set time");
+        }
         toast({
           title: "Job rescheduled",
-          description: `Moved to ${new Date(newDateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`,
+          description: `Moved to ${parts.join(" at ")}`,
         });
       } catch {
         toast({
@@ -497,11 +517,19 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
             <div className="bg-background">
               {HOURS.map((hour) => {
                 const jobs = jobsByHour[hour] || [];
-                const label = `${hour.toString().padStart(2, "0")}:00`;
+                const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+                const slotKey = `${ds}-${hour}`;
+                const isSlotTarget = dragOverSlot === slotKey;
                 return (
-                  <div key={hour} className="flex border-b border-border/50 last:border-b-0 min-h-[52px]">
+                  <div
+                    key={hour}
+                    className={`flex border-b border-border/50 last:border-b-0 min-h-[52px] transition-colors ${isSlotTarget ? "bg-primary/10" : ""}`}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverSlot(slotKey); setDragOverDate(null); }}
+                    onDragLeave={() => setDragOverSlot(null)}
+                    onDrop={(e) => handleDrop(e, ds, timeStr)}
+                  >
                     <div className="w-16 shrink-0 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 border-r border-border/50 flex items-start justify-end pt-2">
-                      {label}
+                      {timeStr}
                     </div>
                     <div className="flex-1 p-1.5 space-y-1">
                       {jobs.map((job) => (
@@ -510,9 +538,12 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                           data-job-card
                           role="button"
                           tabIndex={0}
+                          draggable={canDrag}
+                          onDragStart={(e) => handleDragStart(e, job.id)}
+                          onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                           onClick={(e) => handleJobClick(e, job.id)}
                           onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} hover:shadow-sm`}
+                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                         >
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
@@ -537,9 +568,19 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                 );
               })}
 
-              {unscheduled.length > 0 && (
+              {(() => {
+                const noTimeSlotKey = `${ds}-notime`;
+                const isNoTimeTarget = dragOverSlot === noTimeSlotKey;
+                const showNoTime = unscheduled.length > 0 || dragJobId;
+                if (!showNoTime) return null;
+                return (
                 <div className="border-t-2 border-dashed border-border">
-                  <div className="flex min-h-[52px]">
+                  <div
+                    className={`flex min-h-[52px] transition-colors ${isNoTimeTarget ? "bg-primary/10" : ""}`}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverSlot(noTimeSlotKey); setDragOverDate(null); }}
+                    onDragLeave={() => setDragOverSlot(null)}
+                    onDrop={(e) => handleDrop(e, ds, null)}
+                  >
                     <div className="w-16 shrink-0 px-2 py-2 text-[10px] font-medium text-muted-foreground bg-muted/30 border-r border-border/50 flex items-start justify-end pt-2">
                       No time
                     </div>
@@ -550,9 +591,12 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                           data-job-card
                           role="button"
                           tabIndex={0}
+                          draggable={canDrag}
+                          onDragStart={(e) => handleDragStart(e, job.id)}
+                          onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                           onClick={(e) => handleJobClick(e, job.id)}
                           onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} hover:shadow-sm`}
+                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                         >
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
@@ -572,7 +616,8 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             {visibleTechs.length > 0 && dayJobs.length > 0 && (
