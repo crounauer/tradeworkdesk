@@ -27,5 +27,20 @@
   <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body>
     <div id="root"></div>
+    <script>
+      (function(){
+        var v = "sw-v2";
+        if (navigator.serviceWorker && localStorage.getItem("sw-version") !== v) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+            caches.keys().then(function(names) {
+              names.forEach(function(n) { caches.delete(n); });
+            });
+            localStorage.setItem("sw-version", v);
+            if (regs.length > 0) location.reload();
+          });
+        }
+      })();
+    </script>
   </body>
 </html>
