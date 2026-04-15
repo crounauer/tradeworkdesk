@@ -26,10 +26,12 @@ export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLim
       .eq("is_active", true),
   ]);
 
-  const tenantData = tenantRes.data as { status?: string; trial_ends_at?: string } | null;
-  const isTrial = tenantData?.status === "trial" && !!tenantData?.trial_ends_at && new Date(tenantData.trial_ends_at) > new Date();
+  const raw = tenantRes.data as Record<string, any> | null;
+  const tenantStatus = raw?.status as string | undefined;
+  const trialEndsAt = raw?.trial_ends_at as string | undefined;
+  const isTrial = tenantStatus === "trial" && !!trialEndsAt && new Date(trialEndsAt) > new Date();
 
-  const plans = tenantRes.data?.plans as { max_users?: number; max_jobs_per_month?: number } | null;
+  const plans = raw?.plans as { max_users?: number; max_jobs_per_month?: number } | null;
   const baseMaxUsers = plans?.max_users ?? 999;
   const baseMaxJobsPerMonth = plans?.max_jobs_per_month ?? 9999;
 
