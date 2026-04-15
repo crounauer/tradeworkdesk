@@ -499,14 +499,9 @@ export default function PlatformAddons() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold">Pricing & Add-ons</h1>
-          <p className="text-muted-foreground">Manage base plan pricing and selectable add-on packages</p>
-        </div>
-        <Button onClick={() => { setShowNew(true); setForm(EMPTY_FORM); setEditingId(null); }}>
-          <Plus className="w-4 h-4 mr-2" />New Add-on
-        </Button>
+      <div>
+        <h1 className="text-2xl font-display font-bold">Pricing & Add-ons</h1>
+        <p className="text-muted-foreground">Manage base plan pricing and selectable add-on packages</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
