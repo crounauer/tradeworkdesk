@@ -125,6 +125,9 @@ export default function PropertyDetail() {
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono">{property.latitude.toFixed(6)}, {property.longitude.toFixed(6)}</p>
+                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
+                    <PropertyMapPreview latitude={property.latitude} longitude={property.longitude} />
+                  </Suspense>
                 </div>
               )}
             </div>
