@@ -65,6 +65,7 @@ export default function Dashboard() {
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
+  const hasAddressLookup = hasFeature("uk_address_lookup");
 
   const checkJobLimit = useCallback(() => {
     const limits = initData?.usageLimits;
@@ -534,7 +535,7 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                   </div>
                   <div className="border-t pt-4 space-y-4">
                     <p className="text-sm font-medium text-muted-foreground">Property Address</p>
-                    {hasFeature("uk_address_lookup") && (
+                    {hasAddressLookup && (
                       <Suspense fallback={null}>
                         <PostcodeAddressFinder
                           onAddressSelected={(addr) => {
