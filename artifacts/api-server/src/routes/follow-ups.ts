@@ -56,7 +56,7 @@ router.get("/follow-ups/overdue-count", requireAuth, requireTenant, requirePlanF
   let q = supabaseAdmin
     .from("follow_ups")
     .select("id", { count: "exact", head: true })
-    .in("status", ["awaiting_parts", "parts_arrived"])
+    .eq("status", "awaiting_parts")
     .lt("expected_parts_date", today);
 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
@@ -129,6 +129,71 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
   const { data, error } = await q.select().single();
   if (error) { res.status(error.code === "PGRST116" ? 404 : 500).json({ error: error.message }); return; }
   res.json(data);
+});
+
+router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { scheduled_date, scheduled_time, assigned_technician_id } = req.body;
+
+  let fuQ = supabaseAdmin.from("follow_ups").select("*").eq("id", id);
+  if (req.tenantId) fuQ = fuQ.eq("tenant_id", req.tenantId);
+  const { data: followUp, error: fuErr } = await fuQ.single();
+
+  if (fuErr || !followUp) { res.status(404).json({ error: "Follow-up not found" }); return; }
+  if (followUp.status === "booked" || followUp.status === "cancelled") {
+    res.status(400).json({ error: `Follow-up is already ${followUp.status}` }); return;
+  }
+
+  const tenantId = req.tenantId || followUp.tenant_id;
+
+  let generatedJobRef: string | undefined;
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("job_number_prefix, job_number_next")
+    .eq("tenant_id", tenantId)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+  const prefix = (cs?.job_number_prefix ?? "").trim().toUpperCase();
+  const nextNum = cs?.job_number_next ?? 1;
+  generatedJobRef = prefix
+    ? `${prefix}${String(nextNum).padStart(4, "0")}`
+    : `JOB-${String(nextNum).padStart(4, "0")}`;
+  await supabaseAdmin
+    .from("company_settings")
+    .update({ job_number_next: nextNum + 1 })
+    .eq("tenant_id", tenantId)
+    .eq("singleton_id", "default");
+
+  const jobInsert: Record<string, unknown> = {
+    tenant_id: tenantId,
+    customer_id: followUp.customer_id,
+    property_id: followUp.property_id,
+    job_type: "follow_up",
+    status: "scheduled",
+    priority: "medium",
+    scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
+    scheduled_time: scheduled_time || null,
+    assigned_technician_id: assigned_technician_id || null,
+    description: [
+      followUp.work_description ? `Follow-up work: ${followUp.work_description}` : null,
+      followUp.parts_description ? `Parts: ${followUp.parts_description}` : null,
+      followUp.notes ? `Notes: ${followUp.notes}` : null,
+    ].filter(Boolean).join("\n") || `Follow-up from job`,
+    job_ref: generatedJobRef,
+  };
+
+  const { data: newJob, error: jobErr } = await supabaseAdmin.from("jobs").insert(jobInsert).select("id, job_ref").single();
+  if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
+
+  let updateQ = supabaseAdmin.from("follow_ups").update({
+    status: "booked",
+    new_job_id: newJob.id,
+    updated_at: new Date().toISOString(),
+  }).eq("id", id);
+  if (req.tenantId) updateQ = updateQ.eq("tenant_id", req.tenantId);
+  await updateQ;
+
+  res.status(201).json({ follow_up_id: id, job_id: newJob.id, job_ref: newJob.job_ref });
 });
 
 router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

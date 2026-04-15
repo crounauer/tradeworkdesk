@@ -8,10 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Package, CheckCircle2, CalendarPlus, XCircle, Clock,
-  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink
+  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +66,7 @@ function formatDate(dateStr: string | null | undefined): string {
 }
 
 function isOverdue(expectedDate: string | null, status: string): boolean {
-  if (!expectedDate || status === "booked" || status === "cancelled") return false;
+  if (!expectedDate || status !== "awaiting_parts") return false;
   return new Date(expectedDate) < new Date(new Date().toISOString().split("T")[0]);
 }
 
@@ -74,9 +74,11 @@ export default function FollowUps() {
   const [activeTab, setActiveTab] = useState("");
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
 
   const isAdmin = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
 
@@ -170,6 +172,7 @@ export default function FollowUps() {
               followUp={fu}
               isAdmin={isAdmin}
               onEdit={() => setEditingId(fu.id)}
+              onBookJob={() => setBookingId(fu.id)}
               onStatusChange={(status) => updateMutation.mutate({ id: fu.id, status })}
               updating={updateMutation.isPending}
             />
@@ -205,6 +208,23 @@ export default function FollowUps() {
           saving={updateMutation.isPending}
         />
       )}
+
+      {bookingId && (
+        <BookJobDialog
+          followUp={followUps.find(f => f.id === bookingId)!}
+          open={!!bookingId}
+          onOpenChange={(v) => { if (!v) setBookingId(null); }}
+          onBooked={(jobId) => {
+            setBookingId(null);
+            qc.invalidateQueries({ queryKey: ["follow-ups"] });
+            qc.invalidateQueries({ queryKey: ["homepage"] });
+            qc.invalidateQueries({ queryKey: ["me-init"] });
+            qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+            toast({ title: "Job booked", description: "Follow-up job has been created and scheduled." });
+            navigate(`/jobs/${jobId}`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -213,12 +233,14 @@ function FollowUpCard({
   followUp: fu,
   isAdmin,
   onEdit,
+  onBookJob,
   onStatusChange,
   updating,
 }: {
   followUp: FollowUp;
   isAdmin: boolean;
   onEdit: () => void;
+  onBookJob: () => void;
   onStatusChange: (status: string) => void;
   updating: boolean;
 }) {
@@ -277,27 +299,109 @@ function FollowUpCard({
           )}
         </div>
 
-        {isAdmin && fu.status !== "cancelled" && (
+        {isAdmin && fu.status !== "cancelled" && fu.status !== "booked" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5" onClick={onBookJob} disabled={updating}>
+              <Briefcase className="w-4 h-4" /> Book Job
+            </Button>
             {fu.status === "awaiting_parts" && (
               <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => onStatusChange("parts_arrived")} disabled={updating}>
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Parts Arrived
               </Button>
             )}
-            {(fu.status === "awaiting_parts" || fu.status === "parts_arrived") && (
-              <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
-                Edit
-              </Button>
-            )}
-            {fu.status !== "booked" && (
-              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => onStatusChange("cancelled")} disabled={updating}>
-                <XCircle className="w-4 h-4" />
-              </Button>
-            )}
+            <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
+              Edit
+            </Button>
+            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => onStatusChange("cancelled")} disabled={updating}>
+              <XCircle className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </div>
     </Card>
+  );
+}
+
+function BookJobDialog({
+  followUp,
+  open,
+  onOpenChange,
+  onBooked,
+}: {
+  followUp: FollowUp;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onBooked: (jobId: string) => void;
+}) {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const [scheduledDate, setScheduledDate] = useState(todayStr);
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduledDate) {
+      toast({ title: "Missing date", description: "Please select a date for the job.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/follow-ups/${followUp.id}/convert-to-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to book job");
+      }
+      const data = await res.json();
+      onBooked(data.job_id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to book job";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[450px]">
+        <DialogHeader>
+          <DialogTitle>Book Follow-Up Job</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">
+            <p><span className="font-medium">Customer:</span> {followUp.customer_name}</p>
+            <p><span className="font-medium">Property:</span> {followUp.property_address}{followUp.property_postcode ? `, ${followUp.property_postcode}` : ""}</p>
+            {followUp.parts_description && <p><span className="font-medium">Parts:</span> {followUp.parts_description}</p>}
+            {followUp.work_description && <p><span className="font-medium">Work:</span> {followUp.work_description}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Scheduled Date *</Label>
+              <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Time</Label>
+              <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" className="flex-1 gap-2" disabled={submitting}>
+              <Briefcase className="w-4 h-4" />
+              {submitting ? "Booking..." : "Book Job"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

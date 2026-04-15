@@ -675,7 +675,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
       supabaseAdmin
         .from("follow_ups")
         .select("id", { count: "exact", head: true })
-        .in("status", ["awaiting_parts", "parts_arrived"])
+        .eq("status", "awaiting_parts")
         .lt("expected_parts_date", new Date().toISOString().split("T")[0])
         .eq("tenant_id", req.tenantId),
     );
