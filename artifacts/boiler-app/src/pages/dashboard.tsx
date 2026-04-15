@@ -16,6 +16,7 @@ import { useIsSoleTrader } from "@/hooks/use-sole-trader";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useHomepageData } from "@/hooks/use-homepage-data";
+import { useInitData } from "@/hooks/use-init-data";
 
 interface JobType {
   id: number;
@@ -51,20 +52,41 @@ export default function Dashboard() {
   const data = homepageData?.dashboard as ReturnType<typeof useGetDashboard>["data"];
   const isLoading = homepageLoading;
   const { profile } = useAuth();
+  const { toast } = useToast();
+  const { data: initData } = useInitData();
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
   const { hasFeature } = usePlanFeatures();
   const hasJobManagement = hasFeature("job_management");
 
-  const handleDayAction = useCallback((date: string, action: "enquiry" | "job") => {
+  const checkJobLimit = useCallback(() => {
+    const limits = initData?.usageLimits;
+    if (limits && limits.maxJobsPerMonth !== 9999 && limits.currentJobsThisMonth >= limits.maxJobsPerMonth) {
+      toast({
+        title: "Monthly job limit reached",
+        description: `You've used ${limits.currentJobsThisMonth} of ${limits.maxJobsPerMonth} jobs this month. Upgrade your plan or purchase additional job capacity to create more.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  }, [initData, toast]);
+
+  const handleBookJob = useCallback((date?: string) => {
+    if (!checkJobLimit()) return;
     setQuickDate(date);
+    setShowQuickBook(true);
+  }, [checkJobLimit]);
+
+  const handleDayAction = useCallback((date: string, action: "enquiry" | "job") => {
     if (action === "enquiry") {
+      setQuickDate(date);
       setShowAddEnquiry(true);
     } else {
-      setShowQuickBook(true);
+      handleBookJob(date);
     }
-  }, []);
+  }, [handleBookJob]);
 
   if (isLoading) return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6 animate-pulse">
@@ -95,7 +117,7 @@ export default function Dashboard() {
             </Button>
           )}
           {canCreateJobs && (
-            <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => { setQuickDate(undefined); setShowQuickBook(true); }}>
+            <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => handleBookJob()}>
               <Plus className="w-5 h-5" /> Book Job
             </Button>
           )}
