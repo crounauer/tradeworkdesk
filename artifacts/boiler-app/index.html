@@ -22,7 +22,7 @@
     <div id="root"></div>
     <script>
       (function(){
-        var v = "sw-v3";
+        var v = "sw-v4";
         if (navigator.serviceWorker && localStorage.getItem("sw-version") !== v) {
           navigator.serviceWorker.getRegistrations().then(function(regs) {
             regs.forEach(function(r) { r.unregister(); });

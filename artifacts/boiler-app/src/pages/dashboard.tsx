@@ -63,8 +63,8 @@ export default function Dashboard() {
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
-  const planFeatures = usePlanFeatures();
-  const hasJobManagement = planFeatures.hasFeature("job_management");
+  const { hasFeature: dashHasFeature } = usePlanFeatures();
+  const hasJobManagement = dashHasFeature("job_management");
 
   const checkJobLimit = useCallback(() => {
     const limits = initData?.usageLimits;
@@ -534,23 +534,19 @@ function QuickBookDialog({ open, onOpenChange, initialDate }: { open: boolean; o
                   </div>
                   <div className="border-t pt-4 space-y-4">
                     <p className="text-sm font-medium text-muted-foreground">Property Address</p>
-                    {planFeatures.hasFeature("uk_address_lookup") && (
-                      <Suspense fallback={null}>
-                        <PostcodeAddressFinder
-                          onAddressSelected={(addr) => {
-                            setValue("new_address_line1", addr.address_line1);
-                            setValue("new_address_line2", addr.address_line2);
-                            setValue("new_city", addr.city);
-                            setValue("new_county", addr.county);
-                            setValue("new_postcode", addr.postcode);
-                            if (addr.latitude && addr.longitude) {
-                              setValue("new_latitude", addr.latitude);
-                              setValue("new_longitude", addr.longitude);
-                            }
-                          }}
-                        />
-                      </Suspense>
-                    )}
+                    <GatedAddressFinder
+                      onAddressSelected={(addr) => {
+                        setValue("new_address_line1", addr.address_line1);
+                        setValue("new_address_line2", addr.address_line2);
+                        setValue("new_city", addr.city);
+                        setValue("new_county", addr.county);
+                        setValue("new_postcode", addr.postcode);
+                        if (addr.latitude && addr.longitude) {
+                          setValue("new_latitude", addr.latitude);
+                          setValue("new_longitude", addr.longitude);
+                        }
+                      }}
+                    />
                     <div className="space-y-1.5">
                       <Label>Address *</Label>
                       <Input {...register("new_address_line1")} placeholder="123 High Street" />
@@ -759,5 +755,15 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function GatedAddressFinder({ onAddressSelected }: { onAddressSelected: (addr: { address_line1: string; address_line2: string; city: string; county: string; postcode: string; latitude?: number; longitude?: number }) => void }) {
+  const { hasFeature } = usePlanFeatures();
+  if (!hasFeature("uk_address_lookup")) return null;
+  return (
+    <Suspense fallback={null}>
+      <PostcodeAddressFinder onAddressSelected={onAddressSelected} />
+    </Suspense>
   );
 }
