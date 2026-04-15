@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -17,15 +17,53 @@ const pinIcon = L.divIcon({
   popupAnchor: [0, -40],
 });
 
-function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
+function RecenterMap({ lat, lng, skipRef }: { lat: number; lng: number; skipRef: React.MutableRefObject<boolean> }) {
   const map = useMap();
   const prevRef = useRef({ lat: 0, lng: 0 });
   useEffect(() => {
+    if (skipRef.current) {
+      skipRef.current = false;
+      prevRef.current = { lat, lng };
+      return;
+    }
     if (lat !== prevRef.current.lat || lng !== prevRef.current.lng) {
       map.setView([lat, lng], 16);
       prevRef.current = { lat, lng };
     }
-  }, [lat, lng, map]);
+  }, [lat, lng, map, skipRef]);
+  return null;
+}
+
+function DraggableMarker({ lat, lng, onDragEnd }: { lat: number; lng: number; onDragEnd: (lat: number, lng: number) => void }) {
+  const markerRef = useRef<L.Marker>(null);
+
+  const eventHandlers = useMemo(() => ({
+    dragend() {
+      const marker = markerRef.current;
+      if (marker) {
+        const pos = marker.getLatLng();
+        onDragEnd(pos.lat, pos.lng);
+      }
+    },
+  }), [onDragEnd]);
+
+  return (
+    <Marker
+      draggable
+      eventHandlers={eventHandlers}
+      position={[lat, lng]}
+      ref={markerRef}
+      icon={pinIcon}
+    />
+  );
+}
+
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
   return null;
 }
 
@@ -47,6 +85,7 @@ export function PropertyLocationLookup({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const hasCoords = latitude != null && longitude != null;
+  const skipRecenterRef = useRef(false);
 
   const handleLookup = async () => {
     if (!address.trim()) {
@@ -87,9 +126,14 @@ export function PropertyLocationLookup({
     }
   };
 
+  const handlePinMove = (lat: number, lng: number) => {
+    skipRecenterRef.current = true;
+    onLocationFound(lat, lng);
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
           type="button"
           variant="outline"
@@ -117,23 +161,29 @@ export function PropertyLocationLookup({
       </div>
 
       {hasCoords && (
-        <div className="rounded-lg overflow-hidden border border-border" style={{ height: 200 }}>
-          <MapContainer
-            center={[latitude!, longitude!]}
-            zoom={16}
-            style={{ height: "100%", width: "100%" }}
-            scrollWheelZoom={false}
-            dragging={false}
-            zoomControl={false}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <Marker position={[latitude!, longitude!]} icon={pinIcon} />
-            <RecenterMap lat={latitude!} lng={longitude!} />
-          </MapContainer>
-        </div>
+        <>
+          <p className="text-xs text-muted-foreground">
+            Drag the pin or click the map to adjust the exact position.
+          </p>
+          <div className="rounded-lg overflow-hidden border border-border" style={{ height: 250 }}>
+            <MapContainer
+              center={[latitude!, longitude!]}
+              zoom={16}
+              style={{ height: "100%", width: "100%" }}
+              scrollWheelZoom={true}
+              dragging={true}
+              zoomControl={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <DraggableMarker lat={latitude!} lng={longitude!} onDragEnd={handlePinMove} />
+              <MapClickHandler onClick={handlePinMove} />
+              <RecenterMap lat={latitude!} lng={longitude!} skipRef={skipRecenterRef} />
+            </MapContainer>
+          </div>
+        </>
       )}
     </div>
   );
