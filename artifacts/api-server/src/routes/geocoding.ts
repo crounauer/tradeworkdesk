@@ -3,6 +3,23 @@ import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedReque
 
 const router: IRouter = Router();
 
+const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
+
+function extractPostcode(address: string): string | null {
+  const match = address.match(UK_POSTCODE_RE);
+  return match ? match[1].trim() : null;
+}
+
+async function nominatimSearch(query: string): Promise<Array<{ lat: string; lon: string; display_name: string }>> {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=gb`;
+  const response = await fetch(url, {
+    headers: { "User-Agent": "TradeWorkDesk/1.0" },
+  });
+  if (!response.ok) return [];
+  const results = await response.json();
+  return Array.isArray(results) ? results : [];
+}
+
 router.post("/geocode", requireAuth, requireTenant, requirePlanFeature("geo_mapping"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { address } = req.body;
   if (!address || typeof address !== "string") {
@@ -34,20 +51,16 @@ router.post("/geocode", requireAuth, requireTenant, requirePlanFeature("geo_mapp
       return;
     }
 
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=gb`;
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "BoilerTechApp/1.0",
-      },
-    });
+    let results = await nominatimSearch(address);
 
-    if (!response.ok) {
-      res.status(502).json({ error: "Geocoding service error" });
-      return;
+    if (results.length === 0) {
+      const postcode = extractPostcode(address);
+      if (postcode) {
+        results = await nominatimSearch(postcode);
+      }
     }
 
-    const results = await response.json();
-    if (!results || results.length === 0) {
+    if (results.length === 0) {
       res.status(404).json({ error: "Address not found" });
       return;
     }
