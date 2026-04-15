@@ -1,10 +1,10 @@
-import { useGetProperty, useUpdateProperty } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useGetProperty, useUpdateProperty, useDeleteProperty } from "@workspace/api-client-react";
+import { useParams, Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Home, MapPin, Briefcase, X, Edit, Check } from "lucide-react";
+import { ArrowLeft, Home, MapPin, Briefcase, X, Edit, Check, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
@@ -39,7 +39,25 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: property, isLoading, error } = useGetProperty(id);
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { hasFeature } = usePlanFeatures();
+  const deleteProperty = useDeleteProperty();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  const handleDelete = async () => {
+    try {
+      await deleteProperty.mutateAsync({ id });
+      qc.invalidateQueries({ queryKey: ["/api/properties"] });
+      toast({ title: "Deleted", description: "Property has been removed" });
+      navigate("/properties");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete property";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      setConfirmDelete(false);
+    }
+  };
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (error || !property) return <div className="p-8 text-destructive">Property not found</div>;
@@ -62,9 +80,26 @@ export default function PropertyDetail() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-          {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+            {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
+          </Button>
+          {!editing && (
+            confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-destructive font-medium">Are you sure?</span>
+                <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleteProperty.isPending}>
+                  {deleteProperty.isPending ? "Deleting..." : "Yes, Delete"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="w-4 h-4 mr-2" /> Delete
+              </Button>
+            )
+          )}
+        </div>
       </div>
 
       {editing ? (
