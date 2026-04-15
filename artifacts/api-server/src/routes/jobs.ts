@@ -671,6 +671,15 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     updatePayload.job_type = deriveJobTypeEnum(jt.category, jt.slug);
   }
 
+  const dateOrTimeChanging = updatePayload.scheduled_date !== undefined || updatePayload.scheduled_time !== undefined;
+  let oldSchedule: { scheduled_date: string | null; scheduled_time: string | null } | null = null;
+  if (dateOrTimeChanging) {
+    let oldQ = supabaseAdmin.from("jobs").select("scheduled_date, scheduled_time").eq("id", params.data.id);
+    if (req.tenantId) oldQ = oldQ.eq("tenant_id", req.tenantId);
+    const { data: oldJob } = await oldQ.single();
+    if (oldJob) oldSchedule = oldJob as { scheduled_date: string | null; scheduled_time: string | null };
+  }
+
   let q = supabaseAdmin.from("jobs").update(updatePayload).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
@@ -681,6 +690,25 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     res.status(!data ? 404 : 500).json({ error: error.message }); return;
   }
   if (!data) { res.status(404).json({ error: "Job not found" }); return; }
+
+  if (dateOrTimeChanging && oldSchedule) {
+    const newDate = (data as Record<string, unknown>).scheduled_date as string | null;
+    const newTime = (data as Record<string, unknown>).scheduled_time as string | null;
+    const dateChanged = oldSchedule.scheduled_date !== newDate;
+    const timeChanged = oldSchedule.scheduled_time !== newTime;
+    if (dateChanged || timeChanged) {
+      await supabaseAdmin.from("job_schedule_history").insert({
+        job_id: params.data.id,
+        tenant_id: req.tenantId,
+        changed_by: req.userId,
+        previous_date: oldSchedule.scheduled_date,
+        previous_time: oldSchedule.scheduled_time,
+        new_date: newDate,
+        new_time: newTime,
+      });
+    }
+  }
+
   invalidateJobsCache(req.tenantId);
   res.json(UpdateJobResponse.parse(data));
 });
@@ -763,6 +791,34 @@ router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, requirePlan
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   await q;
   res.sendStatus(204);
+});
+
+router.get("/jobs/:id/schedule-history", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "You can only view jobs assigned to you" }); return; }
+  }
+  let q = supabaseAdmin
+    .from("job_schedule_history")
+    .select("id, job_id, previous_date, previous_time, new_date, new_time, reason, created_at, changed_by, profiles:changed_by(full_name)")
+    .eq("job_id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  q = q.order("created_at", { ascending: false });
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  const entries = (data || []).map((e: Record<string, unknown>) => ({
+    id: e.id,
+    job_id: e.job_id,
+    previous_date: e.previous_date,
+    previous_time: e.previous_time,
+    new_date: e.new_date,
+    new_time: e.new_time,
+    reason: e.reason,
+    created_at: e.created_at,
+    changed_by_name: (e.profiles as { full_name: string } | null)?.full_name || "Unknown",
+  }));
+  res.json(entries);
 });
 
 router.get("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

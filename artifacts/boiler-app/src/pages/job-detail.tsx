@@ -411,6 +411,8 @@ export default function JobDetail() {
 
             <TimeAttendedSection jobId={job.id} calloutRateId={(job as unknown as Record<string, unknown>).callout_rate_id as string | null} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
 
+            <ScheduleHistorySection jobId={job.id} />
+
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
@@ -1206,6 +1208,83 @@ function formatTotalTime(totalMinutes: number): string {
   const m = Math.round(totalMinutes % 60);
   if (h === 0) return `${m}m`;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function ScheduleHistorySection({ jobId }: { jobId: string }) {
+  const { data: history, isLoading } = useQuery<Array<{
+    id: string;
+    previous_date: string | null;
+    previous_time: string | null;
+    new_date: string | null;
+    new_time: string | null;
+    reason: string | null;
+    created_at: string;
+    changed_by_name: string;
+  }>>({
+    queryKey: [`/api/jobs/${jobId}/schedule-history`],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/schedule-history`) as Promise<Array<{
+      id: string;
+      previous_date: string | null;
+      previous_time: string | null;
+      new_date: string | null;
+      new_time: string | null;
+      reason: string | null;
+      created_at: string;
+      changed_by_name: string;
+    }>>,
+  });
+
+  if (isLoading || !history || history.length === 0) return null;
+
+  const fmtDate = (d: string | null) => {
+    if (!d) return "Not set";
+    return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  };
+  const fmtTime = (t: string | null) => {
+    if (!t) return "Not set";
+    return t.slice(0, 5);
+  };
+
+  return (
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
+      <h3 className="font-bold text-lg flex items-center gap-2 text-orange-600 mb-4">
+        <Calendar className="w-5 h-5" /> Schedule History
+      </h3>
+      <div className="space-y-3">
+        {history.map((entry) => {
+          const dateChanged = entry.previous_date !== entry.new_date;
+          const timeChanged = entry.previous_time !== entry.new_time;
+          return (
+            <div key={entry.id} className="border rounded-lg p-3 bg-slate-50/50 text-sm space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Changed by <strong className="text-foreground">{entry.changed_by_name}</strong></span>
+                <span>{new Date(entry.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}, {new Date(entry.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              {dateChanged && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Date:</span>
+                  <span className="line-through text-red-500">{fmtDate(entry.previous_date)}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-medium text-green-600">{fmtDate(entry.new_date)}</span>
+                </div>
+              )}
+              {timeChanged && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Time:</span>
+                  <span className="line-through text-red-500">{fmtTime(entry.previous_time)}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-medium text-green-600">{fmtTime(entry.new_time)}</span>
+                </div>
+              )}
+              {entry.reason && (
+                <div className="text-xs text-muted-foreground italic">Reason: {entry.reason}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
 }
 
 function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
@@ -2284,6 +2363,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
       });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}/schedule-history`] });
       toast({ title: "Updated", description: "Job updated successfully" });
       if (customerEmail) {
         setShowEmailPrompt(true);
