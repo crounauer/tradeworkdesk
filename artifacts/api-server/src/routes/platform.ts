@@ -678,6 +678,11 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         .eq("status", "awaiting_parts")
         .lt("expected_parts_date", new Date().toISOString().split("T")[0])
         .eq("tenant_id", req.tenantId),
+      supabaseAdmin
+        .from("follow_ups")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["awaiting_parts", "parts_arrived"])
+        .eq("tenant_id", req.tenantId),
     );
   }
 
@@ -764,7 +769,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     enquiriesCount = enquiriesRes?.count || 0;
   }
 
-  const announcementsIdx = req.tenantId ? 6 : 1;
+  const announcementsIdx = req.tenantId ? 7 : 1;
   const announcementsRes = results[announcementsIdx] as { data: unknown[] | null };
   const announcements = announcementsRes?.data || [];
 
@@ -801,11 +806,14 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
   }
 
   let overdueFollowUpsCount = 0;
+  let activeFollowUpsCount = 0;
   if (req.tenantId) {
     const ofuRes = results[5] as { count: number | null } | undefined;
     overdueFollowUpsCount = ofuRes?.count || 0;
+    const afuRes = results[6] as { count: number | null } | undefined;
+    activeFollowUpsCount = afuRes?.count || 0;
   }
-  const responseBody = { profile, planFeatures, tenant, enquiriesCount, overdueFollowUpsCount, announcements, activeAddons: addonsList, usageLimits };
+  const responseBody = { profile, planFeatures, tenant, enquiriesCount, overdueFollowUpsCount, activeFollowUpsCount, announcements, activeAddons: addonsList, usageLimits };
   initCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   res.set("Cache-Control", "no-store");
   res.json(responseBody);

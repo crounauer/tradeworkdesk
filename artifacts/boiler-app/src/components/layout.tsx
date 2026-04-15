@@ -45,6 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const enquiryCountData = { count: initData?.enquiriesCount ?? 0 };
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
+  const activeFollowUpsCount = initData?.activeFollowUpsCount ?? 0;
 
   const announcements = initData?.announcements || [];
 
@@ -121,7 +122,7 @@ export function Layout({ children }: { children: ReactNode }) {
       ? location === "/" 
       : location === item.href || location.startsWith(item.href + "/");
     const enquiryBadge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
-    const followUpBadge = item.href === "/follow-ups" && overdueFollowUpsCount > 0 ? overdueFollowUpsCount : null;
+    const followUpBadge = item.href === "/follow-ups" && activeFollowUpsCount > 0 ? activeFollowUpsCount : null;
     const badge = enquiryBadge || followUpBadge;
     return (
       <Link key={item.href} href={item.href} onClick={onClick} className={cn(
@@ -136,7 +137,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {badge !== null && (
           <span className={cn(
             "ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full text-white min-w-[20px] text-center",
-            followUpBadge ? "bg-red-500" : "bg-orange-500"
+            followUpBadge ? "bg-blue-500" : "bg-orange-500"
           )}>
             {badge > 99 ? "99+" : badge}
           </span>

@@ -55,6 +55,7 @@ export interface InitData {
   } | null;
   enquiriesCount: number;
   overdueFollowUpsCount: number;
+  activeFollowUpsCount: number;
   announcements?: Announcement[];
   activeAddons?: ActiveAddon[];
   usageLimits?: UsageLimits | null;
