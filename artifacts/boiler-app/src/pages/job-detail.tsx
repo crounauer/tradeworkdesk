@@ -91,6 +91,8 @@ export default function JobDetail() {
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [cachedJob, setCachedJob] = useState<Record<string, unknown> | null>(null);
   const [loadingCache, setLoadingCache] = useState(false);
+  const [showFollowUpForm, setShowFollowUpForm] = useState(false);
+  const [creatingFollowUp, setCreatingFollowUp] = useState(false);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -173,8 +175,6 @@ export default function JobDetail() {
     }
   };
 
-  const [showFollowUpForm, setShowFollowUpForm] = useState(false);
-  const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
   const canComplete = job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled";
