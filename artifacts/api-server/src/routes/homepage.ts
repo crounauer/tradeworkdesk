@@ -172,7 +172,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   };
 
   const buildStorageUsageQuery = () => {
-    let q = supabaseAdmin.from("file_attachments").select("file_size");
+    let q = supabaseAdmin.from("file_attachments").select("file_size.sum()", { count: "exact" });
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     return q;
   };
@@ -270,9 +270,9 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
 
   const profiles = profilesRes.data || [];
 
-  const storageRows = (storageRes.data || []) as Array<{ file_size: number }>;
-  const storageUsedBytes = storageRows.reduce((sum, r) => sum + (r.file_size || 0), 0);
-  const storageFileCount = storageRows.length;
+  const storageAgg = (storageRes.data?.[0] || {}) as { file_size: { sum: number | null } | null };
+  const storageUsedBytes = storageAgg.file_size?.sum ?? 0;
+  const storageFileCount = storageRes.count ?? 0;
   const signatureCount = signatureCountRes.count || 0;
 
   const responseBody = {

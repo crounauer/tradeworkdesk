@@ -8,7 +8,14 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 app.use(compression());
-app.use(cors());
+app.use(cors({
+  origin: [
+    process.env.APP_URL || "http://localhost:3000",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ],
+  credentials: true,
+}));
 
 const registrationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

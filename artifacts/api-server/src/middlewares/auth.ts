@@ -1,6 +1,31 @@
 import type { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 
+// ---------------------------------------------------------------------------
+// PATCH: withTimeout
+// supabaseAdmin.auth.getUser() (and other admin Auth API calls) have no
+// built-in timeout. On a local/non-Replit environment they can stall
+// indefinitely if the Supabase URL is unreachable, the service-role key is
+// wrong, or an outbound network path is blocked — causing every protected
+// route to hang and return 0 bytes.
+//
+// withTimeout() races the original promise against a rejection timer so the
+// caller always gets a settled result within `ms` milliseconds.
+// ---------------------------------------------------------------------------
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Supabase call timed out after ${ms}ms: ${label}`)),
+        ms,
+      )
+    ),
+  ]);
+}
+
+const SUPABASE_TIMEOUT_MS = 8_000; // 8 s — adjust down if you want faster 401s
+
 const planFeaturesCache = new Map<string, { features: Record<string, unknown>; expiresAt: number }>();
 const PLAN_CACHE_TTL_MS = 60_000;
 
@@ -60,13 +85,24 @@ async function resolveTokenUser(token: string): Promise<CachedUser | null> {
   }
 
   const promise = (async (): Promise<CachedUser | null> => {
-    const { data: { user: fetchedUser }, error } = await supabaseAdmin.auth.getUser(token);
-    if (error || !fetchedUser) return null;
-    const slim: CachedUser = { id: fetchedUser.id, email: fetchedUser.email, user_metadata: fetchedUser.user_metadata };
-    const entry = { user: slim, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS };
-    cleanTokenCache();
-    tokenUserCache.set(token, entry);
-    return slim;
+    try {
+      // PATCH: wrapped with withTimeout — previously hung indefinitely when
+      // Supabase was unreachable (wrong URL, bad key, blocked outbound network).
+      const { data: { user: fetchedUser }, error } = await withTimeout(
+        supabaseAdmin.auth.getUser(token),
+        SUPABASE_TIMEOUT_MS,
+        "auth.getUser",
+      );
+      if (error || !fetchedUser) return null;
+      const slim: CachedUser = { id: fetchedUser.id, email: fetchedUser.email, user_metadata: fetchedUser.user_metadata };
+      const entry = { user: slim, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS };
+      cleanTokenCache();
+      tokenUserCache.set(token, entry);
+      return slim;
+    } catch (err) {
+      console.error("[auth] resolveTokenUser failed:", (err as Error).message);
+      return null;
+    }
   })();
 
   tokenInflight.set(token, promise);
@@ -117,10 +153,19 @@ export async function requireAuth(
 
   if (needsMfa) {
     parallel.push(
-      supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id }).then(({ data: factors, error: mfaError }) => {
+      // PATCH: wrapped with withTimeout — listFactors is also an admin Auth
+      // API call and carries the same silent-hang risk as getUser.
+      withTimeout(
+        supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id }),
+        SUPABASE_TIMEOUT_MS,
+        "auth.admin.mfa.listFactors",
+      ).then(({ data: factors, error: mfaError }) => {
         if (mfaError) return;
         const hasVerifiedTotp = factors?.factors?.some((f: { status: string; factor_type: string }) => f.factor_type === "totp" && f.status === "verified") ?? false;
         mfaCache.set(user.id, { hasVerifiedTotp, expiresAt: Date.now() + MFA_CACHE_TTL_MS });
+      }).catch((err: Error) => {
+        console.error("[auth] listFactors failed:", err.message);
+        // Non-fatal: leave mfaCache empty; MFA check below will treat as no TOTP.
       })
     );
   }

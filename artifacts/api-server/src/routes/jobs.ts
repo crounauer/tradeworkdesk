@@ -109,6 +109,26 @@ const router: IRouter = Router();
 const jobsListCache = new Map<string, { data: unknown; ts: number }>();
 const JOBS_CACHE_TTL_MS = 30_000;
 
+// job_types change very rarely (admin creates them manually); cache per tenant for 5 minutes
+const jobTypesCache = new Map<string, { data: Array<{ id: number; name: string }>; ts: number }>();
+const JOB_TYPES_CACHE_TTL_MS = 5 * 60_000;
+
+async function getJobTypesForTenant(tenantId: string | undefined): Promise<Array<{ id: number; name: string }>> {
+  const key = tenantId ?? "__all__";
+  const cached = jobTypesCache.get(key);
+  if (cached && Date.now() - cached.ts < JOB_TYPES_CACHE_TTL_MS) return cached.data;
+  const { data } = tenantId
+    ? await supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", tenantId)
+    : await supabaseAdmin.from("job_types").select("id, name");
+  const result = (data as Array<{ id: number; name: string }>) || [];
+  jobTypesCache.set(key, { data: result, ts: Date.now() });
+  return result;
+}
+
+function invalidateJobTypesCache(tenantId?: string | null) {
+  jobTypesCache.delete(tenantId ?? "__all__");
+}
+
 function invalidateJobsCache(tenantId?: string | null) {
   if (!tenantId) { jobsListCache.clear(); return; }
   for (const key of jobsListCache.keys()) {
@@ -184,12 +204,10 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     return;
   }
 
-  const [{ data, error }, { count: totalCount }, { data: allTypes }, tenantFeatures] = await Promise.all([
+  const [{ data, error }, { count: totalCount }, allTypes, tenantFeatures] = await Promise.all([
     q,
     countQ,
-    req.tenantId
-      ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
-      : supabaseAdmin.from("job_types").select("id, name"),
+    getJobTypesForTenant(req.tenantId),
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
   if (error) { res.status(500).json({ error: error.message }); return; }

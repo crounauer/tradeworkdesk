@@ -78,6 +78,6 @@ export function useInitData() {
       return res.json();
     },
     staleTime: 60_000,
-    refetchInterval: 2 * 60_000,
+    // refetchInterval removed,
   });
 }

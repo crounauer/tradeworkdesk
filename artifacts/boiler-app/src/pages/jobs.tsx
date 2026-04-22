@@ -80,6 +80,8 @@ function JobsContent() {
     status: statusFilter || undefined,
     page: currentPage,
     limit: 50,
+  }, {
+    query: { staleTime: 30_000 },  // server cache is 30s; avoid redundant refetches on tab-switch
   });
   const onlineJobs = jobsResponse?.jobs;
   const pagination = jobsResponse?.pagination;

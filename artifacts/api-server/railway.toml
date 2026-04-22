@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install --frozen-lockfile && pnpm build"
+
+[deploy]
+startCommand = "node dist/index.cjs"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+
+[env]
+NODE_ENV = "production"

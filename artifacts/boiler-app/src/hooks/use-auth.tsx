@@ -86,6 +86,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "TOKEN_REFRESHED") return;
       if (event === "INITIAL_SESSION") {
         clearTimeout(sessionTimeout);
         setSession(session);
@@ -99,18 +100,26 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setSession(session);
-      setUser(session?.user ?? null);
+      // Prevent redundant state updates
+      setSession(prev => {
+        if (prev?.access_token === session?.access_token) return prev;
+        return session;
+      });
+
+      setUser(prev => {
+        if (prev?.id === session?.user?.id) return prev;
+        return session?.user ?? null;
+      });
 
       if (event === "SIGNED_OUT") {
         hasPrefetched.current = false;
-        queryClient.clear();
+        // queryClient.clear(); // disabled - causing refetch loop
         setMfaPending(false);
         return;
       }
 
       if (event === "SIGNED_IN") {
-        queryClient.removeQueries({ queryKey: ["me-init"] });
+        // queryClient.removeQueries({ queryKey: ["me-init"] }); // disabled
         hasPrefetched.current = false;
         prefetchCriticalData(queryClient);
         hasPrefetched.current = true;
@@ -148,12 +157,13 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     queryKey: ["me-init"],
     queryFn: async () => {
       const res = await fetch("/api/me/init");
-      if (!res.ok) return { profile: null };
+      if (!res.ok) console.log("AUTH STATE:", { session, user });
+return { profile: null };
       return res.json();
     },
     enabled: !!session,
     staleTime: 60_000,
-    refetchInterval: 2 * 60_000,
+    // refetchInterval removed,
   });
   const profile = initData?.profile as Profile | null | undefined;
   const profileReady = !session || !profileLoading;
@@ -171,7 +181,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setMfaPending(false);
     hasPrefetched.current = false;
-    queryClient.clear();
+    // queryClient.clear(); // disabled - causing refetch loop
     window.location.href = "/";
   };
 

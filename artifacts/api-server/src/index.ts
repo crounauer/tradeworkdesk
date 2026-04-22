@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";

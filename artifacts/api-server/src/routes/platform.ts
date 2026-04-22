@@ -596,6 +596,7 @@ const initCache = new Map<string, { data: unknown; ts: number }>();
 const INIT_CACHE_TTL_MS = 60_000;
 
 router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  console.log("[TRACE] /me/init handler enter", req.userId, req.tenantId);
   const t0 = Date.now();
   const cacheKey = `${req.tenantId || "none"}:${req.userId}`;
   const cached = initCache.get(cacheKey);

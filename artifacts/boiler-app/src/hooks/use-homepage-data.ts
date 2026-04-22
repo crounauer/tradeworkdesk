@@ -12,12 +12,15 @@ export function useHomepageData() {
   return useQuery<HomepageData>({
     queryKey: ["homepage"],
     queryFn: async () => {
+      console.log("QUERY RUNNING");
       const res = await fetch("/api/homepage");
       if (!res.ok) throw new Error("Failed to fetch homepage data");
-      return res.json();
+      const data = await res.json();
+      console.log("HOMEPAGE DATA:", data);
+      return data;
     },
     staleTime: 5 * 60_000,
     gcTime: 15 * 60_000,
-    refetchInterval: 3 * 60_000,
+    // refetchInterval removed,
   });
 }

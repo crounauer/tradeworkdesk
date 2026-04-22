@@ -10,10 +10,16 @@
   },
   "private": true,
   "pnpm": {
-    "onlyBuiltDependencies": ["sharp"]
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "core-js",
+      "esbuild",
+      "msw",
+      "unrs-resolver"
+    ]
   },
   "devDependencies": {
-    "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
   }
 }

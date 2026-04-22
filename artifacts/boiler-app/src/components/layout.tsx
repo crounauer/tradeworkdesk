@@ -33,12 +33,11 @@ export function Layout({ children }: { children: ReactNode }) {
   }, [dismissedAnnouncements]);
 
   const { isOnline, pendingMutations } = useOffline();
-  useOfflineReferenceDataSync();
+  // useOfflineReferenceDataSync();
 
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
   const { hasFeature, hasAddon, isFormsOnly } = usePlanFeatures();
-
   const { data: initData } = useInitData();
   const tenantInfo = initData?.tenant ?? null;
 
@@ -49,7 +48,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const activeFollowUpsCount = initData?.activeFollowUpsCount ?? 0;
 
   const announcements = initData?.announcements || [];
-  const { data: homepageData } = useHomepageData();
+  // const { data: homepageData } = useHomepageData();
 
   const isTrial = tenantInfo?.status === "trial";
 
@@ -213,7 +212,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
           {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item))}
 
-          {renderStorageIndicator()}
+          {/* renderStorageIndicator()*/}
 
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
 
