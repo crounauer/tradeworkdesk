@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pnpm install --no-frozen-lockfile && pnpm build"
+buildCommand = "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build"
 
 [deploy]
-startCommand = "node dist/index.cjs"
+startCommand = "pnpm --filter @workspace/api-server start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5
 
