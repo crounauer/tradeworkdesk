@@ -49,6 +49,10 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok" });
+});
+
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on("finish", () => {
