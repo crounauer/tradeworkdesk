@@ -33,6 +33,9 @@ const authLimiter = rateLimit({
   message: { error: "Too many requests. Please try again in 15 minutes." },
 });
 
+// Public warmup endpoint — no auth, used by frontend to wake Railway on load
+app.get("/api/ping", (_req: Request, res: Response) => { res.json({ ok: true }); });
+
 app.use("/api/auth/register", registrationLimiter);
 app.use("/api/auth/validate-invite", authLimiter);
 app.use("/api/auth/use-invite", authLimiter);
