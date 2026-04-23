@@ -157,8 +157,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     queryKey: ["me-init"],
     queryFn: async () => {
       const res = await fetch("/api/me/init");
-      if (!res.ok) console.log("AUTH STATE:", { session, user });
-return { profile: null };
+      if (!res.ok) return { profile: null };
       return res.json();
     },
     enabled: !!session,

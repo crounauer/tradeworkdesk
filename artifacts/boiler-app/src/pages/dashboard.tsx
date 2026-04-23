@@ -56,7 +56,6 @@ type QuickBookData = {
 export default function Dashboard() {
   const { data: homepageData, isLoading: homepageLoading } = useHomepageData();
   const data = homepageData?.dashboard as ReturnType<typeof useGetDashboard>["data"];
-  console.log("dashboard data:", homepageData);
   const isLoading = homepageLoading;
   const { profile } = useAuth();
   const { toast } = useToast();

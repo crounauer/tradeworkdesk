@@ -52,7 +52,7 @@ class ChunkErrorBoundary extends ReactComponent<{ children: ReactNode }, { hasEr
 }
 
 const Login = lazyRetry(() => import("@/pages/login"));
-import Dashboard from "@/pages/dashboard";
+const Dashboard = lazyRetry(() => import("@/pages/dashboard"));
 const Customers = lazyRetry(() => import("@/pages/customers"));
 const CustomerDetail = lazyRetry(() => import("@/pages/customer-detail"));
 const Properties = lazyRetry(() => import("@/pages/properties"));
