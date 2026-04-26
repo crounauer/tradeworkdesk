@@ -225,7 +225,7 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     invoice: AccountingInvoiceInput
   ): Promise<AccountingInvoiceResult> {
     const lineItems = invoice.line_items.map((item) => ({
-      name: item.description,
+      name: item.item_name || item.description,
       description: item.description,
       quantity: item.quantity,
       rate: item.unit_price,
@@ -241,6 +241,9 @@ export class ZohoInvoiceProvider implements AccountingProvider {
       notes: invoice.notes || "",
       reference_number: invoice.reference || "",
     };
+    if (invoice.payment_terms != null) {
+      body.payment_terms = invoice.payment_terms;
+    }
 
     const res = await fetch(
       `${this.domains.api}/invoices?organization_id=${organisationId}`,

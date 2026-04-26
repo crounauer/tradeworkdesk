@@ -472,9 +472,11 @@ router.post(
             quantity: l.quantity,
             unit_price: l.unit_price,
             tax_percentage: invoiceData.vat_rate,
+            item_name: l.item_name,
           })),
           reference: invoiceData.job_ref || jobId.substring(0, 8),
           notes,
+          payment_terms: invoiceData.payment_terms_days,
         }
       );
 

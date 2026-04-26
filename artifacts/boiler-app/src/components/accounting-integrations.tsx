@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle, Save, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle, Save, Eye, EyeOff, KeyRound, Info } from "lucide-react";
 
 interface ProviderInfo {
   key: string;
@@ -343,15 +343,44 @@ export function AccountingIntegrations() {
                 </div>
 
                 {p.key === "zoho_invoice" ? (
-                  <a
-                    href={ZOHO_DC_CONSOLE_URLS[credentialForms[p.key]?.dc || "uk"] || ZOHO_DC_CONSOLE_URLS["uk"]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Get your credentials from the Zoho API Console
-                  </a>
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2.5">
+                    <p className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 shrink-0" /> How to connect Zoho Invoice
+                    </p>
+                    <ol className="text-xs text-blue-800 space-y-1.5 list-decimal list-inside leading-relaxed">
+                      <li>
+                        Select your <strong>Data Centre Region</strong> below, then open the Zoho API Console:
+                        <a
+                          href={ZOHO_DC_CONSOLE_URLS[credentialForms[p.key]?.dc || "uk"] || ZOHO_DC_CONSOLE_URLS["uk"]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 ml-1 font-medium underline underline-offset-2"
+                        >
+                          <ExternalLink className="w-3 h-3" /> Open API Console
+                        </a>
+                      </li>
+                      <li>Click <strong>Add Client</strong> and choose <strong>Server-based Applications</strong>.</li>
+                      <li>
+                        Set the <strong>Authorized Redirect URI</strong> to:
+                        <code className="block mt-1 bg-blue-100 rounded px-2 py-1 font-mono text-xs break-all select-all">
+                          {`${window.location.origin}/api/admin/accounting-integrations/zoho_invoice/callback`}
+                        </code>
+                      </li>
+                      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from Zoho and paste them below.</li>
+                      <li>Click <strong>Save Credentials</strong>, then click <strong>Connect</strong> to authorise via your Zoho account.</li>
+                    </ol>
+                    <div className="pt-2 border-t border-blue-200 space-y-1.5">
+                      <p className="text-xs text-blue-800">
+                        <strong>Parts &amp; Products:</strong> Parts added to a job are sent to Zoho using an item named{" "}
+                        <code className="bg-blue-100 rounded px-1 font-mono">product</code>. Create an item with this exact name in{" "}
+                        <em>Zoho Invoice → Items</em> so parts map to it correctly, with the part name as the description.
+                      </p>
+                      <p className="text-xs text-blue-800">
+                        <strong>Payment Terms:</strong> The number of days before payment is due is taken from{" "}
+                        <em>Company Settings → Pricing &amp; Invoicing → Payment Terms</em> and sent with every invoice.
+                      </p>
+                    </div>
+                  </div>
                 ) : PROVIDER_HELP[p.key] ? (
                   <a
                     href={PROVIDER_HELP[p.key].url}

@@ -3,6 +3,7 @@ export interface InvoiceLineItem {
   quantity: number;
   unit_price: number;
   total: number;
+  item_name?: string;
 }
 
 export interface InvoiceData {
@@ -40,6 +41,7 @@ export interface InvoiceData {
   vat_amount: number;
   total: number;
   attendance_summary?: string;
+  payment_terms_days?: number;
 }
 
 function escapeCSV(val: string | number | null | undefined): string {

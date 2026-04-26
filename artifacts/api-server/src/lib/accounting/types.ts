@@ -9,6 +9,7 @@ export interface AccountingInvoiceLineItem {
   quantity: number;
   unit_price: number;
   tax_percentage?: number;
+  item_name?: string;
 }
 
 export interface AccountingInvoiceInput {
@@ -20,6 +21,7 @@ export interface AccountingInvoiceInput {
   line_items: AccountingInvoiceLineItem[];
   notes?: string;
   reference?: string;
+  payment_terms?: number;
 }
 
 export interface AccountingInvoiceResult {

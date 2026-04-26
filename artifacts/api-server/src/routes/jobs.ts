@@ -1113,6 +1113,7 @@ export async function buildInvoiceData(
         quantity: p.quantity,
         unit_price: up,
         total: up * p.quantity,
+        item_name: "product",
       });
     }
   }
@@ -1171,6 +1172,7 @@ export async function buildInvoiceData(
     attendance_summary: attendanceSummaryLines.length > 0
       ? `Attendance:\n${attendanceSummaryLines.join("\n")}`
       : undefined,
+    payment_terms_days: paymentTermsDays,
   };
 }
 

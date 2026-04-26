@@ -951,9 +951,15 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     // Read departure directly from the DOM to catch any value not yet reflected in state
     const departureValue = departureInputRef.current?.value || departure;
     const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : (hourlyRate ? parseFloat(hourlyRate) : null);
+    const arrivalDate = new Date(arrival);
+    let departureDate = departureValue ? new Date(departureValue) : null;
+    // Auto-advance departure by 1 day if it crosses midnight (departure before or equal to arrival)
+    if (departureDate && departureDate <= arrivalDate) {
+      departureDate = new Date(departureDate.getTime() + 24 * 60 * 60 * 1000);
+    }
     const entryData = {
-      arrival_time: new Date(arrival).toISOString(),
-      departure_time: departureValue ? new Date(departureValue).toISOString() : null,
+      arrival_time: arrivalDate.toISOString(),
+      departure_time: departureDate ? departureDate.toISOString() : null,
       notes: notes || null,
       hourly_rate: resolvedRate || null,
     };
@@ -1025,13 +1031,19 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     // Read departure directly from the DOM to catch any value not yet reflected in state
     const editDepartureValue = editDepartureInputRef.current?.value || editDeparture;
     const resolvedEditRate = editHourlyRate ? parseFloat(editHourlyRate) : (effectiveHourlyRate > 0 ? effectiveHourlyRate : null);
+    const editArrivalDate = new Date(editArrival);
+    let editDepartureDate = editDepartureValue ? new Date(editDepartureValue) : null;
+    // Auto-advance departure by 1 day if it crosses midnight (departure before or equal to arrival)
+    if (editDepartureDate && editDepartureDate <= editArrivalDate) {
+      editDepartureDate = new Date(editDepartureDate.getTime() + 24 * 60 * 60 * 1000);
+    }
     try {
       await updateMutation.mutateAsync({
         jobId,
         entryId: editingId,
         data: {
-          arrival_time: new Date(editArrival).toISOString(),
-          departure_time: editDepartureValue ? new Date(editDepartureValue).toISOString() : null,
+          arrival_time: editArrivalDate.toISOString(),
+          departure_time: editDepartureDate ? editDepartureDate.toISOString() : null,
           notes: editNotes || null,
           hourly_rate: resolvedEditRate,
         } as Record<string, unknown>,
