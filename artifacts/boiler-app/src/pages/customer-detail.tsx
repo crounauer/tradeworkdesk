@@ -67,7 +67,11 @@ export default function CustomerDetail() {
       setShowPropertyForm(true);
     }
   }, [search]);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => new URLSearchParams(search).get("edit") === "1");
+
+  useEffect(() => {
+    if (new URLSearchParams(search).get("edit") === "1") setEditing(true);
+  }, [search]);
   const { profile } = useAuth();
   const [, navigate] = useLocation();
   const qc = useQueryClient();

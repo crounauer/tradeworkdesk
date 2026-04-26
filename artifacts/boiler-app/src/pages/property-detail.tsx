@@ -1,5 +1,5 @@
 import { useGetProperty, useUpdateProperty, useDeleteProperty } from "@workspace/api-client-react";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,13 @@ type PropertyEditData = {
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: property, isLoading, error } = useGetProperty(id);
-  const [editing, setEditing] = useState(false);
+  const search = useSearch();
+  const [editing, setEditing] = useState(() => new URLSearchParams(search).get("edit") === "1");
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(search).get("edit") === "1") setEditing(true);
+  }, [search]);
   const { hasFeature } = usePlanFeatures();
   const deleteProperty = useDeleteProperty();
   const qc = useQueryClient();

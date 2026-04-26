@@ -11,7 +11,8 @@ import {
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
-  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff
+  CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
+  Play, Timer
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
@@ -93,6 +94,9 @@ export default function JobDetail() {
   const [loadingCache, setLoadingCache] = useState(false);
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
+  const [startingJob, setStartingJob] = useState(false);
+  const [finishingJob, setFinishingJob] = useState(false);
+  const [sendingCertificate, setSendingCertificate] = useState(false);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -175,6 +179,65 @@ export default function JobDetail() {
     }
   };
 
+  const handleStartJob = async () => {
+    const now = new Date().toISOString();
+    try {
+      if (!isOnline) {
+        await queueJobUpdate(job.id, { status: "in_progress", arrival_time: now });
+        toast({ title: "Queued offline", description: "Job started — will sync when online." });
+        return;
+      }
+      setStartingJob(true);
+      await updateJob.mutateAsync({ id: job.id, data: { status: "in_progress", arrival_time: now } as Parameters<typeof updateJob.mutateAsync>[0]["data"] });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job started", description: "Arrival time recorded." });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to start job";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setStartingJob(false);
+    }
+  };
+
+  const handleFinishJob = async () => {
+    const now = new Date().toISOString();
+    try {
+      if (!isOnline) {
+        await queueJobUpdate(job.id, { departure_time: now });
+        toast({ title: "Queued offline", description: "Departure time recorded — will sync when online." });
+        return;
+      }
+      setFinishingJob(true);
+      await updateJob.mutateAsync({ id: job.id, data: { departure_time: now } as Parameters<typeof updateJob.mutateAsync>[0]["data"] });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job finished", description: "Departure time recorded." });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to finish job";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setFinishingJob(false);
+    }
+  };
+
+  const handleEmailCertificate = async () => {
+    if (!isOnline) {
+      toast({ title: "Offline", description: "Email certificate requires an internet connection.", variant: "destructive" });
+      return;
+    }
+    setSendingCertificate(true);
+    try {
+      const res = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/email-certificate`, { method: "POST" }) as { success: boolean; message: string; forms_sent: string[] };
+      toast({ title: "Certificate sent", description: res.message || "Certificate emailed to customer." });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to send certificate";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSendingCertificate(false);
+    }
+  };
+
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
   const canComplete = job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled";
@@ -212,6 +275,18 @@ export default function JobDetail() {
           <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {job.status === "scheduled" && (
+            <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={handleStartJob} disabled={startingJob || updateJob.isPending}>
+              {startingJob ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+              Start Job
+            </Button>
+          )}
+          {job.status === "in_progress" && !((job as unknown as Record<string, unknown>).departure_time) && (
+            <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white" onClick={handleFinishJob} disabled={finishingJob || updateJob.isPending}>
+              {finishingJob ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Timer className="w-4 h-4 mr-2" />}
+              Finish Job
+            </Button>
+          )}
           {canComplete && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
@@ -272,6 +347,12 @@ export default function JobDetail() {
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
             <Mail className="w-4 h-4 mr-2" /> Email Customer
           </Button>
+          {completedForms && completedForms.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleEmailCertificate} disabled={sendingCertificate || !isOnline}>
+              {sendingCertificate ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+              Email Certificate
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
@@ -621,7 +702,7 @@ export default function JobDetail() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold flex items-center gap-2"><User className="w-5 h-5"/> Customer</h3>
                 {isAdmin && (
-                  <Link href={`/customers/${job.customer_id}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                  <Link href={`/customers/${job.customer_id}?edit=1`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
                     <Edit className="w-3 h-3" /> Edit
                   </Link>
                 )}
@@ -635,7 +716,7 @@ export default function JobDetail() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold flex items-center gap-2"><MapPin className="w-5 h-5"/> Location</h3>
                 {isAdmin && (
-                  <Link href={`/properties/${job.property_id}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                  <Link href={`/properties/${job.property_id}?edit=1`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
                     <Edit className="w-3 h-3" /> Edit
                   </Link>
                 )}
@@ -1639,7 +1720,7 @@ interface AccountingIntegrationStatus {
 function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalInvoiceProvider, externalInvoiceSentAt, refreshKey = 0 }: { jobId: string; jobStatus: string; externalInvoiceId?: string | null; externalInvoiceProvider?: string | null; externalInvoiceSentAt?: string | null; refreshKey?: number }) {
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(jobStatus === "completed" || jobStatus === "invoiced");
   const [showExport, setShowExport] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [accountingStatus, setAccountingStatus] = useState<AccountingIntegrationStatus | null>(null);
@@ -1748,6 +1829,15 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
           )}
         </div>
       </div>
+
+      {summary.invoice_number && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground mb-3">
+          <span><span className="font-medium text-foreground">Invoice #:</span> {summary.invoice_number}</span>
+          {summary.due_date && (
+            <span><span className="font-medium text-foreground">Due:</span> {new Date(summary.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+          )}
+        </div>
+      )}
 
       {showExport && (
         <div className="border rounded-lg p-4 mb-4 bg-emerald-50/50 space-y-3">
