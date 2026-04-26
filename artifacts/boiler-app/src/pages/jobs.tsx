@@ -526,6 +526,11 @@ function JobCard({
                   <CloudOff className="w-3 h-3" /> Pending sync
                 </span>
               )}
+              {job.customer_is_active === false && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                  <XCircle className="w-3 h-3" /> Customer deactivated
+                </span>
+              )}
             </div>
             <h3 className="font-bold text-lg mb-1">
               {job.job_ref && <span className="text-muted-foreground font-mono text-sm mr-2">{job.job_ref}</span>}
