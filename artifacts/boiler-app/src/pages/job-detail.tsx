@@ -892,13 +892,6 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
-  // Hourly rate derived from the job-level selected callout rate
-  const selectedRateHourly = (() => {
-    if (selectedCalloutRate === "auto") return Number(companySettings?.default_hourly_rate) || 0;
-    const found = calloutRates.find(r => r.id === selectedCalloutRate);
-    return found?.hourly_rate != null ? Number(found.hourly_rate) : Number(companySettings?.default_hourly_rate) || 0;
-  })();
-
   const totalMinutes = sortedEntries.reduce((sum, e) => {
     if (!e.departure_time) return sum;
     const ms = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
@@ -920,7 +913,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
         continue;
       }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
-      const rate = e.hourly_rate != null ? Number(e.hourly_rate) : selectedRateHourly;
+      // Use stored hourly_rate if available, else fall back to the job-level effective rate
+      const rate = e.hourly_rate != null ? Number(e.hourly_rate) : effectiveHourlyRate;
       const calloutHours = Math.min(hours, calloutHoursRemaining);
       calloutHoursRemaining = Math.max(0, calloutHoursRemaining - hours);
       const calloutCost = isFirstEntry ? callOutFee : 0;
@@ -943,13 +937,23 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const [offlineSubmitting, setOfflineSubmitting] = useState(false);
 
+  // Derive the effective hourly rate from currently selected callout rate (or company default)
+  const effectiveHourlyRate = (() => {
+    if (selectedCalloutRate !== "auto") {
+      const found = calloutRates.find(r => r.id === selectedCalloutRate);
+      if (found?.hourly_rate != null) return Number(found.hourly_rate);
+    }
+    return Number(companySettings?.default_hourly_rate) || 0;
+  })();
+
   const handleAdd = async () => {
     if (!arrival) return;
+    const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : (hourlyRate ? parseFloat(hourlyRate) : null);
     const entryData = {
       arrival_time: new Date(arrival).toISOString(),
       departure_time: departure ? new Date(departure).toISOString() : null,
       notes: notes || null,
-      hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+      hourly_rate: resolvedRate || null,
     };
     if (!isOnline) {
       if (offlineSubmitting) return;
@@ -1016,6 +1020,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const handleUpdate = async () => {
     if (!editingId || !editArrival) return;
+    const resolvedEditRate = editHourlyRate ? parseFloat(editHourlyRate) : (effectiveHourlyRate > 0 ? effectiveHourlyRate : null);
     try {
       await updateMutation.mutateAsync({
         jobId,
@@ -1024,7 +1029,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
           arrival_time: new Date(editArrival).toISOString(),
           departure_time: editDeparture ? new Date(editDeparture).toISOString() : null,
           notes: editNotes || null,
-          hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
+          hourly_rate: resolvedEditRate,
         } as Record<string, unknown>,
       });
       cancelEdit();
