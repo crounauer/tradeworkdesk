@@ -317,7 +317,8 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
   const qc = useQueryClient();
   const update = useUpdateCustomer();
   const { toast } = useToast();
-  const { register, handleSubmit, reset } = useForm<CustomerEditData>();
+  const { hasFeature } = usePlanFeatures();
+  const { register, handleSubmit, reset, setValue } = useForm<CustomerEditData>();
 
   useEffect(() => {
     reset({
@@ -397,6 +398,21 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {hasFeature("uk_address_lookup") && (
+            <div className="md:col-span-2">
+              <Suspense fallback={null}>
+                <PostcodeAddressFinder
+                  onAddressSelected={(addr) => {
+                    setValue("address_line1", addr.address_line1);
+                    setValue("address_line2", addr.address_line2);
+                    setValue("city", addr.city);
+                    setValue("county", addr.county);
+                    setValue("postcode", addr.postcode);
+                  }}
+                />
+              </Suspense>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Address Line 1</Label>
             <Input {...register("address_line1")} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useListCustomers, useCreateCustomer } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 import CustomerImportDialog from "@/components/customer-import";
+
+const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 
 export default function Customers() {
   const [search, setSearch] = useState("");
@@ -101,8 +104,9 @@ export default function Customers() {
 function AddCustomerForm({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateCustomer();
-  const { register, handleSubmit } = useForm();
+  const { register, handleSubmit, setValue } = useForm<Record<string, string>>();
   const { toast } = useToast();
+  const { hasFeature } = usePlanFeatures();
   const [, navigate] = useLocation();
 
   const onSubmit = async (data: Record<string, unknown>) => {
@@ -124,9 +128,25 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
         <Input placeholder="Last Name" required {...register("last_name")} />
         <Input placeholder="Email" type="email" {...register("email")} />
         <Input placeholder="Phone" {...register("phone")} />
+        {hasFeature("uk_address_lookup") && (
+          <div className="md:col-span-2">
+            <Suspense fallback={null}>
+              <PostcodeAddressFinder
+                onAddressSelected={(addr) => {
+                  setValue("address_line1", addr.address_line1);
+                  setValue("address_line2", addr.address_line2);
+                  setValue("city", addr.city);
+                  setValue("county", addr.county);
+                  setValue("postcode", addr.postcode);
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
         <Input placeholder="Address Line 1" className="md:col-span-2" {...register("address_line1")} />
         <Input placeholder="Address Line 2" className="md:col-span-2" {...register("address_line2")} />
         <Input placeholder="City" {...register("city")} />
+        <Input placeholder="County" {...register("county")} />
         <Input placeholder="Postcode" {...register("postcode")} />
         <div className="md:col-span-2 flex justify-end gap-2 mt-2">
           <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
