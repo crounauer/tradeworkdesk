@@ -29,6 +29,14 @@ interface OfflineContextValue {
   queueJobUpdate: (jobId: string, updates: Record<string, unknown>) => Promise<string>;
   queueTimeEntry: (jobId: string, data: { arrival_time: string; departure_time?: string | null; notes?: string | null; hourly_rate?: number | null }) => Promise<string>;
   queueJobPart: (jobId: string, data: { part_name: string; quantity?: number; serial_number?: string | null; unit_price?: number | null }) => Promise<string>;
+  queueServiceRecord: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueBreakdownReport: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueCommissioningRecord: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueCombustionAnalysis: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueBurnerSetup: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueFireValveTest: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueOilLineVacuumTest: (jobId: string, data: Record<string, unknown>) => Promise<string>;
+  queueOilTankInspection: (jobId: string, data: Record<string, unknown>) => Promise<string>;
   triggerSync: () => Promise<void>;
   discardPendingMutation: (id: string) => Promise<void>;
   retryFailedMutation: (id: string) => Promise<void>;
@@ -176,6 +184,23 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     return id;
   }, []);
 
+  const queueFormMutation = useCallback(async (type: OfflineMutation["type"], jobId: string, data: Record<string, unknown>) => {
+    const id = await queueOfflineMutation(type, { jobId, ...data });
+    if (supportsBackgroundSync()) {
+      registerBackgroundSync();
+    }
+    return id;
+  }, []);
+
+  const queueServiceRecord = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-service-record", jobId, data), [queueFormMutation]);
+  const queueBreakdownReport = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-breakdown-report", jobId, data), [queueFormMutation]);
+  const queueCommissioningRecord = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-commissioning-record", jobId, data), [queueFormMutation]);
+  const queueCombustionAnalysis = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-combustion-analysis", jobId, data), [queueFormMutation]);
+  const queueBurnerSetup = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-burner-setup", jobId, data), [queueFormMutation]);
+  const queueFireValveTest = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-fire-valve-test", jobId, data), [queueFormMutation]);
+  const queueOilLineVacuumTest = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-oil-line-vacuum-test", jobId, data), [queueFormMutation]);
+  const queueOilTankInspection = useCallback((jobId: string, data: Record<string, unknown>) => queueFormMutation("create-oil-tank-inspection", jobId, data), [queueFormMutation]);
+
   const triggerSync = useCallback(async () => {
     if (!isOnline) return;
     await processMutationQueue();
@@ -215,6 +240,14 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         queueJobUpdate,
         queueTimeEntry,
         queueJobPart,
+        queueServiceRecord,
+        queueBreakdownReport,
+        queueCommissioningRecord,
+        queueCombustionAnalysis,
+        queueBurnerSetup,
+        queueFireValveTest,
+        queueOilLineVacuumTest,
+        queueOilTankInspection,
         triggerSync,
         discardPendingMutation,
         retryFailedMutation,

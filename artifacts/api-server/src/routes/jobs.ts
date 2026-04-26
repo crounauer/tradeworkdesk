@@ -1968,4 +1968,138 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
   res.sendStatus(204);
 });
 
+/**
+ * POST /jobs/:jobId/email-certificate
+ * One-tap: collects all completed forms for the job and emails them to the customer.
+ */
+router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.jobId;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  // Fetch job + customer email
+  let jobQ = supabaseAdmin
+    .from("jobs")
+    .select("*, customers(first_name, last_name, email), profiles(full_name), appliances(fuel_type)")
+    .eq("id", jobId);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job, error: jobErr } = await jobQ.single();
+  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const customer = job.customers as { first_name: string; last_name: string; email: string | null } | null;
+  if (!customer?.email) {
+    res.status(400).json({ error: "Customer has no email address on record" }); return;
+  }
+
+  const customerName = `${customer.first_name} ${customer.last_name}`;
+  const techProfile = job.profiles as { full_name: string } | null;
+  const technicianName = techProfile?.full_name || "Technician";
+  const jobRef = job.job_ref || `#${job.id.slice(0, 8)}`;
+
+  const [tenantRes, settingsRes] = await Promise.all([
+    supabaseAdmin.from("tenants").select("company_name").eq("id", req.tenantId!).single(),
+    supabaseAdmin.from("company_settings").select("*").eq("tenant_id", req.tenantId!).eq("singleton_id", "default").maybeSingle(),
+  ]);
+
+  const companyName = (tenantRes.data as Record<string, unknown>)?.company_name as string || "Your Service Provider";
+  const companySettings = settingsRes.data as Record<string, unknown> | null;
+
+  const pdfCompany: PdfCompanySettings | undefined = companySettings ? {
+    name: companySettings.name as string | null,
+    trading_name: companySettings.trading_name as string | null,
+    address_line1: companySettings.address_line1 as string | null,
+    address_line2: companySettings.address_line2 as string | null,
+    city: companySettings.city as string | null,
+    county: companySettings.county as string | null,
+    postcode: companySettings.postcode as string | null,
+    phone: companySettings.phone as string | null,
+    email: companySettings.email as string | null,
+    website: companySettings.website as string | null,
+    gas_safe_number: companySettings.gas_safe_number as string | null,
+    oftec_number: companySettings.oftec_number as string | null,
+    vat_number: companySettings.vat_number as string | null,
+  } : undefined;
+
+  let propertyAddress = "";
+  if (job.property_id) {
+    const { data: prop } = await supabaseAdmin.from("properties").select("address_line1, city, postcode").eq("id", job.property_id).maybeSingle();
+    if (prop) {
+      const r = prop as Record<string, unknown>;
+      propertyAddress = [r.address_line1, r.city, r.postcode].filter(Boolean).join(", ");
+    }
+  }
+
+  const scheduledDate = job.scheduled_date || "";
+  const appliance = job.appliances as { fuel_type: string } | null;
+  const fuelType = appliance?.fuel_type || "oil";
+  const formCtx = { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
+
+  // Gather all completed forms for this job
+  const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
+  const attachments: EmailAttachment[] = [];
+
+  for (const [formType, config] of Object.entries(FORM_TABLE_MAP)) {
+    let q = supabaseAdmin.from(config.table).select("*").eq("job_id", jobId);
+    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    const { data: records } = await q;
+    if (!records || records.length === 0) continue;
+
+    for (const record of records) {
+      const rec = record as Record<string, unknown>;
+      const pdfBuffer = generateFormPdf(formType, config.label, rec, config.fieldMap, formCtx, pdfCompany, fuelType);
+      const safeLabel = config.label.replace(/[^a-zA-Z0-9]/g, "_");
+      attachments.push({ filename: `${safeLabel}_${formCtx.jobRef}.pdf`, content: pdfBuffer });
+      formsIncluded.push({ form_type: formType, form_label: config.label, form_id: rec.id as string });
+    }
+  }
+
+  if (formsIncluded.length === 0) {
+    res.status(400).json({ error: "No completed service forms found for this job" }); return;
+  }
+
+  const subject = `Job ${jobRef} — Service Certificate from ${companyName}`;
+
+  const emailCompany: EmailCompanyDetails | undefined = pdfCompany ? {
+    ...pdfCompany,
+    logo_url: companySettings?.logo_url as string | null || null,
+    rates_url: companySettings?.rates_url as string | null || null,
+    trading_terms_url: companySettings?.trading_terms_url as string | null || null,
+  } : undefined;
+
+  try {
+    await sendJobFormsEmail(
+      customer.email,
+      null,
+      subject,
+      jobRef,
+      customerName,
+      companyName,
+      formsIncluded.map(f => f.form_label),
+      attachments,
+      emailCompany,
+      0,
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to send email";
+    res.status(500).json({ error: msg }); return;
+  }
+
+  await supabaseAdmin.from("job_email_logs").insert({
+    job_id: jobId,
+    tenant_id: req.tenantId,
+    sent_by: req.userId,
+    sent_to: customer.email,
+    cc: null,
+    subject,
+    forms_included: formsIncluded,
+    photos_included: null,
+  });
+
+  res.json({ success: true, message: `Certificate emailed to ${customer.email}`, forms_sent: formsIncluded.map(f => f.form_label) });
+});
+
 export default router;

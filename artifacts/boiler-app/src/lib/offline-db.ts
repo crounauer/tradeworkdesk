@@ -7,7 +7,10 @@ export type MutationStatus = "pending" | "syncing" | "failed";
 
 export interface OfflineMutation {
   id: string;
-  type: "create-job" | "create-job-note" | "update-job" | "create-time-entry" | "create-job-part";
+  type: "create-job" | "create-job-note" | "update-job" | "create-time-entry" | "create-job-part"
+    | "create-service-record" | "create-breakdown-report" | "create-commissioning-record"
+    | "create-combustion-analysis" | "create-burner-setup" | "create-fire-valve-test"
+    | "create-oil-line-vacuum-test" | "create-oil-tank-inspection";
   payload: Record<string, unknown>;
   createdAt: number;
   retries: number;

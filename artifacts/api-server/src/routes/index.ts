@@ -38,6 +38,7 @@ import homepageRouter from "./homepage";
 import addonsRouter from "./addons";
 import portalRouter from "./portal";
 import followUpsRouter from "./follow-ups";
+import calendarRouter from "./calendar";
 
 const router: IRouter = Router();
 
@@ -79,6 +80,7 @@ router.use(accountingIntegrationsRouter);
 router.use(addonsRouter);
 router.use(portalRouter);
 router.use(followUpsRouter);
+router.use(calendarRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

@@ -1,14 +1,13 @@
-import { useListJobs, useCreateJob, useCreateCustomer, useCreateProperty, useListProfiles, useListCustomers, useListProperties, getListCustomersQueryKey, getListPropertiesQueryKey, getListProfilesQueryKey } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
+import { useListJobs, useCreateJob, useCreateCustomer, useCreateProperty, useListProfiles, useListCustomers, useListProperties, useUpdateJob, getListCustomersQueryKey, getListPropertiesQueryKey, getListProfilesQueryKey } from "@workspace/api-client-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Link } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff, Home } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff, Home, Check, CalendarCheck } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -19,6 +18,7 @@ import { useOffline } from "@/contexts/offline-context";
 import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTechnicians, useCacheJobTypes } from "@/hooks/use-offline-data";
 import { PendingSyncBadge, OfflineMutationsList } from "@/components/offline-indicator";
 import { cacheJob, getAllCachedJobs, type CachedJob } from "@/lib/offline-db";
+import { BookJobDialog } from "@/components/book-job-dialog";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -64,7 +64,7 @@ type ViewTab = "list" | "map";
 function JobsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [showBookJob, setShowBookJob] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkExport, setShowBulkExport] = useState(false);
   const [bulkExporting, setBulkExporting] = useState(false);
@@ -260,13 +260,13 @@ function JobsContent() {
               <Download className="w-4 h-4 mr-2" /> Export {selectedExportable.length} Invoice{selectedExportable.length !== 1 ? "s" : ""}
             </Button>
           )}
-          <Button onClick={() => setShowForm(!showForm)}>
-            {showForm ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> New Job</>}
+          <Button onClick={() => setShowBookJob(true)}>
+            <Plus className="w-4 h-4 mr-2" /> New Job
           </Button>
         </div>
       </div>
 
-      {showForm && <AddJobForm onClose={() => setShowForm(false)} jobTypes={jobTypes} />}
+      <BookJobDialog open={showBookJob} onOpenChange={setShowBookJob} />
 
       <OfflineMutationsList />
 
@@ -414,6 +414,66 @@ function JobCard({
 }) {
   const isExportable = job.status === "completed" || job.status === "invoiced";
   const isSelected = selectedIds.has(job.id);
+  const updateJob = useUpdateJob();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  // Swipe gesture state
+  const [swipeX, setSwipeX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const startXRef = useRef<number | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const swipedRef = useRef(false);
+  const cardRef = useRef<HTMLAnchorElement>(null);
+
+  const canSwipeComplete = job.status === "scheduled" || job.status === "in_progress" || job.status === "requires_follow_up" || job.status === "awaiting_parts";
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    startXRef.current = e.clientX;
+    startYRef.current = e.clientY;
+    swipedRef.current = false;
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (startXRef.current === null || startYRef.current === null) return;
+    const dx = e.clientX - startXRef.current;
+    const dy = e.clientY - startYRef.current;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+      e.preventDefault();
+      setIsSwiping(true);
+      const clamped = Math.max(-100, Math.min(100, dx));
+      setSwipeX(clamped);
+      if (Math.abs(dx) > 50) swipedRef.current = true;
+    }
+  };
+
+  const onPointerUp = async () => {
+    const sx = swipeX;
+    startXRef.current = null;
+    startYRef.current = null;
+    setSwipeX(0);
+    setIsSwiping(false);
+
+    if (sx < -70 && canSwipeComplete) {
+      // Swipe left = complete
+      try {
+        await updateJob.mutateAsync({ id: job.id, data: { status: "completed" } });
+        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        toast({ title: "Job completed", description: `${job.customer_name} — marked as complete.` });
+      } catch {
+        toast({ title: "Error", description: "Failed to complete job", variant: "destructive" });
+      }
+    } else if (sx > 70) {
+      // Swipe right = navigate to job to reschedule
+      navigate(`/jobs/${job.id}`);
+    }
+  };
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    if (swipedRef.current) e.preventDefault();
+  };
+
   return (
     <div className="flex items-stretch gap-2">
       {isAdminOrOffice && isExportable && (
@@ -427,7 +487,31 @@ function JobCard({
         </div>
       )}
       {isAdminOrOffice && !isExportable && <div className="w-[28px]" />}
-      <Link href={`/jobs/${job.id}`} className="flex-1">
+      <div className="flex-1 relative overflow-hidden rounded-lg">
+        {/* Swipe action hints */}
+        {isSwiping && swipeX < -20 && canSwipeComplete && (
+          <div className="absolute inset-y-0 right-0 flex items-center justify-end pr-4 bg-emerald-500 rounded-lg">
+            <Check className="w-5 h-5 text-white mr-1" />
+            <span className="text-white text-sm font-medium">Complete</span>
+          </div>
+        )}
+        {isSwiping && swipeX > 20 && (
+          <div className="absolute inset-y-0 left-0 flex items-center justify-start pl-4 bg-blue-500 rounded-lg">
+            <CalendarCheck className="w-5 h-5 text-white mr-1" />
+            <span className="text-white text-sm font-medium">View</span>
+          </div>
+        )}
+        <Link
+          ref={cardRef}
+          href={`/jobs/${job.id}`}
+          className="block"
+          onClick={handleLinkClick}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => { startXRef.current = null; setSwipeX(0); setIsSwiping(false); }}
+          style={{ transform: isSwiping ? `translateX(${swipeX}px)` : undefined, transition: isSwiping ? "none" : "transform 0.2s ease" }}
+        >
         <Card className={`p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${isSelected ? "ring-2 ring-emerald-300 border-emerald-300" : ""}`}>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
@@ -472,7 +556,8 @@ function JobCard({
             )}
           </div>
         </Card>
-      </Link>
+        </Link>
+      </div>
     </div>
   );
 }
@@ -601,420 +686,3 @@ function JobSections({
   );
 }
 
-function AddJobForm({ onClose, jobTypes }: { onClose: () => void; jobTypes: JobType[] }) {
-  const qc = useQueryClient();
-  const createJob = useCreateJob();
-  const createCustomer = useCreateCustomer();
-  const createPropertyMut = useCreateProperty();
-  const { isOnline, queueJobCreation, getCachedData } = useOffline();
-  const { data: onlineCustomers } = useListCustomers(undefined, {
-    query: { queryKey: getListCustomersQueryKey(), enabled: isOnline },
-  });
-  const { data: onlineProperties } = useListProperties(undefined, {
-    query: { queryKey: getListPropertiesQueryKey(), enabled: isOnline },
-  });
-  const { data: onlineTechnicians } = useListProfiles({
-    query: { queryKey: getListProfilesQueryKey(), enabled: isOnline },
-  });
-  const [cachedCustomers, setCachedCustomers] = useState<Array<Record<string, unknown>>>([]);
-  const [cachedProperties, setCachedProperties] = useState<Array<Record<string, unknown>>>([]);
-  const [cachedTechnicians, setCachedTechnicians] = useState<Array<Record<string, unknown>>>([]);
-  const [cachedJobTypesData, setCachedJobTypesData] = useState<JobType[]>([]);
-
-  useEffect(() => {
-    if (!isOnline) {
-      getCachedCustomers(getCachedData).then(d => d && setCachedCustomers(d));
-      getCachedProperties(getCachedData).then(d => d && setCachedProperties(d));
-      getCachedTechnicians(getCachedData).then(d => d && setCachedTechnicians(d));
-      getCachedJobTypes(getCachedData).then(d => d && setCachedJobTypesData(d as unknown as JobType[]));
-    }
-  }, [isOnline, getCachedData]);
-
-  const customers = isOnline ? onlineCustomers : (cachedCustomers as unknown as typeof onlineCustomers);
-  const properties = isOnline ? onlineProperties : (cachedProperties as unknown as typeof onlineProperties);
-  const technicians = isOnline ? onlineTechnicians : (cachedTechnicians as unknown as typeof onlineTechnicians);
-  const effectiveJobTypes = isOnline ? jobTypes : (cachedJobTypesData.length > 0 ? cachedJobTypesData : jobTypes);
-
-  const { register, handleSubmit, watch, setValue } = useForm<JobFormData>();
-  const { toast } = useToast();
-  const { profile } = useAuth();
-  const { isSoleTrader } = useIsSoleTrader();
-  const selectedCustomerId = watch("customer_id");
-  const { hasFeature } = usePlanFeatures();
-  const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [newCustFirst, setNewCustFirst] = useState("");
-  const [newCustLast, setNewCustLast] = useState("");
-  const [newCustEmail, setNewCustEmail] = useState("");
-  const [newCustPhone, setNewCustPhone] = useState("");
-  const [creatingCustomer, setCreatingCustomer] = useState(false);
-  const [showNewProperty, setShowNewProperty] = useState(false);
-  const [newPropAddr1, setNewPropAddr1] = useState("");
-  const [newPropAddr2, setNewPropAddr2] = useState("");
-  const [newPropCity, setNewPropCity] = useState("");
-  const [newPropCounty, setNewPropCounty] = useState("");
-  const [newPropPostcode, setNewPropPostcode] = useState("");
-  const [newPropLat, setNewPropLat] = useState<number | null>(null);
-  const [newPropLng, setNewPropLng] = useState<number | null>(null);
-  const [creatingProperty, setCreatingProperty] = useState(false);
-  const [prevCustomerId, setPrevCustomerId] = useState("");
-  const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
-
-  const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
-
-  if (selectedCustomerId !== prevCustomerId) {
-    setPrevCustomerId(selectedCustomerId);
-    if (prevCustomerId) {
-      setValue("property_id", "");
-    }
-  }
-
-  const handleCreateCustomer = async () => {
-    if (!newCustFirst || !newCustLast) {
-      toast({ title: "Error", description: "First and last name are required", variant: "destructive" });
-      return;
-    }
-    setCreatingCustomer(true);
-    try {
-      const newCustomer = await createCustomer.mutateAsync({
-        data: {
-          first_name: newCustFirst,
-          last_name: newCustLast,
-          email: newCustEmail || undefined,
-          phone: newCustPhone || undefined,
-        } as { first_name: string; last_name: string },
-      });
-      await qc.refetchQueries({ queryKey: ["/api/customers"] });
-      setTimeout(() => setValue("customer_id", newCustomer.id), 50);
-      setShowNewCustomer(false);
-      setNewCustFirst("");
-      setNewCustLast("");
-      setNewCustEmail("");
-      setNewCustPhone("");
-      toast({ title: "Customer created", description: `${newCustFirst} ${newCustLast} added` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not create customer";
-      toast({ title: "Error", description: message, variant: "destructive" });
-    } finally {
-      setCreatingCustomer(false);
-    }
-  };
-
-  const handleCreateProperty = async () => {
-    if (!selectedCustomerId) {
-      toast({ title: "Error", description: "Select or create a customer first", variant: "destructive" });
-      return;
-    }
-    if (!newPropAddr1 || !newPropPostcode) {
-      toast({ title: "Error", description: "Address line 1 and postcode are required", variant: "destructive" });
-      return;
-    }
-    setCreatingProperty(true);
-    try {
-      const newProp = await createPropertyMut.mutateAsync({
-        data: {
-          customer_id: selectedCustomerId,
-          address_line1: newPropAddr1,
-          address_line2: newPropAddr2 || undefined,
-          city: newPropCity || undefined,
-          county: newPropCounty || undefined,
-          postcode: newPropPostcode,
-          latitude: newPropLat,
-          longitude: newPropLng,
-        } as { customer_id: string; address_line1: string; postcode: string },
-      });
-      await qc.refetchQueries({ queryKey: getListPropertiesQueryKey() });
-      setTimeout(() => setValue("property_id", newProp.id), 50);
-      setShowNewProperty(false);
-      setNewPropAddr1("");
-      setNewPropAddr2("");
-      setNewPropCity("");
-      setNewPropCounty("");
-      setNewPropPostcode("");
-      setNewPropLat(null);
-      setNewPropLng(null);
-      toast({ title: "Property created", description: `${newPropAddr1}, ${newPropPostcode} added` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not create property";
-      toast({ title: "Error", description: message, variant: "destructive" });
-    } finally {
-      setCreatingProperty(false);
-    }
-  };
-
-  const handleSendConfirmation = async (jobId: string) => {
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/send-confirmation`, { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to send email");
-      }
-      toast({ title: "Confirmation email sent", description: `Email sent to ${emailPrompt?.customerEmail}` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send email";
-      toast({ title: "Email failed", description: message, variant: "destructive" });
-    } finally {
-      setSendingEmail(false);
-      setEmailPrompt(null);
-      onClose();
-    }
-  };
-
-  const onSubmit = async (data: JobFormData) => {
-    const selectedType = effectiveJobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
-    const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
-
-    const technicianId = isSoleTrader && profile?.id ? profile.id : (data.assigned_technician_id || undefined);
-    const jobPayload = {
-      customer_id: data.customer_id,
-      property_id: data.property_id,
-      job_type: jobTypeCategory,
-      job_type_id: selectedType ? selectedType.id : undefined,
-      fuel_category: data.fuel_category || undefined,
-      priority: data.priority as "low" | "medium" | "high" | "urgent",
-      scheduled_date: data.scheduled_date,
-      scheduled_end_date: data.scheduled_end_date || undefined,
-      scheduled_time: data.scheduled_time || undefined,
-      description: data.description || undefined,
-      assigned_technician_id: technicianId,
-    };
-
-    if (!isOnline) {
-      try {
-        await queueJobCreation(jobPayload);
-        toast({
-          title: "Job saved offline",
-          description: "It will sync automatically when you're back online.",
-        });
-        onClose();
-      } catch {
-        toast({ title: "Failed to save job offline", variant: "destructive" });
-      }
-      return;
-    }
-
-    try {
-      const newJob = await createJob.mutateAsync({ data: jobPayload });
-      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({ title: "Job created successfully" });
-
-      const selectedCustomer = customers?.find(c => c.id === data.customer_id);
-      if (selectedCustomer?.email) {
-        setEmailPrompt({
-          jobId: newJob.id,
-          customerName: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`,
-          customerEmail: selectedCustomer.email,
-        });
-      } else {
-        onClose();
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not create job. Please try again.";
-      toast({ title: "Failed to create job", description: message, variant: "destructive" });
-    }
-  };
-
-  if (emailPrompt) {
-    return (
-      <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">
-        <div className="text-center space-y-4">
-          <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <Mail className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">Send Confirmation Email?</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Send an appointment confirmation to <strong>{emailPrompt.customerName}</strong> at{" "}
-              <span className="text-primary">{emailPrompt.customerEmail}</span>
-            </p>
-          </div>
-          <div className="flex gap-3 justify-center">
-            <Button
-              onClick={() => handleSendConfirmation(emailPrompt.jobId)}
-              disabled={sendingEmail}
-            >
-              {sendingEmail ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</> : <><Mail className="w-4 h-4 mr-2" /> Send Email</>}
-            </Button>
-            <Button variant="outline" onClick={() => { setEmailPrompt(null); onClose(); }} disabled={sendingEmail}>
-              Skip
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="p-6 border-primary/20 shadow-lg bg-primary/5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg">Schedule New Job</h3>
-        {!isOnline && (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-            <WifiOff className="w-3 h-3" />
-            Offline — will sync later
-          </span>
-        )}
-      </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <div className="flex gap-2 items-end">
-            <CustomerAutocomplete
-              customers={customers || []}
-              selectedId={selectedCustomerId}
-              onSelect={(id) => { setValue("customer_id", id); }}
-              className="flex-1 space-y-1"
-            />
-            {isOnline && (
-              <Button type="button" variant="outline" size="icon" className="shrink-0 mb-0.5" title="Add new customer" onClick={() => setShowNewCustomer(!showNewCustomer)}>
-                {showNewCustomer ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-              </Button>
-            )}
-          </div>
-        </div>
-        {showNewCustomer && (
-          <div className="md:col-span-2 border border-primary/20 rounded-lg p-4 bg-background space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2"><UserPlus className="w-4 h-4" /> Quick Add Customer</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder="First Name *" value={newCustFirst} onChange={e => setNewCustFirst(e.target.value)} />
-              <Input placeholder="Last Name *" value={newCustLast} onChange={e => setNewCustLast(e.target.value)} />
-              <Input placeholder="Email" type="email" value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} />
-              <Input placeholder="Phone" value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" onClick={handleCreateCustomer} disabled={creatingCustomer || !newCustFirst || !newCustLast}>
-                {creatingCustomer ? "Creating..." : "Create Customer"}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewCustomer(false)}>Cancel</Button>
-            </div>
-          </div>
-        )}
-        <div>
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-muted-foreground mb-1 block">Property *</label>
-              <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required={!showNewProperty} {...register("property_id")}>
-                <option value="">Select property...</option>
-                {filteredProperties?.map(p => (
-                  <option key={p.id} value={p.id}>{p.address_line1}, {p.postcode}</option>
-                ))}
-              </select>
-            </div>
-            {isOnline && selectedCustomerId && (
-              <Button type="button" variant="outline" size="icon" className="shrink-0 mb-0.5" title="Add new property" onClick={() => setShowNewProperty(!showNewProperty)}>
-                {showNewProperty ? <X className="w-4 h-4" /> : <Home className="w-4 h-4" />}
-              </Button>
-            )}
-          </div>
-          {selectedCustomerId && filteredProperties?.length === 0 && !showNewProperty && (
-            <p className="text-xs text-amber-600 mt-1">
-              No properties for this customer. Click <Home className="w-3 h-3 inline" /> to add one.
-            </p>
-          )}
-        </div>
-        {showNewProperty && selectedCustomerId && (
-          <div className="md:col-span-2 border border-primary/20 rounded-lg p-4 bg-background space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2"><Home className="w-4 h-4" /> Quick Add Property</h4>
-            {hasFeature("uk_address_lookup") && (
-              <Suspense fallback={null}>
-                <PostcodeAddressFinder
-                  onAddressSelected={(addr) => {
-                    setNewPropAddr1(addr.address_line1);
-                    setNewPropAddr2(addr.address_line2);
-                    setNewPropCity(addr.city);
-                    setNewPropCounty(addr.county);
-                    setNewPropPostcode(addr.postcode);
-                    if (addr.latitude && addr.longitude) {
-                      setNewPropLat(addr.latitude);
-                      setNewPropLng(addr.longitude);
-                    }
-                  }}
-                />
-              </Suspense>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder="Address Line 1 *" value={newPropAddr1} onChange={e => setNewPropAddr1(e.target.value)} />
-              <Input placeholder="Address Line 2" value={newPropAddr2} onChange={e => setNewPropAddr2(e.target.value)} />
-              <Input placeholder="City" value={newPropCity} onChange={e => setNewPropCity(e.target.value)} />
-              <Input placeholder="County" value={newPropCounty} onChange={e => setNewPropCounty(e.target.value)} />
-              <Input placeholder="Postcode *" value={newPropPostcode} onChange={e => setNewPropPostcode(e.target.value)} />
-            </div>
-            {newPropLat != null && newPropLng != null && (
-              <p className="text-xs text-muted-foreground font-mono">Coordinates: {newPropLat.toFixed(6)}, {newPropLng.toFixed(6)}</p>
-            )}
-            <div className="flex gap-2">
-              <Button type="button" size="sm" onClick={handleCreateProperty} disabled={creatingProperty || !newPropAddr1 || !newPropPostcode}>
-                {creatingProperty ? "Creating..." : "Create Property"}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewProperty(false)}>Cancel</Button>
-            </div>
-          </div>
-        )}
-        {showNewProperty && !selectedCustomerId && (
-          <div className="md:col-span-2">
-            <p className="text-xs text-amber-600">Select or create a customer first before adding a property.</p>
-          </div>
-        )}
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Job Type *</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
-            <option value="">Select job type...</option>
-            {effectiveJobTypes.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Forms Required</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("fuel_category")}>
-            <option value="">Select...</option>
-            <option value="gas">Gas</option>
-            <option value="oil">Oil</option>
-            <option value="heat_pump">Heat Pump</option>
-            <option value="general">Plumbing</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Priority</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("priority")}>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-            <option value="high">High</option>
-            <option value="urgent">Urgent</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Start Date *</label>
-          <Input type="date" required {...register("scheduled_date")} />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">End Date <span className="text-xs text-muted-foreground">(multi-day jobs only)</span></label>
-          <Input type="date" {...register("scheduled_end_date")} />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Scheduled Time</label>
-          <Input type="time" {...register("scheduled_time")} />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Assign Technician</label>
-          <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("assigned_technician_id")}>
-            <option value="">Unassigned</option>
-            {technicians?.filter(t => (t as unknown as { can_be_assigned_jobs?: boolean }).can_be_assigned_jobs === true || t.role === 'technician').map(t => (
-              <option key={t.id} value={t.id}>{t.full_name}{t.role === 'admin' ? ' (Admin)' : ''}</option>
-            ))}
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Description</label>
-          <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("description")} />
-        </div>
-        <div className="md:col-span-2 flex gap-3">
-          <Button type="submit" disabled={createJob.isPending}>
-            {createJob.isPending ? "Creating..." : "Create Job"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        </div>
-      </form>
-    </Card>
-  );
-}

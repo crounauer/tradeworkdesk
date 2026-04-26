@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect, DragEvent, MouseEvent } from "react";
-import { useListJobs, useUpdateJob, useListProfiles } from "@workspace/api-client-react";
+import { useUpdateJob } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar, Plus, MessageSquarePlus, Clock, MapPin, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useCalendarData } from "@/hooks/use-calendar-data";
 
 type CalendarJob = {
   id: string;
@@ -113,12 +114,9 @@ function getInitials(name: string): string {
 
 interface ScheduleCalendarProps {
   onDayAction?: (date: string, action: "enquiry" | "job") => void;
-  prefetchedJobs?: CalendarJob[];
-  prefetchedProfiles?: unknown[];
-  prefetchedDateRange?: { date_from: string; date_to: string };
 }
 
-export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetchedProfiles, prefetchedDateRange }: ScheduleCalendarProps = {}) {
+export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps = {}) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -169,29 +167,13 @@ export default function ScheduleCalendar({ onDayAction, prefetchedJobs, prefetch
 
   const dateFrom = days[0];
   const dateTo = days[days.length - 1];
-
   const dateFromStr = toDateStr(dateFrom);
   const dateToStr = toDateStr(addDays(dateTo, 1));
 
-  const isPrefetchHit = !!(
-    prefetchedJobs &&
-    prefetchedDateRange &&
-    dateFromStr >= prefetchedDateRange.date_from &&
-    toDateStr(dateTo) <= prefetchedDateRange.date_to
-  );
+  const { data: calendarData } = useCalendarData({ date_from: dateFromStr, date_to: dateToStr });
 
-  const { data: jobsResponse } = useListJobs({
-    date_from: dateFromStr,
-    date_to: dateToStr,
-    limit: 500,
-  } as Record<string, string>, { query: { enabled: !isPrefetchHit } });
-
-  const calendarJobs = isPrefetchHit
-    ? (prefetchedJobs ?? [])
-    : (((jobsResponse as any)?.jobs ?? []) as CalendarJob[]);
-
-  const { data: fetchedProfiles = [] } = useListProfiles({ query: { enabled: !prefetchedProfiles } });
-  const profiles = (prefetchedProfiles ?? fetchedProfiles) as typeof fetchedProfiles;
+  const calendarJobs = (calendarData?.jobs ?? []) as CalendarJob[];
+  const profiles = (calendarData?.profiles ?? []) as Array<{ id: string; full_name: string; role: string; [k: string]: unknown }>;
 
   const technicians = useMemo(
     () => profiles.filter((p) => p.role === "technician"),

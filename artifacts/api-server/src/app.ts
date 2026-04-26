@@ -3,6 +3,7 @@ import compression from "compression";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import router from "./routes";
+import { startServiceReminderScheduler } from "./lib/service-reminders";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -77,3 +78,5 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 export default app;
+
+startServiceReminderScheduler();

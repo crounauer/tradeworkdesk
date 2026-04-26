@@ -7,6 +7,7 @@ import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { getEffectiveLimits, getCurrentUserCount, getActiveInviteCount, hasActiveAddon } from "../lib/tenant-limits";
+import { runServiceDueReminders, previewServiceDueReminders } from "../lib/service-reminders";
 
 const router: IRouter = Router();
 
@@ -1068,6 +1069,25 @@ router.delete("/admin/products/:id", requireAuth, requireTenant, requireRole("ad
   const { error } = await supabaseAdmin.from("product_catalogue").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId!);
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ success: true });
+});
+
+// Service reminder endpoints (platform super_admin only)
+router.get("/admin/service-reminders/preview", requireAuth, requireRole("super_admin"), async (_req: AuthenticatedRequest, res): Promise<void> => {
+  try {
+    const data = await previewServiceDueReminders();
+    res.json({ reminders: data, count: data.length });
+  } catch (e: unknown) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "Internal server error" });
+  }
+});
+
+router.post("/admin/service-reminders/send", requireAuth, requireRole("super_admin"), async (_req: AuthenticatedRequest, res): Promise<void> => {
+  try {
+    const result = await runServiceDueReminders();
+    res.json(result);
+  } catch (e: unknown) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "Internal server error" });
+  }
 });
 
 export default router;

@@ -142,6 +142,62 @@ async function executeMutation(mutation: OfflineMutation): Promise<{ success: bo
           unit_price: mutation.payload.unit_price ?? null,
         });
         break;
+      case "create-service-record": {
+        const { jobId: _srJobId, ...srData } = mutation.payload;
+        url = `${baseUrl}api/service-records`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _srJobId, ...srData });
+        break;
+      }
+      case "create-breakdown-report": {
+        const { jobId: _brJobId, ...brData } = mutation.payload;
+        url = `${baseUrl}api/breakdown-reports`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _brJobId, ...brData });
+        break;
+      }
+      case "create-commissioning-record": {
+        const { jobId: _crJobId, ...crData } = mutation.payload;
+        url = `${baseUrl}api/commissioning-records`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _crJobId, ...crData });
+        break;
+      }
+      case "create-combustion-analysis": {
+        const { jobId: _caJobId, ...caData } = mutation.payload;
+        url = `${baseUrl}api/combustion-analysis-records`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _caJobId, ...caData });
+        break;
+      }
+      case "create-burner-setup": {
+        const { jobId: _bsJobId, ...bsData } = mutation.payload;
+        url = `${baseUrl}api/burner-setup-records`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _bsJobId, ...bsData });
+        break;
+      }
+      case "create-fire-valve-test": {
+        const { jobId: _fvJobId, ...fvData } = mutation.payload;
+        url = `${baseUrl}api/fire-valve-test-records`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _fvJobId, ...fvData });
+        break;
+      }
+      case "create-oil-line-vacuum-test": {
+        const { jobId: _olvJobId, ...olvData } = mutation.payload;
+        url = `${baseUrl}api/oil-line-vacuum-tests`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _olvJobId, ...olvData });
+        break;
+      }
+      case "create-oil-tank-inspection": {
+        const { jobId: _otiJobId, ...otiData } = mutation.payload;
+        url = `${baseUrl}api/oil-tank-inspections`;
+        method = "POST";
+        body = JSON.stringify({ job_id: _otiJobId, ...otiData });
+        break;
+      }
       default:
         return { success: false, error: `Unknown mutation type: ${mutation.type}` };
     }

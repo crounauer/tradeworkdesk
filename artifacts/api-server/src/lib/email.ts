@@ -461,3 +461,45 @@ export async function sendPaymentFailedEmail(to: string, companyName: string, am
   `);
   await send(to, "TradeWorkDesk — Action required: payment failed", html);
 }
+
+export async function sendServiceDueReminderEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  applianceDescription: string,
+  dueDateStr: string,
+  bookingUrl: string,
+  companyDetails?: EmailCompanyDetails,
+): Promise<void> {
+  const dueDate = new Date(dueDateStr).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const companyDisplay = companyDetails?.name || companyDetails?.trading_name || companyName;
+
+  const html = baseHtml(
+    `Service Due Reminder — ${applianceDescription}`,
+    `
+    <h2>Your service is due soon</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p>This is a friendly reminder that the service for your <strong>${escHtml(applianceDescription)}</strong> is due on <strong>${dueDate}</strong>.</p>
+    <div class="info-box">
+      <p><strong>Appliance:</strong> ${escHtml(applianceDescription)}</p>
+      <p><strong>Service due:</strong> ${dueDate}</p>
+    </div>
+    <p>Regular servicing keeps your appliance running safely and efficiently. To book your service, please get in touch.</p>
+    ${bookingUrl ? `<p style="margin-top:24px;"><a href="${escHtml(bookingUrl)}" class="btn">Book Your Service</a></p>` : ""}
+    <hr class="divider"/>
+    <p style="font-size:13px; color:#64748b;">This reminder has been sent by <strong>${escHtml(companyDisplay)}</strong>. If you have already booked, please ignore this email.</p>
+    ${renderDocumentLinks(companyDetails)}
+  `,
+    companyDetails,
+  );
+
+  if (!resend) {
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+  const subject = `${escHtml(companyDisplay)} — Service Due Reminder for ${escHtml(applianceDescription)}`;
+  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+  if (error) {
+    console.error(`[email] Failed to send service reminder to ${to}:`, error);
+    throw new Error(`Email send failed: ${error.message}`);
+  }
+}

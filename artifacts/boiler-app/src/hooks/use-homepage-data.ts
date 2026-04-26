@@ -2,9 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 export interface HomepageData {
   dashboard: unknown;
-  calendar_jobs: { jobs: unknown[]; pagination: unknown };
-  calendar_date_range: { date_from: string; date_to: string };
-  profiles: unknown[];
   storage?: { used_bytes: number; file_count: number; signature_count: number };
 }
 
@@ -18,6 +15,5 @@ export function useHomepageData() {
     },
     staleTime: 5 * 60_000,
     gcTime: 15 * 60_000,
-    // refetchInterval removed,
   });
 }

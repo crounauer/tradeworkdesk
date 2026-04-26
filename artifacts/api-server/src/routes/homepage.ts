@@ -5,10 +5,6 @@ import { GetDashboardResponse } from "@workspace/api-zod";
 
 const DASHBOARD_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, description, notes, is_active, created_at, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
 
-const CALENDAR_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
-
-const PROFILE_FIELDS = "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
-
 interface DashboardJobRow {
   id: string;
   customer_id: string;
@@ -23,30 +19,6 @@ interface DashboardJobRow {
   properties?: { address_line1: string } | null;
   profiles?: { full_name: string } | null;
   [key: string]: unknown;
-}
-
-interface CalendarJobRow {
-  id: string;
-  customer_id: string;
-  property_id: string;
-  appliance_id: string | null;
-  assigned_technician_id: string | null;
-  job_type: string;
-  job_type_id: number | null;
-  status: string;
-  priority: string;
-  description: string | null;
-  scheduled_date: string;
-  scheduled_end_date: string | null;
-  scheduled_time: string | null;
-  estimated_duration: number | null;
-  arrival_time: string | null;
-  departure_time: string | null;
-  created_at: string;
-  updated_at: string;
-  customers?: { first_name: string; last_name: string } | null;
-  properties?: { address_line1: string; latitude?: number | null; longitude?: number | null; postcode?: string | null } | null;
-  profiles?: { full_name: string } | null;
 }
 
 interface OverdueApplianceRow {
@@ -91,19 +63,6 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const calendarStart = new Date(monthStart);
-  const msDayOfWeek = calendarStart.getDay();
-  const msMondayOffset = msDayOfWeek === 0 ? -6 : 1 - msDayOfWeek;
-  calendarStart.setDate(calendarStart.getDate() + msMondayOffset);
-  const calendarEnd = new Date(monthEnd);
-  calendarEnd.setDate(calendarEnd.getDate() + 7);
-
-  const calDateFrom = calendarStart.toISOString().slice(0, 10);
-  const calDateTo = calendarEnd.toISOString().slice(0, 10);
-
   const techFilter = req.userRole === "technician" ? req.userId : undefined;
 
   const buildJobQuery = () => {
@@ -117,31 +76,6 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   };
 
   const activeToday = `and(scheduled_date.eq.${today},scheduled_end_date.is.null),and(scheduled_date.lte.${today},scheduled_end_date.gte.${today})`;
-
-  const buildCalendarJobsQuery = () => {
-    let q = supabaseAdmin
-      .from("jobs")
-      .select(CALENDAR_JOB_FIELDS)
-      .eq("is_active", true)
-      .or(`scheduled_date.gte.${calDateFrom},scheduled_end_date.gte.${calDateFrom}`)
-      .lte("scheduled_date", calDateTo)
-      .order("scheduled_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    if (techFilter) q = q.eq("assigned_technician_id", techFilter);
-    return q;
-  };
-
-  const buildProfilesQuery = () => {
-    let q = supabaseAdmin
-      .from("profiles")
-      .select(PROFILE_FIELDS)
-      .eq("is_active", true)
-      .order("full_name");
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    return q;
-  };
 
   const buildApplianceQuery = () => {
     let q = supabaseAdmin.from("appliances")
@@ -186,7 +120,7 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
     customerCountRes, todayCountRes, overdueCountRes, completedCountRes,
-    calendarJobsRes, profilesRes, tenantFeatures, jobTypesRes, storageRes, signatureCountRes
+    tenantFeatures, jobTypesRes, storageRes, signatureCountRes
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -201,8 +135,6 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     buildTodayCountQuery().or(activeToday).neq("status", "cancelled"),
     buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today).select("id", { count: "exact", head: true }),
     buildCompletedCountQuery(),
-    buildCalendarJobsQuery(),
-    buildProfilesQuery(),
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
     req.tenantId
       ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
@@ -250,26 +182,6 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     },
   });
 
-  const hasGeoMapping = !!(tenantFeatures as any)?.geo_mapping;
-
-  const typeMap = new Map(((jobTypesRes as any)?.data || []).map((t: { id: number; name: string }) => [t.id, t.name]));
-
-  const calendarJobs = ((calendarJobsRes.data as CalendarJobRow[] || []).map((j) => ({
-    ...j,
-    customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
-    property_address: j.properties?.address_line1 || null,
-    technician_name: j.profiles?.full_name || null,
-    job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
-    property_latitude: hasGeoMapping ? (j.properties?.latitude ?? null) : null,
-    property_longitude: hasGeoMapping ? (j.properties?.longitude ?? null) : null,
-    property_postcode: hasGeoMapping ? (j.properties?.postcode ?? null) : null,
-    customers: undefined,
-    profiles: undefined,
-    properties: undefined,
-  })));
-
-  const profiles = profilesRes.data || [];
-
   const storageAgg = (storageRes.data?.[0] || {}) as { file_size: { sum: number | null } | null };
   const storageUsedBytes = storageAgg.file_size?.sum ?? 0;
   const storageFileCount = storageRes.count ?? 0;
@@ -277,12 +189,6 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
 
   const responseBody = {
     dashboard,
-    calendar_jobs: {
-      jobs: calendarJobs,
-      pagination: { page: 1, limit: 500, total: calendarJobs.length, totalPages: 1 },
-    },
-    calendar_date_range: { date_from: calDateFrom, date_to: calDateTo },
-    profiles,
     storage: {
       used_bytes: storageUsedBytes,
       file_count: storageFileCount,
