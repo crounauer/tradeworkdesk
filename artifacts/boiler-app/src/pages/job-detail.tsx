@@ -851,6 +851,12 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const handleCalloutRateChange = async (value: string) => {
     setSelectedCalloutRate(value);
     const selectedRate = value !== "auto" ? calloutRates.find(r => r.id === value) : null;
+    const newHourlyRate = selectedRate?.hourly_rate != null
+      ? String(Number(selectedRate.hourly_rate))
+      : companySettings?.default_hourly_rate != null
+        ? String(Number(companySettings.default_hourly_rate))
+        : "";
+    setHourlyRate(newHourlyRate);
     if (selectedRate?.hourly_rate != null) {
       setHourlyRate(String(Number(selectedRate.hourly_rate)));
     }
@@ -1058,26 +1064,11 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               <Label className="text-xs">Arrival *</Label>
               <div className="flex gap-1.5">
                 <Input type="datetime-local" value={arrival} onChange={(e) => {
-                  const val = e.target.value;
-                  setArrival(val);
-                  if (val && !departure) {
-                    const datePart = val.split("T")[0];
-                    if (datePart) {
-                      setDeparture(datePart + "T00:00");
-                      setTimeout(() => departureInputRef.current?.focus(), 0);
-                    }
-                  }
+                  setArrival(e.target.value);
                 }} className="flex-1" />
                 <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
                   const now = toLocalDatetimeStr(new Date());
                   setArrival(now);
-                  if (!departure) {
-                    const datePart = now.split("T")[0];
-                    if (datePart) {
-                      setDeparture(datePart + "T00:00");
-                      setTimeout(() => departureInputRef.current?.focus(), 0);
-                    }
-                  }
                 }}>Now</Button>
               </div>
             </div>
@@ -1114,16 +1105,23 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               </div>
             )}
           </div>
-          {arrival && departure && (
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>Duration: {calcDuration(arrival, departure)}</span>
-              {hourlyRate && parseFloat(hourlyRate) > 0 && (
-                <span className="font-medium text-emerald-600">
-                  Cost: £{((new Date(departure).getTime() - new Date(arrival).getTime()) / 3600000 * parseFloat(hourlyRate)).toFixed(2)}
-                </span>
-              )}
-            </div>
-          )}
+          {arrival && departure && (() => {
+            const ms = new Date(departure).getTime() - new Date(arrival).getTime();
+            const hours = ms / 3600000;
+            const durationStr = calcDuration(arrival, departure);
+            const rate = parseFloat(hourlyRate) || 0;
+            const hasCallout = callOutFee > 0;
+            const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
+            const cost = (hasCallout ? callOutFee : 0) + billable * rate;
+            return (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>Duration: {durationStr}</span>
+                {ms > 0 && (callOutFee > 0 || rate > 0) && (
+                  <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
+                )}
+              </div>
+            );
+          })()}
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
               <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
@@ -1148,26 +1146,11 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                       <Label className="text-xs">Arrival *</Label>
                       <div className="flex gap-1.5">
                         <Input type="datetime-local" value={editArrival} onChange={(e) => {
-                          const val = e.target.value;
-                          setEditArrival(val);
-                          if (val && !editDeparture) {
-                            const datePart = val.split("T")[0];
-                            if (datePart) {
-                              setEditDeparture(datePart + "T00:00");
-                              setTimeout(() => editDepartureInputRef.current?.focus(), 0);
-                            }
-                          }
+                          setEditArrival(e.target.value);
                         }} className="flex-1" />
                         <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
                           const now = toLocalDatetimeStr(new Date());
                           setEditArrival(now);
-                          if (!editDeparture) {
-                            const datePart = now.split("T")[0];
-                            if (datePart) {
-                              setEditDeparture(datePart + "T00:00");
-                              setTimeout(() => editDepartureInputRef.current?.focus(), 0);
-                            }
-                          }
                         }}>Now</Button>
                       </div>
                     </div>
@@ -1205,16 +1188,23 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                       Hourly rate: <span className="font-medium">£{parseFloat(editHourlyRate).toFixed(2)}/hr</span>
                     </div>
                   )}
-                  {editArrival && editDeparture && (
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Duration: {calcDuration(editArrival, editDeparture)}</span>
-                      {editHourlyRate && parseFloat(editHourlyRate) > 0 && (
-                        <span className="font-medium text-emerald-600">
-                          Cost: £{((new Date(editDeparture).getTime() - new Date(editArrival).getTime()) / 3600000 * parseFloat(editHourlyRate)).toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {editArrival && editDeparture && (() => {
+                    const ms = new Date(editDeparture).getTime() - new Date(editArrival).getTime();
+                    const hours = ms / 3600000;
+                    const durationStr = calcDuration(editArrival, editDeparture);
+                    const rate = parseFloat(editHourlyRate) || 0;
+                    const hasCallout = callOutFee > 0;
+                    const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
+                    const cost = (hasCallout ? callOutFee : 0) + billable * rate;
+                    return (
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Duration: {durationStr}</span>
+                        {ms > 0 && (callOutFee > 0 || rate > 0) && (
+                          <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleUpdate} disabled={updateMutation.isPending || !editArrival}>
                       <Check className="w-4 h-4 mr-1" /> {updateMutation.isPending ? "Saving..." : "Save"}
