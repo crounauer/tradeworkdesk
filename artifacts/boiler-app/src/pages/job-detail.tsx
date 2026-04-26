@@ -948,10 +948,12 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const handleAdd = async () => {
     if (!arrival) return;
+    // Read departure directly from the DOM to catch any value not yet reflected in state
+    const departureValue = departureInputRef.current?.value || departure;
     const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : (hourlyRate ? parseFloat(hourlyRate) : null);
     const entryData = {
       arrival_time: new Date(arrival).toISOString(),
-      departure_time: departure ? new Date(departure).toISOString() : null,
+      departure_time: departureValue ? new Date(departureValue).toISOString() : null,
       notes: notes || null,
       hourly_rate: resolvedRate || null,
     };
@@ -1020,6 +1022,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const handleUpdate = async () => {
     if (!editingId || !editArrival) return;
+    // Read departure directly from the DOM to catch any value not yet reflected in state
+    const editDepartureValue = editDepartureInputRef.current?.value || editDeparture;
     const resolvedEditRate = editHourlyRate ? parseFloat(editHourlyRate) : (effectiveHourlyRate > 0 ? effectiveHourlyRate : null);
     try {
       await updateMutation.mutateAsync({
@@ -1027,7 +1031,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
         entryId: editingId,
         data: {
           arrival_time: new Date(editArrival).toISOString(),
-          departure_time: editDeparture ? new Date(editDeparture).toISOString() : null,
+          departure_time: editDepartureValue ? new Date(editDepartureValue).toISOString() : null,
           notes: editNotes || null,
           hourly_rate: resolvedEditRate,
         } as Record<string, unknown>,
@@ -1092,7 +1096,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             <div className="space-y-1">
               <Label className="text-xs">Departure</Label>
               <div className="flex gap-1.5">
-                <Input ref={departureInputRef} type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} className="flex-1" />
+                <Input ref={departureInputRef} type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} onBlur={(e) => setDeparture(e.target.value)} className="flex-1" />
                 <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
               </div>
             </div>
@@ -1174,7 +1178,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     <div className="space-y-1">
                       <Label className="text-xs">Departure</Label>
                       <div className="flex gap-1.5">
-                        <Input ref={editDepartureInputRef} type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} className="flex-1" />
+                        <Input ref={editDepartureInputRef} type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} onBlur={(e) => setEditDeparture(e.target.value)} className="flex-1" />
                         <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setEditDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
                       </div>
                     </div>
