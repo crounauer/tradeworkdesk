@@ -103,18 +103,27 @@ export async function getAvailableProvidersWithStatus(tenantId: string): Promise
 }
 
 export async function ensureFreshToken(integration: AccountingIntegrationRow): Promise<string> {
-  const config = (integration.extra_config || {}) as Record<string, unknown>;
-  const clientId = config.client_id ? decryptToken(config.client_id as string) : "";
-  const clientSecret = config.client_secret ? decryptToken(config.client_secret as string) : "";
-  const dc = (config.dc as string) || "uk";
+  let clientId: string;
+  let clientSecret: string;
+  let dc: string;
+  let decryptedIntegration: typeof integration & { access_token: string | null; refresh_token: string | null };
+
+  try {
+    const config = (integration.extra_config || {}) as Record<string, unknown>;
+    clientId = config.client_id ? decryptToken(config.client_id as string) : "";
+    clientSecret = config.client_secret ? decryptToken(config.client_secret as string) : "";
+    dc = (config.dc as string) || "uk";
+    decryptedIntegration = {
+      ...integration,
+      access_token: integration.access_token ? decryptToken(integration.access_token) : null,
+      refresh_token: integration.refresh_token ? decryptToken(integration.refresh_token) : null,
+    };
+  } catch (err) {
+    throw new Error(`Decryption failed. Please go to Company Settings → Accounting Integrations, disconnect, and reconnect Zoho Invoice. (${(err as Error).message})`);
+  }
+
   const provider = getProviderWithCredentials(integration.provider, clientId, clientSecret, dc);
   if (!provider) throw new Error(`Unknown provider: ${integration.provider}`);
-
-  const decryptedIntegration = {
-    ...integration,
-    access_token: integration.access_token ? decryptToken(integration.access_token) : null,
-    refresh_token: integration.refresh_token ? decryptToken(integration.refresh_token) : null,
-  };
 
   let refreshed: Awaited<ReturnType<typeof provider.refreshTokenIfNeeded>>;
   try {

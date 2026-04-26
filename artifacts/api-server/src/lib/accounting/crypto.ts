@@ -35,13 +35,32 @@ export function decryptToken(ciphertext: string): string {
     throw new Error("Token is not encrypted. Re-connect the integration to store tokens securely.");
   }
 
-  const key = getKey();
   const buf = Buffer.from(ciphertext.slice(PREFIX.length), "base64");
   const iv = buf.subarray(0, IV_LENGTH);
   const tag = buf.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
   const encrypted = buf.subarray(IV_LENGTH + TAG_LENGTH);
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(tag);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  return decrypted.toString("utf8");
+
+  // Try ACCOUNTING_ENCRYPTION_KEY first, fall back to SOCIAL_ENCRYPTION_KEY.
+  // This handles tokens that were encrypted before ACCOUNTING_ENCRYPTION_KEY was introduced.
+  const keys: Buffer[] = [];
+  const acctHex = process.env.ACCOUNTING_ENCRYPTION_KEY;
+  const socialHex = process.env.SOCIAL_ENCRYPTION_KEY;
+  if (acctHex && acctHex.length === 64) keys.push(Buffer.from(acctHex, "hex"));
+  if (socialHex && socialHex.length === 64) keys.push(Buffer.from(socialHex, "hex"));
+  if (keys.length === 0) {
+    throw new Error("No encryption key configured. Cannot decrypt accounting tokens.");
+  }
+
+  for (const key of keys) {
+    try {
+      const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+      decipher.setAuthTag(tag);
+      const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+      return decrypted.toString("utf8");
+    } catch {
+      // Auth tag mismatch — try next key
+    }
+  }
+
+  throw new Error("Unable to decrypt integration credentials. Please disconnect and reconnect your accounting integration in Company Settings.");
 }
