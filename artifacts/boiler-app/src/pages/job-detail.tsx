@@ -12,7 +12,7 @@ import {
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
-  Play, Timer
+  Play, Timer, Phone, Smartphone
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
@@ -708,7 +708,30 @@ export default function JobDetail() {
                 )}
               </div>
               <p className="font-bold text-lg">{job.customer?.first_name} {job.customer?.last_name}</p>
-              <p className="text-sm text-muted-foreground mt-1">{job.customer?.phone}</p>
+              {job.customer?.phone && (
+                <a href={`tel:${job.customer.phone}`} className="text-sm text-muted-foreground mt-1 hover:text-primary flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5" /> {job.customer.phone}
+                </a>
+              )}
+              {job.customer?.mobile && (
+                <a href={`tel:${job.customer.mobile}`} className="text-sm text-muted-foreground mt-0.5 hover:text-primary flex items-center gap-1">
+                  <Smartphone className="w-3.5 h-3.5" /> {job.customer.mobile}
+                </a>
+              )}
+              {job.customer?.email && (
+                <a href={`mailto:${job.customer.email}`} className="text-sm text-muted-foreground mt-0.5 hover:text-primary flex items-center gap-1 break-all">
+                  <Mail className="w-3.5 h-3.5" /> {job.customer.email}
+                </a>
+              )}
+              {(job.customer?.address_line1 || job.customer?.city || job.customer?.postcode) && (
+                <div className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  {job.customer.address_line1 && <div>{job.customer.address_line1}</div>}
+                  {job.customer.address_line2 && <div>{job.customer.address_line2}</div>}
+                  {job.customer.city && <div>{job.customer.city}</div>}
+                  {job.customer.county && <div>{job.customer.county}</div>}
+                  {job.customer.postcode && <div>{job.customer.postcode}</div>}
+                </div>
+              )}
               <Link href={`/customers/${job.customer_id}`} className="text-sm text-primary hover:underline mt-2 inline-block">View Profile</Link>
             </Card>
 
@@ -728,6 +751,26 @@ export default function JobDetail() {
                 {job.property?.county && <div>{job.property.county}</div>}
                 {job.property?.postcode && <div>{job.property.postcode}</div>}
               </div>
+              {(job.customer?.first_name || job.customer?.phone || job.customer?.email) && (
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-0.5">
+                  <p className="text-sm font-semibold">{job.customer?.first_name} {job.customer?.last_name}</p>
+                  {job.customer?.phone && (
+                    <a href={`tel:${job.customer.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5" /> {job.customer.phone}
+                    </a>
+                  )}
+                  {job.customer?.mobile && (
+                    <a href={`tel:${job.customer.mobile}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1">
+                      <Smartphone className="w-3.5 h-3.5" /> {job.customer.mobile}
+                    </a>
+                  )}
+                  {job.customer?.email && (
+                    <a href={`mailto:${job.customer.email}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 break-all">
+                      <Mail className="w-3.5 h-3.5" /> {job.customer.email}
+                    </a>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-3 mt-2">
                 <Link href={`/properties/${job.property_id}`} className="text-sm text-primary hover:underline">View Property</Link>
                 <button
