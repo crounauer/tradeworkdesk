@@ -892,27 +892,39 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
+  // Hourly rate derived from the job-level selected callout rate
+  const selectedRateHourly = (() => {
+    if (selectedCalloutRate === "auto") return Number(companySettings?.default_hourly_rate) || 0;
+    const found = calloutRates.find(r => r.id === selectedCalloutRate);
+    return found?.hourly_rate != null ? Number(found.hourly_rate) : Number(companySettings?.default_hourly_rate) || 0;
+  })();
+
   const totalMinutes = sortedEntries.reduce((sum, e) => {
     if (!e.departure_time) return sum;
     const ms = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
     return sum + Math.max(0, ms / 60000);
   }, 0);
 
-  const totalHours = totalMinutes / 60;
-  const billableHours = callOutFee > 0 ? Math.max(0, totalHours - 1) : totalHours;
-
+  // Callout fee charged once for the whole job (first entry). The first hour is covered by it.
   const entryBreakdowns = (() => {
     const map = new Map<string, { totalHours: number; calloutHours: number; calloutRate: number; calloutCost: number; billableHours: number; hourlyRate: number; billableCost: number; entryCost: number }>();
-    for (const e of sortedEntries) {
-      if (!e.departure_time) { map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: 0, calloutCost: 0, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: 0 }); continue; }
+    let calloutHoursRemaining = callOutFee > 0 ? 1 : 0;
+    for (let i = 0; i < sortedEntries.length; i++) {
+      const e = sortedEntries[i];
+      const isFirstEntry = i === 0;
+      const entryCalloutFee = isFirstEntry ? callOutFee : 0;
+      if (!e.departure_time) {
+        // Ongoing: callout fee still applies once the technician has arrived
+        const calloutCost = isFirstEntry ? callOutFee : 0;
+        map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: entryCalloutFee, calloutCost, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: calloutCost });
+        continue;
+      }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
-      const rate = e.hourly_rate != null ? parseFloat(String(e.hourly_rate)) : 0;
-      const matchedCallout = calloutRates.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
-      const entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : (callOutFee > 0 ? callOutFee : 0);
-      const hasCallout = entryCalloutFee > 0;
-      const calloutCost = hasCallout ? entryCalloutFee : 0;
-      const calloutHours = hasCallout ? Math.min(hours, 1) : 0;
-      const billableHours = hasCallout ? Math.max(0, hours - 1) : hours;
+      const rate = e.hourly_rate != null ? Number(e.hourly_rate) : selectedRateHourly;
+      const calloutHours = Math.min(hours, calloutHoursRemaining);
+      calloutHoursRemaining = Math.max(0, calloutHoursRemaining - hours);
+      const calloutCost = isFirstEntry ? callOutFee : 0;
+      const billableHours = hours - calloutHours;
       const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
       const entryCost = calloutCost + billableCost;
       map.set(e.id, { totalHours: hours, calloutHours, calloutRate: entryCalloutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
@@ -1244,15 +1256,15 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                       </div>
                     )}
                   </div>
-                  {entry.departure_time && (() => {
+                  {(() => {
                     const bd = entryBreakdowns.get(entry.id);
-                    if (!bd || bd.totalHours === 0) return null;
-                    if (bd.hourlyRate <= 0 && bd.calloutHours <= 0) return null;
-                    const matchedRate = calloutRates.find(r => r.hourly_rate != null && Number(r.hourly_rate) === bd.hourlyRate);
+                    if (!bd || (bd.totalHours === 0 && bd.calloutCost === 0)) return null;
+                    if (bd.hourlyRate <= 0 && bd.calloutCost <= 0) return null;
+                    const jobCalloutRate = selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null;
                     return (
                       <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
-                        {matchedRate && (
-                          <div className="text-xs font-medium text-slate-500">{matchedRate.name}</div>
+                        {jobCalloutRate && (
+                          <div className="text-xs font-medium text-slate-500">{jobCalloutRate.name}</div>
                         )}
                         {bd.calloutRate > 0 && (
                           <div className="flex justify-between items-center text-xs">
