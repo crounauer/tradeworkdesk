@@ -963,7 +963,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     if (!arrival) return;
     // Read departure directly from the DOM to catch any value not yet reflected in state
     const departureValue = departureInputRef.current?.value || departure;
-    const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : (hourlyRate ? parseFloat(hourlyRate) : null);
+    const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : null;
     const arrivalDate = new Date(arrival);
     let departureDate = departureValue ? new Date(departureValue) : null;
     // Auto-advance departure by 1 day if it crosses midnight (departure before or equal to arrival)
@@ -1164,13 +1164,14 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             const ms = new Date(departure).getTime() - new Date(arrival).getTime();
             const hours = ms / 3600000;
             const durationStr = calcDuration(arrival, departure);
-            const rate = parseFloat(hourlyRate) || 0;
+            const rate = effectiveHourlyRate;
             const hasCallout = callOutFee > 0;
             const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
             const cost = (hasCallout ? callOutFee : 0) + billable * rate;
             return (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>Duration: {durationStr}</span>
+                {rate > 0 && <span>£{rate.toFixed(2)}/hr</span>}
                 {ms > 0 && (callOutFee > 0 || rate > 0) && (
                   <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
                 )}
