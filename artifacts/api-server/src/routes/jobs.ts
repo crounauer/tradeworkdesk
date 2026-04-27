@@ -1093,7 +1093,7 @@ export async function buildInvoiceData(
       }
 
       if (billableHrs > 0 && rate > 0) {
-        const roundedHrs = Math.round(billableHrs * 100) / 100;
+        const roundedHrs = Math.round(billableHrs * 10000) / 10000;
         lines.push({
           description: `${rateName} - Labour (after first hour)`,
           quantity: roundedHrs,
