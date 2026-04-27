@@ -222,11 +222,10 @@ router.get(
       }
       console.log(`[accounting] Integration saved successfully for tenant ${tenantId}`);
 
-      const origin = `https://${host}`;
       const html = `<!DOCTYPE html><html><body>
         <script>
           if (window.opener) {
-            window.opener.postMessage({ type: 'accounting-integration-connected', provider: '${providerKey}' }, '${origin}');
+            window.opener.postMessage({ type: 'accounting-integration-connected', provider: '${providerKey}' }, '${appOrigin}');
             window.close();
           } else {
             window.location.href = '/admin/company-settings';
