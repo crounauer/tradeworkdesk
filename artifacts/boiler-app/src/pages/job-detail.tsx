@@ -833,6 +833,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const [editDeparture, setEditDeparture] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editHourlyRate, setEditHourlyRate] = useState("");
+  const [editCalloutFee, setEditCalloutFee] = useState<number | null>(null);
   const departureInputRef = useRef<HTMLInputElement>(null);
   const editDepartureInputRef = useRef<HTMLInputElement>(null);
   const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number; hourly_rate: number | null }[]>([]);
@@ -898,27 +899,28 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     return sum + Math.max(0, ms / 60000);
   }, 0);
 
-  // Callout fee charged once for the whole job (first entry). The first hour is covered by it.
+  // Each entry is billed independently: it has its own callout fee (stored on the entry) and
+  // the first hour is covered by that fee. The job-level callOutFee is only used as a fallback
+  // for legacy entries that predate per-entry callout storage.
   const entryBreakdowns = (() => {
     const map = new Map<string, { totalHours: number; calloutHours: number; calloutRate: number; calloutCost: number; billableHours: number; hourlyRate: number; billableCost: number; entryCost: number }>();
-    let calloutHoursRemaining = callOutFee > 0 ? 1 : 0;
-    for (let i = 0; i < sortedEntries.length; i++) {
-      const e = sortedEntries[i];
-      const isFirstEntry = i === 0;
-      const entryCalloutFee = isFirstEntry ? callOutFee : 0;
+    for (const e of sortedEntries) {
+      // Prefer callout_fee stored on the entry; fall back to job-level fee for legacy entries
+      const entryCalloutFee = (e as Record<string, unknown>).callout_fee != null
+        ? Number((e as Record<string, unknown>).callout_fee)
+        : callOutFee;
       if (!e.departure_time) {
         // Ongoing: callout fee still applies once the technician has arrived
-        const calloutCost = isFirstEntry ? callOutFee : 0;
-        map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: entryCalloutFee, calloutCost, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: calloutCost });
+        map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: entryCalloutFee, calloutCost: entryCalloutFee, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: entryCalloutFee });
         continue;
       }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
       // Use stored hourly_rate if available, else fall back to the job-level effective rate
       const rate = e.hourly_rate != null ? Number(e.hourly_rate) : effectiveHourlyRate;
-      const calloutHours = Math.min(hours, calloutHoursRemaining);
-      calloutHoursRemaining = Math.max(0, calloutHoursRemaining - hours);
-      const calloutCost = isFirstEntry ? callOutFee : 0;
-      const billableHours = hours - calloutHours;
+      const calloutHoursForEntry = entryCalloutFee > 0 ? 1 : 0;
+      const calloutHours = Math.min(hours, calloutHoursForEntry);
+      const calloutCost = entryCalloutFee;
+      const billableHours = Math.max(0, hours - calloutHoursForEntry);
       const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
       const entryCost = calloutCost + billableCost;
       map.set(e.id, { totalHours: hours, calloutHours, calloutRate: entryCalloutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
@@ -962,6 +964,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       departure_time: departureDate ? departureDate.toISOString() : null,
       notes: notes || null,
       hourly_rate: resolvedRate || null,
+      callout_fee: callOutFee > 0 ? callOutFee : null,
     };
     if (!isOnline) {
       if (offlineSubmitting) return;
@@ -1010,19 +1013,26 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     setEditDeparture(entry.departure_time ? toLocalDatetimeStr(new Date(entry.departure_time)) : "");
     setEditNotes(entry.notes || "");
     setEditHourlyRate(entry.hourly_rate != null ? String(entry.hourly_rate) : "");
+    const entryCalloutFee = (entry as Record<string, unknown>).callout_fee;
+    setEditCalloutFee(entryCalloutFee != null ? Number(entryCalloutFee) : null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate("");
+    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate(""); setEditCalloutFee(null);
   };
 
   const handleEditCalloutRateChange = (value: string) => {
     const selectedRate = value !== "auto" ? calloutRates.find(r => r.id === value) : null;
-    if (selectedRate?.hourly_rate != null) {
-      setEditHourlyRate(String(Number(selectedRate.hourly_rate)));
-    } else if (companySettings?.default_hourly_rate) {
-      setEditHourlyRate(String(Number(companySettings.default_hourly_rate)));
+    if (selectedRate) {
+      setEditCalloutFee(Number(selectedRate.amount));
+      if (selectedRate.hourly_rate != null) {
+        setEditHourlyRate(String(Number(selectedRate.hourly_rate)));
+      } else if (companySettings?.default_hourly_rate) {
+        setEditHourlyRate(String(Number(companySettings.default_hourly_rate)));
+      }
+    } else {
+      setEditCalloutFee(null);
     }
   };
 
@@ -1046,6 +1056,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
           departure_time: editDepartureDate ? editDepartureDate.toISOString() : null,
           notes: editNotes || null,
           hourly_rate: resolvedEditRate,
+          callout_fee: editCalloutFee,
         } as Record<string, unknown>,
       });
       cancelEdit();

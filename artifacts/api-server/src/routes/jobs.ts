@@ -874,7 +874,7 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFea
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { arrival_time, departure_time, notes, hourly_rate } = req.body;
+  const { arrival_time, departure_time, notes, hourly_rate, callout_fee } = req.body;
   if (!arrival_time) {
     res.status(400).json({ error: "arrival_time is required" }); return;
   }
@@ -895,6 +895,7 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFea
     departure_time: departure_time || null,
     notes: notes || null,
     hourly_rate: hourly_rate != null ? parseFloat(hourly_rate) : null,
+    callout_fee: callout_fee != null ? parseFloat(callout_fee) : null,
     created_by: req.userId,
     tenant_id: req.tenantId,
   }).select().single();
@@ -923,12 +924,13 @@ router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requ
     res.status(403).json({ error: "You can only edit your own time entries" }); return;
   }
 
-  const { arrival_time, departure_time, notes, hourly_rate } = req.body;
+  const { arrival_time, departure_time, notes, hourly_rate, callout_fee } = req.body;
   const updates: Record<string, unknown> = {};
   if (arrival_time !== undefined) updates.arrival_time = arrival_time;
   if (departure_time !== undefined) updates.departure_time = departure_time || null;
   if (notes !== undefined) updates.notes = notes || null;
   if (hourly_rate !== undefined) updates.hourly_rate = hourly_rate != null ? parseFloat(hourly_rate) : null;
+  if (callout_fee !== undefined) updates.callout_fee = callout_fee != null ? parseFloat(callout_fee) : null;
 
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
 
@@ -1073,9 +1075,21 @@ export async function buildInvoiceData(
 
       const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
 
-      const matchedCallout = calloutRatesList.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
-      const entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : callOutFee;
-      const rateName = matchedCallout?.name || "Standard";
+      // Prefer callout_fee stored on the entry; fall back to matching by hourly_rate for legacy entries
+      const storedCalloutFee = (e as Record<string, unknown>).callout_fee != null
+        ? Number((e as Record<string, unknown>).callout_fee)
+        : null;
+      let entryCalloutFee: number;
+      let rateName: string;
+      if (storedCalloutFee != null) {
+        entryCalloutFee = storedCalloutFee;
+        const matchedCallout = calloutRatesList.find(r => Number(r.amount) === storedCalloutFee);
+        rateName = matchedCallout?.name || "Standard";
+      } else {
+        const matchedCallout = calloutRatesList.find(r => r.hourly_rate != null && Number(r.hourly_rate) === rate);
+        entryCalloutFee = matchedCallout ? Number(matchedCallout.amount) : callOutFee;
+        rateName = matchedCallout?.name || "Standard";
+      }
 
       const hasCallout = entryCalloutFee > 0;
       const calloutCost = hasCallout ? entryCalloutFee : 0;
