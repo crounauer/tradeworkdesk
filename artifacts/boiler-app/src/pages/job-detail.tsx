@@ -884,6 +884,16 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     }
   }, [companySettings?.default_hourly_rate, calloutRates, selectedCalloutRate]);
 
+  // Re-sync the edit dropdown when calloutRates loads after the edit form was already opened
+  useEffect(() => {
+    if (!editingId || calloutRates.length === 0) return;
+    // Only update if still on "auto" and we have a stored callout fee to match against
+    if (editCalloutRateId === "auto" && editCalloutFee != null) {
+      const matched = calloutRates.find(r => Number(r.amount) === editCalloutFee);
+      if (matched) setEditCalloutRateId(matched.id);
+    }
+  }, [calloutRates, editingId]);
+
   const selectedRateAmount = (() => {
     if (selectedCalloutRate === "auto") return Number(companySettings?.call_out_fee) || 0;
     const found = calloutRates.find(r => r.id === selectedCalloutRate);
@@ -1020,7 +1030,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate(""); setEditCalloutFee(null);
+    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate(""); setEditCalloutFee(null); setEditCalloutRateId("auto");
   };
 
   const handleEditCalloutRateChange = (value: string) => {
