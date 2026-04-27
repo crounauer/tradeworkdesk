@@ -32,7 +32,8 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const providers = await getAvailableProvidersWithStatus(req.tenantId!);
-      res.json({ providers, encryption_configured: isEncryptionConfigured() });
+      const appOrigin = process.env.APP_URL || `https://${req.get("host") || "localhost"}`;
+      res.json({ providers, encryption_configured: isEncryptionConfigured(), app_origin: appOrigin });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -138,8 +139,8 @@ router.get(
         expiresAt: Date.now() + 10 * 60 * 1000,
       });
 
-      const host = req.get("host") || "localhost";
-      const redirectUri = `https://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
+      const appOrigin = process.env.APP_URL || `https://${req.get("host") || "localhost"}`;
+      const redirectUri = `${appOrigin}/api/admin/accounting-integrations/${providerKey}/callback`;
 
       const authUrl = provider.getAuthUrl(redirectUri, state);
       res.json({ auth_url: authUrl, state });
@@ -176,8 +177,8 @@ router.get(
         return;
       }
 
-      const host = req.get("host") || "localhost";
-      const redirectUri = `https://${host}/api/admin/accounting-integrations/${providerKey}/callback`;
+      const appOrigin = process.env.APP_URL || `https://${req.get("host") || "localhost"}`;
+      const redirectUri = `${appOrigin}/api/admin/accounting-integrations/${providerKey}/callback`;
 
       console.log(`[accounting] OAuth callback for ${providerKey}, tenant ${tenantId}`);
       const tokens = await provider.exchangeCode(code, redirectUri);

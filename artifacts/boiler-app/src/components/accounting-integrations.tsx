@@ -72,6 +72,7 @@ export function AccountingIntegrations() {
   const [savingCredentials, setSavingCredentials] = useState<string | null>(null);
   const [deletingCredentials, setDeletingCredentials] = useState<string | null>(null);
   const [copiedUri, setCopiedUri] = useState(false);
+  const [appOrigin, setAppOrigin] = useState(window.location.origin);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -88,9 +89,10 @@ export function AccountingIntegrations() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations`) as { providers: ProviderInfo[]; encryption_configured: boolean };
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations`) as { providers: ProviderInfo[]; encryption_configured: boolean; app_origin?: string };
       setProviders(data.providers);
       setEncryptionConfigured(data.encryption_configured);
+      if (data.app_origin) setAppOrigin(data.app_origin);
     } catch {
       toast({ title: "Error", description: "Failed to load accounting integrations", variant: "destructive" });
     } finally {
@@ -392,15 +394,15 @@ export function AccountingIntegrations() {
                       </li>
                       <li>Click <strong>Add Client</strong> and choose <strong>Server-based Applications</strong>. <em className="text-blue-700">(If you have an existing client, Zoho does not allow changing the redirect URI — you must create a new client.)</em></li>
                       <li>
-                        Set the <strong>Homepage URL</strong> to <code className="bg-blue-100 rounded px-1 font-mono">{window.location.origin}</code> and the <strong>Authorized Redirect URI</strong> to:
+                        Set the <strong>Homepage URL</strong> to <code className="bg-blue-100 rounded px-1 font-mono">{appOrigin}</code> and the <strong>Authorized Redirect URI</strong> to:
                         <div className="flex items-center gap-1.5 mt-1">
                           <code className="flex-1 bg-blue-100 rounded px-2 py-1 font-mono text-xs break-all select-all">
-                            {`${window.location.origin}/api/admin/accounting-integrations/zoho_invoice/callback`}
+                            {`${appOrigin}/api/admin/accounting-integrations/zoho_invoice/callback`}
                           </code>
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/api/admin/accounting-integrations/zoho_invoice/callback`);
+                              navigator.clipboard.writeText(`${appOrigin}/api/admin/accounting-integrations/zoho_invoice/callback`);
                               setCopiedUri(true);
                               setTimeout(() => setCopiedUri(false), 2000);
                             }}
