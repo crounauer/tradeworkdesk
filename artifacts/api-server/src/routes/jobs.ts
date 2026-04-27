@@ -1016,7 +1016,7 @@ export async function buildInvoiceData(
   const callOutFee = Number(settings?.call_out_fee) || 0;
   const rawVat = Number(settings?.default_vat_rate);
   const vatRate = Number.isFinite(rawVat) ? rawVat : 20;
-  const paymentTermsDays = Number(settings?.default_payment_terms_days) || 30;
+  const paymentTermsDays = settings?.default_payment_terms_days != null ? Number(settings.default_payment_terms_days) : 30;
   const currency = settings?.currency || "GBP";
 
   const customer = job.customers as { first_name: string; last_name: string; email?: string; phone?: string; mobile?: string; address_line1?: string; address_line2?: string; city?: string; county?: string; postcode?: string } | null;

@@ -235,7 +235,6 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     const body: Record<string, unknown> = {
       customer_id: invoice.contact_id,
       date: invoice.date,
-      due_date: invoice.due_date,
       currency_code: invoice.currency,
       line_items: lineItems,
       notes: invoice.notes || "",
@@ -243,6 +242,8 @@ export class ZohoInvoiceProvider implements AccountingProvider {
     };
     if (invoice.payment_terms != null) {
       body.payment_terms = invoice.payment_terms;
+    } else {
+      body.due_date = invoice.due_date;
     }
 
     const res = await fetch(
