@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle, Save, Eye, EyeOff, KeyRound, Info } from "lucide-react";
+import { Loader2, Link2, Unlink, ExternalLink, CheckCircle2, Clock, AlertTriangle, Save, Eye, EyeOff, KeyRound, Info, Copy, Check as CheckIcon } from "lucide-react";
 
 interface ProviderInfo {
   key: string;
@@ -70,6 +70,7 @@ export function AccountingIntegrations() {
     return {};
   });
   const [savingCredentials, setSavingCredentials] = useState<string | null>(null);
+  const [copiedUri, setCopiedUri] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -359,12 +360,26 @@ export function AccountingIntegrations() {
                           <ExternalLink className="w-3 h-3" /> Open API Console
                         </a>
                       </li>
-                      <li>Click <strong>Add Client</strong> and choose <strong>Server-based Applications</strong>.</li>
+                      <li>Click <strong>Add Client</strong> and choose <strong>Server-based Applications</strong>. <em className="text-blue-700">(If you have an existing client, Zoho does not allow changing the redirect URI — you must create a new client.)</em></li>
                       <li>
-                        Set the <strong>Authorized Redirect URI</strong> to:
-                        <code className="block mt-1 bg-blue-100 rounded px-2 py-1 font-mono text-xs break-all select-all">
-                          {`${window.location.origin}/api/admin/accounting-integrations/zoho_invoice/callback`}
-                        </code>
+                        Set the <strong>Homepage URL</strong> to <code className="bg-blue-100 rounded px-1 font-mono">{window.location.origin}</code> and the <strong>Authorized Redirect URI</strong> to:
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <code className="flex-1 bg-blue-100 rounded px-2 py-1 font-mono text-xs break-all select-all">
+                            {`${window.location.origin}/api/admin/accounting-integrations/zoho_invoice/callback`}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/api/admin/accounting-integrations/zoho_invoice/callback`);
+                              setCopiedUri(true);
+                              setTimeout(() => setCopiedUri(false), 2000);
+                            }}
+                            className="shrink-0 p-1.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 transition-colors"
+                            title="Copy to clipboard"
+                          >
+                            {copiedUri ? <CheckIcon className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
                       </li>
                       <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from Zoho and paste them below.</li>
                       <li>Click <strong>Save Credentials</strong>, then click <strong>Connect</strong> to authorise via your Zoho account.</li>

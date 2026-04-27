@@ -1835,7 +1835,14 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
       });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to send invoice";
-      toast({ title: "Error", description: msg, variant: "destructive" });
+      const isAuthError = msg.toLowerCase().includes("decrypt") || msg.toLowerCase().includes("reconnect") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("authenticate");
+      toast({
+        title: "Error",
+        description: isAuthError
+          ? "Zoho connection error — please go to Company Settings → Accounting Integrations, disconnect Zoho Invoice, then reconnect."
+          : msg,
+        variant: "destructive",
+      });
     } finally {
       setSendingToAccounting(false);
     }
