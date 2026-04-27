@@ -834,6 +834,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const [editNotes, setEditNotes] = useState("");
   const [editHourlyRate, setEditHourlyRate] = useState("");
   const [editCalloutFee, setEditCalloutFee] = useState<number | null>(null);
+  const [editCalloutRateId, setEditCalloutRateId] = useState<string>("auto");
   const departureInputRef = useRef<HTMLInputElement>(null);
   const editDepartureInputRef = useRef<HTMLInputElement>(null);
   const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number; hourly_rate: number | null }[]>([]);
@@ -1216,10 +1217,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                         <Label className="text-xs">Callout Rate</Label>
                         <select
                           className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
-                          defaultValue="auto"
+                          value={editCalloutRateId}
                           onChange={(e) => handleEditCalloutRateChange(e.target.value)}
                         >
-                          <option value="auto">Select to change rate...</option>
+                          <option value="auto">No callout fee</option>
                           {calloutRates.map(r => (
                             <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
                           ))}
@@ -1237,13 +1238,13 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     const hours = ms / 3600000;
                     const durationStr = calcDuration(editArrival, editDeparture);
                     const rate = parseFloat(editHourlyRate) || 0;
-                    const hasCallout = callOutFee > 0;
-                    const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
-                    const cost = (hasCallout ? callOutFee : 0) + billable * rate;
+                    const entryFee = editCalloutFee ?? 0;
+                    const billable = entryFee > 0 ? Math.max(0, hours - 1) : Math.max(0, hours);
+                    const cost = entryFee + billable * rate;
                     return (
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>Duration: {durationStr}</span>
-                        {ms > 0 && (callOutFee > 0 || rate > 0) && (
+                        {ms > 0 && (entryFee > 0 || rate > 0) && (
                           <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
                         )}
                       </div>
