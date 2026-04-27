@@ -70,6 +70,7 @@ export function AccountingIntegrations() {
     return {};
   });
   const [savingCredentials, setSavingCredentials] = useState<string | null>(null);
+  const [deletingCredentials, setDeletingCredentials] = useState<string | null>(null);
   const [copiedUri, setCopiedUri] = useState(false);
   const { toast } = useToast();
 
@@ -176,6 +177,21 @@ export function AccountingIntegrations() {
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDeleteCredentials = async (providerKey: string, displayName: string) => {
+    setDeletingCredentials(providerKey);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/accounting-integrations/${providerKey}`, {
+        method: "DELETE",
+      });
+      toast({ title: "Credentials deleted", description: `${displayName} credentials have been removed` });
+      fetchProviders();
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setDeletingCredentials(null);
     }
   };
 
@@ -315,6 +331,20 @@ export function AccountingIntegrations() {
                         >
                           <KeyRound className="w-3.5 h-3.5" />
                           {credentialForms[p.key] ? "Cancel" : "Update Keys"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-destructive hover:text-destructive"
+                          disabled={deletingCredentials === p.key}
+                          onClick={() => handleDeleteCredentials(p.key, p.displayName)}
+                        >
+                          {deletingCredentials === p.key ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Unlink className="w-3.5 h-3.5" />
+                          )}
+                          Delete Credentials
                         </Button>
                         <Button
                           size="sm"
