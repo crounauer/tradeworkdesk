@@ -66,6 +66,10 @@ export function useInitData() {
     queryKey: ["me-init"],
     queryFn: async () => {
       const res = await fetch("/api/me/init");
+      if (res.status === 401) {
+        // Auth token expired — throw so React Query keeps the last good cached data
+        throw new Error("unauthorized");
+      }
       if (!res.ok) {
         return {
           profile: null,
@@ -78,6 +82,10 @@ export function useInitData() {
       return res.json();
     },
     staleTime: 60_000,
-    // refetchInterval removed,
+    retry: (failureCount, error) => {
+      // Don't retry auth failures
+      if (error instanceof Error && error.message === "unauthorized") return false;
+      return failureCount < 2;
+    },
   });
 }

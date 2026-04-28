@@ -2,8 +2,8 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties, useListProfiles,
-  getListCustomersQueryKey, getListPropertiesQueryKey, getListProfilesQueryKey,
+  useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties,
+  getListCustomersQueryKey, getListPropertiesQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Home, Mail, Send } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useIsSoleTrader } from "@/hooks/use-sole-trader";
+import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useOffline } from "@/contexts/offline-context";
@@ -92,7 +92,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate }: BookJobDialog
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { isSoleTrader } = useIsSoleTrader();
+  const { autoAssign } = useAutoAssign();
   const { hasFeature } = usePlanFeatures();
   const { isOnline, queueJobCreation, getCachedData } = useOffline();
 
@@ -106,8 +106,10 @@ export function BookJobDialog({ open, onOpenChange, initialDate }: BookJobDialog
   const { data: onlineProperties } = useListProperties(undefined, {
     query: { queryKey: getListPropertiesQueryKey(), enabled: isOnline },
   });
-  const { data: onlineTechnicians } = useListProfiles({
-    query: { queryKey: getListProfilesQueryKey(), enabled: isOnline },
+  const { data: onlineTechnicians } = useQuery<{ id: string; full_name: string; role: string }[]>({
+    queryKey: ["/api/admin/assignable-users"],
+    queryFn: () => fetch(`${import.meta.env.BASE_URL}api/admin/assignable-users`).then(r => r.json()),
+    enabled: isOnline,
   });
 
   const [cachedCustomers, setCachedCustomers] = useState<Array<Record<string, unknown>>>([]);
@@ -126,7 +128,6 @@ export function BookJobDialog({ open, onOpenChange, initialDate }: BookJobDialog
 
   const customers = isOnline ? onlineCustomers : (cachedCustomers as unknown as typeof onlineCustomers);
   const properties = isOnline ? onlineProperties : (cachedProperties as unknown as typeof onlineProperties);
-  const technicians = isOnline ? onlineTechnicians : (cachedTechnicians as unknown as typeof onlineTechnicians);
 
   const { data: onlineJobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
@@ -323,7 +324,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate }: BookJobDialog
 
       const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
       const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
-      const technicianId = isSoleTrader && profile?.id
+      const technicianId = autoAssign && profile?.id
         ? profile.id
         : (isAdminOrOffice ? data.assigned_technician_id || undefined : undefined);
 
@@ -690,16 +691,14 @@ export function BookJobDialog({ open, onOpenChange, initialDate }: BookJobDialog
                     <Label>Time</Label>
                     <Input type="time" {...register("scheduled_time")} />
                   </div>
-                  {isAdminOrOffice && !isSoleTrader && (
+                  {isAdminOrOffice && !autoAssign && (
                     <div className="space-y-1.5">
                       <Label>Assign Technician</Label>
                       <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("assigned_technician_id")}>
                         <option value="">Unassigned</option>
-                        {technicians
-                          ?.filter(t => (t as any).can_be_assigned_jobs === true || t.role === "technician")
-                          .map(t => (
-                            <option key={t.id} value={t.id}>{t.full_name}{t.role === "admin" ? " (Admin)" : ""}</option>
-                          ))}
+                        {onlineTechnicians?.map(t => (
+                          <option key={t.id} value={t.id}>{t.full_name}{t.role === "admin" ? " (Admin)" : ""}</option>
+                        ))}
                       </select>
                     </div>
                   )}

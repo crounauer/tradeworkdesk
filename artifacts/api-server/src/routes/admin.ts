@@ -42,7 +42,7 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
-  const { role, full_name, phone } = req.body;
+  const { role, full_name, phone, can_be_assigned_jobs } = req.body;
 
   if (id === req.userId && role && role !== "admin") {
     res.status(400).json({ error: "You cannot change your own role." });
@@ -53,6 +53,11 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
   if (role !== undefined) updates.role = role;
   if (full_name !== undefined) updates.full_name = full_name;
   if (phone !== undefined) updates.phone = phone;
+  if (can_be_assigned_jobs !== undefined) updates.can_be_assigned_jobs = !!can_be_assigned_jobs;
+  // When role changes to/from technician, sync can_be_assigned_jobs unless explicitly overridden
+  if (role !== undefined && can_be_assigned_jobs === undefined) {
+    updates.can_be_assigned_jobs = role === "technician";
+  }
 
   let q = supabaseAdmin.from("profiles").update(updates).eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);

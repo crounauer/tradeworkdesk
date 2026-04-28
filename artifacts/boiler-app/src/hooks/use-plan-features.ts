@@ -19,13 +19,14 @@ export interface PlanFeatures {
 }
 
 export function usePlanFeatures() {
-  const { data, isLoading } = useInitData();
+  const { data, isLoading, isError } = useInitData();
 
   const pf = data?.planFeatures;
   const features = pf?.features ?? {};
 
   const hasFeature = (key: string): boolean => {
-    if (isLoading) return true;
+    // While loading or if auth failed (stale data preserved), assume access
+    if (isLoading || isError) return true;
     return !!features[key];
   };
 

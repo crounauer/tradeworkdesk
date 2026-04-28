@@ -17,6 +17,7 @@ type Profile = {
   role: "admin" | "office_staff" | "technician";
   phone?: string | null;
   created_at: string;
+  can_be_assigned_jobs: boolean;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -42,6 +43,7 @@ function AdminUsersContent() {
   const { profile: me } = useAuth();
   const queryClient = useQueryClient();
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
+  const [pendingAssignable, setPendingAssignable] = useState<Record<string, boolean>>({});
   const { data: initData } = useInitData();
   const usageLimits = initData?.usageLimits;
 
@@ -51,19 +53,21 @@ function AdminUsersContent() {
   });
 
   const updateRole = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: string }) =>
+    mutationFn: ({ id, role, can_be_assigned_jobs }: { id: string; role: string; can_be_assigned_jobs?: boolean }) =>
       fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, can_be_assigned_jobs }),
       }).then(async r => {
         if (!r.ok) throw new Error((await r.json()).error);
         return r.json();
       }),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/assignable-users"] });
       setPendingRoles(p => { const n = { ...p }; delete n[vars.id]; return n; });
-      toast({ title: "Role updated", description: "User role has been changed." });
+      setPendingAssignable(p => { const n = { ...p }; delete n[vars.id]; return n; });
+      toast({ title: "Updated", description: "User updated." });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -104,8 +108,7 @@ function AdminUsersContent() {
               <tr className="border-b border-border bg-slate-50/70">
                 <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Name</th>
                 <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Email</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Role</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Joined</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Role</th>                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Assignable</th>                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Joined</th>
                 <th className="px-5 py-3.5" />
               </tr>
             </thead>
@@ -113,7 +116,9 @@ function AdminUsersContent() {
               {(users ?? []).map(user => {
                 const isMe = user.id === me?.id;
                 const pendingRole = pendingRoles[user.id] ?? user.role;
-                const hasPendingChange = pendingRoles[user.id] !== undefined && pendingRoles[user.id] !== user.role;
+                const pendingAssign = pendingAssignable[user.id] ?? user.can_be_assigned_jobs;
+                const hasPendingChange = (pendingRoles[user.id] !== undefined && pendingRoles[user.id] !== user.role)
+                  || (pendingAssignable[user.id] !== undefined && pendingAssignable[user.id] !== user.can_be_assigned_jobs);
                 return (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-5 py-4">
@@ -140,6 +145,17 @@ function AdminUsersContent() {
                         <option value="technician">Technician</option>
                       </select>
                     </td>
+                    <td className="px-5 py-4">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={pendingAssign}
+                          onChange={e => setPendingAssignable(p => ({ ...p, [user.id]: e.target.checked }))}
+                          className="w-4 h-4 rounded border-border accent-primary"
+                        />
+                        <span className="text-xs text-muted-foreground">Can be assigned jobs</span>
+                      </label>
+                    </td>
                     <td className="px-5 py-4 text-muted-foreground text-xs">
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
@@ -148,7 +164,7 @@ function AdminUsersContent() {
                         {hasPendingChange && (
                           <Button
                             size="sm"
-                            onClick={() => updateRole.mutate({ id: user.id, role: pendingRole })}
+                            onClick={() => updateRole.mutate({ id: user.id, role: pendingRole, can_be_assigned_jobs: pendingAssign })}
                             disabled={updateRole.isPending}
                           >
                             Save
