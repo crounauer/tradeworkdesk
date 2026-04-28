@@ -48,7 +48,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const activeFollowUpsCount = initData?.activeFollowUpsCount ?? 0;
 
   const announcements = initData?.announcements || [];
-  // const { data: homepageData } = useHomepageData();
+  const homepageData = undefined; // const { data: homepageData } = useHomepageData();
 
   const isTrial = tenantInfo?.status === "trial";
 
@@ -268,7 +268,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16">
           <div className="p-4 space-y-2">
             {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
-            {renderStorageIndicator(true)}
+            {/* renderStorageIndicator(true) */}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>
