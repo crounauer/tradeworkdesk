@@ -6,6 +6,7 @@ import { useCompanyType, useUpgradeToCompany, useDowngradeToSoleTrader } from "@
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { customFetch } from "@workspace/api-client-react";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
   Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
-  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync
+  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench
 } from "lucide-react";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 
@@ -545,6 +546,7 @@ export default function AdminCompanySettings() {
 
         <CalloutRatesSection />
         <ProductCatalogueSection />
+        <ServiceCatalogueSection />
 
         {/* Registrations */}
         <Card>
@@ -1023,6 +1025,169 @@ function ProductCatalogueSection() {
               </div>
             ))}
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+type ServiceItem = {
+  id: string;
+  name: string;
+  default_price: number | null;
+  is_active: boolean;
+};
+
+function ServiceCatalogueSection() {
+  const { toast } = useToast();
+  const { hasAddon } = usePlanFeatures();
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", default_price: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchServices = useCallback(async () => {
+    try {
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue`);
+      setServices(Array.isArray(data) ? data as ServiceItem[] : []);
+    } catch { setServices([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (hasAddon("service_catalogue")) fetchServices(); else setLoading(false); }, [fetchServices, hasAddon]);
+
+  const resetForm = () => { setForm({ name: "", default_price: "" }); setShowAdd(false); setEditingId(null); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    setSubmitting(true);
+    try {
+      const body = { name: form.name.trim(), default_price: form.default_price ? Number(form.default_price) : null };
+      if (editingId) {
+        await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue/${editingId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        toast({ title: "Updated", description: "Service updated" });
+      } else {
+        await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        toast({ title: "Added", description: "Service added to catalogue" });
+      }
+      resetForm();
+      fetchServices();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    } finally { setSubmitting(false); }
+  };
+
+  const handleEdit = (s: ServiceItem) => {
+    setForm({ name: s.name, default_price: s.default_price != null ? String(s.default_price) : "" });
+    setEditingId(s.id);
+    setShowAdd(true);
+  };
+
+  const handleToggleActive = async (id: string, is_active: boolean) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ is_active }),
+      });
+      toast({ title: is_active ? "Reactivated" : "Deactivated", description: `Service ${is_active ? "reactivated" : "deactivated"}` });
+      fetchServices();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue/${id}`, { method: "DELETE" });
+      toast({ title: "Deleted", description: "Service removed" });
+      fetchServices();
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wrench className="w-4 h-4" />
+              Service Catalogue
+            </CardTitle>
+            <CardDescription>
+              Pre-defined services such as boiler services and gas safety checks with fixed prices. Technicians can select these when recording services on a job.
+            </CardDescription>
+          </div>
+          {hasAddon("service_catalogue") && (
+            <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
+              {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!hasAddon("service_catalogue") ? (
+          <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800">
+            <span className="font-medium">Service Catalogue add-on required.</span>{" "}
+            <a href="/settings/billing" className="underline hover:no-underline">Upgrade to unlock</a> this feature and pre-define recurring services with fixed prices.
+          </div>
+        ) : (
+          <>
+            {showAdd && (
+              <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Service Name *</Label>
+                    <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Annual Boiler Service" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Default Price (optional)</Label>
+                    <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                  </div>
+                </div>
+                <Button size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
+                  <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : editingId ? "Update" : "Add"}
+                </Button>
+              </div>
+            )}
+
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : services.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No services in catalogue. Add recurring services for quick selection on jobs.</p>
+            ) : (
+              <div className="space-y-2">
+                {services.map(s => (
+                  <div key={s.id} className={`flex items-center justify-between border rounded-lg px-4 py-3 ${!s.is_active ? "opacity-50" : ""}`}>
+                    <div>
+                      <span className="font-medium text-sm">{s.name}</span>
+                      {!s.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {s.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(s.default_price).toFixed(2)}</span>}
+                      <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className={s.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}
+                        onClick={() => handleToggleActive(s.id, !s.is_active)}
+                        title={s.is_active ? "Deactivate" : "Reactivate"}
+                      >
+                        {s.is_active ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

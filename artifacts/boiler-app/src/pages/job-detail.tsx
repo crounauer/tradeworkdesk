@@ -23,6 +23,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanySettings } from "@/hooks/use-company-settings";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,16 @@ interface JobPart {
   part_name: string;
   quantity: number;
   serial_number: string | null;
+  unit_price: number | null;
+  tenant_id: string;
+  created_at: string;
+}
+
+interface JobService {
+  id: string;
+  job_id: string;
+  service_name: string;
+  quantity: number;
   unit_price: number | null;
   tenant_id: string;
   created_at: string;
@@ -496,6 +507,8 @@ export default function JobDetail() {
             <ScheduleHistorySection jobId={job.id} />
 
             <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
+
+            <ServicesUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
               <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} externalInvoiceSentAt={job.external_invoice_sent_at} refreshKey={pricingRefresh} />
@@ -1454,6 +1467,326 @@ function ScheduleHistorySection({ jobId }: { jobId: string }) {
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
+  const { toast } = useToast();
+  const { hasAddon } = usePlanFeatures();
+  const [services, setServices] = useState<JobService[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [serviceName, setServiceName] = useState("");
+  const [serviceQty, setServiceQty] = useState("1");
+  const [servicePrice, setServicePrice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("");
+  const [serviceSuggestions, setServiceSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchedQuery, setSearchedQuery] = useState("");
+  const [searchError, setSearchError] = useState(false);
+  const serviceSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchSeqRef = useRef(0);
+
+  const fetchServices = useCallback(async () => {
+    try {
+      const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services`);
+      setServices(Array.isArray(data) ? data as JobService[] : []);
+    } catch {
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId]);
+
+  useEffect(() => { fetchServices(); }, [fetchServices]);
+
+  const searchServiceCatalogue = (query: string) => {
+    if (serviceSearchTimeout.current) clearTimeout(serviceSearchTimeout.current);
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    if (!query.trim()) { setServiceSuggestions([]); setShowSuggestions(false); setSearchedQuery(""); setSearchError(false); return; }
+    serviceSearchTimeout.current = setTimeout(async () => {
+      const seq = ++searchSeqRef.current;
+      const abortCtrl = new AbortController();
+      searchAbortRef.current = abortCtrl;
+      try {
+        setSearchError(false);
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/services/search?q=${encodeURIComponent(query)}`, { signal: abortCtrl.signal });
+        if (seq !== searchSeqRef.current) return;
+        const results = Array.isArray(data) ? data as { id: string; name: string; default_price: number | null }[] : [];
+        setServiceSuggestions(results);
+        setSearchedQuery(query.trim());
+        setShowSuggestions(true);
+      } catch (e: unknown) {
+        if (seq !== searchSeqRef.current) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setServiceSuggestions([]);
+        setSearchedQuery(query.trim());
+        setSearchError(true);
+        setShowSuggestions(true);
+      }
+    }, 250);
+  };
+
+  const selectService = (svc: { name: string; default_price: number | null }) => {
+    setServiceName(svc.name);
+    if (svc.default_price != null) setServicePrice(String(svc.default_price));
+    setShowSuggestions(false);
+  };
+
+  const handleAdd = async () => {
+    if (!serviceName.trim()) return;
+    setSubmitting(true);
+    const serviceData = {
+      service_name: serviceName.trim(),
+      quantity: Number(serviceQty) || 1,
+      unit_price: servicePrice ? Number(servicePrice) : null,
+    };
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(serviceData),
+      });
+      setServiceName(""); setServiceQty("1"); setServicePrice(""); setShowAdd(false);
+      toast({ title: "Added", description: "Service added" });
+      fetchServices();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to add service";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (serviceId: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, { method: "DELETE" });
+      toast({ title: "Removed", description: "Service removed" });
+      fetchServices();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleSavePrice = async (serviceId: string) => {
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null }),
+      });
+      setEditingId(null);
+      fetchServices();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update price";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleSaveQty = async (serviceId: string) => {
+    const qty = Number(editQty);
+    if (!qty || qty < 1) return;
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      setEditingQtyId(null);
+      fetchServices();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update quantity";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const servicesSubtotal = services.reduce((sum, s) => sum + (Number(s.unit_price) || 0) * s.quantity, 0);
+
+  if (!hasAddon("service_catalogue")) {
+    return (
+      <Card className="p-4 sm:p-6 border border-border/50 shadow-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <Wrench className="w-5 h-5 text-purple-500" />
+          <h3 className="font-bold text-lg text-purple-600">Services Offered</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">Record fixed-price services performed on this job, such as boiler services or gas safety checks.</p>
+        <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800 flex items-center gap-2">
+          <span className="font-medium">Service Catalogue add-on required.</span>
+          <a href="/settings/billing" className="underline hover:no-underline">Upgrade to unlock</a>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-purple-600">
+          <Wrench className="w-5 h-5" /> Services Offered
+        </h3>
+        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
+          {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
+        </Button>
+      </div>
+
+      {showAdd && (
+        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="space-y-1 relative col-span-2 sm:col-span-1">
+              <Label className="text-xs">Service Name *</Label>
+              <Input
+                value={serviceName}
+                onChange={(e) => { setServiceName(e.target.value); searchServiceCatalogue(e.target.value); }}
+                onFocus={() => { if (serviceSuggestions.length > 0) setShowSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Type to search catalogue..."
+                autoComplete="off"
+              />
+              {showSuggestions && searchedQuery && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {searchError ? (
+                    <div className="px-3 py-2 text-sm text-red-500">Failed to search catalogue</div>
+                  ) : serviceSuggestions.length > 0 ? (
+                    serviceSuggestions.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
+                        onMouseDown={(e) => { e.preventDefault(); selectService(s); }}
+                      >
+                        <span>{s.name}</span>
+                        {s.default_price != null && <span className="text-muted-foreground">&pound;{Number(s.default_price).toFixed(2)}</span>}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No matching services — type a custom name</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Quantity</Label>
+              <Input type="number" min="1" value={serviceQty} onChange={(e) => setServiceQty(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Unit Price</Label>
+              <Input type="number" step="0.01" min="0" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="0.00" />
+            </div>
+          </div>
+          <Button size="sm" onClick={handleAdd} disabled={submitting || !serviceName.trim()}>
+            <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Service"}
+          </Button>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading services...</p>
+      ) : services.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No services recorded yet.</p>
+      ) : (
+        <div className="border rounded-lg overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="text-left px-2 sm:px-4 py-2 font-medium">Service</th>
+                <th className="text-left px-2 sm:px-4 py-2 font-medium">Qty</th>
+                <th className="text-right px-2 sm:px-4 py-2 font-medium">Price</th>
+                <th className="text-right px-2 sm:px-4 py-2 font-medium">Total</th>
+                <th className="w-8 sm:w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((s) => (
+                <tr key={s.id} className="border-b last:border-0">
+                  <td className="px-2 sm:px-4 py-2 break-words max-w-[150px] sm:max-w-none">{s.service_name}</td>
+                  <td className="px-2 sm:px-4 py-2">
+                    {editingQtyId === s.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number" min="1" step="1"
+                          value={editQty}
+                          onChange={(e) => setEditQty(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(s.id); if (e.key === "Escape") setEditingQtyId(null); }}
+                          className="w-14 h-7 text-xs"
+                          autoFocus
+                        />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSaveQty(s.id)}>
+                          <Check className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingQtyId(null)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span
+                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
+                        onClick={() => { setEditingQtyId(s.id); setEditQty(String(s.quantity)); }}
+                      >
+                        {s.quantity}
+                        <Pencil className="w-3 h-3 opacity-40" />
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 sm:px-4 py-2 text-right">
+                    {editingId === s.id ? (
+                      <div className="flex items-center gap-1 justify-end">
+                        <Input
+                          type="number" step="0.01" min="0"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                          className="w-16 h-7 text-xs"
+                        />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(s.id)}>
+                          <Check className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingId(null)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span
+                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
+                        onClick={() => { setEditingId(s.id); setEditPrice(s.unit_price != null ? String(s.unit_price) : ""); }}
+                      >
+                        {s.unit_price != null ? `${Number(s.unit_price).toFixed(2)}` : "—"}
+                        <Pencil className="w-3 h-3 opacity-40" />
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 sm:px-4 py-2 text-right font-medium">
+                    {s.unit_price != null ? (Number(s.unit_price) * s.quantity).toFixed(2) : "—"}
+                  </td>
+                  <td className="px-1 sm:px-2 py-2">
+                    <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(s.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {servicesSubtotal > 0 && (
+              <tfoot className="bg-slate-50 border-t">
+                <tr>
+                  <td colSpan={2} className="px-2 sm:px-4 py-2 font-semibold text-right">Services Subtotal</td>
+                  <td className="px-2 sm:px-4 py-2 font-bold text-right" colSpan={2}>{servicesSubtotal.toFixed(2)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
     </Card>
   );
 }

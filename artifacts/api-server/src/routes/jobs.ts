@@ -996,6 +996,114 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
   res.json(data);
 });
 
+// ─── Service Catalogue Search ───────────────────────────────────────────────
+
+router.get("/services/search", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const q = (req.query.q as string || "").trim();
+  let query = supabaseAdmin
+    .from("service_catalogue")
+    .select("id, name, default_price")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .order("name")
+    .limit(20);
+  if (q) {
+    query = query.ilike("name", `%${q}%`);
+  }
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+// ─── Job Services CRUD ───────────────────────────────────────────────────────
+
+router.get("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let q = supabaseAdmin.from("job_services").select("*").eq("job_id", jobId).order("created_at", { ascending: true });
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+  if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
+
+  const { service_name, quantity, unit_price } = req.body;
+  if (!service_name || typeof service_name !== "string") {
+    res.status(400).json({ error: "service_name is required" }); return;
+  }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let jobCheck = supabaseAdmin.from("jobs").select("id").eq("id", jobId);
+  if (req.tenantId) jobCheck = jobCheck.eq("tenant_id", req.tenantId);
+  const { data: jobExists } = await jobCheck.single();
+  if (!jobExists) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const { data, error } = await supabaseAdmin.from("job_services").insert({
+    job_id: jobId,
+    service_name: service_name.trim(),
+    quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
+    unit_price: typeof unit_price === "number" && unit_price >= 0 ? unit_price : null,
+    tenant_id: req.tenantId,
+  }).select().single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(201).json(data);
+});
+
+router.delete("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: jobId, serviceId } = req.params;
+  if (!jobId || !serviceId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  let q = supabaseAdmin.from("job_services").delete().eq("id", serviceId).eq("job_id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  await q;
+  res.sendStatus(204);
+});
+
+router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: jobId, serviceId } = req.params;
+  if (!jobId || !serviceId) { res.status(400).json({ error: "Missing ids" }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
+    if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  const { service_name, quantity, unit_price } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (service_name !== undefined) updates.service_name = String(service_name).trim();
+  if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? quantity : 1;
+  if (unit_price !== undefined) updates.unit_price = typeof unit_price === "number" && unit_price >= 0 ? unit_price : null;
+
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+  let q = supabaseAdmin.from("job_services").update(updates).eq("id", serviceId).eq("job_id", jobId);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q.select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Service not found" }); return; }
+  res.json(data);
+});
+
 export async function buildInvoiceData(
   jobId: string,
   tenantId: string | null | undefined

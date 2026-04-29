@@ -144,6 +144,8 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
   const [submitting, setSubmitting] = useState(false);
   const [customerMode, setCustomerMode] = useState<"new" | "existing">("new");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
 
   const { data: customers } = useListCustomers(undefined, {
     query: { queryKey: getListCustomersQueryKey() },
@@ -165,11 +167,27 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
     priority: "medium",
   });
 
+  const filteredCustomers = (customers || []).filter(c => {
+    const q = customerSearch.toLowerCase();
+    if (!q) return true;
+    return (
+      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      (c.phone || "").includes(q) ||
+      (c.mobile || "").includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
+      (c.postcode || "").toLowerCase().includes(q)
+    );
+  });
+
+  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
+
   const handleCustomerSelect = (customerId: string) => {
     setSelectedCustomerId(customerId);
+    setCustomerDropdownOpen(false);
     if (!customerId) return;
     const c = customers?.find(c => c.id === customerId);
     if (!c) return;
+    setCustomerSearch(`${c.first_name} ${c.last_name}`);
     setForm(f => ({
       ...f,
       contact_name: `${c.first_name} ${c.last_name}`.trim(),
@@ -237,20 +255,43 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
             >Existing Customer</button>
           </div>
 
-          {/* Existing customer dropdown */}
+          {/* Existing customer search */}
           {customerMode === "existing" && (
             <div className="space-y-1.5">
-              <Label>Select Customer</Label>
-              <select
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
-                value={selectedCustomerId}
-                onChange={e => handleCustomerSelect(e.target.value)}
-              >
-                <option value="">— Choose a customer —</option>
-                {(customers || []).map(c => (
-                  <option key={c.id} value={c.id}>{c.first_name} {c.last_name}{c.phone ? ` · ${c.phone}` : ""}</option>
-                ))}
-              </select>
+              <Label>Search Customer</Label>
+              <div className="relative">
+                <Input
+                  placeholder="Name, phone, email or postcode…"
+                  value={customerSearch}
+                  onChange={e => { setCustomerSearch(e.target.value); setSelectedCustomerId(""); setCustomerDropdownOpen(true); }}
+                  onFocus={() => setCustomerDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setCustomerDropdownOpen(false), 150)}
+                  autoComplete="off"
+                />
+                {customerDropdownOpen && filteredCustomers.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 max-h-52 overflow-y-auto rounded-md border border-border bg-white shadow-lg">
+                    {filteredCustomers.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
+                        onMouseDown={() => handleCustomerSelect(c.id)}
+                      >
+                        <span className="font-medium">{c.first_name} {c.last_name}</span>
+                        <span className="text-muted-foreground text-xs truncate">{c.mobile || c.phone || c.email || ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {customerDropdownOpen && customerSearch.length > 0 && filteredCustomers.length === 0 && (
+                  <div className="absolute z-50 w-full mt-1 rounded-md border border-border bg-white shadow-lg px-3 py-2 text-sm text-muted-foreground">
+                    No customers found
+                  </div>
+                )}
+              </div>
+              {selectedCustomer && (
+                <p className="text-xs text-emerald-600 font-medium">✓ Linked to {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
+              )}
             </div>
           )}
 

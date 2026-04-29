@@ -1076,6 +1076,51 @@ router.delete("/admin/products/:id", requireAuth, requireTenant, requireRole("ad
   res.json({ success: true });
 });
 
+// ─── Service Catalogue Admin CRUD ────────────────────────────────────────────
+
+router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("service_catalogue")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .order("name");
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { name, default_price } = req.body;
+  if (!name) { res.status(400).json({ error: "name is required" }); return; }
+  if (default_price != null && (!Number.isFinite(Number(default_price)) || Number(default_price) < 0)) {
+    res.status(400).json({ error: "default_price must be a valid non-negative number" }); return;
+  }
+  const { data, error } = await supabaseAdmin.from("service_catalogue").insert({
+    tenant_id: req.tenantId!,
+    name,
+    default_price: default_price != null ? Number(default_price) : null,
+  }).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { name, default_price, is_active } = req.body;
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (name !== undefined) updates.name = name;
+  if (default_price !== undefined) updates.default_price = default_price != null ? Number(default_price) : null;
+  if (is_active !== undefined) updates.is_active = is_active;
+
+  const { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data);
+});
+
+router.delete("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { error } = await supabaseAdmin.from("service_catalogue").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId!);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ success: true });
+});
+
 // Service reminder endpoints (platform super_admin only)
 router.get("/admin/service-reminders/preview", requireAuth, requireRole("super_admin"), async (_req: AuthenticatedRequest, res): Promise<void> => {
   try {
