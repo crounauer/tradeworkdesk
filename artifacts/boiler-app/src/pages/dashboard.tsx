@@ -1,11 +1,11 @@
-import { useGetDashboard } from "@workspace/api-client-react";
+import { useGetDashboard, useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { MessageSquarePlus, AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,10 @@ import AddToHomeScreen from "@/components/add-to-homescreen";
 import { useHomepageData } from "@/hooks/use-homepage-data";
 import { useInitData } from "@/hooks/use-init-data";
 import { BookJobDialog } from "@/components/book-job-dialog";
+
+const PostcodeAddressFinder = lazy(() =>
+  import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
+);
 
 export default function Dashboard() {
   const { data: homepageData, isLoading: homepageLoading } = useHomepageData();
@@ -136,7 +140,15 @@ const ENQUIRY_SOURCE_OPTIONS = [
 function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean; onOpenChange: (v: boolean) => void; initialDate?: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { hasFeature } = usePlanFeatures();
   const [submitting, setSubmitting] = useState(false);
+  const [customerMode, setCustomerMode] = useState<"new" | "existing">("new");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+
+  const { data: customers } = useListCustomers(undefined, {
+    query: { queryKey: getListCustomersQueryKey() },
+  });
+
   const datePrefix = initialDate
     ? `Preferred date: ${new Date(initialDate + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}\n`
     : "";
@@ -146,9 +158,29 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
     contact_email: "",
     source: "phone",
     description: datePrefix,
-    address: "",
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    postcode: "",
     priority: "medium",
   });
+
+  const handleCustomerSelect = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    if (!customerId) return;
+    const c = customers?.find(c => c.id === customerId);
+    if (!c) return;
+    setForm(f => ({
+      ...f,
+      contact_name: `${c.first_name} ${c.last_name}`.trim(),
+      contact_phone: c.mobile || c.phone || f.contact_phone,
+      contact_email: c.email || f.contact_email,
+      address_line1: c.address_line1 || f.address_line1,
+      address_line2: c.address_line2 || f.address_line2,
+      city: c.city || f.city,
+      postcode: c.postcode || f.postcode,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,10 +190,14 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
     }
     setSubmitting(true);
     try {
+      const payload: Record<string, unknown> = {
+        ...form,
+        linked_customer_id: selectedCustomerId || undefined,
+      };
       const res = await fetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -181,11 +217,44 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Quick Add Enquiry</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Customer mode toggle */}
+          <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+            <button
+              type="button"
+              className={`flex-1 py-2 transition-colors ${customerMode === "new" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+              onClick={() => { setCustomerMode("new"); setSelectedCustomerId(""); }}
+            >New Contact</button>
+            <button
+              type="button"
+              className={`flex-1 py-2 transition-colors ${customerMode === "existing" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+              onClick={() => setCustomerMode("existing")}
+            >Existing Customer</button>
+          </div>
+
+          {/* Existing customer dropdown */}
+          {customerMode === "existing" && (
+            <div className="space-y-1.5">
+              <Label>Select Customer</Label>
+              <select
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                value={selectedCustomerId}
+                onChange={e => handleCustomerSelect(e.target.value)}
+              >
+                <option value="">— Choose a customer —</option>
+                {(customers || []).map(c => (
+                  <option key={c.id} value={c.id}>{c.first_name} {c.last_name}{c.phone ? ` · ${c.phone}` : ""}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Contact fields */}
           <div className="space-y-1.5">
             <Label>Contact Name *</Label>
             <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" autoFocus />
@@ -200,6 +269,8 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
               <Input value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} placeholder="john@example.com" type="email" />
             </div>
           </div>
+
+          {/* Source & Priority */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Source</Label>
@@ -217,10 +288,50 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
               </select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 High Street, Manchester, M1 1AA" />
+
+          {/* Address */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Address</Label>
+            {hasFeature("uk_address_lookup") && (
+              <Suspense fallback={null}>
+                <PostcodeAddressFinder
+                  onAddressSelected={addr => setForm(f => ({
+                    ...f,
+                    address_line1: addr.address_line1,
+                    address_line2: addr.address_line2 || "",
+                    city: addr.city,
+                    postcode: addr.postcode,
+                  }))}
+                />
+              </Suspense>
+            )}
+            <div className="space-y-2">
+              <Input
+                value={form.address_line1}
+                onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))}
+                placeholder="Address line 1"
+              />
+              <Input
+                value={form.address_line2}
+                onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))}
+                placeholder="Address line 2 (optional)"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={form.city}
+                  onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                  placeholder="City / Town"
+                />
+                <Input
+                  value={form.postcode}
+                  onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))}
+                  placeholder="Postcode"
+                />
+              </div>
+            </div>
           </div>
+
+          {/* Description */}
           <div className="space-y-1.5">
             <Label>Description</Label>
             <textarea
@@ -230,6 +341,7 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
               placeholder="What does the customer need?"
             />
           </div>
+
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={submitting} className="flex-1">
               {submitting ? "Adding..." : "Add Enquiry"}

@@ -28,7 +28,8 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
 });
 
 router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { contact_name, contact_phone, contact_email, source, description, notes, address, priority } = req.body;
+  const { contact_name, contact_phone, contact_email, source, description, notes, address, priority,
+    address_line1, address_line2, city, postcode, linked_customer_id } = req.body;
 
   if (!contact_name || typeof contact_name !== "string" || !contact_name.trim()) {
     res.status(400).json({ error: "contact_name is required" }); return;
@@ -36,6 +37,11 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
 
   const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "referral", "other"];
   const validPriorities = ["low", "medium", "high", "urgent"];
+
+  // Build combined legacy address from structured fields if provided
+  const combinedAddress = address_line1
+    ? [address_line1, address_line2, city, postcode].filter(Boolean).join(", ")
+    : address?.trim() || null;
 
   const { data, error } = await supabaseAdmin
     .from("enquiries")
@@ -47,7 +53,12 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
       source: validSources.includes(source) ? source : "phone",
       description: description?.trim() || null,
       notes: notes?.trim() || null,
-      address: address?.trim() || null,
+      address: combinedAddress,
+      address_line1: address_line1?.trim() || null,
+      address_line2: address_line2?.trim() || null,
+      city: city?.trim() || null,
+      postcode: postcode?.trim() || null,
+      linked_customer_id: linked_customer_id || null,
       priority: validPriorities.includes(priority) ? priority : "medium",
       status: "new",
       created_by: req.userId,
@@ -83,6 +94,11 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
   const description = typeof body.description === "string" ? body.description : undefined;
   const notes = typeof body.notes === "string" ? body.notes : undefined;
   const address = typeof body.address === "string" ? body.address : undefined;
+  const address_line1 = typeof body.address_line1 === "string" ? body.address_line1 : undefined;
+  const address_line2 = typeof body.address_line2 === "string" ? body.address_line2 : undefined;
+  const city = typeof body.city === "string" ? body.city : undefined;
+  const postcode = typeof body.postcode === "string" ? body.postcode : undefined;
+  const linked_customer_id = body.linked_customer_id !== undefined ? body.linked_customer_id : undefined;
   const status = typeof body.status === "string" ? body.status : undefined;
   const priority = typeof body.priority === "string" ? body.priority : undefined;
 
@@ -97,7 +113,16 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
   if (source !== undefined && validSources.includes(source)) updates.source = source;
   if (description !== undefined) updates.description = description.trim() || null;
   if (notes !== undefined) updates.notes = notes.trim() || null;
-  if (address !== undefined) updates.address = address.trim() || null;
+  if (address_line1 !== undefined) {
+    updates.address_line1 = address_line1.trim() || null;
+    updates.address_line2 = address_line2?.trim() || null;
+    updates.city = city?.trim() || null;
+    updates.postcode = postcode?.trim() || null;
+    updates.address = [address_line1, address_line2, city, postcode].filter(Boolean).join(", ") || null;
+  } else if (address !== undefined) {
+    updates.address = address.trim() || null;
+  }
+  if (linked_customer_id !== undefined) updates.linked_customer_id = linked_customer_id || null;
   if (status !== undefined && validStatuses.includes(status)) updates.status = status;
   if (priority !== undefined && validPriorities.includes(priority)) updates.priority = priority;
 
