@@ -10,12 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, ArrowLeft, FileDown, Clock, Wrench, Shield, AlertTriangle, Flame, Gauge, Trash2 } from "lucide-react";
+import { CheckCircle2, ArrowLeft, FileDown, Calendar, Wrench, Shield, AlertTriangle, Flame, Gauge, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface ServiceRecordFormData {
-  arrival_time: string;
-  departure_time: string;
+  service_date: string;
   visual_inspection: string;
   appliance_condition: string;
   flue_inspection: string;
@@ -128,8 +127,7 @@ export default function ServiceRecordForm() {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
       reset({
-        arrival_time: toDatetimeLocal(existingRecord.arrival_time),
-        departure_time: toDatetimeLocal(existingRecord.departure_time),
+        service_date: existingRecord.arrival_time ? String(existingRecord.arrival_time).slice(0, 10) : "",
         visual_inspection: existingRecord.visual_inspection || "",
         appliance_condition: existingRecord.appliance_condition || "",
         flue_inspection: existingRecord.flue_inspection || "",
@@ -203,8 +201,7 @@ export default function ServiceRecordForm() {
     const payload: CreateServiceRecordBody = {
       job_id: jobId!,
       technician_id: user.id,
-      arrival_time: data.arrival_time || undefined,
-      departure_time: data.departure_time || undefined,
+      arrival_time: data.service_date || undefined,
       visual_inspection: data.visual_inspection || undefined,
       appliance_condition: data.appliance_condition || undefined,
       flue_inspection: data.flue_inspection || undefined,
@@ -359,15 +356,11 @@ export default function ServiceRecordForm() {
         )}
 
         <Card className="p-6 shadow-sm border-border/50">
-          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Clock className="w-5 h-5"/> Arrival & Departure</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Calendar className="w-5 h-5"/> Service Date</h2>
+          <div className="max-w-xs">
             <div className="space-y-2">
-              <Label>Arrival Time</Label>
-              <Input type="datetime-local" {...register("arrival_time")} />
-            </div>
-            <div className="space-y-2">
-              <Label>Departure Time</Label>
-              <Input type="datetime-local" {...register("departure_time")} />
+              <Label>Date</Label>
+              <Input type="date" {...register("service_date")} />
             </div>
           </div>
         </Card>

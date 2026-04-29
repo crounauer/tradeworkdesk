@@ -2120,7 +2120,7 @@ function PhotosSection({ jobId }: { jobId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const { data: files, isLoading } = useListFiles({ entity_type: "job", entity_id: jobId });
+  const { data: files, isLoading, queryKey: filesQueryKey } = useListFiles({ entity_type: "job", entity_id: jobId });
   const deleteMutation = useDeleteFile();
 
   const imageFiles = (files || []).filter((f) => f.file_type?.startsWith("image/"));
@@ -2139,7 +2139,7 @@ function PhotosSection({ jobId }: { jobId: string }) {
         formData.append("entity_id", jobId);
         await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
       }
-      qc.invalidateQueries({ queryKey: ["/api/files"] });
+      await qc.refetchQueries({ queryKey: filesQueryKey });
       toast({ title: "Uploaded", description: `${fileList.length} photo(s) uploaded` });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Upload failed";
@@ -2153,7 +2153,7 @@ function PhotosSection({ jobId }: { jobId: string }) {
   const handleDelete = async (id: string) => {
     try {
       await deleteMutation.mutateAsync({ id });
-      qc.invalidateQueries({ queryKey: ["/api/files"] });
+      await qc.refetchQueries({ queryKey: filesQueryKey });
       toast({ title: "Deleted", description: "Photo removed" });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Delete failed";
