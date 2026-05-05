@@ -362,6 +362,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
 
       qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      qc.invalidateQueries({ queryKey: ["/api/calendar"] });
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
       qc.invalidateQueries({ queryKey: ["/api/properties"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
