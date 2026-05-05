@@ -991,7 +991,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       departure_time: departureDate ? departureDate.toISOString() : null,
       notes: notes || null,
       hourly_rate: resolvedRate || null,
-      callout_fee: addEntryFee > 0 ? addEntryFee : null,
+      callout_fee: waiveCallout ? 0 : (callOutFee > 0 ? callOutFee : null),
     };
     if (!isOnline) {
       if (offlineSubmitting) return;
@@ -1043,7 +1043,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     const entryCalloutFee = (entry as Record<string, unknown>).callout_fee;
     const parsedCalloutFee = entryCalloutFee != null ? Number(entryCalloutFee) : null;
     setEditCalloutFee(parsedCalloutFee);
-    setEditWaiveCallout(parsedCalloutFee === null);
+    setEditWaiveCallout(parsedCalloutFee === 0);
   };
 
   const cancelEdit = () => {
@@ -1085,7 +1085,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
           departure_time: editDepartureDate ? editDepartureDate.toISOString() : null,
           notes: editNotes || null,
           hourly_rate: resolvedEditRate,
-          callout_fee: editWaiveCallout ? null : editCalloutFee,
+          callout_fee: editWaiveCallout ? 0 : editCalloutFee,
         } as Record<string, unknown>,
       });
       cancelEdit();
