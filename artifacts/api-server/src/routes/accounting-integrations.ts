@@ -472,7 +472,7 @@ router.post(
             quantity: l.quantity,
             unit_price: l.unit_price,
             tax_percentage: invoiceData.vat_rate,
-            item_name: l.item_name,
+            item_name: l.item_name ? l.item_name.charAt(0).toUpperCase() + l.item_name.slice(1) : l.item_name,
           })),
           reference: invoiceData.job_ref || jobId.substring(0, 8),
           notes,
