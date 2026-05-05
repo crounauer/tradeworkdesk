@@ -1348,12 +1348,18 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     const bd = entryBreakdowns.get(entry.id);
                     if (!bd || (bd.totalHours === 0 && bd.calloutCost === 0)) return null;
                     if (bd.hourlyRate <= 0 && bd.calloutCost <= 0) return null;
-                    const jobCalloutRate = selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null;
+                    const entryStoredFee = (entry as Record<string, unknown>).callout_fee;
+                    const entryCalloutRate = entryStoredFee != null
+                      ? calloutRates.find(r => Number(r.amount) === Number(entryStoredFee))
+                      : (selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null);
+                    const calloutWaived = entryStoredFee != null && Number(entryStoredFee) === 0;
                     return (
                       <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
-                        {jobCalloutRate && (
-                          <div className="text-xs font-medium text-slate-500">{jobCalloutRate.name}</div>
-                        )}
+                        {calloutWaived ? (
+                          <div className="text-xs font-medium text-slate-400 italic">Callout fee waived</div>
+                        ) : entryCalloutRate ? (
+                          <div className="text-xs font-medium text-slate-500">{entryCalloutRate.name}</div>
+                        ) : null}
                         {bd.calloutRate > 0 && (
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">Call-out (min. 1hr)</span>
