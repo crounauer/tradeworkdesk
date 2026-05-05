@@ -54,6 +54,7 @@ const AVAILABLE_FEATURE_KEYS = [
   { key: "additional_users", label: "Additional Users", description: "Allow more users on the account" },
   { key: "jobs_per_month", label: "Jobs Per Month", description: "Increase monthly job allowance" },
   { key: "uk_address_lookup", label: "UK Address Lookup", description: "Find addresses by postcode with auto-fill" },
+  { key: "todo_list", label: "To-Do List", description: "Personal per-user to-do list" },
 ];
 
 const EMPTY_FORM: AddonFormState = {

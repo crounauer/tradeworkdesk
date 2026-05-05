@@ -61,3 +61,19 @@ WHERE name = 'Forms Only' AND features IS NOT NULL;
 UPDATE plans
 SET features = features || '{"todo_list": true}'::jsonb
 WHERE name IN ('Starter', 'Professional', 'Enterprise') AND features IS NOT NULL;
+
+-- -------------------------------------------------------------------------
+-- Register the To-Do List as a purchasable addon
+-- -------------------------------------------------------------------------
+INSERT INTO addons (name, description, feature_keys, monthly_price, annual_price, is_per_seat, sort_order)
+SELECT
+  'To-Do List',
+  'Personal per-user to-do list. Each team member gets their own private task list to track what they need to do.',
+  ARRAY['todo_list'],
+  0.99,
+  9.99,
+  false,
+  14
+WHERE NOT EXISTS (
+  SELECT 1 FROM addons WHERE name = 'To-Do List'
+);
