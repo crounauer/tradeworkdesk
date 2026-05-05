@@ -16,8 +16,11 @@ import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
   Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
-  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench
+  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench,
+  Search
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 
 type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "logo_storage_path" | "created_at" | "updated_at">;
@@ -649,6 +652,9 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
+        {/* Public Directory Listing */}
+        <PublicDirectoryCard />
+
         <div className="flex items-center justify-end gap-3 pt-2">
           {autoSaveStatus === "saving" && (
             <span className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -1189,6 +1195,160 @@ function ServiceCatalogueSection() {
             )}
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Public Directory Listing Card (standalone, separate API call)
+// ---------------------------------------------------------------------------
+function PublicDirectoryCard() {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [isListed, setIsListed] = useState(false);
+  const [slug, setSlug] = useState("");
+  const [description, setDescription] = useState("");
+  const [tradeTypes, setTradeTypes] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
+  const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    customFetch("/api/admin/directory-listing")
+      .then(r => r.json())
+      .then(data => {
+        setIsListed(!!data.is_publicly_listed);
+        setSlug(data.listing_slug ?? "");
+        setDescription(data.public_description ?? "");
+        setTradeTypes(data.trade_types ?? "");
+        setServiceArea(data.service_area ?? "");
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const handleSlugChange = (val: string) => {
+    setSlug(val);
+    setSlugStatus("idle");
+    if (slugTimerRef.current) clearTimeout(slugTimerRef.current);
+    if (!val.trim()) return;
+    slugTimerRef.current = setTimeout(() => {
+      setSlugStatus("checking");
+      fetch(`/api/directory/check-slug/${encodeURIComponent(val.trim())}`)
+        .then(r => r.json())
+        .then(d => setSlugStatus(d.available ? "available" : "taken"))
+        .catch(() => setSlugStatus("idle"));
+    }, 500);
+  };
+
+  const handleSave = async () => {
+    if (!slug.trim()) { toast({ title: "URL required", description: "Enter a URL slug before saving.", variant: "destructive" }); return; }
+    setSaving(true);
+    try {
+      const res = await customFetch("/api/admin/directory-listing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to save");
+      }
+      toast({ title: "Directory listing saved", description: isListed ? "Your business is now publicly listed." : "Listing saved (not publicly visible)." });
+      setSlugStatus("idle");
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) return null;
+
+  const normalisedSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const previewUrl = normalisedSlug ? `tradeworkdesk.co.uk/find/${normalisedSlug}` : "tradeworkdesk.co.uk/find/your-slug";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Search className="w-4 h-4" />
+          Public Directory Listing
+        </CardTitle>
+        <CardDescription>
+          Opt in to appear on the <a href="/find" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/find directory</a> so potential customers can discover your business.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Show my business in the public directory</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Free — anyone can find and contact you</p>
+          </div>
+          <Switch checked={isListed} onCheckedChange={setIsListed} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="listing_slug">Your public URL</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">tradeworkdesk.co.uk/find/</span>
+            <div className="relative flex-1">
+              <Input
+                id="listing_slug"
+                placeholder="e.g. john-smith-plumbing"
+                value={slug}
+                onChange={e => handleSlugChange(e.target.value)}
+                className={slugStatus === "taken" ? "border-red-400" : slugStatus === "available" ? "border-green-400" : ""}
+              />
+            </div>
+          </div>
+          {slugStatus === "checking" && <p className="text-xs text-muted-foreground">Checking availability…</p>}
+          {slugStatus === "taken" && <p className="text-xs text-red-500">This URL is already taken. Try another.</p>}
+          {slugStatus === "available" && <p className="text-xs text-green-600">Available!</p>}
+          {normalisedSlug && <p className="text-xs text-muted-foreground">Preview: {previewUrl}</p>}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="public_description">About your business</Label>
+          <Textarea
+            id="public_description"
+            placeholder="Briefly describe what you do, your experience, and what makes you different…"
+            rows={3}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Shown on your profile page. Keep it under 250 characters for best results.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="trade_types">Services offered</Label>
+          <Input
+            id="trade_types"
+            placeholder="e.g. Boiler Service, Gas Engineer, Heat Pump Installation"
+            value={tradeTypes}
+            onChange={e => setTradeTypes(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Comma-separated list of your services. Used for search and filtering.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="service_area">Service area</Label>
+          <Input
+            id="service_area"
+            placeholder="e.g. Edinburgh & Lothians, or Within 20 miles of EH1"
+            value={serviceArea}
+            onChange={e => setServiceArea(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Shown on your profile so customers know if you cover their area.</p>
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : <><Save className="w-4 h-4 mr-2" /> Save Listing</>}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

@@ -4,19 +4,19 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Enum types
-CREATE TYPE user_role AS ENUM ('admin', 'office_staff', 'technician');
-CREATE TYPE job_status AS ENUM ('scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up');
-CREATE TYPE job_type AS ENUM ('service', 'breakdown', 'installation', 'inspection', 'follow_up');
-CREATE TYPE priority_level AS ENUM ('low', 'medium', 'high', 'urgent');
-CREATE TYPE property_type AS ENUM ('residential', 'commercial', 'industrial');
-CREATE TYPE occupancy_type AS ENUM ('owner_occupied', 'tenant', 'landlord', 'vacant', 'holiday_let');
-CREATE TYPE fuel_type AS ENUM ('oil', 'gas', 'lpg', 'electric', 'solid_fuel', 'heat_pump', 'other');
-CREATE TYPE boiler_type AS ENUM ('combi', 'system', 'regular', 'back_boiler', 'ashp', 'gshp', 'wshp', 'other');
-CREATE TYPE system_type AS ENUM ('open_vented', 'sealed', 'gravity_fed', 'pressurised', 'other');
+-- Enum types (idempotent — skipped if already exist)
+DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'office_staff', 'technician'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE job_status AS ENUM ('scheduled', 'in_progress', 'completed', 'cancelled', 'requires_follow_up'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE job_type AS ENUM ('service', 'breakdown', 'installation', 'inspection', 'follow_up'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE priority_level AS ENUM ('low', 'medium', 'high', 'urgent'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE property_type AS ENUM ('residential', 'commercial', 'industrial'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE occupancy_type AS ENUM ('owner_occupied', 'tenant', 'landlord', 'vacant', 'holiday_let'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE fuel_type AS ENUM ('oil', 'gas', 'lpg', 'electric', 'solid_fuel', 'heat_pump', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE boiler_type AS ENUM ('combi', 'system', 'regular', 'back_boiler', 'ashp', 'gshp', 'wshp', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE system_type AS ENUM ('open_vented', 'sealed', 'gravity_fed', 'pressurised', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- Profiles table (extends Supabase auth.users)
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   full_name TEXT NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE profiles (
 );
 
 -- Customers table
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT,
   first_name TEXT NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE customers (
 );
 
 -- Properties table
-CREATE TABLE properties (
+CREATE TABLE IF NOT EXISTS properties (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   address_line1 TEXT NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE properties (
 );
 
 -- Appliances table
-CREATE TABLE appliances (
+CREATE TABLE IF NOT EXISTS appliances (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   manufacturer TEXT,
@@ -95,7 +95,7 @@ CREATE TABLE appliances (
 );
 
 -- Jobs table
-CREATE TABLE jobs (
+CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -115,7 +115,7 @@ CREATE TABLE jobs (
 );
 
 -- Service Records table
-CREATE TABLE service_records (
+CREATE TABLE IF NOT EXISTS service_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   technician_id UUID NOT NULL REFERENCES profiles(id),
@@ -189,7 +189,7 @@ CREATE TABLE service_records (
 );
 
 -- Commissioning Records table
-CREATE TABLE commissioning_records (
+CREATE TABLE IF NOT EXISTS commissioning_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   technician_id UUID NOT NULL REFERENCES profiles(id),
@@ -216,7 +216,7 @@ CREATE TABLE commissioning_records (
 );
 
 -- Heat Pump Service Records table
-CREATE TABLE heat_pump_service_records (
+CREATE TABLE IF NOT EXISTS heat_pump_service_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   technician_id UUID NOT NULL REFERENCES profiles(id),
@@ -248,7 +248,7 @@ CREATE TABLE heat_pump_service_records (
 );
 
 -- Heat Pump Commissioning Records table
-CREATE TABLE heat_pump_commissioning_records (
+CREATE TABLE IF NOT EXISTS heat_pump_commissioning_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   technician_id UUID NOT NULL REFERENCES profiles(id),
@@ -275,7 +275,7 @@ CREATE TABLE heat_pump_commissioning_records (
 );
 
 -- Breakdown Reports table
-CREATE TABLE breakdown_reports (
+CREATE TABLE IF NOT EXISTS breakdown_reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   technician_id UUID NOT NULL REFERENCES profiles(id),
@@ -295,7 +295,7 @@ CREATE TABLE breakdown_reports (
 );
 
 -- Job Notes table
-CREATE TABLE job_notes (
+CREATE TABLE IF NOT EXISTS job_notes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   author_id UUID NOT NULL REFERENCES profiles(id),
@@ -305,7 +305,7 @@ CREATE TABLE job_notes (
 );
 
 -- File Attachments table
-CREATE TABLE file_attachments (
+CREATE TABLE IF NOT EXISTS file_attachments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   file_name TEXT NOT NULL,
   file_type TEXT NOT NULL,
@@ -319,7 +319,7 @@ CREATE TABLE file_attachments (
 );
 
 -- Signatures table
-CREATE TABLE signatures (
+CREATE TABLE IF NOT EXISTS signatures (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   signer_type TEXT NOT NULL CHECK (signer_type IN ('technician', 'customer')),
@@ -330,27 +330,27 @@ CREATE TABLE signatures (
 );
 
 -- Indexes
-CREATE INDEX idx_customers_name ON customers(last_name, first_name);
-CREATE INDEX idx_customers_postcode ON customers(postcode);
-CREATE INDEX idx_properties_customer ON properties(customer_id);
-CREATE INDEX idx_properties_postcode ON properties(postcode);
-CREATE INDEX idx_appliances_property ON appliances(property_id);
-CREATE INDEX idx_appliances_serial ON appliances(serial_number);
-CREATE INDEX idx_appliances_next_due ON appliances(next_service_due);
-CREATE INDEX idx_jobs_customer ON jobs(customer_id);
-CREATE INDEX idx_jobs_property ON jobs(property_id);
-CREATE INDEX idx_jobs_technician ON jobs(assigned_technician_id);
-CREATE INDEX idx_jobs_status ON jobs(status);
-CREATE INDEX idx_jobs_scheduled ON jobs(scheduled_date);
-CREATE INDEX idx_jobs_type ON jobs(job_type);
-CREATE INDEX idx_service_records_job ON service_records(job_id);
-CREATE INDEX idx_commissioning_records_job ON commissioning_records(job_id);
-CREATE INDEX idx_heat_pump_service_records_job ON heat_pump_service_records(job_id);
-CREATE INDEX idx_heat_pump_commissioning_records_job ON heat_pump_commissioning_records(job_id);
-CREATE INDEX idx_breakdown_reports_job ON breakdown_reports(job_id);
-CREATE INDEX idx_job_notes_job ON job_notes(job_id);
-CREATE INDEX idx_file_attachments_entity ON file_attachments(entity_type, entity_id);
-CREATE INDEX idx_signatures_job ON signatures(job_id);
+CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(last_name, first_name);
+CREATE INDEX IF NOT EXISTS idx_customers_postcode ON customers(postcode);
+CREATE INDEX IF NOT EXISTS idx_properties_customer ON properties(customer_id);
+CREATE INDEX IF NOT EXISTS idx_properties_postcode ON properties(postcode);
+CREATE INDEX IF NOT EXISTS idx_appliances_property ON appliances(property_id);
+CREATE INDEX IF NOT EXISTS idx_appliances_serial ON appliances(serial_number);
+CREATE INDEX IF NOT EXISTS idx_appliances_next_due ON appliances(next_service_due);
+CREATE INDEX IF NOT EXISTS idx_jobs_customer ON jobs(customer_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_property ON jobs(property_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_technician ON jobs(assigned_technician_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_scheduled ON jobs(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type);
+CREATE INDEX IF NOT EXISTS idx_service_records_job ON service_records(job_id);
+CREATE INDEX IF NOT EXISTS idx_commissioning_records_job ON commissioning_records(job_id);
+CREATE INDEX IF NOT EXISTS idx_heat_pump_service_records_job ON heat_pump_service_records(job_id);
+CREATE INDEX IF NOT EXISTS idx_heat_pump_commissioning_records_job ON heat_pump_commissioning_records(job_id);
+CREATE INDEX IF NOT EXISTS idx_breakdown_reports_job ON breakdown_reports(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_notes_job ON job_notes(job_id);
+CREATE INDEX IF NOT EXISTS idx_file_attachments_entity ON file_attachments(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_signatures_job ON signatures(job_id);
 
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -362,16 +362,27 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply updated_at triggers
+DROP TRIGGER IF EXISTS set_updated_at ON profiles;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON customers;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON customers FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON properties;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON properties FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON appliances;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON appliances FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON jobs;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON service_records;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON service_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON commissioning_records;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON commissioning_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON heat_pump_service_records;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON heat_pump_service_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON heat_pump_commissioning_records;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON heat_pump_commissioning_records FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON breakdown_reports;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON breakdown_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at ON job_notes;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON job_notes FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Auto-create profile on user signup
@@ -401,12 +412,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- Invite codes (admin creates, new users consume to register)
-CREATE TABLE invite_codes (
+CREATE TABLE IF NOT EXISTS invite_codes (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code        TEXT UNIQUE NOT NULL,
   role        user_role NOT NULL DEFAULT 'technician',
@@ -441,92 +453,135 @@ RETURNS user_role AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Profiles: users can read all profiles, update own
+DROP POLICY IF EXISTS "profiles_select" ON profiles;
 CREATE POLICY "profiles_select" ON profiles FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
 CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (id = auth.uid());
+DROP POLICY IF EXISTS "profiles_admin_all" ON profiles;
 CREATE POLICY "profiles_admin_all" ON profiles FOR ALL TO authenticated USING (get_user_role(auth.uid()) = 'admin');
 
 -- Customers: all authenticated users can read, admin/office can write
+DROP POLICY IF EXISTS "customers_select" ON customers;
 CREATE POLICY "customers_select" ON customers FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "customers_insert" ON customers;
 CREATE POLICY "customers_insert" ON customers FOR INSERT TO authenticated WITH CHECK (get_user_role(auth.uid()) IN ('admin', 'office_staff'));
+DROP POLICY IF EXISTS "customers_update" ON customers;
 CREATE POLICY "customers_update" ON customers FOR UPDATE TO authenticated USING (get_user_role(auth.uid()) IN ('admin', 'office_staff'));
+DROP POLICY IF EXISTS "customers_delete" ON customers;
 CREATE POLICY "customers_delete" ON customers FOR DELETE TO authenticated USING (get_user_role(auth.uid()) = 'admin');
 
 -- Properties: same as customers
+DROP POLICY IF EXISTS "properties_select" ON properties;
 CREATE POLICY "properties_select" ON properties FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "properties_insert" ON properties;
 CREATE POLICY "properties_insert" ON properties FOR INSERT TO authenticated WITH CHECK (get_user_role(auth.uid()) IN ('admin', 'office_staff'));
+DROP POLICY IF EXISTS "properties_update" ON properties;
 CREATE POLICY "properties_update" ON properties FOR UPDATE TO authenticated USING (get_user_role(auth.uid()) IN ('admin', 'office_staff'));
+DROP POLICY IF EXISTS "properties_delete" ON properties;
 CREATE POLICY "properties_delete" ON properties FOR DELETE TO authenticated USING (get_user_role(auth.uid()) = 'admin');
 
 -- Appliances: same as customers
+DROP POLICY IF EXISTS "appliances_select" ON appliances;
 CREATE POLICY "appliances_select" ON appliances FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "appliances_insert" ON appliances;
 CREATE POLICY "appliances_insert" ON appliances FOR INSERT TO authenticated WITH CHECK (get_user_role(auth.uid()) IN ('admin', 'office_staff', 'technician'));
+DROP POLICY IF EXISTS "appliances_update" ON appliances;
 CREATE POLICY "appliances_update" ON appliances FOR UPDATE TO authenticated USING (get_user_role(auth.uid()) IN ('admin', 'office_staff', 'technician'));
+DROP POLICY IF EXISTS "appliances_delete" ON appliances;
 CREATE POLICY "appliances_delete" ON appliances FOR DELETE TO authenticated USING (get_user_role(auth.uid()) = 'admin');
 
 -- Jobs: technicians see their own, admin/office see all
+DROP POLICY IF EXISTS "jobs_select_admin_office" ON jobs;
 CREATE POLICY "jobs_select_admin_office" ON jobs FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR assigned_technician_id = auth.uid());
+DROP POLICY IF EXISTS "jobs_insert" ON jobs;
 CREATE POLICY "jobs_insert" ON jobs FOR INSERT TO authenticated WITH CHECK (get_user_role(auth.uid()) IN ('admin', 'office_staff'));
+DROP POLICY IF EXISTS "jobs_update" ON jobs;
 CREATE POLICY "jobs_update" ON jobs FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR assigned_technician_id = auth.uid());
+DROP POLICY IF EXISTS "jobs_delete" ON jobs;
 CREATE POLICY "jobs_delete" ON jobs FOR DELETE TO authenticated USING (get_user_role(auth.uid()) = 'admin');
 
 -- Service Records: technicians see their own, admin/office see all
+DROP POLICY IF EXISTS "service_records_select" ON service_records;
 CREATE POLICY "service_records_select" ON service_records FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+DROP POLICY IF EXISTS "service_records_insert" ON service_records;
 CREATE POLICY "service_records_insert" ON service_records FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "service_records_update" ON service_records;
 CREATE POLICY "service_records_update" ON service_records FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Commissioning Records: same as service records
+DROP POLICY IF EXISTS "commissioning_records_select" ON commissioning_records;
 CREATE POLICY "commissioning_records_select" ON commissioning_records FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+DROP POLICY IF EXISTS "commissioning_records_insert" ON commissioning_records;
 CREATE POLICY "commissioning_records_insert" ON commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "commissioning_records_update" ON commissioning_records;
 CREATE POLICY "commissioning_records_update" ON commissioning_records FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Heat Pump Service Records: same as service records
+DROP POLICY IF EXISTS "heat_pump_service_records_select" ON heat_pump_service_records;
 CREATE POLICY "heat_pump_service_records_select" ON heat_pump_service_records FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+DROP POLICY IF EXISTS "heat_pump_service_records_insert" ON heat_pump_service_records;
 CREATE POLICY "heat_pump_service_records_insert" ON heat_pump_service_records FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "heat_pump_service_records_update" ON heat_pump_service_records;
 CREATE POLICY "heat_pump_service_records_update" ON heat_pump_service_records FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Heat Pump Commissioning Records: same as service records
+DROP POLICY IF EXISTS "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records;
 CREATE POLICY "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+DROP POLICY IF EXISTS "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records;
 CREATE POLICY "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records;
 CREATE POLICY "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Breakdown Reports: same as service records
+DROP POLICY IF EXISTS "breakdown_reports_select" ON breakdown_reports;
 CREATE POLICY "breakdown_reports_select" ON breakdown_reports FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
+DROP POLICY IF EXISTS "breakdown_reports_insert" ON breakdown_reports;
 CREATE POLICY "breakdown_reports_insert" ON breakdown_reports FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "breakdown_reports_update" ON breakdown_reports;
 CREATE POLICY "breakdown_reports_update" ON breakdown_reports FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) IN ('admin', 'office_staff') OR technician_id = auth.uid());
 
 -- Job Notes: all authenticated can read and create
+DROP POLICY IF EXISTS "job_notes_select" ON job_notes;
 CREATE POLICY "job_notes_select" ON job_notes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "job_notes_insert" ON job_notes;
 CREATE POLICY "job_notes_insert" ON job_notes FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "job_notes_update" ON job_notes;
 CREATE POLICY "job_notes_update" ON job_notes FOR UPDATE TO authenticated USING (author_id = auth.uid());
+DROP POLICY IF EXISTS "job_notes_delete" ON job_notes;
 CREATE POLICY "job_notes_delete" ON job_notes FOR DELETE TO authenticated USING (author_id = auth.uid() OR get_user_role(auth.uid()) = 'admin');
 
 -- File Attachments: admin/office can see all, technicians only see files for their assigned jobs
+DROP POLICY IF EXISTS "file_attachments_select" ON file_attachments;
 CREATE POLICY "file_attachments_select" ON file_attachments FOR SELECT TO authenticated
   USING (
     get_user_role(auth.uid()) IN ('admin', 'office_staff')
     OR (entity_type = 'job' AND EXISTS (SELECT 1 FROM jobs WHERE jobs.id = entity_id AND jobs.assigned_technician_id = auth.uid()))
   );
+DROP POLICY IF EXISTS "file_attachments_insert" ON file_attachments;
 CREATE POLICY "file_attachments_insert" ON file_attachments FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "file_attachments_delete" ON file_attachments;
 CREATE POLICY "file_attachments_delete" ON file_attachments FOR DELETE TO authenticated USING (uploaded_by = auth.uid() OR get_user_role(auth.uid()) = 'admin');
 
 -- Signatures: admin/office can see all, technicians only see signatures for their assigned jobs
+DROP POLICY IF EXISTS "signatures_select" ON signatures;
 CREATE POLICY "signatures_select" ON signatures FOR SELECT TO authenticated
   USING (
     get_user_role(auth.uid()) IN ('admin', 'office_staff')
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.id = job_id AND jobs.assigned_technician_id = auth.uid())
   );
+DROP POLICY IF EXISTS "signatures_insert" ON signatures;
 CREATE POLICY "signatures_insert" ON signatures FOR INSERT TO authenticated WITH CHECK (true);
 
 -- Create storage buckets
@@ -535,30 +590,39 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('service-documents', 'ser
 INSERT INTO storage.buckets (id, name, public) VALUES ('signatures', 'signatures', false) ON CONFLICT DO NOTHING;
 
 -- Storage policies - scoped by role: admin/office have full access, technicians restricted to their job paths
+DROP POLICY IF EXISTS "auth_upload_photos" ON storage.objects;
 CREATE POLICY "auth_upload_photos" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'service-photos');
+DROP POLICY IF EXISTS "auth_read_photos" ON storage.objects;
 CREATE POLICY "auth_read_photos" ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'service-photos' AND (
     get_user_role(auth.uid()) IN ('admin', 'office_staff')
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
   ));
+DROP POLICY IF EXISTS "auth_delete_photos" ON storage.objects;
 CREATE POLICY "auth_delete_photos" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'service-photos' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
 
+DROP POLICY IF EXISTS "auth_upload_docs" ON storage.objects;
 CREATE POLICY "auth_upload_docs" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'service-documents');
+DROP POLICY IF EXISTS "auth_read_docs" ON storage.objects;
 CREATE POLICY "auth_read_docs" ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'service-documents' AND (
     get_user_role(auth.uid()) IN ('admin', 'office_staff')
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
   ));
+DROP POLICY IF EXISTS "auth_delete_docs" ON storage.objects;
 CREATE POLICY "auth_delete_docs" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'service-documents' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
 
+DROP POLICY IF EXISTS "auth_upload_sigs" ON storage.objects;
 CREATE POLICY "auth_upload_sigs" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'signatures');
+DROP POLICY IF EXISTS "auth_read_sigs" ON storage.objects;
 CREATE POLICY "auth_read_sigs" ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'signatures' AND (
     get_user_role(auth.uid()) IN ('admin', 'office_staff')
     OR EXISTS (SELECT 1 FROM jobs WHERE jobs.assigned_technician_id = auth.uid() AND name LIKE 'jobs/' || jobs.id::text || '/%')
   ));
+DROP POLICY IF EXISTS "auth_delete_sigs" ON storage.objects;
 CREATE POLICY "auth_delete_sigs" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'signatures' AND (owner = auth.uid() OR get_user_role(auth.uid()) = 'admin'));
 
@@ -591,19 +655,23 @@ CREATE TABLE IF NOT EXISTS company_settings (
   CONSTRAINT company_settings_singleton UNIQUE (singleton_id)
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON company_settings;
 CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON company_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "company_settings_select" ON company_settings;
 CREATE POLICY "company_settings_select" ON company_settings
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "company_settings_insert" ON company_settings;
 CREATE POLICY "company_settings_insert" ON company_settings
   FOR INSERT TO authenticated
   WITH CHECK (get_user_role(auth.uid()) = 'admin');
 
+DROP POLICY IF EXISTS "company_settings_update" ON company_settings;
 CREATE POLICY "company_settings_update" ON company_settings
   FOR UPDATE TO authenticated
   USING (get_user_role(auth.uid()) = 'admin');
@@ -613,14 +681,17 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('company-logos', 'company-logos', true)
 ON CONFLICT DO NOTHING;
 
+DROP POLICY IF EXISTS "company_logos_upload" ON storage.objects;
 CREATE POLICY "company_logos_upload" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'company-logos' AND get_user_role(auth.uid()) = 'admin');
 
+DROP POLICY IF EXISTS "company_logos_read" ON storage.objects;
 CREATE POLICY "company_logos_read" ON storage.objects
   FOR SELECT TO authenticated
   USING (bucket_id = 'company-logos');
 
+DROP POLICY IF EXISTS "company_logos_delete" ON storage.objects;
 CREATE POLICY "company_logos_delete" ON storage.objects
   FOR DELETE TO authenticated
   USING (bucket_id = 'company-logos' AND get_user_role(auth.uid()) = 'admin');
@@ -659,6 +730,7 @@ CREATE TABLE IF NOT EXISTS plans (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON plans;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON plans
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -687,6 +759,7 @@ CREATE TABLE IF NOT EXISTS tenants (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON tenants;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON tenants
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -704,6 +777,7 @@ CREATE TABLE IF NOT EXISTS platform_announcements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DROP TRIGGER IF EXISTS set_updated_at ON platform_announcements;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON platform_announcements
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -887,21 +961,29 @@ ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_audit_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "plans_select" ON plans;
 CREATE POLICY "plans_select" ON plans FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "plans_admin" ON plans;
 CREATE POLICY "plans_admin" ON plans FOR ALL TO authenticated
   USING (get_user_role(auth.uid()) = 'super_admin');
 
+DROP POLICY IF EXISTS "tenants_super_admin" ON tenants;
 CREATE POLICY "tenants_super_admin" ON tenants FOR ALL TO authenticated
   USING (get_user_role(auth.uid()) = 'super_admin');
+DROP POLICY IF EXISTS "tenants_own" ON tenants;
 CREATE POLICY "tenants_own" ON tenants FOR SELECT TO authenticated
   USING (id = get_user_tenant_id(auth.uid()));
 
+DROP POLICY IF EXISTS "announcements_select" ON platform_announcements;
 CREATE POLICY "announcements_select" ON platform_announcements FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "announcements_admin" ON platform_announcements;
 CREATE POLICY "announcements_admin" ON platform_announcements FOR ALL TO authenticated
   USING (get_user_role(auth.uid()) = 'super_admin');
 
+DROP POLICY IF EXISTS "audit_log_admin" ON platform_audit_log;
 CREATE POLICY "audit_log_admin" ON platform_audit_log FOR SELECT TO authenticated
   USING (get_user_role(auth.uid()) = 'super_admin');
+DROP POLICY IF EXISTS "audit_log_insert" ON platform_audit_log;
 CREATE POLICY "audit_log_insert" ON platform_audit_log FOR INSERT TO authenticated WITH CHECK (true);
 
 -- ─── 11. Seed default plans ────────────────────────────────────────────────────
@@ -1078,12 +1160,10 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 -- Drop old broad policies and replace with tenant-scoped ones
 
 -- Profiles: drop all legacy policies
-DROP POLICY IF EXISTS "profiles_select" ON profiles;
-DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
-DROP POLICY IF EXISTS "profiles_admin_all" ON profiles;
 DROP POLICY IF EXISTS "profiles_update" ON profiles;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "profiles_tenant_select" ON profiles;
 CREATE POLICY "profiles_tenant_select" ON profiles FOR SELECT TO authenticated
   USING (
     tenant_id = get_user_tenant_id(auth.uid())
@@ -1093,6 +1173,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "profiles_tenant_update" ON profiles;
 CREATE POLICY "profiles_tenant_update" ON profiles FOR UPDATE TO authenticated
   USING (
     id = auth.uid()
@@ -1103,13 +1184,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Customers: drop all legacy policies
-DROP POLICY IF EXISTS "customers_select" ON customers;
-DROP POLICY IF EXISTS "customers_insert" ON customers;
-DROP POLICY IF EXISTS "customers_update" ON customers;
-DROP POLICY IF EXISTS "customers_delete" ON customers;
 DROP POLICY IF EXISTS "customers_all" ON customers;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "customers_tenant" ON customers;
 CREATE POLICY "customers_tenant" ON customers FOR ALL TO authenticated
   USING (
     tenant_id = get_user_tenant_id(auth.uid())
@@ -1122,13 +1200,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Properties: drop all legacy policies
-DROP POLICY IF EXISTS "properties_select" ON properties;
-DROP POLICY IF EXISTS "properties_insert" ON properties;
-DROP POLICY IF EXISTS "properties_update" ON properties;
-DROP POLICY IF EXISTS "properties_delete" ON properties;
 DROP POLICY IF EXISTS "properties_all" ON properties;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "properties_tenant" ON properties;
 CREATE POLICY "properties_tenant" ON properties FOR ALL TO authenticated
   USING (
     tenant_id = get_user_tenant_id(auth.uid())
@@ -1141,13 +1216,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Appliances: drop all legacy policies
-DROP POLICY IF EXISTS "appliances_select" ON appliances;
-DROP POLICY IF EXISTS "appliances_insert" ON appliances;
-DROP POLICY IF EXISTS "appliances_update" ON appliances;
-DROP POLICY IF EXISTS "appliances_delete" ON appliances;
 DROP POLICY IF EXISTS "appliances_all" ON appliances;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "appliances_tenant" ON appliances;
 CREATE POLICY "appliances_tenant" ON appliances FOR ALL TO authenticated
   USING (
     tenant_id = get_user_tenant_id(auth.uid())
@@ -1160,13 +1232,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Jobs: drop all legacy policies
-DROP POLICY IF EXISTS "jobs_select_admin_office" ON jobs;
-DROP POLICY IF EXISTS "jobs_insert" ON jobs;
-DROP POLICY IF EXISTS "jobs_update" ON jobs;
-DROP POLICY IF EXISTS "jobs_delete" ON jobs;
 DROP POLICY IF EXISTS "jobs_all" ON jobs;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "jobs_tenant" ON jobs;
 CREATE POLICY "jobs_tenant" ON jobs FOR ALL TO authenticated
   USING (
     tenant_id = get_user_tenant_id(auth.uid())
@@ -1179,12 +1248,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Service records: drop all legacy policies
-DROP POLICY IF EXISTS "service_records_select" ON service_records;
-DROP POLICY IF EXISTS "service_records_insert" ON service_records;
-DROP POLICY IF EXISTS "service_records_update" ON service_records;
 DROP POLICY IF EXISTS "service_records_all" ON service_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "service_records_tenant" ON service_records;
 CREATE POLICY "service_records_tenant" ON service_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1192,12 +1259,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Commissioning records: drop all legacy policies
-DROP POLICY IF EXISTS "commissioning_records_select" ON commissioning_records;
-DROP POLICY IF EXISTS "commissioning_records_insert" ON commissioning_records;
-DROP POLICY IF EXISTS "commissioning_records_update" ON commissioning_records;
 DROP POLICY IF EXISTS "commissioning_records_all" ON commissioning_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "commissioning_records_tenant" ON commissioning_records;
 CREATE POLICY "commissioning_records_tenant" ON commissioning_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1205,13 +1270,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Job notes: drop all legacy policies
-DROP POLICY IF EXISTS "job_notes_select" ON job_notes;
-DROP POLICY IF EXISTS "job_notes_insert" ON job_notes;
-DROP POLICY IF EXISTS "job_notes_update" ON job_notes;
-DROP POLICY IF EXISTS "job_notes_delete" ON job_notes;
 DROP POLICY IF EXISTS "job_notes_all" ON job_notes;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "job_notes_tenant" ON job_notes;
 CREATE POLICY "job_notes_tenant" ON job_notes FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1219,12 +1281,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- File attachments: drop all legacy policies
-DROP POLICY IF EXISTS "file_attachments_select" ON file_attachments;
-DROP POLICY IF EXISTS "file_attachments_insert" ON file_attachments;
-DROP POLICY IF EXISTS "file_attachments_delete" ON file_attachments;
 DROP POLICY IF EXISTS "file_attachments_all" ON file_attachments;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "file_attachments_tenant" ON file_attachments;
 CREATE POLICY "file_attachments_tenant" ON file_attachments FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1232,11 +1292,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Signatures: drop all legacy policies
-DROP POLICY IF EXISTS "signatures_select" ON signatures;
-DROP POLICY IF EXISTS "signatures_insert" ON signatures;
 DROP POLICY IF EXISTS "signatures_all" ON signatures;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "signatures_tenant" ON signatures;
 CREATE POLICY "signatures_tenant" ON signatures FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1244,11 +1303,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Invite codes: drop all legacy policies
-DROP POLICY IF EXISTS "invite_codes_select" ON invite_codes;
-DROP POLICY IF EXISTS "invite_codes_insert" ON invite_codes;
 DROP POLICY IF EXISTS "invite_codes_all" ON invite_codes;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "invite_codes_tenant" ON invite_codes;
 CREATE POLICY "invite_codes_tenant" ON invite_codes FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1256,12 +1314,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Breakdown reports: drop all legacy policies
-DROP POLICY IF EXISTS "breakdown_reports_select" ON breakdown_reports;
-DROP POLICY IF EXISTS "breakdown_reports_insert" ON breakdown_reports;
-DROP POLICY IF EXISTS "breakdown_reports_update" ON breakdown_reports;
 DROP POLICY IF EXISTS "breakdown_reports_all" ON breakdown_reports;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "breakdown_reports_tenant" ON breakdown_reports;
 CREATE POLICY "breakdown_reports_tenant" ON breakdown_reports FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1269,12 +1325,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Heat pump service records: drop all legacy policies
-DROP POLICY IF EXISTS "heat_pump_service_records_select" ON heat_pump_service_records;
-DROP POLICY IF EXISTS "heat_pump_service_records_insert" ON heat_pump_service_records;
-DROP POLICY IF EXISTS "heat_pump_service_records_update" ON heat_pump_service_records;
 DROP POLICY IF EXISTS "heat_pump_service_records_all" ON heat_pump_service_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "heat_pump_service_records_tenant" ON heat_pump_service_records;
 CREATE POLICY "heat_pump_service_records_tenant" ON heat_pump_service_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1282,12 +1336,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Heat pump commissioning records: drop all legacy policies
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_select" ON heat_pump_commissioning_records;
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_insert" ON heat_pump_commissioning_records;
-DROP POLICY IF EXISTS "heat_pump_commissioning_records_update" ON heat_pump_commissioning_records;
 DROP POLICY IF EXISTS "heat_pump_commissioning_records_all" ON heat_pump_commissioning_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "heat_pump_commissioning_records_tenant" ON heat_pump_commissioning_records;
 CREATE POLICY "heat_pump_commissioning_records_tenant" ON heat_pump_commissioning_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1305,13 +1357,10 @@ ALTER TABLE job_completion_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lookup_options ENABLE ROW LEVEL SECURITY;
 
 -- Oil tank inspections: drop all legacy policies
-DROP POLICY IF EXISTS "oil_tank_inspections_select" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "oil_tank_inspections_insert" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "oil_tank_inspections_update" ON oil_tank_inspections;
-DROP POLICY IF EXISTS "oil_tank_inspections_all" ON oil_tank_inspections;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_inspections;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "oil_tank_inspections_tenant" ON oil_tank_inspections;
 CREATE POLICY "oil_tank_inspections_tenant" ON oil_tank_inspections FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1319,13 +1368,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Oil tank risk assessments: drop all legacy policies
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_select" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_insert" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_update" ON oil_tank_risk_assessments;
-DROP POLICY IF EXISTS "oil_tank_risk_assessments_all" ON oil_tank_risk_assessments;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_tank_risk_assessments;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "oil_tank_risk_assessments_tenant" ON oil_tank_risk_assessments;
 CREATE POLICY "oil_tank_risk_assessments_tenant" ON oil_tank_risk_assessments FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1333,13 +1379,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Combustion analysis records: drop all legacy policies
-DROP POLICY IF EXISTS "combustion_analysis_records_select" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "combustion_analysis_records_insert" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "combustion_analysis_records_update" ON combustion_analysis_records;
-DROP POLICY IF EXISTS "combustion_analysis_records_all" ON combustion_analysis_records;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON combustion_analysis_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "combustion_analysis_records_tenant" ON combustion_analysis_records;
 CREATE POLICY "combustion_analysis_records_tenant" ON combustion_analysis_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1347,13 +1390,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Burner setup records: drop all legacy policies
-DROP POLICY IF EXISTS "burner_setup_records_select" ON burner_setup_records;
-DROP POLICY IF EXISTS "burner_setup_records_insert" ON burner_setup_records;
-DROP POLICY IF EXISTS "burner_setup_records_update" ON burner_setup_records;
-DROP POLICY IF EXISTS "burner_setup_records_all" ON burner_setup_records;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON burner_setup_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "burner_setup_records_tenant" ON burner_setup_records;
 CREATE POLICY "burner_setup_records_tenant" ON burner_setup_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1361,13 +1401,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Fire valve test records: drop all legacy policies
-DROP POLICY IF EXISTS "fire_valve_test_records_select" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "fire_valve_test_records_insert" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "fire_valve_test_records_update" ON fire_valve_test_records;
-DROP POLICY IF EXISTS "fire_valve_test_records_all" ON fire_valve_test_records;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON fire_valve_test_records;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "fire_valve_test_records_tenant" ON fire_valve_test_records;
 CREATE POLICY "fire_valve_test_records_tenant" ON fire_valve_test_records FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1375,13 +1412,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Oil line vacuum tests: drop all legacy policies
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_select" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_insert" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_update" ON oil_line_vacuum_tests;
-DROP POLICY IF EXISTS "oil_line_vacuum_tests_all" ON oil_line_vacuum_tests;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON oil_line_vacuum_tests;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "oil_line_vacuum_tests_tenant" ON oil_line_vacuum_tests;
 CREATE POLICY "oil_line_vacuum_tests_tenant" ON oil_line_vacuum_tests FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1389,13 +1423,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Job completion reports: drop all legacy policies
-DROP POLICY IF EXISTS "job_completion_reports_select" ON job_completion_reports;
-DROP POLICY IF EXISTS "job_completion_reports_insert" ON job_completion_reports;
-DROP POLICY IF EXISTS "job_completion_reports_update" ON job_completion_reports;
-DROP POLICY IF EXISTS "job_completion_reports_all" ON job_completion_reports;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON job_completion_reports;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "job_completion_reports_tenant" ON job_completion_reports;
 CREATE POLICY "job_completion_reports_tenant" ON job_completion_reports FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1403,14 +1434,10 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- Lookup options: drop all legacy policies
-DROP POLICY IF EXISTS "lookup_options_select" ON lookup_options;
-DROP POLICY IF EXISTS "lookup_options_insert" ON lookup_options;
-DROP POLICY IF EXISTS "lookup_options_update" ON lookup_options;
-DROP POLICY IF EXISTS "lookup_options_delete" ON lookup_options;
-DROP POLICY IF EXISTS "lookup_options_all" ON lookup_options;
 DROP POLICY IF EXISTS "Enable access for authenticated users" ON lookup_options;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "lookup_options_tenant" ON lookup_options;
 CREATE POLICY "lookup_options_tenant" ON lookup_options FOR ALL TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin')
   WITH CHECK (tenant_id = get_user_tenant_id(auth.uid()) OR get_user_role(auth.uid()) = 'super_admin');
@@ -1436,12 +1463,14 @@ CREATE INDEX IF NOT EXISTS idx_tenant_subscriptions_plan ON tenant_subscriptions
 ALTER TABLE tenant_subscriptions ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "tenant_subscriptions_super_admin" ON tenant_subscriptions;
 CREATE POLICY "tenant_subscriptions_super_admin" ON tenant_subscriptions FOR ALL TO authenticated
   USING (get_user_role(auth.uid()) = 'super_admin');
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
+DROP POLICY IF EXISTS "tenant_subscriptions_own" ON tenant_subscriptions;
 CREATE POLICY "tenant_subscriptions_own" ON tenant_subscriptions FOR SELECT TO authenticated
   USING (tenant_id = get_user_tenant_id(auth.uid()));
 EXCEPTION WHEN OTHERS THEN NULL;
@@ -1599,6 +1628,7 @@ CREATE INDEX IF NOT EXISTS idx_follow_ups_expected_date ON follow_ups(tenant_id,
 
 ALTER TABLE follow_ups ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "follow_ups_tenant_isolation" ON follow_ups;
 CREATE POLICY "follow_ups_tenant_isolation" ON follow_ups
   FOR ALL
   USING (

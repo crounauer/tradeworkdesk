@@ -121,6 +121,8 @@ const BlogIndex = lazyRetry(() => import("@/pages/marketing/blog-index"));
 const BlogPostPage = lazyRetry(() => import("@/pages/marketing/blog-post"));
 const PrivacyPolicyPage = lazyRetry(() => import("@/pages/marketing/privacy-policy"));
 const TermsOfServicePage = lazyRetry(() => import("@/pages/marketing/terms-of-service"));
+const DirectoryPage = lazyRetry(() => import("@/pages/marketing/directory"));
+const BusinessProfilePage = lazyRetry(() => import("@/pages/marketing/business-profile"));
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -271,6 +273,8 @@ function AppRouter() {
         <Route path="/heating-company-software" component={() => <PublicPage component={TradeLandingPage} slug="heating-company-software" />} />
         <Route path="/industries" component={() => <PublicPage component={IndustriesPage} />} />
         <Route path="/alternatives" component={() => <PublicPage component={AlternativesPage} />} />
+        <Route path="/find" component={() => <PublicPage component={DirectoryPage} />} />
+        <Route path="/find/:slug" component={() => <PublicPage component={BusinessProfilePage} />} />
         <Route path="/privacy-policy" component={() => <PublicPage component={PrivacyPolicyPage} />} />
         <Route path="/terms-of-service" component={() => <PublicPage component={TermsOfServicePage} />} />
 
