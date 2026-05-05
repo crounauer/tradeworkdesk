@@ -1,4 +1,4 @@
-import { useGetDashboard, useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
+import { useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { MessageSquarePlus, AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import AddToHomeScreen from "@/components/add-to-homescreen";
-import { useHomepageData } from "@/hooks/use-homepage-data";
 import { useInitData } from "@/hooks/use-init-data";
 import { BookJobDialog } from "@/components/book-job-dialog";
 
@@ -21,9 +20,6 @@ const PostcodeAddressFinder = lazy(() =>
 );
 
 export default function Dashboard() {
-  const { data: homepageData, isLoading: homepageLoading } = useHomepageData();
-  const data = homepageData?.dashboard as ReturnType<typeof useGetDashboard>["data"];
-  const isLoading = homepageLoading;
   const { profile } = useAuth();
   const { toast } = useToast();
   const { data: initData } = useInitData();
@@ -61,18 +57,6 @@ export default function Dashboard() {
     }
   }, [handleBookJob]);
 
-  if (isLoading) return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6 animate-pulse">
-      <div className="h-8 w-48 bg-muted rounded" />
-      <Card className="p-6 border-0 shadow-sm h-[500px]">
-        <div className="h-5 w-32 bg-muted rounded mb-4" />
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: 28 }, (_, i) => <div key={i} className="h-20 bg-muted rounded" />)}
-        </div>
-      </Card>
-    </div>
-  );
-  if (!data) return null;
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
