@@ -853,6 +853,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number; hourly_rate: number | null }[]>([]);
   const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
   const [savingRate, setSavingRate] = useState(false);
+  const [waiveCallout, setWaiveCallout] = useState(false);
+  const [editWaiveCallout, setEditWaiveCallout] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -914,6 +916,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   })();
 
   const callOutFee = selectedRateAmount;
+  const addEntryFee = waiveCallout ? 0 : callOutFee;
 
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
@@ -988,14 +991,14 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       departure_time: departureDate ? departureDate.toISOString() : null,
       notes: notes || null,
       hourly_rate: resolvedRate || null,
-      callout_fee: callOutFee > 0 ? callOutFee : null,
+      callout_fee: addEntryFee > 0 ? addEntryFee : null,
     };
     if (!isOnline) {
       if (offlineSubmitting) return;
       setOfflineSubmitting(true);
       try {
         await queueTimeEntry(jobId, entryData);
-        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setShowAdd(false);
+        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
         toast({ title: "Saved offline", description: "Time entry will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save time entry offline", variant: "destructive" });
@@ -1009,7 +1012,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
         jobId,
         data: entryData as Record<string, unknown>,
       });
-      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setShowAdd(false);
+      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
       onChanged?.();
@@ -1038,12 +1041,14 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     setEditNotes(entry.notes || "");
     setEditHourlyRate(entry.hourly_rate != null ? String(entry.hourly_rate) : "");
     const entryCalloutFee = (entry as Record<string, unknown>).callout_fee;
-    setEditCalloutFee(entryCalloutFee != null ? Number(entryCalloutFee) : null);
+    const parsedCalloutFee = entryCalloutFee != null ? Number(entryCalloutFee) : null;
+    setEditCalloutFee(parsedCalloutFee);
+    setEditWaiveCallout(parsedCalloutFee === null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate(""); setEditCalloutFee(null); setEditCalloutRateId("auto");
+    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate(""); setEditCalloutFee(null); setEditCalloutRateId("auto"); setEditWaiveCallout(false);
   };
 
   const handleEditCalloutRateChange = (value: string) => {
@@ -1080,7 +1085,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
           departure_time: editDepartureDate ? editDepartureDate.toISOString() : null,
           notes: editNotes || null,
           hourly_rate: resolvedEditRate,
-          callout_fee: editCalloutFee,
+          callout_fee: editWaiveCallout ? null : editCalloutFee,
         } as Record<string, unknown>,
       });
       cancelEdit();
@@ -1173,19 +1178,33 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               </div>
             )}
           </div>
+          {callOutFee > 0 && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="waiveCallout"
+                checked={waiveCallout}
+                onChange={(e) => setWaiveCallout(e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-primary"
+              />
+              <label htmlFor="waiveCallout" className="text-sm select-none cursor-pointer">
+                Waive callout fee — charge hourly rate only
+              </label>
+            </div>
+          )}
           {arrival && departure && (() => {
             const ms = new Date(departure).getTime() - new Date(arrival).getTime();
             const hours = ms / 3600000;
             const durationStr = calcDuration(arrival, departure);
             const rate = effectiveHourlyRate;
-            const hasCallout = callOutFee > 0;
+            const hasCallout = addEntryFee > 0;
             const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
-            const cost = (hasCallout ? callOutFee : 0) + billable * rate;
+            const cost = (hasCallout ? addEntryFee : 0) + billable * rate;
             return (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>Duration: {durationStr}</span>
                 {rate > 0 && <span>£{rate.toFixed(2)}/hr</span>}
-                {ms > 0 && (callOutFee > 0 || rate > 0) && (
+                {ms > 0 && (addEntryFee > 0 || rate > 0) && (
                   <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
                 )}
               </div>
@@ -1195,7 +1214,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
               <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); }}>
+            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); }}>
               Cancel
             </Button>
           </div>
@@ -1243,6 +1262,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                           className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
                           value={editCalloutRateId}
                           onChange={(e) => handleEditCalloutRateChange(e.target.value)}
+                          disabled={editWaiveCallout}
                         >
                           {calloutRates.map(r => (
                             <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
@@ -1250,6 +1270,18 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                         </select>
                       </div>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`editWaiveCallout-${entry.id}`}
+                      checked={editWaiveCallout}
+                      onChange={(e) => setEditWaiveCallout(e.target.checked)}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <label htmlFor={`editWaiveCallout-${entry.id}`} className="text-sm select-none cursor-pointer">
+                      Waive callout fee — charge hourly rate only
+                    </label>
                   </div>
                   {editHourlyRate && (
                     <div className="text-xs text-muted-foreground">
@@ -1261,7 +1293,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     const hours = ms / 3600000;
                     const durationStr = calcDuration(editArrival, editDeparture);
                     const rate = parseFloat(editHourlyRate) || 0;
-                    const entryFee = editCalloutFee ?? 0;
+                    const entryFee = editWaiveCallout ? 0 : (editCalloutFee ?? 0);
                     const billable = entryFee > 0 ? Math.max(0, hours - 1) : Math.max(0, hours);
                     const cost = entryFee + billable * rate;
                     return (
