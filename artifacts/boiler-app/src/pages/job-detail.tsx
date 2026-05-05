@@ -1244,7 +1244,6 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                           value={editCalloutRateId}
                           onChange={(e) => handleEditCalloutRateChange(e.target.value)}
                         >
-                          <option value="auto">No callout fee</option>
                           {calloutRates.map(r => (
                             <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
                           ))}
