@@ -99,6 +99,7 @@ const FollowUps = lazyRetry(() => import("@/pages/follow-ups"));
 const Billing = lazyRetry(() => import("@/pages/billing"));
 const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
 const NotFound = lazyRetry(() => import("@/pages/not-found"));
+const Todos = lazyRetry(() => import("@/pages/todos"));
 
 const PortalLogin = lazyRetry(() => import("@/pages/portal/portal-login"));
 const PortalRegister = lazyRetry(() => import("@/pages/portal/portal-register"));
@@ -314,6 +315,7 @@ function AppRouter() {
 
         <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
         <Route path="/account" component={() => <ProtectedRoute component={AccountSettings} />} />
+        <Route path="/todos" component={() => <ProtectedRoute component={Todos} />} />
 
         <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} roles={["super_admin"]} />} />
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />

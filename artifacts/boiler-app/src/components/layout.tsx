@@ -9,7 +9,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive
+  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -80,6 +80,9 @@ export function Layout({ children }: { children: ReactNode }) {
     ]),
     ...(hasFeature("reports") ? [
       { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
+    ] : []),
+    ...(hasFeature("todo_list") ? [
+      { href: "/todos", label: "To-Do List", icon: CheckSquare },
     ] : []),
   ];
 

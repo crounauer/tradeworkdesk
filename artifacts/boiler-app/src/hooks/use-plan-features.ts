@@ -15,6 +15,7 @@ export interface PlanFeatures {
   geo_mapping?: boolean;
   custom_branding?: boolean;
   priority_support?: boolean;
+  todo_list?: boolean;
   [key: string]: boolean | undefined;
 }
 
