@@ -34,6 +34,7 @@ export interface InvoiceData {
   job_description: string;
   lines: InvoiceLineItem[];
   parts_total: number;
+  services_total?: number;
   labour_total: number;
   call_out_fee: number;
   subtotal: number;

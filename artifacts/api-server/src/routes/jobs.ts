@@ -1121,6 +1121,10 @@ export async function buildInvoiceData(
   if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
   const { data: parts } = await partsQ;
 
+  let servicesQ = supabaseAdmin.from("job_services").select("*").eq("job_id", jobId).order("created_at", { ascending: true });
+  if (tenantId) servicesQ = servicesQ.eq("tenant_id", tenantId);
+  const { data: jobServices } = await servicesQ;
+
   let timeQ = supabaseAdmin.from("job_time_entries").select("*").eq("job_id", jobId).order("arrival_time", { ascending: true });
   if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
   const { data: timeEntries } = await timeQ;
@@ -1243,12 +1247,26 @@ export async function buildInvoiceData(
     }
   }
 
+  if (jobServices) {
+    for (const s of jobServices as { service_name: string; quantity: number; unit_price: number | null }[]) {
+      const up = Number(s.unit_price) || 0;
+      lines.push({
+        description: s.service_name,
+        quantity: s.quantity,
+        unit_price: up,
+        total: up * s.quantity,
+        item_name: "service",
+      });
+    }
+  }
+
   if (lines.length === 0) {
     const desc = job.description || `${job.job_type || "Service"} job`;
     lines.push({ description: desc, quantity: 1, unit_price: 0, total: 0 });
   }
 
-  const partsTotal = lines.filter(l => !l.description.includes("Call-out") && !l.description.includes("Labour")).reduce((sum, l) => sum + l.total, 0);
+  const partsTotal = lines.filter(l => l.item_name === "product").reduce((sum, l) => sum + l.total, 0);
+  const servicesTotal = lines.filter(l => l.item_name === "service").reduce((sum, l) => sum + l.total, 0);
   const labourTotal = totalLabourCost;
   const callOutTotal = totalCallOutCost;
 
@@ -1288,6 +1306,7 @@ export async function buildInvoiceData(
     job_description: job.description || `${job.job_type} job`,
     lines,
     parts_total: partsTotal,
+    services_total: servicesTotal,
     labour_total: labourTotal,
     call_out_fee: callOutTotal,
     subtotal,

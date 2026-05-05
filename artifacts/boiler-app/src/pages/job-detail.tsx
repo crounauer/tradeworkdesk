@@ -2163,6 +2163,7 @@ interface InvoiceSummary {
   vat_amount: number;
   total: number;
   parts_total?: number;
+  services_total?: number;
   labour_total?: number;
   call_out_fee?: number;
 }
@@ -2415,6 +2416,12 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
               <div className="flex justify-between text-muted-foreground">
                 <span>Parts Total</span>
                 <span>{sym}{(summary.parts_total ?? 0).toFixed(2)}</span>
+              </div>
+            )}
+            {(summary.services_total ?? 0) > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Services Total</span>
+                <span>{sym}{(summary.services_total ?? 0).toFixed(2)}</span>
               </div>
             )}
             {(summary.labour_total ?? 0) > 0 && (
