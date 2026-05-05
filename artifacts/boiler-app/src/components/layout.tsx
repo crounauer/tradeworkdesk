@@ -46,6 +46,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const enquiryCountData = { count: initData?.enquiriesCount ?? 0 };
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
   const activeFollowUpsCount = initData?.activeFollowUpsCount ?? 0;
+  const todosCount = initData?.todosCount ?? 0;
 
   const announcements = initData?.announcements || [];
   const homepageData = undefined; // const { data: homepageData } = useHomepageData();
@@ -128,7 +129,8 @@ export function Layout({ children }: { children: ReactNode }) {
       : location === item.href || location.startsWith(item.href + "/");
     const enquiryBadge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
     const followUpBadge = item.href === "/follow-ups" && activeFollowUpsCount > 0 ? activeFollowUpsCount : null;
-    const badge = enquiryBadge || followUpBadge;
+    const todoBadge = item.href === "/todos" && todosCount > 0 ? todosCount : null;
+    const badge = enquiryBadge || followUpBadge || todoBadge;
     return (
       <Link key={item.href} href={item.href} onClick={onClick} className={cn(
         "flex items-center gap-3 rounded-xl text-sm font-medium transition-colors",
@@ -142,7 +144,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {badge !== null && (
           <span className={cn(
             "ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full text-white min-w-[20px] text-center",
-            followUpBadge ? "bg-blue-500" : "bg-orange-500"
+            followUpBadge ? "bg-blue-500" : todoBadge ? "bg-orange-500" : "bg-orange-500"
           )}>
             {badge > 99 ? "99+" : badge}
           </span>

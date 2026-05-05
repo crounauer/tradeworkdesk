@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { customFetch } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ export default function TodosPage() {
   const [adding, setAdding] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const qc = useQueryClient();
 
   useEffect(() => {
     (async () => {
@@ -51,6 +53,7 @@ export default function TodosPage() {
       setTodos(prev => [created, ...prev]);
       setNewTitle("");
       inputRef.current?.focus();
+      qc.invalidateQueries({ queryKey: ["me-init"] });
     } catch {
       toast({ title: "Error", description: "Failed to add item", variant: "destructive" });
     } finally {
@@ -67,6 +70,7 @@ export default function TodosPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: !todo.completed }),
       });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
     } catch {
       // Revert on error
       setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: todo.completed } : t));
@@ -78,6 +82,7 @@ export default function TodosPage() {
     setTodos(prev => prev.filter(t => t.id !== id));
     try {
       await customFetch(`${BASE}api/todos/${id}`, { method: "DELETE" });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
     } catch {
       // Reload to restore state on error
       try {

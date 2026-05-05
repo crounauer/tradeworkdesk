@@ -56,6 +56,7 @@ export interface InitData {
   enquiriesCount: number;
   overdueFollowUpsCount: number;
   activeFollowUpsCount: number;
+  todosCount: number;
   announcements?: Announcement[];
   activeAddons?: ActiveAddon[];
   usageLimits?: UsageLimits | null;
@@ -77,6 +78,7 @@ export function useInitData() {
           tenant: null,
           enquiriesCount: 0,
           overdueFollowUpsCount: 0,
+          todosCount: 0,
         };
       }
       return res.json();
