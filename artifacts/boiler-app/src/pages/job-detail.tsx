@@ -12,7 +12,7 @@ import {
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
-  Play, Timer, Phone, Smartphone
+  Timer, Phone, Smartphone
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
@@ -105,7 +105,6 @@ export default function JobDetail() {
   const [loadingCache, setLoadingCache] = useState(false);
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
-  const [startingJob, setStartingJob] = useState(false);
   const [finishingJob, setFinishingJob] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
 
@@ -190,27 +189,6 @@ export default function JobDetail() {
     }
   };
 
-  const handleStartJob = async () => {
-    const now = new Date().toISOString();
-    try {
-      if (!isOnline) {
-        await queueJobUpdate(job.id, { status: "in_progress", arrival_time: now });
-        toast({ title: "Queued offline", description: "Job started — will sync when online." });
-        return;
-      }
-      setStartingJob(true);
-      await updateJob.mutateAsync({ id: job.id, data: { status: "in_progress", arrival_time: now } as Parameters<typeof updateJob.mutateAsync>[0]["data"] });
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
-      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({ title: "Job started", description: "Arrival time recorded." });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to start job";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setStartingJob(false);
-    }
-  };
-
   const handleFinishJob = async () => {
     const now = new Date().toISOString();
     try {
@@ -286,12 +264,6 @@ export default function JobDetail() {
           <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {job.status === "scheduled" && (
-            <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={handleStartJob} disabled={startingJob || updateJob.isPending}>
-              {startingJob ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-              Start Job
-            </Button>
-          )}
           {job.status === "in_progress" && !((job as unknown as Record<string, unknown>).departure_time) && (
             <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white" onClick={handleFinishJob} disabled={finishingJob || updateJob.isPending}>
               {finishingJob ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Timer className="w-4 h-4 mr-2" />}
