@@ -1217,13 +1217,12 @@ function PublicDirectoryCard() {
 
   useEffect(() => {
     customFetch("/api/admin/directory-listing")
-      .then(r => r.json())
-      .then(data => {
+      .then((data: Record<string, unknown>) => {
         setIsListed(!!data.is_publicly_listed);
-        setSlug(data.listing_slug ?? "");
-        setDescription(data.public_description ?? "");
-        setTradeTypes(data.trade_types ?? "");
-        setServiceArea(data.service_area ?? "");
+        setSlug((data.listing_slug as string) ?? "");
+        setDescription((data.public_description as string) ?? "");
+        setTradeTypes((data.trade_types as string) ?? "");
+        setServiceArea((data.service_area as string) ?? "");
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -1247,15 +1246,11 @@ function PublicDirectoryCard() {
     if (!slug.trim()) { toast({ title: "URL required", description: "Enter a URL slug before saving.", variant: "destructive" }); return; }
     setSaving(true);
     try {
-      const res = await customFetch("/api/admin/directory-listing", {
+      await customFetch("/api/admin/directory-listing", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error || "Failed to save");
-      }
       toast({ title: "Directory listing saved", description: isListed ? "Your business is now publicly listed." : "Listing saved (not publicly visible)." });
       setSlugStatus("idle");
     } catch (err) {
