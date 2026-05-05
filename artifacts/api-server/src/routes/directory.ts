@@ -183,18 +183,19 @@ router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole
 });
 
 // ---------------------------------------------------------------------------
-// PUBLIC: GET /api/directory/check-slug/:slug — check if a slug is available
+// PRIVATE: GET /api/admin/directory-check-slug/:slug — check if a slug is available (excludes own tenant)
 // ---------------------------------------------------------------------------
-router.get("/directory/check-slug/:slug", async (req: Request, res: Response): Promise<void> => {
+router.get("/admin/directory-check-slug/:slug", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { slug } = req.params;
   const normalised = (slug || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   if (!normalised) { res.json({ available: false }); return; }
 
-  const { data } = await supabaseAdmin
+  let q = supabaseAdmin
     .from("company_settings")
     .select("tenant_id")
-    .eq("listing_slug", normalised)
-    .maybeSingle();
+    .eq("listing_slug", normalised);
+  if (req.tenantId) q = q.neq("tenant_id", req.tenantId);
+  const { data } = await q.maybeSingle();
 
   res.json({ available: !data, slug: normalised });
 });

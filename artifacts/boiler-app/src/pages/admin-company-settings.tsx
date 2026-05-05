@@ -1235,9 +1235,8 @@ function PublicDirectoryCard() {
     if (!val.trim()) return;
     slugTimerRef.current = setTimeout(() => {
       setSlugStatus("checking");
-      fetch(`/api/directory/check-slug/${encodeURIComponent(val.trim())}`)
-        .then(r => r.json())
-        .then(d => setSlugStatus(d.available ? "available" : "taken"))
+      customFetch(`/api/admin/directory-check-slug/${encodeURIComponent(val.trim())}`)
+        .then((d: Record<string, unknown>) => setSlugStatus(d.available ? "available" : "taken"))
         .catch(() => setSlugStatus("idle"));
     }, 500);
   };
