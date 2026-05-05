@@ -16,7 +16,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -24,6 +26,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { BookJobDialog } from "@/components/book-job-dialog";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -61,6 +64,9 @@ export default function CustomerDetail() {
   const { data: customer, isLoading } = useGetCustomer(id);
   const search = useSearch();
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [showBookJob, setShowBookJob] = useState(false);
+  const [showBookEnquiry, setShowBookEnquiry] = useState(false);
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (new URLSearchParams(search).get("addProperty") === "1") {
@@ -74,7 +80,6 @@ export default function CustomerDetail() {
   }, [search]);
   const { profile } = useAuth();
   const [, navigate] = useLocation();
-  const qc = useQueryClient();
   const deleteMutation = useDeleteCustomer();
   const { toast } = useToast();
 
@@ -101,7 +106,13 @@ export default function CustomerDetail() {
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" onClick={() => setShowBookJob(true)}>
+            <Briefcase className="w-4 h-4 mr-2" /> Book Job
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
+            <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
@@ -238,17 +249,34 @@ export default function CustomerDetail() {
               </div>
             )}
 
-            <CustomerJobsSection customerId={customer.id} />
+            <CustomerJobsSection customerId={customer.id} onBookJob={() => setShowBookJob(true)} />
 
             <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
           </div>
         </div>
       )}
+
+      {/* Book Job dialog pre-filled with this customer */}
+      <BookJobDialog
+        open={showBookJob}
+        onOpenChange={setShowBookJob}
+        initialCustomerId={customer.id}
+      />
+
+      {/* New Enquiry dialog pre-filled with this customer */}
+      <BookEnquiryDialog
+        open={showBookEnquiry}
+        onOpenChange={setShowBookEnquiry}
+        initialName={`${customer.title ? customer.title + " " : ""}${customer.first_name} ${customer.last_name}`.trim()}
+        initialPhone={customer.phone || customer.mobile || ""}
+        initialEmail={customer.email || ""}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["customer-enquiries", customer.id] })}
+      />
     </div>
   );
 }
 
-function CustomerJobsSection({ customerId }: { customerId: string }) {
+function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; onBookJob?: () => void }) {
   const { data: jobsResponse } = useQuery({
     queryKey: ["customer-jobs", customerId],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${customerId}&limit=100`),
@@ -279,10 +307,17 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-xl font-display font-bold flex items-center gap-2">
-        <Briefcase className="w-5 h-5" /> Jobs
-        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{jobs.length}</span>
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-display font-bold flex items-center gap-2">
+          <Briefcase className="w-5 h-5" /> Jobs
+          <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{jobs.length}</span>
+        </h2>
+        {onBookJob && (
+          <Button size="sm" variant="outline" onClick={onBookJob}>
+            <Plus className="w-4 h-4 mr-1" /> Book Job
+          </Button>
+        )}
+      </div>
       <div className="space-y-2">
         {jobs.map(job => (
           <Link key={job.id} href={`/jobs/${job.id}`}>
@@ -314,6 +349,143 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Book Enquiry dialog — pre-populated with customer details
+// ---------------------------------------------------------------------------
+const SOURCE_OPTIONS = [
+  { value: "phone", label: "Phone" },
+  { value: "email", label: "Email" },
+  { value: "website", label: "Website" },
+  { value: "referral", label: "Referral" },
+  { value: "walk_in", label: "Walk-in" },
+  { value: "other", label: "Other" },
+];
+
+function BookEnquiryDialog({
+  open, onOpenChange, initialName, initialPhone, initialEmail, onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  initialName?: string;
+  initialPhone?: string;
+  initialEmail?: string;
+  onCreated?: () => void;
+}) {
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    contact_name: "",
+    contact_phone: "",
+    contact_email: "",
+    source: "phone",
+    description: "",
+    notes: "",
+    address: "",
+    priority: "medium",
+  });
+
+  // Populate from customer when dialog opens
+  useEffect(() => {
+    if (open) {
+      setForm(f => ({
+        ...f,
+        contact_name: initialName || "",
+        contact_phone: initialPhone || "",
+        contact_email: initialEmail || "",
+      }));
+    }
+  }, [open, initialName, initialPhone, initialEmail]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.contact_name.trim()) {
+      toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await customFetch("/api/enquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      }) as { id?: string };
+      toast({ title: "Enquiry created", description: "The enquiry has been logged." });
+      onCreated?.();
+      onOpenChange(false);
+      if (res?.id) navigate(`/enquiries/${res.id}`);
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>New Enquiry</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Contact Name *</Label>
+            <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input value={form.contact_phone} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="07700 900000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} type="email" placeholder="john@example.com" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Source</Label>
+              <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SOURCE_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Priority</Label>
+              <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <textarea
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px] resize-y"
+              placeholder="What does the customer need?"
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button type="submit" disabled={submitting} className="flex-1">
+              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : <><MessageSquare className="w-4 h-4 mr-2" /> Create Enquiry</>}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
