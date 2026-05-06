@@ -190,6 +190,26 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
     () => rawCalendarJobs.map((j) => localOverrides[j.id] ? { ...j, ...localOverrides[j.id] } : j),
     [rawCalendarJobs, localOverrides]
   );
+
+  // Clear overrides only once server data has caught up — avoids stale-cache snap-back
+  useEffect(() => {
+    setLocalOverrides((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      const next = { ...prev };
+      let changed = false;
+      for (const jobId of Object.keys(next)) {
+        const raw = rawCalendarJobs.find((j) => j.id === jobId);
+        if (!raw) continue;
+        const override = next[jobId];
+        const allMatch = Object.entries(override).every(
+          ([k, v]) => raw[k as keyof CalendarJob] === v
+        );
+        if (allMatch) { delete next[jobId]; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [rawCalendarJobs]);
+
   const profiles = (calendarData?.profiles ?? []) as Array<{ id: string; full_name: string; role: string; [k: string]: unknown }>;
 
   const technicians = useMemo(
@@ -361,8 +381,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         qc.invalidateQueries({ queryKey: ["/api/calendar"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
         qc.invalidateQueries({ queryKey: ["homepage"] });
-        // Clear override once server confirms — the refetch will supply fresh data
-        setLocalOverrides((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
+        // Override is cleared by the useEffect once rawCalendarJobs reflects the new value
         const parts: string[] = [];
         if (dateChanged) {
           parts.push(new Date(newDateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }));
