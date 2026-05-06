@@ -339,6 +339,26 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         updateData.scheduled_end_date = toDateStr(newEnd);
       }
 
+      // Optimistically update the calendar cache so the card moves immediately
+      await qc.cancelQueries({ queryKey: ["/api/calendar"] });
+      type CalendarCacheEntry = { jobs: CalendarJob[]; profiles: unknown; date_range: unknown };
+      const previousSnapshots = qc.getQueriesData<CalendarCacheEntry>({ queryKey: ["/api/calendar"] });
+      qc.setQueriesData<CalendarCacheEntry>({ queryKey: ["/api/calendar"] }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          jobs: old.jobs.map((j) => {
+            if (j.id !== jobId) return j;
+            return {
+              ...j,
+              scheduled_date: newDateStr,
+              ...(newTime !== undefined ? { scheduled_time: newTime } : {}),
+              ...(updateData.scheduled_end_date != null ? { scheduled_end_date: updateData.scheduled_end_date } : {}),
+            };
+          }),
+        };
+      });
+
       try {
         await updateJob.mutateAsync({
           id: jobId,
@@ -362,6 +382,10 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           description: `Moved to ${parts.join(" at ")}`,
         });
       } catch {
+        // Roll back the optimistic update
+        for (const [queryKey, data] of previousSnapshots) {
+          qc.setQueryData(queryKey, data);
+        }
         toast({
           title: "Failed to reschedule",
           description: "Could not update the job. Please try again.",
