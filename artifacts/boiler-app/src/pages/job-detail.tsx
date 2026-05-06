@@ -428,9 +428,26 @@ export default function JobDetail() {
                 <Link href={`/properties/${job.property_id}`} className="text-sm text-muted-foreground hover:underline truncate">
                   {job.property?.address_line1}{job.property?.postcode ? `, ${job.property.postcode}` : ""}
                 </Link>
-                <a href={job.property?.latitude != null && job.property?.longitude != null ? `https://www.google.com/maps/search/?api=1&query=${job.property.latitude},${job.property.longitude}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([job.property?.address_line1, job.property?.postcode].filter(Boolean).join(", "))}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 flex-shrink-0" title="Open in Maps">
+                <button
+                  className="text-primary hover:text-primary/80 flex-shrink-0"
+                  title="Navigate"
+                  onClick={() => {
+                    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                    const hasCoords = job.property?.latitude != null && job.property?.longitude != null;
+                    if (hasCoords) {
+                      if (isIos) {
+                        window.open(`maps://maps.apple.com/?daddr=${job.property!.latitude},${job.property!.longitude}`, "_blank");
+                      } else {
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${job.property!.latitude},${job.property!.longitude}`, "_blank");
+                      }
+                    } else {
+                      const addr = [job.property?.address_line1, job.property?.city, job.property?.postcode].filter(Boolean).join(", ");
+                      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`, "_blank");
+                    }
+                  }}
+                >
                   <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                </button>
               </div>
             </div>
           </div>

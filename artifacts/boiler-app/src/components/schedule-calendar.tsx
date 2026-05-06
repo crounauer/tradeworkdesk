@@ -16,6 +16,7 @@ type CalendarJob = {
   technician_name?: string | null;
   assigned_technician_id?: string | null;
   job_type: string;
+  job_type_name?: string | null;
   status: string;
   priority: string;
   scheduled_date: string | Date;
@@ -541,7 +542,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
-                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type?.replace("_", " ")}</span>
+                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type_name ?? job.job_type?.replace("_", " ")}</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
                             {job.scheduled_time && (
@@ -595,7 +596,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
-                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type?.replace("_", " ")}</span>
+                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type_name ?? job.job_type?.replace("_", " ")}</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
                             {job.technician_name && (
@@ -889,7 +890,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           {job.customer_name || "Unknown"}
                         </span>
                         <span className="text-xs opacity-75 capitalize ml-auto">
-                          {job.job_type?.replace("_", " ")}
+                          {job.job_type_name ?? job.job_type?.replace("_", " ")}
                         </span>
                       </div>
                       {job.property_address && (
