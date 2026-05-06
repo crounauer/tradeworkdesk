@@ -1690,7 +1690,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Unit Price</Label>
-              <Input type="number" step="0.01" min="0" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="0.00" />
+              <Input type="text" inputMode="decimal" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="0.00" />
             </div>
           </div>
           <Button size="sm" onClick={handleAdd} disabled={submitting || !serviceName.trim()}>
@@ -1751,7 +1751,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
                     {editingId === s.id ? (
                       <div className="flex items-center gap-1 justify-end">
                         <Input
-                          type="number" step="0.01" min="0"
+                          type="text" inputMode="decimal"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
                           className="w-16 h-7 text-xs"
@@ -2008,7 +2008,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Unit Price</Label>
-              <Input type="number" step="0.01" min="0" value={partPrice} onChange={(e) => setPartPrice(e.target.value)} placeholder="0.00" />
+              <Input type="text" inputMode="decimal" value={partPrice} onChange={(e) => setPartPrice(e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Serial Number</Label>
@@ -2074,7 +2074,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                     {editingId === p.id ? (
                       <div className="flex items-center gap-1 justify-end">
                         <Input
-                          type="number" step="0.01" min="0"
+                          type="text" inputMode="decimal"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
                           className="w-16 h-7 text-xs"
