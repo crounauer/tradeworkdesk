@@ -345,6 +345,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           data: updateData as { scheduled_date: string },
         });
         qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        qc.invalidateQueries({ queryKey: ["/api/calendar"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
         qc.invalidateQueries({ queryKey: ["homepage"] });
         const parts: string[] = [];

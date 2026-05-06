@@ -27,6 +27,7 @@ import {
 } from "../lib/invoice-export";
 import { sendJobFormsEmail, sendJobConfirmationEmail, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
+import { invalidateCalendarCache } from "./calendar";
 
 interface SupabaseJobRow {
   id: string;
@@ -732,6 +733,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
 
   invalidateJobsCache(req.tenantId);
+  invalidateCalendarCache(req.tenantId);
   res.json(UpdateJobResponse.parse(data));
 });
 
