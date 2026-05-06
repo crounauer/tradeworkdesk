@@ -982,7 +982,7 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
   const { part_name, quantity, serial_number, unit_price } = req.body;
   const updates: Record<string, unknown> = {};
   if (part_name !== undefined) updates.part_name = String(part_name).trim();
-  if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? quantity : 1;
+  if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1;
   if (serial_number !== undefined) updates.serial_number = serial_number || null;
   if (unit_price !== undefined) updates.unit_price = typeof unit_price === "number" && unit_price >= 0 ? unit_price : null;
 
@@ -1055,7 +1055,7 @@ router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature
   const { data, error } = await supabaseAdmin.from("job_services").insert({
     job_id: jobId,
     service_name: service_name.trim(),
-    quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
+    quantity: typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1,
     unit_price: typeof unit_price === "number" && unit_price >= 0 ? unit_price : null,
     tenant_id: req.tenantId,
   }).select().single();
@@ -1091,7 +1091,7 @@ router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, async 
   const { service_name, quantity, unit_price } = req.body;
   const updates: Record<string, unknown> = {};
   if (service_name !== undefined) updates.service_name = String(service_name).trim();
-  if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? quantity : 1;
+  if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1;
   if (unit_price !== undefined) updates.unit_price = typeof unit_price === "number" && unit_price >= 0 ? unit_price : null;
 
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }

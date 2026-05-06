@@ -1483,6 +1483,8 @@ function ScheduleHistorySection({ jobId }: { jobId: string }) {
 function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
   const { toast } = useToast();
   const { hasAddon } = usePlanFeatures();
+  const { profile } = useAuth();
+  const canAddToCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const [services, setServices] = useState<JobService[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -1490,6 +1492,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
   const [serviceQty, setServiceQty] = useState("1");
   const [servicePrice, setServicePrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [savingToCatalogue, setSavingToCatalogue] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
@@ -1540,6 +1543,25 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
         setShowSuggestions(true);
       }
     }, 250);
+  };
+
+  const handleAddServiceToCatalogue = async () => {
+    if (!serviceName.trim()) return;
+    setSavingToCatalogue(true);
+    try {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: serviceName.trim(), default_price: servicePrice ? Number(servicePrice) : undefined }),
+      }) as { name: string; default_price: number | null };
+      selectService({ name: result.name, default_price: result.default_price });
+      toast({ title: "Added to catalogue", description: `"${result.name}" saved to service catalogue` });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to add to catalogue";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSavingToCatalogue(false);
+    }
   };
 
   const selectService = (svc: { name: string; default_price: number | null }) => {
@@ -1604,7 +1626,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
 
   const handleSaveQty = async (serviceId: string) => {
     const qty = Number(editQty);
-    if (!qty || qty < 1) return;
+    if (!qty || qty <= 0) return;
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
         method: "PATCH",
@@ -1679,14 +1701,26 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
                       </button>
                     ))
                   ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No matching services — type a custom name</div>
+                    <>
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching services — type a custom name</div>
+                      {canAddToCatalogue && (
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
+                          onMouseDown={(e) => { e.preventDefault(); handleAddServiceToCatalogue(); }}
+                          disabled={savingToCatalogue}
+                        >
+                          + {savingToCatalogue ? "Saving..." : `Add "${serviceName}" to catalogue`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Quantity</Label>
-              <Input type="number" min="1" value={serviceQty} onChange={(e) => setServiceQty(e.target.value)} />
+              <Input type="text" inputMode="decimal" value={serviceQty} onChange={(e) => setServiceQty(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Unit Price</Label>
@@ -1723,7 +1757,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
                     {editingQtyId === s.id ? (
                       <div className="flex items-center gap-1">
                         <Input
-                          type="number" min="1" step="1"
+                          type="text" inputMode="decimal"
                           value={editQty}
                           onChange={(e) => setEditQty(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(s.id); if (e.key === "Escape") setEditingQtyId(null); }}
@@ -1803,6 +1837,8 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
 function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
   const { toast } = useToast();
   const { isOnline, queueJobPart } = useOffline();
+  const { profile } = useAuth();
+  const canAddToCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -1811,6 +1847,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const [partSerial, setPartSerial] = useState("");
   const [partPrice, setPartPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [savingToCatalogue, setSavingToCatalogue] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
@@ -1861,6 +1898,25 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
         setShowSuggestions(true);
       }
     }, 250);
+  };
+
+  const handleAddProductToCatalogue = async () => {
+    if (!partName.trim()) return;
+    setSavingToCatalogue(true);
+    try {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/admin/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: partName.trim(), default_price: partPrice ? Number(partPrice) : undefined }),
+      }) as { name: string; default_price: number | null };
+      selectProduct({ name: result.name, default_price: result.default_price });
+      toast({ title: "Added to catalogue", description: `"${result.name}" saved to product catalogue` });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to add to catalogue";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSavingToCatalogue(false);
+    }
   };
 
   const selectProduct = (product: { name: string; default_price: number | null }) => {
@@ -1938,7 +1994,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
 
   const handleSaveQty = async (partId: string) => {
     const qty = Number(editQty);
-    if (!qty || qty < 1) return;
+    if (!qty || qty <= 0) return;
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
         method: "PATCH",
@@ -1997,14 +2053,26 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                       </button>
                     ))
                   ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
+                    <>
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
+                      {canAddToCatalogue && (
+                        <button
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
+                          onMouseDown={(e) => { e.preventDefault(); handleAddProductToCatalogue(); }}
+                          disabled={savingToCatalogue}
+                        >
+                          + {savingToCatalogue ? "Saving..." : `Add "${partName}" to catalogue`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Quantity</Label>
-              <Input type="number" min="1" value={partQty} onChange={(e) => setPartQty(e.target.value)} />
+              <Input type="text" inputMode="decimal" value={partQty} onChange={(e) => setPartQty(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Unit Price</Label>
@@ -2046,7 +2114,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                     {editingQtyId === p.id ? (
                       <div className="flex items-center gap-1">
                         <Input
-                          type="number" min="1" step="1"
+                          type="text" inputMode="decimal"
                           value={editQty}
                           onChange={(e) => setEditQty(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(p.id); if (e.key === "Escape") setEditingQtyId(null); }}
