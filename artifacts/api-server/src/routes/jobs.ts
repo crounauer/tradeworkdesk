@@ -772,7 +772,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { part_name, quantity, serial_number, unit_price } = req.body;
+  const { part_name, quantity, serial_number, unit_price, catalogue_item_id } = req.body;
   if (!part_name || typeof part_name !== "string") {
     res.status(400).json({ error: "part_name is required" }); return;
   }
@@ -793,6 +793,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
     quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
     serial_number: serial_number || null,
     unit_price: typeof unit_price === "number" && unit_price >= 0 ? unit_price : null,
+    catalogue_item_id: typeof catalogue_item_id === "string" ? catalogue_item_id : null,
     tenant_id: req.tenantId,
   }).select().single();
 
@@ -979,7 +980,7 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
-  const { part_name, quantity, serial_number, unit_price } = req.body;
+  const { part_name, quantity, serial_number, unit_price, update_catalogue_price } = req.body;
   const updates: Record<string, unknown> = {};
   if (part_name !== undefined) updates.part_name = String(part_name).trim();
   if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1;
@@ -993,6 +994,11 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
   const { data, error } = await q.select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "Part not found" }); return; }
+
+  if (update_catalogue_price && unit_price !== undefined && data.catalogue_item_id && ["admin", "office_staff", "super_admin"].includes(req.userRole || "")) {
+    await supabaseAdmin.from("product_catalogue").update({ default_price: data.unit_price }).eq("id", data.catalogue_item_id).eq("tenant_id", req.tenantId!);
+  }
+
   res.json(data);
 });
 
@@ -1037,7 +1043,7 @@ router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { service_name, quantity, unit_price } = req.body;
+  const { service_name, quantity, unit_price, catalogue_item_id } = req.body;
   if (!service_name || typeof service_name !== "string") {
     res.status(400).json({ error: "service_name is required" }); return;
   }
@@ -1057,6 +1063,7 @@ router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature
     service_name: service_name.trim(),
     quantity: typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1,
     unit_price: typeof unit_price === "number" && unit_price >= 0 ? unit_price : null,
+    catalogue_item_id: typeof catalogue_item_id === "string" ? catalogue_item_id : null,
     tenant_id: req.tenantId,
   }).select().single();
 
@@ -1088,7 +1095,7 @@ router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, async 
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
-  const { service_name, quantity, unit_price } = req.body;
+  const { service_name, quantity, unit_price, update_catalogue_price } = req.body;
   const updates: Record<string, unknown> = {};
   if (service_name !== undefined) updates.service_name = String(service_name).trim();
   if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1;
@@ -1101,6 +1108,11 @@ router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, async 
   const { data, error } = await q.select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "Service not found" }); return; }
+
+  if (update_catalogue_price && unit_price !== undefined && data.catalogue_item_id && ["admin", "office_staff", "super_admin"].includes(req.userRole || "")) {
+    await supabaseAdmin.from("service_catalogue").update({ default_price: data.unit_price }).eq("id", data.catalogue_item_id).eq("tenant_id", req.tenantId!);
+  }
+
   res.json(data);
 });
 

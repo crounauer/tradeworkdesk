@@ -64,6 +64,7 @@ interface JobPart {
   quantity: number;
   serial_number: string | null;
   unit_price: number | null;
+  catalogue_item_id: string | null;
   tenant_id: string;
   created_at: string;
 }
@@ -74,6 +75,7 @@ interface JobService {
   service_name: string;
   quantity: number;
   unit_price: number | null;
+  catalogue_item_id: string | null;
   tenant_id: string;
   created_at: string;
 }
@@ -1553,8 +1555,8 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: serviceName.trim(), default_price: servicePrice ? Number(servicePrice) : undefined }),
-      }) as { name: string; default_price: number | null };
-      selectService({ name: result.name, default_price: result.default_price });
+      }) as { id: string; name: string; default_price: number | null };
+      selectService({ id: result.id, name: result.name, default_price: result.default_price });
       toast({ title: "Added to catalogue", description: `"${result.name}" saved to service catalogue` });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add to catalogue";
@@ -1564,9 +1566,10 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
     }
   };
 
-  const selectService = (svc: { name: string; default_price: number | null }) => {
+  const selectService = (svc: { id?: string; name: string; default_price: number | null }) => {
     setServiceName(svc.name);
     if (svc.default_price != null) setServicePrice(String(svc.default_price));
+    setSelectedServiceId(svc.id ?? null);
     setShowSuggestions(false);
   };
 
@@ -1577,6 +1580,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
       service_name: serviceName.trim(),
       quantity: Number(serviceQty) || 1,
       unit_price: servicePrice ? Number(servicePrice) : null,
+      catalogue_item_id: selectedServiceId,
     };
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services`, {
@@ -1584,7 +1588,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(serviceData),
       });
-      setServiceName(""); setServiceQty("1"); setServicePrice(""); setShowAdd(false);
+      setServiceName(""); setServiceQty("1"); setServicePrice(""); setSelectedServiceId(null); setShowAdd(false);
       toast({ title: "Added", description: "Service added" });
       fetchServices();
       onChanged?.();
@@ -1613,9 +1617,10 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null }),
+        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null, update_catalogue_price: updateCataloguePrice }),
       });
       setEditingId(null);
+      setUpdateCataloguePrice(false);
       fetchServices();
       onChanged?.();
     } catch (e: unknown) {
@@ -1783,24 +1788,32 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
                   </td>
                   <td className="px-2 sm:px-4 py-2 text-right">
                     {editingId === s.id ? (
-                      <div className="flex items-center gap-1 justify-end">
-                        <Input
-                          type="text" inputMode="decimal"
-                          value={editPrice}
-                          onChange={(e) => setEditPrice(e.target.value)}
-                          className="w-16 h-7 text-xs"
-                        />
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(s.id)}>
-                          <Check className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingId(null)}>
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="text" inputMode="decimal"
+                            value={editPrice}
+                            onChange={(e) => setEditPrice(e.target.value)}
+                            className="w-16 h-7 text-xs"
+                          />
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(s.id)}>
+                            <Check className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditingId(null); setUpdateCataloguePrice(false); }}>
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                        {s.catalogue_item_id && canAddToCatalogue && (
+                          <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                            <input type="checkbox" checked={updateCataloguePrice} onChange={e => setUpdateCataloguePrice(e.target.checked)} className="w-3 h-3" />
+                            Update catalogue
+                          </label>
+                        )}
                       </div>
                     ) : (
                       <span
                         className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
-                        onClick={() => { setEditingId(s.id); setEditPrice(s.unit_price != null ? String(s.unit_price) : ""); }}
+                        onClick={() => { setEditingId(s.id); setEditPrice(s.unit_price != null ? String(s.unit_price) : ""); setUpdateCataloguePrice(false); }}
                       >
                         {s.unit_price != null ? `${Number(s.unit_price).toFixed(2)}` : "—"}
                         <Pencil className="w-3 h-3 opacity-40" />
@@ -1908,8 +1921,8 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: partName.trim(), default_price: partPrice ? Number(partPrice) : undefined }),
-      }) as { name: string; default_price: number | null };
-      selectProduct({ name: result.name, default_price: result.default_price });
+      }) as { id: string; name: string; default_price: number | null };
+      selectProduct({ id: result.id, name: result.name, default_price: result.default_price });
       toast({ title: "Added to catalogue", description: `"${result.name}" saved to product catalogue` });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add to catalogue";
@@ -1919,9 +1932,10 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
     }
   };
 
-  const selectProduct = (product: { name: string; default_price: number | null }) => {
+  const selectProduct = (product: { id?: string; name: string; default_price: number | null }) => {
     setPartName(product.name);
     if (product.default_price != null) setPartPrice(String(product.default_price));
+    setSelectedProductId(product.id ?? null);
     setShowSuggestions(false);
   };
 
@@ -1933,11 +1947,12 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
       quantity: Number(partQty) || 1,
       serial_number: partSerial || null,
       unit_price: partPrice ? Number(partPrice) : null,
+      catalogue_item_id: selectedProductId,
     };
     if (!isOnline) {
       try {
         await queueJobPart(jobId, partData);
-        setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setShowAdd(false);
+        setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setShowAdd(false);
         toast({ title: "Saved offline", description: "Part will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save part offline", variant: "destructive" });
@@ -1952,7 +1967,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partData),
       });
-      setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setShowAdd(false);
+      setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setShowAdd(false);
       toast({ title: "Added", description: "Part added" });
       fetchParts();
       onChanged?.();
@@ -1981,9 +1996,10 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null }),
+        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null, update_catalogue_price: updateCataloguePrice }),
       });
       setEditingId(null);
+      setUpdateCataloguePrice(false);
       fetchParts();
       onChanged?.();
     } catch (e: unknown) {
@@ -2140,24 +2156,32 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                   </td>
                   <td className="px-2 sm:px-4 py-2 text-right">
                     {editingId === p.id ? (
-                      <div className="flex items-center gap-1 justify-end">
-                        <Input
-                          type="text" inputMode="decimal"
-                          value={editPrice}
-                          onChange={(e) => setEditPrice(e.target.value)}
-                          className="w-16 h-7 text-xs"
-                        />
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(p.id)}>
-                          <Check className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingId(null)}>
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="text" inputMode="decimal"
+                            value={editPrice}
+                            onChange={(e) => setEditPrice(e.target.value)}
+                            className="w-16 h-7 text-xs"
+                          />
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(p.id)}>
+                            <Check className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditingId(null); setUpdateCataloguePrice(false); }}>
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                        {p.catalogue_item_id && canAddToCatalogue && (
+                          <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                            <input type="checkbox" checked={updateCataloguePrice} onChange={e => setUpdateCataloguePrice(e.target.checked)} className="w-3 h-3" />
+                            Update catalogue
+                          </label>
+                        )}
                       </div>
                     ) : (
                       <span
                         className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
-                        onClick={() => { setEditingId(p.id); setEditPrice(p.unit_price != null ? String(p.unit_price) : ""); }}
+                        onClick={() => { setEditingId(p.id); setEditPrice(p.unit_price != null ? String(p.unit_price) : ""); setUpdateCataloguePrice(false); }}
                       >
                         {p.unit_price != null ? `${Number(p.unit_price).toFixed(2)}` : "—"}
                         <Pencil className="w-3 h-3 opacity-40" />
