@@ -140,6 +140,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const didDragRef = useRef(false);
+  const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<CalendarJob>>>({}); // immediate drag-drop overrides
   const [popoverDate, setPopoverDate] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -184,7 +185,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
 
   const { data: calendarData } = useCalendarData({ date_from: dateFromStr, date_to: dateToStr });
 
-  const calendarJobs = (calendarData?.jobs ?? []) as CalendarJob[];
+  const rawCalendarJobs = (calendarData?.jobs ?? []) as CalendarJob[];
+  const calendarJobs = useMemo(
+    () => rawCalendarJobs.map((j) => localOverrides[j.id] ? { ...j, ...localOverrides[j.id] } : j),
+    [rawCalendarJobs, localOverrides]
+  );
   const profiles = (calendarData?.profiles ?? []) as Array<{ id: string; full_name: string; role: string; [k: string]: unknown }>;
 
   const technicians = useMemo(
@@ -339,35 +344,25 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         updateData.scheduled_end_date = toDateStr(newEnd);
       }
 
-      // Optimistically update the calendar cache so the card moves immediately
-      await qc.cancelQueries({ queryKey: ["/api/calendar"] });
-      type CalendarCacheEntry = { jobs: CalendarJob[]; profiles: unknown; date_range: unknown };
-      const previousSnapshots = qc.getQueriesData<CalendarCacheEntry>({ queryKey: ["/api/calendar"] });
-      qc.setQueriesData<CalendarCacheEntry>({ queryKey: ["/api/calendar"] }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          jobs: old.jobs.map((j) => {
-            if (j.id !== jobId) return j;
-            return {
-              ...j,
-              scheduled_date: newDateStr,
-              ...(newTime !== undefined ? { scheduled_time: newTime } : {}),
-              ...(updateData.scheduled_end_date != null ? { scheduled_end_date: updateData.scheduled_end_date } : {}),
-            };
-          }),
-        };
-      });
+      // Apply local override immediately so the card moves on screen
+      const override: Partial<CalendarJob> = {
+        scheduled_date: newDateStr,
+        ...(newTime !== undefined ? { scheduled_time: newTime } : {}),
+        ...(updateData.scheduled_end_date != null ? { scheduled_end_date: updateData.scheduled_end_date } : {}),
+      };
+      setLocalOverrides((prev) => ({ ...prev, [jobId]: override }));
 
       try {
         await updateJob.mutateAsync({
           id: jobId,
           data: updateData as { scheduled_date: string },
         });
-        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        qc.invalidateQueries({ queryKey: ["api/jobs"] });
         qc.invalidateQueries({ queryKey: ["/api/calendar"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
         qc.invalidateQueries({ queryKey: ["homepage"] });
+        // Clear override once server confirms — the refetch will supply fresh data
+        setLocalOverrides((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
         const parts: string[] = [];
         if (dateChanged) {
           parts.push(new Date(newDateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }));
@@ -382,10 +377,8 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           description: `Moved to ${parts.join(" at ")}`,
         });
       } catch {
-        // Roll back the optimistic update
-        for (const [queryKey, data] of previousSnapshots) {
-          qc.setQueryData(queryKey, data);
-        }
+        // Roll back — remove override to restore original position
+        setLocalOverrides((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
         toast({
           title: "Failed to reschedule",
           description: "Could not update the job. Please try again.",
