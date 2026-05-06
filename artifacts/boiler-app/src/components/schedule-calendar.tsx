@@ -88,6 +88,17 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-gray-100 text-gray-500 border-gray-200",
   requires_follow_up: "bg-rose-100 text-rose-700 border-rose-200",
   awaiting_parts: "bg-orange-100 text-orange-700 border-orange-200",
+  invoiced: "bg-violet-100 text-violet-700 border-violet-200",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  scheduled: "Scheduled",
+  in_progress: "In Progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  requires_follow_up: "Follow Up",
+  awaiting_parts: "Awaiting Parts",
+  invoiced: "Invoiced",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -542,6 +553,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             {job.property_address && (
                               <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
                             )}
+                            <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                           </div>
                         </div>
                       ))}
@@ -592,6 +604,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             {job.property_address && (
                               <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
                             )}
+                            <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                           </div>
                         </div>
                       ))}
@@ -710,8 +723,8 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         <span className="font-medium truncate">
                           {job.customer_name || "Unknown"}
                         </span>
-                        <span className="text-[10px] opacity-60 capitalize ml-auto shrink-0">
-                          {job.job_type?.replace("_", " ")}
+                        <span className="text-[10px] font-semibold opacity-70 ml-auto shrink-0">
+                          {STATUS_LABELS[job.status] ?? job.status}
                         </span>
                       </div>
                       {job.scheduled_time && (
@@ -884,16 +897,15 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           {job.property_address}
                         </p>
                       )}
-                      {(job.scheduled_time || job.technician_name) && (
-                        <div className="flex items-center gap-3 mt-1 ml-4 text-xs opacity-75">
-                          {job.scheduled_time && (
-                            <span>{formatTime(job.scheduled_time)}</span>
-                          )}
-                          {job.technician_name && (
-                            <span>{job.technician_name}</span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3 mt-1 ml-4 text-xs opacity-75">
+                        {job.scheduled_time && (
+                          <span>{formatTime(job.scheduled_time)}</span>
+                        )}
+                        {job.technician_name && (
+                          <span>{job.technician_name}</span>
+                        )}
+                        <span className="font-medium ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
