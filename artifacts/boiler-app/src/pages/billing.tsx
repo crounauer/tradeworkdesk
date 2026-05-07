@@ -347,7 +347,7 @@ export default function Billing() {
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 pt-1">
               <Users className="w-3 h-3" />
-              <span>{currentUsers} active user{currentUsers === 1 ? "" : "s"} · extra users charged £{PER_SEAT_PRICE}/mo each</span>
+              <span>{currentUsers} active user{currentUsers === 1 ? "" : "s"} · {INCLUDED_SEATS} included in base plan{currentUsers > INCLUDED_SEATS ? `, £${PER_SEAT_PRICE}/mo each above ${INCLUDED_SEATS}` : `, extra users £${PER_SEAT_PRICE}/mo each`}</span>
             </div>
           </div>
 
