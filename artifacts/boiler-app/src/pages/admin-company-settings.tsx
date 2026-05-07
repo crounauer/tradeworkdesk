@@ -940,7 +940,7 @@ function ProductCatalogueSection() {
   const handleEdit = (p: ProductItem) => {
     setForm({ name: p.name, default_price: p.default_price != null ? String(p.default_price) : "" });
     setEditingId(p.id);
-    setShowAdd(true);
+    setShowAdd(false);
   };
 
   const handleToggleActive = async (id: string, is_active: boolean) => {
@@ -978,7 +978,7 @@ function ProductCatalogueSection() {
               Pre-defined parts and materials. Technicians can select these when adding parts to a job.
             </CardDescription>
           </div>
-          <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Product</>}
           </Button>
         </div>
@@ -996,8 +996,8 @@ function ProductCatalogueSection() {
                 <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
               </div>
             </div>
-            <Button size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
-              <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : editingId ? "Update" : "Add"}
+            <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
+              <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : "Add"}
             </Button>
           </div>
         )}
@@ -1009,26 +1009,48 @@ function ProductCatalogueSection() {
         ) : (
           <div className="space-y-2">
             {products.map(p => (
-              <div key={p.id} className={`flex items-center justify-between border rounded-lg px-4 py-3 ${!p.is_active ? "opacity-50" : ""}`}>
-                <div>
-                  <span className="font-medium text-sm">{p.name}</span>
-                  {!p.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+              editingId === p.id ? (
+                <div key={p.id} className="border rounded-lg p-3 bg-slate-50/50 space-y-3">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Product Name *</Label>
+                      <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Default Price (optional)</Label>
+                      <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
+                      <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : "Update"}
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={resetForm}>Cancel</Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {p.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
-                  <Button size="sm" variant="ghost" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={p.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}
-                    onClick={() => handleToggleActive(p.id, !p.is_active)}
-                    title={p.is_active ? "Deactivate" : "Reactivate"}
-                  >
-                    {p.is_active ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+              ) : (
+                <div key={p.id} className={`flex items-center justify-between border rounded-lg px-4 py-3 ${!p.is_active ? "opacity-50" : ""}`}>
+                  <div>
+                    <span className="font-medium text-sm">{p.name}</span>
+                    {!p.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {p.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
+                    <Button type="button" size="sm" variant="ghost" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className={p.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}
+                      onClick={() => handleToggleActive(p.id, !p.is_active)}
+                      title={p.is_active ? "Deactivate" : "Reactivate"}
+                    >
+                      {p.is_active ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  </div>
                 </div>
-              </div>
+              )
             ))}
           </div>
         )}
@@ -1092,7 +1114,7 @@ function ServiceCatalogueSection() {
   const handleEdit = (s: ServiceItem) => {
     setForm({ name: s.name, default_price: s.default_price != null ? String(s.default_price) : "" });
     setEditingId(s.id);
-    setShowAdd(true);
+    setShowAdd(false);
   };
 
   const handleToggleActive = async (id: string, is_active: boolean) => {
@@ -1131,7 +1153,7 @@ function ServiceCatalogueSection() {
             </CardDescription>
           </div>
           {hasAddon("service_catalogue") && (
-            <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
+            <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
               {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
             </Button>
           )}
@@ -1157,7 +1179,7 @@ function ServiceCatalogueSection() {
                     <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
                   </div>
                 </div>
-                <Button size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
+                <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
                   <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : editingId ? "Update" : "Add"}
                 </Button>
               </div>
@@ -1170,26 +1192,48 @@ function ServiceCatalogueSection() {
             ) : (
               <div className="space-y-2">
                 {services.map(s => (
-                  <div key={s.id} className={`flex items-center justify-between border rounded-lg px-4 py-3 ${!s.is_active ? "opacity-50" : ""}`}>
-                    <div>
-                      <span className="font-medium text-sm">{s.name}</span>
-                      {!s.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+                  editingId === s.id ? (
+                    <div key={s.id} className="border rounded-lg p-3 bg-slate-50/50 space-y-3">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Service Name *</Label>
+                          <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Default Price (optional)</Label>
+                          <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
+                          <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : "Update"}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={resetForm}>Cancel</Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {s.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(s.default_price).toFixed(2)}</span>}
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className={s.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}
-                        onClick={() => handleToggleActive(s.id, !s.is_active)}
-                        title={s.is_active ? "Deactivate" : "Reactivate"}
-                      >
-                        {s.is_active ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  ) : (
+                    <div key={s.id} className={`flex items-center justify-between border rounded-lg px-4 py-3 ${!s.is_active ? "opacity-50" : ""}`}>
+                      <div>
+                        <span className="font-medium text-sm">{s.name}</span>
+                        {!s.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {s.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(s.default_price).toFixed(2)}</span>}
+                        <Button type="button" size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className={s.is_active ? "text-amber-600 hover:text-amber-800" : "text-green-600 hover:text-green-800"}
+                          onClick={() => handleToggleActive(s.id, !s.is_active)}
+                          title={s.is_active ? "Deactivate" : "Reactivate"}
+                        >
+                          {s.is_active ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(s.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
                     </div>
-                  </div>
+                  )
                 ))}
               </div>
             )}

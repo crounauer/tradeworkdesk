@@ -803,6 +803,12 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
   }).select().single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Auto-sync price back to catalogue when a linked part is added with a price
+  if (data.catalogue_item_id && data.unit_price != null && ["admin", "office_staff", "super_admin"].includes(req.userRole || "")) {
+    await supabaseAdmin.from("product_catalogue").update({ default_price: data.unit_price }).eq("id", data.catalogue_item_id).eq("tenant_id", req.tenantId!);
+  }
+
   res.status(201).json(data);
 });
 
@@ -1074,6 +1080,12 @@ router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature
   }).select().single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Auto-sync price back to catalogue when a linked service is added with a price
+  if (data.catalogue_item_id && data.unit_price != null && ["admin", "office_staff", "super_admin"].includes(req.userRole || "")) {
+    await supabaseAdmin.from("service_catalogue").update({ default_price: data.unit_price }).eq("id", data.catalogue_item_id).eq("tenant_id", req.tenantId!);
+  }
+
   res.status(201).json(data);
 });
 
