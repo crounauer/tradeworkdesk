@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Response } from "express";
 import multer from "multer";
-import { supabaseAdmin } from "../lib/supabase";
+import { bustInitCache } from "./platform";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/email";
 import { stripe } from "../lib/stripe";
@@ -776,15 +776,16 @@ router.post("/admin/company-type/upgrade", requireAuth, requireTenant, requireRo
     .eq("id", req.tenantId!);
 
   await supabaseAdmin
-    .from("profiles")
+    .from('profiles')
     .update({ can_be_assigned_jobs: true })
-    .eq("id", req.userId!)
-    .eq("tenant_id", req.tenantId!);
+    .eq('id', req.userId!)
+    .eq('tenant_id', req.tenantId!);
 
-  res.json({ success: true, company_type: "company" });
+  bustInitCache(req.tenantId!);
+  res.json({ success: true, company_type: 'company' });
 });
 
-router.post("/admin/company-type/downgrade", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post('/admin/company-type/downgrade', requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data: tenant } = await supabaseAdmin
     .from("tenants")
     .select("company_type")
@@ -823,15 +824,16 @@ router.post("/admin/company-type/downgrade", requireAuth, requireTenant, require
     .is("used_at", null);
 
   await supabaseAdmin
-    .from("profiles")
+    .from('profiles')
     .update({ can_be_assigned_jobs: true })
-    .eq("id", req.userId!)
-    .eq("tenant_id", req.tenantId!);
+    .eq('id', req.userId!)
+    .eq('tenant_id', req.tenantId!);
 
-  res.json({ success: true, company_type: "sole_trader" });
+  bustInitCache(req.tenantId!);
+  res.json({ success: true, company_type: 'sole_trader' });
 });
 
-router.post("/admin/jobs/bulk-reassign", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post('/admin/jobs/bulk-reassign', requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { from_user_id, to_user_id, date_from, date_to, statuses } = req.body;
 
   if (!to_user_id) {

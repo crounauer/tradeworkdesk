@@ -58,7 +58,9 @@ const addons = [
   "Team Management",
   "Accounting Integration",
   "Social Media & AI Marketing",
+  "Advanced Analytics",
   "Custom Branding",
+  "Specialist Forms",
 ];
 
 export default function HomePage() {
@@ -159,23 +161,23 @@ export default function HomePage() {
               Simple, transparent pricing
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              One affordable base plan. Add only what you need. No long contracts.
+              One plan. Every feature included. Add more engineers as you grow.
             </p>
           </div>
           <div className="max-w-xl mx-auto">
             <div className="rounded-2xl bg-primary text-white p-8 shadow-xl">
-              <span className="inline-block px-3 py-1 text-xs font-semibold bg-white/20 rounded-full mb-4">
-                Base Plan
-              </span>
-              <h3 className="font-display text-2xl font-bold">Everything you need to get started</h3>
-              <p className="mt-2 text-blue-100 text-sm">Core tools for managing your trade business.</p>
+              <h3 className="font-display text-2xl font-bold">TradeWorkDesk</h3>
+              <p className="mt-2 text-blue-100 text-sm">Everything you need to run and grow your heating engineering business.</p>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-5xl font-display font-bold">£8.50</span>
-                <span className="text-blue-100 text-lg">/month</span>
+                <span className="text-5xl font-display font-bold">£25</span>
+                <div className="ml-1">
+                  <div className="text-blue-100 text-lg">/month</div>
+                  <div className="text-sm text-blue-200">includes 2 users</div>
+                </div>
               </div>
-              <p className="mt-1 text-sm text-blue-200">or £85/year (save 17%)</p>
+              <p className="mt-1 text-sm text-blue-200">+ £10/month per additional user &nbsp;·&nbsp; cancel any time</p>
               <ul className="mt-6 space-y-3">
-                {["Job management & scheduling", "Customer & property records", "Basic reporting & dashboard", "Up to 50 jobs/month", "Mobile-friendly interface", "30-day free trial"].map((f) => (
+                {["Unlimited jobs & job types", "Gas, oil & heat pump service records", "Customer & property management", "Invoicing & payment tracking", "Scheduling & calendar sync", "Team management & job assignment"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm">
                     <CheckCircle className="w-4 h-4 text-blue-200 shrink-0" />
                     {f}
@@ -190,8 +192,8 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="mt-8 text-center">
-              <h3 className="font-display text-lg font-semibold text-slate-900 mb-3">Supercharge with add-ons</h3>
-              <p className="text-sm text-slate-600 mb-4">Pick only what you need — toggle on or off any time.</p>
+              <h3 className="font-display text-lg font-semibold text-slate-900 mb-3">See all features</h3>
+              <p className="text-sm text-slate-600 mb-4">Everything is included — no add-ons required to unlock core features.</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {addons.map((a) => (
                   <span key={a} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-sm text-slate-700">

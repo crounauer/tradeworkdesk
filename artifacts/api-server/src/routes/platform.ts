@@ -654,6 +654,13 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
 const initCache = new Map<string, { data: unknown; ts: number }>();
 const INIT_CACHE_TTL_MS = 60_000;
 
+/** Call this from other routes after mutations that affect /me/init data (e.g. company_type change) */
+export function bustInitCache(tenantId: string): void {
+  for (const key of initCache.keys()) {
+    if (key.startsWith(`${tenantId}:`)) initCache.delete(key);
+  }
+}
+
 router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const t0 = Date.now();
   const cacheKey = `${req.tenantId || "none"}:${req.userId}`;
