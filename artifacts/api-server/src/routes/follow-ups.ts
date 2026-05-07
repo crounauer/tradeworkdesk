@@ -17,8 +17,11 @@ router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_ma
     .range(offset, offset + limit - 1);
 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled"].includes(status)) {
+  if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled", "completed"].includes(status)) {
     q = q.eq("status", status);
+  } else {
+    // Default "All" view excludes completed follow-ups
+    q = q.neq("status", "completed");
   }
 
   const { data, error, count } = await q;
@@ -119,7 +122,7 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
   const { status, work_description, parts_description, expected_parts_date, notes, new_job_id } = req.body;
 
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled"].includes(status)) updatePayload.status = status;
+  if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled", "completed"].includes(status)) updatePayload.status = status;
   if (work_description !== undefined) updatePayload.work_description = work_description || null;
   if (parts_description !== undefined) updatePayload.parts_description = parts_description || null;
   if (expected_parts_date !== undefined) updatePayload.expected_parts_date = expected_parts_date || null;

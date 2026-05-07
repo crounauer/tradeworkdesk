@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
-import { hasActiveAddon, hasUserAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
+import { hasActiveAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
 import { supabaseAdmin } from "../lib/supabase";
 
 const router: IRouter = Router();
@@ -62,20 +62,11 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     return;
   }
 
-  // Tenant-level addon check
+  // Tenant-level addon check — usage addons don't require per-user assignment
   const tenantHasAddon = await hasActiveAddon(req.tenantId!, "sms_messaging");
   if (!tenantHasAddon) {
     res.status(402).json({ error: "SMS Messaging add-on required. Contact your administrator to activate this feature." });
     return;
-  }
-
-  // Per-user addon check (super_admin bypasses)
-  if (req.userRole !== "super_admin") {
-    const userHasAddon = await hasUserAddon(req.tenantId!, req.userId!, "sms_messaging");
-    if (!userHasAddon) {
-      res.status(402).json({ error: "SMS Messaging is not assigned to your account. Ask your administrator to assign it." });
-      return;
-    }
   }
 
   // Credit check
@@ -190,6 +181,71 @@ router.get("/sms/messages", requireAuth, requireTenant, async (req: Authenticate
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   res.json({ data, total: count ?? 0, page, limit });
+});
+
+// ──────────────────────────────────────────────────────────────
+// SMS Templates CRUD
+// ──────────────────────────────────────────────────────────────
+
+// GET /api/sms/templates
+router.get("/sms/templates", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("sms_templates")
+    .select("id, name, content, created_at, updated_at")
+    .eq("tenant_id", req.tenantId!)
+    .order("name", { ascending: true });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data ?? []);
+});
+
+// POST /api/sms/templates
+router.post("/sms/templates", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { name, content } = req.body as { name?: string; content?: string };
+  if (!name?.trim()) { res.status(400).json({ error: "name is required" }); return; }
+  if (!content?.trim()) { res.status(400).json({ error: "content is required" }); return; }
+
+  const { data, error } = await supabaseAdmin
+    .from("sms_templates")
+    .insert({ tenant_id: req.tenantId!, name: name.trim(), content: content.trim(), created_by: req.userId })
+    .select("id, name, content, created_at, updated_at")
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(201).json(data);
+});
+
+// PUT /api/sms/templates/:id
+router.put("/sms/templates/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { name, content } = req.body as { name?: string; content?: string };
+  if (!name?.trim()) { res.status(400).json({ error: "name is required" }); return; }
+  if (!content?.trim()) { res.status(400).json({ error: "content is required" }); return; }
+
+  const { data, error } = await supabaseAdmin
+    .from("sms_templates")
+    .update({ name: name.trim(), content: content.trim(), updated_at: new Date().toISOString() } as Record<string, unknown>)
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .select("id, name, content, created_at, updated_at")
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Template not found" }); return; }
+  res.json(data);
+});
+
+// DELETE /api/sms/templates/:id
+router.delete("/sms/templates/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { error } = await supabaseAdmin
+    .from("sms_templates")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(204).send();
 });
 
 export default router;

@@ -103,6 +103,7 @@ export default function JobDetail() {
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
+  const [smsLogRefresh, setSmsLogRefresh] = useState(0);
   const [pricingRefresh, setPricingRefresh] = useState(0);
   const [showReturnVisit, setShowReturnVisit] = useState(false);
   const [showSms, setShowSms] = useState(false);
@@ -710,6 +711,7 @@ export default function JobDetail() {
             })()}
 
             <EmailLogSection jobId={job.id} refreshKey={emailLogRefresh} />
+            <SmsLogSection jobId={job.id} refreshKey={smsLogRefresh} />
           </div>
 
           <div className="space-y-6">
@@ -821,6 +823,7 @@ export default function JobDetail() {
         destination={(job.customer?.mobile || job.customer?.phone) ?? ""}
         jobId={job.id}
         customerId={job.customer_id ?? undefined}
+        onSent={() => setSmsLogRefresh(k => k + 1)}
       />
 
       {emailModalOpen && (
@@ -3472,6 +3475,78 @@ function EmailLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: num
                 {entry.forms_included.map((f, i) => (
                   <span key={i} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{f.form_label}</span>
                 ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+interface SmsLogEntry {
+  id: string;
+  destination: string;
+  content: string;
+  sender_id: string | null;
+  status: string;
+  created_at: string;
+  profiles: { full_name: string | null } | null;
+}
+
+function SmsLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: number }) {
+  const [logs, setLogs] = useState<SmsLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/sms/messages?job_id=${jobId}&limit=50`) as { data: SmsLogEntry[] };
+        if (!cancelled) { setLogs(data.data ?? []); setExpanded(true); }
+      } catch {
+        if (!cancelled) setLogs([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [jobId, refreshKey]);
+
+  if (loading) return null;
+  if (logs.length === 0) return null;
+
+  return (
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm mt-6 max-w-full min-w-0">
+      <button
+        className="w-full flex items-center justify-between"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <h3 className="font-bold text-lg flex items-center gap-2 text-green-600">
+          <MessageSquare className="w-5 h-5" /> SMS Log ({logs.length})
+        </h3>
+        {expanded ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-3">
+          {logs.map(entry => (
+            <div key={entry.id} className="border border-border/50 rounded-lg p-3 bg-muted/30">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium">{entry.profiles?.full_name || "Unknown"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(entry.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
+                  {new Date(entry.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">To: {entry.destination}</p>
+              <p className="text-sm mt-1 whitespace-pre-wrap">{entry.content}</p>
+              <div className="mt-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${entry.status === "sent" || entry.status === "SENT" ? "bg-green-100 text-green-700" : entry.status === "failed" || entry.status === "FAILED" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                  {entry.status}
+                </span>
               </div>
             </div>
           ))}

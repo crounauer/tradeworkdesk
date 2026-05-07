@@ -1,11 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { MessageSquare, Loader2, FileText } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface SmsSendDialogProps {
   open: boolean;
@@ -16,23 +23,50 @@ interface SmsSendDialogProps {
   jobId?: string;
   /** Optional: link the SMS to a customer */
   customerId?: string;
+  /** Called after a message is sent successfully */
+  onSent?: () => void;
+}
+
+interface SmsTemplate {
+  id: string;
+  name: string;
+  content: string;
 }
 
 const MAX_CHARS = 160;
-const DEFAULT_SENDER = "TradeWork";
 
-export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId }: SmsSendDialogProps) {
+export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId, onSent }: SmsSendDialogProps) {
   const { toast } = useToast();
   const [to, setTo] = useState(destination);
-  const [sender, setSender] = useState(DEFAULT_SENDER);
+  const [sender, setSender] = useState("");
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
+  const [templates, setTemplates] = useState<SmsTemplate[]>([]);
+  const [defaultSender, setDefaultSender] = useState("TradeWork");
+
+  // Fetch company name and templates once on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const cs = await fetch(`${import.meta.env.BASE_URL}api/company-settings`, { credentials: "include" }).then(r => r.ok ? r.json() : null) as { company_name?: string } | null;
+        if (cs?.company_name) {
+          const name = cs.company_name.slice(0, 11);
+          setDefaultSender(name);
+          setSender(prev => prev === "" || prev === "TradeWork" ? name : prev);
+        }
+      } catch { /* ignore */ }
+      try {
+        const tmpl = await fetch(`${import.meta.env.BASE_URL}api/sms/templates`, { credentials: "include" }).then(r => r.ok ? r.json() : []) as SmsTemplate[];
+        setTemplates(tmpl);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   // Reset fields when dialog opens
   const handleOpenChange = (v: boolean) => {
     if (v) {
       setTo(destination);
-      setSender(DEFAULT_SENDER);
+      setSender(defaultSender);
       setContent("");
     }
     onOpenChange(v);
@@ -57,7 +91,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
         body: JSON.stringify({
           destination: to.trim(),
           content: content.trim(),
-          sender_id: sender.trim() || DEFAULT_SENDER,
+          sender_id: sender.trim() || defaultSender,
           job_id: jobId || undefined,
           customer_id: customerId || undefined,
         }),
@@ -75,6 +109,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
       }
 
       toast({ title: "SMS sent", description: `Message delivered to ${to.trim()}` });
+      onSent?.();
       handleOpenChange(false);
     } catch (err) {
       toast({
@@ -124,6 +159,28 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
             <p className="text-xs text-muted-foreground">Shown as the sender on the recipient's phone.</p>
           </div>
 
+          {templates.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Use a template</Label>
+              <Select onValueChange={val => {
+                const tmpl = templates.find(t => t.id === val);
+                if (tmpl) setContent(tmpl.content);
+              }}>
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <SelectValue placeholder="Select a template…" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <Label htmlFor="sms-content">Message</Label>
@@ -134,7 +191,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
             <Textarea
               id="sms-content"
               rows={4}
-              placeholder="Type your message here..."
+              placeholder="Type your message here…"
               value={content}
               onChange={e => setContent(e.target.value)}
               className={overLimit ? "border-destructive focus-visible:ring-destructive" : ""}

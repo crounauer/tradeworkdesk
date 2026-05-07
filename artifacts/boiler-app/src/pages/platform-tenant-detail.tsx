@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -64,6 +64,9 @@ export default function PlatformTenantDetail() {
 
   const [addonSelections, setAddonSelections] = useState<Set<string>>(new Set());
   const [showAddonEditor, setShowAddonEditor] = useState(false);
+  const [showCreditDialog, setShowCreditDialog] = useState(false);
+  const [creditAddon, setCreditAddon] = useState<{ id: string; name: string; credits_remaining: number; usage_unit_label: string | null } | null>(null);
+  const [creditAmount, setCreditAmount] = useState<string>("1000");
 
   const grantFreeAccessMutation = useMutation({
     mutationFn: async () => {
@@ -91,6 +94,36 @@ export default function PlatformTenantDetail() {
       toast({ title: "Free access revoked", description: "Downgraded to Free Plan, all add-ons deactivated." });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const { data: tenantCredits, refetch: refetchCredits } = useQuery({
+    queryKey: ["platform-tenant-credits", params.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/credits`);
+      if (!res.ok) return [];
+      return res.json() as Promise<{ id: string; name: string; usage_unit_label: string | null; usage_bundle_size: number | null; credits_remaining: number; total_purchased: number }[]>;
+    },
+    enabled: !!params.id,
+  });
+
+  const grantCreditsMutation = useMutation({
+    mutationFn: async ({ addonId, credits }: { addonId: string; credits: number }) => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/credits/${addonId}/grant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credits }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to grant credits"); }
+      return res.json();
+    },
+    onSuccess: (data: { credits_granted: number; new_balance: number }) => {
+      refetchCredits();
+      toast({ title: `${data.credits_granted.toLocaleString()} credits granted`, description: `New balance: ${data.new_balance.toLocaleString()}` });
+      setShowCreditDialog(false);
+      setCreditAddon(null);
+      setCreditAmount("1000");
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const saveAddonsMutation = useMutation({
@@ -540,6 +573,52 @@ export default function PlatformTenantDetail() {
         </CardContent>
       </Card>
 
+      {/* Usage Credits */}
+      {tenantCredits && tenantCredits.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" /> Usage Credits
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {tenantCredits.map(credit => {
+                const isLow = credit.credits_remaining < 50;
+                return (
+                  <div key={credit.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium">{credit.name}</p>
+                      <p className={`text-lg font-bold ${isLow ? "text-orange-600" : "text-slate-800"}`}>
+                        {credit.credits_remaining.toLocaleString()}
+                        <span className="text-xs font-normal text-muted-foreground ml-1">
+                          {credit.usage_unit_label ?? "credits"} remaining
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {credit.total_purchased.toLocaleString()} purchased total
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 shrink-0"
+                      onClick={() => {
+                        setCreditAddon({ id: credit.id, name: credit.name, credits_remaining: credit.credits_remaining, usage_unit_label: credit.usage_unit_label });
+                        setCreditAmount("1000");
+                        setShowCreditDialog(true);
+                      }}
+                    >
+                      <Plus className="w-3 h-3" /> Grant
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {tenant.plan_id && (plans || []).some((p: { id: string; is_legacy?: boolean }) =>
         p.id === tenant.plan_id && p.is_legacy
       ) && (
@@ -589,6 +668,47 @@ export default function PlatformTenantDetail() {
               disabled={saveAddonsMutation.isPending}
             >
               {saveAddonsMutation.isPending ? "Saving..." : "Save Add-ons"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Grant Credits Dialog */}
+      <Dialog open={showCreditDialog} onOpenChange={(open) => { if (!open) { setShowCreditDialog(false); setCreditAddon(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" /> Grant Credits — {creditAddon?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+              <span className="text-muted-foreground">Current balance: </span>
+              <span className="font-bold">{creditAddon?.credits_remaining.toLocaleString() ?? 0}</span>
+              <span className="text-muted-foreground ml-1">{creditAddon?.usage_unit_label ?? "credits"}</span>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Credits to grant</Label>
+              <Input
+                type="number"
+                min={1}
+                value={creditAmount}
+                onChange={e => setCreditAmount(e.target.value)}
+                placeholder="e.g. 1000"
+              />
+              <p className="text-xs text-muted-foreground">These are added free of charge directly to the tenant's balance.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowCreditDialog(false); setCreditAddon(null); }}>Cancel</Button>
+            <Button
+              disabled={grantCreditsMutation.isPending || !creditAddon || !Number(creditAmount)}
+              onClick={() => {
+                if (!creditAddon) return;
+                grantCreditsMutation.mutate({ addonId: creditAddon.id, credits: Math.floor(Number(creditAmount)) });
+              }}
+            >
+              {grantCreditsMutation.isPending ? "Granting..." : `Grant ${Number(creditAmount) > 0 ? Number(creditAmount).toLocaleString() : ""} credits`}
             </Button>
           </DialogFooter>
         </DialogContent>

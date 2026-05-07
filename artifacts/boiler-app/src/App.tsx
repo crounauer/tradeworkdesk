@@ -81,6 +81,7 @@ const AdminLookupOptions = lazyRetry(() => import("@/pages/admin-lookup-options"
 const AdminCompanySettings = lazyRetry(() => import("@/pages/admin-company-settings"));
 const AdminSocial = lazyRetry(() => import("@/pages/admin-social"));
 const AdminJobTypes = lazyRetry(() => import("@/pages/admin-job-types"));
+const AdminSmsTemplates = lazyRetry(() => import("@/pages/admin-sms-templates"));
 const AdminReassignJobs = lazyRetry(() => import("@/pages/admin-reassign-jobs"));
 const AdminInvoiceLog = lazyRetry(() => import("@/pages/admin-invoice-log"));
 const Register = lazyRetry(() => import("@/pages/register"));
@@ -313,6 +314,7 @@ function AppRouter() {
         <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
         <Route path="/admin/lookup-options" component={() => <ProtectedRoute component={AdminLookupOptions} />} />
         <Route path="/admin/social" component={() => <ProtectedRoute component={AdminSocial} roles={["admin", "super_admin"]} />} />
+        <Route path="/admin/sms-templates" component={() => <ProtectedRoute component={AdminSmsTemplates} roles={["admin", "super_admin"]} />} />
         <Route path="/admin/reassign-jobs" component={() => <ProtectedRoute component={AdminReassignJobs} roles={["admin"]} />} />
         <Route path="/admin/job-types" component={() => <ProtectedRoute component={AdminJobTypes} roles={["admin"]} />} />
         <Route path="/admin/invoice-log" component={() => <ProtectedRoute component={AdminInvoiceLog} roles={["admin", "office_staff"]} />} />

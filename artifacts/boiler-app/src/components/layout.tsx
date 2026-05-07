@@ -9,7 +9,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -99,6 +99,9 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(hasFeature("social_media") ? [
       { href: "/admin/social", label: "Social Media", icon: Share2 },
     ] : []),
+    ...(hasAddon("sms_messaging") ? [
+      { href: "/admin/sms-templates", label: "SMS Templates", icon: MessageSquare },
+    ] : []),
   ];
 
   const platformNavItems = [
@@ -138,7 +141,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {badge !== null && (
           <span className={cn(
             "ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full text-white min-w-[20px] text-center",
-            followUpBadge ? "bg-blue-500" : todoBadge ? "bg-orange-500" : "bg-orange-500"
+            followUpBadge ? "bg-red-500" : todoBadge ? "bg-orange-500" : "bg-orange-500"
           )}>
             {badge > 99 ? "99+" : badge}
           </span>

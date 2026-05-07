@@ -299,4 +299,89 @@ router.post("/platform/tenants/:id/addons", requireAuth, requireSuperAdmin, asyn
   res.json({ ok: true });
 });
 
+// ─── Tenant credit management (superadmin) ──────────────────────────────────
+
+/**
+ * GET /api/platform/tenants/:id/credits
+ * Returns credit balances for all usage-based addons for this tenant.
+ */
+router.get("/platform/tenants/:id/credits", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: usageAddons } = await supabaseAdmin
+    .from("addons")
+    .select("id, name, usage_unit_label, usage_bundle_size, usage_bundle_price")
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .order("sort_order");
+
+  if (!usageAddons || usageAddons.length === 0) { res.json([]); return; }
+
+  const addonIds = (usageAddons as { id: string }[]).map(a => a.id);
+  const { data: credits } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("addon_id, credits_remaining, total_purchased, updated_at")
+    .eq("tenant_id", id)
+    .in("addon_id", addonIds);
+
+  const creditMap = new Map<string, { credits_remaining: number; total_purchased: number }>();
+  for (const c of (credits ?? []) as { addon_id: string; credits_remaining: number; total_purchased: number }[]) {
+    creditMap.set(c.addon_id, c);
+  }
+
+  const result = (usageAddons as Record<string, unknown>[]).map(a => ({
+    ...a,
+    credits_remaining: creditMap.get(a.id as string)?.credits_remaining ?? 0,
+    total_purchased: creditMap.get(a.id as string)?.total_purchased ?? 0,
+  }));
+
+  res.json(result);
+});
+
+/**
+ * POST /api/platform/tenants/:id/credits/:addonId/grant
+ * Body: { credits: number }  — direct credit grant (no charge)
+ */
+router.post("/platform/tenants/:id/credits/:addonId/grant", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id, addonId } = req.params;
+  const credits = Math.max(1, Math.floor(Number(req.body.credits) || 0));
+
+  if (!credits) { res.status(400).json({ error: "credits must be a positive integer" }); return; }
+
+  const { data: existing } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("id, credits_remaining, total_purchased")
+    .eq("tenant_id", id)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  const row = existing as { id: string; credits_remaining: number; total_purchased: number } | null;
+
+  if (row) {
+    await supabaseAdmin
+      .from("tenant_addon_credits")
+      .update({
+        credits_remaining: row.credits_remaining + credits,
+        total_purchased: row.total_purchased + credits,
+        updated_at: new Date().toISOString(),
+      } as Record<string, unknown>)
+      .eq("id", row.id);
+  } else {
+    await supabaseAdmin
+      .from("tenant_addon_credits")
+      .insert({ tenant_id: id, addon_id: addonId, credits_remaining: credits, total_purchased: credits } as Record<string, unknown>);
+  }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "tenant_credits_granted",
+    entity_type: "tenant",
+    entity_id: id,
+    detail: { addon_id: addonId, credits_granted: credits },
+  });
+
+  res.json({ ok: true, credits_granted: credits, new_balance: (row?.credits_remaining ?? 0) + credits });
+});
+
 export default router;

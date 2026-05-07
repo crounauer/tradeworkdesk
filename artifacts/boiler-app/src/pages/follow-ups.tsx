@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
 import {
   Package, CheckCircle2, CalendarPlus, XCircle, Clock,
-  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase
+  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase, CheckCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,7 @@ const STATUS_TABS = [
   { value: "awaiting_parts", label: "Awaiting Parts", icon: Clock },
   { value: "parts_arrived", label: "Parts Arrived", icon: CheckCircle2 },
   { value: "booked", label: "Booked", icon: CalendarPlus },
+  { value: "completed", label: "Completed", icon: CheckCheck },
   { value: "cancelled", label: "Cancelled", icon: XCircle },
 ] as const;
 
@@ -56,6 +57,7 @@ const statusColors: Record<string, string> = {
   awaiting_parts: "bg-orange-100 text-orange-700",
   parts_arrived: "bg-emerald-100 text-emerald-700",
   booked: "bg-blue-100 text-blue-700",
+  completed: "bg-green-100 text-green-700",
   cancelled: "bg-slate-100 text-slate-500",
 };
 
@@ -299,7 +301,7 @@ function FollowUpCard({
           )}
         </div>
 
-        {isAdmin && fu.status !== "cancelled" && fu.status !== "booked" && (
+        {isAdmin && fu.status !== "cancelled" && fu.status !== "booked" && fu.status !== "completed" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5" onClick={onBookJob} disabled={updating}>
               <Briefcase className="w-4 h-4" /> Book Job
@@ -309,6 +311,19 @@ function FollowUpCard({
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Parts Arrived
               </Button>
             )}
+            <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
+              Edit
+            </Button>
+            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => onStatusChange("cancelled")} disabled={updating}>
+              <XCircle className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+        {isAdmin && fu.status === "booked" && (
+          <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
+            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={() => onStatusChange("completed")} disabled={updating}>
+              <CheckCheck className="w-4 h-4" /> Mark Complete
+            </Button>
             <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
               Edit
             </Button>
