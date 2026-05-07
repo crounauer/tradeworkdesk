@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -131,6 +132,34 @@ export default function PlatformTenantDetail() {
   });
 
   const [deleteConfirmData, setDeleteConfirmData] = useState<{ user_count: number; users: { id: string; email: string }[] } | null>(null);
+  const [userActionLoading, setUserActionLoading] = useState<string | null>(null); // userId
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, updates }: { userId: string; updates: Record<string, unknown> }) => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Update failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
+      toast({ title: "User updated" });
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/users/${userId}/reset-password`, { method: "POST" });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => toast({ title: "Password reset email sent" }),
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async (confirmed?: boolean) => {
@@ -388,9 +417,9 @@ export default function PlatformTenantDetail() {
           <CardHeader><CardTitle>Users ({tenant.users.length})</CardTitle></CardHeader>
           <CardContent>
             <div className="divide-y">
-              {tenant.users.map((u: { id: string; full_name: string; email: string; role: string; created_at: string }) => (
+              {tenant.users.map((u: { id: string; full_name: string; email: string; role: string; is_active: boolean; created_at: string }) => (
                 <div key={u.id} className="py-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${u.is_active ? "bg-slate-100" : "bg-red-100 text-red-500"}`}>
                     {u.full_name?.charAt(0) || "?"}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -398,6 +427,51 @@ export default function PlatformTenantDetail() {
                     <p className="text-xs text-muted-foreground">{u.email}</p>
                   </div>
                   <Badge variant="outline" className="capitalize">{u.role.replace("_", " ")}</Badge>
+                  {!u.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={userActionLoading === u.id}>
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => { setUserActionLoading(u.id); resetPasswordMutation.mutate(u.id, { onSettled: () => setUserActionLoading(null) }); }}
+                      >
+                        <KeyRound className="w-4 h-4 mr-2" /> Send Password Reset
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {u.role === "technician" ? (
+                        <DropdownMenuItem
+                          onClick={() => { setUserActionLoading(u.id); updateUserMutation.mutate({ userId: u.id, updates: { role: "admin" } }, { onSettled: () => setUserActionLoading(null) }); }}
+                        >
+                          <ShieldCheck className="w-4 h-4 mr-2" /> Promote to Admin
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={() => { setUserActionLoading(u.id); updateUserMutation.mutate({ userId: u.id, updates: { role: "technician" } }, { onSettled: () => setUserActionLoading(null) }); }}
+                        >
+                          <ShieldCheck className="w-4 h-4 mr-2" /> Demote to Technician
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      {u.is_active ? (
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => { setUserActionLoading(u.id); updateUserMutation.mutate({ userId: u.id, updates: { is_active: false } }, { onSettled: () => setUserActionLoading(null) }); }}
+                        >
+                          <UserX className="w-4 h-4 mr-2" /> Deactivate
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          className="text-green-600 focus:text-green-600"
+                          onClick={() => { setUserActionLoading(u.id); updateUserMutation.mutate({ userId: u.id, updates: { is_active: true } }, { onSettled: () => setUserActionLoading(null) }); }}
+                        >
+                          <UserCheck className="w-4 h-4 mr-2" /> Reactivate
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
             </div>

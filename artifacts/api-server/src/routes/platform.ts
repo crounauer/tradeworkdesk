@@ -57,7 +57,7 @@ router.get("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req, 
   if (error || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
   const [usersRes, jobsRes, customersRes] = await Promise.all([
-    supabaseAdmin.from("profiles").select("id, email, full_name, role, created_at").eq("tenant_id", id).order("created_at"),
+    supabaseAdmin.from("profiles").select("id, email, full_name, role, is_active, created_at").eq("tenant_id", id).order("created_at"),
     supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("tenant_id", id),
     supabaseAdmin.from("customers").select("id", { count: "exact", head: true }).eq("tenant_id", id).eq("is_active", true),
   ]);
@@ -286,6 +286,65 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
   });
 
   res.sendStatus(204);
+});
+
+router.patch("/platform/tenants/:id/users/:userId", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id, userId } = req.params;
+  const { is_active, role } = req.body as { is_active?: boolean; role?: string };
+
+  // Confirm user belongs to this tenant
+  const { data: existing } = await supabaseAdmin
+    .from("profiles").select("id, email, full_name, is_active, role").eq("id", userId).eq("tenant_id", id).single();
+  if (!existing) { res.status(404).json({ error: "User not found in this tenant" }); return; }
+
+  const updates: Record<string, unknown> = {};
+  if (typeof is_active === "boolean") updates.is_active = is_active;
+  if (role && ["admin", "technician"].includes(role)) updates.role = role;
+
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Nothing to update" }); return; }
+
+  const { data, error } = await supabaseAdmin
+    .from("profiles").update(updates).eq("id", userId).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "user_updated",
+    entity_type: "profile",
+    entity_id: userId,
+    detail: { tenant_id: id, changes: updates },
+  });
+
+  res.json(data);
+});
+
+router.post("/platform/tenants/:id/users/:userId/reset-password", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id, userId } = req.params;
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles").select("id, email").eq("id", userId).eq("tenant_id", id).single();
+  if (!profile) { res.status(404).json({ error: "User not found in this tenant" }); return; }
+
+  const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const { error } = await supabaseAdmin.auth.admin.generateLink({
+    type: "recovery",
+    email: profile.email,
+    options: { redirectTo: `${APP_URL}/reset-password` },
+  });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "password_reset_sent",
+    entity_type: "profile",
+    entity_id: userId,
+    detail: { tenant_id: id, email: profile.email },
+  });
+
+  res.json({ ok: true });
 });
 
 router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
