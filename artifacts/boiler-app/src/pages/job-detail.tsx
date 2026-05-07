@@ -1267,7 +1267,13 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                       type="checkbox"
                       id={`editWaiveCallout-${entry.id}`}
                       checked={editWaiveCallout}
-                      onChange={(e) => setEditWaiveCallout(e.target.checked)}
+                      onChange={(e) => {
+                        setEditWaiveCallout(e.target.checked);
+                        if (!e.target.checked && editCalloutFee === 0) {
+                          // Restore to the job's current callout fee so the save isn't treated as waived
+                          setEditCalloutFee(callOutFee > 0 ? callOutFee : null);
+                        }
+                      }}
                       className="h-4 w-4 rounded border-border accent-primary"
                     />
                     <label htmlFor={`editWaiveCallout-${entry.id}`} className="text-sm select-none cursor-pointer">
