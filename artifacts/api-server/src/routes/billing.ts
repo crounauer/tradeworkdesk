@@ -223,4 +223,153 @@ router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin
   res.json({ success: true });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Self-service addon management
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/billing/addons
+ * Returns all available addons together with the tenant's current subscription status for each.
+ */
+router.get("/billing/addons", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const [{ data: addons }, { data: tenantAddons }] = await Promise.all([
+    supabaseAdmin
+      .from("addons")
+      .select("id, name, description, feature_keys, monthly_price, annual_price, is_per_seat, sort_order, is_active")
+      .eq("is_active", true)
+      .order("sort_order"),
+    supabaseAdmin
+      .from("tenant_addons")
+      .select("addon_id, is_active, quantity, stripe_subscription_item_id")
+      .eq("tenant_id", req.tenantId!),
+  ]);
+
+  const tenantAddonMap = new Map<string, { is_active: boolean; quantity: number; stripe_subscription_item_id: string | null }>();
+  for (const ta of (tenantAddons ?? []) as { addon_id: string; is_active: boolean; quantity: number; stripe_subscription_item_id: string | null }[]) {
+    tenantAddonMap.set(ta.addon_id, ta);
+  }
+
+  const result = (addons ?? []).map((a: Record<string, unknown>) => ({
+    ...(a as object),
+    subscribed: tenantAddonMap.get(a.id as string)?.is_active ?? false,
+    quantity: tenantAddonMap.get(a.id as string)?.quantity ?? 0,
+  }));
+
+  res.json(result);
+});
+
+/**
+ * POST /api/billing/addons/:addonId/subscribe
+ * Subscribe the tenant to an addon. Updates Stripe if subscription exists.
+ */
+router.post("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { addonId } = req.params;
+
+  const { data: addon } = await supabaseAdmin
+    .from("addons")
+    .select("id, name, monthly_price, stripe_price_id, is_active")
+    .eq("id", addonId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!addon) { res.status(404).json({ error: "Addon not found or inactive" }); return; }
+
+  // Upsert tenant_addon row
+  const { error } = await supabaseAdmin
+    .from("tenant_addons")
+    .upsert(
+      {
+        tenant_id: req.tenantId!,
+        addon_id: addonId,
+        is_active: true,
+        quantity: 1,
+        activated_at: new Date().toISOString(),
+      } as Record<string, unknown>,
+      { onConflict: "tenant_id,addon_id" }
+    );
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Stripe: add subscription item if tenant has an active subscription and addon has a price ID
+  const stripeClient = requireStripe(false);
+  const addonRow = addon as { stripe_price_id: string | null };
+  if (stripeClient && addonRow.stripe_price_id) {
+    const { data: tenantRaw } = await supabaseAdmin
+      .from("tenants")
+      .select("stripe_subscription_id")
+      .eq("id", req.tenantId!)
+      .single();
+    const stripeSubId = (tenantRaw as { stripe_subscription_id: string | null } | null)?.stripe_subscription_id;
+
+    if (stripeSubId) {
+      try {
+        const item = await stripeClient.subscriptionItems.create({
+          subscription: stripeSubId,
+          price: addonRow.stripe_price_id,
+          quantity: 1,
+          proration_behavior: "always_invoice",
+        });
+        await supabaseAdmin
+          .from("tenant_addons")
+          .update({ stripe_subscription_item_id: item.id } as Record<string, unknown>)
+          .eq("tenant_id", req.tenantId!)
+          .eq("addon_id", addonId);
+      } catch (stripeErr) {
+        console.error("[billing/addons/subscribe] Stripe error:", stripeErr);
+        // Non-fatal: DB is already updated
+      }
+    }
+  }
+
+  res.json({ success: true });
+});
+
+/**
+ * DELETE /api/billing/addons/:addonId/subscribe
+ * Unsubscribe the tenant from an addon. Updates Stripe if subscription item exists.
+ */
+router.delete("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { addonId } = req.params;
+
+  const { data: existing } = await supabaseAdmin
+    .from("tenant_addons")
+    .select("id, stripe_subscription_item_id")
+    .eq("tenant_id", req.tenantId!)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  if (!existing) { res.status(404).json({ error: "Addon subscription not found" }); return; }
+
+  const row = existing as { id: string; stripe_subscription_item_id: string | null };
+
+  const { error } = await supabaseAdmin
+    .from("tenant_addons")
+    .update({ is_active: false, deactivated_at: new Date().toISOString() } as Record<string, unknown>)
+    .eq("tenant_id", req.tenantId!)
+    .eq("addon_id", addonId);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Stripe: remove subscription item
+  if (row.stripe_subscription_item_id) {
+    const stripeClient = requireStripe(false);
+    if (stripeClient) {
+      try {
+        await stripeClient.subscriptionItems.del(row.stripe_subscription_item_id, {
+          proration_behavior: "always_invoice",
+        });
+        await supabaseAdmin
+          .from("tenant_addons")
+          .update({ stripe_subscription_item_id: null } as Record<string, unknown>)
+          .eq("tenant_id", req.tenantId!)
+          .eq("addon_id", addonId);
+      } catch (stripeErr) {
+        console.error("[billing/addons/unsubscribe] Stripe error:", stripeErr);
+      }
+    }
+  }
+
+  res.json({ success: true });
+});
+
 export default router;

@@ -1,13 +1,14 @@
 import { useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, Loader2,
-  Calendar, Users,
+  Calendar, Users, Package,
 } from "lucide-react";
 import { useInitData } from "@/hooks/use-init-data";
 
@@ -27,6 +28,18 @@ interface PaymentMethod {
   last4: string;
   exp_month: number;
   exp_year: number;
+}
+
+interface BillingAddon {
+  id: string;
+  name: string;
+  description: string | null;
+  feature_keys: string[];
+  monthly_price: number;
+  annual_price: number;
+  is_per_seat: boolean;
+  subscribed: boolean;
+  quantity: number;
 }
 
 const BRAND_LABEL: Record<string, string> = {
@@ -56,6 +69,7 @@ function statusLabel(status: string) {
 export default function Billing() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const isAdmin = profile?.role === "admin";
   const { data: initData } = useInitData();
@@ -79,6 +93,42 @@ export default function Billing() {
       return res.json();
     },
     enabled: tenantInfo?.status === "active" || tenantInfo?.status === "payment_overdue",
+  });
+
+  const { data: addons } = useQuery<BillingAddon[]>({
+    queryKey: ["billing-addons"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/addons");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const subscribeMutation = useMutation({
+    mutationFn: async (addonId: string) => {
+      const res = await fetch(`/api/billing/addons/${addonId}/subscribe`, { method: "POST" });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to subscribe"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+      toast({ title: "Add-on activated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const unsubscribeMutation = useMutation({
+    mutationFn: async (addonId: string) => {
+      const res = await fetch(`/api/billing/addons/${addonId}/subscribe`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to unsubscribe"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+      toast({ title: "Add-on deactivated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const manageBillingMutation = useMutation({
@@ -121,7 +171,9 @@ export default function Billing() {
 
   // Calculate cost breakdown
   const extraUsers = Math.max(0, currentUsers - INCLUDED_SEATS);
-  const monthlyTotal = BASE_PRICE + extraUsers * PER_SEAT_PRICE;
+  const subscribedAddons = (addons ?? []).filter(a => a.subscribed);
+  const addonMonthlyTotal = subscribedAddons.reduce((sum, a) => sum + Number(a.monthly_price), 0);
+  const monthlyTotal = BASE_PRICE + extraUsers * PER_SEAT_PRICE + addonMonthlyTotal;
 
   // Trial countdown
   const trialDaysLeft = (() => {
@@ -235,6 +287,12 @@ export default function Billing() {
                 <span className="font-medium">£{extraUsers * PER_SEAT_PRICE}/mo</span>
               </div>
             )}
+            {subscribedAddons.map(a => (
+              <div key={a.id} className="flex justify-between">
+                <span className="text-slate-600">{a.name}{a.is_per_seat ? " (per-user)" : ""}</span>
+                <span className="font-medium">£{Number(a.monthly_price).toFixed(2)}/mo</span>
+              </div>
+            ))}
             <div className="border-t border-slate-200 pt-2 flex justify-between font-semibold">
               <span>Total</span>
               <span>£{monthlyTotal}/month</span>
@@ -310,6 +368,56 @@ export default function Billing() {
             ) : (
               <p className="text-sm text-slate-500">No payment method on file.</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add-on packages */}
+      {isAdmin && addons && addons.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Add-on Packages
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Activate add-ons for your account. Changes take effect immediately.
+            </p>
+            <div className="divide-y divide-border">
+              {addons.map(addon => {
+                const isBusy = subscribeMutation.isPending || unsubscribeMutation.isPending;
+                return (
+                  <div key={addon.id} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{addon.name}</p>
+                        {addon.subscribed && (
+                          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs border">Active</Badge>
+                        )}
+                      </div>
+                      {addon.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{addon.description}</p>
+                      )}
+                      <p className="text-xs text-slate-500 mt-1">
+                        £{Number(addon.monthly_price).toFixed(2)}/month
+                        {addon.is_per_seat && " · per assigned user"}
+                        {addon.annual_price > 0 && ` · £${Number(addon.annual_price).toFixed(2)}/year`}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={addon.subscribed}
+                      disabled={!isAdmin || isBusy}
+                      onCheckedChange={(checked) => {
+                        if (checked) subscribeMutation.mutate(addon.id);
+                        else unsubscribeMutation.mutate(addon.id);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
