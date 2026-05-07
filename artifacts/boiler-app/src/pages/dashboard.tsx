@@ -1,12 +1,12 @@
 import { useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus, AlertTriangle, Plus } from "lucide-react";
+import { MessageSquarePlus, AlertTriangle, Plus, MessageSquare, MapPin, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, lazy, Suspense } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
@@ -14,6 +14,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 import { useInitData } from "@/hooks/use-init-data";
 import { BookJobDialog } from "@/components/book-job-dialog";
+import { Link } from "wouter";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -57,9 +58,22 @@ export default function Dashboard() {
     }
   }, [handleBookJob]);
 
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
+
+  type CreditRow = { id: string; name: string; usage_unit_label: string | null; usage_bundle_size: number | null; credits_remaining: number };
+  const { data: creditsData } = useQuery<CreditRow[]>({
+    queryKey: ["billing-credits"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/credits");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAdmin,
+    staleTime: 60_000,
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -77,6 +91,35 @@ export default function Dashboard() {
             </div>
           </Card>
         </a>
+      )}
+
+      {isAdmin && creditsData && creditsData.length > 0 && (
+        <Link href="/billing">
+          <Card className="p-4 shadow-sm flex items-center gap-4 hover:bg-muted/30 transition-colors cursor-pointer">
+            <Zap className="w-5 h-5 text-amber-500 shrink-0" />
+            <div className="flex-1 flex flex-wrap gap-x-6 gap-y-1">
+              {creditsData.map(credit => {
+                const bundleSize = credit.usage_bundle_size ?? 1000;
+                const isLow = credit.credits_remaining < bundleSize * 0.1;
+                const isEmpty = credit.credits_remaining === 0;
+                const icon = credit.name.toLowerCase().includes("sms")
+                  ? <MessageSquare className="w-3.5 h-3.5" />
+                  : <MapPin className="w-3.5 h-3.5" />;
+                return (
+                  <div key={credit.id} className="flex items-center gap-1.5 text-sm">
+                    <span className={isEmpty ? "text-red-600" : isLow ? "text-orange-600" : "text-muted-foreground"}>{icon}</span>
+                    <span className="font-medium text-foreground">{credit.name}:</span>
+                    <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-orange-600" : "text-slate-700"}`}>
+                      {credit.credits_remaining.toLocaleString()} {credit.usage_unit_label ?? "credits"} remaining
+                    </span>
+                    {isEmpty && <span className="text-xs text-red-600 font-medium">&mdash; Top up needed</span>}
+                    {!isEmpty && isLow && <span className="text-xs text-orange-600 font-medium">&mdash; Running low</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </Link>
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">

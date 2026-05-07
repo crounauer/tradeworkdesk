@@ -157,8 +157,8 @@ export default function PlatformSettings() {
           />
           <PlatformSettingField
             settingKey="sms_works_api_key"
-            label="SMS Works API Key"
-            description="Your SMS Works API key. Combined with the Customer ID to obtain a JWT token for each send."
+            label="SMS Works JWT Secret"
+            description="Your SMS Works JWT Secret (found in the API section of your SMS Works dashboard). Combined with the Customer ID to authenticate each SMS send."
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             icon={<MessageSquare className="w-4 h-4" />}
           />
