@@ -62,6 +62,6 @@ INSERT INTO addons (name, description, feature_keys, monthly_price, annual_price
   ('API Access', 'Connect TradeWorkDesk to your existing tools and workflows via a RESTful API. Build custom integrations, automate data flows, and extend platform capabilities.', ARRAY['api_access'], 19.99, 199.99, false, 8),
   ('Extra Storage', 'Expand your photo and document storage beyond the base allowance. Ideal for businesses that capture extensive on-site photography and documentation.', ARRAY['extra_storage'], 4.99, 49.99, false, 9),
   ('Specialist Forms', 'Industry-specific forms for oil tank inspections, heat pump commissioning, and combustion analysis. Designed around OFTEC and MCS compliance requirements.', ARRAY['oil_tank_forms', 'heat_pump_forms', 'combustion_analysis'], 9.99, 99.99, false, 10),
-  ('Additional Users', 'Add extra user seats to your account. Each unit adds one additional team member with full access to job management, forms, and scheduling.', ARRAY['additional_users'], 4.99, 49.99, true, 11),
+  ('Additional Users', 'Add extra user seats to your account at £10/month per engineer.', ARRAY['additional_users'], 10.00, 100.00, true, 11),
   ('Jobs Per Month', 'Add 25 extra jobs per month to your allowance', ARRAY['jobs_per_month'], 1, 10, false, 12)
 ON CONFLICT (name) DO NOTHING;

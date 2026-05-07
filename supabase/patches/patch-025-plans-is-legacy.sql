@@ -13,7 +13,7 @@ WHERE name IN ('Starter', 'Professional', 'Enterprise', 'Forms Only')
 
 -- Step 3: Create the new Base Plan (idempotent — skip if a non-legacy plan named 'Base Plan' already exists)
 INSERT INTO plans (name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, is_legacy, sort_order)
-SELECT 'Base Plan', 'Core platform access with digital forms', 8.50, 85, 1, 50,
+SELECT 'Base Plan', 'Everything included. Up to 2 users. Additional engineers at £10/month each.', 25.00, 250.00, 2, 9999,
   '{"scheduling":true,"job_management":true,"invoicing":true,"reports":true,"team_management":true,"commissioning_forms":true,"combustion_analysis":true,"custom_branding":true}'::jsonb,
   true, false, 0
 WHERE NOT EXISTS (
@@ -22,11 +22,11 @@ WHERE NOT EXISTS (
 
 -- Step 4: Ensure Base Plan has correct pricing, limits, and core features
 UPDATE plans SET
-  monthly_price = 8.50,
-  annual_price = 85,
-  max_users = 1,
-  max_jobs_per_month = 50,
-  description = 'Core platform access with digital forms',
+  monthly_price = 25.00,
+  annual_price = 250.00,
+  max_users = 2,
+  max_jobs_per_month = 9999,
+  description = 'Everything included. Up to 2 users. Additional engineers at £10/month each.',
   features = '{"scheduling":true,"job_management":true,"invoicing":true,"reports":true,"team_management":true,"commissioning_forms":true,"combustion_analysis":true,"custom_branding":true}'::jsonb,
   is_active = true,
   is_legacy = false,
