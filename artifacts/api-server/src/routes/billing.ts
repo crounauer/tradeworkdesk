@@ -232,11 +232,23 @@ router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin
  * Returns credit balances for all usage-based addons this tenant has access to.
  */
 router.get("/billing/credits", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  // Only show credits for addons the tenant is actively subscribed to
+  const { data: activeSubscriptions } = await supabaseAdmin
+    .from("tenant_addons")
+    .select("addon_id")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true);
+
+  if (!activeSubscriptions || activeSubscriptions.length === 0) { res.json([]); return; }
+
+  const subscribedAddonIds = (activeSubscriptions as { addon_id: string }[]).map(a => a.addon_id);
+
   const { data: usageAddons } = await supabaseAdmin
     .from("addons")
     .select("id, name, description, feature_keys, usage_unit_label, usage_bundle_size, usage_bundle_price")
     .eq("billing_model", "usage")
     .eq("is_active", true)
+    .in("id", subscribedAddonIds)
     .order("sort_order");
 
   if (!usageAddons || usageAddons.length === 0) { res.json([]); return; }

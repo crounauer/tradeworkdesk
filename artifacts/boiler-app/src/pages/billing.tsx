@@ -157,6 +157,7 @@ export default function Billing() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+      queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on activated" });
     },
@@ -171,6 +172,7 @@ export default function Billing() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+      queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on deactivated" });
     },
