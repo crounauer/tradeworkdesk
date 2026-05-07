@@ -8,6 +8,8 @@ import crypto from "crypto";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { syncSeats } from "./billing";
 import { runServiceDueReminders, previewServiceDueReminders } from "../lib/service-reminders";
+import { supabaseAdmin } from "../lib/supabase";
+import { syncUserAddonSeats } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -1111,6 +1113,109 @@ router.post("/admin/service-reminders/send", requireAuth, requireRole("super_adm
   } catch (e: unknown) {
     res.status(500).json({ error: e instanceof Error ? e.message : "Internal server error" });
   }
+});
+
+// ──────────────────────────────────────────────────────────────
+// Per-user addon assignment
+// ──────────────────────────────────────────────────────────────
+
+// GET /api/admin/user-addons — list all user-addon assignments for this tenant
+router.get("/admin/user-addons", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("user_addons")
+    .select("id, user_id, addon_id, is_active, activated_at, addons(id, name, feature_keys), profiles(id, full_name, email)")
+    .eq("tenant_id", req.tenantId!)
+    .order("activated_at", { ascending: false });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data ?? []);
+});
+
+// GET /api/admin/available-addons — list per-seat addons the tenant has active (for use in UI)
+router.get("/admin/available-addons", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("tenant_addons")
+    .select("id, addon_id, addons(id, name, feature_keys, monthly_price)")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .eq("addons.is_per_seat", true);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Filter to only rows where the addon is per-seat
+  const perSeat = (data ?? []).filter(row => row.addons !== null);
+  res.json(perSeat);
+});
+
+// PUT /api/admin/users/:userId/addons — set which per-seat addons a user has
+router.put("/admin/users/:userId/addons", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { userId } = req.params;
+  const { addon_ids } = req.body as { addon_ids: string[] };
+
+  if (!Array.isArray(addon_ids)) {
+    res.status(400).json({ error: "addon_ids must be an array" });
+    return;
+  }
+
+  // Verify user belongs to this tenant
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+
+  if (!profile) { res.status(404).json({ error: "User not found" }); return; }
+
+  // Fetch available per-seat addons active for this tenant
+  const { data: tenantAddons } = await supabaseAdmin
+    .from("tenant_addons")
+    .select("addon_id, addons(id, is_per_seat)")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true);
+
+  const perSeatAddonIds: string[] = (tenantAddons ?? [])
+    .filter(ta => (ta.addons as { is_per_seat?: boolean } | null)?.is_per_seat)
+    .map(ta => ta.addon_id as string);
+
+  // Upsert user_addons: activate requested, deactivate others
+  const changedAddonIds = new Set<string>();
+
+  for (const addonId of perSeatAddonIds) {
+    const shouldBeActive = addon_ids.includes(addonId);
+    const { data: existing } = await supabaseAdmin
+      .from("user_addons")
+      .select("id, is_active")
+      .eq("tenant_id", req.tenantId!)
+      .eq("user_id", userId)
+      .eq("addon_id", addonId)
+      .maybeSingle();
+
+    if (existing) {
+      if ((existing as { is_active: boolean }).is_active !== shouldBeActive) {
+        await supabaseAdmin
+          .from("user_addons")
+          .update({ is_active: shouldBeActive } as Record<string, unknown>)
+          .eq("id", (existing as { id: string }).id);
+        changedAddonIds.add(addonId);
+      }
+    } else if (shouldBeActive) {
+      await supabaseAdmin.from("user_addons").insert({
+        tenant_id: req.tenantId!,
+        user_id: userId,
+        addon_id: addonId,
+        is_active: true,
+      } as Record<string, unknown>);
+      changedAddonIds.add(addonId);
+    }
+  }
+
+  // Sync seat counts for any changed addons
+  for (const addonId of changedAddonIds) {
+    await syncUserAddonSeats(req.tenantId!, addonId);
+  }
+
+  res.json({ ok: true, updated: changedAddonIds.size });
 });
 
 export default router;

@@ -41,6 +41,7 @@ import followUpsRouter from "./follow-ups";
 import calendarRouter from "./calendar";
 import todosRouter from "./todos";
 import directoryRouter from "./directory";
+import smsRouter from "./sms";
 
 const router: IRouter = Router();
 
@@ -85,6 +86,7 @@ router.use(followUpsRouter);
 router.use(calendarRouter);
 router.use(todosRouter);
 router.use(directoryRouter);
+router.use(smsRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

@@ -1198,4 +1198,18 @@ router.post("/auth/validate-beta", async (req, res): Promise<void> => {
   res.json({ valid: true, email: invite.email || null });
 });
 
+// GET /platform/tenants/:id/user-addons — per-user addon assignments for superadmin view
+router.get("/platform/tenants/:id/user-addons", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const tenantId = req.params.id;
+
+  const { data, error } = await supabaseAdmin
+    .from("user_addons")
+    .select("id, user_id, addon_id, is_active, addons(id, name, feature_keys), profiles(id, full_name, email)")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data ?? []);
+});
+
 export default router;

@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { BookJobDialog } from "@/components/book-job-dialog";
+import { SmsSendDialog } from "@/components/sms-send-dialog";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -66,6 +67,7 @@ export default function CustomerDetail() {
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [showBookJob, setShowBookJob] = useState(false);
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
+  const [showSms, setShowSms] = useState(false);
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -113,6 +115,11 @@ export default function CustomerDetail() {
           <Button size="sm" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
+          {(customer.phone || customer.mobile) && (
+            <Button size="sm" variant="outline" onClick={() => setShowSms(true)}>
+              <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
@@ -261,6 +268,13 @@ export default function CustomerDetail() {
         open={showBookJob}
         onOpenChange={setShowBookJob}
         initialCustomerId={customer.id}
+      />
+
+      <SmsSendDialog
+        open={showSms}
+        onOpenChange={setShowSms}
+        destination={customer.mobile || customer.phone || ""}
+        customerId={customer.id}
       />
 
       {/* New Enquiry dialog pre-filled with this customer */}

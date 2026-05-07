@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
-import { hasActiveAddon } from "../lib/tenant-limits";
+import { hasActiveAddon, hasUserAddon } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -32,6 +32,15 @@ router.post("/postcode-lookup", requireAuth, requireTenant, async (req: Authenti
   if (!addonActive) {
     res.status(402).json({ error: "UK Address Lookup add-on required. Contact your administrator to activate this feature." });
     return;
+  }
+
+  // Super-admins bypass per-user check
+  if (req.userRole !== "super_admin") {
+    const userHasAddon = await hasUserAddon(req.tenantId!, req.userId!, "uk_address_lookup");
+    if (!userHasAddon) {
+      res.status(402).json({ error: "UK Address Lookup is not assigned to your account. Ask your administrator to assign it." });
+      return;
+    }
   }
 
   try {

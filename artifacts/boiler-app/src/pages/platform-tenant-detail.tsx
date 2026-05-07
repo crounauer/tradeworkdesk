@@ -134,6 +134,19 @@ export default function PlatformTenantDetail() {
   const [deleteConfirmData, setDeleteConfirmData] = useState<{ user_count: number; users: { id: string; email: string }[] } | null>(null);
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null); // userId
 
+  const { data: userAddons } = useQuery<{ user_id: string; addons: { name: string } | null }[]>({
+    queryKey: ["platform-tenant-user-addons", params.id],
+    queryFn: () => fetch(`/api/platform/tenants/${params.id}/user-addons`).then(r => r.json()),
+    enabled: !!params.id,
+  });
+
+  // Build a map: userId → addon name[]
+  const userAddonMap: Record<string, string[]> = {};
+  for (const ua of userAddons ?? []) {
+    if (!userAddonMap[ua.user_id]) userAddonMap[ua.user_id] = [];
+    if (ua.addons?.name) userAddonMap[ua.user_id].push(ua.addons.name);
+  }
+
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, updates }: { userId: string; updates: Record<string, unknown> }) => {
       const res = await fetch(`/api/platform/tenants/${params.id}/users/${userId}`, {
@@ -428,6 +441,9 @@ export default function PlatformTenantDetail() {
                   </div>
                   <Badge variant="outline" className="capitalize">{u.role.replace("_", " ")}</Badge>
                   {!u.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                  {(userAddonMap[u.id] ?? []).map(addonName => (
+                    <Badge key={addonName} variant="secondary" className="text-xs hidden sm:inline-flex">{addonName}</Badge>
+                  ))}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={userActionLoading === u.id}>

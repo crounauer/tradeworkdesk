@@ -94,6 +94,67 @@ export async function hasActiveAddon(tenantId: string, featureKey: string): Prom
   });
 }
 
+/**
+ * Check whether a specific user within a tenant has been assigned a per-seat addon.
+ */
+export async function hasUserAddon(tenantId: string, userId: string, featureKey: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("user_addons")
+    .select("id, addons(feature_keys)")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .eq("is_active", true);
+
+  if (!data) return false;
+
+  return data.some((ua) => {
+    const keys = (ua.addons as { feature_keys?: string[] } | null)?.feature_keys ?? [];
+    return keys.includes(featureKey);
+  });
+}
+
+/**
+ * Sync the tenant_addons.quantity for an addon to match the count of active user_addons rows.
+ * Also updates the Stripe subscription item quantity if one exists.
+ */
+export async function syncUserAddonSeats(tenantId: string, addonId: string): Promise<void> {
+  const { count } = await supabaseAdmin
+    .from("user_addons")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId)
+    .eq("is_active", true);
+
+  const activeCount = count ?? 0;
+
+  // Update tenant_addons quantity
+  await supabaseAdmin
+    .from("tenant_addons")
+    .update({ quantity: activeCount } as Record<string, unknown>)
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId);
+
+  // Update Stripe if subscription item is set
+  const { requireStripe } = await import("./stripe");
+  const stripeClient = requireStripe(false);
+  if (!stripeClient) return;
+
+  const { data: tenantAddon } = await supabaseAdmin
+    .from("tenant_addons")
+    .select("stripe_subscription_item_id")
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  const itemId = (tenantAddon as { stripe_subscription_item_id?: string | null } | null)?.stripe_subscription_item_id;
+  if (!itemId) return;
+
+  await stripeClient.subscriptionItems.update(itemId, {
+    quantity: activeCount,
+    proration_behavior: "always_invoice",
+  });
+}
+
 export async function getJobsThisMonth(tenantId: string): Promise<number> {
   const now = new Date();
   const startOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();

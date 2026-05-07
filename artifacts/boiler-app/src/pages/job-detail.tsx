@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCompanySettings } from "@/hooks/use-company-settings";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
+import { SmsSendDialog } from "@/components/sms-send-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,6 +105,7 @@ export default function JobDetail() {
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
   const [pricingRefresh, setPricingRefresh] = useState(0);
   const [showReturnVisit, setShowReturnVisit] = useState(false);
+  const [showSms, setShowSms] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [cachedJob, setCachedJob] = useState<Record<string, unknown> | null>(null);
   const [loadingCache, setLoadingCache] = useState(false);
@@ -334,6 +336,11 @@ export default function JobDetail() {
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
             <Mail className="w-4 h-4 mr-2" /> Email Customer
           </Button>
+          {(job.customer?.phone || job.customer?.mobile) && (
+            <Button variant="outline" size="sm" onClick={() => setShowSms(true)}>
+              <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
+            </Button>
+          )}
           {completedForms && completedForms.length > 0 && (
             <Button variant="outline" size="sm" onClick={handleEmailCertificate} disabled={sendingCertificate || !isOnline}>
               {sendingCertificate ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
@@ -807,6 +814,14 @@ export default function JobDetail() {
         </div>
         </>
       )}
+
+      <SmsSendDialog
+        open={showSms}
+        onOpenChange={setShowSms}
+        destination={(job.customer?.mobile || job.customer?.phone) ?? ""}
+        jobId={job.id}
+        customerId={job.customer_id ?? undefined}
+      />
 
       {emailModalOpen && (
         <EmailFormsModal
