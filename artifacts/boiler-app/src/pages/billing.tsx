@@ -456,7 +456,31 @@ export default function Billing() {
               Activate add-ons for your account. Changes take effect immediately.
             </p>
             <div className="divide-y divide-border">
-              {addons.map(addon => {
+              {/* Per-seat addon: informational only — billed automatically via Stripe */}
+              {addons.some(a => a.is_per_seat) && (
+                <div className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <p className="font-medium text-sm">Additional Users</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Add extra engineer or office staff seats to your account. The base plan includes 2 users.
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      £{PER_SEAT_PRICE}.00/month per user above {INCLUDED_SEATS} · billed automatically
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-slate-700">{currentUsers} / {INCLUDED_SEATS}+ users</p>
+                    <p className="text-xs text-muted-foreground">
+                      {currentUsers <= INCLUDED_SEATS ? "No extra charge" : `${currentUsers - INCLUDED_SEATS} extra · £${(currentUsers - INCLUDED_SEATS) * PER_SEAT_PRICE}/mo`}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {/* Toggleable addons: exclude per-seat ones */}
+              {addons.filter(a => !a.is_per_seat).map(addon => {
                 const isBusy = subscribeMutation.isPending || unsubscribeMutation.isPending;
                 return (
                   <div key={addon.id} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
@@ -471,7 +495,10 @@ export default function Billing() {
                         <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{addon.description}</p>
                       )}
                       <p className="text-xs text-slate-500 mt-1">
-                        {`£${Number(addon.monthly_price).toFixed(2)}/month${addon.is_per_seat ? " · per assigned user" : ""}${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`}
+                        {Number(addon.monthly_price) === 0
+                          ? "Credits purchased in bundles · see Usage Credits below"
+                          : `£${Number(addon.monthly_price).toFixed(2)}/month${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`
+                        }
                       </p>
                     </div>
                     <Switch
