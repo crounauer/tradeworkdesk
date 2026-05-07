@@ -35,18 +35,18 @@ export function usePlanFeatures() {
 
   const hasAddon = (featureKey: string): boolean => {
     if (isLoading) return true;
-    return addons.some((a) => a.feature_keys?.includes(featureKey));
+    // Fall back to plan features so the new all-inclusive plan works
+    // without requiring active addon records.
+    return addons.some((a) => a.feature_keys?.includes(featureKey)) || !!features[featureKey];
   };
 
   const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
-  const isFormsOnly = !hasFeature("job_management");
   const isFreePlan = pf?.plan_id === FREE_PLAN_ID;
 
   return {
     features,
     hasFeature,
     hasAddon,
-    isFormsOnly,
     isFreePlan,
     planName: pf?.plan_name ?? null,
     planId: pf?.plan_id ?? null,

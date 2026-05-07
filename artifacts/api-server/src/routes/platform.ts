@@ -787,13 +787,9 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
   let usageLimits = null;
   if (req.tenantId) {
-    const tenantResForLimits = results[1] as { data: Record<string, any> | null };
-    const effectiveAddons = activeAddons.length > 0
-      ? (results[4] as { data: Array<{ quantity?: number; addons?: { feature_keys?: string[] } | null }> | null })?.data || null
-      : null;
+    const tenantResForLimits = results[1] as { data: Record<string, unknown> | null };
     const limits = getEffectiveLimitsFromCache(
-      tenantResForLimits?.data as { status?: string; trial_ends_at?: string | null; plans?: { max_users?: number; max_jobs_per_month?: number } | null } | null,
-      effectiveAddons,
+      tenantResForLimits?.data as { status?: string; trial_ends_at?: string | null; plans?: { max_users?: number; max_jobs_per_month?: number | null } | null } | null,
     );
     const [userCount, jobCount] = await Promise.all([
       getCurrentUserCount(req.tenantId),

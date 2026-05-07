@@ -6,7 +6,7 @@ import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/e
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
-import { getEffectiveLimits, getCurrentUserCount, getActiveInviteCount, hasActiveAddon } from "../lib/tenant-limits";
+import { syncSeats } from "./billing";
 import { runServiceDueReminders, previewServiceDueReminders } from "../lib/service-reminders";
 
 const router: IRouter = Router();
@@ -87,15 +87,16 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
   const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  // Sync per-seat billing after removing a user
+  if (req.tenantId) {
+    syncSeats(req.tenantId).catch((e) => console.error("[syncSeats] delete user:", e));
+  }
+
   res.status(204).send();
 });
 
 router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
-  if (req.userRole !== "super_admin" && !(await hasActiveAddon(req.tenantId!, "additional_users"))) {
-    res.status(402).json({ error: "Additional Users add-on required", code: "ADDON_REQUIRED" });
-    return;
-  }
   let q = supabaseAdmin
     .from("invite_codes")
     .select("*")
@@ -123,25 +124,7 @@ router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin
 
 router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
-  if (req.userRole !== "super_admin" && !(await hasActiveAddon(req.tenantId!, "additional_users"))) {
-    res.status(402).json({ error: "Additional Users add-on required", code: "ADDON_REQUIRED" });
-    return;
-  }
   const { role = "technician", expires_at, note } = req.body;
-
-  const [limits, currentUsers, activeInvites] = await Promise.all([
-    getEffectiveLimits(req.tenantId!),
-    getCurrentUserCount(req.tenantId!),
-    getActiveInviteCount(req.tenantId!),
-  ]);
-
-  if (currentUsers + activeInvites >= limits.maxUsers) {
-    res.status(400).json({
-      error: `You've reached your limit of ${limits.maxUsers} users (${limits.baseMaxUsers} from plan + ${limits.addonExtraUsers} from add-ons). Purchase additional user seats to add more team members.`,
-      code: "MAX_USERS_REACHED",
-    });
-    return;
-  }
 
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
 
@@ -164,10 +147,6 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
 
 router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!(await requireNotSoleTrader(req, res))) return;
-  if (req.userRole !== "super_admin" && !(await hasActiveAddon(req.tenantId!, "additional_users"))) {
-    res.status(402).json({ error: "Additional Users add-on required", code: "ADDON_REQUIRED" });
-    return;
-  }
   const { id } = req.params;
 
   let q = supabaseAdmin.from("invite_codes").update({ is_active: false }).eq("id", id);
@@ -219,20 +198,7 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
     res.status(400).json({ error: "Invite code has expired." }); return;
   }
 
-  if (inv.tenant_id) {
-    const [limits, currentUsers] = await Promise.all([
-      getEffectiveLimits(inv.tenant_id),
-      getCurrentUserCount(inv.tenant_id),
-    ]);
-
-    if (currentUsers >= limits.maxUsers) {
-      res.status(400).json({
-        error: `This company has reached its maximum number of users (${limits.maxUsers}). Please ask the admin to upgrade the plan or purchase additional user seats.`,
-        code: "MAX_USERS_REACHED",
-      });
-      return;
-    }
-  }
+  // No hard user-count cap — extra users above 2 are billed via Stripe automatically.
 
   const profileUpdates: Record<string, unknown> = { role: inv.role, can_be_assigned_jobs: inv.role === "technician" };
   if (inv.tenant_id) profileUpdates.tenant_id = inv.tenant_id;
@@ -241,6 +207,11 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
     supabaseAdmin.from("invite_codes").update({ used_by: req.userId, used_at: new Date().toISOString() }).eq("id", inv.id),
     supabaseAdmin.from("profiles").update(profileUpdates).eq("id", req.userId!),
   ]);
+
+  // Sync per-seat billing now this user has joined the tenant
+  if (inv.tenant_id) {
+    syncSeats(inv.tenant_id).catch((e) => console.error("[syncSeats] invite accept:", e));
+  }
 
   res.json({ success: true, role: inv.role });
 });

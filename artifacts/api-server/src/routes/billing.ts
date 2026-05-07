@@ -2,62 +2,86 @@ import { Router } from "express";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import { requireStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
+import { getCurrentUserCount } from "../lib/tenant-limits";
 
 const router = Router();
 
 const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
 
-router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { plan_id, billing_cycle = "monthly", addon_ids = [], addon_quantities = {} } = req.body as {
-    plan_id?: string;
-    billing_cycle?: string;
-    addon_ids?: string[];
-    addon_quantities?: Record<string, number>;
-  };
+// Returns the single active non-legacy plan.
+async function getActivePlan() {
+  const { data } = await supabaseAdmin
+    .from("plans")
+    .select("id, stripe_price_id, stripe_per_seat_price_id")
+    .eq("is_active", true)
+    .eq("is_legacy", false)
+    .gt("monthly_price", 0)
+    .order("monthly_price", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data as { id: string; stripe_price_id: string | null; stripe_per_seat_price_id: string | null } | null;
+}
 
+/**
+ * Sync the per-seat Stripe subscription item quantity for a tenant.
+ * Called after a user is added or removed. Safe to call even if the tenant
+ * is on a trial or does not yet have a subscription.
+ */
+export async function syncSeats(tenantId: string): Promise<void> {
+  const stripeClient = requireStripe(false);
+  if (!stripeClient) return; // Stripe not configured — skip
+
+  const { data: tenantRaw } = await supabaseAdmin
+    .from("tenants")
+    .select("stripe_subscription_id, stripe_per_seat_item_id")
+    .eq("id", tenantId)
+    .single();
+  const tenant = tenantRaw as { stripe_subscription_id: string | null; stripe_per_seat_item_id: string | null } | null;
+
+  if (!tenant?.stripe_subscription_id) return; // No active subscription yet
+
+  const plan = await getActivePlan();
+  if (!plan?.stripe_per_seat_price_id) return; // Per-seat pricing not configured
+
+  const userCount = await getCurrentUserCount(tenantId);
+  const extraSeats = Math.max(0, userCount - 2);
+
+  if (tenant.stripe_per_seat_item_id) {
+    await stripeClient.subscriptionItems.update(tenant.stripe_per_seat_item_id, {
+      quantity: extraSeats,
+      proration_behavior: "always_invoice",
+    });
+  } else if (extraSeats > 0) {
+    // First time going above 2 users — add the per-seat item to the subscription
+    const item = await stripeClient.subscriptionItems.create({
+      subscription: tenant.stripe_subscription_id,
+      price: plan.stripe_per_seat_price_id,
+      quantity: extraSeats,
+      proration_behavior: "always_invoice",
+    });
+    await supabaseAdmin
+      .from("tenants")
+      .update({ stripe_per_seat_item_id: item.id } as Record<string, unknown>)
+      .eq("id", tenantId);
+  }
+  // else: extraSeats === 0 and no per-seat item — nothing to do
+}
+
+router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const stripeClient = requireStripe();
 
-  let plan;
-  if (plan_id) {
-    const { data } = await supabaseAdmin.from("plans").select("*").eq("id", plan_id).eq("is_active", true).single();
-    if (data && (data as Record<string, unknown>).is_legacy) {
-      res.status(400).json({ error: "This plan is no longer available. Please use the current base plan." });
-      return;
-    }
-    plan = data;
-  }
-  if (!plan) {
-    const { data } = await supabaseAdmin
-      .from("plans")
-      .select("*")
-      .eq("is_active", true)
-      .eq("is_legacy", false)
-      .gt("monthly_price", 0)
-      .order("monthly_price", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    plan = data;
-  }
-  if (!plan) { res.status(404).json({ error: "No base plan found" }); return; }
-
-  const { data: tenant } = await supabaseAdmin.from("tenants").select("*").eq("id", req.tenantId!).single();
-  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
-
-  const isSoleTrader = tenant.company_type === "sole_trader";
-  let priceId: string | null;
-  if (isSoleTrader && billing_cycle === "annual" && plan.stripe_sole_trader_price_id_annual) {
-    priceId = plan.stripe_sole_trader_price_id_annual;
-  } else if (isSoleTrader && plan.stripe_sole_trader_price_id) {
-    priceId = plan.stripe_sole_trader_price_id;
-  } else {
-    priceId = billing_cycle === "annual" ? plan.stripe_price_id_annual : plan.stripe_price_id;
-  }
-  if (!priceId) {
-    res.status(400).json({ error: `No Stripe price configured for this plan (${billing_cycle})` });
+  const plan = await getActivePlan();
+  if (!plan) { res.status(404).json({ error: "No active plan found" }); return; }
+  if (!plan.stripe_price_id) {
+    res.status(400).json({ error: "Stripe price not yet configured for this plan. Please contact support." });
     return;
   }
 
-  let customerId: string | undefined = tenant.stripe_customer_id;
+  const { data: tenantRaw } = await supabaseAdmin.from("tenants").select("*").eq("id", req.tenantId!).single();
+  if (!tenantRaw) { res.status(404).json({ error: "Tenant not found" }); return; }
+  const tenant = tenantRaw as { stripe_customer_id: string | null; contact_email?: string; company_name?: string };
+
+  let customerId: string | undefined = tenant.stripe_customer_id ?? undefined;
 
   if (!customerId) {
     const customer = await stripeClient.customers.create({
@@ -66,29 +90,18 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
       metadata: { tenant_id: req.tenantId! },
     });
     customerId = customer.id;
-    await supabaseAdmin.from("tenants").update({ stripe_customer_id: customerId }).eq("id", req.tenantId!);
+    await supabaseAdmin.from("tenants").update({ stripe_customer_id: customerId } as Record<string, unknown>).eq("id", req.tenantId!);
   }
 
-  const lineItems: Array<{ price: string; quantity: number }> = [{ price: priceId, quantity: 1 }];
+  const userCount = await getCurrentUserCount(req.tenantId!);
+  const extraSeats = Math.max(0, userCount - 2);
 
-  const validatedAddonIds: string[] = [];
-  if (Array.isArray(addon_ids) && addon_ids.length > 0) {
-    const { data: addons } = await supabaseAdmin
-      .from("addons")
-      .select("*")
-      .in("id", addon_ids)
-      .eq("is_active", true);
+  const lineItems: Array<{ price: string; quantity: number }> = [
+    { price: plan.stripe_price_id, quantity: 1 },
+  ];
 
-    if (addons) {
-      for (const addon of addons) {
-        const addonPriceId = billing_cycle === "annual" ? addon.stripe_price_id_annual : addon.stripe_price_id;
-        if (addonPriceId) {
-          const qty = addon.is_per_seat ? Math.max(1, Math.floor(addon_quantities?.[addon.id] || 1)) : 1;
-          lineItems.push({ price: addonPriceId, quantity: qty });
-          validatedAddonIds.push(addon.id);
-        }
-      }
-    }
+  if (plan.stripe_per_seat_price_id && extraSeats > 0) {
+    lineItems.push({ price: plan.stripe_per_seat_price_id, quantity: extraSeats });
   }
 
   const session = await stripeClient.checkout.sessions.create({
@@ -100,7 +113,6 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
     metadata: {
       tenant_id: req.tenantId!,
       plan_id: plan.id,
-      billing_cycle,
     },
     allow_promotion_codes: true,
   });
@@ -108,10 +120,23 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
   res.json({ url: session.url });
 });
 
+// Internal endpoint: re-sync per-seat quantity for the current tenant
+router.post("/billing/sync-seats", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  try {
+    await syncSeats(req.tenantId!);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[syncSeats]", err);
+    res.status(500).json({ error: "Failed to sync seats" });
+  }
+});
+
+
 router.get("/billing/portal", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const stripeClient = requireStripe();
 
-  const { data: tenant } = await supabaseAdmin.from("tenants").select("stripe_customer_id").eq("id", req.tenantId!).single();
+  const { data: tenantRaw } = await supabaseAdmin.from("tenants").select("stripe_customer_id").eq("id", req.tenantId!).single();
+  const tenant = tenantRaw as { stripe_customer_id: string | null } | null;
   if (!tenant?.stripe_customer_id) {
     res.status(400).json({ error: "No billing account found. Please upgrade to a paid plan first." });
     return;
@@ -128,7 +153,8 @@ router.get("/billing/portal", requireAuth, requireTenant, requireRole("admin"), 
 router.get("/billing/payment-method", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const stripeClient = requireStripe();
 
-  const { data: tenant } = await supabaseAdmin.from("tenants").select("stripe_customer_id").eq("id", req.tenantId!).single();
+  const { data: tenantRaw } = await supabaseAdmin.from("tenants").select("stripe_customer_id").eq("id", req.tenantId!).single();
+  const tenant = tenantRaw as { stripe_customer_id: string | null } | null;
   if (!tenant?.stripe_customer_id) {
     res.json(null);
     return;
@@ -154,11 +180,12 @@ router.get("/billing/payment-method", requireAuth, requireTenant, requireRole("a
 const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
 
 router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { data: tenant } = await supabaseAdmin
+  const { data: tenantRaw } = await supabaseAdmin
     .from("tenants")
     .select("id, status, plan_id")
     .eq("id", req.tenantId!)
     .single();
+  const tenant = tenantRaw as { id: string; status: string; plan_id: string | null } | null;
 
   if (!tenant) {
     res.status(404).json({ error: "Tenant not found" });
@@ -176,7 +203,7 @@ router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin
       plan_id: FREE_PLAN_ID,
       status: "active" as const,
       trial_ends_at: null,
-    })
+    } as Record<string, unknown>)
     .eq("id", req.tenantId!);
 
   if (error) {
@@ -184,7 +211,7 @@ router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin
     return;
   }
 
-  await supabaseAdmin.from("platform_audit_log").insert({
+  await (supabaseAdmin.from("platform_audit_log") as unknown as { insert: (v: Record<string, unknown>) => Promise<unknown> }).insert({
     actor_id: req.userId,
     actor_email: req.userEmail,
     event_type: "switched_to_free_plan",

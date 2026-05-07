@@ -37,7 +37,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = profile?.role === "super_admin";
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
-  const { hasFeature, hasAddon, isFormsOnly } = usePlanFeatures();
+  const { hasFeature, hasAddon } = usePlanFeatures();
   const { data: initData } = useInitData();
   const tenantInfo = initData?.tenant ?? null;
 
@@ -71,14 +71,10 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
-    ...(isFormsOnly ? [
-      { href: "/quick-record", label: "Quick Record", icon: Zap },
-    ] : [
-      ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
-      { href: "/jobs", label: "Jobs", icon: Briefcase },
-      ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
-      { href: "/search", label: "Search", icon: Search },
-    ]),
+    ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
+    { href: "/jobs", label: "Jobs", icon: Briefcase },
+    ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
+    { href: "/search", label: "Search", icon: Search },
     ...(hasFeature("reports") ? [
       { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
     ] : []),
@@ -94,9 +90,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
     ...(hasFeature("team_management") && isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
-      ...(hasAddon("additional_users") ? [
-        { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
-      ] : []),
+      { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
       { href: "/admin/reassign-jobs", label: "Reassign Jobs", icon: Briefcase },
     ] : []),
     { href: "/admin/job-types", label: "Job Types", icon: ListTree },

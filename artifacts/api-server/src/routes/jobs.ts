@@ -774,10 +774,12 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
   const jobId = req.params.id;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { part_name, quantity, serial_number, unit_price, catalogue_item_id } = req.body;
+  const { part_name, quantity, serial_number, unit_price, catalogue_item_id, status } = req.body;
   if (!part_name || typeof part_name !== "string") {
     res.status(400).json({ error: "part_name is required" }); return;
   }
+  const validStatuses = ["fitted", "to_order"];
+  const partStatus = validStatuses.includes(status) ? status : "fitted";
 
   if (req.userRole === "technician") {
     const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
@@ -796,6 +798,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
     serial_number: serial_number || null,
     unit_price: typeof unit_price === "number" && unit_price >= 0 ? unit_price : null,
     catalogue_item_id: typeof catalogue_item_id === "string" ? catalogue_item_id : null,
+    status: partStatus,
     tenant_id: req.tenantId,
   }).select().single();
 
@@ -982,12 +985,13 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
-  const { part_name, quantity, serial_number, unit_price, update_catalogue_price } = req.body;
+  const { part_name, quantity, serial_number, unit_price, update_catalogue_price, status } = req.body;
   const updates: Record<string, unknown> = {};
   if (part_name !== undefined) updates.part_name = String(part_name).trim();
   if (quantity !== undefined) updates.quantity = typeof quantity === "number" && quantity > 0 ? Math.round(quantity * 1000) / 1000 : 1;
   if (serial_number !== undefined) updates.serial_number = serial_number || null;
   if (unit_price !== undefined) updates.unit_price = typeof unit_price === "number" && unit_price >= 0 ? unit_price : null;
+  if (status !== undefined && ["fitted", "to_order"].includes(status)) updates.status = status;
 
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
 

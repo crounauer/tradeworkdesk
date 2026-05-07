@@ -65,6 +65,7 @@ interface JobPart {
   serial_number: string | null;
   unit_price: number | null;
   catalogue_item_id: string | null;
+  status: "fitted" | "to_order";
   tenant_id: string;
   created_at: string;
 }
@@ -1526,6 +1527,8 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchedQuery, setSearchedQuery] = useState("");
   const [searchError, setSearchError] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [updateCataloguePrice, setUpdateCataloguePrice] = useState(false);
   const serviceSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchSeqRef = useRef(0);
@@ -1892,6 +1895,9 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchedQuery, setSearchedQuery] = useState("");
   const [searchError, setSearchError] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [updateCataloguePrice, setUpdateCataloguePrice] = useState(false);
+  const [partStatus, setPartStatus] = useState<"fitted" | "to_order">("fitted");
   const productSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchSeqRef = useRef(0);
@@ -1971,11 +1977,12 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
       serial_number: partSerial || null,
       unit_price: partPrice ? Number(partPrice) : null,
       catalogue_item_id: selectedProductId,
+      status: partStatus,
     };
     if (!isOnline) {
       try {
         await queueJobPart(jobId, partData);
-        setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setShowAdd(false);
+        setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setPartStatus("fitted"); setShowAdd(false);
         toast({ title: "Saved offline", description: "Part will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save part offline", variant: "destructive" });
@@ -1990,7 +1997,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partData),
       });
-      setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setShowAdd(false);
+      setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setPartStatus("fitted"); setShowAdd(false);
       toast({ title: "Added", description: "Part added" });
       fetchParts();
       onChanged?.();
@@ -2049,7 +2056,25 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
     }
   };
 
-  const partsSubtotal = parts.reduce((sum, p) => sum + (Number(p.unit_price) || 0) * p.quantity, 0);
+  const handleToggleStatus = async (partId: string, currentStatus: "fitted" | "to_order") => {
+    const newStatus = currentStatus === "fitted" ? "to_order" : "fitted";
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      fetchParts();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update status";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const fittedParts = parts.filter(p => (p.status || "fitted") === "fitted");
+  const toOrderParts = parts.filter(p => (p.status || "fitted") === "to_order");
+  const partsSubtotal = fittedParts.reduce((sum, p) => sum + (Number(p.unit_price) || 0) * p.quantity, 0);
 
   return (
     <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
@@ -2122,6 +2147,25 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
               <Input value={partSerial} onChange={(e) => setPartSerial(e.target.value)} placeholder="Optional" />
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">Status:</span>
+            <div className="flex rounded-md overflow-hidden border border-border text-xs">
+              <button
+                type="button"
+                className={`px-3 py-1.5 font-medium transition-colors ${partStatus === "fitted" ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
+                onClick={() => setPartStatus("fitted")}
+              >
+                Fitted
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 font-medium border-l border-border transition-colors ${partStatus === "to_order" ? "bg-amber-400 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
+                onClick={() => setPartStatus("to_order")}
+              >
+                To Order
+              </button>
+            </div>
+          </div>
           <Button size="sm" onClick={handleAdd} disabled={submitting || !partName.trim()}>
             <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Part"}
           </Button>
@@ -2147,8 +2191,25 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
             </thead>
             <tbody>
               {parts.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="px-2 sm:px-4 py-2 break-words max-w-[120px] sm:max-w-none">{p.part_name}</td>
+                <tr key={p.id} className={`border-b last:border-0 ${(p.status || "fitted") === "to_order" ? "opacity-75" : ""}`}>
+                  <td className="px-2 sm:px-4 py-2 break-words max-w-[120px] sm:max-w-none">
+                    <div className="space-y-0.5">
+                      <span>{p.part_name}</span>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(p.id, (p.status || "fitted") as "fitted" | "to_order")}
+                          className={`text-xs px-1.5 py-0.5 rounded font-medium transition-colors ${
+                            (p.status || "fitted") === "fitted"
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                          }`}
+                        >
+                          {(p.status || "fitted") === "fitted" ? "✓ Fitted" : "⏳ To Order"}
+                        </button>
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-2 sm:px-4 py-2">
                     {editingQtyId === p.id ? (
                       <div className="flex items-center gap-1">
@@ -2223,13 +2284,22 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
                 </tr>
               ))}
             </tbody>
-            {partsSubtotal > 0 && (
+            {(partsSubtotal > 0 || toOrderParts.length > 0) && (
               <tfoot className="bg-slate-50 border-t">
-                <tr>
-                  <td colSpan={3} className="px-2 sm:px-4 py-2 font-semibold text-right">Parts Subtotal</td>
-                  <td className="px-2 sm:px-4 py-2 font-bold text-right">{partsSubtotal.toFixed(2)}</td>
-                  <td colSpan={2}></td>
-                </tr>
+                {partsSubtotal > 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-2 sm:px-4 py-2 font-semibold text-right">Parts Subtotal</td>
+                    <td className="px-2 sm:px-4 py-2 font-bold text-right">{partsSubtotal.toFixed(2)}</td>
+                    <td colSpan={2}></td>
+                  </tr>
+                )}
+                {toOrderParts.length > 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-2 sm:px-4 py-1.5 text-xs text-amber-600">
+                      {toOrderParts.length} part{toOrderParts.length > 1 ? "s" : ""} to order — not included in subtotal
+                    </td>
+                  </tr>
+                )}
               </tfoot>
             )}
           </table>
