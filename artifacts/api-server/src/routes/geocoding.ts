@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
-import { hasActiveAddon, hasUserAddon } from "../lib/tenant-limits";
+import { hasActiveAddon, hasUserAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -43,6 +43,18 @@ router.post("/postcode-lookup", requireAuth, requireTenant, async (req: Authenti
     }
   }
 
+  // Credit check
+  const creditInfo = await getAddonCredits(req.tenantId!, "uk_address_lookup");
+  if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
+    res.status(402).json({
+      error: "No Address Lookup credits remaining. Purchase more credits on the Billing page.",
+      credits_remaining: 0,
+      bundle_size: creditInfo.bundle_size,
+      bundle_price: creditInfo.bundle_price,
+    });
+    return;
+  }
+
   try {
     const apiKey = await getIdealPostcodesKey();
     if (!apiKey) {
@@ -69,6 +81,9 @@ router.post("/postcode-lookup", requireAuth, requireTenant, async (req: Authenti
     }));
 
     res.json({ addresses: results });
+
+    // Deduct one credit after successful response
+    await deductAddonCredit(req.tenantId!, "uk_address_lookup");
   } catch (err) {
     console.error("Postcode lookup error:", err);
     res.status(500).json({ error: "Postcode lookup failed" });

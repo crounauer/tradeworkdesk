@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import { requireStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
-import { getCurrentUserCount } from "../lib/tenant-limits";
+import { getCurrentUserCount, topUpAddonCredits } from "../lib/tenant-limits";
 
 const router = Router();
 
@@ -221,6 +221,108 @@ router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin
   });
 
   res.json({ success: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Usage credit management
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/billing/credits
+ * Returns credit balances for all usage-based addons this tenant has access to.
+ */
+router.get("/billing/credits", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: usageAddons } = await supabaseAdmin
+    .from("addons")
+    .select("id, name, description, feature_keys, usage_unit_label, usage_bundle_size, usage_bundle_price")
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .order("sort_order");
+
+  if (!usageAddons || usageAddons.length === 0) { res.json([]); return; }
+
+  const addonIds = (usageAddons as { id: string }[]).map(a => a.id);
+
+  const { data: credits } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("addon_id, credits_remaining, total_purchased, updated_at")
+    .eq("tenant_id", req.tenantId!)
+    .in("addon_id", addonIds);
+
+  const creditMap = new Map<string, { credits_remaining: number; total_purchased: number; updated_at: string }>();
+  for (const c of (credits ?? []) as { addon_id: string; credits_remaining: number; total_purchased: number; updated_at: string }[]) {
+    creditMap.set(c.addon_id, c);
+  }
+
+  const result = (usageAddons as Record<string, unknown>[]).map(a => ({
+    ...a,
+    credits_remaining: creditMap.get(a.id as string)?.credits_remaining ?? 0,
+    total_purchased: creditMap.get(a.id as string)?.total_purchased ?? 0,
+    last_topped_up: creditMap.get(a.id as string)?.updated_at ?? null,
+  }));
+
+  res.json(result);
+});
+
+/**
+ * POST /api/billing/credits/:addonId/buy
+ * Body: { bundles: number }  — number of bundles to purchase
+ * Deducts via Stripe if active subscription; always updates credit balance.
+ */
+router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { addonId } = req.params;
+  const bundles = Math.max(1, Math.floor(Number(req.body.bundles) || 1));
+
+  const { data: addonRaw } = await supabaseAdmin
+    .from("addons")
+    .select("id, name, billing_model, usage_bundle_size, usage_bundle_price, stripe_price_id")
+    .eq("id", addonId)
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!addonRaw) { res.status(404).json({ error: "Usage-based addon not found" }); return; }
+  const addon = addonRaw as { id: string; name: string; usage_bundle_size: number | null; usage_bundle_price: number | null; stripe_price_id: string | null };
+
+  const bundlePrice = addon.usage_bundle_price ?? 10;
+  const totalCharge = bundlePrice * bundles;
+
+  // Stripe: charge if tenant has active subscription and addon has a price ID
+  const stripeClient = requireStripe(false);
+  if (stripeClient && addon.stripe_price_id && totalCharge > 0) {
+    const { data: tenantRaw } = await supabaseAdmin
+      .from("tenants")
+      .select("stripe_customer_id, stripe_subscription_id")
+      .eq("id", req.tenantId!)
+      .single();
+    const tenant = tenantRaw as { stripe_customer_id: string | null; stripe_subscription_id: string | null } | null;
+
+    if (tenant?.stripe_customer_id && tenant?.stripe_subscription_id) {
+      try {
+        // Create an invoice item so the charge appears on their next invoice
+        await stripeClient.invoiceItems.create({
+          customer: tenant.stripe_customer_id,
+          amount: Math.round(totalCharge * 100), // pence
+          currency: "gbp",
+          description: `${addon.name} — ${bundles} × ${addon.usage_bundle_size ?? 1000} credits`,
+        });
+        // Immediately finalise via a one-off invoice
+        const invoice = await stripeClient.invoices.create({
+          customer: tenant.stripe_customer_id,
+          auto_advance: true,
+        });
+        await stripeClient.invoices.finalizeInvoice(invoice.id);
+        await stripeClient.invoices.pay(invoice.id);
+      } catch (stripeErr) {
+        console.error("[billing/credits/buy] Stripe error:", stripeErr);
+        res.status(402).json({ error: "Payment failed. Please check your payment method." });
+        return;
+      }
+    }
+  }
+
+  const result = await topUpAddonCredits(req.tenantId!, addonId, bundles);
+  res.json({ ok: true, ...result, bundles_purchased: bundles, total_charged: totalCharge });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

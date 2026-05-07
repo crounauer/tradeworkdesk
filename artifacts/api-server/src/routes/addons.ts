@@ -38,7 +38,7 @@ router.get("/platform/addons/public", async (_req, res): Promise<void> => {
 });
 
 router.post("/platform/addons", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, description, feature_keys, monthly_price, annual_price, stripe_price_id, stripe_price_id_annual, is_active, is_per_seat, sort_order } = req.body;
+  const { name, description, feature_keys, monthly_price, annual_price, stripe_price_id, stripe_price_id_annual, is_active, is_per_seat, sort_order, billing_model, usage_unit_label, usage_bundle_size, usage_bundle_price } = req.body;
   if (!name) { res.status(400).json({ error: "Add-on name is required" }); return; }
 
   const { count } = await supabaseAdmin.from("addons").select("id", { count: "exact", head: true });
@@ -54,6 +54,10 @@ router.post("/platform/addons", requireAuth, requireSuperAdmin, async (req: Auth
     is_active: is_active !== false,
     is_per_seat: is_per_seat === true,
     sort_order: sort_order ?? ((count || 0) + 1),
+    billing_model: billing_model || "monthly",
+    usage_unit_label: usage_unit_label || null,
+    usage_bundle_size: usage_bundle_size ? Number(usage_bundle_size) : null,
+    usage_bundle_price: usage_bundle_price ? Number(usage_bundle_price) : null,
   }).select().single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
@@ -72,7 +76,7 @@ router.post("/platform/addons", requireAuth, requireSuperAdmin, async (req: Auth
 
 router.patch("/platform/addons/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const allowed = ["name", "description", "feature_keys", "monthly_price", "annual_price", "stripe_price_id", "stripe_price_id_annual", "is_active", "is_per_seat", "sort_order"];
+  const allowed = ["name", "description", "feature_keys", "monthly_price", "annual_price", "stripe_price_id", "stripe_price_id_annual", "is_active", "is_per_seat", "sort_order", "billing_model", "usage_unit_label", "usage_bundle_size", "usage_bundle_price"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];

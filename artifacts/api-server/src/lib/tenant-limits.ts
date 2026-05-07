@@ -165,3 +165,113 @@ export async function getJobsThisMonth(tenantId: string): Promise<number> {
     .gte("created_at", startOfMonthUTC);
   return count || 0;
 }
+
+// ─── Usage-credit helpers ────────────────────────────────────────────────────
+
+/**
+ * Get remaining credits for a tenant/addon (by feature key).
+ * Returns null if the addon is not usage-based or no credits row exists yet.
+ */
+export async function getAddonCredits(tenantId: string, featureKey: string): Promise<{ credits_remaining: number; addon_id: string; bundle_size: number; bundle_price: number } | null> {
+  const { data: addon } = await supabaseAdmin
+    .from("addons")
+    .select("id, billing_model, usage_bundle_size, usage_bundle_price, feature_keys")
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .contains("feature_keys", [featureKey])
+    .maybeSingle();
+
+  if (!addon) return null;
+  const a = addon as { id: string; billing_model: string; usage_bundle_size: number | null; usage_bundle_price: number | null };
+
+  const { data: credits } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("credits_remaining")
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", a.id)
+    .maybeSingle();
+
+  return {
+    addon_id: a.id,
+    credits_remaining: (credits as { credits_remaining: number } | null)?.credits_remaining ?? 0,
+    bundle_size: a.usage_bundle_size ?? 1000,
+    bundle_price: a.usage_bundle_price ?? 10,
+  };
+}
+
+/**
+ * Deduct one credit for a tenant/addon (by feature key).
+ * Returns false if credits are exhausted (caller should block the action).
+ * Upserts the row if it doesn't exist yet (so first-time use creates it at 0 and blocks).
+ */
+export async function deductAddonCredit(tenantId: string, featureKey: string): Promise<boolean> {
+  // Find the addon
+  const { data: addon } = await supabaseAdmin
+    .from("addons")
+    .select("id")
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .contains("feature_keys", [featureKey])
+    .maybeSingle();
+
+  if (!addon) return true; // addon not usage-based, no credit needed
+
+  const addonId = (addon as { id: string }).id;
+
+  // Get current credits
+  const { data: existing } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("id, credits_remaining")
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  const row = existing as { id: string; credits_remaining: number } | null;
+  if (!row || row.credits_remaining <= 0) return false; // no credits
+
+  // Decrement atomically
+  await supabaseAdmin
+    .from("tenant_addon_credits")
+    .update({ credits_remaining: row.credits_remaining - 1, updated_at: new Date().toISOString() } as Record<string, unknown>)
+    .eq("id", row.id);
+
+  return true;
+}
+
+/**
+ * Add N credit bundles for a tenant/addon.
+ */
+export async function topUpAddonCredits(tenantId: string, addonId: string, bundles: number): Promise<{ credits_remaining: number; total_purchased: number }> {
+  const { data: addon } = await supabaseAdmin
+    .from("addons")
+    .select("usage_bundle_size")
+    .eq("id", addonId)
+    .single();
+
+  const bundleSize = (addon as { usage_bundle_size: number | null } | null)?.usage_bundle_size ?? 1000;
+  const creditsToAdd = bundleSize * bundles;
+
+  const { data: existing } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("id, credits_remaining, total_purchased")
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  const row = existing as { id: string; credits_remaining: number; total_purchased: number } | null;
+
+  if (row) {
+    const newRemaining = row.credits_remaining + creditsToAdd;
+    const newTotal = row.total_purchased + creditsToAdd;
+    await supabaseAdmin
+      .from("tenant_addon_credits")
+      .update({ credits_remaining: newRemaining, total_purchased: newTotal, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", row.id);
+    return { credits_remaining: newRemaining, total_purchased: newTotal };
+  } else {
+    await supabaseAdmin
+      .from("tenant_addon_credits")
+      .insert({ tenant_id: tenantId, addon_id: addonId, credits_remaining: creditsToAdd, total_purchased: creditsToAdd } as Record<string, unknown>);
+    return { credits_remaining: creditsToAdd, total_purchased: creditsToAdd };
+  }
+}

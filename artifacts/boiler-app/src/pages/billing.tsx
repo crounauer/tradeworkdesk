@@ -1,14 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, Loader2,
-  Calendar, Users, Package,
+  Calendar, Users, Package, Zap, ShoppingCart,
 } from "lucide-react";
 import { useInitData } from "@/hooks/use-init-data";
 
@@ -40,6 +41,19 @@ interface BillingAddon {
   is_per_seat: boolean;
   subscribed: boolean;
   quantity: number;
+}
+
+interface BillingCreditsRow {
+  id: string;
+  name: string;
+  description: string | null;
+  feature_keys: string[];
+  usage_unit_label: string | null;
+  usage_bundle_size: number | null;
+  usage_bundle_price: number | null;
+  credits_remaining: number;
+  total_purchased: number;
+  last_topped_up: string | null;
 }
 
 const BRAND_LABEL: Record<string, string> = {
@@ -76,6 +90,9 @@ export default function Billing() {
   const usageLimits = initData?.usageLimits;
   const currentUsers = usageLimits?.currentUsers ?? 1;
 
+  // Per-addon bundle purchase quantity state
+  const [bundleCounts, setBundleCounts] = useState<Record<string, number>>({});
+
   const { data: tenantInfo, isLoading: tenantLoading } = useQuery<TenantInfo | null>({
     queryKey: ["tenant-info"],
     queryFn: async () => {
@@ -103,6 +120,33 @@ export default function Billing() {
       return res.json();
     },
     enabled: isAdmin,
+  });
+
+  const { data: creditsData } = useQuery<BillingCreditsRow[]>({
+    queryKey: ["billing-credits"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/credits");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const buyCredits = useMutation({
+    mutationFn: async ({ addonId, bundles }: { addonId: string; bundles: number }) => {
+      const res = await fetch(`/api/billing/credits/${addonId}/buy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bundles }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Purchase failed"); }
+      return res.json();
+    },
+    onSuccess: (data: { credits_remaining: number; bundles_purchased: number; total_charged: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
+      toast({ title: `Credits purchased — ${data.credits_remaining.toLocaleString()} remaining` });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const subscribeMutation = useMutation({
@@ -401,9 +445,10 @@ export default function Billing() {
                         <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{addon.description}</p>
                       )}
                       <p className="text-xs text-slate-500 mt-1">
-                        £{Number(addon.monthly_price).toFixed(2)}/month
-                        {addon.is_per_seat && " · per assigned user"}
-                        {addon.annual_price > 0 && ` · £${Number(addon.annual_price).toFixed(2)}/year`}
+                        {(addon as BillingAddon & { billing_model?: string }).billing_model === "usage"
+                          ? `Credit bundle pricing — see Credits section below`
+                          : `£${Number(addon.monthly_price).toFixed(2)}/month${addon.is_per_seat ? " · per assigned user" : ""}${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`
+                        }
                       </p>
                     </div>
                     <Switch
@@ -414,6 +459,78 @@ export default function Billing() {
                         else unsubscribeMutation.mutate(addon.id);
                       }}
                     />
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {/* Usage credits */}
+      {isAdmin && creditsData && creditsData.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-500" />
+              Usage Credits
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Some add-ons are billed by usage. Purchase credit bundles as you need them.
+            </p>
+            <div className="divide-y divide-border">
+              {creditsData.map(credit => {
+                const bundles = bundleCounts[credit.id] ?? 1;
+                const bundleSize = credit.usage_bundle_size ?? 1000;
+                const bundlePrice = credit.usage_bundle_price ?? 10;
+                const unitLabel = credit.usage_unit_label || "units";
+                const isLow = credit.credits_remaining < bundleSize * 0.1;
+                return (
+                  <div key={credit.id} className="py-4 first:pt-0 last:pb-0 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-sm">{credit.name}</p>
+                        {credit.description && <p className="text-xs text-muted-foreground mt-0.5">{credit.description}</p>}
+                        <p className="text-xs text-slate-500 mt-1">£{bundlePrice.toFixed(2)} per {bundleSize.toLocaleString()} {unitLabel}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-lg font-bold ${isLow ? "text-orange-600" : "text-slate-800"}`}>
+                          {credit.credits_remaining.toLocaleString()}
+                        </span>
+                        <p className="text-xs text-muted-foreground">{unitLabel} remaining</p>
+                        {isLow && credit.credits_remaining > 0 && (
+                          <p className="text-xs text-orange-600 font-medium mt-0.5">Running low</p>
+                        )}
+                        {credit.credits_remaining === 0 && (
+                          <p className="text-xs text-red-600 font-medium mt-0.5">No credits left</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground whitespace-nowrap">Bundles to buy:</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        className="w-20 h-7 text-sm"
+                        value={bundles}
+                        onChange={(e) => setBundleCounts(prev => ({ ...prev, [credit.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        = {(bundles * bundleSize).toLocaleString()} {unitLabel} for £{(bundles * bundlePrice).toFixed(2)}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-auto gap-1.5"
+                        disabled={buyCredits.isPending}
+                        onClick={() => buyCredits.mutate({ addonId: credit.id, bundles })}
+                      >
+                        {buyCredits.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
+                        Buy credits
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

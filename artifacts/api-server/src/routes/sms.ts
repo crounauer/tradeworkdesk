@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
-import { hasActiveAddon, hasUserAddon } from "../lib/tenant-limits";
+import { hasActiveAddon, hasUserAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
 import { supabaseAdmin } from "../lib/supabase";
 
 const router: IRouter = Router();
@@ -78,6 +78,18 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     }
   }
 
+  // Credit check
+  const creditInfo = await getAddonCredits(req.tenantId!, "sms_messaging");
+  if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
+    res.status(402).json({
+      error: "No SMS credits remaining. Purchase more credits on the Billing page.",
+      credits_remaining: 0,
+      bundle_size: creditInfo.bundle_size,
+      bundle_price: creditInfo.bundle_price,
+    });
+    return;
+  }
+
   const creds = await getSmsWorksCredentials();
   if (!creds) {
     res.status(503).json({ error: "SMS not configured. Contact platform support." });
@@ -147,6 +159,9 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     res.status(502).json({ error: sendError ?? "Send failed", record });
     return;
   }
+
+  // Deduct one credit on success
+  await deductAddonCredit(req.tenantId!, "sms_messaging");
 
   res.json({ ok: true, message_id: messageId, record });
 });

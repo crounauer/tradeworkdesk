@@ -16,6 +16,10 @@ interface Addon {
   feature_keys: string[];
   monthly_price: number;
   annual_price: number;
+  billing_model: "monthly" | "usage";
+  usage_unit_label: string | null;
+  usage_bundle_size: number | null;
+  usage_bundle_price: number | null;
   stripe_price_id: string | null;
   stripe_price_id_annual: string | null;
   is_active: boolean;
@@ -26,8 +30,12 @@ interface AddonFormState {
   name: string;
   description: string;
   feature_keys: string;
+  billing_model: "monthly" | "usage";
   monthly_price: number | string;
   annual_price: number | string;
+  usage_unit_label: string;
+  usage_bundle_size: number | string;
+  usage_bundle_price: number | string;
   stripe_price_id: string;
   stripe_price_id_annual: string;
   is_active: boolean;
@@ -61,8 +69,12 @@ const EMPTY_FORM: AddonFormState = {
   name: "",
   description: "",
   feature_keys: "",
+  billing_model: "monthly",
   monthly_price: "",
   annual_price: "",
+  usage_unit_label: "",
+  usage_bundle_size: "",
+  usage_bundle_price: "",
   stripe_price_id: "",
   stripe_price_id_annual: "",
   is_active: true,
@@ -141,8 +153,12 @@ export default function PlatformAddons() {
     name: f.name,
     description: f.description || null,
     feature_keys: f.feature_keys.split(",").map(s => s.trim()).filter(Boolean),
-    monthly_price: Number(f.monthly_price) || 0,
-    annual_price: Number(f.annual_price) || 0,
+    billing_model: f.billing_model,
+    monthly_price: f.billing_model === "monthly" ? Number(f.monthly_price) || 0 : 0,
+    annual_price: f.billing_model === "monthly" ? Number(f.annual_price) || 0 : 0,
+    usage_unit_label: f.billing_model === "usage" ? f.usage_unit_label || null : null,
+    usage_bundle_size: f.billing_model === "usage" ? Number(f.usage_bundle_size) || null : null,
+    usage_bundle_price: f.billing_model === "usage" ? Number(f.usage_bundle_price) || null : null,
     stripe_price_id: f.stripe_price_id || null,
     stripe_price_id_annual: f.stripe_price_id_annual || null,
     is_active: f.is_active,
@@ -213,8 +229,12 @@ export default function PlatformAddons() {
       name: addon.name,
       description: addon.description || "",
       feature_keys: (addon.feature_keys || []).join(", "),
+      billing_model: addon.billing_model ?? "monthly",
       monthly_price: addon.monthly_price,
       annual_price: addon.annual_price,
+      usage_unit_label: addon.usage_unit_label || "",
+      usage_bundle_size: addon.usage_bundle_size ?? "",
+      usage_bundle_price: addon.usage_bundle_price ?? "",
       stripe_price_id: addon.stripe_price_id || "",
       stripe_price_id_annual: addon.stripe_price_id_annual || "",
       is_active: addon.is_active,
@@ -289,28 +309,67 @@ export default function PlatformAddons() {
           <p className="text-xs text-muted-foreground">Click to toggle, or type custom keys below. These control which features are unlocked.</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Monthly Price (£)</Label>
-            <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Annual Price (£)</Label>
-            <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Sort Order</Label>
-            <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-          </div>
-          <div className="flex items-center gap-2 pt-5">
-            <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
-            <Label className="text-xs">Active</Label>
-          </div>
-          <div className="flex items-center gap-2 pt-5">
-            <Switch checked={form.is_per_seat} onCheckedChange={(v) => setForm({ ...form, is_per_seat: v })} />
-            <Label className="text-xs">Per-seat pricing</Label>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold">Billing Model</Label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="billing_model" value="monthly" checked={form.billing_model === "monthly"} onChange={() => setForm({ ...form, billing_model: "monthly" })} />
+              Monthly / Annual flat rate
+            </label>
+            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="radio" name="billing_model" value="usage" checked={form.billing_model === "usage"} onChange={() => setForm({ ...form, billing_model: "usage" })} />
+              Usage / credit bundles
+            </label>
           </div>
         </div>
+
+        {form.billing_model === "monthly" ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Monthly Price (£)</Label>
+              <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Annual Price (£)</Label>
+              <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Sort Order</Label>
+              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+            </div>
+            <div className="flex items-center gap-2 pt-5">
+              <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+              <Label className="text-xs">Active</Label>
+            </div>
+            <div className="flex items-center gap-2 pt-5">
+              <Switch checked={form.is_per_seat} onCheckedChange={(v) => setForm({ ...form, is_per_seat: v })} />
+              <Label className="text-xs">Per-seat pricing</Label>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Bundle Size (units)</Label>
+              <Input type="number" min={1} value={form.usage_bundle_size} onChange={(e) => setForm({ ...form, usage_bundle_size: e.target.value })} placeholder="1000" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Bundle Price (£)</Label>
+              <Input type="number" step="0.01" value={form.usage_bundle_price} onChange={(e) => setForm({ ...form, usage_bundle_price: e.target.value })} placeholder="10.00" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label className="text-xs">Unit Label</Label>
+              <Input value={form.usage_unit_label} onChange={(e) => setForm({ ...form, usage_unit_label: e.target.value })} placeholder="e.g. SMS messages, lookups" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Sort Order</Label>
+              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+            </div>
+            <div className="flex items-center gap-2 pt-5">
+              <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+              <Label className="text-xs">Active</Label>
+            </div>
+          </div>
+        )}
 
         <div className="border-t pt-3 space-y-2">
           <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
@@ -359,7 +418,7 @@ export default function PlatformAddons() {
 
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [planForm, setPlanForm] = useState({
-    name: "", description: "", monthly_price: "", annual_price: "", max_users: "", max_jobs_per_month: "",
+    name: "", description: "", monthly_price: "", annual_price: "", max_users: "",
     stripe_price_id: "", stripe_price_id_annual: "",
   });
 
@@ -374,7 +433,7 @@ export default function PlatformAddons() {
           monthly_price: Number(planForm.monthly_price) || 0,
           annual_price: Number(planForm.annual_price) || 0,
           max_users: Number(planForm.max_users) || 1,
-          max_jobs_per_month: Number(planForm.max_jobs_per_month) || 5,
+          max_jobs_per_month: 9999,
           stripe_price_id: planForm.stripe_price_id || null,
           stripe_price_id_annual: planForm.stripe_price_id_annual || null,
         }),
@@ -397,7 +456,6 @@ export default function PlatformAddons() {
       monthly_price: String(plan.monthly_price ?? ""),
       annual_price: String(plan.annual_price ?? ""),
       max_users: String(plan.max_users ?? ""),
-      max_jobs_per_month: String(plan.max_jobs_per_month ?? ""),
       stripe_price_id: String(plan.stripe_price_id || ""),
       stripe_price_id_annual: String(plan.stripe_price_id_annual || ""),
     });
@@ -445,10 +503,6 @@ export default function PlatformAddons() {
                   <Label className="text-xs">Max Users</Label>
                   <Input type="number" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Max Jobs/Month</Label>
-                  <Input type="number" value={planForm.max_jobs_per_month} onChange={e => setPlanForm({ ...planForm, max_jobs_per_month: e.target.value })} />
-                </div>
               </div>
               {String(plan.id) !== FREE_PLAN_ID && (
                 <div className="grid grid-cols-2 gap-3">
@@ -485,9 +539,6 @@ export default function PlatformAddons() {
               <div>
                 <span className="text-muted-foreground">Users:</span> <span className="font-medium">{String(plan.max_users)}</span>
               </div>
-              <div>
-                <span className="text-muted-foreground">Jobs/mo:</span> <span className="font-medium">{String(plan.max_jobs_per_month)}</span>
-              </div>
               {plan.stripe_price_id && (
                 <Badge variant="secondary" className="text-xs">Stripe configured</Badge>
               )}
@@ -505,8 +556,7 @@ export default function PlatformAddons() {
         <p className="text-muted-foreground">Manage base plan pricing and selectable add-on packages</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {renderPlanCard(freePlan, "Free Plan", <Package className="w-4 h-4 text-slate-500" />, "border-slate-200")}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {renderPlanCard(basePlan, "Base Plan", <Settings className="w-4 h-4 text-primary" />, "border-primary/30")}
         <Card className="border-amber-200">
           <CardHeader className="pb-2">
@@ -608,14 +658,23 @@ export default function PlatformAddons() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Monthly</span>
-                    <span className="font-bold">&pound;{Number(addon.monthly_price).toFixed(2)}/mo</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Annual</span>
-                    <span className="font-bold">&pound;{Number(addon.annual_price).toFixed(2)}/yr</span>
-                  </div>
+                  {addon.billing_model === "usage" ? (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Credits</span>
+                      <span className="font-bold">&pound;{Number(addon.usage_bundle_price ?? 10).toFixed(2)} / {(addon.usage_bundle_size ?? 1000).toLocaleString()} {addon.usage_unit_label || "units"}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monthly</span>
+                        <span className="font-bold">&pound;{Number(addon.monthly_price).toFixed(2)}/mo</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Annual</span>
+                        <span className="font-bold">&pound;{Number(addon.annual_price).toFixed(2)}/yr</span>
+                      </div>
+                    </>
+                  )}
                   <div className="pt-2 space-y-1">
                     <p className="text-xs font-medium text-muted-foreground">Feature Keys</p>
                     <div className="flex flex-wrap gap-1">
