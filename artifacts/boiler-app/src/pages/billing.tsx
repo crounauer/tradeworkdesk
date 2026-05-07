@@ -152,8 +152,16 @@ export default function Billing() {
   const subscribeMutation = useMutation({
     mutationFn: async (addonId: string) => {
       const res = await fetch(`/api/billing/addons/${addonId}/subscribe`, { method: "POST" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to subscribe"); }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Subscribe failed (${res.status})`); }
       return res.json();
+    },
+    onMutate: async (addonId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["billing-addons"] });
+      const previous = queryClient.getQueryData<BillingAddon[]>(["billing-addons"]);
+      queryClient.setQueryData<BillingAddon[]>(["billing-addons"], (old) =>
+        old ? old.map(a => a.id === addonId ? { ...a, subscribed: true } : a) : old
+      );
+      return { previous };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
@@ -161,14 +169,25 @@ export default function Billing() {
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on activated" });
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error, _addonId, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["billing-addons"], ctx.previous);
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   const unsubscribeMutation = useMutation({
     mutationFn: async (addonId: string) => {
       const res = await fetch(`/api/billing/addons/${addonId}/subscribe`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to unsubscribe"); }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Unsubscribe failed (${res.status})`); }
       return res.json();
+    },
+    onMutate: async (addonId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["billing-addons"] });
+      const previous = queryClient.getQueryData<BillingAddon[]>(["billing-addons"]);
+      queryClient.setQueryData<BillingAddon[]>(["billing-addons"], (old) =>
+        old ? old.map(a => a.id === addonId ? { ...a, subscribed: false } : a) : old
+      );
+      return { previous };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
@@ -176,7 +195,10 @@ export default function Billing() {
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on deactivated" });
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error, _addonId, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(["billing-addons"], ctx.previous);
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   const manageBillingMutation = useMutation({

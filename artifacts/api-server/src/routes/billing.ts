@@ -3,6 +3,7 @@ import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } fr
 import { requireStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
 import { getCurrentUserCount, topUpAddonCredits } from "../lib/tenant-limits";
+import { bustInitCache } from "./platform";
 
 const router = Router();
 
@@ -404,6 +405,9 @@ router.post("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, re
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  // Bust init cache so features activate immediately
+  if (req.tenantId) bustInitCache(req.tenantId);
+
   // Stripe: add subscription item if tenant has an active subscription and addon has a price ID
   const stripeClient = requireStripe(false);
   const addonRow = addon as { stripe_price_id: string | null };
@@ -463,6 +467,9 @@ router.delete("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, 
     .eq("addon_id", addonId);
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Bust init cache so features deactivate immediately
+  if (req.tenantId) bustInitCache(req.tenantId);
 
   // Stripe: remove subscription item
   if (row.stripe_subscription_item_id) {
