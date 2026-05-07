@@ -85,7 +85,7 @@ export default function Billing() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const { data: initData } = useInitData();
   const usageLimits = initData?.usageLimits;
   const currentUsers = usageLimits?.currentUsers ?? 1;
@@ -157,6 +157,7 @@ export default function Billing() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+      queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on activated" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -170,6 +171,7 @@ export default function Billing() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+      queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on deactivated" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -445,10 +447,7 @@ export default function Billing() {
                         <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{addon.description}</p>
                       )}
                       <p className="text-xs text-slate-500 mt-1">
-                        {(addon as BillingAddon & { billing_model?: string }).billing_model === "usage"
-                          ? `Credit bundle pricing — see Credits section below`
-                          : `£${Number(addon.monthly_price).toFixed(2)}/month${addon.is_per_seat ? " · per assigned user" : ""}${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`
-                        }
+                        {`£${Number(addon.monthly_price).toFixed(2)}/month${addon.is_per_seat ? " · per assigned user" : ""}${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`}
                       </p>
                     </div>
                     <Switch

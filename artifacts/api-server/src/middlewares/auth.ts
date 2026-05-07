@@ -263,7 +263,7 @@ export function requireRole(...roles: string[]) {
     res: Response,
     next: NextFunction,
   ): void => {
-    if (!req.userRole || !roles.includes(req.userRole)) {
+    if (!req.userRole || (!roles.includes(req.userRole) && req.userRole !== "super_admin")) {
       res.status(403).json({ error: "Insufficient permissions" });
       return;
     }
