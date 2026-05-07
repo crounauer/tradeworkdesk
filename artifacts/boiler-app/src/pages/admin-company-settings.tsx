@@ -35,10 +35,42 @@ export default function AdminCompanySettings() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
+  const [doFieldWork, setDoFieldWork] = useState<boolean | null>(null);
+  const [savingFieldWork, setSavingFieldWork] = useState(false);
   const { companyType, isSoleTrader, isCompany, hasTeamManagement, activeUserCount, isLoading: companyTypeLoading, isError: companyTypeError } = useCompanyType();
   const upgradeToCompany = useUpgradeToCompany();
   const downgradeToSoleTrader = useDowngradeToSoleTrader();
   const isAdmin = profile?.role === "admin";
+
+  // Load admin's own can_be_assigned_jobs flag when in company mode
+  useEffect(() => {
+    if (!isCompany || !profile?.id || doFieldWork !== null) return;
+    customFetch(`${import.meta.env.BASE_URL}api/admin/users`)
+      .then((data) => {
+        const users = data as { id: string; can_be_assigned_jobs: boolean }[];
+        const me = users.find(u => u.id === profile.id);
+        if (me) setDoFieldWork(me.can_be_assigned_jobs);
+      })
+      .catch(() => {});
+  }, [isCompany, profile?.id, doFieldWork]);
+
+  const handleFieldWorkToggle = async (checked: boolean) => {
+    if (!profile?.id) return;
+    setSavingFieldWork(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/admin/users/${profile.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ can_be_assigned_jobs: checked }),
+      });
+      setDoFieldWork(checked);
+      toast({ title: checked ? "Field work enabled" : "Field work disabled", description: checked ? "You will now appear in the job assignment list." : "You will no longer appear in the job assignment list." });
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to update", variant: "destructive" });
+    } finally {
+      setSavingFieldWork(false);
+    }
+  };
 
   const { register, handleSubmit, reset, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -364,6 +396,18 @@ export default function AdminCompanySettings() {
 
             {isCompany && (
               <>
+                {/* I do field work toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">I also do field work</p>
+                    <p className="text-xs text-muted-foreground">Show your name in the job assignment list alongside your technicians.</p>
+                  </div>
+                  <Switch
+                    checked={doFieldWork ?? false}
+                    onCheckedChange={handleFieldWorkToggle}
+                    disabled={savingFieldWork || doFieldWork === null}
+                  />
+                </div>
                 {!showDowngradeConfirm ? (
                   <Button variant="outline" onClick={() => setShowDowngradeConfirm(true)} className="gap-2 text-muted-foreground">
                     <ArrowDownCircle className="w-4 h-4" />

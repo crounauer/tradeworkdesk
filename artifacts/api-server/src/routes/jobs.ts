@@ -312,15 +312,23 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   let autoAssignedTechnicianId = jobCoreData.assigned_technician_id;
   if (req.tenantId) {
-    // Auto-assign to the creator when there is only one active user on the account.
-    // This avoids needing explicit technician assignment for single-operator setups
-    // regardless of the legal business structure (sole_trader / company).
-    const { count } = await supabaseAdmin
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", req.tenantId)
-      .eq("is_active", true);
-    if ((count ?? 0) <= 1) {
+    // Auto-assign to the creator for sole traders (always) or when there is only
+    // one active user — avoids needing explicit technician assignment for
+    // single-operator setups regardless of how many seats they have.
+    const [{ count }, tenantRow] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", req.tenantId)
+        .eq("is_active", true),
+      supabaseAdmin
+        .from("tenants")
+        .select("company_type")
+        .eq("id", req.tenantId)
+        .single(),
+    ]);
+    const isSoleTrader = tenantRow.data?.company_type === "sole_trader";
+    if (isSoleTrader || (count ?? 0) <= 1) {
       autoAssignedTechnicianId = req.userId!;
     }
   }

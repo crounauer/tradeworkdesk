@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompanySettings } from "@/hooks/use-company-settings";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useAutoAssign } from "@/hooks/use-auto-assign";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,7 +98,7 @@ export default function JobDetail() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
-  const [, navigate] = useLocation();
+  const { isSoleTrader } = useAutoAssign();
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
@@ -469,10 +470,12 @@ export default function JobDetail() {
                     })()}
                   </p>
                 </div>
+                {!isSoleTrader && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><User className="w-4 h-4"/> Technician</p>
                   <p className="font-medium text-foreground">{job.technician?.full_name || 'Unassigned'}</p>
                 </div>
+                )}
                 {job.estimated_duration && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Estimated Duration</p>
