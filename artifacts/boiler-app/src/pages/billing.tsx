@@ -120,6 +120,7 @@ export default function Billing() {
       return res.json();
     },
     enabled: isAdmin,
+    staleTime: 30_000,
   });
 
   const { data: creditsData } = useQuery<BillingCreditsRow[]>({
@@ -163,8 +164,11 @@ export default function Billing() {
       );
       return { previous };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+    onSuccess: (_data, addonId) => {
+      // Confirm optimistic state — don't immediately refetch (races with DB commit)
+      queryClient.setQueryData<BillingAddon[]>(["billing-addons"], (old) =>
+        old ? old.map(a => a.id === addonId ? { ...a, subscribed: true } : a) : old
+      );
       queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on activated" });
@@ -189,8 +193,11 @@ export default function Billing() {
       );
       return { previous };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["billing-addons"] });
+    onSuccess: (_data, addonId) => {
+      // Confirm optimistic state — don't immediately refetch (races with DB commit)
+      queryClient.setQueryData<BillingAddon[]>(["billing-addons"], (old) =>
+        old ? old.map(a => a.id === addonId ? { ...a, subscribed: false } : a) : old
+      );
       queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
       queryClient.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Add-on deactivated" });

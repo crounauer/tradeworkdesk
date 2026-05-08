@@ -401,9 +401,17 @@ router.post("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, re
         activated_at: new Date().toISOString(),
       } as Record<string, unknown>,
       { onConflict: "tenant_id,addon_id" }
-    );
+    )
+    .select("id, is_active")
+    .single();
 
-  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (error) {
+    console.error("[billing/subscribe] upsert error:", error);
+    res.status(500).json({ error: error.message }); return;
+  }
+  if (!data || !(data as { is_active: boolean }).is_active) {
+    res.status(500).json({ error: "Failed to activate addon — please try again" }); return;
+  }
 
   // Bust init cache so features activate immediately
   if (req.tenantId) bustInitCache(req.tenantId);
