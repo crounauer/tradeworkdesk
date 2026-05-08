@@ -390,7 +390,7 @@ router.post("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, re
   if (!addon) { res.status(404).json({ error: "Addon not found or inactive" }); return; }
 
   // Upsert tenant_addon row
-  const { error } = await supabaseAdmin
+  const { error: upsertError } = await supabaseAdmin
     .from("tenant_addons")
     .upsert(
       {
@@ -401,16 +401,11 @@ router.post("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, re
         activated_at: new Date().toISOString(),
       } as Record<string, unknown>,
       { onConflict: "tenant_id,addon_id" }
-    )
-    .select("id, is_active")
-    .single();
+    );
 
-  if (error) {
-    console.error("[billing/subscribe] upsert error:", error);
-    res.status(500).json({ error: error.message }); return;
-  }
-  if (!data || !(data as { is_active: boolean }).is_active) {
-    res.status(500).json({ error: "Failed to activate addon — please try again" }); return;
+  if (upsertError) {
+    console.error("[billing/subscribe] upsert error:", upsertError);
+    res.status(500).json({ error: upsertError.message }); return;
   }
 
   // Bust init cache so features activate immediately
