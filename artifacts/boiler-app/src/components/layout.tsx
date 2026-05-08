@@ -100,7 +100,7 @@ export function Layout({ children }: { children: ReactNode }) {
       { href: "/admin/social", label: "Social Media", icon: Share2 },
     ] : []),
     ...(hasAddon("sms_messaging") ? [
-      { href: "/admin/sms-templates", label: "SMS Templates", icon: MessageSquare },
+      { href: "/admin/sms-templates", label: "SMS", icon: MessageSquare },
     ] : []),
   ];
 

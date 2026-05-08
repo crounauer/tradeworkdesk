@@ -48,12 +48,10 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
   useEffect(() => {
     (async () => {
       try {
-        const cs = await fetch(`${import.meta.env.BASE_URL}api/company-settings`, { credentials: "include" }).then(r => r.ok ? r.json() : null) as { company_name?: string } | null;
-        if (cs?.company_name) {
-          const name = cs.company_name.slice(0, 11);
-          setDefaultSender(name);
-          setSender(prev => prev === "" || prev === "TradeWork" ? name : prev);
-        }
+        const cs = await fetch(`${import.meta.env.BASE_URL}api/admin/company-settings`, { credentials: "include" }).then(r => r.ok ? r.json() : null) as { company_name?: string; sms_sender_name?: string } | null;
+        const resolved = cs?.sms_sender_name?.trim() || cs?.company_name?.slice(0, 11) || "TradeWork";
+        setDefaultSender(resolved);
+        setSender(prev => prev === "" || prev === "TradeWork" ? resolved : prev);
       } catch { /* ignore */ }
       try {
         const tmpl = await fetch(`${import.meta.env.BASE_URL}api/sms/templates`, { credentials: "include" }).then(r => r.ok ? r.json() : []) as SmsTemplate[];

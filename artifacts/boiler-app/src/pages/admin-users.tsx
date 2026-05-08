@@ -5,10 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Users, ShieldCheck, Wrench, UserCog, Package } from "lucide-react";
+import { Users, ShieldCheck, Wrench, UserCog, Package, UserPlus, Copy, Trash2, Clock } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useInitData } from "@/hooks/use-init-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type InviteCode = {
+  id: string;
+  code: string;
+  role: string;
+  expires_at: string | null;
+  used_at: string | null;
+  is_active: boolean;
+  note: string | null;
+  created_at: string;
+};
 
 type Profile = {
   id: string;
@@ -60,9 +72,45 @@ function AdminUsersContent() {
   const { data: initData } = useInitData();
   const usageLimits = initData?.usageLimits;
 
+  // Invite state
+  const [inviteRole, setInviteRole] = useState("technician");
+  const [showInviteSection, setShowInviteSection] = useState(false);
+
   const { data: users, isLoading } = useQuery<Profile[]>({
     queryKey: ["admin-users"],
     queryFn: () => fetch("/api/admin/users").then(r => r.json()),
+  });
+
+  const { data: inviteCodes } = useQuery<InviteCode[]>({
+    queryKey: ["admin-invite-codes"],
+    queryFn: () => fetch("/api/admin/invite-codes").then(r => r.json()),
+  });
+
+  const createInvite = useMutation({
+    mutationFn: async (role: string) => {
+      const res = await fetch("/api/admin/invite-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to create invite"); }
+      return res.json() as Promise<InviteCode>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-invite-codes"] });
+      const link = `${window.location.origin}/register?code=${data.code}`;
+      navigator.clipboard.writeText(link).catch(() => {});
+      toast({ title: "Invite link created & copied!", description: `Expires in 7 days. Role: ${data.role}` });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const revokeInvite = useMutation({
+    mutationFn: async (id: string) => {
+      await fetch(`/api/admin/invite-codes/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-invite-codes"] }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   // Available per-seat addons this tenant has active
@@ -149,6 +197,8 @@ function AdminUsersContent() {
 
   if (isLoading) return <div className="p-8">Loading users...</div>;
 
+  const pendingInvites = (inviteCodes ?? []).filter(c => c.is_active && !c.used_at && (!c.expires_at || new Date(c.expires_at) > new Date()));
+
   return (
     <div className="space-y-6 animate-in fade-in">
       <div className="flex items-end justify-between">
@@ -156,13 +206,96 @@ function AdminUsersContent() {
           <h1 className="text-3xl font-display font-bold">Team Members</h1>
           <p className="text-muted-foreground mt-1">Manage user accounts and roles</p>
         </div>
-        <Badge variant="outline" className="text-sm">
-          <Users className="w-4 h-4 mr-1.5" />
-          {usageLimits
-            ? `${usageLimits.currentUsers} of ${usageLimits.maxUsers} seats used`
-            : `${users?.length ?? 0} ${users?.length === 1 ? "member" : "members"}`}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-sm">
+            <Users className="w-4 h-4 mr-1.5" />
+            {usageLimits
+              ? `${usageLimits.currentUsers} of ${usageLimits.maxUsers} seats used`
+              : `${users?.length ?? 0} ${users?.length === 1 ? "member" : "members"}`}
+          </Badge>
+          <Button size="sm" onClick={() => setShowInviteSection(v => !v)}>
+            <UserPlus className="w-4 h-4 mr-1.5" />
+            Invite Team Member
+          </Button>
+        </div>
       </div>
+
+      {showInviteSection && (
+        <Card className="p-5 border-0 shadow-sm bg-blue-50/60 space-y-4">
+          <h2 className="font-semibold text-base">Invite a new team member</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">Role</label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger className="w-44 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="technician">Technician</SelectItem>
+                  <SelectItem value="office_staff">Office Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground invisible">Action</label>
+              <Button
+                onClick={() => createInvite.mutate(inviteRole)}
+                disabled={createInvite.isPending}
+              >
+                <Copy className="w-4 h-4 mr-1.5" />
+                Generate &amp; copy invite link
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            The link expires in 7 days. Share it with your new team member — they'll register and be automatically added to your account.
+          </p>
+
+          {pendingInvites.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending invites</p>
+              {pendingInvites.map(inv => (
+                <div key={inv.id} className="flex items-center justify-between gap-3 bg-background rounded-lg px-3 py-2.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-mono text-xs text-muted-foreground">{inv.code}</span>
+                    <Badge variant="outline" className="text-xs capitalize">{inv.role.replace("_", " ")}</Badge>
+                    {inv.expires_at && (
+                      <span className="text-xs text-muted-foreground">
+                        Expires {new Date(inv.expires_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => {
+                        const link = `${window.location.origin}/register?code=${inv.code}`;
+                        navigator.clipboard.writeText(link).catch(() => {});
+                        toast({ title: "Copied!", description: "Invite link copied to clipboard." });
+                      }}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => revokeInvite.mutate(inv.id)}
+                      disabled={revokeInvite.isPending}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card className="overflow-hidden border-0 shadow-sm">
         <div className="overflow-x-auto">

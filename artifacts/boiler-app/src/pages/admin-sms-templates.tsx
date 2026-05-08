@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, Pencil, Trash2, MessageSquare } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, MessageSquare, Save } from "lucide-react";
 
 interface SmsTemplate {
   id: string;
@@ -38,10 +38,38 @@ async function apiFetch(path: string, options?: RequestInit) {
 }
 
 const MAX_CHARS = 160;
+const MAX_SENDER = 11;
 
 export default function AdminSmsTemplates() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // ── Sender name ──────────────────────────────────────────────
+  const [senderName, setSenderName] = useState("");
+  const [senderDirty, setSenderDirty] = useState(false);
+
+  const { isLoading: senderLoading } = useQuery<{ sms_sender_name?: string }>({
+    queryKey: ["admin-company-settings"],
+    queryFn: () => apiFetch("api/admin/company-settings") as Promise<{ sms_sender_name?: string }>,
+    select: (data) => {
+      setSenderName(prev => senderDirty ? prev : (data?.sms_sender_name ?? ""));
+      return data;
+    },
+  });
+
+  const saveSenderMutation = useMutation({
+    mutationFn: (name: string) =>
+      apiFetch("api/admin/company-settings", {
+        method: "PUT",
+        body: JSON.stringify({ sms_sender_name: name.trim().slice(0, MAX_SENDER) }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-company-settings"] });
+      setSenderDirty(false);
+      toast({ title: "Sender name saved" });
+    },
+    onError: (err: Error) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
+  });
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<SmsTemplate | null>(null);
@@ -125,22 +153,67 @@ export default function AdminSmsTemplates() {
   const remaining = MAX_CHARS - content.length;
 
   return (
-    <div className="container max-w-3xl mx-auto py-8 px-4 space-y-6">
+    <div className="container max-w-3xl mx-auto py-8 px-4 space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <MessageSquare className="w-6 h-6 text-primary" />
-            SMS Templates
+            SMS
           </h1>
           <p className="text-muted-foreground mt-1">
-            Create reusable message templates for sending SMS to customers and jobs.
+            Configure your SMS sender name and manage reusable message templates.
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Template
-        </Button>
       </div>
+
+      {/* ── Sender name ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Sender Name</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Shown as the "From" name on recipients' phones. Maximum 11 characters — letters and numbers only (no spaces).
+          </p>
+          {senderLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 max-w-xs space-y-1">
+                <Input
+                  maxLength={MAX_SENDER}
+                  placeholder="e.g. TradeWork"
+                  value={senderName}
+                  onChange={e => { setSenderName(e.target.value); setSenderDirty(true); }}
+                />
+                <p className="text-xs text-muted-foreground text-right">{senderName.length}/{MAX_SENDER}</p>
+              </div>
+              <Button
+                onClick={() => saveSenderMutation.mutate(senderName)}
+                disabled={saveSenderMutation.isPending || !senderDirty || !senderName.trim()}
+              >
+                {saveSenderMutation.isPending
+                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  : <Save className="w-4 h-4 mr-2" />}
+                Save
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Templates ── */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Message Templates</h2>
+            <p className="text-sm text-muted-foreground">Reusable messages you can select when sending an SMS.</p>
+          </div>
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Template
+          </Button>
+        </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -185,6 +258,7 @@ export default function AdminSmsTemplates() {
           ))}
         </div>
       )}
+      </div>{/* end templates section */}
 
       {/* Create / Edit dialog */}
       <Dialog open={showDialog} onOpenChange={open => { if (!open) closeDialog(); }}>
