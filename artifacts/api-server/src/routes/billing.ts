@@ -457,14 +457,22 @@ router.post("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, re
 router.delete("/billing/addons/:addonId/subscribe", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { addonId } = req.params;
 
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: fetchError } = await supabaseAdmin
     .from("tenant_addons")
     .select("id, stripe_subscription_item_id")
     .eq("tenant_id", req.tenantId!)
     .eq("addon_id", addonId)
     .maybeSingle();
 
-  if (!existing) { res.status(404).json({ error: "Addon subscription not found" }); return; }
+  if (fetchError) {
+    console.error("[billing/addons/unsubscribe] fetch error:", fetchError);
+    res.status(500).json({ error: fetchError.message }); return;
+  }
+
+  // Idempotent: if no row exists the addon is already inactive — succeed silently
+  if (!existing) {
+    res.json({ success: true }); return;
+  }
 
   const row = existing as { id: string; stripe_subscription_item_id: string | null };
 
