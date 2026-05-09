@@ -220,6 +220,43 @@ export async function sendRenewalReminder(to: string, companyName: string, renew
   await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html);
 }
 
+export async function sendLowCreditsAlert(
+  to: string,
+  companyName: string,
+  addonName: string,
+  creditsRemaining: number,
+  bundleSize: number,
+  unitLabel: string,
+  billingUrl: string,
+): Promise<void> {
+  const isEmpty = creditsRemaining === 0;
+  const boxClass = isEmpty ? "danger-box" : "warning-box";
+  const heading = isEmpty
+    ? `You have no ${addonName} credits left`
+    : `Your ${addonName} credits are running low`;
+  const urgencyLine = isEmpty
+    ? `<strong>You have 0 ${unitLabel} remaining.</strong> This feature is now unavailable until you purchase more credits.`
+    : `<strong>You have ${creditsRemaining.toLocaleString()} ${unitLabel} remaining</strong> (less than 10% of a standard bundle of ${bundleSize.toLocaleString()}).`;
+
+  const html = baseHtml(heading, `
+    <h2>${heading}</h2>
+    <p>Hi ${escHtml(companyName)},</p>
+    <div class="${boxClass}">
+      <p>${urgencyLine}</p>
+    </div>
+    <p>Top up your credits on the Billing page to keep using this feature without interruption.</p>
+    <p style="margin-top:24px;">
+      <a href="${billingUrl}" class="btn">Top Up Credits</a>
+    </p>
+    <hr class="divider"/>
+    <p style="font-size:13px; color:#64748b;">Credits are purchased in bundles of ${bundleSize.toLocaleString()} ${unitLabel}. You can buy as many bundles as you need.</p>
+  `);
+  const subject = isEmpty
+    ? `TradeWorkDesk — ${addonName} credits exhausted`
+    : `TradeWorkDesk — ${addonName} credits running low`;
+  await send(to, subject, html);
+}
+
 function escHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }

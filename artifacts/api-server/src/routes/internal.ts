@@ -4,6 +4,7 @@ import { stripe } from "../lib/stripe";
 import {
   sendTrialExpiryReminder,
   sendRenewalReminder,
+  sendLowCreditsAlert,
 } from "../lib/email";
 
 const router = Router();
@@ -112,6 +113,97 @@ router.get("/internal/send-renewal-reminders", async (req: Request, res: Respons
       successCount++;
     } catch {
       results.push({ id: tenant.id, email: tenant.contact_email, sent: false });
+    }
+  }
+
+  res.json({ sent: successCount, results });
+});
+
+router.get("/internal/send-low-credits-alerts", async (req: Request, res: Response): Promise<void> => {
+  if (!requireCronSecret(req, res)) return;
+
+  // Fetch all usage-based addon credit rows that are below 10% of their bundle size
+  // and haven't had an alert sent since the last top-up (or ever).
+  const { data: rows, error } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select(`
+      id,
+      tenant_id,
+      addon_id,
+      credits_remaining,
+      total_purchased,
+      low_credits_alert_sent_at,
+      low_credits_alert_total_purchased,
+      addons ( name, usage_bundle_size, usage_unit_label, billing_model ),
+      tenants ( company_name, contact_email )
+    `)
+    .gt("credits_remaining", -1); // fetch all; filter in JS for flexibility
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  type Row = {
+    id: string;
+    tenant_id: string;
+    addon_id: string;
+    credits_remaining: number;
+    total_purchased: number;
+    low_credits_alert_sent_at: string | null;
+    low_credits_alert_total_purchased: number | null;
+    addons: { name: string; usage_bundle_size: number | null; usage_unit_label: string | null; billing_model: string } | null;
+    tenants: { company_name: string; contact_email: string | null } | null;
+  };
+
+  const results: Array<{ tenant: string; addon: string; credits: number; sent: boolean; reason?: string }> = [];
+  let successCount = 0;
+
+  for (const row of (rows || []) as Row[]) {
+    const addon = row.addons;
+    const tenant = row.tenants;
+
+    // Skip non-usage addons or rows with missing relations
+    if (!addon || addon.billing_model !== "usage" || !tenant?.contact_email) continue;
+
+    const bundleSize = addon.usage_bundle_size ?? 1000;
+    const threshold = Math.floor(bundleSize * 0.1);
+
+    // Only alert when below 10% of bundle
+    if (row.credits_remaining > threshold) continue;
+
+    // Don't re-alert unless the tenant has topped up since the last alert
+    const alreadyAlerted = row.low_credits_alert_sent_at !== null;
+    const toppedUpSinceAlert = row.total_purchased > (row.low_credits_alert_total_purchased ?? 0);
+    if (alreadyAlerted && !toppedUpSinceAlert) {
+      results.push({ tenant: tenant.company_name, addon: addon.name, credits: row.credits_remaining, sent: false, reason: "already alerted" });
+      continue;
+    }
+
+    try {
+      await sendLowCreditsAlert(
+        tenant.contact_email,
+        tenant.company_name,
+        addon.name,
+        row.credits_remaining,
+        bundleSize,
+        addon.usage_unit_label ?? "credits",
+        BILLING_URL,
+      );
+
+      // Record that we've sent the alert at this total_purchased level
+      await supabaseAdmin
+        .from("tenant_addon_credits")
+        .update({
+          low_credits_alert_sent_at: new Date().toISOString(),
+          low_credits_alert_total_purchased: row.total_purchased,
+        } as Record<string, unknown>)
+        .eq("id", row.id);
+
+      results.push({ tenant: tenant.company_name, addon: addon.name, credits: row.credits_remaining, sent: true });
+      successCount++;
+    } catch {
+      results.push({ tenant: tenant.company_name, addon: addon.name, credits: row.credits_remaining, sent: false, reason: "send failed" });
     }
   }
 
