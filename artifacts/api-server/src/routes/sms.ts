@@ -9,36 +9,13 @@ const router: IRouter = Router();
 // SMS Works helpers
 // ──────────────────────────────────────────────────────────────
 
-async function getSmsWorksCredentials(): Promise<{ customerId: string; apiKey: string } | null> {
+async function getSmsWorksJwt(): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from("platform_settings")
-    .select("key, value")
-    .in("key", ["sms_works_customer_id", "sms_works_api_key"]);
-
-  if (!data || data.length < 2) return null;
-
-  const map: Record<string, string> = {};
-  for (const row of data as { key: string; value: string }[]) {
-    map[row.key] = row.value;
-  }
-
-  if (!map["sms_works_customer_id"] || !map["sms_works_api_key"]) return null;
-  return { customerId: map["sms_works_customer_id"], apiKey: map["sms_works_api_key"] };
-}
-
-async function getSmsWorksJwt(customerId: string, apiKey: string): Promise<string> {
-  const res = await fetch("https://api.thesmsworks.co.uk/v1/auth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ customerid: customerId, key: apiKey }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`SMS Works auth failed (${res.status}): ${body}`);
-  }
-  const data = await res.json() as { token: string };
-  if (!data.token) throw new Error("SMS Works returned no token");
-  return data.token;
+    .select("value")
+    .eq("key", "sms_works_api_key")
+    .maybeSingle();
+  return (data as { value: string } | null)?.value || null;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -81,8 +58,8 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     return;
   }
 
-  const creds = await getSmsWorksCredentials();
-  if (!creds) {
+  const jwt = await getSmsWorksJwt();
+  if (!jwt) {
     res.status(503).json({ error: "SMS not configured. Contact platform support." });
     return;
   }
@@ -95,13 +72,11 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
   let sendError: string | null = null;
 
   try {
-    const token = await getSmsWorksJwt(creds.customerId, creds.apiKey);
-
     const smsRes = await fetch("https://api.thesmsworks.co.uk/v1/message/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `JWT ${token}`,
+        "Authorization": jwt,
       },
       body: JSON.stringify({
         sender: senderId,

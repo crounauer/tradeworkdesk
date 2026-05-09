@@ -139,28 +139,22 @@ export default function PlatformSettings() {
         </h2>
         <div className="space-y-4">
           <PlatformSettingField
-            settingKey="sms_works_customer_id"
-            label="SMS Works Customer ID"
-            description="Your SMS Works account Customer ID. Used to authenticate API calls for SMS sending."
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            settingKey="sms_works_api_key"
+            label="SMS Works JWT Token"
+            description="Your pre-generated JWT token from the SMS Works dashboard. Found under Account → API Key."
+            placeholder="eyJ..."
             icon={<MessageSquare className="w-4 h-4" />}
             helpContent={
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 space-y-2">
                 <p className="font-medium">How to set up SMS Works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-xs text-green-700">
                   <li>Go to <a href="https://thesmsworks.co.uk" target="_blank" rel="noopener noreferrer" className="underline font-medium">thesmsworks.co.uk</a> and create an account</li>
-                  <li>In your dashboard, go to <strong>API</strong> and copy your <strong>Customer ID</strong></li>
-                  <li>Paste it here, then save your API Key in the next field</li>
+                  <li>Sign in and go to <strong>Account → API Key</strong></li>
+                  <li>Click <strong>Generate JSON Web Token</strong> and copy the full token</li>
+                  <li>Paste the token (starts with <code className="bg-green-100 px-1 rounded">eyJ</code>) into the field below</li>
                 </ol>
               </div>
             }
-          />
-          <PlatformSettingField
-            settingKey="sms_works_api_key"
-            label="SMS Works JWT Secret"
-            description="Your SMS Works JWT Secret (found in the API section of your SMS Works dashboard). Combined with the Customer ID to authenticate each SMS send."
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            icon={<MessageSquare className="w-4 h-4" />}
           />
         </div>
       </div>
