@@ -44,7 +44,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [defaultSender, setDefaultSender] = useState("TradeWork");
 
-  // Fetch company name and templates once on mount
+  // Fetch company settings once on mount
   useEffect(() => {
     (async () => {
       try {
@@ -53,12 +53,19 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
         setDefaultSender(resolved);
         setSender(prev => prev === "" || prev === "TradeWork" ? resolved : prev);
       } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // Fetch templates each time dialog opens
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
       try {
         const tmpl = await fetch(`${import.meta.env.BASE_URL}api/sms/templates`, { credentials: "include" }).then(r => r.ok ? r.json() : []) as SmsTemplate[];
         setTemplates(tmpl);
       } catch { /* ignore */ }
     })();
-  }, []);
+  }, [open]);
 
   // Reset fields when dialog opens
   const handleOpenChange = (v: boolean) => {
@@ -157,9 +164,9 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
             <p className="text-xs text-muted-foreground">Shown as the sender on the recipient's phone.</p>
           </div>
 
-          {templates.length > 0 && (
-            <div className="space-y-1.5">
-              <Label>Use a template</Label>
+          <div className="space-y-1.5">
+            <Label>Use a template</Label>
+            {templates.length > 0 ? (
               <Select onValueChange={val => {
                 const tmpl = templates.find(t => t.id === val);
                 if (tmpl) setContent(tmpl.content);
@@ -176,8 +183,10 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-muted-foreground">No templates yet. Create them in <a href="/admin/sms-templates" className="underline">Admin → SMS</a>.</p>
+            )}
+          </div>
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
