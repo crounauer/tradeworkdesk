@@ -96,12 +96,13 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
 
   try {
     const token = await getSmsWorksJwt(creds.key, creds.secret);
+    // token is already "JWT eyJ..." — use it directly as the Authorization header value
 
     const smsRes = await fetch("https://api.thesmsworks.co.uk/v1/message/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `JWT ${token}`,
+        "Authorization": token,
       },
       body: JSON.stringify({
         sender: senderId,
@@ -110,11 +111,12 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
       }),
     });
 
-    const smsBody = await smsRes.json() as { messageid?: string; credits?: number; status?: string; error?: string };
     if (!smsRes.ok) {
+      const body = await smsRes.text();
       status = "failed";
-      sendError = smsBody.error ?? `HTTP ${smsRes.status}`;
+      sendError = body || `HTTP ${smsRes.status}`;
     } else {
+      const smsBody = await smsRes.json() as { messageid?: string; credits?: number; status?: string; error?: string };
       messageId = smsBody.messageid ?? null;
       creditsUsed = smsBody.credits ?? null;
     }
