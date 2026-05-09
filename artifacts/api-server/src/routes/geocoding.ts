@@ -34,8 +34,8 @@ router.post("/postcode-lookup", requireAuth, requireTenant, async (req: Authenti
     return;
   }
 
-  // Super-admins bypass per-user check
-  if (req.userRole !== "super_admin") {
+  // Super-admins and tenant admins bypass per-user check
+  if (req.userRole !== "super_admin" && req.userRole !== "admin") {
     const userHasAddon = await hasUserAddon(req.tenantId!, req.userId!, "uk_address_lookup");
     if (!userHasAddon) {
       res.status(402).json({ error: "UK Address Lookup is not assigned to your account. Ask your administrator to assign it." });
