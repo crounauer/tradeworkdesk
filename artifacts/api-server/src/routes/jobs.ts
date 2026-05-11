@@ -1170,7 +1170,7 @@ export async function buildInvoiceData(
   const defaultHourlyRate = Number(settings?.default_hourly_rate) || 0;
   const callOutFee = Number(settings?.call_out_fee) || 0;
   const rawVat = Number(settings?.default_vat_rate);
-  const vatRate = Number.isFinite(rawVat) ? rawVat : 20;
+  const vatRate = (Number.isFinite(rawVat) && settings?.default_vat_rate != null) ? rawVat : 0;
   const paymentTermsDays = settings?.default_payment_terms_days != null ? Number(settings.default_payment_terms_days) : 30;
   const currency = settings?.currency || "GBP";
 

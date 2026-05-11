@@ -2466,7 +2466,12 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
           <span className="text-xs text-muted-foreground ml-1">{expanded ? "▲" : "▼"}</span>
         </h3>
         <div className="flex items-center gap-2">
-          <span className="font-bold text-lg">{sym}{summary.total.toFixed(2)}</span>
+          <div className="flex flex-col items-end">
+            <span className="font-bold text-lg">{sym}{summary.total.toFixed(2)}</span>
+            {summary.vat_rate > 0 && (
+              <span className="text-xs text-muted-foreground">incl. {summary.vat_rate}% VAT</span>
+            )}
+          </div>
           {canExport && (
             <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200" onClick={() => setShowExport(!showExport)}>
               <FileText className="w-4 h-4 mr-1" /> Export Invoice
