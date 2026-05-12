@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Plus, Receipt, CheckCircle2, Clock, XCircle, DollarSign, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -71,7 +72,18 @@ function InvoicesContent() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [page, setPage] = useState(1);
 
+  const qc = useQueryClient();
   const { data: settings } = useCompanySettings();
+
+  // Poll company settings every 3 s while invoicing is disabled so the page
+  // automatically transitions to the invoice list the moment an admin enables it
+  useEffect(() => {
+    if (settings?.invoices_enabled !== false) return;
+    const id = setInterval(() => {
+      qc.invalidateQueries({ queryKey: ["/api/company-settings"] });
+    }, 3000);
+    return () => clearInterval(id);
+  }, [settings?.invoices_enabled, qc]);
 
   const { data, isLoading } = useListInvoices({
     type: tab,
