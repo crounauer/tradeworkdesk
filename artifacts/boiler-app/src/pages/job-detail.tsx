@@ -12,12 +12,13 @@ import {
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
-  Timer, Phone, Smartphone
+  Timer, Phone, Smartphone, Receipt
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useListInvoices, type InvoiceStatus } from "@/hooks/use-invoices";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -710,6 +711,7 @@ export default function JobDetail() {
               );
             })()}
 
+            <JobInvoicesSection jobId={job.id} />
             <EmailLogSection jobId={job.id} refreshKey={emailLogRefresh} />
             <SmsLogSection jobId={job.id} refreshKey={smsLogRefresh} />
           </div>
@@ -3677,6 +3679,111 @@ function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onCl
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
         </div>
       </form>
+    </Card>
+  );
+}
+
+// ─── Invoices & Quotes section for job detail ──────────────────────────────
+
+const STATUS_LABEL: Record<InvoiceStatus, string> = {
+  draft: "Draft", sent: "Sent", paid: "Paid", overdue: "Overdue",
+  cancelled: "Cancelled", accepted: "Accepted", declined: "Declined", converted: "Converted",
+};
+
+const STATUS_CLASS: Record<InvoiceStatus, string> = {
+  draft:     "bg-gray-100 text-gray-700",
+  sent:      "bg-blue-100 text-blue-700",
+  paid:      "bg-green-100 text-green-700",
+  overdue:   "bg-red-100 text-red-700",
+  cancelled: "bg-gray-50 text-gray-400",
+  accepted:  "bg-teal-100 text-teal-700",
+  declined:  "bg-red-50 text-red-500",
+  converted: "bg-purple-100 text-purple-700",
+};
+
+function JobInvoicesSection({ jobId }: { jobId: string }) {
+  const [, navigate] = useLocation();
+  const { hasFeature } = usePlanFeatures();
+  const { data: settings } = useCompanySettings();
+
+  // Only render if plan feature enabled AND company toggle on
+  if (!hasFeature("invoicing") || settings?.invoices_enabled === false) return null;
+
+  return <JobInvoicesSectionInner jobId={jobId} navigate={navigate} />;
+}
+
+function JobInvoicesSectionInner({
+  jobId,
+  navigate,
+}: {
+  jobId: string;
+  navigate: (to: string) => void;
+}) {
+  const { data, isLoading } = useListInvoices({ job_id: jobId, limit: 20 });
+  const docs = data?.invoices ?? [];
+  const currency = docs[0]?.currency || "GBP";
+
+  function fmt(amount: number) {
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
+  }
+
+  return (
+    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm mt-6 max-w-full min-w-0">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold flex items-center gap-2">
+          <Receipt className="w-5 h-5" />
+          Invoices &amp; Quotes
+        </h3>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-7"
+            onClick={() => navigate(`/invoices/new?type=quote&job_id=${jobId}`)}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" /> Quote
+          </Button>
+          <Button
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => navigate(`/invoices/new?type=invoice&job_id=${jobId}`)}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" /> Invoice
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : docs.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No invoices or quotes yet for this job.
+        </p>
+      ) : (
+        <div className="divide-y">
+          {docs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between py-2.5 cursor-pointer hover:bg-muted/30 -mx-2 px-2 rounded"
+              onClick={() => navigate(`/invoices/${doc.id}`)}
+            >
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-medium text-primary">
+                  {doc.invoice_number}
+                </span>
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_CLASS[doc.status]}`}>
+                  {STATUS_LABEL[doc.status]}
+                </span>
+              </div>
+              <span className="text-sm font-semibold">
+                {fmt(Number(doc.total))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

@@ -31,6 +31,16 @@ export interface CompanySettings {
   google_calendar_enabled?: boolean | null;
   google_client_id?: string | null;
   google_client_secret?: string | null;
+  sms_sender_name?: string | null;
+  // Invoicing settings
+  invoices_enabled?: boolean | null;
+  invoice_number_prefix?: string | null;
+  quote_number_prefix?: string | null;
+  invoice_next_number?: number | null;
+  quote_next_number?: number | null;
+  quote_validity_days?: number | null;
+  invoice_footer_text?: string | null;
+  invoice_bank_details?: string | null;
   created_at?: string;
   updated_at?: string;
 }

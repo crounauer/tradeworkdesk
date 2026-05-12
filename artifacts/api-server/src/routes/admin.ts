@@ -2,6 +2,7 @@ import { Router, type IRouter, type Response } from "express";
 import multer from "multer";
 import { bustInitCache } from "./platform";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
 import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
@@ -378,6 +379,10 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "rates_url", "trading_terms_url", "job_number_prefix",
     "google_calendar_enabled", "google_client_id", "google_client_secret",
     "sms_sender_name",
+    // Invoicing settings
+    "invoices_enabled", "invoice_number_prefix", "quote_number_prefix",
+    "invoice_next_number", "quote_next_number", "quote_validity_days",
+    "invoice_footer_text", "invoice_bank_details",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };
@@ -408,6 +413,12 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     .single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  // Bust invoicing-enabled cache if the toggle was changed
+  if ("invoices_enabled" in updates && req.tenantId) {
+    bustInvoicingCache(req.tenantId);
+  }
+
   res.json(data);
 });
 

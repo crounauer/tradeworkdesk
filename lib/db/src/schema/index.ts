@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, numeric, timestamp, pgEnum, doublePrecision } from "drizzle-orm/pg-core";
 
+
 export const userRoleEnum = pgEnum("user_role", ["admin", "office_staff", "technician"]);
 export const jobStatusEnum = pgEnum("job_status", ["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]);
 export const jobTypeEnum = pgEnum("job_type", ["service", "breakdown", "installation", "inspection", "follow_up"]);
@@ -487,3 +488,63 @@ export const betaInvites = pgTable("beta_invites", {
 });
 
 export type BetaInvite = typeof betaInvites.$inferSelect;
+
+// ============================================================
+// INVOICES & QUOTES
+// ============================================================
+
+export const invoiceTypeEnum = pgEnum("invoice_type", ["invoice", "quote"]);
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft", "sent", "paid", "overdue", "cancelled", "accepted", "declined", "converted",
+]);
+export const invoiceItemTypeEnum = pgEnum("invoice_item_type", [
+  "labour", "callout", "product", "service", "other",
+]);
+
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: text("tenant_id").notNull(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  customer_id: uuid("customer_id").notNull().references(() => customers.id),
+  type: invoiceTypeEnum("type").notNull().default("invoice"),
+  status: invoiceStatusEnum("status").notNull().default("draft"),
+  invoice_number: text("invoice_number").notNull(),
+  issue_date: date("issue_date").notNull(),
+  due_date: date("due_date"),
+  expiry_date: date("expiry_date"),
+  notes: text("notes"),
+  customer_notes: text("customer_notes"),
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
+  vat_rate: numeric("vat_rate", { precision: 5, scale: 2 }).notNull().default("20"),
+  vat_amount: numeric("vat_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull().default("0"),
+  currency: text("currency").notNull().default("GBP"),
+  paid_amount: numeric("paid_amount", { precision: 12, scale: 2 }),
+  payment_date: date("payment_date"),
+  payment_method: text("payment_method"),
+  payment_reference: text("payment_reference"),
+  sent_at: timestamp("sent_at", { withTimezone: true }),
+  accepted_at: timestamp("accepted_at", { withTimezone: true }),
+  declined_at: timestamp("declined_at", { withTimezone: true }),
+  converted_to_invoice_id: uuid("converted_to_invoice_id"),
+  pdf_storage_path: text("pdf_storage_path"),
+  created_by: uuid("created_by").references(() => profiles.id),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoice_id: uuid("invoice_id").notNull().references(() => invoices.id),
+  tenant_id: text("tenant_id").notNull(),
+  description: text("description").notNull(),
+  quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull().default("1"),
+  unit_price: numeric("unit_price", { precision: 12, scale: 2 }).notNull().default("0"),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull().default("0"),
+  item_type: invoiceItemTypeEnum("item_type").notNull().default("other"),
+  sort_order: integer("sort_order").notNull().default(0),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type Invoice = typeof invoices.$inferSelect;
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;

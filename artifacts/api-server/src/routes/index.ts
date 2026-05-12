@@ -42,6 +42,7 @@ import calendarRouter from "./calendar";
 import todosRouter from "./todos";
 import directoryRouter from "./directory";
 import smsRouter from "./sms";
+import invoicesRouter from "./invoices";
 
 const router: IRouter = Router();
 
@@ -87,6 +88,7 @@ router.use(calendarRouter);
 router.use(todosRouter);
 router.use(directoryRouter);
 router.use(smsRouter);
+router.use(invoicesRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

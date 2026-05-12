@@ -9,7 +9,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -73,6 +73,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/properties", label: "Properties", icon: Home },
     ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
     { href: "/jobs", label: "Jobs", icon: Briefcase },
+    ...(hasFeature("invoicing") ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
     ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
     { href: "/search", label: "Search", icon: Search },
     ...(hasFeature("reports") ? [

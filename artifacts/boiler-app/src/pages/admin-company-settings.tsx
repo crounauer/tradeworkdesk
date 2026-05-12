@@ -113,12 +113,21 @@ export default function AdminCompanySettings() {
       google_calendar_enabled: settings.google_calendar_enabled ?? false,
       google_client_id: settings.google_client_id ?? "",
       google_client_secret: settings.google_client_secret ?? "",
+      // Invoicing
+      invoices_enabled: settings.invoices_enabled ?? false,
+      invoice_number_prefix: settings.invoice_number_prefix ?? "INV",
+      quote_number_prefix: settings.quote_number_prefix ?? "QUO",
+      invoice_next_number: settings.invoice_next_number ?? 1,
+      quote_next_number: settings.quote_next_number ?? 1,
+      quote_validity_days: settings.quote_validity_days ?? 30,
+      invoice_footer_text: settings.invoice_footer_text ?? "",
+      invoice_bank_details: settings.invoice_bank_details ?? "",
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
-  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days"]);
-  const booleanFields = new Set(["google_calendar_enabled"]);
+  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
+  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -698,6 +707,76 @@ export default function AdminCompanySettings() {
 
         {/* Public Directory Listing */}
         <PublicDirectoryCard />
+
+        {/* Invoicing & Quotes */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoicing &amp; Quotes</CardTitle>
+            <CardDescription>
+              Enable invoicing to create and send professional invoices and quotes to your customers.
+              Requires a Professional plan or higher.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="invoices_enabled" className="font-medium">Enable Invoicing</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Turn on the Invoices &amp; Quotes module for this company.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="invoices_enabled"
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                {...register("invoices_enabled")}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice_number_prefix">Invoice Number Prefix</Label>
+                <Input id="invoice_number_prefix" placeholder="INV" {...register("invoice_number_prefix")} />
+                <p className="text-xs text-muted-foreground">e.g. INV → INV-0001</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="quote_number_prefix">Quote Number Prefix</Label>
+                <Input id="quote_number_prefix" placeholder="QUO" {...register("quote_number_prefix")} />
+                <p className="text-xs text-muted-foreground">e.g. QUO → QUO-0001</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="quote_validity_days">Quote Validity (days)</Label>
+                <Input id="quote_validity_days" type="number" min="1" placeholder="30" {...register("quote_validity_days")} />
+                <p className="text-xs text-muted-foreground">Default expiry period for new quotes.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice_next_number">Next Invoice Number</Label>
+                <Input id="invoice_next_number" type="number" min="1" placeholder="1" {...register("invoice_next_number")} />
+                <p className="text-xs text-muted-foreground">Override if migrating from another system.</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice_bank_details">Bank Account Details</Label>
+              <Textarea
+                id="invoice_bank_details"
+                placeholder={"Bank: Example Bank\nSort Code: 00-00-00\nAccount: 12345678"}
+                rows={3}
+                className="resize-none font-mono text-sm"
+                {...register("invoice_bank_details")}
+              />
+              <p className="text-xs text-muted-foreground">Printed on invoices to help customers pay you.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invoice_footer_text">Invoice Footer Text</Label>
+              <Textarea
+                id="invoice_footer_text"
+                placeholder="e.g. Thank you for your business. Payment is due within 30 days."
+                rows={2}
+                className="resize-none text-sm"
+                {...register("invoice_footer_text")}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex items-center justify-end gap-3 pt-2">
           {autoSaveStatus === "saving" && (
