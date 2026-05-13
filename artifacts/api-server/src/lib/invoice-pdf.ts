@@ -285,26 +285,24 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     y += 5.5;
   };
 
-  addTotRow("Sub Total", fmt(data.currency, data.subtotal));
+  // Only show Sub Total row when there's VAT (otherwise it's identical to the final total)
   if (data.vat_rate > 0) {
+    addTotRow("Sub Total", fmt(data.currency, data.subtotal));
     addTotRow(`VAT (${data.vat_rate}%)`, fmt(data.currency, data.vat_amount));
   }
 
   doc.setDrawColor(...clrLight);
   doc.setLineWidth(0.3);
   doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
-  y += 1;
-  addTotRow("Total", fmt(data.currency, data.total), true, 10);
-
-  doc.setDrawColor(...clrLight);
-  doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
-  y += 1;
+  y += 2;
   addTotRow(
     data.type === "quote" ? "Quote Total" : "Balance Due",
     fmt(data.currency, data.total),
     true,
-    10,
+    11,
   );
+  doc.setDrawColor(...clrLight);
+  doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
 
   y += 5;
 
