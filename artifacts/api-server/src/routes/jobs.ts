@@ -390,6 +390,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   }
 
   invalidateJobsCache(req.tenantId);
+  invalidateCalendarCache(req.tenantId);
   res.status(201).json(data);
 });
 
