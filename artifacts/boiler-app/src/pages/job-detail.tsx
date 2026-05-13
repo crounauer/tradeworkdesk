@@ -48,6 +48,7 @@ type JobEditData = {
   estimated_duration?: string;
   description?: string;
   job_type_id?: string;
+  fuel_category?: string;
 };
 
 type JobLike = {
@@ -116,6 +117,7 @@ export default function JobDetail() {
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const [finishingJob, setFinishingJob] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
+  const [showExtraForms, setShowExtraForms] = useState(false);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -708,6 +710,59 @@ export default function JobDetail() {
                       </div>
                     </>
                   )}
+
+                  {/* Add Form picker */}
+                  {(() => {
+                    const allFormDefs = [
+                      { id: "service-record", path: `/jobs/${job.id}/service-record`, label: "Service Record", desc: "Complete full inspection", completedKey: "service_record", visibleByDefault: showGasForms },
+                      { id: "breakdown-report", path: `/jobs/${job.id}/breakdown-report`, label: "Breakdown Report", desc: "Record faults and fixes", completedKey: "breakdown_report", visibleByDefault: true },
+                      { id: "commissioning", path: `/jobs/${job.id}/commissioning`, label: "Commissioning Record", desc: "New installation commissioning", completedKey: "commissioning_record", visibleByDefault: showGasForms && job.job_type === "installation" },
+                      { id: "job-completion", path: `/jobs/${job.id}/job-completion`, label: "Job Completion Report", desc: "Summarise work & sign-off", completedKey: "job_completion", visibleByDefault: true },
+                      { id: "heat-pump-service", path: `/jobs/${job.id}/heat-pump-service`, label: "Heat Pump Service", desc: "Refrigerant, temps & COP readings", completedKey: "heat_pump_service_record", visibleByDefault: showHeatPumpForms },
+                      { id: "heat-pump-commissioning", path: `/jobs/${job.id}/heat-pump-commissioning`, label: "Heat Pump Commissioning", desc: "MCS-style commissioning record", completedKey: "heat_pump_commissioning_record", visibleByDefault: showHeatPumpForms },
+                      { id: "oil-tank-inspection", path: `/jobs/${job.id}/oil-tank-inspection`, label: "Oil Tank Inspection", desc: "Tank details & condition", completedKey: "oil_tank_inspection", visibleByDefault: showOilForms },
+                      { id: "oil-tank-risk-assessment", path: `/jobs/${job.id}/oil-tank-risk-assessment`, label: "Oil Tank Risk Assessment", desc: "Hazards & risk ratings", completedKey: "oil_tank_risk_assessment", visibleByDefault: showOilForms },
+                      { id: "combustion-analysis", path: `/jobs/${job.id}/combustion-analysis`, label: "Combustion Analysis", desc: "Flue gas readings & efficiency", completedKey: "combustion_analysis_record", visibleByDefault: showOilForms },
+                      { id: "burner-setup", path: `/jobs/${job.id}/burner-setup`, label: "Burner Setup Record", desc: "Nozzle, pressure & electrodes", completedKey: "burner_setup_record", visibleByDefault: showOilForms },
+                      { id: "fire-valve-test", path: `/jobs/${job.id}/fire-valve-test`, label: "Fire Valve Test", desc: "Test result & remedial action", completedKey: "fire_valve_test_record", visibleByDefault: showOilForms },
+                      { id: "oil-line-vacuum-test", path: `/jobs/${job.id}/oil-line-vacuum-test`, label: "Oil Line Vacuum Test", desc: "Pipework & vacuum readings", completedKey: "oil_line_vacuum_test", visibleByDefault: showOilForms },
+                    ];
+                    const extraForms = allFormDefs.filter(f => !f.visibleByDefault);
+                    if (extraForms.length === 0) return null;
+                    return (
+                      <div className="mt-6">
+                        <button
+                          type="button"
+                          onClick={() => setShowExtraForms(v => !v)}
+                          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          {showExtraForms ? "Hide additional forms" : "Add a form not listed above"}
+                          {showExtraForms ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                        {showExtraForms && (
+                          <div className="mt-3 grid sm:grid-cols-2 gap-3">
+                            {extraForms.map(f => (
+                              <Link key={f.id} href={f.path}>
+                                <Card className={`p-4 flex items-center gap-3 hover:border-primary hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has(f.completedKey) ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-slate-50 to-white border-dashed"}`}>
+                                  <div className={`p-2 rounded-lg ${completedFormTypes.has(f.completedKey) ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                    <FileText className="w-5 h-5" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <h4 className="font-semibold text-sm">{f.label}</h4>
+                                      {completedFormTypes.has(f.completedKey) && <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground truncate">{completedFormTypes.has(f.completedKey) ? "Completed — tap to view or edit" : f.desc}</p>
+                                  </div>
+                                </Card>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </>
               );
             })()}
@@ -3108,6 +3163,9 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   const [selectedJobTypeId, setSelectedJobTypeId] = useState<string>(
     job.job_type_id != null ? String(job.job_type_id) : ""
   );
+  const [selectedFuelCategory, setSelectedFuelCategory] = useState<string>(
+    (job as unknown as { fuel_category?: string | null }).fuel_category || "general"
+  );
 
   const { data: jobTypesData } = useQuery<Array<{ id: number; name: string; is_active: boolean }>>({
     queryKey: ["job-types"],
@@ -3169,6 +3227,9 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     };
     if (selectedJobTypeId) {
       updatePayload.job_type_id = Number(selectedJobTypeId);
+    }
+    if (selectedFuelCategory) {
+      updatePayload.fuel_category = selectedFuelCategory;
     }
 
     setSaving(true);
@@ -3237,7 +3298,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     <Card className="p-6 border-primary/20 shadow-lg">
       <h3 className="font-bold text-lg mb-4">Edit Job</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Job Type</Label>
             <select
@@ -3250,9 +3311,23 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
               ))}
             </select>
             {selectedJobTypeId && String(job.job_type_id) !== selectedJobTypeId && (
-              <p className="text-xs text-amber-600">
-                Changing job type will update the forms available for this job.
-              </p>
+              <p className="text-xs text-amber-600">Changing job type will update the forms available for this job.</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Fuel Category</Label>
+            <select
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+              value={selectedFuelCategory}
+              onChange={e => setSelectedFuelCategory(e.target.value)}
+            >
+              <option value="gas">Gas</option>
+              <option value="oil">Oil</option>
+              <option value="heat_pump">Heat Pump</option>
+              <option value="general">General</option>
+            </select>
+            {selectedFuelCategory !== ((job as unknown as { fuel_category?: string | null }).fuel_category || "general") && (
+              <p className="text-xs text-amber-600">Changing fuel category will update the forms shown for this job.</p>
             )}
           </div>
           <div className="space-y-2">
