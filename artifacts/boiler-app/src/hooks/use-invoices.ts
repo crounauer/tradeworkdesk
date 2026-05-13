@@ -284,3 +284,15 @@ export function useConvertToInvoice(quoteId: string) {
     },
   });
 }
+
+export function useMarkInvoiceSent(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Invoice, Error, void>({
+    mutationFn: () =>
+      apiFetch<Invoice>(`/api/invoices/${id}/mark-sent`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}

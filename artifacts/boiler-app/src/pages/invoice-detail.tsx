@@ -25,6 +25,7 @@ import {
   useUpdateInvoice,
   useDeleteInvoice,
   useSendInvoice,
+  useMarkInvoiceSent,
   useMarkInvoicePaid,
   useAcceptQuote,
   useDeclineQuote,
@@ -119,6 +120,7 @@ export default function InvoiceDetail() {
       currency={invoice.currency || settings?.currency || "GBP"}
       navigate={navigate}
       toast={toast}
+      settings={settings}
     />
   );
 }
@@ -214,9 +216,10 @@ interface DetailProps {
   currency: string;
   navigate: (to: string, opts?: { replace?: boolean }) => void;
   toast: ReturnType<typeof useToast>["toast"];
+  settings?: ReturnType<typeof useCompanySettings>["data"];
 }
 
-function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProps) {
+function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: DetailProps) {
   const id = invoice.id;
   const isDraft = invoice.status === "draft";
   const isInvoice = invoice.type === "invoice";
@@ -227,9 +230,23 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
       ? invoice.line_items.map((l) => ({ ...l }))
       : [emptyLine()]
   );
-  const [vatRate, setVatRate] = useState(String(invoice.vat_rate ?? 20));
+  const [vatRate, setVatRate] = useState(String(invoice.vat_rate ?? 0));
   const [issueDate, setIssueDate] = useState(invoice.issue_date || "");
   const [dueDate, setDueDate] = useState(invoice.due_date || "");
+
+  // Apply company setting defaults to draft invoices when settings load
+  useEffect(() => {
+    if (!isDraft || !settings) return;
+    if (!invoice.vat_rate && settings.default_vat_rate != null) {
+      setVatRate(String(settings.default_vat_rate));
+    }
+    if (!invoice.due_date && isInvoice && settings.default_payment_terms_days) {
+      const base = invoice.issue_date ? new Date(invoice.issue_date) : new Date();
+      base.setDate(base.getDate() + settings.default_payment_terms_days);
+      setDueDate(base.toISOString().slice(0, 10));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings]);
   const [expiryDate, setExpiryDate] = useState(invoice.expiry_date || "");
   const [notes, setNotes] = useState(invoice.notes || "");
   const [customerNotes, setCustomerNotes] = useState(invoice.customer_notes || "");
@@ -249,6 +266,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
   const updateMut = useUpdateInvoice(id);
   const deleteMut = useDeleteInvoice();
   const sendMut = useSendInvoice(id);
+  const markSentMut = useMarkInvoiceSent(id);
   const paidMut = useMarkInvoicePaid(id);
   const acceptMut = useAcceptQuote(id);
   const declineMut = useDeclineQuote(id);
@@ -651,6 +669,26 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
                 >
                   <Send className="w-4 h-4 mr-2" />
                   {invoice.status === "sent" ? "Re-send" : `Send ${isInvoice ? "Invoice" : "Quote"}`}
+                </Button>
+              )}
+
+              {/* Mark as Sent without email (draft only) */}
+              {isDraft && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={async () => {
+                    try {
+                      await markSentMut.mutateAsync();
+                      toast({ title: `${isInvoice ? "Invoice" : "Quote"} marked as sent` });
+                    } catch (e) {
+                      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+                    }
+                  }}
+                  disabled={markSentMut.isPending}
+                >
+                  {markSentMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                  Mark as Sent
                 </Button>
               )}
 

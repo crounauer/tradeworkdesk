@@ -676,6 +676,28 @@ router.get("/invoices/:id/pdf", ...protect, async (req: AuthenticatedRequest, re
   res.send(pdfBuffer);
 });
 
+// ─── MARK SENT (no email) ──────────────────────────────────────────────────
+// POST /invoices/:id/mark-sent
+router.post("/invoices/:id/mark-sent", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: invoice, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !invoice) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
+
+  if (invoice.status !== "draft") {
+    res.status(400).json({ error: "Only draft invoices can be marked as sent" }); return;
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from("invoices")
+    .update({ status: "sent", updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(updated);
+});
+
 // ─── MARK PAID ─────────────────────────────────────────────────────────────
 // POST /invoices/:id/mark-paid
 router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
