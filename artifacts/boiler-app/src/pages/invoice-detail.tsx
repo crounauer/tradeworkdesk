@@ -357,8 +357,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
   async function downloadPdf() {
     setDownloadingPdf(true);
     try {
-      const res = await customFetch(`${import.meta.env.BASE_URL}api/invoices/${id}/pdf`);
-      const blob = await res.blob();
+      const blob = await customFetch<Blob>(`${import.meta.env.BASE_URL}api/invoices/${id}/pdf`, { responseType: "blob" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
