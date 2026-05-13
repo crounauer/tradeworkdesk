@@ -92,6 +92,24 @@ async function buildPdfData(
     ? `${customer.first_name} ${customer.last_name}`.trim()
     : "Unknown Customer";
 
+  // Load job for human-readable ref and property_id
+  const { data: job } = invoice.job_id
+    ? await supabaseAdmin
+        .from("jobs")
+        .select("job_ref, property_id")
+        .eq("id", invoice.job_id as string)
+        .maybeSingle()
+    : { data: null };
+
+  // Load property address as fallback when customer record has no address
+  const { data: property } = job?.property_id
+    ? await supabaseAdmin
+        .from("properties")
+        .select("address_line1, address_line2, city, county, postcode")
+        .eq("id", job.property_id as string)
+        .maybeSingle()
+    : { data: null };
+
   return {
     type: invoice.type as "invoice" | "quote",
     invoice_number: invoice.invoice_number as string,
@@ -118,15 +136,15 @@ async function buildPdfData(
     company_bank_details: settings?.invoice_bank_details,
     // Customer
     customer_name: customerName,
-    customer_address_line1: customer?.address_line1,
-    customer_address_line2: customer?.address_line2,
-    customer_city: customer?.city,
-    customer_county: customer?.county,
-    customer_postcode: customer?.postcode,
+    customer_address_line1: customer?.address_line1 || property?.address_line1,
+    customer_address_line2: customer?.address_line2 || property?.address_line2,
+    customer_city: customer?.city || property?.city,
+    customer_county: customer?.county || property?.county,
+    customer_postcode: customer?.postcode || property?.postcode,
     customer_email: customer?.email,
     customer_phone: customer?.phone || customer?.mobile,
     // Job
-    job_reference: invoice.job_id as string,
+    job_reference: (job?.job_ref as string | null) || null,
     job_description: invoice.customer_notes as string | null,
     // Line items
     line_items: lineItems.map((l) => ({

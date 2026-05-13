@@ -276,7 +276,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     doc.setFontSize(size);
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setTextColor(...(bold ? clrDark : clrMid));
-    doc.text(label, totLabelX, y);
+    doc.text(label, totLabelX, y, { align: "right" });
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setTextColor(...clrDark);
     doc.text(value, totValueX, y, { align: "right" });
@@ -290,12 +290,12 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
 
   doc.setDrawColor(...clrLight);
   doc.setLineWidth(0.3);
-  doc.line(totLabelX - 2, y - 1, totValueX, y - 1);
+  doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
   y += 1;
   addTotRow("Total", fmt(data.currency, data.total), true, 10);
 
   doc.setDrawColor(...clrLight);
-  doc.line(totLabelX - 2, y - 1, totValueX, y - 1);
+  doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
   y += 1;
   addTotRow(
     data.type === "quote" ? "Quote Total" : "Balance Due",
