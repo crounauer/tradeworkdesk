@@ -155,7 +155,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   // ── SECTION 2: Meta block (right) + Bill To (left) ──────────────────────────
 
   const metaStartY = y;
-  const metaColonX = pageWidth - 32; // right-edge of green label column
+  const metaColonX = pageWidth - 68; // right-edge of green label column (wide enough for long values like "Due on Receipt")
   const metaValueX = rightMargin;
   const metaLineH  = 5.5;
 
@@ -283,7 +283,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     y += 5.5;
   };
 
-  addTotRow("Sub Total", data.subtotal.toFixed(2));
+  addTotRow("Sub Total", fmt(data.currency, data.subtotal));
   if (data.vat_rate > 0) {
     addTotRow(`VAT (${data.vat_rate}%)`, fmt(data.currency, data.vat_amount));
   }
