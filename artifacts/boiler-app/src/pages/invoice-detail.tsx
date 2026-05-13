@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
@@ -352,8 +353,23 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
     }
   }
 
-  function downloadPdf() {
-    window.open(`/api/invoices/${id}/pdf`, "_blank");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  async function downloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      const res = await customFetch(`${import.meta.env.BASE_URL}api/invoices/${id}/pdf`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${invoice?.invoice_number || id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to download PDF", variant: "destructive" });
+    } finally {
+      setDownloadingPdf(false);
+    }
   }
 
   const customerName = invoice.customer
@@ -395,8 +411,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
               </Button>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={downloadPdf}>
-            <Download className="w-4 h-4 mr-1" /> PDF
+          <Button variant="outline" size="sm" onClick={downloadPdf} disabled={downloadingPdf}>
+            {downloadingPdf ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />} PDF
           </Button>
         </div>
       </div>
@@ -677,9 +693,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
               )}
 
               {/* Download PDF */}
-              <Button variant="ghost" className="w-full" onClick={downloadPdf}>
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
+              <Button variant="ghost" className="w-full" onClick={downloadPdf} disabled={downloadingPdf}>
+                {downloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                {downloadingPdf ? "Downloading..." : "Download PDF"}
               </Button>
 
               {/* Delete / void */}
