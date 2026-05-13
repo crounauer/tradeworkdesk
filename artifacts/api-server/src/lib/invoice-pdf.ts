@@ -33,6 +33,8 @@ export interface InvoicePdfData {
   company_logo_url?: string | null;
   company_footer_text?: string | null;
   company_bank_details?: string | null;
+  company_rates_url?: string | null;
+  company_trading_terms_url?: string | null;
   // Customer
   customer_name: string;
   customer_address_line1?: string | null;
@@ -332,7 +334,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
 
   // ── SECTION 6: Page 2 — payment / customer notes + bank details ─────────────
 
-  const hasPage2 = !!(data.customer_notes || (data.company_bank_details && data.type === "invoice"));
+  const hasPage2 = !!(data.customer_notes || (data.company_bank_details && data.type === "invoice") || data.company_rates_url || data.company_trading_terms_url);
   if (hasPage2) {
     doc.addPage();
     y = 20;
@@ -350,6 +352,41 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     if (data.company_bank_details && data.type === "invoice") {
       const bankLines = doc.splitTextToSize(data.company_bank_details, rightMargin - margin) as string[];
       doc.text(bankLines, margin, y);
+      y += bankLines.length * 4.5 + 8;
+    }
+
+    // Rates / trading terms links
+    if (data.company_rates_url || data.company_trading_terms_url) {
+      doc.setDrawColor(...clrLight);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, rightMargin, y);
+      y += 6;
+
+      if (data.company_rates_url) {
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...clrMid);
+        doc.text("Rates: ", margin, y);
+        const labelW = doc.getTextWidth("Rates: ");
+        doc.setTextColor(41, 98, 168);
+        doc.text(data.company_rates_url, margin + labelW, y);
+        const linkW = doc.getTextWidth(data.company_rates_url);
+        doc.link(margin + labelW, y - 3, linkW, 4.5, { url: data.company_rates_url });
+        y += 5.5;
+      }
+
+      if (data.company_trading_terms_url) {
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...clrMid);
+        doc.text("Trading Terms: ", margin, y);
+        const labelW = doc.getTextWidth("Trading Terms: ");
+        doc.setTextColor(41, 98, 168);
+        doc.text(data.company_trading_terms_url, margin + labelW, y);
+        const linkW = doc.getTextWidth(data.company_trading_terms_url);
+        doc.link(margin + labelW, y - 3, linkW, 4.5, { url: data.company_trading_terms_url });
+        y += 5.5;
+      }
     }
   }
 

@@ -134,6 +134,8 @@ async function buildPdfData(
     company_logo_url: settings?.logo_url,
     company_footer_text: settings?.invoice_footer_text,
     company_bank_details: settings?.invoice_bank_details,
+    company_rates_url: settings?.rates_url,
+    company_trading_terms_url: settings?.trading_terms_url,
     // Customer
     customer_name: customerName,
     customer_address_line1: customer?.address_line1 || property?.address_line1,
