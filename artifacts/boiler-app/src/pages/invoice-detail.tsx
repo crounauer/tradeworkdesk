@@ -410,9 +410,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast }: DetailProp
               </Button>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={downloadPdf} disabled={downloadingPdf}>
-            {downloadingPdf ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />} PDF
-          </Button>
         </div>
       </div>
 
