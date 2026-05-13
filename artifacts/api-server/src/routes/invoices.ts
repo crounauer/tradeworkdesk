@@ -96,7 +96,7 @@ async function buildPdfData(
   const { data: job } = invoice.job_id
     ? await supabaseAdmin
         .from("jobs")
-        .select("job_ref, property_id")
+        .select("job_ref, property_id, description")
         .eq("id", invoice.job_id as string)
         .maybeSingle()
     : { data: null };
@@ -147,7 +147,7 @@ async function buildPdfData(
     customer_phone: customer?.phone || customer?.mobile,
     // Job
     job_reference: (job?.job_ref as string | null) || null,
-    job_description: invoice.customer_notes as string | null,
+    job_description: (job?.description as string | null) || null,
     // Line items
     line_items: lineItems.map((l) => ({
       description: l.description as string,
