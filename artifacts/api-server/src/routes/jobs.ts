@@ -28,6 +28,7 @@ import {
 import { sendJobFormsEmail, sendJobConfirmationEmail, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
+import { invalidateHomepageCache } from "./homepage";
 
 interface SupabaseJobRow {
   id: string;
@@ -391,6 +392,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   invalidateJobsCache(req.tenantId);
   invalidateCalendarCache(req.tenantId);
+  invalidateHomepageCache(req.tenantId);
   res.status(201).json(data);
 });
 
@@ -743,6 +745,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
 
   invalidateJobsCache(req.tenantId);
   invalidateCalendarCache(req.tenantId);
+  invalidateHomepageCache(req.tenantId);
   res.json(UpdateJobResponse.parse(data));
 });
 
@@ -2151,6 +2154,7 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   await q;
   invalidateJobsCache(req.tenantId);
+  invalidateHomepageCache(req.tenantId);
   res.sendStatus(204);
 });
 

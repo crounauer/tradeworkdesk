@@ -37,40 +37,58 @@ interface OverdueApplianceRow {
 
 const router: IRouter = Router();
 
+// ── Caches ───────────────────────────────────────────────────────────────────
 const homepageCache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL_MS = 3 * 60_000;
+const storageCache  = new Map<string, { data: { used_bytes: number; file_count: number; signature_count: number }; ts: number }>();
+
+const FRESH_TTL_MS   = 30_000;       // serve from cache with no background refresh
+const STALE_TTL_MS   = 3 * 60_000;  // serve stale immediately + kick off background refresh
+const STORAGE_TTL_MS = 10 * 60_000; // storage stats rarely change, use a longer TTL
+
+/** Call this whenever jobs are created, updated, or deleted for a tenant. */
+export function invalidateHomepageCache(tenantId?: string | null): void {
+  if (tenantId) {
+    for (const key of homepageCache.keys()) {
+      if (key.startsWith(tenantId)) homepageCache.delete(key);
+    }
+  } else {
+    homepageCache.clear();
+  }
+}
 
 function cleanExpiredCache() {
   const now = Date.now();
   for (const [k, v] of homepageCache) {
-    if (now - v.ts > CACHE_TTL_MS) homepageCache.delete(k);
+    if (now - v.ts > STALE_TTL_MS) homepageCache.delete(k);
+  }
+  for (const [k, v] of storageCache) {
+    if (now - v.ts > STORAGE_TTL_MS) storageCache.delete(k);
   }
 }
 
-router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const t0 = Date.now();
-  const cacheKey = `${req.tenantId || "none"}:${req.userRole === "technician" ? req.userId : "all"}`;
-  const cached = homepageCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    res.set("Cache-Control", "private, max-age=60");
-    res.set("X-Cache", "HIT");
-    res.json(cached.data);
-    console.log(`[perf] /homepage cache HIT ${Date.now() - t0}ms`);
-    return;
-  }
+interface FetchParams {
+  tenantId: string | null | undefined;
+  userId: string | undefined;
+  userRole: string | undefined;
+  cacheKey: string;
+}
 
-  const today = new Date().toISOString().split("T")[0];
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> {
+  const { tenantId, userId, userRole, cacheKey } = params;
+  const t0 = Date.now();
+
+  const today     = new Date().toISOString().split("T")[0];
+  const weekAgo   = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
-  const techFilter = req.userRole === "technician" ? req.userId : undefined;
+  const techFilter = userRole === "technician" ? userId : undefined;
 
   const buildJobQuery = () => {
     let q = supabaseAdmin
       .from("jobs")
       .select(DASHBOARD_JOB_FIELDS)
       .eq("is_active", true);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
     return q;
   };
@@ -81,46 +99,36 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     let q = supabaseAdmin.from("appliances")
       .select("id, manufacturer, model, serial_number, next_service_due, properties(id, address_line1, customer_id, customers(id, first_name, last_name))")
       .eq("is_active", true);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
     return q;
   };
 
   const buildCustomerCountQuery = () => {
     let q = supabaseAdmin.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
     return q;
   };
 
   const buildCompletedCountQuery = () => {
-    let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").eq("is_active", true).gte("scheduled_date", weekAgo);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true })
+      .eq("status", "completed").eq("is_active", true).gte("scheduled_date", weekAgo);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
     return q;
   };
 
   const buildTodayCountQuery = () => {
     let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("is_active", true);
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
     if (techFilter) q = q.eq("assigned_technician_id", techFilter);
     return q;
   };
 
-  const buildStorageUsageQuery = () => {
-    let q = supabaseAdmin.from("file_attachments").select("file_size.sum()", { count: "exact" });
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    return q;
-  };
-
-  const buildSignatureCountQuery = () => {
-    let q = supabaseAdmin.from("signatures").select("id", { count: "exact", head: true });
-    if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-    return q;
-  };
-
+  // ── Core queries (10 instead of 13 — storage is separate, overdue count derived from data) ──
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
-    customerCountRes, todayCountRes, overdueCountRes, completedCountRes,
-    tenantFeatures, jobTypesRes, storageRes, signatureCountRes
+    customerCountRes, todayCountRes, completedCountRes,
+    tenantFeatures, jobTypesRes,
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -133,14 +141,11 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
       .limit(10),
     buildCustomerCountQuery(),
     buildTodayCountQuery().or(activeToday).neq("status", "cancelled"),
-    buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today).select("id", { count: "exact", head: true }),
     buildCompletedCountQuery(),
-    req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
-    req.tenantId
-      ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
+    tenantId ? getTenantFeatures(tenantId) : Promise.resolve(null),
+    tenantId
+      ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", tenantId)
       : supabaseAdmin.from("job_types").select("id, name"),
-    buildStorageUsageQuery(),
-    buildSignatureCountQuery(),
   ]);
 
   const tQueries = Date.now();
@@ -156,7 +161,8 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     properties: undefined,
   });
 
-  const mappedOverdue = ((overdueRes.data || []) as unknown as OverdueApplianceRow[]).map((a) => ({
+  const overdueList = (overdueRes.data || []) as unknown as OverdueApplianceRow[];
+  const mappedOverdue = overdueList.map((a) => ({
     appliance_id: a.id,
     manufacturer: a.manufacturer,
     model: a.model,
@@ -177,32 +183,83 @@ router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedReq
     stats: {
       total_customers: customerCountRes.count || 0,
       total_jobs_today: todayCountRes.count || 0,
-      overdue_count: overdueCountRes.count || 0,
+      overdue_count: overdueList.length,  // derived — no extra query needed
       completed_this_week: completedCountRes.count || 0,
     },
   });
 
-  const storageAgg = (storageRes.data?.[0] || {}) as { file_size: { sum: number | null } | null };
-  const storageUsedBytes = storageAgg.file_size?.sum ?? 0;
-  const storageFileCount = storageRes.count ?? 0;
-  const signatureCount = signatureCountRes.count || 0;
+  // ── Storage stats — served from a separate long-lived cache ──────────────
+  let storage = storageCache.get(cacheKey)?.data;
+  if (!storage) {
+    const buildStorageUsageQuery = () => {
+      let q = supabaseAdmin.from("file_attachments").select("file_size.sum()", { count: "exact" });
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    };
+    const buildSignatureCountQuery = () => {
+      let q = supabaseAdmin.from("signatures").select("id", { count: "exact", head: true });
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    };
+    const [storageRes, signatureCountRes] = await Promise.all([
+      buildStorageUsageQuery(),
+      buildSignatureCountQuery(),
+    ]);
+    const storageAgg = (storageRes.data?.[0] || {}) as { file_size: { sum: number | null } | null };
+    storage = {
+      used_bytes: storageAgg.file_size?.sum ?? 0,
+      file_count: storageRes.count ?? 0,
+      signature_count: signatureCountRes.count || 0,
+    };
+    storageCache.set(cacheKey, { data: storage, ts: Date.now() });
+  }
 
-  const responseBody = {
-    dashboard,
-    storage: {
-      used_bytes: storageUsedBytes,
-      file_count: storageFileCount,
-      signature_count: signatureCount,
-    },
-  };
+  const responseBody = { dashboard, storage };
 
   homepageCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   if (homepageCache.size > 50) cleanExpiredCache();
 
-  res.set("Cache-Control", "private, max-age=60");
-  res.set("X-Cache", "MISS");
-  res.json(responseBody);
-  console.log(`[perf] /homepage total ${Date.now() - t0}ms (queries: ${tQueries - t0}ms, map+serialize: ${Date.now() - tQueries}ms)`);
+  console.log(`[perf] /homepage total ${Date.now() - t0}ms (queries: ${tQueries - t0}ms)`);
+  return responseBody;
+}
+
+router.get("/homepage", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const t0 = Date.now();
+  const cacheKey = `${req.tenantId || "none"}:${req.userRole === "technician" ? req.userId : "all"}`;
+  const cached = homepageCache.get(cacheKey);
+  const age = cached ? Date.now() - cached.ts : Infinity;
+
+  if (age < FRESH_TTL_MS) {
+    // Fully fresh — serve immediately
+    res.set("Cache-Control", "private, max-age=30");
+    res.set("X-Cache", "HIT");
+    res.json(cached!.data);
+    console.log(`[perf] /homepage HIT (fresh ${Math.round(age / 1000)}s old) ${Date.now() - t0}ms`);
+    return;
+  }
+
+  if (age < STALE_TTL_MS) {
+    // Stale but usable — return immediately, refresh in background
+    res.set("Cache-Control", "private, max-age=0, stale-while-revalidate=180");
+    res.set("X-Cache", "STALE");
+    res.json(cached!.data);
+    console.log(`[perf] /homepage STALE (${Math.round(age / 1000)}s old) — bg refresh started ${Date.now() - t0}ms`);
+    fetchAndCacheHomepageData({ tenantId: req.tenantId, userId: req.userId, userRole: req.userRole, cacheKey })
+      .catch(e => console.warn("[homepage] background refresh error", e));
+    return;
+  }
+
+  // Cache miss — sync fetch (user must wait, but this should be rare)
+  try {
+    const data = await fetchAndCacheHomepageData({ tenantId: req.tenantId, userId: req.userId, userRole: req.userRole, cacheKey });
+    res.set("Cache-Control", "private, max-age=30");
+    res.set("X-Cache", "MISS");
+    res.json(data);
+    console.log(`[perf] /homepage MISS total ${Date.now() - t0}ms`);
+  } catch (e) {
+    console.error("[homepage] fetch error", e);
+    res.status(500).json({ error: "Failed to load homepage data" });
+  }
 });
 
 export default router;
