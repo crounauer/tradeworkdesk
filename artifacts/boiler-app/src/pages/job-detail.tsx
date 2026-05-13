@@ -47,6 +47,7 @@ type JobEditData = {
   scheduled_time?: string;
   estimated_duration?: string;
   description?: string;
+  job_type_id?: string;
 };
 
 type JobLike = {
@@ -3098,12 +3099,26 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
 
 function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () => void; onEmailSent?: () => void }) {
   const qc = useQueryClient();
-  const update = useUpdateJob();
   const { toast } = useToast();
   const { isOnline, queueJobUpdate } = useOffline();
   const { register, handleSubmit, reset } = useForm<JobEditData>();
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectedJobTypeId, setSelectedJobTypeId] = useState<string>(
+    job.job_type_id != null ? String(job.job_type_id) : ""
+  );
+
+  const { data: jobTypesData } = useQuery<Array<{ id: number; name: string; is_active: boolean }>>({
+    queryKey: ["job-types"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/job-types`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+  const activeJobTypes = (jobTypesData || []).filter(jt => jt.is_active);
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
   const customerName = `${(job.customer as Record<string, unknown>)?.first_name || ""} ${(job.customer as Record<string, unknown>)?.last_name || ""}`.trim();
@@ -3143,17 +3158,21 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   };
 
   const onSubmit = async (data: JobEditData) => {
-    try {
-      const updatePayload = {
-        status: data.status,
-        priority: data.priority,
-        scheduled_date: data.scheduled_date,
-        scheduled_end_date: data.scheduled_end_date || null,
-        scheduled_time: data.scheduled_time || undefined,
-        estimated_duration: data.estimated_duration ? Number(data.estimated_duration) : undefined,
-        description: data.description || undefined,
-      };
+    const updatePayload: Record<string, unknown> = {
+      status: data.status,
+      priority: data.priority,
+      scheduled_date: data.scheduled_date,
+      scheduled_end_date: data.scheduled_end_date || null,
+      scheduled_time: data.scheduled_time || undefined,
+      estimated_duration: data.estimated_duration ? Number(data.estimated_duration) : undefined,
+      description: data.description || undefined,
+    };
+    if (selectedJobTypeId) {
+      updatePayload.job_type_id = Number(selectedJobTypeId);
+    }
 
+    setSaving(true);
+    try {
       if (!isOnline) {
         await queueJobUpdate(job.id, updatePayload);
         toast({ title: "Queued offline", description: "Job update will sync when online." });
@@ -3161,17 +3180,10 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
         return;
       }
 
-      await update.mutateAsync({
-        id: job.id,
-        data: {
-          status: data.status as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
-          priority: data.priority as "low" | "medium" | "high" | "urgent",
-          scheduled_date: data.scheduled_date,
-          scheduled_end_date: data.scheduled_end_date || null,
-          scheduled_time: data.scheduled_time || undefined,
-          estimated_duration: data.estimated_duration ? Number(data.estimated_duration) : undefined,
-          description: data.description || undefined,
-        },
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatePayload),
       });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
@@ -3185,6 +3197,8 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -3223,7 +3237,24 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     <Card className="p-6 border-primary/20 shadow-lg">
       <h3 className="font-bold text-lg mb-4">Edit Job</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Job Type</Label>
+            <select
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+              value={selectedJobTypeId}
+              onChange={e => setSelectedJobTypeId(e.target.value)}
+            >
+              {activeJobTypes.map(jt => (
+                <option key={jt.id} value={String(jt.id)}>{jt.name}</option>
+              ))}
+            </select>
+            {selectedJobTypeId && String(job.job_type_id) !== selectedJobTypeId && (
+              <p className="text-xs text-amber-600">
+                Changing job type will update the forms available for this job.
+              </p>
+            )}
+          </div>
           <div className="space-y-2">
             <Label>Status</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("status")}>
@@ -3236,6 +3267,8 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
               <option value="invoiced">Invoiced</option>
             </select>
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Priority</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("priority")}>
@@ -3249,15 +3282,15 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
             <Label>Scheduled Date</Label>
             <Input type="date" {...register("scheduled_date")} required />
           </div>
+          <div className="space-y-2">
+            <Label>Scheduled Time</Label>
+            <Input type="time" {...register("scheduled_time")} />
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>End Date <span className="text-muted-foreground">(multi-day)</span></Label>
             <Input type="date" {...register("scheduled_end_date")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Scheduled Time</Label>
-            <Input type="time" {...register("scheduled_time")} />
           </div>
           <div className="space-y-2">
             <Label>Estimated Duration</Label>
@@ -3269,8 +3302,8 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("description")} />
         </div>
         <div className="flex gap-3">
-          <Button type="submit" disabled={update.isPending}>
-            <Check className="w-4 h-4 mr-2" /> {update.isPending ? "Saving..." : "Save Changes"}
+          <Button type="submit" disabled={saving}>
+            <Check className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save Changes"}
           </Button>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         </div>

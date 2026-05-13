@@ -657,7 +657,9 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const { job_type_id: rawUpdateJobTypeId, ...updateCoreData } = body.data as typeof body.data & { job_type_id?: number };
+  // job_type_id is not in the Zod schema (which strips unknown fields), so read directly from req.body
+  const rawUpdateJobTypeId = req.body.job_type_id as number | undefined;
+  const updateCoreData = body.data;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
 
