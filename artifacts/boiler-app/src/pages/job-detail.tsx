@@ -2369,6 +2369,11 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
   const [sentProviderName, setSentProviderName] = useState<string | null>(null);
   const [sentTimestamp, setSentTimestamp] = useState<string | null>(externalInvoiceSentAt || null);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const { hasFeature } = usePlanFeatures();
+  const { data: companySettings } = useCompanySettings();
+  const [creatingInternalInvoice, setCreatingInternalInvoice] = useState(false);
+  const [internalInvoiceResult, setInternalInvoiceResult] = useState<{ id: string; invoice_number: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -2419,6 +2424,22 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
       });
     } finally {
       setSendingToAccounting(false);
+    }
+  };
+
+  const handleCreateInternalInvoice = async () => {
+    setCreatingInternalInvoice(true);
+    try {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/create-internal-invoice`, {
+        method: "POST",
+      }) as { id: string; invoice_number: string };
+      setInternalInvoiceResult(result);
+      toast({ title: "Invoice created", description: `Invoice ${result.invoice_number} created in your invoice facility.` });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to create invoice";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setCreatingInternalInvoice(false);
     }
   };
 
@@ -2581,6 +2602,49 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
                   <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
                 ) : (
                   <><Send className="w-3.5 h-3.5" /> Send to {accountingStatus?.displayName}</>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {canExport && hasFeature("invoicing") && companySettings?.invoices_enabled !== false && (
+        <div className="border rounded-lg p-4 mb-4 bg-violet-50/50">
+          {internalInvoiceResult ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-green-700">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span className="font-medium">Invoice {internalInvoiceResult.invoice_number} created</span>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">Saved to your invoice facility as a draft</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/invoices/${internalInvoiceResult.id}`)}
+                className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> View Invoice
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">Send to Invoice Facility</p>
+                <p className="text-xs text-muted-foreground">Create a pre-filled invoice from this job's time, parts and services</p>
+              </div>
+              <Button
+                size="sm"
+                disabled={creatingInternalInvoice}
+                onClick={handleCreateInternalInvoice}
+                className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {creatingInternalInvoice ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating...</>
+                ) : (
+                  <><Receipt className="w-3.5 h-3.5" /> Create Invoice</>
                 )}
               </Button>
             </div>

@@ -4,6 +4,7 @@ import { requireTenantInvoicing, bustInvoicingCache } from "../middlewares/requi
 import { supabaseAdmin } from "../lib/supabase";
 import { generateInvoicePdf, type InvoicePdfData } from "../lib/invoice-pdf";
 import { sendInvoiceDocumentEmail } from "../lib/invoice-email";
+import { buildInvoiceData } from "./jobs";
 
 const router: IRouter = Router();
 
@@ -296,6 +297,96 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
   }
 
   res.status(201).json(invoice);
+});
+
+// ─── CREATE FROM JOB (pre-populated line items) ────────────────────────────
+// POST /jobs/:id/create-internal-invoice
+router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = req.params.id;
+
+  const { data: jobRow } = await supabaseAdmin
+    .from("jobs")
+    .select("id, status, customer_id")
+    .eq("id", jobId)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!jobRow) { res.status(404).json({ error: "Job not found" }); return; }
+  if (jobRow.status !== "completed" && jobRow.status !== "invoiced") {
+    res.status(400).json({ error: "Only completed or invoiced jobs can be invoiced" }); return;
+  }
+
+  const invoiceData = await buildInvoiceData(jobId, req.tenantId);
+  if (!invoiceData) { res.status(500).json({ error: "Failed to load job data" }); return; }
+
+  const settings = await getCompanySettings(req.tenantId!);
+  const resolvedVatRate = invoiceData.vat_rate ?? settings?.default_vat_rate ?? 20;
+  const currency = invoiceData.currency || settings?.currency || "GBP";
+  const issueDate = new Date().toISOString().slice(0, 10);
+
+  let dueDate: string | null = null;
+  if (settings?.default_payment_terms_days) {
+    const d = new Date(issueDate);
+    d.setDate(d.getDate() + settings.default_payment_terms_days);
+    dueDate = d.toISOString().slice(0, 10);
+  }
+
+  const invoiceNumber = await getNextInvoiceNumber(req.tenantId!, "invoice").catch(
+    (e) => { res.status(500).json({ error: (e as Error).message }); return null; },
+  );
+  if (!invoiceNumber) return;
+
+  // Map buildInvoiceData lines → invoice line item inputs
+  const lineItems: LineItemInput[] = invoiceData.lines.map((l, i) => {
+    let item_type = "labour";
+    if (l.item_name === "product") item_type = "product";
+    else if (l.item_name === "service") item_type = "service";
+    else if (l.description.toLowerCase().includes("call-out")) item_type = "callout";
+    return { description: l.description, quantity: l.quantity, unit_price: l.unit_price, item_type, sort_order: i };
+  });
+
+  const { subtotal, vat_amount, total } = computeTotals(lineItems, resolvedVatRate);
+
+  const { data: invoice, error: invErr } = await supabaseAdmin
+    .from("invoices")
+    .insert({
+      tenant_id: req.tenantId,
+      job_id: jobId,
+      customer_id: (jobRow as { customer_id: string }).customer_id,
+      type: "invoice",
+      status: "draft",
+      invoice_number: invoiceNumber,
+      issue_date: issueDate,
+      due_date: dueDate,
+      customer_notes: invoiceData.attendance_summary || null,
+      subtotal,
+      vat_rate: resolvedVatRate,
+      vat_amount,
+      total,
+      currency,
+      created_by: req.userId,
+    })
+    .select()
+    .single();
+
+  if (invErr || !invoice) { res.status(500).json({ error: invErr?.message || "Failed to create invoice" }); return; }
+
+  if (lineItems.length > 0) {
+    const items = lineItems.map((l, i) => ({
+      invoice_id: (invoice as { id: string }).id,
+      tenant_id: req.tenantId,
+      description: l.description,
+      quantity: l.quantity,
+      unit_price: l.unit_price,
+      total: Math.round(l.quantity * l.unit_price * 100) / 100,
+      item_type: l.item_type || "other",
+      sort_order: l.sort_order ?? i,
+    }));
+    await supabaseAdmin.from("invoice_line_items").insert(items);
+  }
+
+  bustInvoicingCache(req.tenantId!);
+  res.status(201).json({ id: (invoice as { id: string }).id, invoice_number: invoiceNumber });
 });
 
 // ─── GET ONE ───────────────────────────────────────────────────────────────
