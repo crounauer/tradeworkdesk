@@ -306,7 +306,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const selectCatalogueItem = (item: CatalogueItem, idx: number) => {
     updateLine(idx, "description", item.name);
     if (item.default_price != null) updateLine(idx, "unit_price", item.default_price);
-    updateLine(idx, "item_type", item.type === "product" ? "product" : "service");
     setCatalogueSuggestions([]);
     setActiveLineIdx(null);
   };
@@ -695,9 +694,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             </CardHeader>
             <CardContent className="space-y-2">
               {/* Header row */}
-              <div className="hidden md:grid md:grid-cols-[1fr_100px_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1">
+              <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1">
                 <span>Description</span>
-                <span>Type</span>
                 <span>Qty</span>
                 <span>Unit Price</span>
                 <span className="text-right">Total</span>
@@ -705,7 +703,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               </div>
 
               {lines.map((line, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_100px_80px_100px_90px_30px] gap-2 items-center">
+                <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
                   {editing ? (
                     <>
                       <div className="relative">
@@ -766,21 +764,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                           </div>
                         )}
                       </div>
-                      <Select
-                        value={line.item_type || "other"}
-                        onValueChange={(v) => updateLine(idx, "item_type", v)}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="labour">Labour</SelectItem>
-                          <SelectItem value="callout">Callout</SelectItem>
-                          <SelectItem value="service">Service</SelectItem>
-                          <SelectItem value="product">Product</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
                       <Input
                         type="number"
                         min="0"
@@ -808,13 +791,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     </>
                   ) : (
                     <>
-                      <div>
-                        <p className="text-sm">{line.description || "—"}</p>
-                        {line.item_type && line.item_type !== "other" && (
-                          <span className="text-xs text-muted-foreground capitalize">{line.item_type}</span>
-                        )}
-                      </div>
-                      <span className="hidden md:block" />
+                      <p className="text-sm">{line.description || "—"}</p>
                       <p className="text-sm text-muted-foreground text-right md:text-left">×{line.quantity}</p>
                       <p className="text-sm hidden md:block">{formatCurrency(Number(line.unit_price), currency)}</p>
                       <p className="text-sm font-medium text-right">
