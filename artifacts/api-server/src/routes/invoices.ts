@@ -555,6 +555,13 @@ router.delete("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res
   }
 
   // Hard delete drafts and already-cancelled
+  // First: clear any quote that references this invoice as its converted result
+  await supabaseAdmin
+    .from("invoices")
+    .update({ converted_to_invoice_id: null })
+    .eq("converted_to_invoice_id", req.params.id)
+    .eq("tenant_id", req.tenantId!);
+
   await supabaseAdmin.from("invoice_line_items").delete().eq("invoice_id", req.params.id);
   const { error } = await supabaseAdmin.from("invoices").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId!);
   if (error) { res.status(500).json({ error: error.message }); return; }
