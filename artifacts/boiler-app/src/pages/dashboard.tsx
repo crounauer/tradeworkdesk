@@ -81,44 +81,32 @@ export default function Dashboard() {
 
       {hasJobManagement && overdueFollowUpsCount > 0 && (
         <a href="/follow-ups" className="block">
-          <Card className="p-4 border-orange-300 bg-orange-50 shadow-sm flex items-center gap-3 hover:bg-orange-100 transition-colors cursor-pointer">
-            <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-orange-800">
-                {overdueFollowUpsCount} overdue follow-up{overdueFollowUpsCount !== 1 ? "s" : ""} awaiting action
-              </p>
-              <p className="text-xs text-orange-600">Parts expected dates have passed. Click to review.</p>
-            </div>
-          </Card>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer text-sm">
+            <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+            <span className="font-medium text-orange-800">{overdueFollowUpsCount} overdue follow-up{overdueFollowUpsCount !== 1 ? "s" : ""}</span>
+            <span className="text-orange-600 hidden sm:inline">&mdash; parts expected dates have passed</span>
+            <span className="ml-auto text-orange-500 text-xs">Review &rarr;</span>
+          </div>
         </a>
       )}
 
-      {isAdmin && creditsData && creditsData.length > 0 && (
+      {isAdmin && creditsData && creditsData.some(c => c.credits_remaining === 0 || c.credits_remaining < (c.usage_bundle_size ?? 1000) * 0.1) && (
         <Link href="/billing">
-          <Card className="p-4 shadow-sm flex items-center gap-4 hover:bg-muted/30 transition-colors cursor-pointer">
-            <Zap className="w-5 h-5 text-amber-500 shrink-0" />
-            <div className="flex-1 flex flex-wrap gap-x-6 gap-y-1">
-              {creditsData.map(credit => {
-                const bundleSize = credit.usage_bundle_size ?? 1000;
-                const isLow = credit.credits_remaining < bundleSize * 0.1;
-                const isEmpty = credit.credits_remaining === 0;
-                const icon = credit.name.toLowerCase().includes("sms")
-                  ? <MessageSquare className="w-3.5 h-3.5" />
-                  : <MapPin className="w-3.5 h-3.5" />;
-                return (
-                  <div key={credit.id} className="flex items-center gap-1.5 text-sm">
-                    <span className={isEmpty ? "text-red-600" : isLow ? "text-orange-600" : "text-muted-foreground"}>{icon}</span>
-                    <span className="font-medium text-foreground">{credit.name}:</span>
-                    <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-orange-600" : "text-slate-700"}`}>
-                      {credit.credits_remaining.toLocaleString()} {credit.usage_unit_label ?? "credits"} remaining
-                    </span>
-                    {isEmpty && <span className="text-xs text-red-600 font-medium">&mdash; Top up needed</span>}
-                    {!isEmpty && isLow && <span className="text-xs text-orange-600 font-medium">&mdash; Running low</span>}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer text-sm flex-wrap">
+            <Zap className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+            {creditsData.filter(c => c.credits_remaining === 0 || c.credits_remaining < (c.usage_bundle_size ?? 1000) * 0.1).map((credit, i) => {
+              const isEmpty = credit.credits_remaining === 0;
+              return (
+                <span key={credit.id} className={isEmpty ? "text-red-600" : "text-orange-700"}>
+                  {i > 0 && <span className="mx-1 text-orange-300">&bull;</span>}
+                  <span className="font-medium">{credit.name}:</span>{" "}
+                  <span className="font-semibold">{credit.credits_remaining.toLocaleString()} remaining</span>{" "}
+                  <span className="text-xs">{isEmpty ? "— top up needed" : "— running low"}</span>
+                </span>
+              );
+            })}
+            <span className="ml-auto text-orange-500 text-xs">Top up &rarr;</span>
+          </div>
         </Link>
       )}
 
