@@ -469,7 +469,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     : settings?.default_vat_rate != null && settings.default_vat_rate > 0
                       ? `${settings.default_vat_rate}%`
                       : "0%"}
-                )}
+                </p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Customer</Label>
