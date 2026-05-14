@@ -296,3 +296,15 @@ export function useMarkInvoiceSent(id: string) {
     },
   });
 }
+
+export function useUnsendInvoice(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Invoice, Error, void>({
+    mutationFn: () =>
+      apiFetch<Invoice>(`/api/invoices/${id}/unsend`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}

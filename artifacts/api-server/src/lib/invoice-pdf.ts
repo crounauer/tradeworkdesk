@@ -330,12 +330,34 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     }
   }
 
-  // ── SECTION 6: Page 2 — payment / customer notes + bank details ─────────────
+  // ── SECTION 6: Additional content — payment / customer notes + bank details + links
+  // Continues on same page if space permits, otherwise starts a new page.
 
-  const hasPage2 = !!(data.customer_notes || (data.company_bank_details && data.type === "invoice") || data.company_rates_url || data.company_trading_terms_url);
-  if (hasPage2) {
-    doc.addPage();
-    y = 20;
+  const hasExtra = !!(data.customer_notes || (data.company_bank_details && data.type === "invoice") || data.company_rates_url || data.company_trading_terms_url);
+  if (hasExtra) {
+    // Estimate how many mm the extra content needs
+    const noteLineCount  = data.customer_notes ? (doc.splitTextToSize(data.customer_notes, rightMargin - margin) as string[]).length : 0;
+    const bankLineCount  = (data.company_bank_details && data.type === "invoice") ? (doc.splitTextToSize(data.company_bank_details, rightMargin - margin) as string[]).length : 0;
+    const linkCount      = (data.company_rates_url ? 1 : 0) + (data.company_trading_terms_url ? 1 : 0);
+    const estimatedH     = (noteLineCount * 4.5) + (noteLineCount > 0 ? 8 : 0)
+                         + (bankLineCount * 4.5) + (bankLineCount > 0 ? 8 : 0)
+                         + (linkCount > 0 ? 6 + linkCount * 5.5 : 0)
+                         + 10; // separator + padding
+
+    const footerBuffer = 20; // keep clear of footer
+    const spaceLeft = pageHeight - footerBuffer - y;
+
+    if (spaceLeft < estimatedH) {
+      doc.addPage();
+      y = 20;
+    } else {
+      // Add a small separator before continuing on same page
+      y += 4;
+      doc.setDrawColor(...clrLight);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, rightMargin, y);
+      y += 6;
+    }
 
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");

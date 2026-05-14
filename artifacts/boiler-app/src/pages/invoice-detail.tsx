@@ -26,6 +26,7 @@ import {
   useDeleteInvoice,
   useSendInvoice,
   useMarkInvoiceSent,
+  useUnsendInvoice,
   useMarkInvoicePaid,
   useAcceptQuote,
   useDeclineQuote,
@@ -267,6 +268,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const deleteMut = useDeleteInvoice();
   const sendMut = useSendInvoice(id);
   const markSentMut = useMarkInvoiceSent(id);
+  const unsendMut = useUnsendInvoice(id);
   const paidMut = useMarkInvoicePaid(id);
   const acceptMut = useAcceptQuote(id);
   const declineMut = useDeclineQuote(id);
@@ -274,7 +276,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
   // Live totals
   const subtotal = lines.reduce((s, l) => s + Number(l.quantity) * Number(l.unit_price), 0);
-  const vr = parseFloat(vatRate) || 0;
+  const vr = Number(invoice.vat_rate) || 0;
   const vatAmount = Math.round(subtotal * vr) / 100;
   const total = subtotal + vatAmount;
 
@@ -294,10 +296,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     try {
       await updateMut.mutateAsync({
         line_items: lines,
-        vat_rate: parseFloat(vatRate) || 0,
         issue_date: issueDate,
-        due_date: dueDate || undefined,
-        expiry_date: expiryDate || undefined,
         notes,
         customer_notes: customerNotes,
       });
@@ -452,32 +451,20 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 <Label className="text-xs text-muted-foreground">
                   {isInvoice ? "Due Date" : "Expiry Date"}
                 </Label>
-                {editing ? (
-                  <Input
-                    type="date"
-                    value={isInvoice ? dueDate : expiryDate}
-                    onChange={(e) => isInvoice ? setDueDate(e.target.value) : setExpiryDate(e.target.value)}
-                    className="mt-1 h-8 text-sm"
-                  />
-                ) : (
-                  <p className="text-sm mt-1">
-                    {isInvoice ? formatDate(invoice.due_date) : formatDate(invoice.expiry_date)}
-                  </p>
-                )}
+                <p className="text-sm mt-1">
+                  {isInvoice
+                    ? (invoice.due_date ? formatDate(invoice.due_date) : settings?.default_payment_terms_days ? `Net ${settings.default_payment_terms_days} days` : "Due on Receipt")
+                    : (invoice.expiry_date ? formatDate(invoice.expiry_date) : "—")}
+                </p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">VAT Rate (%)</Label>
-                {editing ? (
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={vatRate}
-                    onChange={(e) => setVatRate(e.target.value)}
-                    className="mt-1 h-8 text-sm"
-                  />
-                ) : (
-                  <p className="text-sm mt-1">{invoice.vat_rate}%</p>
+                <p className="text-sm mt-1">
+                  {invoice.vat_rate != null && invoice.vat_rate > 0
+                    ? `${invoice.vat_rate}%`
+                    : settings?.default_vat_rate != null && settings.default_vat_rate > 0
+                      ? `${settings.default_vat_rate}%`
+                      : "0%"}
                 )}
               </div>
               <div>
@@ -689,6 +676,26 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 >
                   {markSentMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                   Mark as Sent
+                </Button>
+              )}
+
+              {/* Unsend — revert sent back to draft */}
+              {invoice.status === "sent" && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-muted-foreground"
+                  onClick={async () => {
+                    try {
+                      await unsendMut.mutateAsync();
+                      toast({ title: `${isInvoice ? "Invoice" : "Quote"} reverted to draft` });
+                    } catch (e) {
+                      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+                    }
+                  }}
+                  disabled={unsendMut.isPending}
+                >
+                  {unsendMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
+                  Unsend
                 </Button>
               )}
 

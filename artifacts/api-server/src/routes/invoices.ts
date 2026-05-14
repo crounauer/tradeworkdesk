@@ -645,6 +645,21 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     .single();
 
   if (updateErr) { res.status(500).json({ error: updateErr.message }); return; }
+
+  // Log to job_email_logs
+  const docLabel = invoice.type === "quote"
+    ? `Quote ${invoice.invoice_number}`
+    : `Invoice ${invoice.invoice_number}`;
+  const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
+    job_id: invoice.job_id,
+    tenant_id: req.tenantId,
+    sent_by: req.userId,
+    sent_to: toEmail,
+    subject: `${docLabel} — ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"}`,
+    forms_included: [{ form_type: invoice.type, form_label: docLabel, form_id: req.params.id }],
+  });
+  if (logErr) console.error("[invoices] Failed to log email:", logErr.message);
+
   res.json({ ...updated, sent_to: toEmail });
 });
 
@@ -674,6 +689,28 @@ router.get("/invoices/:id/pdf", ...protect, async (req: AuthenticatedRequest, re
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${type}-${number}.pdf"`);
   res.send(pdfBuffer);
+});
+
+// ─── UNSEND (revert sent → draft) ─────────────────────────────────────────
+// POST /invoices/:id/unsend
+router.post("/invoices/:id/unsend", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: invoice, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !invoice) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
+
+  if (invoice.status !== "sent") {
+    res.status(400).json({ error: "Only sent invoices/quotes can be unsent" }); return;
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from("invoices")
+    .update({ status: "draft", sent_at: null, updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(updated);
 });
 
 // ─── MARK SENT (no email) ──────────────────────────────────────────────────
