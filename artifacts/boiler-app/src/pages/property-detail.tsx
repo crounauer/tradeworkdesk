@@ -47,9 +47,22 @@ export default function PropertyDetail() {
   }, [search]);
   const { hasFeature } = usePlanFeatures();
   const deleteProperty = useDeleteProperty();
+  const updateProperty = useUpdateProperty();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  // Lazy geocode: if this property has no coords, trigger a background PATCH
+  // which the API will use to geocode and persist the coordinates.
+  useEffect(() => {
+    if (property && property.latitude == null && id) {
+      updateProperty.mutate(
+        { id, body: {} },
+        { onSuccess: () => qc.invalidateQueries({ queryKey: [`/api/properties/${id}`] }) }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [property?.id]);
 
   const handleDelete = async () => {
     try {
