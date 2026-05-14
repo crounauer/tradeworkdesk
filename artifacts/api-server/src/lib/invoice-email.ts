@@ -33,6 +33,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   total: number;
   currency: string;
   dueDate?: string | null;
+  paymentTermsDays?: number | null;
   expiryDate?: string | null;
   customerNotes?: string | null;
   pdfBuffer: Buffer;
@@ -49,12 +50,18 @@ export async function sendInvoiceDocumentEmail(opts: {
   const formattedTotal = formatCurrency(currency, total);
 
   let dateInfo = "";
-  if (!isQuote && opts.dueDate) {
-    const d = new Date(opts.dueDate);
-    if (!isNaN(d.getTime())) {
-      dateInfo = `<p><strong>Payment due:</strong> ${d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>`;
+  if (!isQuote) {
+    if (opts.dueDate) {
+      const d = new Date(opts.dueDate);
+      if (!isNaN(d.getTime())) {
+        dateInfo = `<p><strong>Payment due:</strong> ${d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>`;
+      }
+    } else if (opts.paymentTermsDays != null && opts.paymentTermsDays > 0) {
+      dateInfo = `<p><strong>Payment terms:</strong> Net ${opts.paymentTermsDays} days</p>`;
+    } else {
+      dateInfo = `<p><strong>Payment terms:</strong> Due on Receipt</p>`;
     }
-  } else if (isQuote && opts.expiryDate) {
+  } else if (opts.expiryDate) {
     const d = new Date(opts.expiryDate);
     if (!isNaN(d.getTime())) {
       dateInfo = `<p><strong>Valid until:</strong> ${d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>`;

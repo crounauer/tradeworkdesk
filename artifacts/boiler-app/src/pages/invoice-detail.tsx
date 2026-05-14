@@ -453,7 +453,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 </Label>
                 <p className="text-sm mt-1">
                   {isInvoice
-                    ? (invoice.due_date ? formatDate(invoice.due_date) : settings?.default_payment_terms_days ? `Net ${settings.default_payment_terms_days} days` : "Due on Receipt")
+                    ? (invoice.due_date
+                        ? formatDate(invoice.due_date)
+                        : (settings?.default_payment_terms_days != null && settings.default_payment_terms_days > 0)
+                          ? `Net ${settings.default_payment_terms_days} days`
+                          : "Due on Receipt")
                     : (invoice.expiry_date ? formatDate(invoice.expiry_date) : "—")}
                 </p>
               </div>
