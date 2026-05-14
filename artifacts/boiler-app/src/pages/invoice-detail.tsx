@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
@@ -257,6 +257,51 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [paidOpen, setPaidOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
+
+  // Catalogue search state
+  type CatalogueItem = { id: string; name: string; default_price: number | null; type: "service" | "product" };
+  const [catalogueSuggestions, setCatalogueSuggestions] = useState<CatalogueItem[]>([]);
+  const [activeLineIdx, setActiveLineIdx] = useState<number | null>(null);
+  const catSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catAbortRef = useRef<AbortController | null>(null);
+  const catSeqRef = useRef(0);
+
+  const searchCatalogue = useCallback((query: string, idx: number) => {
+    if (catSearchTimeout.current) clearTimeout(catSearchTimeout.current);
+    if (catAbortRef.current) catAbortRef.current.abort();
+    if (!query.trim()) { setCatalogueSuggestions([]); setActiveLineIdx(null); return; }
+    catSearchTimeout.current = setTimeout(async () => {
+      const seq = ++catSeqRef.current;
+      const ctrl = new AbortController();
+      catAbortRef.current = ctrl;
+      try {
+        const [svcs, prods] = await Promise.all([
+          customFetch(`${import.meta.env.BASE_URL}api/services/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
+            .then(d => (Array.isArray(d) ? d : []).map((s: { id: string; name: string; default_price: number | null }) => ({ ...s, type: "service" as const }))),
+          customFetch(`${import.meta.env.BASE_URL}api/admin/products`, { signal: ctrl.signal })
+            .then(d => (Array.isArray(d) ? d : [])
+              .filter((p: { name: string }) => p.name.toLowerCase().includes(query.toLowerCase()))
+              .slice(0, 10)
+              .map((p: { id: string; name: string; default_price: number | null }) => ({ ...p, type: "product" as const }))
+            ).catch(() => [] as CatalogueItem[]),
+        ]);
+        if (seq !== catSeqRef.current) return;
+        setCatalogueSuggestions([...svcs, ...prods].slice(0, 12));
+        setActiveLineIdx(idx);
+      } catch {
+        if (seq !== catSeqRef.current) return;
+        setCatalogueSuggestions([]);
+      }
+    }, 200);
+  }, []);
+
+  const selectCatalogueItem = (item: CatalogueItem, idx: number) => {
+    updateLine(idx, "description", item.name);
+    if (item.default_price != null) updateLine(idx, "unit_price", item.default_price);
+    setCatalogueSuggestions([]);
+    setActiveLineIdx(null);
+  };
+
 
   // Payment form
   const [paidAmount, setPaidAmount] = useState(String(invoice.total ?? ""));
@@ -615,12 +660,41 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
                   {editing ? (
                     <>
-                      <Input
-                        value={line.description}
-                        onChange={(e) => updateLine(idx, "description", e.target.value)}
-                        placeholder="Description"
-                        className="h-8 text-sm"
-                      />
+                      <div className="relative">
+                        <Input
+                          value={line.description}
+                          onChange={(e) => {
+                            updateLine(idx, "description", e.target.value);
+                            searchCatalogue(e.target.value, idx);
+                          }}
+                          onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}
+                          onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}
+                          placeholder="Description — type to search catalogue…"
+                          className="h-8 text-sm"
+                        />
+                        {activeLineIdx === idx && catalogueSuggestions.length > 0 && (
+                          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {catalogueSuggestions.map((item) => (
+                              <button
+                                key={`${item.type}-${item.id}`}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
+                                onMouseDown={(e) => { e.preventDefault(); selectCatalogueItem(item, idx); }}
+                              >
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${item.type === "service" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                    {item.type === "service" ? "Service" : "Product"}
+                                  </span>
+                                  <span className="truncate">{item.name}</span>
+                                </span>
+                                {item.default_price != null && (
+                                  <span className="text-muted-foreground shrink-0">{formatCurrency(item.default_price, currency)}</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <Input
                         type="number"
                         min="0"
