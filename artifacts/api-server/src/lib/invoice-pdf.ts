@@ -335,7 +335,10 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
 
   const hasExtra = !!(data.customer_notes || (data.company_bank_details && data.type === "invoice") || data.company_rates_url || data.company_trading_terms_url);
   if (hasExtra) {
-    // Estimate how many mm the extra content needs
+    // Estimate how many mm the extra content needs — set font to 8.5pt first so
+    // splitTextToSize uses the same size that will be used when rendering.
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
     const noteLineCount  = data.customer_notes ? (doc.splitTextToSize(data.customer_notes, rightMargin - margin) as string[]).length : 0;
     const bankLineCount  = (data.company_bank_details && data.type === "invoice") ? (doc.splitTextToSize(data.company_bank_details, rightMargin - margin) as string[]).length : 0;
     const linkCount      = (data.company_rates_url ? 1 : 0) + (data.company_trading_terms_url ? 1 : 0);
@@ -344,7 +347,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
                          + (linkCount > 0 ? 6 + linkCount * 5.5 : 0)
                          + 10; // separator + padding
 
-    const footerBuffer = 20; // keep clear of footer
+    const footerBuffer = 16; // footer line is at pageHeight-14; leave a 2mm gap
     const spaceLeft = pageHeight - footerBuffer - y;
 
     if (spaceLeft < estimatedH) {
