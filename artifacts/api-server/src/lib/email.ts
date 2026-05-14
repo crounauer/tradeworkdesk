@@ -465,18 +465,20 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
   const html = baseHtml(`${companyName} — Customer Portal Invitation`, `
     <h2>You've been invited to the Customer Portal</h2>
     <p>Dear ${escHtml(customerName)},</p>
-    <p><strong>${escHtml(companyName)}</strong> has invited you to access your service records, certificates, and property details through our secure customer portal.</p>
+    <p><strong>${escHtml(companyName)}</strong> has invited you to access your service records, certificates, invoices, quotes, and property details through our secure customer portal.</p>
     <div class="info-box">
       <p><strong>What you can do:</strong></p>
       <ul style="margin:8px 0 0;padding-left:20px;">
         <li>View your property details and appliance information</li>
         <li>Access service history and job records</li>
+        <li>View, download and pay invoices online</li>
+        <li>Review and respond to quotes</li>
         <li>Download certificates and reports as PDFs</li>
         <li>See upcoming appointments</li>
       </ul>
     </div>
     <p style="margin-top:24px;">
-      <a href="${escHtml(registerUrl)}" class="btn">Create Your Account</a>
+      <a href="${escHtml(registerUrl)}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;">Create Your Account</a>
     </p>
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
