@@ -994,19 +994,19 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
   ].filter(Boolean).join(", ");
 
   const fillCustomerAddress = () => {
-    // Copy address fields but NOT the customer's lat/lng — they may be from a
-    // background geocoder (postcode-level accuracy). Show the location lookup
-    // so the user pins the exact property location.
+    const hasCoords = customerAddress?.latitude != null && customerAddress?.longitude != null;
     reset({
       address_line1: customerAddress?.address_line1 ?? "",
       address_line2: customerAddress?.address_line2 ?? "",
       city: customerAddress?.city ?? "",
       county: customerAddress?.county ?? "",
       postcode: customerAddress?.postcode ?? "",
-      latitude: undefined,
-      longitude: undefined,
+      // Copy customer coords if they exist (set from Ideal Postcodes — accurate).
+      // If null, show the location lookup so the user pins the location manually.
+      latitude: customerAddress?.latitude ?? undefined,
+      longitude: customerAddress?.longitude ?? undefined,
     });
-    setShowLocationLookup(true);
+    if (!hasCoords) setShowLocationLookup(true);
   };
 
   const hasCustomerAddress = !!(customerAddress?.address_line1 || customerAddress?.postcode);
