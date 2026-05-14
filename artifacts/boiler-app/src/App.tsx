@@ -97,6 +97,7 @@ const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
 const FollowUps = lazyRetry(() => import("@/pages/follow-ups"));
+const SchedulePage = lazyRetry(() => import("@/pages/schedule"));
 const Billing = lazyRetry(() => import("@/pages/billing"));
 const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
 const NotFound = lazyRetry(() => import("@/pages/not-found"));
@@ -306,6 +307,7 @@ function AppRouter() {
         <Route path="/jobs/:jobId/files" component={() => <ProtectedRoute component={JobFiles} />} />
         <Route path="/jobs/:jobId/signatures" component={() => <ProtectedRoute component={JobSignatures} />} />
 
+        <Route path="/schedule" component={() => <ProtectedRoute component={SchedulePage} />} />
         <Route path="/follow-ups" component={() => <ProtectedRoute component={FollowUps} />} />
         <Route path="/enquiries" component={() => <ProtectedRoute component={Enquiries} />} />
         <Route path="/enquiries/:id" component={() => <ProtectedRoute component={EnquiryDetail} />} />

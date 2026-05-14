@@ -5,7 +5,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
 import { useHomepageData } from "@/hooks/use-homepage-data";
 import { 
-  LayoutDashboard, Users, Home, Flame, 
+  LayoutDashboard, Users, Home, Flame, CalendarDays,
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
@@ -71,6 +71,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    ...(hasFeature("job_management") ? [{ href: "/schedule", label: "Schedule", icon: CalendarDays }] : []),
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
     ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
