@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Plus, Receipt, CheckCircle2, Clock, XCircle, DollarSign, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,9 @@ type Tab = "invoice" | "quote";
 
 function InvoicesContent() {
   const [, navigate] = useLocation();
-  const [tab, setTab] = useState<Tab>("invoice");
+  const searchString = useSearch();
+  const initialTab = (new URLSearchParams(searchString).get("type") === "quote" ? "quote" : "invoice") as Tab;
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [page, setPage] = useState(1);
 
