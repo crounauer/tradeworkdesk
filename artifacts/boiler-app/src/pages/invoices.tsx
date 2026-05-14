@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Plus, Receipt, CheckCircle2, Clock, XCircle, DollarSign, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { QuickInvoiceDialog } from "@/components/quick-invoice-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,7 @@ function InvoicesContent() {
   const searchString = useSearch();
   const initialTab = (new URLSearchParams(searchString).get("type") === "quote" ? "quote" : "invoice") as Tab;
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [quickDialog, setQuickDialog] = useState<"invoice" | "quote" | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [page, setPage] = useState(1);
 
@@ -152,14 +154,14 @@ function InvoicesContent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate("/invoices/new?type=quote")}
+            onClick={() => setQuickDialog("quote")}
           >
             <Plus className="w-4 h-4 mr-1" />
             New Quote
           </Button>
           <Button
             size="sm"
-            onClick={() => navigate("/invoices/new?type=invoice")}
+            onClick={() => setQuickDialog("invoice")}
           >
             <Plus className="w-4 h-4 mr-1" />
             New Invoice
@@ -340,6 +342,9 @@ function InvoicesContent() {
             </div>
           )}
         </>
+      )}
+      {quickDialog && (
+        <QuickInvoiceDialog type={quickDialog} onOpenChange={(v) => { if (!v) setQuickDialog(null); }} />
       )}
     </div>
   );
