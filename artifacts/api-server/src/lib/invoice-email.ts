@@ -8,7 +8,8 @@ import type { EmailCompanyDetails } from "./email";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
-const FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
+const DEFAULT_FROM_NAME = "TradeWorkDesk";
+const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
 
 function escHtml(v: string | null | undefined): string {
   return String(v ?? "")
@@ -49,6 +50,8 @@ export async function sendInvoiceDocumentEmail(opts: {
   const isQuote = type === "quote";
   const label = isQuote ? "Quotation" : "Invoice";
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
+  const fromName = opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
+  const FROM = `${fromName} <${FROM_EMAIL}>`;
   const formattedTotal = formatCurrency(currency, total);
 
   let dateInfo = "";
