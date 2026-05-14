@@ -669,31 +669,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       <div className="space-y-4">
         {/* Main content */}
         <div className="space-y-4">
-          {/* Works Order */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="w-4 h-4" /> Works Order
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {editing ? (
-                <Textarea
-                  value={worksOrder}
-                  onChange={(e) => setWorksOrder(e.target.value)}
-                  placeholder="Describe the work to be carried out…"
-                  className="text-sm resize-none"
-                  rows={4}
-                />
-              ) : (
-                <p className="text-sm whitespace-pre-wrap">
-                  {invoice.works_order || <span className="text-muted-foreground italic">No works order description</span>}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Dates */}
+          {/* Dates */
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Details</CardTitle>
@@ -774,6 +750,30 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     </a>
                   </p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Works Order */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Works Order
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {editing ? (
+                <Textarea
+                  value={worksOrder}
+                  onChange={(e) => setWorksOrder(e.target.value)}
+                  placeholder="Describe the work to be carried out…"
+                  className="text-sm resize-none"
+                  rows={4}
+                />
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">
+                  {invoice.works_order || <span className="text-muted-foreground italic">No works order description</span>}
+                </p>
               )}
             </CardContent>
           </Card>
