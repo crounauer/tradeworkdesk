@@ -76,6 +76,12 @@ function InvoicesContent() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [page, setPage] = useState(1);
 
+  // Sync tab with URL so the Quotes nav link works even when already on this page
+  useEffect(() => {
+    const t = new URLSearchParams(searchString).get("type") === "quote" ? "quote" : "invoice";
+    setTab(t as Tab);
+  }, [searchString]);
+
   const qc = useQueryClient();
   const { data: settings } = useCompanySettings();
 
