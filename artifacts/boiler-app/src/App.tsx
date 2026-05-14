@@ -102,6 +102,7 @@ const AdminJobTypes = lazyRetry(() => import("@/pages/admin-job-types"));
 const AdminSmsTemplates = lazyRetry(() => import("@/pages/admin-sms-templates"));
 const AdminReassignJobs = lazyRetry(() => import("@/pages/admin-reassign-jobs"));
 const AdminInvoiceLog = lazyRetry(() => import("@/pages/admin-invoice-log"));
+const AdminStripeConnect = lazyRetry(() => import("@/pages/admin-stripe-connect"));
 const Register = lazyRetry(() => import("@/pages/register"));
 const PlatformDashboard = lazyRetry(() => import("@/pages/platform-dashboard"));
 const PlatformTenants = lazyRetry(() => import("@/pages/platform-tenants"));
@@ -342,6 +343,7 @@ function AppRouter() {
         <Route path="/admin/reassign-jobs" component={() => <ProtectedRoute component={AdminReassignJobs} roles={["admin"]} />} />
         <Route path="/admin/job-types" component={() => <ProtectedRoute component={AdminJobTypes} roles={["admin"]} />} />
         <Route path="/admin/invoice-log" component={() => <ProtectedRoute component={AdminInvoiceLog} roles={["admin", "office_staff"]} />} />
+        <Route path="/admin/stripe-connect" component={() => <ProtectedRoute component={AdminStripeConnect} roles={["admin"]} />} />
 
         <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
         <Route path="/account" component={() => <ProtectedRoute component={AccountSettings} />} />

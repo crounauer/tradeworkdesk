@@ -813,8 +813,8 @@ export default function AdminCompanySettings() {
                 {...register("payment_link_url")}
               />
               <p className="text-xs text-muted-foreground">
-                If set, a "Pay Now" button linking here will appear on unpaid invoices in the customer portal.
-                Use a Stripe Payment Link, PayPal.me, or any payment URL.
+                Fallback "Pay Now" button shown on portal invoices. Use a Stripe Payment Link, PayPal.me, or any payment URL.
+                For automatic per-invoice payment links, connect Stripe below.
               </p>
             </div>
             <div className="space-y-1.5">
@@ -827,6 +827,25 @@ export default function AdminCompanySettings() {
                 {...register("invoice_footer_text")}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Stripe Connect */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CreditCard className="w-4 h-4 text-violet-600" /> Stripe Payments
+            </CardTitle>
+            <CardDescription>
+              Connect your Stripe account to generate automatic per-invoice payment links. Funds go directly to your bank.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/stripe-connect">
+              <Button type="button" variant="outline" size="sm">
+                Manage Stripe Connection
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 

@@ -20,6 +20,7 @@ type PortalInvoice = {
   total: number;
   currency: string;
   customer_notes: string | null;
+  stripe_payment_link_url?: string | null;
 };
 
 type PortalMeta = {
@@ -189,7 +190,9 @@ function InvoiceRow({
     ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
     : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
 
-  const showPayNow = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue") && paymentLinkUrl;
+  // Prefer per-invoice Stripe link; fall back to generic company payment link
+  const payNowUrl = inv.stripe_payment_link_url || paymentLinkUrl || null;
+  const showPayNow = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue") && payNowUrl;
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
 
@@ -211,7 +214,7 @@ function InvoiceRow({
             <Button
               size="sm"
               className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => window.open(paymentLinkUrl!, "_blank", "noopener,noreferrer")}
+              onClick={() => window.open(payNowUrl!, "_blank", "noopener,noreferrer")}
             >
               <ExternalLink className="w-3.5 h-3.5 mr-1" />
               Pay Now

@@ -216,4 +216,82 @@ router.post(
   }
 );
 
+// ── POST /webhooks/stripe-connect ────────────────────────────────────────────
+// Handles events from connected accounts (e.g. customer invoice payments).
+// Stripe sends these with a Stripe-Account header identifying the tenant account.
+
+router.post(
+  "/webhooks/stripe-connect",
+  async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
+    const sig = req.headers["stripe-signature"] as string;
+    const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      // Not configured — silently ignore rather than erroring
+      res.json({ received: true });
+      return;
+    }
+
+    const stripeClient = requireStripe();
+    let event;
+
+    try {
+      const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(req.body));
+      event = stripeClient.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    } catch (err) {
+      console.error("[webhook-connect] Signature verification failed:", err);
+      res.status(400).json({ error: "Invalid signature" });
+      return;
+    }
+
+    try {
+      // Handle checkout.session.completed for invoice payments
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as {
+          id: string;
+          metadata?: { invoice_id?: string; tenant_id?: string };
+          payment_status?: string;
+          amount_total?: number | null;
+          currency?: string | null;
+        };
+
+        const invoiceId = session.metadata?.invoice_id;
+        const tenantId = session.metadata?.tenant_id;
+
+        if (invoiceId && tenantId && session.payment_status === "paid") {
+          const nowIso = new Date().toISOString();
+
+          const { data: inv } = await supabaseAdmin
+            .from("invoices")
+            .select("id, status, total, currency")
+            .eq("id", invoiceId)
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
+
+          if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
+            await supabaseAdmin
+              .from("invoices")
+              .update({
+                status: "paid",
+                payment_date: nowIso.slice(0, 10),
+                paid_amount: (inv as any).total,
+                payment_method: "card",
+                updated_at: nowIso,
+              } as Record<string, unknown>)
+              .eq("id", invoiceId)
+              .eq("tenant_id", tenantId);
+
+            console.log(`[webhook-connect] Invoice ${invoiceId} marked paid via Stripe Connect`);
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("[webhook-connect] Handler error:", err);
+      res.status(500).json({ error: "Webhook handler failed" });
+    }
+  }
+);
+
 export default router;
