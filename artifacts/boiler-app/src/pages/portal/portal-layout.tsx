@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Building2, Briefcase, LogOut, User } from "lucide-react";
+import { Home, Building2, Briefcase, Receipt, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePortalAuth } from "@/hooks/use-portal-auth";
 import type { ReactNode } from "react";
@@ -8,6 +8,7 @@ const navItems = [
   { label: "Dashboard", href: "/portal", icon: Home },
   { label: "Properties", href: "/portal/properties", icon: Building2 },
   { label: "Jobs", href: "/portal/jobs", icon: Briefcase },
+  { label: "Invoices", href: "/portal/invoices", icon: Receipt },
 ];
 
 export function PortalLayout({ children }: { children: ReactNode }) {

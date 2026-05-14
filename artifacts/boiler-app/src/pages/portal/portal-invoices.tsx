@@ -1,0 +1,186 @@
+import { useQuery } from "@tanstack/react-query";
+import { usePortalAuth } from "@/hooks/use-portal-auth";
+import { PortalLayout } from "./portal-layout";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Receipt, Download, Loader2, FileText } from "lucide-react";
+import { useState } from "react";
+
+type PortalInvoice = {
+  id: string;
+  type: "invoice" | "quote";
+  invoice_number: string;
+  status: string;
+  issue_date: string;
+  due_date: string | null;
+  expiry_date: string | null;
+  subtotal: number;
+  vat_rate: number;
+  vat_amount: number;
+  total: number;
+  currency: string;
+  customer_notes: string | null;
+};
+
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  sent:      { label: "Sent",      className: "bg-blue-100 text-blue-700" },
+  paid:      { label: "Paid",      className: "bg-green-100 text-green-700" },
+  overdue:   { label: "Overdue",   className: "bg-red-100 text-red-700" },
+  accepted:  { label: "Accepted",  className: "bg-teal-100 text-teal-700" },
+  declined:  { label: "Declined",  className: "bg-red-50 text-red-500" },
+  converted: { label: "Converted", className: "bg-purple-100 text-purple-700" },
+};
+
+function formatDate(d: string | null | undefined) {
+  if (!d) return "—";
+  return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
+}
+
+export default function PortalInvoices() {
+  const { session } = usePortalAuth();
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const { data: invoices, isLoading } = useQuery<PortalInvoice[]>({
+    queryKey: ["portal-invoices"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices`, {
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load invoices");
+      return res.json();
+    },
+    enabled: !!session,
+    staleTime: 30_000,
+  });
+
+  async function downloadPdf(inv: PortalInvoice) {
+    setDownloading(inv.id);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${inv.id}/pdf`, {
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) throw new Error("Failed to download PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${inv.type === "quote" ? "quote" : "invoice"}-${inv.invoice_number}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail — could add a toast here
+    } finally {
+      setDownloading(null);
+    }
+  }
+
+  const invoiceList = (invoices || []).filter((i) => i.type === "invoice");
+  const quoteList = (invoices || []).filter((i) => i.type === "quote");
+
+  return (
+    <PortalLayout>
+      <div className="space-y-6 animate-in fade-in">
+        <h1 className="text-2xl font-bold text-slate-900">Invoices &amp; Quotes</h1>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-5 animate-pulse">
+                <div className="h-5 bg-slate-200 rounded w-40 mb-2" />
+                <div className="h-4 bg-slate-200 rounded w-64" />
+              </Card>
+            ))}
+          </div>
+        ) : (invoices || []).length === 0 ? (
+          <Card className="p-8 text-center">
+            <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500">No invoices or quotes yet.</p>
+          </Card>
+        ) : (
+          <>
+            {invoiceList.length > 0 && (
+              <section>
+                <h2 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <Receipt className="w-5 h-5" /> Invoices
+                </h2>
+                <div className="space-y-2">
+                  {invoiceList.map((inv) => (
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} />
+                  ))}
+                </div>
+              </section>
+            )}
+            {quoteList.length > 0 && (
+              <section>
+                <h2 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <FileText className="w-5 h-5" /> Quotes
+                </h2>
+                <div className="space-y-2">
+                  {quoteList.map((inv) => (
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </PortalLayout>
+  );
+}
+
+function InvoiceRow({
+  inv,
+  downloading,
+  onDownload,
+}: {
+  inv: PortalInvoice;
+  downloading: string | null;
+  onDownload: (inv: PortalInvoice) => void;
+}) {
+  const statusCfg = STATUS_CONFIG[inv.status] || { label: inv.status, className: "bg-slate-100 text-slate-600" };
+  const dateLabel = inv.type === "invoice"
+    ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
+    : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
+
+  return (
+    <Card className="p-4 border border-slate-200">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusCfg.className}`}>
+            {statusCfg.label}
+          </span>
+          <div className="min-w-0">
+            <p className="font-mono font-semibold text-sm text-slate-900">{inv.invoice_number}</p>
+            <p className="text-xs text-slate-500">{dateLabel}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <p className="font-semibold text-slate-900">{formatCurrency(Number(inv.total), inv.currency)}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => onDownload(inv)}
+            disabled={downloading === inv.id}
+          >
+            {downloading === inv.id
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Download className="w-3.5 h-3.5" />
+            }
+            <span className="ml-1 hidden sm:inline">PDF</span>
+          </Button>
+        </div>
+      </div>
+      {inv.customer_notes && (
+        <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 line-clamp-2">
+          {inv.customer_notes}
+        </p>
+      )}
+    </Card>
+  );
+}

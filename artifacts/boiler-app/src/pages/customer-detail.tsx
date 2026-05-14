@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -258,6 +258,8 @@ export default function CustomerDetail() {
 
             <CustomerJobsSection customerId={customer.id} onBookJob={() => setShowBookJob(true)} />
 
+            <CustomerInvoicesSection customerId={customer.id} />
+
             <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
           </div>
         </div>
@@ -360,6 +362,85 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
               </div>
             </Card>
           </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CustomerInvoicesSection({ customerId }: { customerId: string }) {
+  const [, navigate] = useLocation();
+  const { hasFeature } = usePlanFeatures();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["customer-invoices", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/invoices?customer_id=${customerId}&limit=50`),
+    enabled: hasFeature("invoicing"),
+  });
+
+  const docs = ((data as any)?.invoices ?? []) as Array<{
+    id: string;
+    type: "invoice" | "quote";
+    invoice_number: string;
+    status: string;
+    issue_date: string;
+    total: number;
+    currency: string;
+  }>;
+
+  if (!hasFeature("invoicing") || isLoading || docs.length === 0) return null;
+
+  const statusColors: Record<string, string> = {
+    draft:     "bg-gray-100 text-gray-700",
+    sent:      "bg-blue-100 text-blue-700",
+    paid:      "bg-green-100 text-green-700",
+    overdue:   "bg-red-100 text-red-700",
+    cancelled: "bg-gray-50 text-gray-400",
+    accepted:  "bg-teal-100 text-teal-700",
+    declined:  "bg-red-50 text-red-500",
+    converted: "bg-purple-100 text-purple-700",
+  };
+  const statusLabels: Record<string, string> = {
+    draft: "Draft", sent: "Sent", paid: "Paid", overdue: "Overdue",
+    cancelled: "Cancelled", accepted: "Accepted", declined: "Declined", converted: "Converted",
+  };
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-display font-bold flex items-center gap-2">
+        <Receipt className="w-5 h-5" /> Invoices &amp; Quotes
+        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{docs.length}</span>
+      </h2>
+      <div className="space-y-2">
+        {docs.map((doc) => (
+          <Card
+            key={doc.id}
+            className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+            onClick={() => navigate(`/invoices/${doc.id}`)}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[doc.status] || "bg-slate-100 text-slate-600"}`}>
+                  {statusLabels[doc.status] || doc.status}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-mono font-semibold text-sm text-foreground">{doc.invoice_number}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{doc.type}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <p className="font-semibold text-sm">
+                  {new Intl.NumberFormat("en-GB", { style: "currency", currency: doc.currency || "GBP" }).format(Number(doc.total))}
+                </p>
+                {doc.issue_date && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {new Date(doc.issue_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </Card>
         ))}
       </div>
     </div>

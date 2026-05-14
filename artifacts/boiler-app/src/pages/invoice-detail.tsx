@@ -71,7 +71,7 @@ function formatDate(dateStr: string | null) {
 // ─── Empty line item ──────────────────────────────────────────────────────
 
 function emptyLine(): InvoiceLineItem {
-  return { description: "", quantity: 1, unit_price: 0, item_type: "labour" };
+  return { description: "", quantity: 1, unit_price: 0, item_type: "other" };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────
@@ -306,6 +306,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const selectCatalogueItem = (item: CatalogueItem, idx: number) => {
     updateLine(idx, "description", item.name);
     if (item.default_price != null) updateLine(idx, "unit_price", item.default_price);
+    updateLine(idx, "item_type", item.type === "product" ? "product" : "service");
     setCatalogueSuggestions([]);
     setActiveLineIdx(null);
   };
@@ -706,18 +707,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
                   {editing ? (
                     <>
-                      <div className="relative">
-                        <Input
-                          value={line.description}
-                          onChange={(e) => {
-                            updateLine(idx, "description", e.target.value);
-                            searchCatalogue(e.target.value, idx);
-                          }}
-                          onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}
-                          onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}
-                          placeholder="Description — type to search catalogue…"
-                          className="h-8 text-sm"
-                        />
+                      <div className="relative">\n                        <Input\n                          value={line.description}\n                          onChange={(e) => {\n                            updateLine(idx, \"description\", e.target.value);\n                            searchCatalogue(e.target.value, idx);\n                          }}\n                          onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}\n                          onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}\n                          placeholder=\"Description \u2014 type to search catalogue\u2026\"\n                          className=\"h-8 text-sm\"\n                        />\n                        {(line.item_type === \"product\" || line.item_type === \"service\") && (\n                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${\n                            line.item_type === \"product\" ? \"bg-purple-100 text-purple-700\" : \"bg-blue-100 text-blue-700\"\n                          }`}>\n                            {line.item_type === \"product\" ? \"Product\" : \"Service\"}\n                          </span>\n                        )}
                         {activeLineIdx === idx && (
                           <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                             {catalogueSuggestions.length === 0 ? (
@@ -791,7 +781,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     </>
                   ) : (
                     <>
-                      <p className="text-sm">{line.description || "—"}</p>
+                      <div>
+                        <p className="text-sm">{line.description || "—"}</p>
+                        {(line.item_type === "product" || line.item_type === "service") && (
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${
+                            line.item_type === "product" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {line.item_type === "product" ? "Product" : "Service"}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground text-right md:text-left">×{line.quantity}</p>
                       <p className="text-sm hidden md:block">{formatCurrency(Number(line.unit_price), currency)}</p>
                       <p className="text-sm font-medium text-right">

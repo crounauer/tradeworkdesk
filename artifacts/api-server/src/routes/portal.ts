@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import type { Request, Response, NextFunction } from "express";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
+import { generateInvoicePdf } from "../lib/invoice-pdf";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -510,6 +511,122 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       properties: undefined,
     })),
   });
+});
+
+// ─── Portal Invoices ────────────────────────────────────────────────────────
+
+router.get("/portal/invoices", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("invoices")
+    .select("id, type, invoice_number, status, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, currency, customer_notes")
+    .eq("customer_id", req.customerId!)
+    .eq("tenant_id", req.tenantId!)
+    .in("status", ["sent", "paid", "overdue", "accepted", "declined", "converted"])
+    .order("issue_date", { ascending: false })
+    .limit(100);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: invoice, error } = await supabaseAdmin
+    .from("invoices")
+    .select("*")
+    .eq("id", id)
+    .eq("customer_id", req.customerId!)
+    .eq("tenant_id", req.tenantId!)
+    .in("status", ["sent", "paid", "overdue", "accepted", "declined", "converted"])
+    .single();
+
+  if (error || !invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
+
+  const { data: lineItems } = await supabaseAdmin
+    .from("invoice_line_items")
+    .select("*")
+    .eq("invoice_id", id)
+    .order("sort_order");
+
+  const { data: customer } = await supabaseAdmin
+    .from("customers")
+    .select("first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode")
+    .eq("id", req.customerId!)
+    .maybeSingle();
+
+  const { data: job } = invoice.job_id
+    ? await supabaseAdmin.from("jobs").select("job_ref, property_id, description").eq("id", invoice.job_id).maybeSingle()
+    : { data: null };
+
+  const { data: property } = (job as any)?.property_id
+    ? await supabaseAdmin.from("properties").select("address_line1, address_line2, city, county, postcode").eq("id", (job as any).property_id).maybeSingle()
+    : { data: null };
+
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer";
+
+  const pdfData = {
+    type: invoice.type as "invoice" | "quote",
+    invoice_number: invoice.invoice_number as string,
+    issue_date: invoice.issue_date as string,
+    due_date: invoice.due_date as string | null,
+    expiry_date: invoice.expiry_date as string | null,
+    currency: (invoice.currency as string) || "GBP",
+    company_name: (cs as any)?.name || null,
+    company_trading_name: (cs as any)?.trading_name || null,
+    company_address_line1: (cs as any)?.address_line1 || null,
+    company_address_line2: (cs as any)?.address_line2 || null,
+    company_city: (cs as any)?.city || null,
+    company_county: (cs as any)?.county || null,
+    company_postcode: (cs as any)?.postcode || null,
+    company_phone: (cs as any)?.phone || null,
+    company_email: (cs as any)?.email || null,
+    company_website: (cs as any)?.website || null,
+    company_vat_number: (cs as any)?.vat_number || null,
+    company_gas_safe_number: (cs as any)?.gas_safe_number || null,
+    company_oftec_number: (cs as any)?.oftec_number || null,
+    company_footer_text: (cs as any)?.invoice_footer_text || null,
+    company_bank_details: (cs as any)?.invoice_bank_details || null,
+    customer_name: customerName,
+    customer_address_line1: customer?.address_line1 || (property as any)?.address_line1 || null,
+    customer_address_line2: customer?.address_line2 || (property as any)?.address_line2 || null,
+    customer_city: customer?.city || (property as any)?.city || null,
+    customer_county: customer?.county || (property as any)?.county || null,
+    customer_postcode: customer?.postcode || (property as any)?.postcode || null,
+    customer_email: customer?.email || null,
+    customer_phone: customer?.phone || customer?.mobile || null,
+    job_reference: (job as any)?.job_ref || null,
+    job_description: (job as any)?.description || null,
+    line_items: (lineItems || []).map((l: any) => ({
+      description: l.description,
+      quantity: Number(l.quantity),
+      unit_price: Number(l.unit_price),
+      total: Number(l.total),
+      item_type: l.item_type,
+    })),
+    subtotal: Number(invoice.subtotal),
+    vat_rate: Number(invoice.vat_rate),
+    vat_amount: Number(invoice.vat_amount),
+    total: Number(invoice.total),
+    customer_notes: invoice.customer_notes || null,
+  };
+
+  try {
+    const pdfBuffer = generateInvoicePdf(pdfData);
+    const filename = `${invoice.type === "quote" ? "quote" : "invoice"}-${invoice.invoice_number}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to generate PDF" });
+  }
 });
 
 export function generateInviteToken(): string {

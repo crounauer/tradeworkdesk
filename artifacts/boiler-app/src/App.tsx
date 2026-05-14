@@ -111,6 +111,7 @@ const PortalProperties = lazyRetry(() => import("@/pages/portal/portal-propertie
 const PortalPropertyDetail = lazyRetry(() => import("@/pages/portal/portal-property-detail"));
 const PortalJobs = lazyRetry(() => import("@/pages/portal/portal-jobs"));
 const PortalJobDetail = lazyRetry(() => import("@/pages/portal/portal-job-detail"));
+const PortalInvoices = lazyRetry(() => import("@/pages/portal/portal-invoices"));
 
 const HomePage = lazyRetry(() => import("@/pages/marketing/home"));
 const FeaturesPage = lazyRetry(() => import("@/pages/marketing/features"));
@@ -235,6 +236,7 @@ function PortalRoutes() {
           <Route path="/portal/properties/:id" component={() => <PortalProtectedRoute component={PortalPropertyDetail} />} />
           <Route path="/portal/jobs" component={() => <PortalProtectedRoute component={PortalJobs} />} />
           <Route path="/portal/jobs/:id" component={() => <PortalProtectedRoute component={PortalJobDetail} />} />
+          <Route path="/portal/invoices" component={() => <PortalProtectedRoute component={PortalInvoices} />} />
         </Switch>
       </Suspense>
     </PortalAuthProvider>
