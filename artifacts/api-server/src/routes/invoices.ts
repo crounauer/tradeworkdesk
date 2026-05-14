@@ -194,7 +194,7 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
 
   let q = supabaseAdmin
     .from("invoices")
-    .select("*, customers(first_name, last_name), jobs(description, scheduled_date)", { count: "exact" })
+    .select("id, tenant_id, job_id, customer_id, type, status, invoice_number, issue_date, due_date, total, vat_amount, subtotal, currency, paid_amount, payment_date, created_at, customers(first_name, last_name), jobs(description, scheduled_date)", { count: "exact" })
     .eq("tenant_id", req.tenantId!)
     .order("created_at", { ascending: false })
     .range(offset, offset + limitNum - 1);

@@ -77,7 +77,6 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(hasFeature("invoicing") ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
-    ...(hasFeature("invoicing") ? [{ href: "/invoices?type=quote", label: "Quotes", icon: FileText }] : []),
     ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
     { href: "/search", label: "Search", icon: Search },
     ...(hasFeature("reports") ? [

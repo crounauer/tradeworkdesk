@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Plus, Receipt, CheckCircle2, Clock, XCircle, DollarSign, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
-import { QuickInvoiceDialog } from "@/components/quick-invoice-dialog";
+const QuickInvoiceDialog = lazy(() => import("@/components/quick-invoice-dialog").then(m => ({ default: m.QuickInvoiceDialog })));
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
