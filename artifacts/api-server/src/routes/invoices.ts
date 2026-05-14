@@ -10,6 +10,7 @@ import { gcRequest, GC_API_BASE } from "./gocardless";
 import { decryptToken } from "../lib/accounting/crypto";
 import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
 import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
+import { getPlatformSetting } from "../lib/geocode";
 
 const router: IRouter = Router();
 
@@ -899,7 +900,8 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
         .single();
       const tl = tlTenant as any;
 
-      if (tl?.truelayer_enabled && tl?.truelayer_sort_code && tl?.truelayer_account_number && process.env.TRUELAYER_CLIENT_ID) {
+      const tlClientId = await getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null);
+      if (tl?.truelayer_enabled && tl?.truelayer_sort_code && tl?.truelayer_account_number && tlClientId) {
         const tlToken = await getTrueLayerToken();
         const amountMinor = Math.round(Number(invoice.total) * 100);
         const currency = ((invoice.currency as string) || "GBP").toUpperCase();
