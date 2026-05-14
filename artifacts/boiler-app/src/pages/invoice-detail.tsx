@@ -669,7 +669,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       <div className="space-y-4">
         {/* Main content */}
         <div className="space-y-4">
-          {/* Dates */
+          {/* Dates */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Details</CardTitle>
