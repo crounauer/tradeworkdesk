@@ -270,6 +270,7 @@ function AppRouter() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
+        <Route path="/portal" component={PortalRoutes} />
         <Route path="/portal/:rest*" component={PortalRoutes} />
 
         <Route path="/login">
