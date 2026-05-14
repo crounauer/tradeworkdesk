@@ -544,3 +544,17 @@ export async function sendServiceDueReminderEmail(
     throw new Error(`Email send failed: ${error.message}`);
   }
 }
+
+export async function sendSimpleNotification(
+  to: string,
+  subject: string,
+  bodyText: string,
+): Promise<void> {
+  if (!resend) return; // email not configured — skip silently
+  const html = `<div style="font-family:sans-serif;font-size:14px;color:#1e293b;max-width:600px;margin:0 auto;padding:24px">
+    <p style="margin:0 0 16px;">${bodyText.replace(/\n/g, "<br>")}</p>
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+    <p style="font-size:12px;color:#94a3b8;">Sent from TradeWorkDesk</p>
+  </div>`;
+  await resend.emails.send({ from: FROM, to, subject, html } as Parameters<typeof resend.emails.send>[0]);
+}

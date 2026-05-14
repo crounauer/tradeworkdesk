@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileText, Plus, Receipt, CheckCircle2, Clock, XCircle, DollarSign, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { FileText, Plus, Receipt, CheckCircle2, Clock, XCircle, DollarSign, AlertTriangle, ArrowRight, Loader2, Download } from "lucide-react";
 const QuickInvoiceDialog = lazy(() => import("@/components/quick-invoice-dialog").then(m => ({ default: m.QuickInvoiceDialog })));
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -78,6 +78,7 @@ function InvoicesContent() {
   const [quickDialog, setQuickDialog] = useState<"invoice" | "quote" | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(initialUnpaid ? "unpaid" : initialStatus);
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   // Sync tab with URL so the Quotes nav link works even when already on this page
   useEffect(() => {
@@ -115,6 +116,26 @@ function InvoicesContent() {
 
   const invoices = data?.invoices ?? [];
   const pagination = data?.pagination;
+
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const qs = new URLSearchParams({ type: tab });
+      if (statusFilter && statusFilter !== "unpaid") qs.set("status", statusFilter);
+      const res = await fetch(`${import.meta.env.BASE_URL}api/invoices/export.csv?${qs}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] ?? `invoices-export.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silently fail */ }
+    finally { setExporting(false); }
+  }
 
   const statusOptions: Array<{ value: InvoiceStatus; label: string }> = tab === "invoice"
     ? [
@@ -168,6 +189,16 @@ function InvoicesContent() {
           <h1 className="text-2xl font-bold">Invoices & Quotes</h1>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            title="Export to CSV (Xero/QuickBooks compatible)"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <span className="ml-1 hidden sm:inline">Export CSV</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"

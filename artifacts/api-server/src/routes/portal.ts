@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import type { Request, Response, NextFunction } from "express";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
+import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -460,7 +461,7 @@ router.get("/portal/jobs/:jobId/certificate", requireCustomerAuth, async (req: C
 });
 
 router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const [propertiesRes, jobsRes, customerRes, tenantRes] = await Promise.all([
+  const [propertiesRes, jobsRes, customerRes, tenantRes, settingsRes] = await Promise.all([
     supabaseAdmin
       .from("properties")
       .select("id, address_line1, postcode, property_type")
@@ -485,6 +486,12 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .select("company_name")
       .eq("id", req.tenantId!)
       .single(),
+    supabaseAdmin
+      .from("company_settings")
+      .select("payment_link_url")
+      .eq("tenant_id", req.tenantId!)
+      .eq("singleton_id", "default")
+      .maybeSingle(),
   ]);
 
   const upcomingJobs = (jobsRes.data || []).filter((j: any) =>
@@ -498,6 +505,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
   res.json({
     customer: customerRes.data,
     company_name: tenantRes.data?.company_name || null,
+    payment_link_url: (settingsRes.data as any)?.payment_link_url || null,
     properties_count: propertiesRes.data?.length || 0,
     properties: propertiesRes.data || [],
     upcoming_jobs: upcomingJobs.map((j: any) => ({
@@ -628,6 +636,85 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
   } catch (e) {
     res.status(500).json({ error: "Failed to generate PDF" });
   }
+});
+
+// ─── PORTAL: Accept / Decline a quote ─────────────────────────────────────
+// POST /portal/invoices/:id/accept
+// POST /portal/invoices/:id/decline
+async function handleQuoteAction(
+  req: CustomerPortalRequest,
+  res: Response,
+  action: "accept" | "decline",
+): Promise<void> {
+  const { id } = req.params;
+
+  const { data: invoice, error } = await supabaseAdmin
+    .from("invoices")
+    .select("id, type, status, invoice_number, total, currency, customer_id, tenant_id")
+    .eq("id", id)
+    .eq("customer_id", req.customerId!)
+    .eq("tenant_id", req.tenantId!)
+    .eq("type", "quote")
+    .eq("status", "sent")
+    .single();
+
+  if (error || !invoice) {
+    res.status(404).json({ error: "Quote not found or cannot be actioned" });
+    return;
+  }
+
+  const newStatus = action === "accept" ? "accepted" : "declined";
+
+  const { error: updateError } = await supabaseAdmin
+    .from("invoices")
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (updateError) {
+    res.status(500).json({ error: updateError.message });
+    return;
+  }
+
+  // Notify company via email (best-effort)
+  try {
+    const { data: cs } = await supabaseAdmin
+      .from("company_settings")
+      .select("email, name, trading_name")
+      .eq("tenant_id", req.tenantId!)
+      .eq("singleton_id", "default")
+      .maybeSingle();
+
+    const { data: customer } = await supabaseAdmin
+      .from("customers")
+      .select("first_name, last_name")
+      .eq("id", req.customerId!)
+      .maybeSingle();
+
+    const companyEmail = (cs as any)?.email;
+    const companyName = (cs as any)?.name || (cs as any)?.trading_name || "Your company";
+    const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "A customer";
+    const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: (invoice as any).currency || "GBP" }).format(Number((invoice as any).total));
+
+    if (companyEmail) {
+      await sendSimpleNotification(
+        companyEmail,
+        `Quote ${(invoice as any).invoice_number} ${action === "accept" ? "Accepted" : "Declined"} by Customer`,
+        `${customerName} has ${action === "accept" ? "accepted" : "declined"} quote ${(invoice as any).invoice_number} for ${amount}.\n\nLog in to TradeWorkDesk to view the quote.`,
+      );
+    }
+  } catch {
+    // email notification failure is non-fatal
+  }
+
+  res.json({ success: true, status: newStatus });
+}
+
+router.post("/portal/invoices/:id/accept", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
+  return handleQuoteAction(req, res, "accept");
+});
+
+router.post("/portal/invoices/:id/decline", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
+  return handleQuoteAction(req, res, "decline");
 });
 
 export function generateInviteToken(): string {

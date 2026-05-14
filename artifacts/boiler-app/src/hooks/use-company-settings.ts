@@ -41,6 +41,7 @@ export interface CompanySettings {
   quote_validity_days?: number | null;
   invoice_footer_text?: string | null;
   invoice_bank_details?: string | null;
+  payment_link_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

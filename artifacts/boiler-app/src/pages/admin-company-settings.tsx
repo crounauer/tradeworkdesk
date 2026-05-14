@@ -123,6 +123,7 @@ export default function AdminCompanySettings() {
       quote_validity_days: settings.quote_validity_days ?? 30,
       invoice_footer_text: settings.invoice_footer_text ?? "",
       invoice_bank_details: settings.invoice_bank_details ?? "",
+      payment_link_url: settings.payment_link_url ?? "",
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
@@ -802,6 +803,19 @@ export default function AdminCompanySettings() {
                 {...register("invoice_bank_details")}
               />
               <p className="text-xs text-muted-foreground">Printed on invoices to help customers pay you.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="payment_link_url">Customer Payment Link (optional)</Label>
+              <Input
+                id="payment_link_url"
+                type="url"
+                placeholder="e.g. https://buy.stripe.com/your-link or PayPal link"
+                {...register("payment_link_url")}
+              />
+              <p className="text-xs text-muted-foreground">
+                If set, a "Pay Now" button linking here will appear on unpaid invoices in the customer portal.
+                Use a Stripe Payment Link, PayPal.me, or any payment URL.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="invoice_footer_text">Invoice Footer Text</Label>

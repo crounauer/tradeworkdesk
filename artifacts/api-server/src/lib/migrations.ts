@@ -64,6 +64,12 @@ export async function runStartupMigrations() {
     .limit(1);
   if (e3) needed.push("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_ref varchar(20) DEFAULT NULL;");
 
+  const { error: e4 } = await supabaseAdmin
+    .from("company_settings")
+    .select("payment_link_url")
+    .limit(1);
+  if (e4) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS payment_link_url TEXT;");
+
   if (needed.length > 0) {
     console.warn("[migrations] Run this SQL in the Supabase SQL Editor:");
     console.warn(needed.join("\n"));

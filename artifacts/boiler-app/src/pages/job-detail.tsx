@@ -12,7 +12,7 @@ import {
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
-  Timer, Phone, Smartphone, Receipt
+  Timer, Phone, Smartphone, Receipt, Download
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
@@ -239,6 +239,31 @@ export default function JobDetail() {
     }
   };
 
+  const [downloadingCp12, setDownloadingCp12] = useState(false);
+  const handleDownloadCp12 = async () => {
+    const srForm = (completedForms || []).find(f => f.form_type === "service_record");
+    if (!srForm) return;
+    setDownloadingCp12(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/forms/service_record/${srForm.form_id}/pdf`, { credentials: "include" });
+      if (!res.ok) throw new Error("PDF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const fuelCat = (job as unknown as { fuel_category?: string | null }).fuel_category;
+      const label = (fuelCat === "gas" || fuelCat === "lpg") ? "cp12" : "service-record";
+      a.download = `${label}-${job.job_ref || job.id.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to download PDF";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setDownloadingCp12(false);
+    }
+  };
+
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
   const canComplete = job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled";
@@ -351,6 +376,12 @@ export default function JobDetail() {
             <Button variant="outline" size="sm" onClick={handleEmailCertificate} disabled={sendingCertificate || !isOnline}>
               {sendingCertificate ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
               Email Certificate
+            </Button>
+          )}
+          {completedFormTypes.has("service_record") && (
+            <Button variant="outline" size="sm" onClick={handleDownloadCp12} disabled={downloadingCp12}>
+              {downloadingCp12 ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              {(job as unknown as { fuel_category?: string | null }).fuel_category === "gas" ? "CP12 PDF" : "Service Record PDF"}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>

@@ -1002,4 +1002,74 @@ router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedReques
   res.status(201).json(newInvoice);
 });
 
+// ─── CSV EXPORT ────────────────────────────────────────────────────────────
+// GET /invoices/export.csv
+// Optional query params: type, status, date_from, date_to, customer_id
+// Returns a Xero-compatible CSV file.
+router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { type, status, date_from, date_to, customer_id } = req.query as Record<string, string>;
+
+  let q = supabaseAdmin
+    .from("invoices")
+    .select("id, type, status, invoice_number, issue_date, due_date, payment_date, subtotal, vat_amount, total, currency, customers(first_name, last_name), jobs(description)")
+    .eq("tenant_id", req.tenantId!)
+    .order("issue_date", { ascending: false });
+
+  if (type) q = q.eq("type", type);
+  if (status) q = q.eq("status", status);
+  if (customer_id) q = q.eq("customer_id", customer_id);
+  if (date_from) q = q.gte("issue_date", date_from);
+  if (date_to) q = q.lte("issue_date", date_to);
+
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const rows = (data || []) as Array<{
+    type: string; status: string; invoice_number: string; issue_date: string;
+    due_date: string | null; payment_date: string | null;
+    subtotal: number; vat_amount: number; total: number; currency: string;
+    customers: { first_name: string; last_name: string } | null;
+    jobs: { description: string } | null;
+  }>;
+
+  function csvEscape(v: string | null | undefined): string {
+    if (v == null) return "";
+    const s = String(v);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  const headers = ["Type", "Invoice Number", "Customer", "Issue Date", "Due Date", "Description", "Net Amount", "VAT Amount", "Total", "Currency", "Status", "Paid Date"];
+  const lines: string[] = [headers.join(",")];
+
+  for (const row of rows) {
+    const customerName = row.customers
+      ? `${row.customers.first_name} ${row.customers.last_name}`.trim()
+      : "";
+    const cols = [
+      csvEscape(row.type === "quote" ? "Quote" : "Invoice"),
+      csvEscape(row.invoice_number),
+      csvEscape(customerName),
+      csvEscape(row.issue_date),
+      csvEscape(row.due_date),
+      csvEscape(row.jobs?.description),
+      csvEscape(Number(row.subtotal).toFixed(2)),
+      csvEscape(Number(row.vat_amount).toFixed(2)),
+      csvEscape(Number(row.total).toFixed(2)),
+      csvEscape(row.currency?.toUpperCase() || "GBP"),
+      csvEscape(row.status),
+      csvEscape(row.payment_date),
+    ];
+    lines.push(cols.join(","));
+  }
+
+  const csv = lines.join("\r\n");
+  const date = new Date().toISOString().slice(0, 10);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="invoices-export-${date}.csv"`);
+  res.send("\uFEFF" + csv); // BOM for Excel compatibility
+});
+
 export default router;

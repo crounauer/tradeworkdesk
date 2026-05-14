@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -20,6 +20,10 @@ type PortalInvoice = {
   total: number;
   currency: string;
   customer_notes: string | null;
+};
+
+type PortalMeta = {
+  payment_link_url?: string | null;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -42,6 +46,7 @@ function formatCurrency(amount: number, currency: string) {
 
 export default function PortalInvoices() {
   const { session } = usePortalAuth();
+  const qc = useQueryClient();
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: invoices, isLoading } = useQuery<PortalInvoice[]>({
@@ -55,6 +60,37 @@ export default function PortalInvoices() {
     },
     enabled: !!session,
     staleTime: 30_000,
+  });
+
+  const { data: meta } = useQuery<PortalMeta>({
+    queryKey: ["portal-dashboard-meta"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/dashboard`, {
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) return {};
+      const d = await res.json();
+      return { payment_link_url: d.payment_link_url ?? null };
+    },
+    enabled: !!session,
+    staleTime: 300_000,
+  });
+
+  const quoteActionMutation = useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: "accept" | "decline" }) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${id}/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error || "Action failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["portal-invoices"] });
+    },
   });
 
   async function downloadPdf(inv: PortalInvoice) {
@@ -109,7 +145,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} />
                   ))}
                 </div>
               </section>
@@ -121,7 +157,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} />
                   ))}
                 </div>
               </section>
@@ -137,15 +173,25 @@ function InvoiceRow({
   inv,
   downloading,
   onDownload,
+  paymentLinkUrl,
+  onQuoteAction,
+  quoteActioning,
 }: {
   inv: PortalInvoice;
   downloading: string | null;
   onDownload: (inv: PortalInvoice) => void;
+  paymentLinkUrl?: string | null;
+  onQuoteAction?: (id: string, action: "accept" | "decline") => void;
+  quoteActioning?: string | null;
 }) {
   const statusCfg = STATUS_CONFIG[inv.status] || { label: inv.status, className: "bg-slate-100 text-slate-600" };
   const dateLabel = inv.type === "invoice"
     ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
     : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
+
+  const showPayNow = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue") && paymentLinkUrl;
+  const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
+  const isActioning = quoteActioning === inv.id;
 
   return (
     <Card className="p-4 border border-slate-200">
@@ -159,8 +205,41 @@ function InvoiceRow({
             <p className="text-xs text-slate-500">{dateLabel}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <p className="font-semibold text-slate-900">{formatCurrency(Number(inv.total), inv.currency)}</p>
+          {showPayNow && (
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => window.open(paymentLinkUrl!, "_blank", "noopener,noreferrer")}
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1" />
+              Pay Now
+            </Button>
+          )}
+          {showQuoteActions && (
+            <>
+              <Button
+                size="sm"
+                className="h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                disabled={isActioning}
+                onClick={() => onQuoteAction!(inv.id, "accept")}
+              >
+                {isActioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5 mr-1" />}
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                disabled={isActioning}
+                onClick={() => onQuoteAction!(inv.id, "decline")}
+              >
+                {isActioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5 mr-1" />}
+                Decline
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             variant="outline"
