@@ -798,6 +798,18 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                   {editing ? (
                     <>
                       <div className="relative">
+                        {(line.item_type === "product" || line.item_type === "service" || line.item_type === "labour" || line.item_type === "callout") && (
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mb-0.5 inline-block ${
+                            line.item_type === "product" ? "bg-purple-100 text-purple-700" :
+                            line.item_type === "service" ? "bg-blue-100 text-blue-700" :
+                            line.item_type === "labour" ? "bg-amber-100 text-amber-700" :
+                            "bg-orange-100 text-orange-700"
+                          }`}>
+                            {line.item_type === "product" ? "Product" :
+                             line.item_type === "service" ? "Service" :
+                             line.item_type === "labour" ? "Labour" : "Callout"}
+                          </span>
+                        )}
                         <Input
                           value={line.description}
                           onChange={(e) => {
@@ -809,18 +821,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                           placeholder="Description — type to search catalogue…"
                           className="h-8 text-sm"
                         />
-                        {(line.item_type === "product" || line.item_type === "service" || line.item_type === "labour" || line.item_type === "callout") && (
-                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${
-                            line.item_type === "product" ? "bg-purple-100 text-purple-700" :
-                            line.item_type === "service" ? "bg-blue-100 text-blue-700" :
-                            line.item_type === "labour" ? "bg-amber-100 text-amber-700" :
-                            "bg-orange-100 text-orange-700"
-                          }`}>
-                            {line.item_type === "product" ? "Product" :
-                             line.item_type === "service" ? "Service" :
-                             line.item_type === "labour" ? "Labour" : "Callout"}
-                          </span>
-                        )}
                         {activeLineIdx === idx && (
                           <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                             {catalogueSuggestions.length === 0 ? (
