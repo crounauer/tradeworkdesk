@@ -83,6 +83,8 @@ export default defineConfig({
           ],
           "vendor-forms": ["react-hook-form", "@hookform/resolvers", "zod"],
           "vendor-icons": ["lucide-react"],
+          "vendor-charts": ["recharts"],
+          "vendor-map": ["leaflet", "react-leaflet"],
         },
       },
     },

@@ -29,13 +29,21 @@ interface LineItemInput {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Short-lived in-process cache for company settings (30s TTL) to avoid repeated
+// DB hits on the same tenant across invoice list / send / PDF operations.
+const settingsCache = new Map<string, { data: Record<string, unknown> | null; ts: number }>();
+const SETTINGS_TTL_MS = 30_000;
+
 async function getCompanySettings(tenantId: string) {
+  const cached = settingsCache.get(tenantId);
+  if (cached && Date.now() - cached.ts < SETTINGS_TTL_MS) return cached.data;
   const { data } = await supabaseAdmin
     .from("company_settings")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("singleton_id", "default")
     .maybeSingle();
+  settingsCache.set(tenantId, { data: data as Record<string, unknown> | null, ts: Date.now() });
   return data;
 }
 
@@ -200,6 +208,7 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
   const { data, error, count } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  res.set("Cache-Control", "private, max-age=30");
   res.json({
     invoices: data || [],
     pagination: {
@@ -452,6 +461,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("id", invoice.job_id as string)
     .maybeSingle();
 
+  res.set("Cache-Control", "private, max-age=30");
   res.json({ ...invoice, line_items: lineItems || [], customer, job });
 });
 
