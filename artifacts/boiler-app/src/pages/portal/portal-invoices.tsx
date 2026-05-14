@@ -21,6 +21,9 @@ type PortalInvoice = {
   currency: string;
   customer_notes: string | null;
   stripe_payment_link_url?: string | null;
+  gocardless_payment_link_url?: string | null;
+  paypal_payment_link_url?: string | null;
+  truelayer_payment_link_url?: string | null;
 };
 
 type PortalMeta = {
@@ -190,9 +193,17 @@ function InvoiceRow({
     ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
     : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
 
-  // Prefer per-invoice Stripe link; fall back to generic company payment link
-  const payNowUrl = inv.stripe_payment_link_url || paymentLinkUrl || null;
-  const showPayNow = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue") && payNowUrl;
+  const isPayable = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue");
+  // Collect all available payment links in priority order
+  const paymentOptions: Array<{ label: string; url: string; className: string }> = [];
+  if (isPayable) {
+    if (inv.stripe_payment_link_url) paymentOptions.push({ label: "Pay by Card", url: inv.stripe_payment_link_url, className: "bg-violet-600 hover:bg-violet-700 text-white" });
+    if (inv.gocardless_payment_link_url) paymentOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
+    if (inv.paypal_payment_link_url) paymentOptions.push({ label: "Pay with PayPal", url: inv.paypal_payment_link_url, className: "bg-blue-600 hover:bg-blue-700 text-white" });
+    if (inv.truelayer_payment_link_url) paymentOptions.push({ label: "Open Banking", url: inv.truelayer_payment_link_url, className: "bg-emerald-600 hover:bg-emerald-700 text-white" });
+    // Fall back to generic company payment link if no provider links exist
+    if (paymentOptions.length === 0 && paymentLinkUrl) paymentOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
+  }
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
 
@@ -210,16 +221,17 @@ function InvoiceRow({
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <p className="font-semibold text-slate-900">{formatCurrency(Number(inv.total), inv.currency)}</p>
-          {showPayNow && (
+          {paymentOptions.map((opt) => (
             <Button
+              key={opt.url}
               size="sm"
-              className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => window.open(payNowUrl!, "_blank", "noopener,noreferrer")}
+              className={`h-8 text-xs ${opt.className}`}
+              onClick={() => window.open(opt.url, "_blank", "noopener,noreferrer")}
             >
               <ExternalLink className="w-3.5 h-3.5 mr-1" />
-              Pay Now
+              {opt.label}
             </Button>
-          )}
+          ))}
           {showQuoteActions && (
             <>
               <Button

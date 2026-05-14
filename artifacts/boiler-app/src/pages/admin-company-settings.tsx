@@ -830,20 +830,20 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
-        {/* Stripe Connect */}
+        {/* Payment Providers */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CreditCard className="w-4 h-4 text-violet-600" /> Stripe Payments
+              <CreditCard className="w-4 h-4 text-violet-600" /> Payment Providers
             </CardTitle>
             <CardDescription>
-              Connect your Stripe account to generate automatic per-invoice payment links. Funds go directly to your bank.
+              Connect Stripe, GoCardless, PayPal, or open banking so customers can pay invoices online. Funds go directly to your account.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/admin/stripe-connect">
+            <Link href="/admin/payment-providers">
               <Button type="button" variant="outline" size="sm">
-                Manage Stripe Connection
+                Manage Payment Providers
               </Button>
             </Link>
           </CardContent>

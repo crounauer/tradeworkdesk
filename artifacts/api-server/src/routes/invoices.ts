@@ -6,6 +6,10 @@ import { generateInvoicePdf, type InvoicePdfData } from "../lib/invoice-pdf";
 import { sendInvoiceDocumentEmail } from "../lib/invoice-email";
 import { buildInvoiceData } from "./jobs";
 import { requireStripe } from "../lib/stripe";
+import { gcRequest, GC_API_BASE } from "./gocardless";
+import { decryptToken } from "../lib/accounting/crypto";
+import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
+import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
 
 const router: IRouter = Router();
 
@@ -757,6 +761,203 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     } catch (err) {
       // Non-fatal — log but don't fail the send
       console.error("[invoices] Failed to create Stripe Checkout Session:", (err as Error).message);
+    }
+
+    // ── GoCardless Billing Request ───────────────────────────────────────────
+    try {
+      const { data: gcTenant } = await supabaseAdmin
+        .from("tenants")
+        .select("gocardless_access_token, gocardless_organisation_id")
+        .eq("id", req.tenantId!)
+        .single();
+      const gcToken = (gcTenant as any)?.gocardless_access_token as string | null;
+      const gcOrgId = (gcTenant as any)?.gocardless_organisation_id as string | null;
+
+      if (gcToken && gcOrgId) {
+        const decryptedToken = decryptToken(gcToken);
+        const amountPence = Math.round(Number(invoice.total) * 100);
+        const currency = ((invoice.currency as string) || "GBP").toUpperCase();
+        const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
+
+        // Create BillingRequest
+        const brRes = await gcRequest<{ billing_requests: { id: string } }>(
+          decryptedToken, "POST", "/billing_requests",
+          {
+            billing_requests: {
+              payment_request: {
+                description: `Invoice ${invoice.invoice_number as string}`,
+                amount: amountPence,
+                currency,
+              },
+            },
+          },
+        );
+        const billingRequestId = brRes.billing_requests.id;
+
+        // Create BillingRequestFlow to get the hosted URL
+        const flowRes = await gcRequest<{ billing_request_flows: { authorisation_url: string } }>(
+          decryptedToken, "POST", "/billing_request_flows",
+          {
+            billing_request_flows: {
+              redirect_uri: `${portalUrl}?gc_success=1`,
+              exit_uri: portalUrl,
+              links: { billing_request: billingRequestId },
+            },
+          },
+        );
+
+        await supabaseAdmin
+          .from("invoices")
+          .update({
+            gocardless_payment_link_url: flowRes.billing_request_flows.authorisation_url,
+            gocardless_billing_request_id: billingRequestId,
+            updated_at: new Date().toISOString(),
+          } as Record<string, unknown>)
+          .eq("id", req.params.id)
+          .eq("tenant_id", req.tenantId!);
+      }
+    } catch (err) {
+      console.error("[invoices] Failed to create GoCardless Billing Request:", (err as Error).message);
+    }
+
+    // ── PayPal Order ─────────────────────────────────────────────────────────
+    try {
+      const { data: ppTenant } = await supabaseAdmin
+        .from("tenants")
+        .select("paypal_client_id, paypal_client_secret")
+        .eq("id", req.tenantId!)
+        .single();
+      const ppClientIdEnc = (ppTenant as any)?.paypal_client_id as string | null;
+      const ppSecretEnc = (ppTenant as any)?.paypal_client_secret as string | null;
+
+      if (ppClientIdEnc && ppSecretEnc) {
+        const ppClientId = decryptToken(ppClientIdEnc);
+        const ppSecret = decryptToken(ppSecretEnc);
+        const ppToken = await getPayPalAccessToken(ppClientId, ppSecret);
+        const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
+        const amount = Number(invoice.total).toFixed(2);
+        const currency = ((invoice.currency as string) || "GBP").toUpperCase();
+
+        const orderRes = await fetch(`${PP_BASE}/v2/checkout/orders`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${ppToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            intent: "CAPTURE",
+            purchase_units: [{
+              reference_id: req.params.id,
+              description: `Invoice ${invoice.invoice_number as string}`,
+              amount: { currency_code: currency, value: amount },
+              custom_id: `${req.tenantId}:${req.params.id}`,
+            }],
+            application_context: {
+              return_url: `${portalUrl}?pp_success=1`,
+              cancel_url: portalUrl,
+              brand_name: (invoice as any).company_name || "TradeWorkDesk",
+              user_action: "PAY_NOW",
+            },
+          }),
+        });
+
+        if (orderRes.ok) {
+          const orderData = await orderRes.json() as {
+            id: string;
+            links: Array<{ rel: string; href: string }>;
+          };
+          const approveUrl = orderData.links.find((l) => l.rel === "approve")?.href ?? null;
+          if (approveUrl) {
+            await supabaseAdmin
+              .from("invoices")
+              .update({
+                paypal_payment_link_url: approveUrl,
+                paypal_order_id: orderData.id,
+                updated_at: new Date().toISOString(),
+              } as Record<string, unknown>)
+              .eq("id", req.params.id)
+              .eq("tenant_id", req.tenantId!);
+          }
+        } else {
+          const errBody = await orderRes.json().catch(() => ({}));
+          console.error("[invoices] PayPal order creation failed:", JSON.stringify(errBody));
+        }
+      }
+    } catch (err) {
+      console.error("[invoices] Failed to create PayPal Order:", (err as Error).message);
+    }
+
+    // ── TrueLayer Open Banking Payment ───────────────────────────────────────
+    try {
+      const { data: tlTenant } = await supabaseAdmin
+        .from("tenants")
+        .select("truelayer_sort_code, truelayer_account_number, truelayer_account_holder_name, truelayer_enabled")
+        .eq("id", req.tenantId!)
+        .single();
+      const tl = tlTenant as any;
+
+      if (tl?.truelayer_enabled && tl?.truelayer_sort_code && tl?.truelayer_account_number && process.env.TRUELAYER_CLIENT_ID) {
+        const tlToken = await getTrueLayerToken();
+        const amountMinor = Math.round(Number(invoice.total) * 100);
+        const currency = ((invoice.currency as string) || "GBP").toUpperCase();
+        const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
+        const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer";
+
+        const paymentRes = await fetch(`${TL_API_BASE}/v3/payments`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tlToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount_in_minor: amountMinor,
+            currency,
+            payment_method: {
+              type: "bank_transfer",
+              provider_selection: { type: "user_selected" },
+              beneficiary: {
+                type: "external_account",
+                account_holder_name: tl.truelayer_account_holder_name,
+                account_identifier: {
+                  type: "sort_code_account_number",
+                  sort_code: tl.truelayer_sort_code,
+                  account_number: tl.truelayer_account_number,
+                },
+                reference: `Invoice ${invoice.invoice_number as string}`,
+              },
+            },
+            user: {
+              name: customerName,
+              email: toEmail ?? undefined,
+            },
+            metadata: {
+              invoice_id: req.params.id,
+              tenant_id: req.tenantId!,
+            },
+            return_uri: `${portalUrl}?tl_success=1`,
+          }),
+        });
+
+        if (paymentRes.ok) {
+          const paymentData = await paymentRes.json() as { id: string; resource_token: string };
+          const paymentLink = `${TL_PAY_BASE}/payments#${paymentData.resource_token}`;
+
+          await supabaseAdmin
+            .from("invoices")
+            .update({
+              truelayer_payment_link_url: paymentLink,
+              truelayer_payment_id: paymentData.id,
+              updated_at: new Date().toISOString(),
+            } as Record<string, unknown>)
+            .eq("id", req.params.id)
+            .eq("tenant_id", req.tenantId!);
+        } else {
+          const errBody = await paymentRes.json().catch(() => ({}));
+          console.error("[invoices] TrueLayer payment creation failed:", JSON.stringify(errBody));
+        }
+      }
+    } catch (err) {
+      console.error("[invoices] Failed to create TrueLayer payment:", (err as Error).message);
     }
   }
 

@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import crypto from "crypto";
 import { requireStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
 import {
@@ -6,6 +7,8 @@ import {
   sendPaymentFailedEmail,
 } from "../lib/email";
 import { syncSeats } from "./billing";
+import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
+import { decryptToken } from "../lib/accounting/crypto";
 
 const router = Router();
 
@@ -292,6 +295,206 @@ router.post(
       res.status(500).json({ error: "Webhook handler failed" });
     }
   }
+);
+
+// ─── GoCardless webhook ───────────────────────────────────────────────────────
+// POST /webhooks/gocardless
+// Listens for billing_request.fulfilled events and marks invoices paid.
+router.post(
+  "/webhooks/gocardless",
+  async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
+    const webhookSecret = process.env.GOCARDLESS_WEBHOOK_SECRET;
+    if (!webhookSecret) { res.json({ received: true }); return; }
+
+    // Verify HMAC-SHA256 signature
+    const sig = req.headers["webhook-signature"] as string | undefined;
+    if (!sig) { res.status(400).json({ error: "Missing signature" }); return; }
+
+    const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(req.body));
+    const expected = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      res.status(400).json({ error: "Invalid signature" });
+      return;
+    }
+
+    try {
+      const { events } = req.body as {
+        events: Array<{
+          resource_type: string;
+          action: string;
+          links: { billing_request?: string };
+        }>;
+      };
+
+      for (const event of events || []) {
+        if (event.resource_type === "billing_requests" && event.action === "fulfilled") {
+          const billingRequestId = event.links.billing_request;
+          if (!billingRequestId) continue;
+
+          const { data: inv } = await supabaseAdmin
+            .from("invoices")
+            .select("id, status, total, tenant_id")
+            .eq("gocardless_billing_request_id", billingRequestId)
+            .maybeSingle();
+
+          if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
+            const nowIso = new Date().toISOString();
+            await supabaseAdmin
+              .from("invoices")
+              .update({
+                status: "paid",
+                payment_date: nowIso.slice(0, 10),
+                paid_amount: (inv as any).total,
+                payment_method: "direct_debit",
+                updated_at: nowIso,
+              } as Record<string, unknown>)
+              .eq("id", (inv as any).id);
+
+            console.log(`[webhook-gc] Invoice ${(inv as any).id} marked paid via GoCardless`);
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("[webhook-gc] Handler error:", err);
+      res.status(500).json({ error: "Webhook handler failed" });
+    }
+  },
+);
+
+// ─── PayPal webhook ──────────────────────────────────────────────────────────
+// POST /webhooks/paypal
+// Handles PAYMENT.CAPTURE.COMPLETED and CHECKOUT.ORDER.APPROVED events.
+router.post(
+  "/webhooks/paypal",
+  async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
+    try {
+      const event = req.body as {
+        event_type: string;
+        resource: {
+          id?: string;
+          custom_id?: string;
+          purchase_units?: Array<{ custom_id?: string; reference_id?: string }>;
+        };
+      };
+
+      if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+        // custom_id is "{tenantId}:{invoiceId}" set when creating the order
+        const customId = event.resource.custom_id;
+        if (customId) {
+          const [tenantId, invoiceId] = customId.split(":");
+          if (tenantId && invoiceId) {
+            const { data: inv } = await supabaseAdmin
+              .from("invoices")
+              .select("id, status, total")
+              .eq("id", invoiceId)
+              .eq("tenant_id", tenantId)
+              .maybeSingle();
+
+            if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
+              const nowIso = new Date().toISOString();
+
+              // Capture the order to complete the payment
+              const creds = await (async () => {
+                const { data: t } = await supabaseAdmin
+                  .from("tenants")
+                  .select("paypal_client_id, paypal_client_secret")
+                  .eq("id", tenantId)
+                  .single();
+                const raw = t as any;
+                if (!raw?.paypal_client_id || !raw?.paypal_client_secret) return null;
+                try {
+                  return { clientId: decryptToken(raw.paypal_client_id), secret: decryptToken(raw.paypal_client_secret) };
+                } catch { return null; }
+              })();
+
+              if (creds) {
+                try {
+                  const ppToken = await getPayPalAccessToken(creds.clientId, creds.secret);
+                  await fetch(`${PP_BASE}/v2/checkout/orders/${event.resource.id}/capture`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${ppToken}`, "Content-Type": "application/json" },
+                  });
+                } catch { /* already captured or non-fatal */ }
+              }
+
+              await supabaseAdmin
+                .from("invoices")
+                .update({
+                  status: "paid",
+                  payment_date: nowIso.slice(0, 10),
+                  paid_amount: (inv as any).total,
+                  payment_method: "card",
+                  updated_at: nowIso,
+                } as Record<string, unknown>)
+                .eq("id", invoiceId)
+                .eq("tenant_id", tenantId);
+
+              console.log(`[webhook-paypal] Invoice ${invoiceId} marked paid via PayPal`);
+            }
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("[webhook-paypal] Handler error:", err);
+      res.status(500).json({ error: "Webhook handler failed" });
+    }
+  },
+);
+
+// ─── TrueLayer webhook ────────────────────────────────────────────────────────
+// POST /webhooks/truelayer
+// Handles payment_settled events and marks invoices paid.
+router.post(
+  "/webhooks/truelayer",
+  async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
+    try {
+      const event = req.body as {
+        type: string;
+        payment_id?: string;
+        metadata?: { invoice_id?: string; tenant_id?: string };
+      };
+
+      if (event.type === "payment_settled" || event.type === "payment_executed") {
+        const invoiceId = event.metadata?.invoice_id;
+        const tenantId = event.metadata?.tenant_id;
+
+        if (invoiceId && tenantId) {
+          const { data: inv } = await supabaseAdmin
+            .from("invoices")
+            .select("id, status, total")
+            .eq("id", invoiceId)
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
+
+          if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
+            const nowIso = new Date().toISOString();
+            await supabaseAdmin
+              .from("invoices")
+              .update({
+                status: "paid",
+                payment_date: nowIso.slice(0, 10),
+                paid_amount: (inv as any).total,
+                payment_method: "bank_transfer",
+                updated_at: nowIso,
+              } as Record<string, unknown>)
+              .eq("id", invoiceId)
+              .eq("tenant_id", tenantId);
+
+            console.log(`[webhook-truelayer] Invoice ${invoiceId} marked paid via TrueLayer`);
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("[webhook-truelayer] Handler error:", err);
+      res.status(500).json({ error: "Webhook handler failed" });
+    }
+  },
 );
 
 export default router;
