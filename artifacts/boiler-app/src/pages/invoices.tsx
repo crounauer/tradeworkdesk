@@ -257,7 +257,11 @@ function InvoicesContent() {
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(inv.issue_date)}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {tab === "invoice"
-                        ? formatDate(inv.due_date)
+                        ? (inv.due_date
+                            ? formatDate(inv.due_date)
+                            : (settings?.default_payment_terms_days != null && settings.default_payment_terms_days > 0)
+                              ? `Net ${settings.default_payment_terms_days} days`
+                              : "Due on Receipt")
                         : formatDate(inv.expiry_date)}
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
@@ -290,7 +294,11 @@ function InvoicesContent() {
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {tab === "invoice"
-                        ? `Due: ${formatDate(inv.due_date)}`
+                        ? (inv.due_date
+                            ? `Due: ${formatDate(inv.due_date)}`
+                            : (settings?.default_payment_terms_days != null && settings.default_payment_terms_days > 0)
+                              ? `Net ${settings.default_payment_terms_days} days`
+                              : "Due on Receipt")
                         : `Expires: ${formatDate(inv.expiry_date)}`}
                     </p>
                   </div>
