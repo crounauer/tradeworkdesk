@@ -153,4 +153,138 @@ router.get("/reports/completed-by-technician", requireAuth, requireTenant, requi
   res.json(GetCompletedByTechnicianResponse.parse(Object.values(grouped)));
 });
 
+// ─── GET /reports/overview ────────────────────────────────────────────────
+// Single endpoint that runs all KPI queries in parallel for the dashboard overview
+router.get("/reports/overview", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("reports"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const tenantId = req.tenantId!;
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+
+  // Month boundaries
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+
+  // Last 6 months: build array of { year, month, label, start, end }
+  const months: { label: string; start: string; end: string }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
+    const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
+    const label = d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+    months.push({ label, start, end });
+  }
+
+  const [
+    jobsThisMonthRes,
+    jobsThisMonthByTypeRes,
+    jobsThisMonthByStatusRes,
+    paidInvoicesThisMonthRes,
+    outstandingInvoicesRes,
+    activeCustomersRes,
+    monthlyRevenueResults,
+  ] = await Promise.all([
+    // Total jobs this month
+    supabaseAdmin.from("jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .gte("scheduled_date", monthStart)
+      .lte("scheduled_date", monthEnd),
+
+    // Jobs this month by type
+    supabaseAdmin.from("jobs")
+      .select("job_type")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .gte("scheduled_date", monthStart)
+      .lte("scheduled_date", monthEnd),
+
+    // Jobs this month by status
+    supabaseAdmin.from("jobs")
+      .select("status")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .gte("scheduled_date", monthStart)
+      .lte("scheduled_date", monthEnd),
+
+    // Revenue this month (paid invoices)
+    supabaseAdmin.from("invoices")
+      .select("total, paid_amount")
+      .eq("tenant_id", tenantId)
+      .eq("type", "invoice")
+      .eq("status", "paid")
+      .gte("issue_date", monthStart)
+      .lte("issue_date", monthEnd),
+
+    // Outstanding balance (sent + overdue)
+    supabaseAdmin.from("invoices")
+      .select("total")
+      .eq("tenant_id", tenantId)
+      .eq("type", "invoice")
+      .in("status", ["sent", "overdue"]),
+
+    // Active customers
+    supabaseAdmin.from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true),
+
+    // Monthly revenue for last 6 months (one query per month — small enough)
+    Promise.all(months.map(m =>
+      supabaseAdmin.from("invoices")
+        .select("total, paid_amount")
+        .eq("tenant_id", tenantId)
+        .eq("type", "invoice")
+        .eq("status", "paid")
+        .gte("issue_date", m.start)
+        .lte("issue_date", m.end)
+    )),
+  ]);
+
+  // Aggregate jobs by type
+  const byType: Record<string, number> = {};
+  for (const j of (jobsThisMonthByTypeRes.data || [])) {
+    const t = (j as { job_type: string }).job_type || "unknown";
+    byType[t] = (byType[t] || 0) + 1;
+  }
+
+  // Aggregate jobs by status
+  const byStatus: Record<string, number> = {};
+  for (const j of (jobsThisMonthByStatusRes.data || [])) {
+    const s = (j as { status: string }).status || "unknown";
+    byStatus[s] = (byStatus[s] || 0) + 1;
+  }
+
+  // Revenue this month
+  const revenueThisMonth = (paidInvoicesThisMonthRes.data || []).reduce(
+    (sum, inv) => sum + Number((inv as { paid_amount?: number | null; total: number }).paid_amount ?? (inv as { total: number }).total), 0
+  );
+
+  // Outstanding balance
+  const outstandingBalance = (outstandingInvoicesRes.data || []).reduce(
+    (sum, inv) => sum + Number((inv as { total: number }).total), 0
+  );
+
+  // Monthly revenue chart data
+  const monthlyRevenue = months.map((m, i) => {
+    const result = monthlyRevenueResults[i];
+    const revenue = (result.data || []).reduce(
+      (sum, inv) => sum + Number((inv as { paid_amount?: number | null; total: number }).paid_amount ?? (inv as { total: number }).total), 0
+    );
+    return { label: m.label, revenue };
+  });
+
+  res.json({
+    kpis: {
+      jobs_this_month: jobsThisMonthRes.count ?? 0,
+      revenue_this_month: revenueThisMonth,
+      outstanding_balance: outstandingBalance,
+      active_customers: activeCustomersRes.count ?? 0,
+    },
+    jobs_by_type: Object.entries(byType).map(([type, count]) => ({ type, count })),
+    jobs_by_status: Object.entries(byStatus).map(([status, count]) => ({ status, count })),
+    monthly_revenue: monthlyRevenue,
+  });
+});
+
 export default router;
