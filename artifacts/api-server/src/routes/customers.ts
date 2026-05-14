@@ -376,4 +376,59 @@ router.patch("/customers/:id/portal-toggle", requireAuth, requireTenant, require
   res.json({ success: true, is_active });
 });
 
+// ─── GET /customers/:id/email-log ─────────────────────────────────────────────
+// All email logs for jobs/invoices belonging to this customer, newest first.
+router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  // Verify customer belongs to this tenant
+  const { data: customer } = await supabaseAdmin
+    .from("customers")
+    .select("id")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+
+  // Step 1: collect all job IDs for this customer
+  const { data: jobs } = await supabaseAdmin
+    .from("jobs")
+    .select("id, job_ref")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!);
+
+  if (!jobs || jobs.length === 0) { res.json([]); return; }
+
+  const jobIds = jobs.map((j: { id: string }) => j.id);
+  const jobRefMap: Record<string, string | null> = {};
+  for (const j of jobs as { id: string; job_ref: string | null }[]) {
+    jobRefMap[j.id] = j.job_ref;
+  }
+
+  // Step 2: email logs for those jobs
+  const { data: logs, error } = await supabaseAdmin
+    .from("job_email_logs")
+    .select("id, job_id, sent_to, subject, forms_included, created_at, profiles!sent_by(full_name)")
+    .in("job_id", jobIds)
+    .eq("tenant_id", req.tenantId!)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const mapped = (logs || []).map((log: Record<string, unknown>) => ({
+    id: log.id,
+    job_id: log.job_id,
+    job_ref: jobRefMap[log.job_id as string] ?? null,
+    sent_to: log.sent_to,
+    subject: log.subject,
+    forms_included: log.forms_included,
+    sent_by_name: (log.profiles as Record<string, unknown> | null)?.full_name ?? null,
+    created_at: log.created_at,
+  }));
+
+  res.json(mapped);
+});
+
 export default router;

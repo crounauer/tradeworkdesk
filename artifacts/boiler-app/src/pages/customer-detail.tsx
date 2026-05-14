@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -260,6 +260,8 @@ export default function CustomerDetail() {
 
             <CustomerInvoicesSection customerId={customer.id} />
 
+            <CustomerCommsSection customerId={customer.id} />
+
             <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
           </div>
         </div>
@@ -448,6 +450,141 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
               </div>
             </div>
           </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Email history — all emails sent for this customer's jobs & invoices
+// ---------------------------------------------------------------------------
+
+interface EmailLogEntry {
+  id: string;
+  job_id: string;
+  job_ref: string | null;
+  sent_to: string;
+  subject: string;
+  forms_included: { form_type: string; form_label: string; form_id: string }[];
+  sent_by_name: string | null;
+  created_at: string;
+}
+
+function CustomerCommsSection({ customerId }: { customerId: string }) {
+  const { data: logs = [], isLoading } = useQuery<EmailLogEntry[]>({
+    queryKey: ["customer-email-log", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/email-log`) as Promise<EmailLogEntry[]>,
+    staleTime: 2 * 60_000,
+  });
+
+  if (isLoading || logs.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-display font-bold flex items-center gap-2">
+        <Mail className="w-5 h-5" /> Email History
+        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{logs.length}</span>
+      </h2>
+      <div className="space-y-2">
+        {logs.map(log => (
+          <Link key={log.id} href={`/jobs/${log.job_id}`}>
+            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground truncate">{log.subject}</p>
+                    {log.job_ref && (
+                      <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono shrink-0">#{log.job_ref}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <p className="text-xs text-muted-foreground">To: {log.sent_to}</p>
+                    {log.sent_by_name && (
+                      <p className="text-xs text-muted-foreground">By: {log.sent_by_name}</p>
+                    )}
+                    {log.forms_included?.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {log.forms_included.map(f => f.form_label).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(log.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Email history — all emails sent for this customer's jobs & invoices
+// ---------------------------------------------------------------------------
+
+interface EmailLogEntry {
+  id: string;
+  job_id: string;
+  job_ref: string | null;
+  sent_to: string;
+  subject: string;
+  forms_included: { form_type: string; form_label: string; form_id: string }[];
+  sent_by_name: string | null;
+  created_at: string;
+}
+
+function CustomerCommsSection({ customerId }: { customerId: string }) {
+  const { data: logs = [], isLoading } = useQuery<EmailLogEntry[]>({
+    queryKey: ["customer-email-log", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/email-log`) as Promise<EmailLogEntry[]>,
+    staleTime: 2 * 60_000,
+  });
+
+  if (isLoading || logs.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-display font-bold flex items-center gap-2">
+        <Mail className="w-5 h-5" /> Email History
+        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{logs.length}</span>
+      </h2>
+      <div className="space-y-2">
+        {logs.map(log => (
+          <Link key={log.id} href={`/jobs/${log.job_id}`}>
+            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground truncate">{log.subject}</p>
+                    {log.job_ref && (
+                      <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono shrink-0">#{log.job_ref}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <p className="text-xs text-muted-foreground">To: {log.sent_to}</p>
+                    {log.sent_by_name && (
+                      <p className="text-xs text-muted-foreground">By: {log.sent_by_name}</p>
+                    )}
+                    {log.forms_included?.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {log.forms_included.map(f => f.form_label).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                  {new Date(log.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+              </div>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>
