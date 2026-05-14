@@ -907,6 +907,7 @@ router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedReques
       due_date: dueDate,
       notes: quote.notes,
       customer_notes: quote.customer_notes,
+      works_order: quote.works_order,
       subtotal: quote.subtotal,
       vat_rate: quote.vat_rate,
       vat_amount: quote.vat_amount,
