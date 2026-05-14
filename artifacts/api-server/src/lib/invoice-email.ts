@@ -90,6 +90,17 @@ export async function sendInvoiceDocumentEmail(opts: {
        </div>`
     : "";
 
+  const footerLinksHtml = (() => {
+    const links: string[] = [];
+    if (opts.company?.rates_url) {
+      links.push(`<a href="${escHtml(opts.company.rates_url)}" style="color:#1d4ed8;text-decoration:none;" target="_blank">Pricing &amp; Rates</a>`);
+    }
+    if (opts.company?.trading_terms_url) {
+      links.push(`<a href="${escHtml(opts.company.trading_terms_url)}" style="color:#1d4ed8;text-decoration:none;" target="_blank">Trading Terms</a>`);
+    }
+    return links.length ? `<p style="margin:0 0 8px;">${links.join('<span style="margin:0 8px;color:#cbd5e1;">|</span>')}</p>` : "";
+  })();
+
   const subject = `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`;
 
   const logoHtml = opts.company?.logo_url
@@ -137,6 +148,7 @@ export async function sendInvoiceDocumentEmail(opts: {
       <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
     </div>
     <div class="footer">
+      ${footerLinksHtml}
       <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;" target="_blank">Powered by TradeWorkDesk</a>
     </div>
   </div>
