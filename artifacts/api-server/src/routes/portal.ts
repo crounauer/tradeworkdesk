@@ -7,6 +7,7 @@ import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
 import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
+import { getPlatformSetting } from "../lib/geocode";
 import { decryptToken } from "../lib/accounting/crypto";
 
 const router: IRouter = Router();
@@ -815,14 +816,17 @@ router.post(
 // ─── GET /portal/payment-providers ─────────────────────────────────────────
 // Returns which on-demand payment options are available for the current tenant.
 router.get("/portal/payment-providers", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const { data: tenant } = await supabaseAdmin
-    .from("tenants")
-    .select("truelayer_enabled, truelayer_sort_code, truelayer_account_number, paypal_client_id")
-    .eq("id", req.tenantId!)
-    .single();
+  const [{ data: tenant }, tlClientId] = await Promise.all([
+    supabaseAdmin
+      .from("tenants")
+      .select("truelayer_enabled, truelayer_sort_code, truelayer_account_number, paypal_client_id")
+      .eq("id", req.tenantId!)
+      .single(),
+    getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null),
+  ]);
   const t = tenant as any;
   res.json({
-    truelayer: !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number && process.env.TRUELAYER_CLIENT_ID),
+    truelayer: !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number && tlClientId),
     paypal: !!t?.paypal_client_id,
   });
 });
@@ -854,8 +858,12 @@ router.post(
       .single();
     const tl = tenant as any;
 
-    if (!tl?.truelayer_enabled || !tl?.truelayer_sort_code || !tl?.truelayer_account_number || !process.env.TRUELAYER_CLIENT_ID) {
+    if (!tl?.truelayer_enabled || !tl?.truelayer_sort_code || !tl?.truelayer_account_number) {
       res.status(400).json({ error: "Open Banking is not configured for this account" }); return;
+    }
+    const tlClientId = await getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null);
+    if (!tlClientId) {
+      res.status(400).json({ error: "Open Banking is not available on this platform" }); return;
     }
 
     try {
