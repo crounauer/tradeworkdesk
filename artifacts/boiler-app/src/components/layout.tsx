@@ -233,7 +233,18 @@ export function Layout({ children }: { children: ReactNode }) {
           <Button
             variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-foreground mb-1 text-xs"
-            onClick={() => { queryClient.clear(); window.location.reload(); }}
+            onClick={async () => {
+              queryClient.clear();
+              if ('caches' in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+              }
+              if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg) await reg.unregister();
+              }
+              window.location.reload();
+            }}
             title="Clear cached data and reload"
           >
             <RefreshCcw className="w-3.5 h-3.5 mr-2" />
@@ -291,7 +302,18 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="pt-4 mt-4 border-t border-border space-y-2">
-              <Button variant="ghost" className="w-full text-muted-foreground text-sm" onClick={() => { queryClient.clear(); window.location.reload(); }}>
+              <Button variant="ghost" className="w-full text-muted-foreground text-sm" onClick={async () => {
+                queryClient.clear();
+                if ('caches' in window) {
+                  const names = await caches.keys();
+                  await Promise.all(names.map(n => caches.delete(n)));
+                }
+                if ('serviceWorker' in navigator) {
+                  const reg = await navigator.serviceWorker.getRegistration();
+                  if (reg) await reg.unregister();
+                }
+                window.location.reload();
+              }}>
                 <RefreshCcw className="w-3.5 h-3.5 mr-2" />
                 Clear Cache
               </Button>
