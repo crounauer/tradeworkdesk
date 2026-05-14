@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
 import { OfflineProvider } from "@/contexts/offline-context";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
   return lazy(() =>
@@ -358,6 +359,7 @@ function App() {
               </WouterRouter>
             </ChunkErrorBoundary>
             <Toaster />
+            <SpeedInsights />
           </TooltipProvider>
         </OfflineProvider>
       </AuthProvider>

@@ -78,6 +78,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
+    "@vercel/speed-insights": "^2.0.0",
     "compression": "^1.8.1",
     "express": "^5.2.1",
     "idb": "^8.0.3",
