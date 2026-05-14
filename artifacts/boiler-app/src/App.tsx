@@ -9,13 +9,30 @@ import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
 import { OfflineProvider } from "@/contexts/offline-context";
 
+async function clearSwAndReload() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(r => r.unregister()));
+      // Also clear all caches so stale precache entries are purged
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (_) {
+    // Ignore — still reload even if SW unregister fails
+  }
+  window.location.reload();
+}
+
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
   return lazy(() =>
-    importFn().catch(() => {
+    importFn().catch(async () => {
       const hasReloaded = sessionStorage.getItem("chunk_reload");
       if (!hasReloaded) {
         sessionStorage.setItem("chunk_reload", "1");
-        window.location.reload();
+        await clearSwAndReload();
+        // clearSwAndReload navigates away, so this line is a fallback
+        return importFn();
       }
       sessionStorage.removeItem("chunk_reload");
       return importFn();
@@ -27,13 +44,14 @@ class ChunkErrorBoundary extends ReactComponent<{ children: ReactNode }, { hasEr
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error: Error, _info: ErrorInfo) {
-    if (error.message?.includes("Loading chunk") || error.message?.includes("Failed to fetch") || error.message?.includes("dynamically imported module")) {
+    if (error.message?.includes("Loading chunk") || error.message?.includes("Failed to fetch") || error.message?.includes("dynamically imported module") || error.message?.includes("MIME type")) {
       const hasReloaded = sessionStorage.getItem("chunk_reload");
       if (!hasReloaded) {
         sessionStorage.setItem("chunk_reload", "1");
-        window.location.reload();
+        clearSwAndReload();
+      } else {
+        sessionStorage.removeItem("chunk_reload");
       }
-      sessionStorage.removeItem("chunk_reload");
     }
   }
   render() {
