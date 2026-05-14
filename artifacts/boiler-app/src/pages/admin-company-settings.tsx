@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Link } from "wouter";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
-  Upload, Trash2, Save, Loader2, MapPin, BadgeCheck, PoundSterling,
+  Upload, Trash2, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
   Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench,
   Search
@@ -72,7 +72,7 @@ export default function AdminCompanySettings() {
     }
   };
 
-  const { register, handleSubmit, reset, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
+  const { register, reset, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -198,13 +198,7 @@ export default function AdminCompanySettings() {
     };
   }, []);
 
-  const onSubmit = async () => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
-    await doSave(true);
-  };
+
 
   const handleLogoFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -458,7 +452,7 @@ export default function AdminCompanySettings() {
       )}
 
       {/* Main form */}
-      <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form ref={formRef} className="space-y-6">
         {/* Identity */}
         <Card>
           <CardHeader>
@@ -794,13 +788,6 @@ export default function AdminCompanySettings() {
               Discard Changes
             </Button>
           )}
-          <Button type="submit" disabled={autoSaveStatus === "saving"}>
-            {autoSaveStatus === "saving" ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
-            ) : (
-              <><Save className="w-4 h-4 mr-2" /> Save Settings</>
-            )}
-          </Button>
         </div>
       </form>
 
