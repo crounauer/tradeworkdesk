@@ -532,7 +532,7 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New {label}</DialogTitle>
         </DialogHeader>
@@ -622,9 +622,15 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
                   <Label>Address</Label>
                   <Input value={newAddr1} onChange={(e) => setNewAddr1(e.target.value)} placeholder="123 High Street" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Address Line 2</Label>
-                  <Input value={newAddr2} onChange={(e) => setNewAddr2(e.target.value)} placeholder="Flat 2, etc." />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Address Line 2</Label>
+                    <Input value={newAddr2} onChange={(e) => setNewAddr2(e.target.value)} placeholder="Flat 2, etc." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Postcode</Label>
+                    <Input value={newPostcode} onChange={(e) => setNewPostcode(e.target.value)} placeholder="M1 1AA" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -634,12 +640,6 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
                   <div className="space-y-1.5">
                     <Label>County</Label>
                     <Input value={newCounty} onChange={(e) => setNewCounty(e.target.value)} placeholder="Greater Manchester" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Postcode</Label>
-                    <Input value={newPostcode} onChange={(e) => setNewPostcode(e.target.value)} placeholder="M1 1AA" />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm cursor-pointer select-none pt-1">
@@ -663,9 +663,15 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
                     <Label>Address <span className="text-destructive">*</span></Label>
                     <Input value={newPropAddr1} onChange={(e) => setNewPropAddr1(e.target.value)} placeholder="123 High Street" />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Address Line 2</Label>
-                    <Input value={newPropAddr2} onChange={(e) => setNewPropAddr2(e.target.value)} placeholder="Flat 2, etc." />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Address Line 2</Label>
+                      <Input value={newPropAddr2} onChange={(e) => setNewPropAddr2(e.target.value)} placeholder="Flat 2, etc." />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Postcode <span className="text-destructive">*</span></Label>
+                      <Input value={newPropPostcode} onChange={(e) => setNewPropPostcode(e.target.value)} placeholder="M1 1AA" />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -676,10 +682,6 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
                       <Label>County</Label>
                       <Input value={newPropCounty} onChange={(e) => setNewPropCounty(e.target.value)} placeholder="Greater Manchester" />
                     </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Postcode <span className="text-destructive">*</span></Label>
-                    <Input value={newPropPostcode} onChange={(e) => setNewPropPostcode(e.target.value)} placeholder="M1 1AA" />
                   </div>
                 </div>
               )}

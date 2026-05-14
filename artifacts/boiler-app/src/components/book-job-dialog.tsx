@@ -386,7 +386,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         {confirmationState ? (
           <>
             <DialogHeader>
