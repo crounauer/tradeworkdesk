@@ -615,6 +615,7 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     vat_rate: Number(invoice.vat_rate),
     vat_amount: Number(invoice.vat_amount),
     total: Number(invoice.total),
+    works_order: invoice.works_order || null,
     customer_notes: invoice.customer_notes || null,
   };
 

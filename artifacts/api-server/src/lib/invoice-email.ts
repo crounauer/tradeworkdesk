@@ -35,6 +35,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   dueDate?: string | null;
   paymentTermsDays?: number | null;
   expiryDate?: string | null;
+  worksOrder?: string | null;
   customerNotes?: string | null;
   bankDetails?: string | null;
   pdfBuffer: Buffer;
@@ -72,6 +73,13 @@ export async function sendInvoiceDocumentEmail(opts: {
   const customerNotesHtml = opts.customerNotes
     ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0;font-size:14px;color:#334155;">${escHtml(opts.customerNotes).replace(/\n/g, "<br/>")}</p>
+       </div>`
+    : "";
+
+  const worksOrderHtml = opts.worksOrder
+    ? `<div style="background:#f0fdf4;border-left:4px solid #4b9464;padding:12px 16px;margin:16px 0;border-radius:0 8px 8px 0;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#4b9464;">Works Order</p>
+        <p style="margin:0;font-size:14px;color:#1e293b;">${escHtml(opts.worksOrder).replace(/\n/g, "<br/>")}</p>
        </div>`
     : "";
 
@@ -121,6 +129,7 @@ export async function sendInvoiceDocumentEmail(opts: {
         <p style="margin:0 0 4px;"><strong>Amount:</strong> ${escHtml(formattedTotal)}</p>
         ${dateInfo}
       </div>
+      ${worksOrderHtml}
       ${customerNotesHtml}
       ${bankDetailsHtml}
       <p>If you have any questions, please don't hesitate to get in touch.</p>

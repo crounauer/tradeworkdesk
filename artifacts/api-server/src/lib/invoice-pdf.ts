@@ -54,6 +54,7 @@ export interface InvoicePdfData {
   vat_amount: number;
   total: number;
   // Notes
+  works_order?: string | null;
   customer_notes?: string | null;
 }
 
@@ -198,6 +199,27 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   if (data.customer_phone) { doc.text(data.customer_phone, margin, billY); billY += 4.5; }
 
   y = Math.max(metaCurY, billY) + 6;
+
+  // ── SECTION 2b: Works Order block ───────────────────────────────────────────
+
+  if (data.works_order) {
+    if (y + 16 > pageHeight - 30) { doc.addPage(); y = 20; }
+    doc.setDrawColor(...clrLight);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, rightMargin, y);
+    y += 4;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...clrAccent);
+    doc.text("WORKS ORDER", margin, y);
+    y += 4.5;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...clrDark);
+    const woLines = doc.splitTextToSize(data.works_order, rightMargin - margin) as string[];
+    doc.text(woLines, margin, y);
+    y += woLines.length * 4.5 + 4;
+  }
 
   // ── SECTION 3: Line-items table ─────────────────────────────────────────────
 

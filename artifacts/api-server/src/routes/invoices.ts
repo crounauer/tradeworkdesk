@@ -160,6 +160,7 @@ async function buildPdfData(
     vat_rate: Number(invoice.vat_rate),
     vat_amount: Number(invoice.vat_amount),
     total: Number(invoice.total),
+    works_order: invoice.works_order as string | null,
     customer_notes: invoice.customer_notes as string | null,
   };
 }
@@ -626,6 +627,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       paymentTermsDays: settings?.default_payment_terms_days ?? null,
       expiryDate: invoice.expiry_date as string | null,
       customerNotes: invoice.customer_notes as string | null,
+      worksOrder: invoice.works_order as string | null,
       bankDetails: settings?.invoice_bank_details ?? null,
       pdfBuffer,
       company: settings ? {
