@@ -929,6 +929,8 @@ type CustomerAddress = {
   city?: string | null;
   county?: string | null;
   postcode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId: string; customerAddress?: CustomerAddress; onClose: () => void }) {
@@ -957,6 +959,8 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
       city: customerAddress?.city ?? "",
       county: customerAddress?.county ?? "",
       postcode: customerAddress?.postcode ?? "",
+      latitude: customerAddress?.latitude ?? undefined,
+      longitude: customerAddress?.longitude ?? undefined,
     });
   };
 
