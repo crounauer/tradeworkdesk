@@ -2532,6 +2532,8 @@ components:
           type: boolean
         nozzle_size_fitted:
           type: ["string", "null"]
+        oil_pressure:
+          type: ["string", "null"]
         electrodes_checked:
           type: boolean
         electrodes_replaced:
@@ -2683,6 +2685,8 @@ components:
           type: boolean
         nozzle_size_fitted:
           type: string
+        oil_pressure:
+          type: string
         electrodes_checked:
           type: boolean
         electrodes_replaced:
@@ -2820,6 +2824,8 @@ components:
         nozzle_replaced:
           type: boolean
         nozzle_size_fitted:
+          type: ["string", "null"]
+        oil_pressure:
           type: ["string", "null"]
         electrodes_checked:
           type: boolean

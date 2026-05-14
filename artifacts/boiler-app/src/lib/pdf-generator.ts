@@ -121,6 +121,7 @@ interface ServiceRecordPdfData {
     nozzle_checked?: boolean;
     nozzle_replaced?: boolean;
     nozzle_size_fitted?: string;
+    oil_pressure?: string;
     electrodes_checked?: boolean;
     electrodes_replaced?: boolean;
     filter_checked?: boolean;
@@ -314,6 +315,7 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
     ["Nozzle Checked", bool(sr.nozzle_checked)],
     ["Nozzle Replaced", bool(sr.nozzle_replaced)],
     ["Nozzle Size Fitted", sr.nozzle_size_fitted || ""],
+    ["Oil Pressure (bar)", sr.oil_pressure || ""],
     ["Electrodes Checked", bool(sr.electrodes_checked)],
     ["Electrodes Replaced", bool(sr.electrodes_replaced)],
     ["Filter Checked", bool(sr.filter_checked)],

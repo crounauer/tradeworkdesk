@@ -439,6 +439,8 @@ export interface ServiceRecord {
   nozzle_replaced?: boolean;
   /** @nullable */
   nozzle_size_fitted?: string | null;
+  /** @nullable */
+  oil_pressure?: string | null;
   electrodes_checked?: boolean;
   electrodes_replaced?: boolean;
   filter_checked?: boolean;
@@ -763,6 +765,7 @@ export interface CreateServiceRecordBody {
   nozzle_checked?: boolean;
   nozzle_replaced?: boolean;
   nozzle_size_fitted?: string;
+  oil_pressure?: string;
   electrodes_checked?: boolean;
   electrodes_replaced?: boolean;
   filter_checked?: boolean;
@@ -858,6 +861,8 @@ export interface UpdateServiceRecordBody {
   nozzle_replaced?: boolean;
   /** @nullable */
   nozzle_size_fitted?: string | null;
+  /** @nullable */
+  oil_pressure?: string | null;
   electrodes_checked?: boolean;
   electrodes_replaced?: boolean;
   filter_checked?: boolean;

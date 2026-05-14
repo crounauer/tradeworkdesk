@@ -30,6 +30,7 @@ interface ServiceRecordFormData {
   nozzle_checked: boolean;
   nozzle_replaced: boolean;
   nozzle_size_fitted: string;
+  oil_pressure: string;
   electrodes_checked: boolean;
   electrodes_replaced: boolean;
   filter_checked: boolean;
@@ -143,6 +144,7 @@ export default function ServiceRecordForm() {
         nozzle_checked: existingRecord.nozzle_checked ?? false,
         nozzle_replaced: existingRecord.nozzle_replaced ?? false,
         nozzle_size_fitted: existingRecord.nozzle_size_fitted || "",
+        oil_pressure: String(existingRecord.oil_pressure ?? ""),
         electrodes_checked: existingRecord.electrodes_checked ?? false,
         electrodes_replaced: existingRecord.electrodes_replaced ?? false,
         filter_checked: existingRecord.filter_checked ?? false,
@@ -236,6 +238,7 @@ export default function ServiceRecordForm() {
         nozzle_checked: data.nozzle_checked,
         nozzle_replaced: data.nozzle_replaced,
         nozzle_size_fitted: data.nozzle_size_fitted || undefined,
+        oil_pressure: data.oil_pressure || undefined,
         electrodes_checked: data.electrodes_checked,
         electrodes_replaced: data.electrodes_replaced,
         filter_checked: data.filter_checked,
@@ -526,6 +529,12 @@ export default function ServiceRecordForm() {
               <div className="space-y-2">
                 <Label>Nozzle Size Fitted</Label>
                 <Input {...register("nozzle_size_fitted")} placeholder="e.g. 0.50 USG 60S" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Oil Pressure (bar)</Label>
+                <Input {...register("oil_pressure")} placeholder="e.g. 7.0" />
               </div>
             )}
             <div className="space-y-2">
