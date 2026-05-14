@@ -266,6 +266,14 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const catAbortRef = useRef<AbortController | null>(null);
   const catSeqRef = useRef(0);
 
+  // Add-to-catalogue dialog state
+  const [catAddOpen, setCatAddOpen] = useState(false);
+  const [catAddType, setCatAddType] = useState<"product" | "service">("service");
+  const [catAddLineIdx, setCatAddLineIdx] = useState<number | null>(null);
+  const [catAddName, setCatAddName] = useState("");
+  const [catAddPrice, setCatAddPrice] = useState("");
+  const [catAddSaving, setCatAddSaving] = useState(false);
+
   const searchCatalogue = useCallback((query: string, idx: number) => {
     if (catSearchTimeout.current) clearTimeout(catSearchTimeout.current);
     if (catAbortRef.current) catAbortRef.current.abort();
@@ -301,6 +309,44 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     setCatalogueSuggestions([]);
     setActiveLineIdx(null);
   };
+
+  function openAddToCatalogue(type: "product" | "service", idx: number) {
+    setCatAddType(type);
+    setCatAddLineIdx(idx);
+    setCatAddName(lines[idx].description.trim());
+    setCatAddPrice(lines[idx].unit_price ? String(lines[idx].unit_price) : "");
+    setCatAddOpen(true);
+    setCatalogueSuggestions([]);
+    setActiveLineIdx(null);
+  }
+
+  async function handleConfirmAddToCatalogue() {
+    if (!catAddName.trim()) return;
+    setCatAddSaving(true);
+    try {
+      const endpoint = catAddType === "service"
+        ? `${import.meta.env.BASE_URL}api/admin/service-catalogue`
+        : `${import.meta.env.BASE_URL}api/admin/products`;
+      const result = await customFetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: catAddName.trim(),
+          default_price: catAddPrice ? Number(catAddPrice) : undefined,
+        }),
+      }) as { id: string; name: string; default_price: number | null };
+      if (catAddLineIdx !== null) {
+        updateLine(catAddLineIdx, "description", result.name);
+        if (result.default_price != null) updateLine(catAddLineIdx, "unit_price", result.default_price);
+      }
+      toast({ title: `Saved to ${catAddType} catalogue`, description: `"${result.name}" added successfully` });
+      setCatAddOpen(false);
+    } catch (e) {
+      toast({ title: "Failed to save", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setCatAddSaving(false);
+    }
+  }
 
 
   // Payment form
@@ -672,26 +718,49 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                           placeholder="Description — type to search catalogue…"
                           className="h-8 text-sm"
                         />
-                        {activeLineIdx === idx && catalogueSuggestions.length > 0 && (
-                          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {catalogueSuggestions.map((item) => (
-                              <button
-                                key={`${item.type}-${item.id}`}
-                                type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
-                                onMouseDown={(e) => { e.preventDefault(); selectCatalogueItem(item, idx); }}
-                              >
-                                <span className="flex items-center gap-2 min-w-0">
-                                  <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${item.type === "service" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                                    {item.type === "service" ? "Service" : "Product"}
+                        {activeLineIdx === idx && (
+                          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            {catalogueSuggestions.length === 0 ? (
+                              <p className="px-3 py-2 text-sm text-muted-foreground">No matches found</p>
+                            ) : (
+                              catalogueSuggestions.map((item) => (
+                                <button
+                                  key={`${item.type}-${item.id}`}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
+                                  onMouseDown={(e) => { e.preventDefault(); selectCatalogueItem(item, idx); }}
+                                >
+                                  <span className="flex items-center gap-2 min-w-0">
+                                    <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${item.type === "service" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                      {item.type === "service" ? "Service" : "Product"}
+                                    </span>
+                                    <span className="truncate">{item.name}</span>
                                   </span>
-                                  <span className="truncate">{item.name}</span>
-                                </span>
-                                {item.default_price != null && (
-                                  <span className="text-muted-foreground shrink-0">{formatCurrency(item.default_price, currency)}</span>
-                                )}
-                              </button>
-                            ))}
+                                  {item.default_price != null && (
+                                    <span className="text-muted-foreground shrink-0">{formatCurrency(item.default_price, currency)}</span>
+                                  )}
+                                </button>
+                              ))
+                            )}
+                            {line.description.trim() && (
+                              <div className="border-t px-3 py-2 flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Save as new:</span>
+                                <button
+                                  type="button"
+                                  className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium"
+                                  onMouseDown={(e) => { e.preventDefault(); openAddToCatalogue("service", idx); }}
+                                >
+                                  + Service
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium"
+                                  onMouseDown={(e) => { e.preventDefault(); openAddToCatalogue("product", idx); }}
+                                >
+                                  + Product
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -950,6 +1019,52 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             <Button variant="destructive" onClick={handleDelete} disabled={deleteMut.isPending}>
               {deleteMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {invoice.status === "draft" ? "Delete" : "Cancel Invoice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add to catalogue dialog */}
+      <Dialog open={catAddOpen} onOpenChange={setCatAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save as new {catAddType === "service" ? "Service" : "Product"}</DialogTitle>
+            <DialogDescription>
+              Add this item to your {catAddType === "service" ? "service" : "product"} catalogue so it can be quickly selected in future.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Name *</Label>
+              <Input
+                value={catAddName}
+                onChange={(e) => setCatAddName(e.target.value)}
+                placeholder={catAddType === "service" ? "e.g. Annual Boiler Service" : "e.g. Thermostat"}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Default Price (optional)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={catAddPrice}
+                onChange={(e) => setCatAddPrice(e.target.value)}
+                placeholder="0.00"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Saved as the catalogue default — you can always override it on the line.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCatAddOpen(false)} disabled={catAddSaving}>Cancel</Button>
+            <Button onClick={handleConfirmAddToCatalogue} disabled={!catAddName.trim() || catAddSaving}>
+              {catAddSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Plus className="w-4 h-4 mr-2" />
+              Save to Catalogue
             </Button>
           </DialogFooter>
         </DialogContent>
