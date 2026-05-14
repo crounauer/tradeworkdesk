@@ -430,9 +430,87 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_220px] gap-6">
-        {/* Left: main form */}
-        <div className="lg:col-span-2 space-y-4">
+      {/* Actions bar — above main content */}
+      {!editing && (
+        <div className="flex flex-wrap gap-2 items-center">
+          {["draft", "sent"].includes(invoice.status) && (
+            <Button onClick={() => setSendOpen(true)} disabled={sendMut.isPending}>
+              <Send className="w-4 h-4 mr-2" />
+              {invoice.status === "sent" ? "Re-send" : `Send ${isInvoice ? "Invoice" : "Quote"}`}
+            </Button>
+          )}
+          {isDraft && (
+            <Button variant="outline" onClick={async () => {
+              try {
+                await markSentMut.mutateAsync();
+                toast({ title: `${isInvoice ? "Invoice" : "Quote"} marked as sent` });
+              } catch (e) {
+                toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+              }
+            }} disabled={markSentMut.isPending}>
+              {markSentMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              Mark as Sent
+            </Button>
+          )}
+          {invoice.status === "sent" && (
+            <Button variant="ghost" className="text-muted-foreground" onClick={async () => {
+              try {
+                await unsendMut.mutateAsync();
+                toast({ title: `${isInvoice ? "Invoice" : "Quote"} reverted to draft` });
+              } catch (e) {
+                toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+              }
+            }} disabled={unsendMut.isPending}>
+              {unsendMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
+              Unsend
+            </Button>
+          )}
+          {isInvoice && ["sent", "overdue"].includes(invoice.status) && (
+            <Button variant="outline" onClick={() => setPaidOpen(true)}>
+              <CreditCard className="w-4 h-4 mr-2" /> Mark as Paid
+            </Button>
+          )}
+          {!isInvoice && invoice.status === "sent" && (
+            <>
+              <Button variant="outline" onClick={handleAccept} disabled={acceptMut.isPending}>
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Accepted
+              </Button>
+              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={handleDecline} disabled={declineMut.isPending}>
+                <XCircle className="w-4 h-4 mr-2" /> Mark as Declined
+              </Button>
+            </>
+          )}
+          {!isInvoice && invoice.status === "accepted" && !invoice.converted_to_invoice_id && (
+            <Button onClick={handleConvert} disabled={convertMut.isPending}>
+              <RefreshCcw className="w-4 h-4 mr-2" /> Convert to Invoice
+            </Button>
+          )}
+          {!isInvoice && invoice.status === "accepted" && (
+            <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={handleDecline} disabled={declineMut.isPending}>
+              <XCircle className="w-4 h-4 mr-2" /> Mark as Declined
+            </Button>
+          )}
+          <Button variant="outline" onClick={downloadPdf} disabled={downloadingPdf}>
+            {downloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            {downloadingPdf ? "Downloading..." : "Download PDF"}
+          </Button>
+          {!isInvoice && invoice.converted_to_invoice_id && (
+            <Button variant="ghost" onClick={() => navigate(`/invoices/${invoice.converted_to_invoice_id}`)}>
+              View Invoice →
+            </Button>
+          )}
+          {!["paid", "converted"].includes(invoice.status) && (
+            <Button variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              {invoice.status === "draft" ? "Delete" : "Cancel / Void"}
+            </Button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {/* Main content */}
+        <div className="space-y-4">
           {/* Dates */}
           <Card>
             <CardHeader className="pb-2">
@@ -639,131 +717,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                   <p className="text-xs text-muted-foreground">Reference</p>
                   <p className="font-medium">{invoice.payment_reference || "—"}</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Right: actions */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {/* Send */}
-              {["draft", "sent"].includes(invoice.status) && (
-                <Button
-                  className="w-full"
-                  onClick={() => setSendOpen(true)}
-                  disabled={sendMut.isPending}
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  {invoice.status === "sent" ? "Re-send" : `Send ${isInvoice ? "Invoice" : "Quote"}`}
-                </Button>
-              )}
-
-              {/* Mark as Sent without email (draft only) */}
-              {isDraft && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={async () => {
-                    try {
-                      await markSentMut.mutateAsync();
-                      toast({ title: `${isInvoice ? "Invoice" : "Quote"} marked as sent` });
-                    } catch (e) {
-                      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
-                    }
-                  }}
-                  disabled={markSentMut.isPending}
-                >
-                  {markSentMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                  Mark as Sent
-                </Button>
-              )}
-
-              {/* Unsend — revert sent back to draft */}
-              {invoice.status === "sent" && (
-                <Button
-                  variant="ghost"
-                  className="w-full text-muted-foreground"
-                  onClick={async () => {
-                    try {
-                      await unsendMut.mutateAsync();
-                      toast({ title: `${isInvoice ? "Invoice" : "Quote"} reverted to draft` });
-                    } catch (e) {
-                      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
-                    }
-                  }}
-                  disabled={unsendMut.isPending}
-                >
-                  {unsendMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
-                  Unsend
-                </Button>
-              )}
-
-              {/* Mark paid (invoices) */}
-              {isInvoice && ["sent", "overdue"].includes(invoice.status) && (
-                <Button variant="outline" className="w-full" onClick={() => setPaidOpen(true)}>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Mark as Paid
-                </Button>
-              )}
-
-              {/* Quote actions */}
-              {!isInvoice && invoice.status === "sent" && (
-                <>
-                  <Button variant="outline" className="w-full" onClick={handleAccept} disabled={acceptMut.isPending}>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Mark as Accepted
-                  </Button>
-                  <Button variant="ghost" className="w-full text-destructive hover:text-destructive" onClick={handleDecline} disabled={declineMut.isPending}>
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Mark as Declined
-                  </Button>
-                </>
-              )}
-              {!isInvoice && invoice.status === "accepted" && !invoice.converted_to_invoice_id && (
-                <Button className="w-full" onClick={handleConvert} disabled={convertMut.isPending}>
-                  <RefreshCcw className="w-4 h-4 mr-2" />
-                  Convert to Invoice
-                </Button>
-              )}
-              {!isInvoice && invoice.status === "accepted" && (
-                <Button variant="ghost" className="w-full text-destructive hover:text-destructive" onClick={handleDecline} disabled={declineMut.isPending}>
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Mark as Declined
-                </Button>
-              )}
-
-              {/* Download PDF */}
-              <Button variant="ghost" className="w-full" onClick={downloadPdf} disabled={downloadingPdf}>
-                {downloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                {downloadingPdf ? "Downloading..." : "Download PDF"}
-              </Button>
-
-              {/* Delete / void */}
-              {!["paid", "converted"].includes(invoice.status) && (
-                <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {invoice.status === "draft" ? "Delete" : "Cancel / Void"}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Conversion info */}
-          {invoice.converted_to_invoice_id && (
-            <Card className="border-purple-200 bg-purple-50">
-              <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground mb-1">Converted to invoice:</p>
-                <button
-                  className="text-sm text-primary hover:underline font-medium"
-                  onClick={() => navigate(`/invoices/${invoice.converted_to_invoice_id}`)}
-                >
-                  View Invoice →
-                </button>
               </CardContent>
             </Card>
           )}
