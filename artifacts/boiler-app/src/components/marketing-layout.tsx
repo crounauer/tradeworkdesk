@@ -45,6 +45,12 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
+              <Link
+                href="/portal/login"
+                className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Customer Portal
+              </Link>
               {session ? (
                 <Link href="/">
                   <Button size="sm">Go to Dashboard</Button>
@@ -86,6 +92,9 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
               </Link>
             ))}
             <div className="pt-3 border-t border-slate-200 space-y-2">
+              <Link href="/portal/login" onClick={() => setMobileOpen(false)}>
+                <Button variant="outline" className="w-full">Customer Portal</Button>
+              </Link>
               {session ? (
                 <Link href="/" onClick={() => setMobileOpen(false)}>
                   <Button className="w-full">Go to Dashboard</Button>
@@ -149,6 +158,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
                 <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
                 <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
                 <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
+                <li><Link href="/portal/login" className="hover:text-white transition-colors">Customer Portal</Link></li>
                 <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
                 <li><Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link></li>
               </ul>
