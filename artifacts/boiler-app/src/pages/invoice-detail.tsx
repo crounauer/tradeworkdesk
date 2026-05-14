@@ -4,7 +4,7 @@ import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Plus, Minus, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X,
+  Edit3, Save, X, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -273,6 +273,70 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [catAddName, setCatAddName] = useState("");
   const [catAddPrice, setCatAddPrice] = useState("");
   const [catAddSaving, setCatAddSaving] = useState(false);
+
+  // Callout rates (for labour charge dialog)
+  type CalloutRate = { id: string; name: string; amount: number; hourly_rate: number | null; is_default?: boolean };
+  const [calloutRates, setCalloutRates] = useState<CalloutRate[]>([]);
+  useEffect(() => {
+    customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`)
+      .then(d => {
+        if (Array.isArray(d)) {
+          const rates = d as CalloutRate[];
+          setCalloutRates(rates);
+          const def = rates.find(r => r.is_default) || rates[0];
+          if (def) setLabourRateId(def.id);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Labour charge dialog state
+  const [labourOpen, setLabourOpen] = useState(false);
+  const [labourRateId, setLabourRateId] = useState<string>("");
+  const [labourHours, setLabourHours] = useState("1");
+  const [labourMins, setLabourMins] = useState("0");
+  const [labourIncludeCallout, setLabourIncludeCallout] = useState(true);
+
+  function addLabourCharge() {
+    const rate = calloutRates.find(r => r.id === labourRateId);
+    if (!rate) return;
+    const totalHrs = (parseInt(labourHours) || 0) + (parseInt(labourMins) || 0) / 60;
+    if (totalHrs <= 0) return;
+    const newItems: InvoiceLineItem[] = [];
+    if (labourIncludeCallout && rate.amount > 0) {
+      newItems.push({
+        description: `${rate.name} – Call-out (first hour)`,
+        quantity: 1,
+        unit_price: rate.amount,
+        item_type: "callout",
+      });
+      const afterHrs = Math.max(0, totalHrs - 1);
+      if (afterHrs > 0 && rate.hourly_rate != null && rate.hourly_rate > 0) {
+        newItems.push({
+          description: `${rate.name} – Labour (after first hour)`,
+          quantity: Math.round(afterHrs * 100) / 100,
+          unit_price: rate.hourly_rate,
+          item_type: "labour",
+        });
+      }
+    } else if (rate.hourly_rate != null && rate.hourly_rate > 0) {
+      newItems.push({
+        description: `${rate.name} – Labour`,
+        quantity: Math.round(totalHrs * 100) / 100,
+        unit_price: rate.hourly_rate,
+        item_type: "labour",
+      });
+    }
+    if (newItems.length > 0) {
+      setLines(prev => {
+        // Remove trailing blank empty line if present, then append new items
+        const trimmed = prev.filter(l => l.description.trim() || Number(l.unit_price) !== 0);
+        return [...trimmed, ...newItems, emptyLine()];
+      });
+    }
+    setLabourOpen(false);
+  }
 
   const searchCatalogue = useCallback((query: string, idx: number) => {
     if (catSearchTimeout.current) clearTimeout(catSearchTimeout.current);
@@ -707,7 +771,30 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
                   {editing ? (
                     <>
-                      <div className="relative">\n                        <Input\n                          value={line.description}\n                          onChange={(e) => {\n                            updateLine(idx, \"description\", e.target.value);\n                            searchCatalogue(e.target.value, idx);\n                          }}\n                          onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}\n                          onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}\n                          placeholder=\"Description \u2014 type to search catalogue\u2026\"\n                          className=\"h-8 text-sm\"\n                        />\n                        {(line.item_type === \"product\" || line.item_type === \"service\") && (\n                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${\n                            line.item_type === \"product\" ? \"bg-purple-100 text-purple-700\" : \"bg-blue-100 text-blue-700\"\n                          }`}>\n                            {line.item_type === \"product\" ? \"Product\" : \"Service\"}\n                          </span>\n                        )}
+                      <div className="relative">
+                        <Input
+                          value={line.description}
+                          onChange={(e) => {
+                            updateLine(idx, "description", e.target.value);
+                            searchCatalogue(e.target.value, idx);
+                          }}
+                          onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}
+                          onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}
+                          placeholder="Description — type to search catalogue…"
+                          className="h-8 text-sm"
+                        />
+                        {(line.item_type === "product" || line.item_type === "service" || line.item_type === "labour" || line.item_type === "callout") && (
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${
+                            line.item_type === "product" ? "bg-purple-100 text-purple-700" :
+                            line.item_type === "service" ? "bg-blue-100 text-blue-700" :
+                            line.item_type === "labour" ? "bg-amber-100 text-amber-700" :
+                            "bg-orange-100 text-orange-700"
+                          }`}>
+                            {line.item_type === "product" ? "Product" :
+                             line.item_type === "service" ? "Service" :
+                             line.item_type === "labour" ? "Labour" : "Callout"}
+                          </span>
+                        )}
                         {activeLineIdx === idx && (
                           <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                             {catalogueSuggestions.length === 0 ? (
@@ -783,11 +870,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     <>
                       <div>
                         <p className="text-sm">{line.description || "—"}</p>
-                        {(line.item_type === "product" || line.item_type === "service") && (
+                        {(line.item_type === "product" || line.item_type === "service" || line.item_type === "labour" || line.item_type === "callout") && (
                           <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${
-                            line.item_type === "product" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                            line.item_type === "product" ? "bg-purple-100 text-purple-700" :
+                            line.item_type === "service" ? "bg-blue-100 text-blue-700" :
+                            line.item_type === "labour" ? "bg-amber-100 text-amber-700" :
+                            "bg-orange-100 text-orange-700"
                           }`}>
-                            {line.item_type === "product" ? "Product" : "Service"}
+                            {line.item_type === "product" ? "Product" :
+                             line.item_type === "service" ? "Service" :
+                             line.item_type === "labour" ? "Labour" : "Callout"}
                           </span>
                         )}
                       </div>
@@ -803,9 +895,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               ))}
 
               {editing && (
-                <Button variant="ghost" size="sm" className="w-full border-dashed border" onClick={addLine}>
-                  <Plus className="w-4 h-4 mr-1" /> Add line
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" className="flex-1 border-dashed border" onClick={addLine}>
+                    <Plus className="w-4 h-4 mr-1" /> Add line
+                  </Button>
+                  {calloutRates.length > 0 && (
+                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setLabourOpen(true)}>
+                      <Clock className="w-4 h-4 mr-1" /> Add labour charge
+                    </Button>
+                  )}
+                </div>
               )}
 
               {/* Totals */}
@@ -1064,6 +1163,118 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               {catAddSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Plus className="w-4 h-4 mr-2" />
               Save to Catalogue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Labour Charge Dialog */}
+      <Dialog open={labourOpen} onOpenChange={setLabourOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600" /> Add Labour Charge
+            </DialogTitle>
+            <DialogDescription>Select a callout rate and enter the time on site to calculate the charge.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            {/* Rate selector */}
+            <div className="space-y-1">
+              <Label className="text-xs">Callout Rate</Label>
+              <Select value={labourRateId} onValueChange={setLabourRateId}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select rate…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {calloutRates.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                      {r.hourly_rate != null ? ` — ${formatCurrency(r.hourly_rate, currency)}/hr` : ""}
+                      {r.amount > 0 ? ` (callout: ${formatCurrency(r.amount, currency)})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Duration */}
+            <div className="space-y-1">
+              <Label className="text-xs">Time on site</Label>
+              <div className="flex items-end gap-3">
+                <div className="flex-1 space-y-1">
+                  <p className="text-xs text-muted-foreground">Hours</p>
+                  <Input type="number" min="0" max="24" value={labourHours} onChange={e => setLabourHours(e.target.value)} className="h-9" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <p className="text-xs text-muted-foreground">Minutes</p>
+                  <Input type="number" min="0" max="59" step="15" value={labourMins} onChange={e => setLabourMins(e.target.value)} className="h-9" />
+                </div>
+              </div>
+            </div>
+
+            {/* Include callout checkbox */}
+            {(() => {
+              const rate = calloutRates.find(r => r.id === labourRateId);
+              return rate && rate.amount > 0 ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="labourIncludeCallout"
+                    checked={labourIncludeCallout}
+                    onChange={e => setLabourIncludeCallout(e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-primary"
+                  />
+                  <label htmlFor="labourIncludeCallout" className="text-sm select-none cursor-pointer">
+                    Include callout fee ({formatCurrency(rate.amount, currency)} — covers first hour)
+                  </label>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Cost preview */}
+            {(() => {
+              const rate = calloutRates.find(r => r.id === labourRateId);
+              if (!rate) return null;
+              const totalHrs = (parseInt(labourHours) || 0) + (parseInt(labourMins) || 0) / 60;
+              if (totalHrs <= 0) return null;
+              const calloutCost = labourIncludeCallout && rate.amount > 0 ? rate.amount : 0;
+              const labourHrsCalc = calloutCost > 0 ? Math.max(0, totalHrs - 1) : totalHrs;
+              const labourCost = labourHrsCalc > 0 && rate.hourly_rate != null ? labourHrsCalc * rate.hourly_rate : 0;
+              const totalCost = calloutCost + labourCost;
+              const hh = Math.floor(totalHrs);
+              const mm = Math.round((totalHrs % 1) * 60);
+              const durStr = hh > 0 ? `${hh}h${mm > 0 ? ` ${mm}m` : ""}` : `${mm}m`;
+              return (
+                <div className="rounded-lg bg-slate-50 border p-3 text-sm space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cost breakdown — {durStr}</p>
+                  {calloutCost > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Call-out (first hour)</span>
+                      <span className="font-medium">{formatCurrency(calloutCost, currency)}</span>
+                    </div>
+                  )}
+                  {labourCost > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {labourHrsCalc >= 1
+                          ? `${Math.round(labourHrsCalc * 100) / 100}h`
+                          : `${Math.round(labourHrsCalc * 60)}m`} @ {formatCurrency(rate.hourly_rate!, currency)}/hr
+                      </span>
+                      <span className="font-medium">{formatCurrency(labourCost, currency)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold border-t pt-1.5">
+                    <span>Total</span>
+                    <span className="text-emerald-600">{formatCurrency(totalCost, currency)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLabourOpen(false)}>Cancel</Button>
+            <Button onClick={addLabourCharge} disabled={!labourRateId || ((parseInt(labourHours) || 0) + (parseInt(labourMins) || 0) === 0)}>
+              Add to {isInvoice ? "Invoice" : "Quote"}
             </Button>
           </DialogFooter>
         </DialogContent>
