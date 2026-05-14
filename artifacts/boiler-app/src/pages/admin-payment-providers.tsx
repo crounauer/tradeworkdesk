@@ -464,17 +464,6 @@ function TrueLayerSection() {
           )}
         </>
       )}
-
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer font-medium">Webhook setup</summary>
-        <p className="mt-1 pl-3 border-l-2 border-slate-200">
-          In TrueLayer Console → Webhooks, add:
-          <br />
-          <code className="bg-slate-100 px-1 rounded">{window.location.origin}/api/webhooks/truelayer</code>
-          <br />
-          Subscribe to <code className="bg-slate-100 px-1 rounded">payment_settled</code> events.
-        </p>
-      </details>
     </div>
   );
 }
