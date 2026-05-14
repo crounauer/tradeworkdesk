@@ -14,7 +14,15 @@ CREATE INDEX IF NOT EXISTS idx_invoices_tenant_customer
 CREATE INDEX IF NOT EXISTS idx_job_email_logs_forms_included
   ON job_email_logs USING GIN (forms_included jsonb_path_ops);
 
--- service_catalogue: index for the per-tenant lookup
-CREATE INDEX IF NOT EXISTS idx_service_catalogue_tenant
+-- service_catalogue: partial index for active items (patch-027 has a plain tenant_id index;
+-- this is a DIFFERENT name so the filtered version is actually created)
+CREATE INDEX IF NOT EXISTS idx_service_catalogue_tenant_active
   ON service_catalogue (tenant_id)
+  WHERE is_active = true;
+
+-- jobs: partial composite covering the jobs-list multi-column sort
+-- (scheduled_date + scheduled_time) for active jobs per tenant
+-- Tighter than idx_jobs_tenant_active_date (no is_active column needed in partial index)
+CREATE INDEX IF NOT EXISTS idx_jobs_tenant_date_time
+  ON jobs (tenant_id, scheduled_date, scheduled_time)
   WHERE is_active = true;
