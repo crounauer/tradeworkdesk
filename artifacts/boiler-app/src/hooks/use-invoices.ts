@@ -71,6 +71,7 @@ export interface Invoice {
     description: string | null;
     scheduled_date: string | null;
     job_type?: string | null;
+    property_id?: string | null;
   } | null;
   // From list endpoint (nested relations)
   customers?: { first_name: string; last_name: string } | null;

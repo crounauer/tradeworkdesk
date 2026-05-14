@@ -4,7 +4,7 @@ import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Plus, Minus, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X, Clock, Mail, ChevronDown, ChevronUp,
+  Edit3, Save, X, Clock, Mail, ChevronDown, ChevronUp, Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings } from "@/hooks/use-company-settings";
+import { BookJobDialog } from "@/components/book-job-dialog";
 import {
   useGetInvoice,
   useUpdateInvoice,
@@ -262,6 +263,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [paidOpen, setPaidOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
+  const [showBookJob, setShowBookJob] = useState(false);
 
   // Catalogue search state
   type CatalogueItem = { id: string; name: string; default_price: number | null; type: "service" | "product" };
@@ -662,6 +664,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               View Invoice →
             </Button>
           )}
+          {invoice.customer_id && (
+            <Button variant="outline" onClick={() => setShowBookJob(true)}>
+              <Briefcase className="w-4 h-4 mr-2" /> Book Job
+            </Button>
+          )}
           {!["paid"].includes(invoice.status) && (
             <Button variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="w-4 h-4 mr-2" />
@@ -1027,6 +1034,14 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
       {/* ── Email log ── */}
       <InvoiceEmailLogSection invoiceId={id} refreshKey={emailLogRefresh} />
+
+      {/* ── Book Job dialog ── */}
+      <BookJobDialog
+        open={showBookJob}
+        onOpenChange={setShowBookJob}
+        initialCustomerId={invoice.customer_id}
+        initialPropertyId={invoice.job?.property_id ?? undefined}
+      />
 
       {/* ── Dialogs ── */}
 

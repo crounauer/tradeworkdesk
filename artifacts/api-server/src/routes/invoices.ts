@@ -467,7 +467,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
 
   const { data: job } = await supabaseAdmin
     .from("jobs")
-    .select("description, scheduled_date, job_type")
+    .select("description, scheduled_date, job_type, property_id")
     .eq("id", invoice.job_id as string)
     .maybeSingle();
 

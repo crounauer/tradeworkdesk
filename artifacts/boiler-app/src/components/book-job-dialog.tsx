@@ -87,9 +87,10 @@ interface BookJobDialogProps {
   onOpenChange: (v: boolean) => void;
   initialDate?: string;
   initialCustomerId?: string;
+  initialPropertyId?: string;
 }
 
-export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId }: BookJobDialogProps) {
+export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId, initialPropertyId }: BookJobDialogProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -188,13 +189,16 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
     onOpenChange(false);
   };
 
-  // Pre-select customer when initialCustomerId is provided
+  // Pre-select customer (and optionally property) when initial values are provided
   useEffect(() => {
     if (open && initialCustomerId) {
       setValue("customer_id", initialCustomerId);
       setValue("customer_mode", "existing");
     }
-  }, [open, initialCustomerId, setValue]);
+    if (open && initialPropertyId) {
+      setValue("property_id", initialPropertyId);
+    }
+  }, [open, initialCustomerId, initialPropertyId, setValue]);
 
   const prefillPropertyFromCustomer = () => {
     if (selectedCustomer) {
