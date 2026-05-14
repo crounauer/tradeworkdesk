@@ -20,6 +20,7 @@ import {
   Search, Save
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 
@@ -245,12 +246,23 @@ export default function AdminCompanySettings() {
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Company Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Configure your company information. This appears on all generated PDFs and documents.
+          Manage your business details, team settings, pricing and invoicing preferences.
         </p>
       </div>
 
-      {/* Logo */}
-      <Card>
+      <Tabs defaultValue="profile">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
+          <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
+        </TabsList>
+
+        <form ref={formRef}>
+          <TabsContent value="profile" className="space-y-6 pt-4">
+          {/* Logo */}
+          <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Building2 className="w-4 h-4" />
@@ -321,9 +333,13 @@ export default function AdminCompanySettings() {
             </p>
           )}
         </CardContent>
-      </Card>
+        </Card>
 
-      {isAdmin && !companyTypeLoading && !companyTypeError && (
+          </TabsContent>
+
+          <TabsContent value="team" className="space-y-6 pt-4">
+
+          {isAdmin && !companyTypeLoading && !companyTypeError && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -449,11 +465,12 @@ export default function AdminCompanySettings() {
             )}
           </CardContent>
         </Card>
-      )}
+          )}
 
-      {/* Main form */}
-      <form ref={formRef} className="space-y-6">
-        {/* Identity */}
+          </TabsContent>
+
+          <TabsContent value="profile" className="space-y-6 pt-0">
+          {/* Identity */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -547,57 +564,6 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
-        {/* Accounting Integrations */}
-        <AccountingIntegrations />
-
-        {/* Pricing & Invoicing */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <PoundSterling className="w-4 h-4" />
-              Pricing & Invoicing
-            </CardTitle>
-            <CardDescription>
-              Default rates used for invoice calculations. These can be overridden per job.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>
-              <Input id="default_vat_rate" type="number" step="0.01" min="0" max="100" placeholder="e.g. 20.00" {...register("default_vat_rate")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="default_payment_terms_days">Payment Terms (days)</Label>
-              <Input id="default_payment_terms_days" type="number" step="1" min="0" placeholder="e.g. 30" {...register("default_payment_terms_days")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="currency">Currency</Label>
-              <select id="currency" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("currency")}>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="USD">USD - US Dollar</option>
-              </select>
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="job_number_prefix">Job Number Prefix</Label>
-              <Input
-                id="job_number_prefix"
-                placeholder="e.g. NNE"
-                maxLength={10}
-                className="uppercase"
-                {...register("job_number_prefix")}
-              />
-              <p className="text-xs text-muted-foreground">
-                Set a prefix for your job numbers. For example, entering <span className="font-mono font-medium">NNE</span> will number jobs as <span className="font-mono font-medium">NNE0001</span>, <span className="font-mono font-medium">NNE0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <CalloutRatesSection />
-        <ProductCatalogueSection />
-        <ServiceCatalogueSection />
-
         {/* Registrations */}
         <Card>
           <CardHeader>
@@ -650,6 +616,70 @@ export default function AdminCompanySettings() {
             </div>
           </CardContent>
         </Card>
+
+          </TabsContent>
+
+          <TabsContent value="billing" className="space-y-6 pt-4">
+
+        {/* Accounting Integrations */}
+        <AccountingIntegrations />
+
+        {/* Pricing & Invoicing */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <PoundSterling className="w-4 h-4" />
+              Pricing & Invoicing
+            </CardTitle>
+            <CardDescription>
+              Default rates used for invoice calculations. These can be overridden per job.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>
+              <Input id="default_vat_rate" type="number" step="0.01" min="0" max="100" placeholder="e.g. 20.00" {...register("default_vat_rate")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="default_payment_terms_days">Payment Terms (days)</Label>
+              <Input id="default_payment_terms_days" type="number" step="1" min="0" placeholder="e.g. 30" {...register("default_payment_terms_days")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="currency">Currency</Label>
+              <select id="currency" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("currency")}>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="USD">USD - US Dollar</option>
+              </select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="job_number_prefix">Job Number Prefix</Label>
+              <Input
+                id="job_number_prefix"
+                placeholder="e.g. NNE"
+                maxLength={10}
+                className="uppercase"
+                {...register("job_number_prefix")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Set a prefix for your job numbers. For example, entering <span className="font-mono font-medium">NNE</span> will number jobs as <span className="font-mono font-medium">NNE0001</span>, <span className="font-mono font-medium">NNE0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <CalloutRatesSection />
+
+          </TabsContent>
+
+          <TabsContent value="catalogue" className="space-y-6 pt-4">
+
+        <ProductCatalogueSection />
+        <ServiceCatalogueSection />
+
+          </TabsContent>
+
+          <TabsContent value="invoicing" className="space-y-6 pt-4">
 
         <Card>
           <CardHeader>
@@ -772,7 +802,9 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
-        <div className="flex items-center justify-end gap-3 pt-2">
+          </TabsContent>
+
+          <div className="flex items-center justify-end gap-3 pt-4">
           {autoSaveStatus === "saving" && (
             <span className="text-sm text-muted-foreground flex items-center gap-1.5">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
@@ -788,8 +820,9 @@ export default function AdminCompanySettings() {
               Discard Changes
             </Button>
           )}
-        </div>
-      </form>
+          </div>
+        </form>
+      </Tabs>
 
     </div>
   );
