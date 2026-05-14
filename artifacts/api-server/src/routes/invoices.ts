@@ -607,6 +607,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       paymentTermsDays: settings?.default_payment_terms_days ?? null,
       expiryDate: invoice.expiry_date as string | null,
       customerNotes: invoice.customer_notes as string | null,
+      bankDetails: settings?.invoice_bank_details ?? null,
       pdfBuffer,
       company: settings ? {
         name: settings.name,

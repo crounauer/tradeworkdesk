@@ -36,6 +36,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   paymentTermsDays?: number | null;
   expiryDate?: string | null;
   customerNotes?: string | null;
+  bankDetails?: string | null;
   pdfBuffer: Buffer;
   company?: EmailCompanyDetails;
 }): Promise<void> {
@@ -71,6 +72,13 @@ export async function sendInvoiceDocumentEmail(opts: {
   const customerNotesHtml = opts.customerNotes
     ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0;font-size:14px;color:#334155;">${escHtml(opts.customerNotes).replace(/\n/g, "<br/>")}</p>
+       </div>`
+    : "";
+
+  const bankDetailsHtml = (!isQuote && opts.bankDetails)
+    ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#166534;">Payment Details</p>
+        <p style="margin:0;font-size:13px;color:#166534;white-space:pre-line;">${escHtml(opts.bankDetails)}</p>
        </div>`
     : "";
 
@@ -114,6 +122,7 @@ export async function sendInvoiceDocumentEmail(opts: {
         ${dateInfo}
       </div>
       ${customerNotesHtml}
+      ${bankDetailsHtml}
       <p>If you have any questions, please don't hesitate to get in touch.</p>
       <hr class="divider"/>
       <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
