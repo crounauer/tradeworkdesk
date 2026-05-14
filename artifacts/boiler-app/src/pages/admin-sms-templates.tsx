@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,14 +48,17 @@ export default function AdminSmsTemplates() {
   const [senderName, setSenderName] = useState("");
   const [senderDirty, setSenderDirty] = useState(false);
 
-  const { isLoading: senderLoading } = useQuery<{ sms_sender_name?: string }>({
+  const { data: companySettings, isLoading: senderLoading } = useQuery<{ sms_sender_name?: string }>({
     queryKey: ["admin-company-settings"],
     queryFn: () => apiFetch("api/admin/company-settings") as Promise<{ sms_sender_name?: string }>,
-    select: (data) => {
-      setSenderName(prev => senderDirty ? prev : (data?.sms_sender_name ?? ""));
-      return data;
-    },
   });
+
+  // Sync senderName from fetched data only when the user hasn't made changes
+  useEffect(() => {
+    if (!senderDirty && companySettings) {
+      setSenderName(companySettings.sms_sender_name ?? "");
+    }
+  }, [companySettings, senderDirty]);
 
   const saveSenderMutation = useMutation({
     mutationFn: (name: string) =>
