@@ -168,7 +168,7 @@ export async function sendInvoiceDocumentEmail(opts: {
     html,
     attachments: [{ filename, content: opts.pdfBuffer }],
   };
-  if (replyTo) (sendOpts as any).reply_to = replyTo;
+  if (replyTo) (sendOpts as any).replyTo = replyTo;
 
   const { error } = await resend.emails.send(sendOpts);
   if (error) {

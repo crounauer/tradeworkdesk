@@ -334,11 +334,11 @@ export async function sendJobFormsEmail(
     subject: string;
     html: string;
     cc?: string[];
-    reply_to?: string;
+    replyTo?: string;
     attachments?: Array<{ filename: string; content: Buffer }>;
   } = { from: FROM, to: recipients, subject, html };
   if (cc) sendOptions.cc = [cc];
-  if (companyDetails?.email) sendOptions.reply_to = companyDetails.email;
+  if (companyDetails?.email) sendOptions.replyTo = companyDetails.email;
   if (attachments.length > 0) sendOptions.attachments = attachments;
   const { error } = await resend.emails.send(sendOptions as Parameters<typeof resend.emails.send>[0]);
   if (error) {
@@ -429,7 +429,7 @@ export async function sendJobConfirmationEmail(
 
   const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
   const replyTo = companyDetails?.email ?? undefined;
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
   if (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
     throw new Error(`Email send failed: ${error.message}`);
@@ -538,7 +538,7 @@ export async function sendServiceDueReminderEmail(
   }
   const subject = `${escHtml(companyDisplay)} — Service Due Reminder for ${escHtml(applianceDescription)}`;
   const replyTo = companyDetails?.email ?? undefined;
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
   if (error) {
     console.error(`[email] Failed to send service reminder to ${to}:`, error);
     throw new Error(`Email send failed: ${error.message}`);
