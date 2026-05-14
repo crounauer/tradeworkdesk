@@ -395,10 +395,18 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
 function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote"; onOpenChange: (v: boolean) => void }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: customers } = useListCustomers({});
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
+  const [selectedName, setSelectedName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newFirst, setNewFirst] = useState("");
+  const [newLast, setNewLast] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const label = type === "quote" ? "Quote" : "Invoice";
@@ -410,6 +418,38 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
       (c.email || "").toLowerCase().includes(q) ||
       (c.postcode || "").toLowerCase().includes(q);
   });
+
+  async function handleCreateCustomer() {
+    if (!newFirst.trim() || !newLast.trim()) return;
+    setCreatingCustomer(true);
+    try {
+      const res = await fetch("/api/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: newFirst.trim(),
+          last_name: newLast.trim(),
+          ...(newEmail.trim() ? { email: newEmail.trim() } : {}),
+          ...(newPhone.trim() ? { phone: newPhone.trim() } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to create customer");
+      }
+      const customer = await res.json();
+      queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey({}) });
+      setSelectedId(customer.id);
+      setSelectedName(`${customer.first_name} ${customer.last_name}`);
+      setSearch(`${customer.first_name} ${customer.last_name}`);
+      setShowNewCustomer(false);
+      toast({ title: "Customer created" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setCreatingCustomer(false);
+    }
+  }
 
   async function handleCreate() {
     if (!selectedId) return;
@@ -440,43 +480,86 @@ function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote";
           <DialogTitle>New {label}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label>Customer</Label>
-            <Input
-              ref={inputRef}
-              placeholder="Search by name, email or postcode…"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setSelectedId(""); }}
-              autoFocus
-            />
-          </div>
-          {search && (
-            <div className="border rounded-lg divide-y max-h-56 overflow-y-auto">
-              {filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground px-3 py-2">No customers found</p>
-              ) : filtered.slice(0, 20).map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors ${selectedId === c.id ? "bg-primary/10 font-medium" : ""}`}
-                  onClick={() => { setSelectedId(c.id); setSearch(`${c.first_name} ${c.last_name}`); }}
+          {!showNewCustomer ? (
+            <>
+              <div className="space-y-2">
+                <Label>Customer</Label>
+                <Input
+                  ref={inputRef}
+                  placeholder="Search by name, email or postcode…"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setSelectedId(""); setSelectedName(""); }}
+                  autoFocus
+                />
+              </div>
+              {search && (
+                <div className="border rounded-lg divide-y max-h-56 overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <p className="text-sm text-muted-foreground px-3 py-2">No customers found</p>
+                  ) : filtered.slice(0, 20).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors ${selectedId === c.id ? "bg-primary/10 font-medium" : ""}`}
+                      onClick={() => { setSelectedId(c.id); setSelectedName(`${c.first_name} ${c.last_name}`); setSearch(`${c.first_name} ${c.last_name}`); }}
+                    >
+                      <span className="font-medium">{c.first_name} {c.last_name}</span>
+                      {c.email && <span className="text-muted-foreground ml-2">{c.email}</span>}
+                      {c.postcode && <span className="text-muted-foreground ml-2">{c.postcode}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedId && search === selectedName && (
+                <p className="text-sm text-green-700 font-medium">✓ {selectedName}</p>
+              )}
+              <button
+                type="button"
+                className="text-sm text-primary hover:underline"
+                onClick={() => setShowNewCustomer(true)}
+              >
+                + Add new customer
+              </button>
+              <div className="flex gap-3 pt-1">
+                <Button className="flex-1" disabled={!selectedId || submitting} onClick={handleCreate}>
+                  {submitting ? "Creating…" : `Create ${label}`}
+                </Button>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium">New customer</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>First name <span className="text-destructive">*</span></Label>
+                  <Input value={newFirst} onChange={(e) => setNewFirst(e.target.value)} autoFocus />
+                </div>
+                <div className="space-y-1">
+                  <Label>Last name <span className="text-destructive">*</span></Label>
+                  <Input value={newLast} onChange={(e) => setNewLast(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Email</Label>
+                <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Phone</Label>
+                <Input type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Button
+                  className="flex-1"
+                  disabled={!newFirst.trim() || !newLast.trim() || creatingCustomer}
+                  onClick={handleCreateCustomer}
                 >
-                  <span className="font-medium">{c.first_name} {c.last_name}</span>
-                  {c.email && <span className="text-muted-foreground ml-2">{c.email}</span>}
-                  {c.postcode && <span className="text-muted-foreground ml-2">{c.postcode}</span>}
-                </button>
-              ))}
-            </div>
+                  {creatingCustomer ? "Saving…" : "Save Customer"}
+                </Button>
+                <Button variant="outline" onClick={() => setShowNewCustomer(false)}>Back</Button>
+              </div>
+            </>
           )}
-          {selectedId && !search.includes(" ") && (
-            <p className="text-sm text-green-700 font-medium">✓ Customer selected</p>
-          )}
-          <div className="flex gap-3 pt-1">
-            <Button className="flex-1" disabled={!selectedId || submitting} onClick={handleCreate}>
-              {submitting ? "Creating…" : `Create ${label}`}
-            </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
