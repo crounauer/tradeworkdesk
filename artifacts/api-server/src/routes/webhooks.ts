@@ -8,6 +8,7 @@ import {
 } from "../lib/email";
 import { syncSeats } from "./billing";
 import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
+import { getPlatformSetting } from "../lib/geocode";
 import { decryptToken } from "../lib/accounting/crypto";
 
 const router = Router();
@@ -303,7 +304,7 @@ router.post(
 router.post(
   "/webhooks/gocardless",
   async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
-    const webhookSecret = process.env.GOCARDLESS_WEBHOOK_SECRET;
+    const webhookSecret = await getPlatformSetting("gocardless_webhook_secret", "GOCARDLESS_WEBHOOK_SECRET").catch(() => null);
     if (!webhookSecret) { res.json({ received: true }); return; }
 
     // Verify HMAC-SHA256 signature

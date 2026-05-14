@@ -22,6 +22,17 @@ export async function getIdealPostcodesKey(): Promise<string | null> {
   return data?.value || null;
 }
 
+/** Read a platform setting from DB, falling back to an env var if not set in DB. */
+export async function getPlatformSetting(key: string, envVar?: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", key)
+    .maybeSingle();
+  if (data?.value) return data.value;
+  return (envVar ? process.env[envVar] : null) ?? null;
+}
+
 export interface IdealPostcodesAddress {
   line_1: string;
   line_2: string;

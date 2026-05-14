@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { encryptToken, decryptToken, isEncryptionConfigured } from "../lib/accounting/crypto";
+import { getPlatformSetting } from "../lib/geocode";
 
 const router: IRouter = Router();
 const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
@@ -55,7 +56,7 @@ router.get(
   "/admin/gocardless/status",
   requireAuth, requireTenant, requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const clientId = process.env.GOCARDLESS_CLIENT_ID;
+    const clientId = await getPlatformSetting("gocardless_client_id", "GOCARDLESS_CLIENT_ID").catch(() => null);
     if (!clientId) { res.json({ available: false, connected: false }); return; }
 
     const { data: tenant } = await supabaseAdmin
@@ -75,7 +76,7 @@ router.get(
   "/admin/gocardless/authorize",
   requireAuth, requireTenant, requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const clientId = process.env.GOCARDLESS_CLIENT_ID;
+    const clientId = await getPlatformSetting("gocardless_client_id", "GOCARDLESS_CLIENT_ID").catch(() => null);
     if (!clientId) { res.status(500).json({ error: "GOCARDLESS_CLIENT_ID is not configured" }); return; }
     if (!isEncryptionConfigured()) { res.status(500).json({ error: "Encryption key is not configured" }); return; }
 
@@ -114,12 +115,17 @@ router.get(
     pendingStates.delete(state);
 
     try {
+      const [clientId, clientSecret] = await Promise.all([
+        getPlatformSetting("gocardless_client_id", "GOCARDLESS_CLIENT_ID"),
+        getPlatformSetting("gocardless_client_secret", "GOCARDLESS_CLIENT_SECRET"),
+      ]);
+      if (!clientId || !clientSecret) throw new Error("GoCardless credentials not configured");
       const tokenRes = await fetch(`${GC_OAUTH_BASE}/oauth/access_token`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: process.env.GOCARDLESS_CLIENT_ID!,
-          client_secret: process.env.GOCARDLESS_CLIENT_SECRET!,
+          client_id: clientId,
+          client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
           redirect_uri: `${APP_URL}/api/admin/gocardless/callback`,

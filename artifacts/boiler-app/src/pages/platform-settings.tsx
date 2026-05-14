@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -163,6 +163,109 @@ export default function PlatformSettings() {
             placeholder="fe3aed49..."
             icon={<MessageSquare className="w-4 h-4" />}
           />
+        </div>
+      </div>
+
+      <div className="mt-2">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <CreditCard className="w-5 h-5" />
+          Payment Providers
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure platform-level credentials for payment integrations. These credentials are shared across all tenants — individual tenant connections are set up separately in each tenant's payment settings.
+        </p>
+        <div className="space-y-6">
+
+          <div>
+            <h3 className="text-base font-medium mb-3">Stripe Connect</h3>
+            <PlatformSettingField
+              settingKey="stripe_client_id"
+              label="Stripe Connect Client ID"
+              description="Platform-level Stripe Connect client ID. Used to initiate OAuth flows for tenants to connect their Stripe accounts."
+              placeholder="ca_xxxxxxxxxxxxxxxxxxxx"
+              icon={<CreditCard className="w-4 h-4" />}
+              helpContent={
+                <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-800 space-y-2">
+                  <p className="font-medium">How to get your Stripe Connect Client ID:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-xs text-purple-700">
+                    <li>Go to <a href="https://dashboard.stripe.com/settings/connect" target="_blank" rel="noopener noreferrer" className="underline font-medium">dashboard.stripe.com/settings/connect</a></li>
+                    <li>Under <strong>Platform profile</strong>, find your <strong>Client ID</strong> (starts with <code className="bg-purple-100 px-1 rounded">ca_</code>)</li>
+                    <li>Add <code className="bg-purple-100 px-1 rounded">{window.location.origin}/api/admin/stripe-connect/callback</code> as a redirect URI</li>
+                    <li>Paste the Client ID below</li>
+                  </ol>
+                </div>
+              }
+            />
+          </div>
+
+          <div>
+            <h3 className="text-base font-medium mb-3">GoCardless</h3>
+            <div className="space-y-4">
+              <PlatformSettingField
+                settingKey="gocardless_client_id"
+                label="GoCardless Client ID"
+                description="OAuth Client ID from your GoCardless developer app. Used to initiate the Connect OAuth flow for tenants."
+                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                icon={<CreditCard className="w-4 h-4" />}
+                helpContent={
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 space-y-2">
+                    <p className="font-medium">How to get your GoCardless credentials:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs text-orange-700">
+                      <li>Go to <a href="https://developer.gocardless.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">developer.gocardless.com</a> and create a partner app</li>
+                      <li>Set the redirect URI to <code className="bg-orange-100 px-1 rounded">{window.location.origin}/api/admin/gocardless/callback</code></li>
+                      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from your app settings</li>
+                    </ol>
+                  </div>
+                }
+              />
+              <PlatformSettingField
+                settingKey="gocardless_client_secret"
+                label="GoCardless Client Secret"
+                description="OAuth Client Secret from your GoCardless developer app."
+                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                icon={<CreditCard className="w-4 h-4" />}
+              />
+              <PlatformSettingField
+                settingKey="gocardless_webhook_secret"
+                label="GoCardless Webhook Secret"
+                description="Webhook signing secret for validating GoCardless event notifications. Found in your GoCardless developer app under Webhooks."
+                placeholder="whsec_xxxxxxxxxxxxxxxxxxxx"
+                icon={<CreditCard className="w-4 h-4" />}
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-base font-medium mb-3">TrueLayer (Open Banking)</h3>
+            <div className="space-y-4">
+              <PlatformSettingField
+                settingKey="truelayer_client_id"
+                label="TrueLayer Client ID"
+                description="Client ID from your TrueLayer Console app. Used for open banking payment initiation."
+                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                icon={<CreditCard className="w-4 h-4" />}
+                helpContent={
+                  <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800 space-y-2">
+                    <p className="font-medium">How to get your TrueLayer credentials:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs text-teal-700">
+                      <li>Go to <a href="https://console.truelayer.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">console.truelayer.com</a> and create an application</li>
+                      <li>Select the <strong>Payments</strong> product</li>
+                      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from the app settings</li>
+                      <li>Start in Sandbox mode — switch to Live when ready for production payments</li>
+                    </ol>
+                  </div>
+                }
+              />
+              <PlatformSettingField
+                settingKey="truelayer_client_secret"
+                label="TrueLayer Client Secret"
+                description="Client Secret from your TrueLayer Console app."
+                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                icon={<CreditCard className="w-4 h-4" />}
+              />
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

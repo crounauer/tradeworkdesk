@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { requireStripe } from "../lib/stripe";
+import { getPlatformSetting } from "../lib/geocode";
 
 const router: IRouter = Router();
 
@@ -77,7 +78,7 @@ router.get(
   requireTenant,
   requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const clientId = process.env.STRIPE_CLIENT_ID;
+    const clientId = await getPlatformSetting("stripe_client_id", "STRIPE_CLIENT_ID").catch(() => null);
     if (!clientId) {
       res.status(500).json({ error: "STRIPE_CLIENT_ID is not configured" });
       return;
@@ -183,8 +184,11 @@ router.delete(
     if (accountId) {
       try {
         const stripe = requireStripe(false);
-        if (stripe && process.env.STRIPE_CLIENT_ID) {
-          await stripe.oauth.deauthorize({ client_id: process.env.STRIPE_CLIENT_ID, stripe_user_id: accountId });
+        if (stripe) {
+          const stripeClientId = await getPlatformSetting("stripe_client_id", "STRIPE_CLIENT_ID").catch(() => null);
+          if (stripeClientId) {
+            await stripe.oauth.deauthorize({ client_id: stripeClientId, stripe_user_id: accountId });
+          }
         }
       } catch (err) {
         // Non-fatal — Stripe may already have disconnected

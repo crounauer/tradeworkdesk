@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { getPlatformSetting } from "../lib/geocode";
 
 const router: IRouter = Router();
 
@@ -18,8 +19,10 @@ export const TL_PAY_BASE = TL_ENV === "live"
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
 export async function getTrueLayerToken(): Promise<string> {
-  const clientId = process.env.TRUELAYER_CLIENT_ID;
-  const clientSecret = process.env.TRUELAYER_CLIENT_SECRET;
+  const [clientId, clientSecret] = await Promise.all([
+    getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID"),
+    getPlatformSetting("truelayer_client_secret", "TRUELAYER_CLIENT_SECRET"),
+  ]);
   if (!clientId || !clientSecret) throw new Error("TrueLayer platform credentials not configured");
 
   const res = await fetch(`${TL_AUTH_BASE}/connect/token`, {
@@ -42,7 +45,11 @@ router.get(
   "/admin/truelayer/status",
   requireAuth, requireTenant, requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const available = !!(process.env.TRUELAYER_CLIENT_ID && process.env.TRUELAYER_CLIENT_SECRET);
+    const [clientId, clientSecret] = await Promise.all([
+      getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null),
+      getPlatformSetting("truelayer_client_secret", "TRUELAYER_CLIENT_SECRET").catch(() => null),
+    ]);
+    const available = !!(clientId && clientSecret);
     if (!available) { res.json({ available: false, connected: false }); return; }
 
     const { data: tenant } = await supabaseAdmin
@@ -78,7 +85,8 @@ router.post(
       res.status(400).json({ error: "sort_code, account_number, and account_holder_name are required" });
       return;
     }
-    if (!(process.env.TRUELAYER_CLIENT_ID && process.env.TRUELAYER_CLIENT_SECRET)) {
+    if (!(await getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null) &&
+          await getPlatformSetting("truelayer_client_secret", "TRUELAYER_CLIENT_SECRET").catch(() => null))) {
       res.status(400).json({ error: "TrueLayer is not available on this platform" });
       return;
     }
