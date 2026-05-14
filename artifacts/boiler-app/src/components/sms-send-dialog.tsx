@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Loader2, FileText } from "lucide-react";
+import { MessageSquare, Loader2, FileText, AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -43,6 +44,8 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [defaultSender, setDefaultSender] = useState("TradeWork");
+  const [lowCredits, setLowCredits] = useState<{ remaining: number; bundleSize: number } | null>(null);
+  const [, navigate] = useLocation();
 
   // Fetch company settings once on mount
   useEffect(() => {
@@ -113,9 +116,14 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
         throw new Error(error ?? "Failed to send SMS");
       }
 
+      const data = await res.json() as { ok: boolean; credits_remaining?: number | null; bundle_size?: number | null };
       toast({ title: "SMS sent", description: `Message delivered to ${to.trim()}` });
       onSent?.();
       handleOpenChange(false);
+      // Show low-credits warning if below 10% of bundle and still have some remaining
+      if (data.credits_remaining != null && data.credits_remaining > 0 && data.credits_remaining < (data.bundle_size ?? 1000) * 0.1) {
+        setLowCredits({ remaining: data.credits_remaining, bundleSize: data.bundle_size ?? 1000 });
+      }
     } catch (err) {
       toast({
         title: "Failed to send",
@@ -131,6 +139,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
   const overLimit = remaining < 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -220,5 +229,25 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={lowCredits !== null} onOpenChange={() => setLowCredits(null)}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            SMS credits running low
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          You have <span className="font-semibold text-orange-600">{lowCredits?.remaining.toLocaleString()}</span> SMS credits remaining.
+          Top up to avoid interruption.
+        </p>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setLowCredits(null)}>Dismiss</Button>
+          <Button onClick={() => { setLowCredits(null); navigate("/billing"); }}>Top Up Credits</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

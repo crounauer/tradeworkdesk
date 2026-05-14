@@ -80,7 +80,11 @@ router.post("/postcode-lookup", requireAuth, requireTenant, async (req: Authenti
       display: [a.line_1, a.line_2, a.line_3].filter(Boolean).join(", "),
     }));
 
-    res.json({ addresses: results });
+    res.json({
+      addresses: results,
+      credits_remaining: creditInfo ? creditInfo.credits_remaining - 1 : null,
+      bundle_size: creditInfo?.bundle_size ?? null,
+    });
 
     // Deduct one credit after successful response
     await deductAddonCredit(req.tenantId!, "uk_address_lookup");

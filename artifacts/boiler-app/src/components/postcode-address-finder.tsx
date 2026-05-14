@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertTriangle, Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddressResult {
@@ -35,7 +37,9 @@ export function PostcodeAddressFinder({ onAddressSelected, initialPostcode }: Po
   const [loading, setLoading] = useState(false);
   const [addresses, setAddresses] = useState<AddressResult[]>([]);
   const [searched, setSearched] = useState(false);
+  const [lowCredits, setLowCredits] = useState<{ remaining: number; bundleSize: number } | null>(null);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const handleSearch = async () => {
     const pc = postcode.trim();
@@ -73,6 +77,10 @@ export function PostcodeAddressFinder({ onAddressSelected, initialPostcode }: Po
       const data = await res.json();
       setAddresses(data.addresses || []);
       setSearched(true);
+      // Show low-credits warning if below 10% of bundle and still have some remaining
+      if (data.credits_remaining != null && data.credits_remaining > 0 && data.credits_remaining < (data.bundle_size ?? 1000) * 0.1) {
+        setLowCredits({ remaining: data.credits_remaining, bundleSize: data.bundle_size ?? 1000 });
+      }
     } catch {
       toast({ title: "Error", description: "Failed to look up postcode. Please try again.", variant: "destructive" });
     } finally {
@@ -96,6 +104,7 @@ export function PostcodeAddressFinder({ onAddressSelected, initialPostcode }: Po
   };
 
   return (
+    <>
     <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
       <Label className="text-sm font-medium">Find Address by Postcode</Label>
       <div className="flex gap-2">
@@ -131,5 +140,24 @@ export function PostcodeAddressFinder({ onAddressSelected, initialPostcode }: Po
         <p className="text-xs text-muted-foreground">No addresses found. Check the postcode and try again.</p>
       )}
     </div>
-  );
+
+    <Dialog open={lowCredits !== null} onOpenChange={() => setLowCredits(null)}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            Address lookup credits running low
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          You have <span className="font-semibold text-orange-600">{lowCredits?.remaining.toLocaleString()}</span> address lookup credits remaining.
+          Top up to avoid interruption.
+        </p>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setLowCredits(null)}>Dismiss</Button>
+          <Button onClick={() => { setLowCredits(null); navigate("/billing"); }}>Top Up Credits</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>);
 }

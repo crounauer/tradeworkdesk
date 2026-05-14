@@ -156,7 +156,14 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
   // Deduct one credit on success
   await deductAddonCredit(req.tenantId!, "sms_messaging");
 
-  res.json({ ok: true, message_id: messageId, record });
+  const smsCredits = await getAddonCredits(req.tenantId!, "sms_messaging");
+  res.json({
+    ok: true,
+    message_id: messageId,
+    record,
+    credits_remaining: smsCredits ? smsCredits.credits_remaining : null,
+    bundle_size: smsCredits?.bundle_size ?? null,
+  });
 });
 
 // ──────────────────────────────────────────────────────────────

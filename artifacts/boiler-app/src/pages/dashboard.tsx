@@ -1,12 +1,12 @@
 import { useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus, AlertTriangle, Plus, MessageSquare, MapPin, Zap } from "lucide-react";
+import { MessageSquarePlus, AlertTriangle, Plus, MessageSquare, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, lazy, Suspense } from "react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import ScheduleCalendar from "@/components/schedule-calendar";
@@ -14,7 +14,6 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import AddToHomeScreen from "@/components/add-to-homescreen";
 import { useInitData } from "@/hooks/use-init-data";
 import { BookJobDialog } from "@/components/book-job-dialog";
-import { Link } from "wouter";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -58,22 +57,9 @@ export default function Dashboard() {
     }
   }, [handleBookJob]);
 
-  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
-
-  type CreditRow = { id: string; name: string; usage_unit_label: string | null; usage_bundle_size: number | null; credits_remaining: number };
-  const { data: creditsData } = useQuery<CreditRow[]>({
-    queryKey: ["billing-credits"],
-    queryFn: async () => {
-      const res = await fetch("/api/billing/credits");
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: isAdmin,
-    staleTime: 60_000,
-  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -90,27 +76,7 @@ export default function Dashboard() {
         </a>
       )}
 
-      {isAdmin && creditsData && creditsData.some(c => c.credits_remaining === 0 || c.credits_remaining < (c.usage_bundle_size ?? 1000) * 0.1) && (
-        <Link href="/billing">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer text-sm flex-wrap">
-            <Zap className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-            {creditsData.filter(c => c.credits_remaining === 0 || c.credits_remaining < (c.usage_bundle_size ?? 1000) * 0.1).map((credit, i) => {
-              const isEmpty = credit.credits_remaining === 0;
-              return (
-                <span key={credit.id} className={isEmpty ? "text-red-600" : "text-orange-700"}>
-                  {i > 0 && <span className="mx-1 text-orange-300">&bull;</span>}
-                  <span className="font-medium">{credit.name}:</span>{" "}
-                  <span className="font-semibold">{credit.credits_remaining.toLocaleString()} remaining</span>{" "}
-                  <span className="text-xs">{isEmpty ? "— top up needed" : "— running low"}</span>
-                </span>
-              );
-            })}
-            <span className="ml-auto text-orange-500 text-xs">Top up &rarr;</span>
-          </div>
-        </Link>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
+<div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
         <div className="flex-1">
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening today.</p>
