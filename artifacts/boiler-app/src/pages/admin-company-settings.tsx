@@ -165,7 +165,7 @@ export default function AdminCompanySettings() {
       if (showToast) {
         toast({ title: "Settings saved", description: "Company information has been updated." });
       }
-      setTimeout(() => { if (isMountedRef.current) setAutoSaveStatus("idle"); }, 2000);
+      setTimeout(() => { if (isMountedRef.current) setAutoSaveStatus("idle"); }, 3000);
     } catch (err) {
       if (!isMountedRef.current) return;
       setAutoSaveStatus("idle");
@@ -243,11 +243,25 @@ export default function AdminCompanySettings() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Company Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your business details, team settings, pricing and invoicing preferences.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">Company Settings</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your business details, team settings, pricing and invoicing preferences.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 pt-1 shrink-0 h-8">
+          {autoSaveStatus === "saving" && (
+            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…
+            </span>
+          )}
+          {autoSaveStatus === "saved" && (
+            <span className="text-sm text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
+              <Check className="w-3.5 h-3.5" /> Saved
+            </span>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="profile">
@@ -804,23 +818,7 @@ export default function AdminCompanySettings() {
 
           </TabsContent>
 
-          <div className="flex items-center justify-end gap-3 pt-4">
-          {autoSaveStatus === "saving" && (
-            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
-            </span>
-          )}
-          {autoSaveStatus === "saved" && !isDirty && (
-            <span className="text-sm text-emerald-600 flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5" /> Saved
-            </span>
-          )}
-          {isDirty && (
-            <Button type="button" variant="outline" onClick={() => reset()}>
-              Discard Changes
-            </Button>
-          )}
-          </div>
+
         </form>
       </Tabs>
 
