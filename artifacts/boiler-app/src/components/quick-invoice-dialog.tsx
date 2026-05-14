@@ -148,7 +148,7 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
       }
       const inv = await res.json();
       onOpenChange(false);
-      navigate(`/invoices/${inv.id}`);
+      navigate(`/invoices/${inv.id}?edit=1`);
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
       setSubmitting(false);

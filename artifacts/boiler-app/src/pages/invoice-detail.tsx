@@ -158,7 +158,7 @@ function NewInvoiceRedirect({ type, prefillJobId }: { type: string; prefillJobId
         throw new Error(body.error || "Failed to create");
       }
       const inv = await res.json();
-      navigate(`/invoices/${inv.id}`, { replace: true });
+      navigate(`/invoices/${inv.id}?edit=1`, { replace: true });
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
       setSubmitting(false);
@@ -225,7 +225,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const isDraft = invoice.status === "draft";
   const isInvoice = invoice.type === "invoice";
 
-  const [editing, setEditing] = useState(isDraft);
+  const [editing, setEditing] = useState(() => {
+    const sp = new URLSearchParams(window.location.search);
+    return isDraft && sp.get("edit") === "1";
+  });
   const [lines, setLines] = useState<InvoiceLineItem[]>(
     invoice.line_items && invoice.line_items.length > 0
       ? invoice.line_items.map((l) => ({ ...l }))
@@ -514,7 +517,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     try {
       const newInv = await convertMut.mutateAsync();
       toast({ title: "Converted to invoice", description: `Invoice ${newInv.invoice_number} created` });
-      navigate(`/invoices/${newInv.id}`);
+      navigate(`/invoices/${newInv.id}?edit=1`);
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
     }
