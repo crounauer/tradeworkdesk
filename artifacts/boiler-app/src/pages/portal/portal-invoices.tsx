@@ -3,7 +3,7 @@ import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Zap, CreditCard } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Zap, CreditCard, Eye } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -52,6 +52,7 @@ export default function PortalInvoices() {
   const { session } = usePortalAuth();
   const qc = useQueryClient();
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   const { data: invoices, isLoading } = useQuery<PortalInvoice[]>({
     queryKey: ["portal-invoices"],
@@ -88,6 +89,19 @@ export default function PortalInvoices() {
       return res.json();
     },
     staleTime: 600_000,
+  });
+
+  const { data: paymentProviders } = useQuery<{ truelayer: boolean; paypal: boolean }>({
+    queryKey: ["portal-payment-providers"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/payment-providers`, {
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) return { truelayer: false, paypal: false };
+      return res.json();
+    },
+    enabled: !!session,
+    staleTime: 300_000,
   });
 
   const quoteActionMutation = useMutation({
@@ -128,6 +142,24 @@ export default function PortalInvoices() {
     }
   }
 
+  async function viewPdf(inv: PortalInvoice) {
+    setPreviewing(inv.id);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${inv.id}/pdf`, {
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      // silently fail
+    } finally {
+      setPreviewing(null);
+    }
+  }
+
   const invoiceList = (invoices || []).filter((i) => i.type === "invoice");
   const quoteList = (invoices || []).filter((i) => i.type === "quote");
 
@@ -159,7 +191,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} truelayerAvailable={paymentProviders?.truelayer ?? false} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -171,7 +203,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} truelayerAvailable={paymentProviders?.truelayer ?? false} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -193,6 +225,9 @@ function InvoiceRow({
   paypalFeePercent,
   paypalFeeFixed,
   accessToken,
+  truelayerAvailable,
+  onPreview,
+  previewing,
 }: {
   inv: PortalInvoice;
   downloading: string | null;
@@ -203,6 +238,9 @@ function InvoiceRow({
   paypalFeePercent: number;
   paypalFeeFixed: number;
   accessToken: string;
+  truelayerAvailable: boolean;
+  onPreview: (inv: PortalInvoice) => void;
+  previewing: string | null;
 }) {
   const statusCfg = STATUS_CONFIG[inv.status] || { label: inv.status, className: "bg-slate-100 text-slate-600" };
   const dateLabel = inv.type === "invoice"
@@ -211,6 +249,25 @@ function InvoiceRow({
 
   const [paypalLoading, setPaypalLoading] = useState(false);
   const [paypalError, setPaypalError] = useState("");
+  const [truelayerLoading, setTruelayerLoading] = useState(false);
+  const [truelayerError, setTruelayerError] = useState("");
+
+  const handleTrueLayer = async () => {
+    setTruelayerLoading(true);
+    setTruelayerError("");
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${inv.id}/truelayer-payment`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create payment");
+      window.location.href = data.url;
+    } catch (err) {
+      setTruelayerError((err as Error).message || "Could not start Open Banking payment. Please try again.");
+      setTruelayerLoading(false);
+    }
+  };
 
   const paypalSurcharge = Math.round((Number(inv.total) * paypalFeePercent / 100 + paypalFeeFixed) * 100) / 100;
 
@@ -243,7 +300,7 @@ function InvoiceRow({
   }
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
-  const hasTrueLayer = isPayable && !!inv.truelayer_payment_link_url;
+  const hasTrueLayer = isPayable && truelayerAvailable;
   const hasPayPal = isPayable && !!inv.paypal_payment_link_url;
 
   return (
@@ -275,9 +332,12 @@ function InvoiceRow({
             <Button
               size="sm"
               className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => window.open(inv.truelayer_payment_link_url!, "_blank", "noopener,noreferrer")}
+              onClick={handleTrueLayer}
+              disabled={truelayerLoading}
             >
-              <Zap className="w-3.5 h-3.5 mr-1" />
+              {truelayerLoading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                : <Zap className="w-3.5 h-3.5 mr-1" />}
               Open Banking — Free
             </Button>
           )}
@@ -321,6 +381,19 @@ function InvoiceRow({
             size="sm"
             variant="outline"
             className="h-8 text-xs"
+            onClick={() => onPreview(inv)}
+            disabled={previewing === inv.id}
+          >
+            {previewing === inv.id
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Eye className="w-3.5 h-3.5" />
+            }
+            <span className="ml-1 hidden sm:inline">View</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
             onClick={() => onDownload(inv)}
             disabled={downloading === inv.id}
           >
@@ -337,8 +410,8 @@ function InvoiceRow({
           Open Banking is free and instant. PayPal includes a {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee.
         </p>
       )}
-      {paypalError && (
-        <p className="text-xs text-red-600 mt-2 pt-2 border-t border-slate-100">{paypalError}</p>
+      {(paypalError || truelayerError) && (
+        <p className="text-xs text-red-600 mt-2 pt-2 border-t border-slate-100">{paypalError || truelayerError}</p>
       )}
       {inv.customer_notes && (
         <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 line-clamp-2">

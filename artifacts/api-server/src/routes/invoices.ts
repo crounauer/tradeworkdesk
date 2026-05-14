@@ -476,7 +476,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("id", invoice.job_id as string)
     .maybeSingle();
 
-  res.set("Cache-Control", "private, max-age=30");
+  res.set("Cache-Control", "no-cache");
   res.json({ ...invoice, line_items: lineItems || [], customer, job });
 });
 
