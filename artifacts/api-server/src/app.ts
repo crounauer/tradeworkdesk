@@ -2,12 +2,18 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import compression from "compression";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import router from "./routes";
 import { startServiceReminderScheduler } from "./lib/service-reminders";
 
 const app: Express = express();
 app.set("trust proxy", 1);
 
+app.use(helmet({
+  // API is consumed by a SPA on a separate domain; relax CSP and frame options
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(compression());
 app.use(cors({
   origin: [
@@ -34,12 +40,22 @@ const authLimiter = rateLimit({
   message: { error: "Too many requests. Please try again in 15 minutes." },
 });
 
+const portalAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in 15 minutes." },
+});
+
 // Public warmup endpoint — no auth, used by frontend to wake Railway on load
 app.get("/api/ping", (_req: Request, res: Response) => { res.json({ ok: true }); });
 
 app.use("/api/auth/register", registrationLimiter);
 app.use("/api/auth/validate-invite", authLimiter);
 app.use("/api/auth/use-invite", authLimiter);
+app.use("/api/portal/register", portalAuthLimiter);
+app.use("/api/portal/login", portalAuthLimiter);
 
 app.use(
   "/api/webhooks/stripe",

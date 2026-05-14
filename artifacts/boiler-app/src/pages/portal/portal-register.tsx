@@ -58,8 +58,8 @@ export default function PortalRegister() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
 
@@ -172,10 +172,10 @@ export default function PortalRegister() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Choose a password (min. 6 characters)"
+                  placeholder="Choose a password (min. 8 characters)"
                   required
-                  minLength={6}
                   autoComplete="new-password"
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -195,8 +195,8 @@ export default function PortalRegister() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm your password"
                 required
-                minLength={6}
                 autoComplete="new-password"
+                minLength={8}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
