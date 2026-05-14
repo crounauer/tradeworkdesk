@@ -1,11 +1,12 @@
 import { useListCustomers, getListCustomersQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus, AlertTriangle, Plus, MessageSquare, MapPin } from "lucide-react";
+import { MessageSquarePlus, AlertTriangle, Plus, MessageSquare, MapPin, FileText, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useCallback, lazy, Suspense } from "react";
+import { useState, useCallback, lazy, Suspense, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const [showQuickBook, setShowQuickBook] = useState(false);
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
+  const [showQuickInvoice, setShowQuickInvoice] = useState<"invoice" | "quote" | null>(null);
   const { hasFeature: dashHasFeature } = usePlanFeatures();
   const hasJobManagement = dashHasFeature("job_management");
 
@@ -58,6 +60,7 @@ export default function Dashboard() {
   }, [handleBookJob]);
 
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
+  const canCreateInvoices = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
 
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
 
@@ -81,15 +84,25 @@ export default function Dashboard() {
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening today.</p>
         </div>
-        <div className="flex gap-3">
-          {canCreateJobs && (
-            <Button size="lg" variant="outline" className="gap-2 text-base px-5 py-3 shadow-sm" onClick={() => { setQuickDate(undefined); setShowAddEnquiry(true); }}>
-              <MessageSquarePlus className="w-5 h-5" /> Add Enquiry
+        <div className="flex flex-wrap gap-2">
+          {canCreateInvoices && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowQuickInvoice("quote")}>
+              <FileText className="w-4 h-4" /> + Quote
+            </Button>
+          )}
+          {canCreateInvoices && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowQuickInvoice("invoice")}>
+              <Receipt className="w-4 h-4" /> + Invoice
             </Button>
           )}
           {canCreateJobs && (
-            <Button size="lg" className="gap-2 text-base px-6 py-3 shadow-md" onClick={() => handleBookJob()}>
-              <Plus className="w-5 h-5" /> Book Job
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setQuickDate(undefined); setShowAddEnquiry(true); }}>
+              <MessageSquarePlus className="w-4 h-4" /> Add Enquiry
+            </Button>
+          )}
+          {canCreateJobs && (
+            <Button size="sm" className="gap-1.5" onClick={() => handleBookJob()}>
+              <Plus className="w-4 h-4" /> Book Job
             </Button>
           )}
         </div>
@@ -106,6 +119,9 @@ export default function Dashboard() {
       )}
       {hasJobManagement && showAddEnquiry && (
         <QuickEnquiryDialog open={showAddEnquiry} onOpenChange={setShowAddEnquiry} initialDate={quickDate} />
+      )}
+      {showQuickInvoice && (
+        <QuickInvoiceDialog type={showQuickInvoice} onOpenChange={(v) => { if (!v) setShowQuickInvoice(null); }} />
       )}
     </div>
   );
@@ -376,4 +392,94 @@ function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: boolean
   );
 }
 
+function QuickInvoiceDialog({ type, onOpenChange }: { type: "invoice" | "quote"; onOpenChange: (v: boolean) => void }) {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const { data: customers } = useListCustomers({});
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const label = type === "quote" ? "Quote" : "Invoice";
+
+  const filtered = (customers || []).filter((c) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
+      (c.postcode || "").toLowerCase().includes(q);
+  });
+
+  async function handleCreate() {
+    if (!selectedId) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_id: selectedId, type }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to create");
+      }
+      const inv = await res.json();
+      onOpenChange(false);
+      navigate(`/invoices/${inv.id}`);
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New {label}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label>Customer</Label>
+            <Input
+              ref={inputRef}
+              placeholder="Search by name, email or postcode…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSelectedId(""); }}
+              autoFocus
+            />
+          </div>
+          {search && (
+            <div className="border rounded-lg divide-y max-h-56 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <p className="text-sm text-muted-foreground px-3 py-2">No customers found</p>
+              ) : filtered.slice(0, 20).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors ${selectedId === c.id ? "bg-primary/10 font-medium" : ""}`}
+                  onClick={() => { setSelectedId(c.id); setSearch(`${c.first_name} ${c.last_name}`); }}
+                >
+                  <span className="font-medium">{c.first_name} {c.last_name}</span>
+                  {c.email && <span className="text-muted-foreground ml-2">{c.email}</span>}
+                  {c.postcode && <span className="text-muted-foreground ml-2">{c.postcode}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {selectedId && !search.includes(" ") && (
+            <p className="text-sm text-green-700 font-medium">✓ Customer selected</p>
+          )}
+          <div className="flex gap-3 pt-1">
+            <Button className="flex-1" disabled={!selectedId || submitting} onClick={handleCreate}>
+              {submitting ? "Creating…" : `Create ${label}`}
+            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 

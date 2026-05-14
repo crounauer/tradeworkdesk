@@ -215,6 +215,7 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
 router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
   const {
     job_id,
+    customer_id: direct_customer_id,
     type = "invoice",
     line_items = [],
     issue_date,
@@ -224,7 +225,8 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     customer_notes,
     vat_rate,
   } = req.body as {
-    job_id: string;
+    job_id?: string;
+    customer_id?: string;
     type?: string;
     line_items?: LineItemInput[];
     issue_date?: string;
@@ -235,17 +237,31 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     vat_rate?: number;
   };
 
-  if (!job_id) { res.status(400).json({ error: "job_id is required" }); return; }
+  if (!job_id && !direct_customer_id) { res.status(400).json({ error: "job_id or customer_id is required" }); return; }
   if (!["invoice", "quote"].includes(type)) { res.status(400).json({ error: "type must be invoice or quote" }); return; }
 
-  // Verify job belongs to tenant
-  const { data: job, error: jobErr } = await supabaseAdmin
-    .from("jobs")
-    .select("id, customer_id, tenant_id")
-    .eq("id", job_id)
-    .eq("tenant_id", req.tenantId!)
-    .maybeSingle();
-  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+  // Resolve customer_id — either from a job or directly supplied
+  let resolvedCustomerId: string;
+  if (job_id) {
+    const { data: job, error: jobErr } = await supabaseAdmin
+      .from("jobs")
+      .select("id, customer_id, tenant_id")
+      .eq("id", job_id)
+      .eq("tenant_id", req.tenantId!)
+      .maybeSingle();
+    if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+    resolvedCustomerId = (job as { customer_id: string }).customer_id;
+  } else {
+    // Verify customer belongs to tenant
+    const { data: customer, error: custErr } = await supabaseAdmin
+      .from("customers")
+      .select("id")
+      .eq("id", direct_customer_id!)
+      .eq("tenant_id", req.tenantId!)
+      .maybeSingle();
+    if (custErr || !customer) { res.status(404).json({ error: "Customer not found" }); return; }
+    resolvedCustomerId = direct_customer_id!;
+  }
 
   // Resolve VAT rate
   const settings = await getCompanySettings(req.tenantId!);
@@ -279,8 +295,8 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     .from("invoices")
     .insert({
       tenant_id: req.tenantId,
-      job_id,
-      customer_id: (job as { customer_id: string }).customer_id,
+      job_id: job_id || null,
+      customer_id: resolvedCustomerId,
       type,
       status: "draft",
       invoice_number: invoiceNumber,
