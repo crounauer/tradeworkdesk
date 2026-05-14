@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -9,10 +9,11 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 import { OfflineBanner } from "./offline-indicator";
 import { useOffline } from "@/contexts/offline-context";
 import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
@@ -20,6 +21,7 @@ import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { profile, signOut } = useAuth();
+  const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(() => {
     try {
@@ -228,6 +230,15 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="p-4 border-t border-border/50">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground hover:text-foreground mb-1 text-xs"
+            onClick={() => { queryClient.clear(); window.location.reload(); }}
+            title="Clear cached data and reload"
+          >
+            <RefreshCcw className="w-3.5 h-3.5 mr-2" />
+            Clear Cache
+          </Button>
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">
               {profile?.full_name?.charAt(0) || 'U'}
@@ -280,6 +291,10 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="pt-4 mt-4 border-t border-border space-y-2">
+              <Button variant="ghost" className="w-full text-muted-foreground text-sm" onClick={() => { queryClient.clear(); window.location.reload(); }}>
+                <RefreshCcw className="w-3.5 h-3.5 mr-2" />
+                Clear Cache
+              </Button>
               <Link href="/account" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button variant="outline" className="w-full">
                   <UserCog className="w-4 h-4 mr-2" />
