@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
-import { MapPin, Loader2, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { X } from "lucide-react";
 
 const pinIcon = L.divIcon({
   html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
@@ -76,55 +75,14 @@ interface PropertyLocationLookupProps {
 }
 
 export function PropertyLocationLookup({
-  address,
+  address: _address,
   latitude,
   longitude,
   onLocationFound,
   onClearLocation,
 }: PropertyLocationLookupProps) {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
   const hasCoords = latitude != null && longitude != null;
   const skipRecenterRef = useRef(false);
-
-  const handleLookup = async () => {
-    if (!address.trim()) {
-      toast({ title: "No address", description: "Enter an address before looking up location", variant: "destructive" });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/geocode`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ address }),
-      });
-
-      if (res.status === 402) {
-        toast({ title: "Feature not available", description: "Geomapping is not included in your current plan", variant: "destructive" });
-        return;
-      }
-
-      if (res.status === 404) {
-        toast({ title: "Not found", description: "Could not find coordinates for this address. Try a more complete address.", variant: "destructive" });
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error("Geocoding failed");
-      }
-
-      const data = await res.json();
-      onLocationFound(data.latitude, data.longitude);
-      toast({ title: "Location found", description: data.display_name });
-    } catch {
-      toast({ title: "Error", description: "Failed to look up location. Please try again.", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePinMove = (lat: number, lng: number) => {
     skipRecenterRef.current = true;
@@ -134,20 +92,6 @@ export function PropertyLocationLookup({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleLookup}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <MapPin className="w-4 h-4 mr-2" />
-          )}
-          {loading ? "Looking up..." : "Lookup exact location"}
-        </Button>
         {hasCoords && onClearLocation && (
           <Button type="button" variant="ghost" size="sm" onClick={onClearLocation}>
             <X className="w-4 h-4 mr-1" /> Clear
