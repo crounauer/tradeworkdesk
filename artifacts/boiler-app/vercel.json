@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm build",
+  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @workspace/boiler-app build",
   "outputDirectory": "dist/public",
   "rewrites": [
     {
