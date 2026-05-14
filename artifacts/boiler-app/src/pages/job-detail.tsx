@@ -88,6 +88,7 @@ interface JobService {
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
   const { isOnline, queueJobUpdate, pendingMutations, failedMutations } = useOffline();
   const { data: onlineJob, isLoading } = useGetJob(id);
   const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } });
