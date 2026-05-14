@@ -40,6 +40,7 @@ export interface Invoice {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  works_order: string | null;
   notes: string | null;
   customer_notes: string | null;
   sent_at: string | null;
@@ -111,6 +112,7 @@ export interface CreateInvoiceInput {
 
 export interface UpdateInvoiceInput {
   line_items?: InvoiceLineItem[];
+  works_order?: string;
   notes?: string;
   customer_notes?: string;
   issue_date?: string;
