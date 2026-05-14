@@ -179,6 +179,7 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
   const {
     type,
     status,
+    statuses,
     job_id,
     customer_id,
     date_from,
@@ -199,7 +200,16 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
     .range(offset, offset + limitNum - 1);
 
   if (type) q = q.eq("type", type);
-  if (status) q = q.eq("status", status);
+  if (statuses) {
+    const statusList = statuses.split(",").map(s => s.trim()).filter(Boolean);
+    if (statusList.length === 1) {
+      q = q.eq("status", statusList[0]);
+    } else if (statusList.length > 1) {
+      q = q.in("status", statusList);
+    }
+  } else if (status) {
+    q = q.eq("status", status);
+  }
   if (job_id) q = q.eq("job_id", job_id);
   if (customer_id) q = q.eq("customer_id", customer_id);
   if (date_from) q = q.gte("issue_date", date_from);

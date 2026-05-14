@@ -124,11 +124,19 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     return q;
   };
 
+  const buildUnpaidInvoicesCountQuery = () => {
+    let q = supabaseAdmin.from("invoices").select("id", { count: "exact", head: true })
+      .in("status", ["sent", "overdue"])
+      .eq("type", "invoice");
+    if (tenantId) q = q.eq("tenant_id", tenantId);
+    return q;
+  };
+
   // ── Core queries (10 instead of 13 — storage is separate, overdue count derived from data) ──
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
     customerCountRes, todayCountRes, completedCountRes,
-    tenantFeatures, jobTypesRes,
+    tenantFeatures, jobTypesRes, unpaidInvoicesRes,
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -146,6 +154,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     tenantId
       ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", tenantId)
       : supabaseAdmin.from("job_types").select("id, name"),
+    buildUnpaidInvoicesCountQuery(),
   ]);
 
   const tQueries = Date.now();
@@ -185,6 +194,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
       total_jobs_today: todayCountRes.count || 0,
       overdue_count: overdueList.length,  // derived — no extra query needed
       completed_this_week: completedCountRes.count || 0,
+      unpaid_invoices_count: unpaidInvoicesRes.count || 0,
     },
   });
 

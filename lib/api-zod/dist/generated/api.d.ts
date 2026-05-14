@@ -443,16 +443,19 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         total_jobs_today: zod.ZodOptional<zod.ZodNumber>;
         overdue_count: zod.ZodOptional<zod.ZodNumber>;
         completed_this_week: zod.ZodOptional<zod.ZodNumber>;
+        unpaid_invoices_count: zod.ZodOptional<zod.ZodNumber>;
     }, "strip", zod.ZodTypeAny, {
         total_customers?: number | undefined;
         total_jobs_today?: number | undefined;
         overdue_count?: number | undefined;
         completed_this_week?: number | undefined;
+        unpaid_invoices_count?: number | undefined;
     }, {
         total_customers?: number | undefined;
         total_jobs_today?: number | undefined;
         overdue_count?: number | undefined;
         completed_this_week?: number | undefined;
+        unpaid_invoices_count?: number | undefined;
     }>>;
 }, "strip", zod.ZodTypeAny, {
     todays_jobs?: ({
@@ -559,6 +562,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         total_jobs_today?: number | undefined;
         overdue_count?: number | undefined;
         completed_this_week?: number | undefined;
+        unpaid_invoices_count?: number | undefined;
     } | undefined;
 }, {
     todays_jobs?: ({
@@ -665,6 +669,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         total_jobs_today?: number | undefined;
         overdue_count?: number | undefined;
         completed_this_week?: number | undefined;
+        unpaid_invoices_count?: number | undefined;
     } | undefined;
 }>;
 /**

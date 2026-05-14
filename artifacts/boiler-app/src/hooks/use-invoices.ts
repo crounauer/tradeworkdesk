@@ -90,6 +90,7 @@ export interface InvoiceListResponse {
 export interface InvoiceFilters {
   type?: InvoiceType;
   status?: InvoiceStatus;
+  statuses?: InvoiceStatus[];
   job_id?: string;
   customer_id?: string;
   date_from?: string;
@@ -141,7 +142,11 @@ export const invoiceKeys = {
 function buildInvoiceUrl(filters: InvoiceFilters = {}): string {
   const params = new URLSearchParams();
   if (filters.type) params.set("type", filters.type);
-  if (filters.status) params.set("status", filters.status);
+  if (filters.statuses && filters.statuses.length > 0) {
+    params.set("statuses", filters.statuses.join(","));
+  } else if (filters.status) {
+    params.set("status", filters.status);
+  }
   if (filters.job_id) params.set("job_id", filters.job_id);
   if (filters.customer_id) params.set("customer_id", filters.customer_id);
   if (filters.date_from) params.set("date_from", filters.date_from);

@@ -70,16 +70,23 @@ type Tab = "invoice" | "quote";
 function InvoicesContent() {
   const [, navigate] = useLocation();
   const searchString = useSearch();
-  const initialTab = (new URLSearchParams(searchString).get("type") === "quote" ? "quote" : "invoice") as Tab;
+  const params = new URLSearchParams(searchString);
+  const initialTab = (params.get("type") === "quote" ? "quote" : "invoice") as Tab;
+  const initialStatus = params.get("status") ?? "";
+  const initialUnpaid = params.get("unpaid") === "1";
   const [tab, setTab] = useState<Tab>(initialTab);
   const [quickDialog, setQuickDialog] = useState<"invoice" | "quote" | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>(initialUnpaid ? "unpaid" : initialStatus);
   const [page, setPage] = useState(1);
 
   // Sync tab with URL so the Quotes nav link works even when already on this page
   useEffect(() => {
-    const t = new URLSearchParams(searchString).get("type") === "quote" ? "quote" : "invoice";
+    const p = new URLSearchParams(searchString);
+    const t = p.get("type") === "quote" ? "quote" : "invoice";
     setTab(t as Tab);
+    const unpaid = p.get("unpaid") === "1";
+    const st = p.get("status") ?? "";
+    setStatusFilter(unpaid ? "unpaid" : st);
   }, [searchString]);
 
   const qc = useQueryClient();
@@ -97,7 +104,11 @@ function InvoicesContent() {
 
   const { data, isLoading } = useListInvoices({
     type: tab,
-    status: statusFilter ? (statusFilter as InvoiceStatus) : undefined,
+    ...(statusFilter === "unpaid"
+      ? { statuses: ["sent", "overdue"] as InvoiceStatus[] }
+      : statusFilter
+      ? { status: statusFilter as InvoiceStatus }
+      : {}),
     page,
     limit: 50,
   });
@@ -203,6 +214,9 @@ function InvoicesContent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
+            {tab === "invoice" && (
+              <SelectItem value="unpaid">Unpaid (sent + overdue)</SelectItem>
+            )}
             {statusOptions.map((o) => (
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}

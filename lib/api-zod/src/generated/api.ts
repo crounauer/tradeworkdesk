@@ -263,6 +263,7 @@ export const GetDashboardResponse = zod.object({
       total_jobs_today: zod.number().optional(),
       overdue_count: zod.number().optional(),
       completed_this_week: zod.number().optional(),
+      unpaid_invoices_count: zod.number().optional(),
     })
     .optional(),
 });

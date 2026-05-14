@@ -34,6 +34,7 @@ type DashboardData = {
     completed_this_week: number;
     overdue_count: number;
     total_customers: number;
+    unpaid_invoices_count: number;
   };
 };
 
@@ -142,7 +143,7 @@ export default function Dashboard() {
 
       {/* Stats */}
       {hasJobManagement && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Today's Jobs</p>
             <p className="text-2xl font-bold mt-1">{homepageLoading ? "—" : (stats?.total_jobs_today ?? 0)}</p>
@@ -151,12 +152,22 @@ export default function Dashboard() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Completed This Week</p>
             <p className="text-2xl font-bold mt-1 text-emerald-600">{homepageLoading ? "—" : (stats?.completed_this_week ?? 0)}</p>
           </Card>
-          <Card className="p-4 col-span-2 sm:col-span-1">
+          <Card className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Overdue Services</p>
             <p className={`text-2xl font-bold mt-1 ${(stats?.overdue_count ?? 0) > 0 ? "text-rose-600" : ""}`}>
               {homepageLoading ? "—" : (stats?.overdue_count ?? 0)}
             </p>
           </Card>
+          {canCreateInvoices && (
+            <Link href="/invoices?unpaid=1">
+              <Card className="p-4 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unpaid Invoices</p>
+                <p className={`text-2xl font-bold mt-1 ${(stats?.unpaid_invoices_count ?? 0) > 0 ? "text-amber-600" : ""}`}>
+                  {homepageLoading ? "—" : (stats?.unpaid_invoices_count ?? 0)}
+                </p>
+              </Card>
+            </Link>
+          )}
         </div>
       )}
 
