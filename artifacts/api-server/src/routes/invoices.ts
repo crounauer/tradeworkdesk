@@ -541,8 +541,8 @@ router.delete("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res
   const { data: existing, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
   if (lookupErr || !existing) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
 
-  const voidableStatuses = ["draft", "cancelled"];
-  if (!voidableStatuses.includes(existing.status as string)) {
+  const hardDeleteStatuses = ["draft", "cancelled", "converted"];
+  if (!hardDeleteStatuses.includes(existing.status as string)) {
     // Sent/paid invoices are voided rather than hard-deleted
     const { error } = await supabaseAdmin
       .from("invoices")

@@ -662,7 +662,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               View Invoice →
             </Button>
           )}
-          {!["paid", "converted"].includes(invoice.status) && (
+          {!["paid"].includes(invoice.status) && (
             <Button variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="w-4 h-4 mr-2" />
               {invoice.status === "draft" ? "Delete" : "Cancel / Void"}
@@ -1141,16 +1141,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               {invoice.status === "draft" ? "Delete" : "Cancel"} {isInvoice ? "Invoice" : "Quote"}?
             </DialogTitle>
             <DialogDescription>
-              {invoice.status === "draft"
-                ? "This will permanently delete the draft. This action cannot be undone."
-                : "This will cancel the invoice. A cancelled invoice cannot be sent or paid."}
+              {invoice.status === "draft" || invoice.status === "converted"
+                ? "This will permanently delete this. This action cannot be undone."
+                : `This will cancel the ${isInvoice ? "invoice" : "quote"}. It cannot be sent or paid once cancelled.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>Keep it</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteMut.isPending}>
               {deleteMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {invoice.status === "draft" ? "Delete" : "Cancel Invoice"}
+              {invoice.status === "draft" || invoice.status === "converted" ? "Delete" : `Cancel ${isInvoice ? "Invoice" : "Quote"}`}
             </Button>
           </DialogFooter>
         </DialogContent>
