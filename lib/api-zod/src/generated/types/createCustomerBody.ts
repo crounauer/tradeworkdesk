@@ -19,4 +19,6 @@ export interface CreateCustomerBody {
   county?: string;
   postcode?: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
 }

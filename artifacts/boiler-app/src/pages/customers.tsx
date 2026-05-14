@@ -111,7 +111,10 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
 
   const onSubmit = async (data: Record<string, unknown>) => {
     try {
-      const newCustomer = await create.mutateAsync({ data: data as { first_name: string; last_name: string } });
+      const payload = { ...data } as Record<string, unknown>;
+      if (payload.latitude) payload.latitude = parseFloat(payload.latitude as string);
+      if (payload.longitude) payload.longitude = parseFloat(payload.longitude as string);
+      const newCustomer = await create.mutateAsync({ data: payload as { first_name: string; last_name: string } });
       qc.invalidateQueries({ queryKey: ["/api/customers"] });
       navigate(`/customers/${newCustomer.id}?addProperty=1`);
     } catch (err) {
@@ -138,6 +141,8 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
                   setValue("city", addr.city);
                   setValue("county", addr.county);
                   setValue("postcode", addr.postcode);
+                  setValue("latitude", String(addr.latitude ?? ""));
+                  setValue("longitude", String(addr.longitude ?? ""));
                 }}
               />
             </Suspense>

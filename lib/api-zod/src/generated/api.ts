@@ -311,6 +311,8 @@ export const CreateCustomerBody = zod.object({
   county: zod.string().optional(),
   postcode: zod.string().optional(),
   notes: zod.string().optional(),
+  latitude: zod.number().optional(),
+  longitude: zod.number().optional(),
 });
 
 /**

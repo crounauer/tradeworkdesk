@@ -1930,6 +1930,10 @@ components:
           type: string
         notes:
           type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
 
     UpdateCustomerBody:
       type: object
