@@ -4,7 +4,7 @@ import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Plus, Minus, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X, Clock,
+  Edit3, Save, X, Clock, Mail, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -232,6 +232,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       : [emptyLine()]
   );
   const [worksOrder, setWorksOrder] = useState(invoice.works_order || "");
+  const [emailLogRefresh, setEmailLogRefresh] = useState(0);
   const [vatRate, setVatRate] = useState(String(invoice.vat_rate ?? 0));
   const [issueDate, setIssueDate] = useState(invoice.issue_date || "");
   const [dueDate, setDueDate] = useState(invoice.due_date || "");
@@ -470,6 +471,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       const result = await sendMut.mutateAsync({ override_email: sendEmail !== invoice.customer?.email ? sendEmail : undefined });
       toast({ title: `${isInvoice ? "Invoice" : "Quote"} sent`, description: `Sent to ${result.sent_to}` });
       setSendOpen(false);
+      setEmailLogRefresh(n => n + 1);
     } catch (e) {
       toast({ title: "Send failed", description: (e as Error).message, variant: "destructive" });
     }
@@ -1020,6 +1022,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         </div>
       </div>
 
+      {/* ── Email log ── */}
+      <InvoiceEmailLogSection invoiceId={id} refreshKey={emailLogRefresh} />
+
       {/* ── Dialogs ── */}
 
       {/* Send dialog */}
@@ -1305,6 +1310,70 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Invoice Email Log Section ─────────────────────────────────────────────
+interface InvoiceEmailLogEntry {
+  id: string;
+  sent_by_name: string | null;
+  sent_to: string;
+  created_at: string;
+}
+
+function InvoiceEmailLogSection({ invoiceId, refreshKey }: { invoiceId: string; refreshKey: number }) {
+  const [logs, setLogs] = useState<InvoiceEmailLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const data = await customFetch(`${import.meta.env.BASE_URL}api/invoices/${invoiceId}/email-log`);
+        if (!cancelled) { setLogs(data as InvoiceEmailLogEntry[]); setExpanded(true); }
+      } catch {
+        if (!cancelled) setLogs([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [invoiceId, refreshKey]);
+
+  if (loading || logs.length === 0) return null;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-4">
+      <Card className="p-4 sm:p-6 border border-border/50 shadow-sm">
+        <button className="w-full flex items-center justify-between" onClick={() => setExpanded(!expanded)}>
+          <h3 className="font-bold text-base flex items-center gap-2 text-blue-600">
+            <Mail className="w-4 h-4" /> Email History ({logs.length})
+          </h3>
+          {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </button>
+        {expanded && (
+          <div className="mt-4 space-y-2">
+            {logs.map(entry => (
+              <div key={entry.id} className="flex items-center justify-between border border-border/40 rounded-lg px-3 py-2.5 bg-muted/20 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span className="truncate text-foreground">{entry.sent_to}</span>
+                  {entry.sent_by_name && (
+                    <span className="text-xs text-muted-foreground shrink-0">by {entry.sent_by_name}</span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0 ml-3">
+                  {new Date(entry.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
+                  {new Date(entry.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

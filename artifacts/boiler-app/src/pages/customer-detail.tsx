@@ -386,6 +386,7 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
     issue_date: string;
     total: number;
     currency: string;
+    sent_at: string | null;
   }>;
 
   if (!hasFeature("invoicing") || isLoading || docs.length === 0) return null;
@@ -432,6 +433,12 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
                 <p className="font-semibold text-sm">
                   {new Intl.NumberFormat("en-GB", { style: "currency", currency: doc.currency || "GBP" }).format(Number(doc.total))}
                 </p>
+                {doc.sent_at && (
+                  <span className="text-xs text-blue-600 whitespace-nowrap flex items-center gap-1" title={`Last sent ${new Date(doc.sent_at).toLocaleString("en-GB")}`}>
+                    <Mail className="w-3.5 h-3.5" />
+                    {new Date(doc.sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
+                )}
                 {doc.issue_date && (
                   <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />

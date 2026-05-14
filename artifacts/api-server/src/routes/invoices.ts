@@ -853,6 +853,32 @@ router.post("/invoices/:id/decline", ...protect, async (req: AuthenticatedReques
   res.json(updated);
 });
 
+// ─── EMAIL LOG ──────────────────────────────────────────────────────────────
+// GET /invoices/:id/email-log
+router.get("/invoices/:id/email-log", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: invoice, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !invoice) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
+
+  let q = supabaseAdmin
+    .from("job_email_logs")
+    .select("*, profiles(full_name)")
+    .filter("forms_included", "cs", JSON.stringify([{ form_id: req.params.id }]))
+    .order("created_at", { ascending: false });
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const mapped = (data || []).map((entry: Record<string, unknown>) => ({
+    id: entry.id,
+    sent_by_name: (entry.profiles as Record<string, unknown>)?.full_name || null,
+    sent_to: entry.sent_to,
+    created_at: entry.created_at,
+  }));
+
+  res.json(mapped);
+});
+
 // ─── CONVERT QUOTE → INVOICE ───────────────────────────────────────────────
 // POST /invoices/:id/convert
 router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
