@@ -174,8 +174,9 @@ export function useListInvoices(filters: InvoiceFilters = {}) {
   return useQuery<InvoiceListResponse>({
     queryKey: invoiceKeys.list(filters),
     queryFn: () => apiFetch<InvoiceListResponse>(buildInvoiceUrl(filters)),
-    staleTime: 60_000,
+    staleTime: 0,
     gcTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
   });
 }
 
