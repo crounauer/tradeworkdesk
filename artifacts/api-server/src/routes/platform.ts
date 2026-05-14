@@ -369,6 +369,19 @@ router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmi
   res.json({ url: session.url });
 });
 
+// Public endpoint — returns PayPal surcharge config so portal can display fees to customers
+router.get("/platform/payment-fees", async (_req, res): Promise<void> => {
+  const { data } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", ["paypal_surcharge_percent", "paypal_surcharge_fixed"]);
+  const map = Object.fromEntries((data || []).map((r: any) => [r.key, r.value]));
+  res.json({
+    paypal_surcharge_percent: parseFloat(map.paypal_surcharge_percent ?? "1.2"),
+    paypal_surcharge_fixed: parseFloat(map.paypal_surcharge_fixed ?? "0.30"),
+  });
+});
+
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order, sole_trader_price, sole_trader_price_annual, stripe_price_id, stripe_price_id_annual, stripe_sole_trader_price_id, stripe_sole_trader_price_id_annual";
   const basicSelect = "id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, sort_order";

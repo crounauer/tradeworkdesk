@@ -662,6 +662,9 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       worksOrder: invoice.works_order as string | null,
       bankDetails: settings?.invoice_bank_details ?? null,
       pdfBuffer,
+      portalUrl: invoice.type === "invoice"
+        ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
+        : null,
       company: settings ? {
         name: settings.name,
         trading_name: settings.trading_name,

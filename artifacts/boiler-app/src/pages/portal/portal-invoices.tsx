@@ -3,7 +3,7 @@ import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Zap, CreditCard } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -80,6 +80,16 @@ export default function PortalInvoices() {
     staleTime: 300_000,
   });
 
+  const { data: paymentFees } = useQuery<{ paypal_surcharge_percent: number; paypal_surcharge_fixed: number }>({
+    queryKey: ["platform-payment-fees"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/payment-fees`);
+      if (!res.ok) return { paypal_surcharge_percent: 1.2, paypal_surcharge_fixed: 0.30 };
+      return res.json();
+    },
+    staleTime: 600_000,
+  });
+
   const quoteActionMutation = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: "accept" | "decline" }) => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${id}/${action}`, {
@@ -149,7 +159,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} />
                   ))}
                 </div>
               </section>
@@ -161,7 +171,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} />
                   ))}
                 </div>
               </section>
@@ -180,6 +190,9 @@ function InvoiceRow({
   paymentLinkUrl,
   onQuoteAction,
   quoteActioning,
+  paypalFeePercent,
+  paypalFeeFixed,
+  accessToken,
 }: {
   inv: PortalInvoice;
   downloading: string | null;
@@ -187,29 +200,55 @@ function InvoiceRow({
   paymentLinkUrl?: string | null;
   onQuoteAction?: (id: string, action: "accept" | "decline") => void;
   quoteActioning?: string | null;
+  paypalFeePercent: number;
+  paypalFeeFixed: number;
+  accessToken: string;
 }) {
   const statusCfg = STATUS_CONFIG[inv.status] || { label: inv.status, className: "bg-slate-100 text-slate-600" };
   const dateLabel = inv.type === "invoice"
     ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
     : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
 
+  const [paypalLoading, setPaypalLoading] = useState(false);
+  const [paypalError, setPaypalError] = useState("");
+
+  const paypalSurcharge = Math.round((Number(inv.total) * paypalFeePercent / 100 + paypalFeeFixed) * 100) / 100;
+
+  const handlePayPal = async () => {
+    setPaypalLoading(true);
+    setPaypalError("");
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${inv.id}/paypal-order`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create PayPal order");
+      window.location.href = data.url;
+    } catch (err) {
+      setPaypalError((err as Error).message || "Could not start PayPal payment. Please try again.");
+      setPaypalLoading(false);
+    }
+  };
+
   const isPayable = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue");
-  // Collect all available payment links in priority order
-  const paymentOptions: Array<{ label: string; url: string; className: string }> = [];
+  // Collect non-PayPal payment links
+  const otherOptions: Array<{ label: string; url: string; className: string }> = [];
   if (isPayable) {
-    if (inv.stripe_payment_link_url) paymentOptions.push({ label: "Pay by Card", url: inv.stripe_payment_link_url, className: "bg-violet-600 hover:bg-violet-700 text-white" });
-    if (inv.gocardless_payment_link_url) paymentOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
-    if (inv.paypal_payment_link_url) paymentOptions.push({ label: "Pay with PayPal", url: inv.paypal_payment_link_url, className: "bg-blue-600 hover:bg-blue-700 text-white" });
-    if (inv.truelayer_payment_link_url) paymentOptions.push({ label: "Open Banking", url: inv.truelayer_payment_link_url, className: "bg-emerald-600 hover:bg-emerald-700 text-white" });
-    // Fall back to generic company payment link if no provider links exist
-    if (paymentOptions.length === 0 && paymentLinkUrl) paymentOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
+    if (inv.stripe_payment_link_url) otherOptions.push({ label: "Pay by Card", url: inv.stripe_payment_link_url, className: "bg-violet-600 hover:bg-violet-700 text-white" });
+    if (inv.gocardless_payment_link_url) otherOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
+    if (otherOptions.length === 0 && !inv.truelayer_payment_link_url && !inv.paypal_payment_link_url && paymentLinkUrl) {
+      otherOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
+    }
   }
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
+  const hasTrueLayer = isPayable && !!inv.truelayer_payment_link_url;
+  const hasPayPal = isPayable && !!inv.paypal_payment_link_url;
 
   return (
     <Card className="p-4 border border-slate-200">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusCfg.className}`}>
             {statusCfg.label}
@@ -221,7 +260,7 @@ function InvoiceRow({
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <p className="font-semibold text-slate-900">{formatCurrency(Number(inv.total), inv.currency)}</p>
-          {paymentOptions.map((opt) => (
+          {otherOptions.map((opt) => (
             <Button
               key={opt.url}
               size="sm"
@@ -232,6 +271,29 @@ function InvoiceRow({
               {opt.label}
             </Button>
           ))}
+          {hasTrueLayer && (
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => window.open(inv.truelayer_payment_link_url!, "_blank", "noopener,noreferrer")}
+            >
+              <Zap className="w-3.5 h-3.5 mr-1" />
+              Open Banking — Free
+            </Button>
+          )}
+          {hasPayPal && (
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handlePayPal}
+              disabled={paypalLoading}
+            >
+              {paypalLoading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                : <CreditCard className="w-3.5 h-3.5 mr-1" />}
+              PayPal (+{formatCurrency(paypalSurcharge, inv.currency)})
+            </Button>
+          )}
           {showQuoteActions && (
             <>
               <Button
@@ -270,6 +332,14 @@ function InvoiceRow({
           </Button>
         </div>
       </div>
+      {hasTrueLayer && hasPayPal && (
+        <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
+          Open Banking is free and instant. PayPal includes a {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee.
+        </p>
+      )}
+      {paypalError && (
+        <p className="text-xs text-red-600 mt-2 pt-2 border-t border-slate-100">{paypalError}</p>
+      )}
       {inv.customer_notes && (
         <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 line-clamp-2">
           {inv.customer_notes}
