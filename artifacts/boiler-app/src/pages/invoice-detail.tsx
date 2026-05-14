@@ -549,14 +549,44 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                       : "0%"}
                 </p>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Customer</Label>
-                <p className="text-sm mt-1">{customerName}</p>
+              <div className="col-span-2 md:col-span-3 border-t pt-4 mt-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Customer</Label>
+                  <p className="text-sm mt-1 font-medium">
+                    <a
+                      href={`/customers/${invoice.customer_id}`}
+                      className="text-primary hover:underline"
+                      onClick={(e) => { e.preventDefault(); navigate(`/customers/${invoice.customer_id}`); }}
+                    >
+                      {customerName}
+                    </a>
+                  </p>
+                </div>
+                {(invoice.customer?.phone || invoice.customer?.mobile) && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <p className="text-sm mt-1">{invoice.customer.phone || invoice.customer.mobile}</p>
+                  </div>
+                )}
+                {invoice.customer?.email && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p className="text-sm mt-1 break-all">{invoice.customer.email}</p>
+                  </div>
+                )}
+                {invoice.customer?.address_line1 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <p className="text-sm mt-1">
+                      {[invoice.customer.address_line1, invoice.customer.city, invoice.customer.postcode].filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                )}
               </div>
               {invoice.job && (
-                <div>
+                <div className="col-span-2 md:col-span-3">
                   <Label className="text-xs text-muted-foreground">Job</Label>
-                  <p className="text-sm mt-1 truncate">
+                  <p className="text-sm mt-1">
                     <a href={`/jobs/${invoice.job_id}`} className="text-primary hover:underline" onClick={(e) => { e.preventDefault(); navigate(`/jobs/${invoice.job_id}`); }}>
                       View Job
                     </a>
