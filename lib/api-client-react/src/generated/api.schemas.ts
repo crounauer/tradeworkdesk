@@ -62,6 +62,10 @@ export interface Customer {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
 }
 
 export interface Property {

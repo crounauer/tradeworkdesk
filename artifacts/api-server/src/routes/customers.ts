@@ -70,7 +70,10 @@ router.get("/customers/:id", requireAuth, requireTenant, async (req: Authenticat
 router.patch("/customers/:id", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateCustomerParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
-  const body = UpdateCustomerBody.safeParse(req.body);
+  const body = UpdateCustomerBody.extend({
+    latitude: z.number().nullable().optional(),
+    longitude: z.number().nullable().optional(),
+  }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   let q = supabaseAdmin.from("customers").update(body.data).eq("id", params.data.id);

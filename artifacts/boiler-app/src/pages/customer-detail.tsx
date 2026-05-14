@@ -31,6 +31,7 @@ import { SmsSendDialog } from "@/components/sms-send-dialog";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
+const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
 
 type PropertyFormData = {
   address_line1: string;
@@ -65,6 +66,7 @@ export default function CustomerDetail() {
   const { data: customer, isLoading } = useGetCustomer(id);
   const search = useSearch();
   const [showPropertyForm, setShowPropertyForm] = useState(false);
+  const [fixingCustomerLocation, setFixingCustomerLocation] = useState(false);
   const [showBookJob, setShowBookJob] = useState(false);
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
   const [showSms, setShowSms] = useState(false);
@@ -206,6 +208,44 @@ export default function CustomerDetail() {
                     {customer.city}{customer.city && customer.postcode ? ', ' : ''}{customer.postcode}
                   </p>
                 </div>
+              </div>
+            )}
+            {customer.latitude != null && customer.longitude != null && (
+              <div className="pt-3 border-t border-border/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Coordinates</p>
+                  <button
+                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                    onClick={() => setFixingCustomerLocation((v) => !v)}
+                  >
+                    <Edit className="w-3 h-3" /> Fix location
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground font-mono">{customer.latitude.toFixed(6)}, {customer.longitude.toFixed(6)}</p>
+                {fixingCustomerLocation ? (
+                  <Suspense fallback={<div className="h-[220px] bg-slate-100 rounded animate-pulse" />}>
+                    <PropertyLocationLookup
+                      address={[customer.address_line1, customer.address_line2, customer.city, customer.county, customer.postcode].filter(Boolean).join(", ")}
+                      latitude={customer.latitude}
+                      longitude={customer.longitude}
+                      onLocationFound={async (lat, lng) => {
+                        await customFetch(`/api/customers/${customer.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ latitude: lat, longitude: lng }),
+                        });
+                        qc.invalidateQueries({ queryKey: [`/api/customers/${customer.id}`] });
+                        setFixingCustomerLocation(false);
+                        toast({ title: "Location updated" });
+                      }}
+                      onClearLocation={() => setFixingCustomerLocation(false)}
+                    />
+                  </Suspense>
+                ) : (
+                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
+                    <PropertyMapPreview key={`${customer.latitude}-${customer.longitude}`} latitude={customer.latitude} longitude={customer.longitude} />
+                  </Suspense>
+                )}
               </div>
             )}
             {customer.notes && (
@@ -943,6 +983,7 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
 
   const watchedLat = watch("latitude");
   const watchedLng = watch("longitude");
+  const [showLocationLookup, setShowLocationLookup] = useState(false);
 
   const addressForLookup = [
     watch("address_line1"),
@@ -953,15 +994,19 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
   ].filter(Boolean).join(", ");
 
   const fillCustomerAddress = () => {
+    // Copy address fields but NOT the customer's lat/lng — they may be from a
+    // background geocoder (postcode-level accuracy). Show the location lookup
+    // so the user pins the exact property location.
     reset({
       address_line1: customerAddress?.address_line1 ?? "",
       address_line2: customerAddress?.address_line2 ?? "",
       city: customerAddress?.city ?? "",
       county: customerAddress?.county ?? "",
       postcode: customerAddress?.postcode ?? "",
-      latitude: customerAddress?.latitude ?? undefined,
-      longitude: customerAddress?.longitude ?? undefined,
+      latitude: undefined,
+      longitude: undefined,
     });
+    setShowLocationLookup(true);
   };
 
   const hasCustomerAddress = !!(customerAddress?.address_line1 || customerAddress?.postcode);
@@ -1035,6 +1080,24 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
         <Input placeholder="Access Notes" {...register("access_notes")} />
         <Input placeholder="Parking Notes" {...register("parking_notes")} />
         </div>
+        {showLocationLookup && (
+          <div className="pt-2">
+            <p className="text-xs text-muted-foreground mb-2">Pin the exact property location (drag the marker or search):</p>
+            <Suspense fallback={<div className="h-[220px] bg-slate-100 rounded animate-pulse" />}>
+              <PropertyLocationLookup
+                address={addressForLookup}
+                latitude={watchedLat ?? undefined}
+                longitude={watchedLng ?? undefined}
+                onLocationFound={(lat, lng) => {
+                  setValue("latitude", lat);
+                  setValue("longitude", lng);
+                  setShowLocationLookup(false);
+                }}
+                onClearLocation={() => setShowLocationLookup(false)}
+              />
+            </Suspense>
+          </div>
+        )}
         <div className="flex gap-3">
           <Button type="submit" disabled={create.isPending}>
             {create.isPending ? "Adding..." : "Add Property"}

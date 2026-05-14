@@ -341,6 +341,8 @@ export const GetCustomerResponse = zod
     is_active: zod.boolean(),
     created_at: zod.coerce.date(),
     updated_at: zod.coerce.date(),
+    latitude: zod.number().nullish(),
+    longitude: zod.number().nullish(),
   })
   .and(
     zod.object({
@@ -412,6 +414,8 @@ export const UpdateCustomerResponse = zod.object({
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
 });
 
 /**

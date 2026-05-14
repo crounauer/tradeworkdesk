@@ -1,4 +1,4 @@
-import { useGetProperty, useUpdateProperty, useDeleteProperty } from "@workspace/api-client-react";
+import { useGetProperty, useUpdateProperty, useDeleteProperty, type UpdatePropertyBody } from "@workspace/api-client-react";
 import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ export default function PropertyDetail() {
   const search = useSearch();
   const [editing, setEditing] = useState(() => new URLSearchParams(search).get("edit") === "1");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [fixingLocation, setFixingLocation] = useState(false);
 
   useEffect(() => {
     if (new URLSearchParams(search).get("edit") === "1") setEditing(true);
@@ -170,24 +171,51 @@ export default function PropertyDetail() {
                 <div className="pt-3 border-t border-border/50 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Coordinates:</span>
-                    <button
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                      onClick={() => {
-                        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                        if (isIos) {
-                          window.open(`maps://maps.apple.com/?daddr=${property.latitude},${property.longitude}`, "_blank");
-                        } else {
-                          window.open(`https://www.google.com/maps/dir/?api=1&destination=${property.latitude},${property.longitude}`, "_blank");
-                        }
-                      }}
-                    >
-                      <MapPin className="w-3 h-3" /> Navigate
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                        onClick={() => setFixingLocation((v) => !v)}
+                      >
+                        <Edit className="w-3 h-3" /> Fix location
+                      </button>
+                      <button
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                        onClick={() => {
+                          const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                          if (isIos) {
+                            window.open(`maps://maps.apple.com/?daddr=${property.latitude},${property.longitude}`, "_blank");
+                          } else {
+                            window.open(`https://www.google.com/maps/dir/?api=1&destination=${property.latitude},${property.longitude}`, "_blank");
+                          }
+                        }}
+                      >
+                        <MapPin className="w-3 h-3" /> Navigate
+                      </button>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono">{property.latitude.toFixed(6)}, {property.longitude.toFixed(6)}</p>
-                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
-                    <PropertyMapPreview latitude={property.latitude} longitude={property.longitude} />
-                  </Suspense>
+                  {fixingLocation ? (
+                    <Suspense fallback={<div className="h-[220px] bg-slate-100 rounded animate-pulse" />}>
+                      <PropertyLocationLookup
+                        address={[property.address_line1, property.address_line2, property.city, property.county, property.postcode].filter(Boolean).join(", ")}
+                        latitude={property.latitude}
+                        longitude={property.longitude}
+                        onLocationFound={async (lat, lng) => {
+                          // latitude/longitude exist in the API schema but not in the generated
+                          // UpdatePropertyBody type yet — cast to bypass until client is regenerated
+                          await updateProperty.mutateAsync({ id, data: { latitude: lat, longitude: lng } as unknown as UpdatePropertyBody });
+                          qc.invalidateQueries({ queryKey: [`/api/properties/${id}`] });
+                          setFixingLocation(false);
+                          toast({ title: "Location updated" });
+                        }}
+                        onClearLocation={() => setFixingLocation(false)}
+                      />
+                    </Suspense>
+                  ) : (
+                    <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
+                      <PropertyMapPreview key={`${property.latitude}-${property.longitude}`} latitude={property.latitude} longitude={property.longitude} />
+                    </Suspense>
+                  )}
                 </div>
               )}
             </div>
