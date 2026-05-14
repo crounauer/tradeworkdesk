@@ -6,12 +6,136 @@ import {
   sendInvoiceEmail,
   sendPaymentFailedEmail,
 } from "../lib/email";
+import { sendPaymentReceiptEmail } from "../lib/invoice-email";
+import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { syncSeats } from "./billing";
 import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
 import { getPlatformSetting } from "../lib/geocode";
 import { decryptToken } from "../lib/accounting/crypto";
 
 const router = Router();
+
+/** Fetch invoice + customer + company, generate PDF, send a payment receipt email. */
+async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAmount: number, paymentMethod: string): Promise<void> {
+  try {
+    const [{ data: inv }, { data: lineItems }] = await Promise.all([
+      supabaseAdmin
+        .from("invoices")
+        .select("invoice_number, currency, customer_id, job_id, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, works_order, customer_notes")
+        .eq("id", invoiceId)
+        .eq("tenant_id", tenantId)
+        .single(),
+      supabaseAdmin
+        .from("invoice_line_items")
+        .select("*")
+        .eq("invoice_id", invoiceId)
+        .order("sort_order"),
+    ]);
+    if (!inv) return;
+
+    const [{ data: customer }, { data: cs }] = await Promise.all([
+      supabaseAdmin
+        .from("customers")
+        .select("first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode")
+        .eq("id", (inv as any).customer_id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("company_settings")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("singleton_id", "default")
+        .maybeSingle(),
+    ]);
+
+    const customerEmail: string | null = (customer as any)?.email ?? null;
+    if (!customerEmail) return;
+
+    const customerName = customer
+      ? `${(customer as any).first_name} ${(customer as any).last_name}`.trim()
+      : "Customer";
+
+    let propertyData: Record<string, unknown> | null = null;
+    if ((inv as any).job_id) {
+      const { data: job } = await supabaseAdmin.from("jobs").select("property_id").eq("id", (inv as any).job_id).maybeSingle();
+      if ((job as any)?.property_id) {
+        const { data: prop } = await supabaseAdmin.from("properties").select("address_line1, address_line2, city, county, postcode").eq("id", (job as any).property_id).maybeSingle();
+        propertyData = prop as Record<string, unknown> | null;
+      }
+    }
+
+    const i = inv as any;
+    const c = customer as any;
+    const s = cs as any;
+
+    const pdfBuffer = generateInvoicePdf({
+      type: "invoice",
+      invoice_number: i.invoice_number,
+      issue_date: i.issue_date,
+      due_date: i.due_date,
+      expiry_date: i.expiry_date,
+      currency: i.currency || "GBP",
+      company_name: s?.name || null,
+      company_trading_name: s?.trading_name || null,
+      company_address_line1: s?.address_line1 || null,
+      company_address_line2: s?.address_line2 || null,
+      company_city: s?.city || null,
+      company_county: s?.county || null,
+      company_postcode: s?.postcode || null,
+      company_phone: s?.phone || null,
+      company_email: s?.email || null,
+      company_website: s?.website || null,
+      company_vat_number: s?.vat_number || null,
+      company_gas_safe_number: s?.gas_safe_number || null,
+      company_oftec_number: s?.oftec_number || null,
+      company_footer_text: s?.invoice_footer_text || null,
+      company_bank_details: s?.invoice_bank_details || null,
+      customer_name: customerName,
+      customer_address_line1: c?.address_line1 || (propertyData as any)?.address_line1 || null,
+      customer_address_line2: c?.address_line2 || (propertyData as any)?.address_line2 || null,
+      customer_city: c?.city || (propertyData as any)?.city || null,
+      customer_county: c?.county || (propertyData as any)?.county || null,
+      customer_postcode: c?.postcode || (propertyData as any)?.postcode || null,
+      customer_email: customerEmail,
+      customer_phone: c?.phone || c?.mobile || null,
+      job_reference: null,
+      job_description: null,
+      line_items: (lineItems || []).map((l: any) => ({
+        description: l.description,
+        quantity: Number(l.quantity),
+        unit_price: Number(l.unit_price),
+        total: Number(l.total),
+        item_type: l.item_type,
+      })),
+      subtotal: Number(i.subtotal),
+      vat_rate: Number(i.vat_rate),
+      vat_amount: Number(i.vat_amount),
+      total: Number(i.total),
+      works_order: i.works_order || null,
+      customer_notes: i.customer_notes || null,
+    });
+
+    await sendPaymentReceiptEmail({
+      to: customerEmail,
+      invoiceNumber: i.invoice_number,
+      customerName,
+      paidAmount,
+      currency: (i.currency || "GBP").toUpperCase(),
+      paymentMethod,
+      pdfBuffer,
+      company: {
+        name: s?.name || null,
+        trading_name: s?.trading_name || null,
+        email: s?.email || null,
+        logo_url: s?.logo_url || null,
+        rates_url: s?.rates_url || null,
+        trading_terms_url: s?.trading_terms_url || null,
+      },
+    });
+  } catch (err) {
+    // Receipt email failure must never break the webhook response
+    console.error(`[receipt-email] Failed for invoice ${invoiceId}:`, (err as Error).message);
+  }
+}
 
 const BILLING_URL = process.env.APP_URL
   ? `${process.env.APP_URL}/billing`
@@ -273,12 +397,16 @@ router.post(
             .maybeSingle();
 
           if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
+            const stripeTotal = session.amount_total != null
+              ? session.amount_total / 100
+              : Number((inv as any).total);
+
             await supabaseAdmin
               .from("invoices")
               .update({
                 status: "paid",
                 payment_date: nowIso.slice(0, 10),
-                paid_amount: (inv as any).total,
+                paid_amount: stripeTotal,
                 payment_method: "card",
                 updated_at: nowIso,
               } as Record<string, unknown>)
@@ -286,6 +414,7 @@ router.post(
               .eq("tenant_id", tenantId);
 
             console.log(`[webhook-connect] Invoice ${invoiceId} marked paid via Stripe Connect`);
+            void sendReceiptForInvoice(invoiceId, tenantId, stripeTotal, "card");
           }
         }
       }
@@ -340,18 +469,20 @@ router.post(
 
           if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
             const nowIso = new Date().toISOString();
+            const gcTotal = Number((inv as any).total);
             await supabaseAdmin
               .from("invoices")
               .update({
                 status: "paid",
                 payment_date: nowIso.slice(0, 10),
-                paid_amount: (inv as any).total,
+                paid_amount: gcTotal,
                 payment_method: "direct_debit",
                 updated_at: nowIso,
               } as Record<string, unknown>)
               .eq("id", (inv as any).id);
 
             console.log(`[webhook-gc] Invoice ${(inv as any).id} marked paid via GoCardless`);
+            void sendReceiptForInvoice((inv as any).id, (inv as any).tenant_id, gcTotal, "gocardless");
           }
         }
       }
@@ -420,19 +551,23 @@ router.post(
                 } catch { /* already captured or non-fatal */ }
               }
 
+              // Use the actual captured amount (includes any surcharge)
+              const capturedAmount = parseFloat((event.resource as any).amount?.value) || Number((inv as any).total);
+
               await supabaseAdmin
                 .from("invoices")
                 .update({
                   status: "paid",
                   payment_date: nowIso.slice(0, 10),
-                  paid_amount: (inv as any).total,
-                  payment_method: "card",
+                  paid_amount: capturedAmount,
+                  payment_method: "paypal",
                   updated_at: nowIso,
                 } as Record<string, unknown>)
                 .eq("id", invoiceId)
                 .eq("tenant_id", tenantId);
 
-              console.log(`[webhook-paypal] Invoice ${invoiceId} marked paid via PayPal`);
+              console.log(`[webhook-paypal] Invoice ${invoiceId} marked paid via PayPal (${capturedAmount})`);
+              void sendReceiptForInvoice(invoiceId, tenantId, capturedAmount, "paypal");
             }
           }
         }
@@ -473,12 +608,13 @@ router.post(
 
           if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
             const nowIso = new Date().toISOString();
+            const tlTotal = Number((inv as any).total);
             await supabaseAdmin
               .from("invoices")
               .update({
                 status: "paid",
                 payment_date: nowIso.slice(0, 10),
-                paid_amount: (inv as any).total,
+                paid_amount: tlTotal,
                 payment_method: "bank_transfer",
                 updated_at: nowIso,
               } as Record<string, unknown>)
@@ -486,6 +622,7 @@ router.post(
               .eq("tenant_id", tenantId);
 
             console.log(`[webhook-truelayer] Invoice ${invoiceId} marked paid via TrueLayer`);
+            void sendReceiptForInvoice(invoiceId, tenantId, tlTotal, "bank_transfer");
           }
         }
       }

@@ -182,3 +182,96 @@ export async function sendInvoiceDocumentEmail(opts: {
     throw new Error(`Failed to send ${label.toLowerCase()} email: ${error.message ?? JSON.stringify(error)}`);
   }
 }
+
+export async function sendPaymentReceiptEmail(opts: {
+  to: string;
+  invoiceNumber: string;
+  customerName: string;
+  paidAmount: number;
+  currency: string;
+  paymentMethod?: string | null;
+  pdfBuffer: Buffer;
+  company?: EmailCompanyDetails;
+}): Promise<void> {
+  if (!resend) {
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+
+  const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
+  const fromName = opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
+  const FROM = `${fromName} <${FROM_EMAIL}>`;
+  const formattedAmount = formatCurrency(opts.currency, opts.paidAmount);
+  const subject = `Payment received — Invoice ${opts.invoiceNumber} (${formattedAmount})`;
+
+  const methodLabel = (() => {
+    switch ((opts.paymentMethod || "").toLowerCase()) {
+      case "paypal": return "PayPal";
+      case "bank_transfer": return "Open Banking";
+      case "card": return "card";
+      case "gocardless": return "GoCardless";
+      default: return opts.paymentMethod || "online";
+    }
+  })();
+
+  const logoHtml = opts.company?.logo_url
+    ? `<div style="background:#fff;display:inline-block;padding:8px 14px;border-radius:6px;margin-bottom:12px;">
+        <img src="${escHtml(opts.company.logo_url)}" alt="${escHtml(companyName)}" style="max-height:48px;max-width:160px;display:block;" />
+       </div>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escHtml(subject)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .wrapper { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .header { background: #166534; padding: 24px 32px; color: #fff; }
+    .body { padding: 32px; color: #1e293b; line-height: 1.6; }
+    .footer { padding: 20px 32px; background: #f1f5f9; font-size: 12px; color: #64748b; text-align: center; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+    .info-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      ${logoHtml}
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.4px;">${escHtml(companyName)}</div>
+    </div>
+    <div class="body">
+      <h2 style="margin-top:0;color:#166534;">&#10003; Payment Received</h2>
+      <p>Dear ${escHtml(opts.customerName)},</p>
+      <p>Thank you — we've received your payment. A copy of your invoice is attached for your records.</p>
+      <div class="info-box">
+        <p style="margin:0 0 4px;"><strong>Invoice number:</strong> ${escHtml(opts.invoiceNumber)}</p>
+        <p style="margin:0 0 4px;"><strong>Amount paid:</strong> ${escHtml(formattedAmount)}</p>
+        <p style="margin:0;"><strong>Payment method:</strong> ${escHtml(methodLabel)}</p>
+      </div>
+      <p>If you have any questions about this payment, please don't hesitate to get in touch.</p>
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+    </div>
+    <div class="footer">
+      <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;" target="_blank">Powered by TradeWorkDesk</a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const sendOpts: Parameters<typeof resend.emails.send>[0] = {
+    from: FROM,
+    to: [opts.to],
+    subject,
+    html,
+    attachments: [{ filename: `invoice-${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer }],
+  };
+  if (opts.company?.email) (sendOpts as any).replyTo = opts.company.email;
+
+  const { error } = await resend.emails.send(sendOpts);
+  if (error) {
+    throw new Error(`Failed to send receipt email: ${error.message ?? JSON.stringify(error)}`);
+  }
+}
