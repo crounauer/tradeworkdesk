@@ -3,7 +3,7 @@ import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Zap, CreditCard, Eye } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Zap, CreditCard, Eye, Info } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -167,6 +167,21 @@ export default function PortalInvoices() {
     <PortalLayout>
       <div className="space-y-6 animate-in fade-in">
         <h1 className="text-2xl font-bold text-slate-900">Invoices &amp; Quotes</h1>
+
+        {paymentProviders?.paypal && invoiceList.some(i => i.status === "sent" || i.status === "overdue") && (
+          <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+            <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+            <div>
+              <p className="font-semibold mb-1">About payment processing fees</p>
+              <p className="text-amber-800">
+                PayPal charges us a processing fee every time a payment is made through their platform.
+                Rather than absorbing this cost across all customers, we pass it on only to those who choose to pay via PayPal —
+                so you're always in control. To avoid any surcharge, use <strong>Open Banking</strong> (free and instant bank transfer)
+                if it's available, or pay by bank transfer using the details on your invoice.
+              </p>
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -405,9 +420,14 @@ function InvoiceRow({
           </Button>
         </div>
       </div>
-      {hasTrueLayer && hasPayPal && (
+      {(hasTrueLayer || hasPayPal) && (
         <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
-          Open Banking is free and instant. PayPal includes a {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee.
+          {hasTrueLayer && hasPayPal
+            ? <>Open Banking is free and instant. PayPal includes a {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee charged by PayPal.</>
+            : hasPayPal
+            ? <>A {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee is added by PayPal when paying via their platform.</>
+            : null
+          }
         </p>
       )}
       {(paypalError || truelayerError) && (
