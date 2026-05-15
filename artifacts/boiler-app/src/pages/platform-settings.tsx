@@ -177,6 +177,17 @@ export default function PlatformSettings() {
         <div className="space-y-6">
 
           <div>
+            <h3 className="text-base font-medium mb-3">Stripe Connect</h3>
+            <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900 space-y-2">
+              <p className="font-semibold">Stripe is configured via environment variables.</p>
+              <p className="text-violet-800 text-xs">Set <code className="bg-violet-100 px-1 rounded">STRIPE_SECRET_KEY</code> and <code className="bg-violet-100 px-1 rounded">STRIPE_WEBHOOK_SECRET</code> on your server. No client ID is required — tenant onboarding uses Stripe Account Links automatically.</p>
+              <p className="font-medium mt-3 text-xs">Webhook URL to add in your Stripe dashboard:</p>
+              <code className="block bg-violet-100 px-2 py-1 rounded text-xs break-all">{window.location.origin}/api/webhooks/stripe-connect</code>
+              <p className="text-xs text-violet-700 mt-1">Subscribe to: <code className="bg-violet-100 px-1 rounded">account.updated</code>, <code className="bg-violet-100 px-1 rounded">checkout.session.completed</code></p>
+            </div>
+          </div>
+
+          <div>
             <h3 className="text-base font-medium mb-3">GoCardless</h3>
             <div className="space-y-4">
               <PlatformSettingField
