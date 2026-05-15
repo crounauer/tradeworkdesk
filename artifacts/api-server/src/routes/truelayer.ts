@@ -35,7 +35,10 @@ export async function getTrueLayerToken(): Promise<string> {
       scope: "payments",
     }),
   });
-  if (!res.ok) throw new Error(`TrueLayer auth failed: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`TrueLayer auth failed: ${(err as any).error ?? res.status}`);
+  }
   const data = await res.json() as { access_token: string };
   return data.access_token;
 }
