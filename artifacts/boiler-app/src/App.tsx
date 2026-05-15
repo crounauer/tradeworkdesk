@@ -160,9 +160,9 @@ const queryClient = new QueryClient({
         if (status === 401 || status === 403) return false;
         return failureCount < 1;
       },
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
       staleTime: 1000 * 60 * 2,
-      gcTime: 1000 * 60 * 10,
+      gcTime: 1000 * 60 * 30,
     },
   },
 });
