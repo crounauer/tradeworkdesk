@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
-import { requireStripe } from "../lib/stripe";
+import { getStripe } from "../lib/stripe";
 
 const router: IRouter = Router();
 
@@ -38,7 +38,7 @@ router.get(
 
     // Refresh charges_enabled from Stripe
     try {
-      const stripe = requireStripe(false);
+      const stripe = await getStripe(false);
       if (stripe) {
         const account = await stripe.accounts.retrieve(accountId);
         const enabled = account.charges_enabled ?? false;
@@ -69,7 +69,7 @@ router.get(
   requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const stripe = requireStripe();
+      const stripe = await getStripe();
 
       // Get or create Stripe Standard account for this tenant
       const { data: tenant } = await supabaseAdmin

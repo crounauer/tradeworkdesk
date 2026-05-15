@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
-import { requireStripe } from "../lib/stripe";
+import { getStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
 import {
   sendInvoiceEmail,
@@ -143,14 +143,14 @@ router.post(
   "/webhooks/stripe",
   async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
     const sig = req.headers["stripe-signature"] as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const webhookSecret = await getPlatformSetting("stripe_webhook_secret", "STRIPE_WEBHOOK_SECRET").catch(() => null);
 
     if (!webhookSecret) {
       res.status(500).json({ error: "Webhook secret not configured" });
       return;
     }
 
-    const stripeClient = requireStripe();
+    const stripeClient = await getStripe();
     let event;
 
     try {
@@ -350,7 +350,7 @@ router.post(
   "/webhooks/stripe-connect",
   async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
     const sig = req.headers["stripe-signature"] as string;
-    const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
+    const webhookSecret = await getPlatformSetting("stripe_connect_webhook_secret", "STRIPE_CONNECT_WEBHOOK_SECRET").catch(() => null);
 
     if (!webhookSecret) {
       // Not configured — silently ignore rather than erroring
@@ -358,7 +358,7 @@ router.post(
       return;
     }
 
-    const stripeClient = requireStripe();
+    const stripeClient = await getStripe();
     let event;
 
     try {

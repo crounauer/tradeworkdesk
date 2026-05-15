@@ -177,13 +177,54 @@ export default function PlatformSettings() {
         <div className="space-y-6">
 
           <div>
-            <h3 className="text-base font-medium mb-3">Stripe Connect</h3>
-            <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900 space-y-2">
-              <p className="font-semibold">Stripe is configured via environment variables.</p>
-              <p className="text-violet-800 text-xs">Set <code className="bg-violet-100 px-1 rounded">STRIPE_SECRET_KEY</code> and <code className="bg-violet-100 px-1 rounded">STRIPE_WEBHOOK_SECRET</code> on your server. No client ID is required — tenant onboarding uses Stripe Account Links automatically.</p>
-              <p className="font-medium mt-3 text-xs">Webhook URL to add in your Stripe dashboard:</p>
-              <code className="block bg-violet-100 px-2 py-1 rounded text-xs break-all">{window.location.origin}/api/webhooks/stripe-connect</code>
-              <p className="text-xs text-violet-700 mt-1">Subscribe to: <code className="bg-violet-100 px-1 rounded">account.updated</code>, <code className="bg-violet-100 px-1 rounded">checkout.session.completed</code></p>
+            <h3 className="text-base font-medium mb-3">Stripe</h3>
+            <div className="space-y-4">
+              <PlatformSettingField
+                settingKey="stripe_secret_key"
+                label="Stripe Secret Key"
+                description="Your Stripe secret API key. Found in Stripe Dashboard → Developers → API keys. Use the live key (sk_live_...) for production."
+                placeholder="sk_live_..."
+                icon={<CreditCard className="w-4 h-4" />}
+                helpContent={
+                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800 space-y-2">
+                    <p className="font-medium">How to find your Stripe Secret Key:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs text-violet-700">
+                      <li>Go to <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="underline font-medium">dashboard.stripe.com/apikeys</a></li>
+                      <li>Copy the <strong>Secret key</strong> (starts with <code className="bg-violet-100 px-1 rounded">sk_live_</code>)</li>
+                    </ol>
+                  </div>
+                }
+              />
+              <PlatformSettingField
+                settingKey="stripe_webhook_secret"
+                label="Stripe Webhook Secret"
+                description="Webhook signing secret for validating Stripe billing events (subscription creation, payment success etc.)."
+                placeholder="whsec_..."
+                icon={<CreditCard className="w-4 h-4" />}
+                helpContent={
+                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800 space-y-2">
+                    <p className="font-medium">Platform billing webhook:</p>
+                    <p className="text-xs">Add this URL in Stripe Dashboard → Developers → Webhooks:</p>
+                    <code className="block bg-violet-100 px-2 py-1 rounded text-xs break-all">{window.location.origin}/api/webhooks/stripe</code>
+                    <p className="text-xs mt-1">Subscribe to: <code className="bg-violet-100 px-1 rounded">checkout.session.completed</code>, <code className="bg-violet-100 px-1 rounded">customer.subscription.updated</code>, <code className="bg-violet-100 px-1 rounded">invoice.payment_failed</code></p>
+                  </div>
+                }
+              />
+              <PlatformSettingField
+                settingKey="stripe_connect_webhook_secret"
+                label="Stripe Connect Webhook Secret"
+                description="Webhook signing secret for Stripe Connect events (tenant invoice payments via card)."
+                placeholder="whsec_..."
+                icon={<CreditCard className="w-4 h-4" />}
+                helpContent={
+                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800 space-y-2">
+                    <p className="font-medium">Connect webhook (for tenant card payments):</p>
+                    <p className="text-xs">Add this URL in Stripe Dashboard → Developers → Webhooks:</p>
+                    <code className="block bg-violet-100 px-2 py-1 rounded text-xs break-all">{window.location.origin}/api/webhooks/stripe-connect</code>
+                    <p className="text-xs mt-1">Subscribe to: <code className="bg-violet-100 px-1 rounded">account.updated</code>, <code className="bg-violet-100 px-1 rounded">checkout.session.completed</code></p>
+                  </div>
+                }
+              />
             </div>
           </div>
 
