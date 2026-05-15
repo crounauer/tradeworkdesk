@@ -9,9 +9,7 @@ import {
 import { sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { syncSeats } from "./billing";
-import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
 import { getPlatformSetting } from "../lib/geocode";
-import { decryptToken } from "../lib/accounting/crypto";
 
 const router = Router();
 
@@ -490,92 +488,6 @@ router.post(
       res.json({ received: true });
     } catch (err) {
       console.error("[webhook-gc] Handler error:", err);
-      res.status(500).json({ error: "Webhook handler failed" });
-    }
-  },
-);
-
-// ─── PayPal webhook ──────────────────────────────────────────────────────────
-// POST /webhooks/paypal
-// Handles PAYMENT.CAPTURE.COMPLETED and CHECKOUT.ORDER.APPROVED events.
-router.post(
-  "/webhooks/paypal",
-  async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
-    try {
-      const event = req.body as {
-        event_type: string;
-        resource: {
-          id?: string;
-          custom_id?: string;
-          purchase_units?: Array<{ custom_id?: string; reference_id?: string }>;
-        };
-      };
-
-      if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
-        // custom_id is "{tenantId}:{invoiceId}" set when creating the order
-        const customId = event.resource.custom_id;
-        if (customId) {
-          const [tenantId, invoiceId] = customId.split(":");
-          if (tenantId && invoiceId) {
-            const { data: inv } = await supabaseAdmin
-              .from("invoices")
-              .select("id, status, total")
-              .eq("id", invoiceId)
-              .eq("tenant_id", tenantId)
-              .maybeSingle();
-
-            if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
-              const nowIso = new Date().toISOString();
-
-              // Capture the order to complete the payment
-              const creds = await (async () => {
-                const { data: t } = await supabaseAdmin
-                  .from("tenants")
-                  .select("paypal_client_id, paypal_client_secret")
-                  .eq("id", tenantId)
-                  .single();
-                const raw = t as any;
-                if (!raw?.paypal_client_id || !raw?.paypal_client_secret) return null;
-                try {
-                  return { clientId: decryptToken(raw.paypal_client_id), secret: decryptToken(raw.paypal_client_secret) };
-                } catch { return null; }
-              })();
-
-              if (creds) {
-                try {
-                  const ppToken = await getPayPalAccessToken(creds.clientId, creds.secret);
-                  await fetch(`${PP_BASE}/v2/checkout/orders/${event.resource.id}/capture`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${ppToken}`, "Content-Type": "application/json" },
-                  });
-                } catch { /* already captured or non-fatal */ }
-              }
-
-              // Use the actual captured amount (includes any surcharge)
-              const capturedAmount = parseFloat((event.resource as any).amount?.value) || Number((inv as any).total);
-
-              await supabaseAdmin
-                .from("invoices")
-                .update({
-                  status: "paid",
-                  payment_date: nowIso.slice(0, 10),
-                  paid_amount: capturedAmount,
-                  payment_method: "paypal",
-                  updated_at: nowIso,
-                } as Record<string, unknown>)
-                .eq("id", invoiceId)
-                .eq("tenant_id", tenantId);
-
-              console.log(`[webhook-paypal] Invoice ${invoiceId} marked paid via PayPal (${capturedAmount})`);
-              void sendReceiptForInvoice(invoiceId, tenantId, capturedAmount, "paypal");
-            }
-          }
-        }
-      }
-
-      res.json({ received: true });
-    } catch (err) {
-      console.error("[webhook-paypal] Handler error:", err);
       res.status(500).json({ error: "Webhook handler failed" });
     }
   },

@@ -36,7 +36,6 @@ import emailPreviewRouter from "./email-preview";
 import accountingIntegrationsRouter from "./accounting-integrations";
 import stripeConnectRouter from "./stripe-connect";
 import gocardlessRouter from "./gocardless";
-import paypalPaymentsRouter from "./paypal-payments";
 import homepageRouter from "./homepage";
 import addonsRouter from "./addons";
 import portalRouter from "./portal";
@@ -86,7 +85,7 @@ router.use(geocodingRouter);
 router.use(accountingIntegrationsRouter);
 router.use(stripeConnectRouter);
 router.use(gocardlessRouter);
-router.use(paypalPaymentsRouter);
+
 router.use(addonsRouter);
 router.use(portalRouter);
 router.use(followUpsRouter);

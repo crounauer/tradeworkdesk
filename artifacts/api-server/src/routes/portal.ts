@@ -6,7 +6,6 @@ import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPlatformSetting } from "../lib/geocode";
-import { decryptToken } from "../lib/accounting/crypto";
 
 const router: IRouter = Router();
 
@@ -717,112 +716,6 @@ router.post("/portal/invoices/:id/accept", requireCustomerAuth, async (req: Cust
 
 router.post("/portal/invoices/:id/decline", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
   return handleQuoteAction(req, res, "decline");
-});
-
-// ─── POST /portal/invoices/:id/paypal-order ──────────────────────────────────
-// Creates a fresh PayPal order for the invoice total + surcharge fee.
-// The surcharge is read from platform_settings (paypal_surcharge_percent / fixed).
-router.post(
-  "/portal/invoices/:id/paypal-order",
-  requireCustomerAuth,
-  async (req: CustomerPortalRequest, res): Promise<void> => {
-    const { id } = req.params;
-
-    // Verify this invoice belongs to the portal customer's tenant
-    const { data: inv } = await supabaseAdmin
-      .from("invoices")
-      .select("id, total, currency, invoice_number, status, type, tenant_id")
-      .eq("id", id)
-      .eq("tenant_id", req.tenantId!)
-      .maybeSingle();
-
-    if (!inv) { res.status(404).json({ error: "Invoice not found" }); return; }
-    if ((inv as any).type !== "invoice" || !["sent", "overdue"].includes((inv as any).status)) {
-      res.status(400).json({ error: "Invoice is not payable" }); return;
-    }
-
-    // Get tenant PayPal credentials
-    const { data: tenant } = await supabaseAdmin
-      .from("tenants")
-      .select("paypal_client_id, paypal_client_secret")
-      .eq("id", req.tenantId!)
-      .single();
-
-    const encClientId = (tenant as any)?.paypal_client_id as string | null;
-    const encSecret = (tenant as any)?.paypal_client_secret as string | null;
-    if (!encClientId || !encSecret) {
-      res.status(400).json({ error: "PayPal is not configured for this account" }); return;
-    }
-
-    // Read surcharge config from platform_settings
-    const { data: feeRows } = await supabaseAdmin
-      .from("platform_settings")
-      .select("key, value")
-      .in("key", ["paypal_surcharge_percent", "paypal_surcharge_fixed"]);
-    const feeMap = Object.fromEntries((feeRows || []).map((r: any) => [r.key, r.value]));
-    const feePercent = parseFloat(feeMap.paypal_surcharge_percent ?? "1.2");
-    const feeFixed = parseFloat(feeMap.paypal_surcharge_fixed ?? "0.30");
-
-    const originalTotal = Number((inv as any).total);
-    const surcharge = Math.round((originalTotal * feePercent / 100 + feeFixed) * 100) / 100;
-    const totalWithFee = Math.round((originalTotal + surcharge) * 100) / 100;
-    const currency = ((inv as any).currency as string || "GBP").toUpperCase();
-
-    try {
-      const ppClientId = decryptToken(encClientId);
-      const ppSecret = decryptToken(encSecret);
-      const ppToken = await getPayPalAccessToken(ppClientId, ppSecret);
-
-      const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
-      const orderRes = await fetch(`${PP_BASE}/v2/checkout/orders`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${ppToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          intent: "CAPTURE",
-          purchase_units: [{
-            reference_id: id,
-            description: `Invoice ${(inv as any).invoice_number}`,
-            amount: { currency_code: currency, value: totalWithFee.toFixed(2) },
-            custom_id: `${req.tenantId}:${id}`,
-          }],
-          application_context: {
-            return_url: `${portalUrl}?pp_success=1`,
-            cancel_url: portalUrl,
-            user_action: "PAY_NOW",
-          },
-        }),
-      });
-
-      if (!orderRes.ok) {
-        const err = await orderRes.json().catch(() => ({}));
-        console.error("[portal-paypal] Order creation failed:", err);
-        res.status(502).json({ error: "PayPal order creation failed" }); return;
-      }
-
-      const orderData = await orderRes.json() as { id: string; links: Array<{ rel: string; href: string }> };
-      const approveUrl = orderData.links.find(l => l.rel === "approve")?.href;
-      if (!approveUrl) { res.status(502).json({ error: "No PayPal approval URL returned" }); return; }
-
-      res.json({ url: approveUrl, surcharge_amount: surcharge, total_with_fee: totalWithFee });
-    } catch (err) {
-      console.error("[portal-paypal] Error:", err);
-      res.status(500).json({ error: "Failed to create PayPal order" });
-    }
-  },
-);
-
-// ─── GET /portal/payment-providers ─────────────────────────────────────────
-// Returns which on-demand payment options are available for the current tenant.
-router.get("/portal/payment-providers", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const { data: tenant } = await supabaseAdmin
-    .from("tenants")
-    .select("paypal_client_id")
-    .eq("id", req.tenantId!)
-    .single();
-  const t = tenant as any;
-  res.json({
-    paypal: !!t?.paypal_client_id,
-  });
 });
 
 export function generateInviteToken(): string {

@@ -149,7 +149,7 @@ export async function sendInvoiceDocumentEmail(opts: {
       ${!isQuote && opts.portalUrl ? `
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin:20px 0;">
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#1e40af;">Pay Online (quickest)</p>
-        <p style="margin:0 0 16px;font-size:13px;color:#334155;">Log in to your customer portal to pay instantly by Open Banking (free) or PayPal.</p>
+        <p style="margin:0 0 16px;font-size:13px;color:#334155;">Log in to your customer portal to pay by card or bank transfer.</p>
         <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">Pay Online Now</a>
       </div>` : ""}
       ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>Or pay by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
