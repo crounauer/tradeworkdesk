@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useInitData } from "./use-init-data";
 
 type Profile = {
   id: string;
@@ -36,7 +37,16 @@ function prefetchCriticalData(queryClient: ReturnType<typeof useQueryClient>) {
     queryKey: ["me-init"],
     queryFn: async () => {
       const res = await fetch("/api/me/init");
-      if (!res.ok) throw new Error(`me/init failed: ${res.status}`);
+      if (res.status === 401) throw new Error("unauthorized");
+      if (!res.ok) return {
+        profile: null,
+        planFeatures: { plan_id: null, plan_name: null, features: {} },
+        tenant: null,
+        enquiriesCount: 0,
+        overdueFollowUpsCount: 0,
+        activeFollowUpsCount: 0,
+        todosCount: 0,
+      };
       return res.json();
     },
     staleTime: 60_000,
@@ -153,17 +163,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queryClient]);
 
-  const { data: initData, isLoading: profileLoading } = useQuery({
-    queryKey: ["me-init"],
-    queryFn: async () => {
-      const res = await fetch("/api/me/init");
-      if (!res.ok) return { profile: null };
-      return res.json();
-    },
-    enabled: !!session,
-    staleTime: 60_000,
-    // refetchInterval removed,
-  });
+  const { data: initData, isLoading: profileLoading } = useInitData();
   const profile = initData?.profile as Profile | null | undefined;
   const profileReady = !session || !profileLoading;
 
