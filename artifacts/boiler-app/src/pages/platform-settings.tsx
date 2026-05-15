@@ -177,28 +177,6 @@ export default function PlatformSettings() {
         <div className="space-y-6">
 
           <div>
-            <h3 className="text-base font-medium mb-3">Stripe Connect</h3>
-            <PlatformSettingField
-              settingKey="stripe_client_id"
-              label="Stripe Connect Client ID"
-              description="Platform-level Stripe Connect client ID. Used to initiate OAuth flows for tenants to connect their Stripe accounts."
-              placeholder="ca_xxxxxxxxxxxxxxxxxxxx"
-              icon={<CreditCard className="w-4 h-4" />}
-              helpContent={
-                <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-800 space-y-2">
-                  <p className="font-medium">How to get your Stripe Connect Client ID:</p>
-                  <ol className="list-decimal list-inside space-y-1 text-xs text-purple-700">
-                    <li>Go to <a href="https://dashboard.stripe.com/settings/connect" target="_blank" rel="noopener noreferrer" className="underline font-medium">dashboard.stripe.com/settings/connect</a></li>
-                    <li>Under <strong>Platform profile</strong>, find your <strong>Client ID</strong> (starts with <code className="bg-purple-100 px-1 rounded">ca_</code>)</li>
-                    <li>Add <code className="bg-purple-100 px-1 rounded">{window.location.origin}/api/admin/stripe-connect/callback</code> as a redirect URI</li>
-                    <li>Paste the Client ID below</li>
-                  </ol>
-                </div>
-              }
-            />
-          </div>
-
-          <div>
             <h3 className="text-base font-medium mb-3">GoCardless</h3>
             <div className="space-y-4">
               <PlatformSettingField
