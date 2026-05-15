@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Percent } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -100,75 +100,6 @@ function PlatformSettingField({ settingKey, label, description, placeholder, hel
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function PlatformNumberField({ settingKey, label, description, unit, defaultValue }: {
-  settingKey: string;
-  label: string;
-  description: string;
-  unit: string;
-  defaultValue: string;
-}) {
-  const [value, setValue] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}api/platform/settings/${settingKey}`, { credentials: "include" })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.value) setValue(data.value); else setValue(defaultValue); })
-      .catch(() => setValue(defaultValue))
-      .finally(() => setLoading(false));
-  }, [settingKey, defaultValue]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSaved(false);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/${settingKey}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ value: value.trim() || defaultValue }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      toast({ title: "Saved", description: `${label} updated` });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch {
-      toast({ title: "Error", description: "Failed to save setting", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <div className="h-16 animate-pulse bg-slate-100 rounded" />;
-
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={settingKey}>{label}</Label>
-      <div className="flex gap-2 items-center">
-        <div className="relative w-40">
-          <Input
-            id={settingKey}
-            type="number"
-            step="0.01"
-            min="0"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            className="pr-10"
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{unit}</span>
-        </div>
-        <Button onClick={handleSave} disabled={saving} size="sm">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : "Save"}
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">{description}</p>
-    </div>
   );
 }
 
@@ -302,41 +233,6 @@ export default function PlatformSettings() {
                 icon={<CreditCard className="w-4 h-4" />}
               />
             </div>
-          </div>
-
-          {/* Payment Surcharges */}
-          <div>
-            <h3 className="text-base font-medium mb-1">Payment Surcharges</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              When customers pay via PayPal, this processing fee is added to their total.
-            </p>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Percent className="w-4 h-4" />
-                  PayPal Processing Fee
-                </CardTitle>
-                <CardDescription>
-                  PayPal UK typically charges 1.2% + £0.30 per transaction. Set these to pass the cost on to customers.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <PlatformNumberField
-                  settingKey="paypal_surcharge_percent"
-                  label="Percentage fee"
-                  description="Percentage of the invoice total added for PayPal payments (e.g. 1.2 for 1.2%)."
-                  unit="%"
-                  defaultValue="1.2"
-                />
-                <PlatformNumberField
-                  settingKey="paypal_surcharge_fixed"
-                  label="Fixed fee"
-                  description="Fixed amount added per PayPal transaction, in pounds (e.g. 0.30 for 30p)."
-                  unit="£"
-                  defaultValue="0.30"
-                />
-              </CardContent>
-            </Card>
           </div>
 
         </div>

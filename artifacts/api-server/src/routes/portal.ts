@@ -5,7 +5,6 @@ import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
-import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
 import { getPlatformSetting } from "../lib/geocode";
 import { decryptToken } from "../lib/accounting/crypto";
 
@@ -529,7 +528,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
 router.get("/portal/invoices", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("invoices")
-    .select("id, type, invoice_number, status, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, currency, customer_notes, stripe_payment_link_url, gocardless_payment_link_url, paypal_payment_link_url")
+    .select("id, type, invoice_number, status, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, currency, customer_notes, stripe_payment_link_url, gocardless_payment_link_url")
     .eq("customer_id", req.customerId!)
     .eq("tenant_id", req.tenantId!)
     .in("status", ["sent", "paid", "overdue", "accepted", "declined", "converted"])

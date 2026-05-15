@@ -3,7 +3,7 @@ import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, CreditCard, Eye, Info } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Eye } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -22,7 +22,6 @@ type PortalInvoice = {
   customer_notes: string | null;
   stripe_payment_link_url?: string | null;
   gocardless_payment_link_url?: string | null;
-  paypal_payment_link_url?: string | null;
 };
 
 type PortalMeta = {
@@ -75,29 +74,6 @@ export default function PortalInvoices() {
       if (!res.ok) return {};
       const d = await res.json();
       return { payment_link_url: d.payment_link_url ?? null };
-    },
-    enabled: !!session,
-    staleTime: 300_000,
-  });
-
-  const { data: paymentFees } = useQuery<{ paypal_surcharge_percent: number; paypal_surcharge_fixed: number }>({
-    queryKey: ["platform-payment-fees"],
-    queryFn: async () => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/payment-fees`);
-      if (!res.ok) return { paypal_surcharge_percent: 1.2, paypal_surcharge_fixed: 0.30 };
-      return res.json();
-    },
-    staleTime: 600_000,
-  });
-
-  const { data: paymentProviders } = useQuery<{ paypal: boolean }>({
-    queryKey: ["portal-payment-providers"],
-    queryFn: async () => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/payment-providers`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
-      });
-      if (!res.ok) return { paypal: false };
-      return res.json();
     },
     enabled: !!session,
     staleTime: 300_000,
@@ -167,21 +143,6 @@ export default function PortalInvoices() {
       <div className="space-y-6 animate-in fade-in">
         <h1 className="text-2xl font-bold text-slate-900">Invoices &amp; Quotes</h1>
 
-        {paymentProviders?.paypal && invoiceList.some(i => i.status === "sent" || i.status === "overdue") && (
-          <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
-            <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
-            <div>
-              <p className="font-semibold mb-1">About payment processing fees</p>
-              <p className="text-amber-800">
-                PayPal charges us a processing fee every time a payment is made through their platform.
-                Rather than absorbing this cost across all customers, we pass it on only to those who choose to pay via PayPal —
-                so you're always in control. To avoid any surcharge, use <strong>Open Banking</strong> (free and instant bank transfer)
-                if it's available, or pay by bank transfer using the details on your invoice.
-              </p>
-            </div>
-          </div>
-        )}
-
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -205,7 +166,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -217,7 +178,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -236,9 +197,6 @@ function InvoiceRow({
   paymentLinkUrl,
   onQuoteAction,
   quoteActioning,
-  paypalFeePercent,
-  paypalFeeFixed,
-  accessToken,
   onPreview,
   previewing,
 }: {
@@ -248,9 +206,6 @@ function InvoiceRow({
   paymentLinkUrl?: string | null;
   onQuoteAction?: (id: string, action: "accept" | "decline") => void;
   quoteActioning?: string | null;
-  paypalFeePercent: number;
-  paypalFeeFixed: number;
-  accessToken: string;
   onPreview: (inv: PortalInvoice) => void;
   previewing: string | null;
 }) {
@@ -259,41 +214,18 @@ function InvoiceRow({
     ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
     : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
 
-  const [paypalLoading, setPaypalLoading] = useState(false);
-  const [paypalError, setPaypalError] = useState("");
-
-  const paypalSurcharge = Math.round((Number(inv.total) * paypalFeePercent / 100 + paypalFeeFixed) * 100) / 100;
-
-  const handlePayPal = async () => {
-    setPaypalLoading(true);
-    setPaypalError("");
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${inv.id}/paypal-order`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create PayPal order");
-      window.location.href = data.url;
-    } catch (err) {
-      setPaypalError((err as Error).message || "Could not start PayPal payment. Please try again.");
-      setPaypalLoading(false);
-    }
-  };
-
   const isPayable = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue");
   // Collect non-PayPal payment links
   const otherOptions: Array<{ label: string; url: string; className: string }> = [];
   if (isPayable) {
     if (inv.stripe_payment_link_url) otherOptions.push({ label: "Pay by Card", url: inv.stripe_payment_link_url, className: "bg-violet-600 hover:bg-violet-700 text-white" });
     if (inv.gocardless_payment_link_url) otherOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
-    if (otherOptions.length === 0 && !inv.paypal_payment_link_url && paymentLinkUrl) {
+    if (otherOptions.length === 0 && paymentLinkUrl) {
       otherOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
     }
   }
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
-  const hasPayPal = isPayable && !!inv.paypal_payment_link_url;
 
   return (
     <Card className="p-4 border border-slate-200">
@@ -320,19 +252,6 @@ function InvoiceRow({
               {opt.label}
             </Button>
           ))}
-          {hasPayPal && (
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={handlePayPal}
-              disabled={paypalLoading}
-            >
-              {paypalLoading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
-                : <CreditCard className="w-3.5 h-3.5 mr-1" />}
-              PayPal (+{formatCurrency(paypalSurcharge, inv.currency)})
-            </Button>
-          )}
           {showQuoteActions && (
             <>
               <Button
@@ -384,14 +303,6 @@ function InvoiceRow({
           </Button>
         </div>
       </div>
-      {hasPayPal && (
-        <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
-          A {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee is added by PayPal when paying via their platform.
-        </p>
-      )}
-      {paypalError && (
-        <p className="text-xs text-red-600 mt-2 pt-2 border-t border-slate-100">{paypalError}</p>
-      )}
       {inv.customer_notes && (
         <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 line-clamp-2">
           {inv.customer_notes}

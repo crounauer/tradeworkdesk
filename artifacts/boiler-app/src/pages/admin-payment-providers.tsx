@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   XCircle,
-  ExternalLink,
   Loader2,
   AlertTriangle,
   Zap,
@@ -22,7 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GcStatus { available: boolean; connected: boolean; organisation_id?: string }
-interface PpStatus { connected: boolean }
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function ConnectedBadge() {
@@ -146,163 +144,6 @@ function GoCardlessSection() {
   );
 }
 
-// ─── PayPal section ───────────────────────────────────────────────────────────
-
-function PayPalSection() {
-  const { toast } = useToast();
-  const [status, setStatus] = useState<PpStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [showForm, setShowForm] = useState(false);
-
-  const loadStatus = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/paypal/status", { credentials: "include" });
-      if (res.ok) setStatus(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => { loadStatus(); }, []);
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientId.trim() || !clientSecret.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/admin/paypal/credentials", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to save credentials");
-      }
-      toast({ title: "PayPal connected", description: "Credentials verified and saved." });
-      setClientId("");
-      setClientSecret("");
-      setShowForm(false);
-      setStatus({ connected: true });
-    } catch (e) {
-      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (!confirm("Remove PayPal? Future invoices won't include a PayPal payment link.")) return;
-    setDisconnecting(true);
-    try {
-      await fetch("/api/admin/paypal", { method: "DELETE", credentials: "include" });
-      toast({ title: "PayPal disconnected" });
-      setStatus({ connected: false });
-      setShowForm(false);
-    } finally {
-      setDisconnecting(false);
-    }
-  };
-
-  if (loading) return <div className="h-5 w-24 bg-slate-200 rounded animate-pulse" />;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        {status?.connected ? <ConnectedBadge /> : <NotConnectedBadge />}
-      </div>
-
-      {status?.connected && !showForm ? (
-        <>
-          <p className="text-sm text-muted-foreground">
-            PayPal payment links are generated automatically when you send an invoice. Customers can pay with their PayPal account or card.
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
-              Update credentials
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleDisconnect} disabled={disconnecting}>
-              {disconnecting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-              Disconnect PayPal
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          {!showForm ? (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Enter your PayPal Business API credentials. Get them from{" "}
-                <a
-                  href="https://developer.paypal.com/dashboard/applications/live"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-blue-600"
-                >
-                  developer.paypal.com <ExternalLink className="w-3 h-3 inline" />
-                </a>{" "}
-                under Apps &amp; Credentials → Live.
-              </p>
-              <Button size="sm" onClick={() => setShowForm(true)}>
-                Add PayPal credentials
-              </Button>
-            </>
-          ) : (
-            <form onSubmit={handleSave} className="space-y-3 max-w-sm">
-              <div className="space-y-1.5">
-                <Label htmlFor="pp-client-id" className="text-sm">Client ID</Label>
-                <Input
-                  id="pp-client-id"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  placeholder="AXxx..."
-                  autoComplete="off"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="pp-secret" className="text-sm">Client Secret</Label>
-                <Input
-                  id="pp-secret"
-                  type="password"
-                  value={clientSecret}
-                  onChange={(e) => setClientSecret(e.target.value)}
-                  placeholder="EXxx..."
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={saving || !clientId || !clientSecret}>
-                  {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-                  Save &amp; verify
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowForm(false); setClientId(""); setClientSecret(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
-        </>
-      )}
-
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer font-medium">Webhook setup</summary>
-        <p className="mt-1 pl-3 border-l-2 border-slate-200">
-          In PayPal Developer Dashboard → Webhooks, add:
-          <br />
-          <code className="bg-slate-100 px-1 rounded">{window.location.origin}/api/webhooks/paypal</code>
-          <br />
-          Subscribe to the <code className="bg-slate-100 px-1 rounded">PAYMENT.CAPTURE.COMPLETED</code> event.
-        </p>
-      </details>
-    </div>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AdminPaymentProviders() {
@@ -372,21 +213,6 @@ export default function AdminPaymentProviders() {
         </CardHeader>
         <CardContent>
           <GoCardlessSection />
-        </CardContent>
-      </Card>
-
-      {/* PayPal */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="w-4 h-4 text-blue-600" /> PayPal
-          </CardTitle>
-          <CardDescription>
-            Widely trusted by consumers. Customers pay using their PayPal account or any card. Enter your PayPal Business API credentials to activate.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PayPalSection />
         </CardContent>
       </Card>
 
