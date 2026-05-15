@@ -6,7 +6,6 @@ import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
-import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
 import { getPlatformSetting } from "../lib/geocode";
 import { decryptToken } from "../lib/accounting/crypto";
 
@@ -530,7 +529,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
 router.get("/portal/invoices", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("invoices")
-    .select("id, type, invoice_number, status, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, currency, customer_notes, stripe_payment_link_url, gocardless_payment_link_url, paypal_payment_link_url, truelayer_payment_link_url")
+    .select("id, type, invoice_number, status, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, currency, customer_notes, stripe_payment_link_url, gocardless_payment_link_url, paypal_payment_link_url")
     .eq("customer_id", req.customerId!)
     .eq("tenant_id", req.tenantId!)
     .in("status", ["sent", "paid", "overdue", "accepted", "declined", "converted"])
@@ -816,118 +815,16 @@ router.post(
 // ─── GET /portal/payment-providers ─────────────────────────────────────────
 // Returns which on-demand payment options are available for the current tenant.
 router.get("/portal/payment-providers", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const [{ data: tenant }, tlClientId] = await Promise.all([
-    supabaseAdmin
-      .from("tenants")
-      .select("truelayer_enabled, truelayer_sort_code, truelayer_account_number, paypal_client_id")
-      .eq("id", req.tenantId!)
-      .single(),
-    getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null),
-  ]);
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("paypal_client_id")
+    .eq("id", req.tenantId!)
+    .single();
   const t = tenant as any;
   res.json({
-    truelayer: !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number && tlClientId),
     paypal: !!t?.paypal_client_id,
   });
 });
-
-// ─── POST /portal/invoices/:id/truelayer-payment ─────────────────────────────
-// Creates a fresh TrueLayer Open Banking payment on demand and returns { url }.
-router.post(
-  "/portal/invoices/:id/truelayer-payment",
-  requireCustomerAuth,
-  async (req: CustomerPortalRequest, res): Promise<void> => {
-    const { id } = req.params;
-
-    const { data: inv } = await supabaseAdmin
-      .from("invoices")
-      .select("id, total, currency, invoice_number, status, type")
-      .eq("id", id)
-      .eq("tenant_id", req.tenantId!)
-      .maybeSingle();
-
-    if (!inv) { res.status(404).json({ error: "Invoice not found" }); return; }
-    if ((inv as any).type !== "invoice" || !["sent", "overdue"].includes((inv as any).status)) {
-      res.status(400).json({ error: "Invoice is not payable" }); return;
-    }
-
-    const { data: tenant } = await supabaseAdmin
-      .from("tenants")
-      .select("truelayer_enabled, truelayer_sort_code, truelayer_account_number, truelayer_account_holder_name")
-      .eq("id", req.tenantId!)
-      .single();
-    const tl = tenant as any;
-
-    if (!tl?.truelayer_enabled || !tl?.truelayer_sort_code || !tl?.truelayer_account_number) {
-      res.status(400).json({ error: "Open Banking is not configured for this account" }); return;
-    }
-    const tlClientId = await getPlatformSetting("truelayer_client_id", "TRUELAYER_CLIENT_ID").catch(() => null);
-    if (!tlClientId) {
-      res.status(400).json({ error: "Open Banking is not available on this platform" }); return;
-    }
-
-    try {
-      const tlToken = await getTrueLayerToken();
-      const amountMinor = Math.round(Number((inv as any).total) * 100);
-      const currency = ((inv as any).currency as string || "GBP").toUpperCase();
-      const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
-
-      const paymentRes = await fetch(`${TL_API_BASE}/v3/payments`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${tlToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount_in_minor: amountMinor,
-          currency,
-          payment_method: {
-            type: "bank_transfer",
-            provider_selection: { type: "user_selected" },
-            beneficiary: {
-              type: "external_account",
-              account_holder_name: tl.truelayer_account_holder_name,
-              account_identifier: {
-                type: "sort_code_account_number",
-                sort_code: tl.truelayer_sort_code,
-                account_number: tl.truelayer_account_number,
-              },
-              reference: `Invoice ${(inv as any).invoice_number as string}`,
-            },
-          },
-          user: { email: req.customerEmail ?? undefined },
-          metadata: { invoice_id: id, tenant_id: req.tenantId! },
-          return_uri: `${portalUrl}?tl_success=1`,
-        }),
-      });
-
-      if (!paymentRes.ok) {
-        const err = await paymentRes.json().catch(() => ({}));
-        console.error("[portal-truelayer] Payment creation failed:", err);
-        res.status(502).json({ error: "Failed to create Open Banking payment" }); return;
-      }
-
-      const paymentData = await paymentRes.json() as { id: string; resource_token: string };
-      const url = `${TL_PAY_BASE}/payments#${paymentData.resource_token}`;
-
-      // Persist latest link so the webhook can still match this payment
-      await supabaseAdmin
-        .from("invoices")
-        .update({
-          truelayer_payment_link_url: url,
-          truelayer_payment_id: paymentData.id,
-          updated_at: new Date().toISOString(),
-        } as Record<string, unknown>)
-        .eq("id", id)
-        .eq("tenant_id", req.tenantId!);
-
-      res.json({ url });
-    } catch (err) {
-      console.error("[portal-truelayer] Error:", err);
-      res.status(500).json({ error: "Failed to create Open Banking payment" });
-    }
-  },
-);
 
 export function generateInviteToken(): string {
   return crypto.randomBytes(32).toString("hex");

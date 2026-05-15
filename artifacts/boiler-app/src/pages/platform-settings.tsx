@@ -304,42 +304,11 @@ export default function PlatformSettings() {
             </div>
           </div>
 
-          <div>
-            <h3 className="text-base font-medium mb-3">TrueLayer (Open Banking)</h3>
-            <div className="space-y-4">
-              <PlatformSettingField
-                settingKey="truelayer_client_id"
-                label="TrueLayer Client ID"
-                description="Client ID from your TrueLayer Console app. Used for open banking payment initiation."
-                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                icon={<CreditCard className="w-4 h-4" />}
-                helpContent={
-                  <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800 space-y-2">
-                    <p className="font-medium">How to get your TrueLayer credentials:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs text-teal-700">
-                      <li>Go to <a href="https://console.truelayer.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">console.truelayer.com</a> and create an application</li>
-                      <li>Select the <strong>Payments</strong> product</li>
-                      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from the app settings</li>
-                      <li>Start in Sandbox mode — switch to Live when ready for production payments</li>
-                    </ol>
-                  </div>
-                }
-              />
-              <PlatformSettingField
-                settingKey="truelayer_client_secret"
-                label="TrueLayer Client Secret"
-                description="Client Secret from your TrueLayer Console app."
-                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                icon={<CreditCard className="w-4 h-4" />}
-              />
-            </div>
-          </div>
-
           {/* Payment Surcharges */}
           <div>
             <h3 className="text-base font-medium mb-1">Payment Surcharges</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              When customers pay via PayPal, this processing fee is added to their total. Open Banking (TrueLayer) payments are always free.
+              When customers pay via PayPal, this processing fee is added to their total.
             </p>
             <Card>
               <CardHeader>

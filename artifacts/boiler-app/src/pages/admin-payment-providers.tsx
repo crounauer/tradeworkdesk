@@ -10,7 +10,6 @@ import {
   Zap,
   CreditCard,
   Banknote,
-  Building2,
   Link as LinkIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,14 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 
 interface GcStatus { available: boolean; connected: boolean; organisation_id?: string }
 interface PpStatus { connected: boolean }
-interface TlStatus {
-  available: boolean;
-  connected: boolean;
-  sort_code?: string | null;
-  account_number?: string | null;
-  account_holder_name?: string | null;
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function ConnectedBadge() {
@@ -312,162 +303,6 @@ function PayPalSection() {
   );
 }
 
-// ─── TrueLayer section ────────────────────────────────────────────────────────
-
-function TrueLayerSection() {
-  const { toast } = useToast();
-  const [status, setStatus] = useState<TlStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [sortCode, setSortCode] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [holderName, setHolderName] = useState("");
-
-  const loadStatus = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/truelayer/status", { credentials: "include" });
-      if (res.ok) setStatus(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => { loadStatus(); }, []);
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await fetch("/api/admin/truelayer/bank-account", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sort_code: sortCode, account_number: accountNumber, account_holder_name: holderName }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to save");
-      }
-      toast({ title: "TrueLayer enabled", description: "Bank account saved. Customers can now pay by open banking." });
-      setShowForm(false);
-      loadStatus();
-    } catch (e) {
-      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (!confirm("Remove bank account? Future invoices won't include an open banking link.")) return;
-    setDisconnecting(true);
-    try {
-      await fetch("/api/admin/truelayer", { method: "DELETE", credentials: "include" });
-      toast({ title: "TrueLayer removed" });
-      setStatus({ available: true, connected: false });
-    } finally {
-      setDisconnecting(false);
-    }
-  };
-
-  if (loading) return <div className="h-5 w-24 bg-slate-200 rounded animate-pulse" />;
-
-  if (!status?.available) {
-    return (
-      <p className="text-sm text-muted-foreground flex items-center gap-2">
-        <AlertTriangle className="w-4 h-4 text-amber-500" />
-        Open banking (TrueLayer) is not enabled on this platform. Contact your system administrator.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        {status.connected ? <ConnectedBadge /> : <NotConnectedBadge />}
-        {status.connected && (
-          <span className="text-xs text-muted-foreground">
-            {status.account_holder_name} · {status.sort_code} · {status.account_number}
-          </span>
-        )}
-      </div>
-
-      {status.connected && !showForm ? (
-        <>
-          <p className="text-sm text-muted-foreground">
-            Open banking payment links are generated automatically when you send an invoice. Customers pay directly from their bank — no card fees.
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
-              Update bank account
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleDisconnect} disabled={disconnecting}>
-              {disconnecting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-              Remove
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          {!showForm ? (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Enter your UK business bank account. When a customer pays, funds are transferred directly to your account — no middleman, no card fees. Powered by TrueLayer open banking.
-              </p>
-              <Button size="sm" onClick={() => setShowForm(true)}>
-                Add bank account
-              </Button>
-            </>
-          ) : (
-            <form onSubmit={handleSave} className="space-y-3 max-w-sm">
-              <div className="space-y-1.5">
-                <Label htmlFor="tl-name" className="text-sm">Account holder name</Label>
-                <Input
-                  id="tl-name"
-                  value={holderName}
-                  onChange={(e) => setHolderName(e.target.value)}
-                  placeholder="Smith Heating Ltd"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="tl-sort" className="text-sm">Sort code</Label>
-                  <Input
-                    id="tl-sort"
-                    value={sortCode}
-                    onChange={(e) => setSortCode(e.target.value)}
-                    placeholder="12-34-56"
-                    maxLength={8}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tl-account" className="text-sm">Account number</Label>
-                  <Input
-                    id="tl-account"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    placeholder="12345678"
-                    maxLength={8}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={saving || !sortCode || !accountNumber || !holderName}>
-                  {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-                  Save
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
-              </div>
-            </form>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AdminPaymentProviders() {
@@ -555,20 +390,6 @@ export default function AdminPaymentProviders() {
         </CardContent>
       </Card>
 
-      {/* TrueLayer */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Building2 className="w-4 h-4 text-emerald-600" /> Open Banking (TrueLayer)
-          </CardTitle>
-          <CardDescription>
-            Zero card fees — customers pay directly from their bank app via open banking. Enter your UK business bank account as the payment destination.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TrueLayerSection />
-        </CardContent>
-      </Card>
     </div>
   );
 }

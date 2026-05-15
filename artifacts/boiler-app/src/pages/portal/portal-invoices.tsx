@@ -3,7 +3,7 @@ import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Zap, CreditCard, Eye, Info } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, CreditCard, Eye, Info } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -23,7 +23,6 @@ type PortalInvoice = {
   stripe_payment_link_url?: string | null;
   gocardless_payment_link_url?: string | null;
   paypal_payment_link_url?: string | null;
-  truelayer_payment_link_url?: string | null;
 };
 
 type PortalMeta = {
@@ -91,13 +90,13 @@ export default function PortalInvoices() {
     staleTime: 600_000,
   });
 
-  const { data: paymentProviders } = useQuery<{ truelayer: boolean; paypal: boolean }>({
+  const { data: paymentProviders } = useQuery<{ paypal: boolean }>({
     queryKey: ["portal-payment-providers"],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/payment-providers`, {
         headers: { Authorization: `Bearer ${session!.access_token}` },
       });
-      if (!res.ok) return { truelayer: false, paypal: false };
+      if (!res.ok) return { paypal: false };
       return res.json();
     },
     enabled: !!session,
@@ -206,7 +205,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} truelayerAvailable={paymentProviders?.truelayer ?? false} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -218,7 +217,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} truelayerAvailable={paymentProviders?.truelayer ?? false} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} paypalFeePercent={paymentFees?.paypal_surcharge_percent ?? 1.2} paypalFeeFixed={paymentFees?.paypal_surcharge_fixed ?? 0.30} accessToken={session?.access_token ?? ""} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -240,7 +239,6 @@ function InvoiceRow({
   paypalFeePercent,
   paypalFeeFixed,
   accessToken,
-  truelayerAvailable,
   onPreview,
   previewing,
 }: {
@@ -253,7 +251,6 @@ function InvoiceRow({
   paypalFeePercent: number;
   paypalFeeFixed: number;
   accessToken: string;
-  truelayerAvailable: boolean;
   onPreview: (inv: PortalInvoice) => void;
   previewing: string | null;
 }) {
@@ -264,25 +261,6 @@ function InvoiceRow({
 
   const [paypalLoading, setPaypalLoading] = useState(false);
   const [paypalError, setPaypalError] = useState("");
-  const [truelayerLoading, setTruelayerLoading] = useState(false);
-  const [truelayerError, setTruelayerError] = useState("");
-
-  const handleTrueLayer = async () => {
-    setTruelayerLoading(true);
-    setTruelayerError("");
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${inv.id}/truelayer-payment`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create payment");
-      window.location.href = data.url;
-    } catch (err) {
-      setTruelayerError((err as Error).message || "Could not start Open Banking payment. Please try again.");
-      setTruelayerLoading(false);
-    }
-  };
 
   const paypalSurcharge = Math.round((Number(inv.total) * paypalFeePercent / 100 + paypalFeeFixed) * 100) / 100;
 
@@ -309,13 +287,12 @@ function InvoiceRow({
   if (isPayable) {
     if (inv.stripe_payment_link_url) otherOptions.push({ label: "Pay by Card", url: inv.stripe_payment_link_url, className: "bg-violet-600 hover:bg-violet-700 text-white" });
     if (inv.gocardless_payment_link_url) otherOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
-    if (otherOptions.length === 0 && !inv.truelayer_payment_link_url && !inv.paypal_payment_link_url && paymentLinkUrl) {
+    if (otherOptions.length === 0 && !inv.paypal_payment_link_url && paymentLinkUrl) {
       otherOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
     }
   }
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
-  const hasTrueLayer = isPayable && truelayerAvailable;
   const hasPayPal = isPayable && !!inv.paypal_payment_link_url;
 
   return (
@@ -343,19 +320,6 @@ function InvoiceRow({
               {opt.label}
             </Button>
           ))}
-          {hasTrueLayer && (
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={handleTrueLayer}
-              disabled={truelayerLoading}
-            >
-              {truelayerLoading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
-                : <Zap className="w-3.5 h-3.5 mr-1" />}
-              Open Banking — Free
-            </Button>
-          )}
           {hasPayPal && (
             <Button
               size="sm"
@@ -420,18 +384,13 @@ function InvoiceRow({
           </Button>
         </div>
       </div>
-      {(hasTrueLayer || hasPayPal) && (
+      {hasPayPal && (
         <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100">
-          {hasTrueLayer && hasPayPal
-            ? <>Open Banking is free and instant. PayPal includes a {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee charged by PayPal.</>
-            : hasPayPal
-            ? <>A {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee is added by PayPal when paying via their platform.</>
-            : null
-          }
+          A {paypalFeePercent}% + {formatCurrency(paypalFeeFixed, inv.currency)} processing fee is added by PayPal when paying via their platform.
         </p>
       )}
-      {(paypalError || truelayerError) && (
-        <p className="text-xs text-red-600 mt-2 pt-2 border-t border-slate-100">{paypalError || truelayerError}</p>
+      {paypalError && (
+        <p className="text-xs text-red-600 mt-2 pt-2 border-t border-slate-100">{paypalError}</p>
       )}
       {inv.customer_notes && (
         <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 line-clamp-2">
