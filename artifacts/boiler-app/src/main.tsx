@@ -4,6 +4,14 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
 import "./index.css";
 
+// When a new service worker takes control (after skipWaiting), reload the page
+// so the installed PWA gets fresh assets instead of serving the old cached bundle.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    window.location.reload();
+  });
+}
+
 // Fire a warmup ping immediately so Railway wakes up while the browser
 // initialises React + Supabase auth. Uses keepalive so it survives navigation.
 // No auth needed — /api/ping is a public no-op endpoint.
