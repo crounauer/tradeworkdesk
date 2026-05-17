@@ -104,7 +104,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(hasFeature("social_media") ? [
       { href: "/admin/social", label: "Social Media", icon: Share2 },
     ] : []),
-    { href: "/admin/sms-templates", label: "SMS", icon: MessageSquare },
+    ...(hasAddon("sms_messaging") ? [{ href: "/admin/sms-templates", label: "SMS", icon: MessageSquare }] : []),
   ];
 
   const platformNavItems = [

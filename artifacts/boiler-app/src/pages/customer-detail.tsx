@@ -87,6 +87,7 @@ export default function CustomerDetail() {
   const deleteMutation = useDeleteCustomer();
   const { toast } = useToast();
 
+  const { hasAddon } = usePlanFeatures();
   const canDelete = profile?.role === "admin" || profile?.role === "super_admin";
 
   if (isLoading) return <div className="p-8">Loading...</div>;
@@ -117,7 +118,7 @@ export default function CustomerDetail() {
           <Button size="sm" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
-          {(customer.phone || customer.mobile) && (
+          {hasAddon("sms_messaging") && (customer.phone || customer.mobile) && (
             <Button size="sm" variant="outline" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
             </Button>

@@ -104,6 +104,7 @@ export default function JobDetail() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const { isSoleTrader } = useAutoAssign();
+  const { hasAddon } = usePlanFeatures();
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
@@ -367,7 +368,7 @@ export default function JobDetail() {
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
             <Mail className="w-4 h-4 mr-2" /> Email Customer
           </Button>
-          {(job.customer?.phone || job.customer?.mobile) && (
+          {hasAddon("sms_messaging") && (job.customer?.phone || job.customer?.mobile) && (
             <Button variant="outline" size="sm" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
             </Button>
