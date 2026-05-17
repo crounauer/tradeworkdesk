@@ -295,8 +295,9 @@ export async function getEffectiveStorageLimit(tenantId: string): Promise<number
 export async function getStorageUsed(tenantId: string): Promise<number> {
   const { data } = await supabaseAdmin
     .from("file_attachments")
-    .select("total_bytes:file_size.sum()")
-    .eq("tenant_id", tenantId);
-  const agg = (data?.[0] || {}) as { total_bytes?: string | number | null };
-  return Number(agg.total_bytes ?? 0);
+    .select("file_size")
+    .eq("tenant_id", tenantId)
+    .not("file_size", "is", null);
+  return ((data ?? []) as { file_size: number }[])
+    .reduce((sum, row) => sum + (row.file_size || 0), 0);
 }

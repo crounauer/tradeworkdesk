@@ -202,8 +202,8 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   let storage = storageCache.get(cacheKey)?.data;
   if (!storage) {
     const buildStorageUsageQuery = () => {
-      let q = supabaseAdmin.from("file_attachments").select("total_bytes:file_size.sum()", { count: "exact" });
-      if (tenantId) q = q.eq("tenant_id", tenantId);
+      let q = supabaseAdmin.from("file_attachments").select("file_size", { count: "exact" });
+      if (tenantId) q = q.eq("tenant_id", tenantId).not("file_size", "is", null);
       return q;
     };
     const buildSignatureCountQuery = () => {
@@ -215,9 +215,9 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
       buildStorageUsageQuery(),
       buildSignatureCountQuery(),
     ]);
-    const storageAgg = (storageRes.data?.[0] || {}) as { total_bytes?: number | null };
+    const storageAgg = (storageRes.data ?? []) as { file_size: number }[];
     storage = {
-      used_bytes: storageAgg.total_bytes ?? 0,
+      used_bytes: storageAgg.reduce((sum, row) => sum + (row.file_size || 0), 0),
       file_count: storageRes.count ?? 0,
       signature_count: signatureCountRes.count || 0,
     };
