@@ -2832,6 +2832,7 @@ async function compressImageClient(file: File): Promise<File> {
 function PhotosSection({ jobId }: { jobId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { hasAddon } = usePlanFeatures();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -2875,6 +2876,26 @@ function PhotosSection({ jobId }: { jobId: string }) {
       toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
+
+  if (!hasAddon("photo_storage")) {
+    return (
+      <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-violet-600 mb-3">
+          <Camera className="w-5 h-5" /> Photos
+        </h3>
+        <div className="text-center py-8 border border-dashed rounded-lg">
+          <Camera className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm font-medium text-slate-600 mb-1">Job Photo Storage not active</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Attach before/after shots, fault evidence and boiler labels directly to jobs.
+          </p>
+          <Link href="/settings/billing">
+            <Button size="sm" variant="outline">View Add-ons</Button>
+          </Link>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
