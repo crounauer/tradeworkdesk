@@ -131,7 +131,7 @@ export default function Billing() {
     staleTime: 30_000,
   });
 
-  const { data: storageStats } = useQuery<{ used_bytes: number; file_count: number } | null>({
+  const { data: storageStats } = useQuery<{ used_bytes: number; file_count: number; limit_bytes: number } | null>({
     queryKey: ["billing-storage-usage"],
     queryFn: async () => {
       const res = await fetch("/api/billing/storage-usage");
@@ -526,12 +526,23 @@ export default function Billing() {
                           : `£${Number(addon.monthly_price).toFixed(2)}/month${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`
                         }
                       </p>
-                      {addon.feature_keys.includes("photo_storage") && storageStats && (
-                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                          <HardDrive className="w-3 h-3 inline shrink-0" />
-                          {formatBytes(storageStats.used_bytes)} used · {storageStats.file_count} file{storageStats.file_count !== 1 ? "s" : ""}
-                        </p>
-                      )}
+                      {addon.feature_keys.includes("photo_storage") && storageStats && (() => {
+                        const pct = Math.min(100, (storageStats.used_bytes / storageStats.limit_bytes) * 100);
+                        const barColor = pct >= 95 ? "bg-red-500" : pct >= 75 ? "bg-amber-400" : "bg-emerald-500";
+                        const textColor = pct >= 95 ? "text-red-600" : pct >= 75 ? "text-amber-600" : "text-slate-500";
+                        return (
+                          <div className="mt-2 space-y-1">
+                            <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <p className={`text-xs flex items-center gap-1 ${textColor}`}>
+                              <HardDrive className="w-3 h-3 shrink-0" />
+                              {formatBytes(storageStats.used_bytes)} of {formatBytes(storageStats.limit_bytes)} used
+                              {pct >= 95 && " · Storage full — contact support to upgrade"}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <Switch
                       checked={addon.subscribed}

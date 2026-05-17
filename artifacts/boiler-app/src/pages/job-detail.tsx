@@ -2859,7 +2859,14 @@ function PhotosSection({ jobId }: { jobId: string }) {
       toast({ title: "Uploaded", description: `${fileList.length} photo(s) uploaded` });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Upload failed";
-      toast({ title: "Upload Error", description: message, variant: "destructive" });
+      const isStorageFull = message.includes("STORAGE_LIMIT_REACHED");
+      toast({
+        title: isStorageFull ? "Storage limit reached" : "Upload Error",
+        description: isStorageFull
+          ? "Your 1 GB photo storage is full. Contact support to increase your limit."
+          : message,
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

@@ -355,8 +355,9 @@ router.get("/billing/storage-usage", requireAuth, requireTenant, requireRole("ad
   const agg = (data?.[0] || {}) as { file_size?: { sum?: string | number | null } | null };
   const rawSum = agg.file_size?.sum;
   const usedBytes = rawSum != null ? Number(rawSum) : 0;
+  const LIMIT = 1 * 1024 * 1024 * 1024; // 1 GB
 
-  res.json({ used_bytes: usedBytes, file_count: count ?? 0 });
+  res.json({ used_bytes: usedBytes, file_count: count ?? 0, limit_bytes: LIMIT });
 });
 
 /**

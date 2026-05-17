@@ -80,6 +80,17 @@ async function generateThumbnail(buffer: Buffer): Promise<Buffer | null> {
   }
 }
 
+const STORAGE_LIMIT_BYTES = 1 * 1024 * 1024 * 1024; // 1 GB per tenant
+
+async function getStorageUsed(tenantId: string): Promise<number> {
+  const { data } = await supabaseAdmin
+    .from("file_attachments")
+    .select("file_size.sum()")
+    .eq("tenant_id", tenantId);
+  const agg = (data?.[0] || {}) as { file_size?: { sum?: string | number | null } };
+  return Number(agg.file_size?.sum ?? 0);
+}
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const router: IRouter = Router();
 
@@ -136,6 +147,13 @@ router.post("/files/upload-multiple", requireAuth, requireTenant, (req, res, nex
 
   const access = await verifyEntityAccess(req, entityType, entityId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
+
+  if (req.tenantId) {
+    const usedBytes = await getStorageUsed(req.tenantId);
+    if (usedBytes >= STORAGE_LIMIT_BYTES) {
+      res.status(413).json({ error: "STORAGE_LIMIT_REACHED", used_bytes: usedBytes, limit_bytes: STORAGE_LIMIT_BYTES }); return;
+    }
+  }
 
   if (noteId) {
     let noteCheck = supabaseAdmin.from("enquiry_notes").select("id, enquiry_id").eq("id", noteId);
@@ -246,6 +264,13 @@ router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), 
 
   const access = await verifyEntityAccess(req, entityType, entityId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
+
+  if (req.tenantId) {
+    const usedBytes = await getStorageUsed(req.tenantId);
+    if (usedBytes >= STORAGE_LIMIT_BYTES) {
+      res.status(413).json({ error: "STORAGE_LIMIT_REACHED", used_bytes: usedBytes, limit_bytes: STORAGE_LIMIT_BYTES }); return;
+    }
+  }
 
   if (noteId) {
     let noteCheck = supabaseAdmin.from("enquiry_notes").select("id, enquiry_id").eq("id", noteId);
