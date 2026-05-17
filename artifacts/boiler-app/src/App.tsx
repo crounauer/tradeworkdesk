@@ -124,6 +124,7 @@ const NotFound = lazyRetry(() => import("@/pages/not-found"));
 const Todos = lazyRetry(() => import("@/pages/todos"));
 const Invoices = lazyRetry(() => import("@/pages/invoices"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
+const HelpPage = lazyRetry(() => import("@/pages/help"));
 
 const PortalLogin = lazyRetry(() => import("@/pages/portal/portal-login"));
 const PortalRegister = lazyRetry(() => import("@/pages/portal/portal-register"));
@@ -353,6 +354,7 @@ function AppRouter() {
         <Route path="/todos" component={() => <ProtectedRoute component={Todos} />} />
         <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
         <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
+        <Route path="/help" component={() => <ProtectedRoute component={HelpPage} />} />
 
         <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} roles={["super_admin"]} />} />
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />
