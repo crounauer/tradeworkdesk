@@ -101,7 +101,8 @@ router.get(
       res.json({ url: accountLink.url });
     } catch (err) {
       console.error("[stripe-connect] Authorize error:", err);
-      res.status(500).json({ error: "Failed to start Stripe Connect flow" });
+      const message = err instanceof Error ? err.message : "Failed to start Stripe Connect flow";
+      res.status(500).json({ error: message });
     }
   }
 );
