@@ -727,20 +727,37 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
           : "Customer";
         const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
 
+        const passCharges = !!(settings as any)?.stripe_pass_charges_to_customer;
+        const SURCHARGE_RATE = 0.025; // 2.5% flat
+        const feeAmountCents = passCharges ? Math.round(amountCents * SURCHARGE_RATE) : 0;
+
+        const lineItems: Parameters<typeof stripe.checkout.sessions.create>[0]["line_items"] = [
+          {
+            price_data: {
+              currency,
+              unit_amount: amountCents,
+              product_data: { name: `${invoiceLabel} — ${customerName}` },
+            },
+            quantity: 1,
+          },
+        ];
+
+        if (feeAmountCents > 0) {
+          lineItems.push({
+            price_data: {
+              currency,
+              unit_amount: feeAmountCents,
+              product_data: { name: "Card processing fee (2.5%)" },
+            },
+            quantity: 1,
+          });
+        }
+
         const session = await stripe.checkout.sessions.create(
           {
             mode: "payment",
             payment_method_types: ["card"],
-            line_items: [
-              {
-                price_data: {
-                  currency,
-                  unit_amount: amountCents,
-                  product_data: { name: `${invoiceLabel} — ${customerName}` },
-                },
-                quantity: 1,
-              },
-            ],
+            line_items: lineItems,
             metadata: {
               invoice_id: req.params.id,
               tenant_id: req.tenantId!,
