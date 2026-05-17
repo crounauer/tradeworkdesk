@@ -120,6 +120,7 @@ export default function JobDetail() {
   const [finishingJob, setFinishingJob] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
+  const [downloadingCp12, setDownloadingCp12] = useState(false);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -240,7 +241,6 @@ export default function JobDetail() {
     }
   };
 
-  const [downloadingCp12, setDownloadingCp12] = useState(false);
   const handleDownloadCp12 = async () => {
     const srForm = (completedForms || []).find(f => f.form_type === "service_record");
     if (!srForm) return;
