@@ -42,7 +42,6 @@ export interface CompanySettings {
   invoice_footer_text?: string | null;
   invoice_bank_details?: string | null;
   payment_link_url?: string | null;
-  stripe_pass_charges_to_customer?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }

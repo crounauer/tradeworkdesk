@@ -123,13 +123,12 @@ export default function AdminCompanySettings() {
       invoice_footer_text: settings.invoice_footer_text ?? "",
       invoice_bank_details: settings.invoice_bank_details ?? "",
       payment_link_url: settings.payment_link_url ?? "",
-      stripe_pass_charges_to_customer: settings.stripe_pass_charges_to_customer ?? false,
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
-  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "stripe_pass_charges_to_customer"]);
+  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -691,35 +690,6 @@ export default function AdminCompanySettings() {
         </Card>
 
         <CalloutRatesSection />
-
-        {/* Card Processing Fees */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Card Processing Fees
-            </CardTitle>
-            <CardDescription>
-              Choose whether to pass Stripe card processing charges on to your customers.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="stripe_pass_charges_to_customer" className="text-sm font-medium cursor-pointer">Pass charges to customer</Label>
-                <p className="text-xs text-muted-foreground">
-                  When enabled, a 2.5% card processing fee is added to the customer's Stripe payment as a separate line item at checkout.
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                id="stripe_pass_charges_to_customer"
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                {...register("stripe_pass_charges_to_customer")}
-              />
-            </div>
-          </CardContent>
-        </Card>
 
           </TabsContent>
 

@@ -70,12 +70,6 @@ export async function runStartupMigrations() {
     .limit(1);
   if (e4) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS payment_link_url TEXT;");
 
-  const { error: e5 } = await supabaseAdmin
-    .from("company_settings")
-    .select("stripe_pass_charges_to_customer")
-    .limit(1);
-  if (e5) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS stripe_pass_charges_to_customer BOOLEAN NOT NULL DEFAULT FALSE;");
-
   if (needed.length > 0) {
     console.warn("[migrations] Run this SQL in the Supabase SQL Editor:");
     console.warn(needed.join("\n"));
