@@ -73,11 +73,10 @@ export default function AdminCompanySettings() {
     }
   };
 
-  const { register, reset, getValues, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
+  const { register, reset, getValues, watch, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
-  const formRef = useRef<HTMLFormElement | null>(null);
   const settingsLoadedRef = useRef(false);
   const isSavingRef = useRef(false);
 
@@ -177,19 +176,13 @@ export default function AdminCompanySettings() {
   }, [getValues, saveToServer, toast]);
 
   useEffect(() => {
-    const form = formRef.current;
-    if (!form) return;
-    const handler = () => {
+    const subscription = watch(() => {
+      if (!settingsLoadedRef.current) return;
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => { doSave(); }, 1500);
-    };
-    form.addEventListener("input", handler);
-    form.addEventListener("change", handler);
-    return () => {
-      form.removeEventListener("input", handler);
-      form.removeEventListener("change", handler);
-    };
-  }, [doSave]);
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, doSave]);
 
   useEffect(() => {
     return () => {
@@ -287,7 +280,7 @@ export default function AdminCompanySettings() {
           <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
         </TabsList>
 
-        <form ref={formRef}>
+        <form>
           <TabsContent value="profile" className="space-y-6 pt-4">
           {/* Logo */}
           <Card>
