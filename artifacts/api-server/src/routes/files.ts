@@ -3,6 +3,7 @@ import multer from "multer";
 import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { getEffectiveStorageLimit, getStorageUsed } from "../lib/tenant-limits";
 import {
   ListFilesQueryParams,
   ListFilesResponse,
@@ -80,17 +81,6 @@ async function generateThumbnail(buffer: Buffer): Promise<Buffer | null> {
   }
 }
 
-const STORAGE_LIMIT_BYTES = 1 * 1024 * 1024 * 1024; // 1 GB per tenant
-
-async function getStorageUsed(tenantId: string): Promise<number> {
-  const { data } = await supabaseAdmin
-    .from("file_attachments")
-    .select("file_size.sum()")
-    .eq("tenant_id", tenantId);
-  const agg = (data?.[0] || {}) as { file_size?: { sum?: string | number | null } };
-  return Number(agg.file_size?.sum ?? 0);
-}
-
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const router: IRouter = Router();
 
@@ -149,9 +139,12 @@ router.post("/files/upload-multiple", requireAuth, requireTenant, (req, res, nex
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
   if (req.tenantId) {
-    const usedBytes = await getStorageUsed(req.tenantId);
-    if (usedBytes >= STORAGE_LIMIT_BYTES) {
-      res.status(413).json({ error: "STORAGE_LIMIT_REACHED", used_bytes: usedBytes, limit_bytes: STORAGE_LIMIT_BYTES }); return;
+    const [usedBytes, limitBytes] = await Promise.all([
+      getStorageUsed(req.tenantId),
+      getEffectiveStorageLimit(req.tenantId),
+    ]);
+    if (usedBytes >= limitBytes) {
+      res.status(413).json({ error: "STORAGE_LIMIT_REACHED", used_bytes: usedBytes, limit_bytes: limitBytes }); return;
     }
   }
 
@@ -266,9 +259,12 @@ router.post("/files/upload", requireAuth, requireTenant, upload.single("file"), 
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
   if (req.tenantId) {
-    const usedBytes = await getStorageUsed(req.tenantId);
-    if (usedBytes >= STORAGE_LIMIT_BYTES) {
-      res.status(413).json({ error: "STORAGE_LIMIT_REACHED", used_bytes: usedBytes, limit_bytes: STORAGE_LIMIT_BYTES }); return;
+    const [usedBytes, limitBytes] = await Promise.all([
+      getStorageUsed(req.tenantId),
+      getEffectiveStorageLimit(req.tenantId),
+    ]);
+    if (usedBytes >= limitBytes) {
+      res.status(413).json({ error: "STORAGE_LIMIT_REACHED", used_bytes: usedBytes, limit_bytes: limitBytes }); return;
     }
   }
 

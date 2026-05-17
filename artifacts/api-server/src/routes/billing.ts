@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
 import { requireStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
-import { getCurrentUserCount, topUpAddonCredits } from "../lib/tenant-limits";
+import { getCurrentUserCount, topUpAddonCredits, getStorageUsed, getEffectiveStorageLimit } from "../lib/tenant-limits";
 import { bustInitCache } from "./platform";
 
 const router = Router();
@@ -347,17 +347,13 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
  * Returns fresh (uncached) storage stats for the current tenant.
  */
 router.get("/billing/storage-usage", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { data, count } = await supabaseAdmin
-    .from("file_attachments")
-    .select("file_size.sum()", { count: "exact" })
-    .eq("tenant_id", req.tenantId!);
+  const [usedBytes, limitBytes, fileCountResult] = await Promise.all([
+    getStorageUsed(req.tenantId!),
+    getEffectiveStorageLimit(req.tenantId!),
+    supabaseAdmin.from("file_attachments").select("id", { count: "exact", head: true }).eq("tenant_id", req.tenantId!),
+  ]);
 
-  const agg = (data?.[0] || {}) as { file_size?: { sum?: string | number | null } | null };
-  const rawSum = agg.file_size?.sum;
-  const usedBytes = rawSum != null ? Number(rawSum) : 0;
-  const LIMIT = 1 * 1024 * 1024 * 1024; // 1 GB
-
-  res.json({ used_bytes: usedBytes, file_count: count ?? 0, limit_bytes: LIMIT });
+  res.json({ used_bytes: usedBytes, file_count: fileCountResult.count ?? 0, limit_bytes: limitBytes });
 });
 
 /**
