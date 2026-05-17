@@ -279,31 +279,17 @@ export async function topUpAddonCredits(tenantId: string, addonId: string, bundl
 // ─── Photo storage limits ────────────────────────────────────────────────────
 
 export const BASE_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024 * 1024; // 500 GB (base plan)
-export const EXTRA_STORAGE_BYTES      = 500 * 1024 * 1024 * 1024; // +500 GB per extra_photo_storage addon
 export const EXTRA_STORAGE_FEATURE_KEY = "extra_photo_storage";
 
 /**
  * Returns the tenant's effective storage limit in bytes.
- * Base plan: 500 GB. Each active extra_photo_storage addon adds another 500 GB.
+ * Base plan: 500 GB free. Each GB credit purchased via the Extra Photo Storage addon adds 1 GB.
+ * Storage is billed in advance: tenants buy GB upfront at £4.99/GB/month.
  */
 export async function getEffectiveStorageLimit(tenantId: string): Promise<number> {
-  const { data: extraAddons } = await supabaseAdmin
-    .from("addons")
-    .select("id")
-    .contains("feature_keys", [EXTRA_STORAGE_FEATURE_KEY])
-    .eq("is_active", true);
-
-  if (!extraAddons || extraAddons.length === 0) return BASE_STORAGE_LIMIT_BYTES;
-
-  const ids = (extraAddons as { id: string }[]).map(a => a.id);
-  const { count } = await supabaseAdmin
-    .from("tenant_addons")
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .in("addon_id", ids);
-
-  return BASE_STORAGE_LIMIT_BYTES + ((count ?? 0) > 0 ? EXTRA_STORAGE_BYTES : 0);
+  const credits = await getAddonCredits(tenantId, EXTRA_STORAGE_FEATURE_KEY);
+  const extraGB = credits?.credits_remaining ?? 0;
+  return BASE_STORAGE_LIMIT_BYTES + extraGB * 1024 * 1024 * 1024;
 }
 
 export async function getStorageUsed(tenantId: string): Promise<number> {
