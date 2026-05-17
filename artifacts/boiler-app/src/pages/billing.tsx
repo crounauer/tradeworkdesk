@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, Loader2,
-  Calendar, Users, Package, Zap, ShoppingCart,
+  Calendar, Users, Package, Zap, ShoppingCart, HardDrive,
 } from "lucide-react";
 import { useInitData } from "@/hooks/use-init-data";
 
@@ -54,6 +54,14 @@ interface BillingCreditsRow {
   credits_remaining: number;
   total_purchased: number;
   last_topped_up: string | null;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const value = bytes / Math.pow(1024, i);
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
 const BRAND_LABEL: Record<string, string> = {
@@ -121,6 +129,18 @@ export default function Billing() {
     },
     enabled: isAdmin,
     staleTime: 30_000,
+  });
+
+  const { data: storageStats } = useQuery<{ used_bytes: number; file_count: number } | null>({
+    queryKey: ["billing-storage-usage"],
+    queryFn: async () => {
+      const res = await fetch("/api/homepage");
+      if (!res.ok) return null;
+      const d = await res.json();
+      return d.storage ?? null;
+    },
+    enabled: isAdmin,
+    staleTime: 60_000,
   });
 
   const { data: creditsData } = useQuery<BillingCreditsRow[]>({
@@ -507,6 +527,12 @@ export default function Billing() {
                           : `£${Number(addon.monthly_price).toFixed(2)}/month${addon.annual_price > 0 ? ` · £${Number(addon.annual_price).toFixed(2)}/year` : ""}`
                         }
                       </p>
+                      {addon.feature_keys.includes("photo_storage") && storageStats && (
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                          <HardDrive className="w-3 h-3 inline shrink-0" />
+                          {formatBytes(storageStats.used_bytes)} used · {storageStats.file_count} file{storageStats.file_count !== 1 ? "s" : ""}
+                        </p>
+                      )}
                     </div>
                     <Switch
                       checked={addon.subscribed}
