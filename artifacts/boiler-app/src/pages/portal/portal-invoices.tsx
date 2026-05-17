@@ -3,7 +3,7 @@ import { usePortalAuth } from "@/hooks/use-portal-auth";
 import { PortalLayout } from "./portal-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Eye } from "lucide-react";
+import { Receipt, Download, Loader2, FileText, CheckCircle, XCircle, ExternalLink, Eye, Landmark } from "lucide-react";
 import { useState } from "react";
 
 type PortalInvoice = {
@@ -26,6 +26,7 @@ type PortalInvoice = {
 
 type PortalMeta = {
   payment_link_url?: string | null;
+  invoice_bank_details?: string | null;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -73,7 +74,7 @@ export default function PortalInvoices() {
       });
       if (!res.ok) return {};
       const d = await res.json();
-      return { payment_link_url: d.payment_link_url ?? null };
+      return { payment_link_url: d.payment_link_url ?? null, invoice_bank_details: d.invoice_bank_details ?? null };
     },
     enabled: !!session,
     staleTime: 300_000,
@@ -184,6 +185,18 @@ export default function PortalInvoices() {
               </section>
             )}
           </>
+        )}
+
+        {meta?.invoice_bank_details && (
+          <Card className="p-4 border border-slate-200 bg-slate-50">
+            <div className="flex items-start gap-3">
+              <Landmark className="w-4 h-4 mt-0.5 text-slate-500 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-slate-700 mb-1">Bank Transfer Details</p>
+                <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans">{meta.invoice_bank_details}</pre>
+              </div>
+            </div>
+          </Card>
         )}
       </div>
     </PortalLayout>

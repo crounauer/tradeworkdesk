@@ -489,7 +489,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .single(),
     supabaseAdmin
       .from("company_settings")
-      .select("payment_link_url")
+      .select("payment_link_url, invoice_bank_details")
       .eq("tenant_id", req.tenantId!)
       .eq("singleton_id", "default")
       .maybeSingle(),
@@ -507,6 +507,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
     customer: customerRes.data,
     company_name: tenantRes.data?.company_name || null,
     payment_link_url: (settingsRes.data as any)?.payment_link_url || null,
+    invoice_bank_details: (settingsRes.data as any)?.invoice_bank_details || null,
     properties_count: propertiesRes.data?.length || 0,
     properties: propertiesRes.data || [],
     upcoming_jobs: upcomingJobs.map((j: any) => ({
