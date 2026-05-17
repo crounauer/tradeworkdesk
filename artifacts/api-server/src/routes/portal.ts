@@ -490,7 +490,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .single(),
     supabaseAdmin
       .from("company_settings")
-      .select("payment_link_url, invoice_bank_details")
+      .select("payment_link_url, invoice_bank_details, stripe_payments_enabled, gocardless_payments_enabled")
       .eq("tenant_id", req.tenantId!)
       .eq("singleton_id", "default")
       .maybeSingle(),
@@ -508,6 +508,8 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
     customer: customerRes.data,
     company_name: tenantRes.data?.company_name || null,
     stripe_connect_enabled: !!(tenantRes.data as any)?.stripe_connect_account_id && !!(tenantRes.data as any)?.stripe_connect_charges_enabled,
+    stripe_payments_enabled: (settingsRes.data as any)?.stripe_payments_enabled !== false,
+    gocardless_payments_enabled: (settingsRes.data as any)?.gocardless_payments_enabled !== false,
     payment_link_url: (settingsRes.data as any)?.payment_link_url || null,
     invoice_bank_details: (settingsRes.data as any)?.invoice_bank_details || null,
     properties_count: propertiesRes.data?.length || 0,
@@ -670,6 +672,16 @@ router.post("/portal/invoices/:id/stripe-checkout", requireCustomerAuth, async (
   const connectAccountId = (tenantRow as any)?.stripe_connect_account_id as string | null;
   const chargesEnabled = !!(tenantRow as any)?.stripe_connect_charges_enabled;
   if (!connectAccountId || !chargesEnabled) { res.status(503).json({ error: "Stripe Connect not configured" }); return; }
+
+  const { data: settingsForCheckout } = await supabaseAdmin
+    .from("company_settings")
+    .select("stripe_payments_enabled")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+  if ((settingsForCheckout as any)?.stripe_payments_enabled === false) {
+    res.status(403).json({ error: "Card payments are currently disabled" }); return;
+  }
 
   const amountCents = Math.round(Number(invoice.total) * 100);
   const currency = ((invoice.currency as string) || "gbp").toLowerCase();

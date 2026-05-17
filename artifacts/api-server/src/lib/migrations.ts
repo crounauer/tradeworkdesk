@@ -70,6 +70,18 @@ export async function runStartupMigrations() {
     .limit(1);
   if (e4) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS payment_link_url TEXT;");
 
+  const { error: e5 } = await supabaseAdmin
+    .from("company_settings")
+    .select("stripe_payments_enabled")
+    .limit(1);
+  if (e5) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS stripe_payments_enabled BOOLEAN NOT NULL DEFAULT TRUE;");
+
+  const { error: e6 } = await supabaseAdmin
+    .from("company_settings")
+    .select("gocardless_payments_enabled")
+    .limit(1);
+  if (e6) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS gocardless_payments_enabled BOOLEAN NOT NULL DEFAULT TRUE;");
+
   if (needed.length > 0) {
     console.warn("[migrations] Run this SQL in the Supabase SQL Editor:");
     console.warn(needed.join("\n"));

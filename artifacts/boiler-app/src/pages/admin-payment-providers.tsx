@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function NotConnectedBadge() {
 
 // ─── GoCardless section ───────────────────────────────────────────────────────
 
-function GoCardlessSection() {
+function GoCardlessSection({ enabled, onToggle }: { enabled: boolean; onToggle: (v: boolean) => void }) {
   const { toast } = useToast();
   const [status, setStatus] = useState<GcStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,10 +106,26 @@ function GoCardlessSection() {
         )}
       </div>
       {status.connected ? (
-        <>
-          <p className="text-sm text-muted-foreground">
+        <>          <p className="text-sm text-muted-foreground">
             When you send an invoice, a GoCardless payment link is automatically attached so customers can pay by direct debit or instant bank transfer.
           </p>
+          <div className="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-lg border">
+            <div>
+              <p className="text-sm font-medium">Accept bank payments on invoices</p>
+              <p className="text-xs text-muted-foreground">When off, no GoCardless link is added and the button is hidden from customers.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              onClick={() => onToggle(!enabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                enabled ? "bg-teal-600" : "bg-slate-200"
+              }`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
           <Button
             variant="destructive"
             size="sm"
@@ -149,6 +166,27 @@ function GoCardlessSection() {
 export default function AdminPaymentProviders() {
   const searchString = useSearch();
   const { toast } = useToast();
+  const { data: settings } = useCompanySettings();
+  const updateSettings = useUpdateCompanySettings();
+
+  const stripeEnabled = settings?.stripe_payments_enabled !== false;
+  const gcEnabled = settings?.gocardless_payments_enabled !== false;
+
+  function handleStripeToggle(val: boolean) {
+    updateSettings.mutate(
+      { stripe_payments_enabled: val },
+      { onSuccess: () => toast({ title: val ? "Card payments enabled" : "Card payments disabled" }),
+        onError: (e) => toast({ title: "Failed to save", description: (e as Error).message, variant: "destructive" }) },
+    );
+  }
+
+  function handleGcToggle(val: boolean) {
+    updateSettings.mutate(
+      { gocardless_payments_enabled: val },
+      { onSuccess: () => toast({ title: val ? "Bank payments enabled" : "Bank payments disabled" }),
+        onError: (e) => toast({ title: "Failed to save", description: (e as Error).message, variant: "destructive" }) },
+    );
+  }
 
   // Handle OAuth callbacks and success/error params
   useEffect(() => {
@@ -192,12 +230,30 @@ export default function AdminPaymentProviders() {
             Industry-leading card payments. Customers pay by card via a hosted Stripe Checkout page. Configured separately.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <a href="/admin/stripe-connect">
             <Button type="button" variant="outline" size="sm" className="flex items-center gap-1">
               <LinkIcon className="w-3.5 h-3.5" /> Manage Stripe Connection
             </Button>
           </a>
+          <div className="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-lg border">
+            <div>
+              <p className="text-sm font-medium">Accept card payments on invoices</p>
+              <p className="text-xs text-muted-foreground">When off, no Stripe link is added and the Pay by Card button is hidden from customers.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={stripeEnabled}
+              disabled={updateSettings.isPending}
+              onClick={() => handleStripeToggle(!stripeEnabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                stripeEnabled ? "bg-violet-600" : "bg-slate-200"
+              }`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${stripeEnabled ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
         </CardContent>
       </Card>
 
@@ -212,7 +268,7 @@ export default function AdminPaymentProviders() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <GoCardlessSection />
+          <GoCardlessSection enabled={gcEnabled} onToggle={handleGcToggle} />
         </CardContent>
       </Card>
 

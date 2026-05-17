@@ -718,7 +718,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       const connectAccountId = (tenantRow as any)?.stripe_connect_account_id as string | null;
       const chargesEnabled = !!(tenantRow as any)?.stripe_connect_charges_enabled;
 
-      if (stripe && connectAccountId && chargesEnabled) {
+      if (stripe && connectAccountId && chargesEnabled && (settings as any)?.stripe_payments_enabled !== false) {
         const amountCents = Math.round(Number(invoice.total) * 100);
         const currency = ((invoice.currency as string) || "gbp").toLowerCase();
         const invoiceLabel = `Invoice ${invoice.invoice_number as string}`;
@@ -779,7 +779,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       const gcToken = (gcTenant as any)?.gocardless_access_token as string | null;
       const gcOrgId = (gcTenant as any)?.gocardless_organisation_id as string | null;
 
-      if (gcToken && gcOrgId) {
+      if (gcToken && gcOrgId && (settings as any)?.gocardless_payments_enabled !== false) {
         const decryptedToken = decryptToken(gcToken);
         const amountPence = Math.round(Number(invoice.total) * 100);
         const currency = ((invoice.currency as string) || "GBP").toUpperCase();

@@ -42,6 +42,8 @@ export interface CompanySettings {
   invoice_footer_text?: string | null;
   invoice_bank_details?: string | null;
   payment_link_url?: string | null;
+  stripe_payments_enabled?: boolean | null;
+  gocardless_payments_enabled?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }
