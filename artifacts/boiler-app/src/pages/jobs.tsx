@@ -486,7 +486,6 @@ function JobCard({
           />
         </div>
       )}
-      {isAdminOrOffice && !isExportable && <div className="w-[28px]" />}
       <div className="flex-1 relative overflow-hidden rounded-lg">
         {/* Swipe action hints */}
         {isSwiping && swipeX < -20 && canSwipeComplete && (
