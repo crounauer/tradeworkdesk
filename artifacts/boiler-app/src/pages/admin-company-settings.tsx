@@ -251,7 +251,7 @@ export default function AdminCompanySettings() {
             Manage your business details, team settings, pricing and invoicing preferences.
           </p>
         </div>
-        <div className="flex items-center gap-2 pt-1 shrink-0 h-8">
+        <div className="flex items-center gap-3 pt-1 shrink-0">
           {autoSaveStatus === "saving" && (
             <span className="text-sm text-muted-foreground flex items-center gap-1.5">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…
@@ -262,6 +262,19 @@ export default function AdminCompanySettings() {
               <Check className="w-3.5 h-3.5" /> Saved
             </span>
           )}
+          <Button
+            type="button"
+            size="sm"
+            disabled={autoSaveStatus === "saving"}
+            onClick={() => doSave(true)}
+          >
+            {autoSaveStatus === "saving" ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-1.5" />
+            )}
+            Save
+          </Button>
         </div>
       </div>
 
