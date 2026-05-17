@@ -134,13 +134,12 @@ export default function Billing() {
   const { data: storageStats } = useQuery<{ used_bytes: number; file_count: number } | null>({
     queryKey: ["billing-storage-usage"],
     queryFn: async () => {
-      const res = await fetch("/api/homepage");
+      const res = await fetch("/api/billing/storage-usage");
       if (!res.ok) return null;
-      const d = await res.json();
-      return d.storage ?? null;
+      return res.json();
     },
     enabled: isAdmin,
-    staleTime: 60_000,
+    staleTime: 10_000,
   });
 
   const { data: creditsData } = useQuery<BillingCreditsRow[]>({

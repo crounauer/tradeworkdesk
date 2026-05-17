@@ -343,6 +343,23 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * GET /api/billing/storage-usage
+ * Returns fresh (uncached) storage stats for the current tenant.
+ */
+router.get("/billing/storage-usage", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, count } = await supabaseAdmin
+    .from("file_attachments")
+    .select("file_size.sum()", { count: "exact" })
+    .eq("tenant_id", req.tenantId!);
+
+  const agg = (data?.[0] || {}) as { file_size?: { sum?: string | number | null } | null };
+  const rawSum = agg.file_size?.sum;
+  const usedBytes = rawSum != null ? Number(rawSum) : 0;
+
+  res.json({ used_bytes: usedBytes, file_count: count ?? 0 });
+});
+
+/**
  * GET /api/billing/addons
  * Returns all available addons together with the tenant's current subscription status for each.
  */
