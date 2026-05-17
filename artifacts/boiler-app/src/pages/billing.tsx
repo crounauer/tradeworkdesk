@@ -100,6 +100,7 @@ export default function Billing() {
 
   // Per-addon bundle purchase quantity state
   const [bundleCounts, setBundleCounts] = useState<Record<string, number>>({});
+  const [buyingAddonId, setBuyingAddonId] = useState<string | null>(null);
 
   const { data: tenantInfo, isLoading: tenantLoading } = useQuery<TenantInfo | null>({
     queryKey: ["tenant-info"],
@@ -154,6 +155,7 @@ export default function Billing() {
 
   const buyCredits = useMutation({
     mutationFn: async ({ addonId, bundles }: { addonId: string; bundles: number }) => {
+      setBuyingAddonId(addonId);
       const res = await fetch(`/api/billing/credits/${addonId}/buy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,10 +165,14 @@ export default function Billing() {
       return res.json();
     },
     onSuccess: (data: { credits_remaining: number; bundles_purchased: number; total_charged: number }) => {
+      setBuyingAddonId(null);
       queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
       toast({ title: `Credits purchased — ${data.credits_remaining.toLocaleString()} remaining` });
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      setBuyingAddonId(null);
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
   });
 
   const subscribeMutation = useMutation({
@@ -645,10 +651,10 @@ export default function Billing() {
                         size="sm"
                         variant="outline"
                         className="ml-auto gap-1.5"
-                        disabled={buyCredits.isPending}
+                        disabled={buyingAddonId === credit.id}
                         onClick={() => buyCredits.mutate({ addonId: credit.id, bundles })}
                       >
-                        {buyCredits.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
+                        {buyingAddonId === credit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
                         {isStorage ? "Buy storage" : "Buy credits"}
                       </Button>
                     </div>
