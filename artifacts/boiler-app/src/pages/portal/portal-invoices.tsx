@@ -27,6 +27,7 @@ type PortalInvoice = {
 type PortalMeta = {
   payment_link_url?: string | null;
   invoice_bank_details?: string | null;
+  stripe_connect_enabled?: boolean;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -74,7 +75,7 @@ export default function PortalInvoices() {
       });
       if (!res.ok) return {};
       const d = await res.json();
-      return { payment_link_url: d.payment_link_url ?? null, invoice_bank_details: d.invoice_bank_details ?? null };
+      return { payment_link_url: d.payment_link_url ?? null, invoice_bank_details: d.invoice_bank_details ?? null, stripe_connect_enabled: !!d.stripe_connect_enabled };
     },
     enabled: !!session,
     staleTime: 300_000,
@@ -94,6 +95,24 @@ export default function PortalInvoices() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["portal-invoices"] });
+    },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices/${invoiceId}/stripe-checkout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error || "Failed to create payment session");
+      }
+      const data = await res.json();
+      return data.url as string;
+    },
+    onSuccess: (url) => {
+      window.location.href = url;
     },
   });
 
@@ -167,7 +186,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} stripeConnectEnabled={meta?.stripe_connect_enabled} onStripeCheckout={(id) => checkoutMutation.mutate(id)} stripeCheckoutLoading={checkoutMutation.isPending ? checkoutMutation.variables : null} onPreview={viewPdf} previewing={previewing} />
                   ))}
                 </div>
               </section>
@@ -208,6 +227,9 @@ function InvoiceRow({
   downloading,
   onDownload,
   paymentLinkUrl,
+  stripeConnectEnabled,
+  onStripeCheckout,
+  stripeCheckoutLoading,
   onQuoteAction,
   quoteActioning,
   onPreview,
@@ -217,6 +239,9 @@ function InvoiceRow({
   downloading: string | null;
   onDownload: (inv: PortalInvoice) => void;
   paymentLinkUrl?: string | null;
+  stripeConnectEnabled?: boolean;
+  onStripeCheckout?: (id: string) => void;
+  stripeCheckoutLoading?: string | null;
   onQuoteAction?: (id: string, action: "accept" | "decline") => void;
   quoteActioning?: string | null;
   onPreview: (inv: PortalInvoice) => void;
@@ -228,13 +253,14 @@ function InvoiceRow({
     : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
 
   const isPayable = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue");
-  // Collect non-PayPal payment links
-  const otherOptions: Array<{ label: string; url: string; className: string }> = [];
+  const isStripeLoading = stripeCheckoutLoading === inv.id;
+
+  // Collect payment options
+  const linkOptions: Array<{ label: string; url: string; className: string }> = [];
   if (isPayable) {
-    if (inv.stripe_payment_link_url) otherOptions.push({ label: "Pay by Card", url: inv.stripe_payment_link_url, className: "bg-violet-600 hover:bg-violet-700 text-white" });
-    if (inv.gocardless_payment_link_url) otherOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
-    if (otherOptions.length === 0 && paymentLinkUrl) {
-      otherOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
+    if (inv.gocardless_payment_link_url) linkOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
+    if (linkOptions.length === 0 && paymentLinkUrl) {
+      linkOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
     }
   }
   const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
@@ -254,7 +280,18 @@ function InvoiceRow({
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <p className="font-semibold text-slate-900">{formatCurrency(Number(inv.total), inv.currency)}</p>
-          {otherOptions.map((opt) => (
+          {isPayable && stripeConnectEnabled && onStripeCheckout && (
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-violet-600 hover:bg-violet-700 text-white"
+              disabled={isStripeLoading}
+              onClick={() => onStripeCheckout(inv.id)}
+            >
+              {isStripeLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5 mr-1" />}
+              Pay by Card
+            </Button>
+          )}
+          {linkOptions.map((opt) => (
             <Button
               key={opt.url}
               size="sm"

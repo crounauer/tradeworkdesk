@@ -6,6 +6,7 @@ import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPlatformSetting } from "../lib/geocode";
+import { requireStripe } from "../lib/stripe";
 
 const router: IRouter = Router();
 
@@ -484,7 +485,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .single(),
     supabaseAdmin
       .from("tenants")
-      .select("company_name")
+      .select("company_name, stripe_connect_account_id, stripe_connect_charges_enabled")
       .eq("id", req.tenantId!)
       .single(),
     supabaseAdmin
@@ -506,6 +507,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
   res.json({
     customer: customerRes.data,
     company_name: tenantRes.data?.company_name || null,
+    stripe_connect_enabled: !!(tenantRes.data as any)?.stripe_connect_account_id && !!(tenantRes.data as any)?.stripe_connect_charges_enabled,
     payment_link_url: (settingsRes.data as any)?.payment_link_url || null,
     invoice_bank_details: (settingsRes.data as any)?.invoice_bank_details || null,
     properties_count: propertiesRes.data?.length || 0,
@@ -638,6 +640,69 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
   } catch (e) {
     res.status(500).json({ error: "Failed to generate PDF" });
   }
+});
+
+// ─── PORTAL: On-demand Stripe Checkout ───────────────────────────────────
+router.post("/portal/invoices/:id/stripe-checkout", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: invoice, error } = await supabaseAdmin
+    .from("invoices")
+    .select("id, type, status, invoice_number, total, currency, customer_id, tenant_id")
+    .eq("id", id)
+    .eq("customer_id", req.customerId!)
+    .eq("tenant_id", req.tenantId!)
+    .in("type", ["invoice"])
+    .in("status", ["sent", "overdue"])
+    .single();
+
+  if (error || !invoice) { res.status(404).json({ error: "Invoice not found or not payable" }); return; }
+
+  const stripe = requireStripe(false);
+  if (!stripe) { res.status(503).json({ error: "Stripe not configured" }); return; }
+
+  const { data: tenantRow } = await supabaseAdmin
+    .from("tenants")
+    .select("stripe_connect_account_id, stripe_connect_charges_enabled")
+    .eq("id", req.tenantId!)
+    .single();
+
+  const connectAccountId = (tenantRow as any)?.stripe_connect_account_id as string | null;
+  const chargesEnabled = !!(tenantRow as any)?.stripe_connect_charges_enabled;
+  if (!connectAccountId || !chargesEnabled) { res.status(503).json({ error: "Stripe Connect not configured" }); return; }
+
+  const amountCents = Math.round(Number(invoice.total) * 100);
+  const currency = ((invoice.currency as string) || "gbp").toLowerCase();
+  const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency,
+          unit_amount: amountCents,
+          product_data: { name: `Invoice ${invoice.invoice_number as string}` },
+        },
+        quantity: 1,
+      }],
+      metadata: { invoice_id: id, tenant_id: req.tenantId! },
+      customer_email: req.customerEmail,
+      success_url: `${portalUrl}?payment_success=1`,
+      cancel_url: portalUrl,
+    },
+    { stripeAccount: connectAccountId },
+  );
+
+  // Persist fresh URL so next load picks it up
+  await supabaseAdmin
+    .from("invoices")
+    .update({ stripe_payment_link_url: session.url, stripe_checkout_session_id: session.id, updated_at: new Date().toISOString() } as Record<string, unknown>)
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!);
+
+  res.json({ url: session.url });
 });
 
 // ─── PORTAL: Accept / Decline a quote ─────────────────────────────────────
