@@ -6,7 +6,7 @@ import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPlatformSetting } from "../lib/geocode";
-import { requireStripe } from "../lib/stripe";
+import { getStripe } from "../lib/stripe";
 
 const router: IRouter = Router();
 
@@ -658,7 +658,7 @@ router.post("/portal/invoices/:id/stripe-checkout", requireCustomerAuth, async (
 
   if (error || !invoice) { res.status(404).json({ error: "Invoice not found or not payable" }); return; }
 
-  const stripe = requireStripe(false);
+  const stripe = await getStripe(false);
   if (!stripe) { res.status(503).json({ error: "Stripe not configured" }); return; }
 
   const { data: tenantRow } = await supabaseAdmin
@@ -675,34 +675,39 @@ router.post("/portal/invoices/:id/stripe-checkout", requireCustomerAuth, async (
   const currency = ((invoice.currency as string) || "gbp").toLowerCase();
   const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
 
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [{
-        price_data: {
-          currency,
-          unit_amount: amountCents,
-          product_data: { name: `Invoice ${invoice.invoice_number as string}` },
-        },
-        quantity: 1,
-      }],
-      metadata: { invoice_id: id, tenant_id: req.tenantId! },
-      customer_email: req.customerEmail,
-      success_url: `${portalUrl}?payment_success=1`,
-      cancel_url: portalUrl,
-    },
-    { stripeAccount: connectAccountId },
-  );
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: [{
+          price_data: {
+            currency,
+            unit_amount: amountCents,
+            product_data: { name: `Invoice ${invoice.invoice_number as string}` },
+          },
+          quantity: 1,
+        }],
+        metadata: { invoice_id: id, tenant_id: req.tenantId! },
+        customer_email: req.customerEmail,
+        success_url: `${portalUrl}?payment_success=1`,
+        cancel_url: portalUrl,
+      },
+      { stripeAccount: connectAccountId },
+    );
 
-  // Persist fresh URL so next load picks it up
-  await supabaseAdmin
-    .from("invoices")
-    .update({ stripe_payment_link_url: session.url, stripe_checkout_session_id: session.id, updated_at: new Date().toISOString() } as Record<string, unknown>)
-    .eq("id", id)
-    .eq("tenant_id", req.tenantId!);
+    // Persist fresh URL so next load picks it up
+    await supabaseAdmin
+      .from("invoices")
+      .update({ stripe_payment_link_url: session.url, stripe_checkout_session_id: session.id, updated_at: new Date().toISOString() } as Record<string, unknown>)
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId!);
 
-  res.json({ url: session.url });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("[portal] Stripe checkout creation failed:", (err as Error).message);
+    res.status(500).json({ error: "Failed to create payment session" });
+  }
 });
 
 // ─── PORTAL: Accept / Decline a quote ─────────────────────────────────────

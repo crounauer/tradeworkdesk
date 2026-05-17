@@ -114,6 +114,9 @@ export default function PortalInvoices() {
     onSuccess: (url) => {
       window.location.href = url;
     },
+    onError: (err) => {
+      alert(`Payment error: ${err.message}`);
+    },
   });
 
   async function downloadPdf(inv: PortalInvoice) {
