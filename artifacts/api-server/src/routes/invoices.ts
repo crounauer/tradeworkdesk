@@ -576,6 +576,12 @@ router.delete("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res
       .eq("id", req.params.id)
       .eq("tenant_id", req.tenantId!);
     if (error) { res.status(500).json({ error: error.message }); return; }
+    // Reset the source quote so it no longer shows as converted
+    await supabaseAdmin
+      .from("invoices")
+      .update({ converted_to_invoice_id: null, status: "accepted", updated_at: new Date().toISOString() })
+      .eq("converted_to_invoice_id", req.params.id)
+      .eq("tenant_id", req.tenantId!);
     res.json({ voided: true });
     return;
   }
@@ -584,7 +590,7 @@ router.delete("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res
   // First: clear any quote that references this invoice as its converted result
   await supabaseAdmin
     .from("invoices")
-    .update({ converted_to_invoice_id: null })
+    .update({ converted_to_invoice_id: null, status: "accepted", updated_at: new Date().toISOString() })
     .eq("converted_to_invoice_id", req.params.id)
     .eq("tenant_id", req.tenantId!);
 
