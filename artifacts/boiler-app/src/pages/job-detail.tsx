@@ -2577,6 +2577,9 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
 
   const sym = CURRENCY_SYMBOLS[summary.currency] || summary.currency + " ";
   const canExport = jobStatus === "completed" || jobStatus === "invoiced";
+  const invProvider = (companySettings?.invoicing_provider || "native") as "native" | "external" | "both";
+  const showNativeInvoice = invProvider === "native" || invProvider === "both";
+  const showExternalAccounting = invProvider === "external" || invProvider === "both";
 
   return (
     <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
@@ -2637,7 +2640,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       )}
 
-      {canExport && (!hasLinkedInvoice || sentExternalId) && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
+      {canExport && showExternalAccounting && (!hasLinkedInvoice || sentExternalId) && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
           {accountingStatus?.needs_reconnect && !sentExternalId ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -2709,7 +2712,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       )}
 
-      {canExport && hasFeature("invoicing") && companySettings?.invoices_enabled !== false && (
+      {canExport && showNativeInvoice && hasFeature("invoicing") && companySettings?.invoices_enabled !== false && (
         <div className="border rounded-lg p-4 mb-4 bg-violet-50/50">
           {hasLinkedInvoice ? (
             <div className="space-y-2">

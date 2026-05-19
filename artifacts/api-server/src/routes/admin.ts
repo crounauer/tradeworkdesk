@@ -385,6 +385,8 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "invoice_footer_text", "invoice_bank_details",
     // Payment method toggles
     "stripe_payments_enabled", "gocardless_payments_enabled",
+    // Invoicing provider preference
+    "invoicing_provider",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };
