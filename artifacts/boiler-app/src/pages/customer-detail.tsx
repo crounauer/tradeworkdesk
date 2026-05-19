@@ -708,10 +708,8 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
   const update = useUpdateCustomer();
   const { toast } = useToast();
   const { hasFeature } = usePlanFeatures();
-  const { register, handleSubmit, reset, setValue } = useForm<CustomerEditData>();
-
-  useEffect(() => {
-    reset({
+  const { register, handleSubmit, setValue } = useForm<CustomerEditData>({
+    defaultValues: {
       title: customer.title || "",
       first_name: customer.first_name,
       last_name: customer.last_name,
@@ -724,8 +722,8 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
       county: customer.county || "",
       postcode: customer.postcode || "",
       notes: customer.notes || "",
-    });
-  }, [customer, reset]);
+    },
+  });
 
   const onSubmit = async (data: CustomerEditData) => {
     try {
