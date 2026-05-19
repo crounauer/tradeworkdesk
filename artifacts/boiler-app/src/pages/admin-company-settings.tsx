@@ -948,7 +948,7 @@ export default function AdminCompanySettings() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                 {([
                   { value: "native", label: "TradeWorkDesk", description: "Create invoices & quotes directly in TWD" },
-                  { value: "external", label: "External (Zoho / Xero)", description: "Push jobs to your accounting software" },
+                  { value: "external", label: "Accounting Software", description: "Push jobs to Zoho, Xero, QuickBooks etc." },
                 ] as const).map(opt => {
                   const selected = (watch("invoicing_provider") || "native") === opt.value;
                   return (
