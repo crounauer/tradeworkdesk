@@ -299,6 +299,14 @@ export default function JobDetail() {
               {job.status.replace(/_/g, ' ')}
             </span>
           </div>
+          {(job as unknown as Record<string, unknown>).from_quote_id && (
+            <button
+              className="text-sm text-muted-foreground hover:text-primary mb-1 text-left"
+              onClick={() => navigate(`/invoices/${(job as unknown as Record<string, unknown>).from_quote_id as string}`)}
+            >
+              From Quote →
+            </button>
+          )}
           <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
         </div>
         <div className="flex gap-2 flex-wrap">

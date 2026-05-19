@@ -1337,6 +1337,185 @@ router.post("/invoices/:id/link-job", ...protect, async (req: AuthenticatedReque
   res.json(updated);
 });
 
+// ─── CREATE JOB FROM QUOTE ─────────────────────────────────────────────────
+// POST /invoices/:id/create-job
+// Creates a new job pre-populated from an accepted quote's line items.
+router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: quote, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !quote) { res.status(404).json({ error: lookupErr || "Quote not found" }); return; }
+
+  if (quote.type !== "quote") {
+    res.status(400).json({ error: "Only quotes can create a job" }); return;
+  }
+  if (quote.status !== "accepted") {
+    res.status(400).json({ error: "Only accepted quotes can create a job" }); return;
+  }
+  if (quote.job_id) {
+    res.status(400).json({ error: "This quote already has a linked job", job_id: quote.job_id }); return;
+  }
+
+  const {
+    property_id,
+    scheduled_date,
+    scheduled_time,
+    job_type_id,
+    assigned_technician_id,
+    description,
+  } = req.body as {
+    property_id?: string;
+    scheduled_date?: string;
+    scheduled_time?: string;
+    job_type_id?: number;
+    assigned_technician_id?: string;
+    description?: string;
+  };
+
+  if (!property_id) { res.status(400).json({ error: "property_id is required" }); return; }
+  if (!scheduled_date) { res.status(400).json({ error: "scheduled_date is required" }); return; }
+
+  // Verify property belongs to this tenant
+  const { data: propExists } = await supabaseAdmin
+    .from("properties")
+    .select("id")
+    .eq("id", property_id)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+  if (!propExists) { res.status(404).json({ error: "Property not found" }); return; }
+
+  // Load quote line items to import
+  const { data: lineItems } = await supabaseAdmin
+    .from("invoice_line_items")
+    .select("*")
+    .eq("invoice_id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .order("sort_order");
+
+  // Resolve job type enum from custom job type
+  let resolvedJobType: string = "service";
+  let verifiedJobTypeId: number | undefined;
+  if (job_type_id && req.tenantId) {
+    const { data: jt } = await supabaseAdmin
+      .from("job_types")
+      .select("*")
+      .eq("id", job_type_id)
+      .eq("tenant_id", req.tenantId)
+      .single();
+    if (jt?.is_active) {
+      verifiedJobTypeId = jt.id as number;
+      const slug = jt.slug as string;
+      const cat = jt.category as string;
+      if (["breakdown", "installation", "inspection", "follow_up"].includes(slug)) resolvedJobType = slug;
+      else if (cat === "breakdown") resolvedJobType = "breakdown";
+      else if (cat === "installation") resolvedJobType = "installation";
+      else if (cat === "inspection") resolvedJobType = "inspection";
+      else resolvedJobType = "service";
+    }
+  }
+
+  // Auto-assign for sole traders / single-user tenants
+  let finalTechnicianId = assigned_technician_id || null;
+  if (req.tenantId) {
+    const [countResult, tenantRow] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("tenant_id", req.tenantId).eq("is_active", true),
+      supabaseAdmin.from("tenants").select("company_type").eq("id", req.tenantId).single(),
+    ]);
+    if (tenantRow.data?.company_type === "sole_trader" || (countResult.count ?? 0) <= 1) {
+      finalTechnicianId = req.userId!;
+    }
+  }
+
+  // Generate job ref number
+  let jobRef: string | undefined;
+  if (req.tenantId) {
+    const { data: cs } = await supabaseAdmin
+      .from("company_settings")
+      .select("job_number_prefix, job_number_next")
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", "default")
+      .maybeSingle();
+    const prefix = ((cs?.job_number_prefix as string | null) ?? "").trim().toUpperCase();
+    const nextNum = (cs?.job_number_next as number | null) ?? 1;
+    jobRef = prefix ? `${prefix}${String(nextNum).padStart(4, "0")}` : `JOB-${String(nextNum).padStart(4, "0")}`;
+    await supabaseAdmin
+      .from("company_settings")
+      .update({ job_number_next: nextNum + 1 })
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", "default");
+  }
+
+  // Create the job
+  const jobInsert: Record<string, unknown> = {
+    customer_id: quote.customer_id,
+    property_id,
+    job_type: resolvedJobType,
+    status: "scheduled",
+    priority: "medium",
+    scheduled_date,
+    scheduled_time: scheduled_time || null,
+    description: description?.trim() || (quote.customer_notes as string | null) || (quote.notes as string | null) || null,
+    assigned_technician_id: finalTechnicianId,
+    tenant_id: req.tenantId,
+    from_quote_id: req.params.id,
+  };
+  if (verifiedJobTypeId) jobInsert.job_type_id = verifiedJobTypeId;
+  if (jobRef) jobInsert.job_ref = jobRef;
+
+  const { data: newJob, error: jobErr } = await supabaseAdmin
+    .from("jobs")
+    .insert(jobInsert)
+    .select()
+    .single();
+
+  if (jobErr || !newJob) { res.status(500).json({ error: jobErr?.message || "Failed to create job" }); return; }
+  const newJobId = (newJob as { id: string }).id;
+
+  // Import line items: products → job_parts, everything else → job_services
+  const items = (lineItems || []) as Array<Record<string, unknown>>;
+  const products = items.filter(l => l.item_type === "product");
+  const nonProducts = items.filter(l => l.item_type !== "product");
+
+  const insertPromises: Promise<unknown>[] = [];
+
+  if (products.length > 0) {
+    insertPromises.push(
+      supabaseAdmin.from("job_parts").insert(
+        products.map(l => ({
+          job_id: newJobId,
+          part_name: l.description as string,
+          quantity: Number(l.quantity) || 1,
+          unit_price: Number(l.unit_price) || null,
+          tenant_id: req.tenantId,
+        }))
+      )
+    );
+  }
+
+  if (nonProducts.length > 0) {
+    insertPromises.push(
+      supabaseAdmin.from("job_services").insert(
+        nonProducts.map(l => ({
+          job_id: newJobId,
+          service_name: l.description as string,
+          quantity: Number(l.quantity) || 1,
+          unit_price: Number(l.unit_price) || null,
+          tenant_id: req.tenantId,
+        }))
+      )
+    );
+  }
+
+  await Promise.all(insertPromises);
+
+  // Link quote to the new job
+  await supabaseAdmin
+    .from("invoices")
+    .update({ job_id: newJobId, updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!);
+
+  res.status(201).json({ job_id: newJobId, job_ref: jobRef });
+});
+
 // ─── CSV EXPORT ────────────────────────────────────────────────────────────
 // GET /invoices/export.csv
 // Optional query params: type, status, date_from, date_to, customer_id

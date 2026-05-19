@@ -1018,6 +1018,7 @@ export const GetJobResponse = zod
     external_invoice_id: zod.string().nullish(),
     external_invoice_provider: zod.string().nullish(),
     external_invoice_sent_at: zod.string().nullish(),
+    from_quote_id: zod.string().uuid().nullish(),
     created_at: zod.coerce.date(),
     updated_at: zod.coerce.date(),
   })

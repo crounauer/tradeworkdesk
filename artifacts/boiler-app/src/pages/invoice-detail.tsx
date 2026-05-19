@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings } from "@/hooks/use-company-settings";
 import { BookJobDialog } from "@/components/book-job-dialog";
+import { CreateJobFromQuoteDialog } from "@/components/create-job-from-quote-dialog";
 import {
   useGetInvoice,
   useUpdateInvoice,
@@ -264,6 +265,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
   const [showBookJob, setShowBookJob] = useState(false);
+  const [showCreateJob, setShowCreateJob] = useState(false);
 
   // Catalogue search state
   type CatalogueItem = { id: string; name: string; default_price: number | null; type: "service" | "product" };
@@ -645,8 +647,20 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               </Button>
             </>
           )}
+          {/* Accepted quote: primary action is Create Job (if no job yet), or View Job (if created) */}
+          {!isInvoice && invoice.status === "accepted" && !invoice.job_id && (
+            <Button onClick={() => setShowCreateJob(true)}>
+              <Briefcase className="w-4 h-4 mr-2" /> Create Job from Quote
+            </Button>
+          )}
+          {!isInvoice && invoice.status === "accepted" && invoice.job_id && (
+            <Button variant="outline" onClick={() => navigate(`/jobs/${invoice.job_id}`)}>
+              <Briefcase className="w-4 h-4 mr-2" /> View Job →
+            </Button>
+          )}
+          {/* Convert to Invoice is a secondary path (supply-only / no site visit needed) */}
           {!isInvoice && invoice.status === "accepted" && !invoice.converted_to_invoice_id && (
-            <Button onClick={handleConvert} disabled={convertMut.isPending}>
+            <Button variant="outline" onClick={handleConvert} disabled={convertMut.isPending}>
               <RefreshCcw className="w-4 h-4 mr-2" /> Convert to Invoice
             </Button>
           )}
@@ -664,7 +678,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               View Invoice →
             </Button>
           )}
-          {invoice.customer_id && (
+          {/* Book Job button only shown for invoices, not quotes (quotes use Create Job from Quote) */}
+          {isInvoice && invoice.customer_id && (
             <Button variant="outline" onClick={() => setShowBookJob(true)}>
               <Briefcase className="w-4 h-4 mr-2" /> Book Job
             </Button>
@@ -1035,7 +1050,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       {/* ── Email log ── */}
       <InvoiceEmailLogSection invoiceId={id} refreshKey={emailLogRefresh} />
 
-      {/* ── Book Job dialog ── */}
+      {/* ── Book Job dialog (invoices only) ── */}
       <BookJobDialog
         open={showBookJob}
         onOpenChange={setShowBookJob}
@@ -1043,6 +1058,26 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         initialPropertyId={invoice.job?.property_id ?? undefined}
         invoiceId={id}
       />
+
+      {/* ── Create Job from Quote dialog ── */}
+      {!isInvoice && invoice.customer_id && (
+        <CreateJobFromQuoteDialog
+          open={showCreateJob}
+          onOpenChange={setShowCreateJob}
+          quoteId={id}
+          quoteNumber={invoice.invoice_number}
+          customerId={invoice.customer_id}
+          customerName={
+            invoice.customer
+              ? `${invoice.customer.first_name} ${invoice.customer.last_name}`
+              : "Customer"
+          }
+          customerNotes={invoice.customer_notes}
+          notes={invoice.notes}
+          lineItems={lines}
+          initialPropertyId={invoice.job?.property_id ?? undefined}
+        />
+      )}
 
       {/* ── Dialogs ── */}
 
