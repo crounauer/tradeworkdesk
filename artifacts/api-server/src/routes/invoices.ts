@@ -648,6 +648,30 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
 
   // Send email
   const settings = await getCompanySettings(req.tenantId!);
+
+  // Check whether any payment provider is configured so the email can adapt its wording
+  let hasPaymentProvider = false;
+  if (invoice.type === "invoice") {
+    try {
+      const { data: tenantRow } = await supabaseAdmin
+        .from("tenants")
+        .select("stripe_connect_account_id, stripe_connect_charges_enabled, gocardless_access_token, gocardless_organisation_id, paypal_client_id, truelayer_enabled, truelayer_sort_code, truelayer_account_number")
+        .eq("id", req.tenantId!)
+        .single();
+      const t = tenantRow as any;
+      const stripeEnabled = (settings as any)?.stripe_payments_enabled !== false;
+      const gcEnabled = (settings as any)?.gocardless_payments_enabled !== false;
+      hasPaymentProvider =
+        (stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled)) ||
+        (gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id)) ||
+        !!(t?.paypal_client_id) ||
+        !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number) ||
+        !!(settings as any)?.payment_link_url;
+    } catch {
+      // Non-fatal — default to false
+    }
+  }
+
   try {
     await sendInvoiceDocumentEmail({
       to: toEmail,
@@ -663,6 +687,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       worksOrder: invoice.works_order as string | null,
       bankDetails: settings?.invoice_bank_details ?? null,
       pdfBuffer,
+      hasPaymentProvider,
       portalUrl: invoice.type === "invoice"
         ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
         : null,

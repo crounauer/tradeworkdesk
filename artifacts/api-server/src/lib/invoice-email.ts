@@ -42,6 +42,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   pdfBuffer: Buffer;
   company?: EmailCompanyDetails;
   portalUrl?: string | null;
+  hasPaymentProvider?: boolean;
 }): Promise<void> {
   if (!resend) {
     throw new Error("Email service is not configured (RESEND_API_KEY missing)");
@@ -138,7 +139,7 @@ export async function sendInvoiceDocumentEmail(opts: {
     <div class="body">
       <h2 style="margin-top:0;">${escHtml(label)} ${escHtml(invoiceNumber)}</h2>
       <p>Dear ${escHtml(customerName)},</p>
-      <p>Please find your ${isQuote ? "quotation" : "invoice"} attached. ${isQuote ? "We hope this quote meets your requirements." : "You can pay online or by bank transfer — whichever is easiest for you."}</p>
+      <p>Please find your ${isQuote ? "quotation" : "invoice"} attached. ${isQuote ? "We hope this quote meets your requirements." : opts.hasPaymentProvider ? "You can pay online or by bank transfer — whichever is easiest for you." : "Please review the attached invoice and use the bank transfer details below to make payment."}</p>
       <div class="info-box">
         <p style="margin:0 0 4px;"><strong>${label} number:</strong> ${escHtml(invoiceNumber)}</p>
         <p style="margin:0 0 4px;"><strong>Amount:</strong> ${escHtml(formattedTotal)}</p>
@@ -146,13 +147,18 @@ export async function sendInvoiceDocumentEmail(opts: {
       </div>
       ${worksOrderHtml}
       ${customerNotesHtml}
-      ${!isQuote && opts.portalUrl ? `
+      ${!isQuote && opts.portalUrl ? opts.hasPaymentProvider ? `
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin:20px 0;">
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#1e40af;">Pay Online (quickest)</p>
         <p style="margin:0 0 16px;font-size:13px;color:#334155;">Log in to your customer portal to pay by card or bank transfer.</p>
         <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">Pay Online Now</a>
+      </div>` : `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin:20px 0;">
+        <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#334155;">View Invoice Online</p>
+        <p style="margin:0 0 16px;font-size:13px;color:#64748b;">Log in to your customer portal to view your invoice and service history.</p>
+        <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">View Invoice</a>
       </div>` : ""}
-      ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>Or pay by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
+      ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>${opts.hasPaymentProvider ? "Or pay" : "Pay"} by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
       <p>If you have any questions, please don't hesitate to get in touch.</p>
       <hr class="divider"/>
       <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
