@@ -667,6 +667,13 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
         !!(t?.paypal_client_id) ||
         !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number) ||
         !!(settings as any)?.payment_link_url;
+      console.log("[invoices/send] hasPaymentProvider:", hasPaymentProvider, {
+        stripe: stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled),
+        gc: gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id),
+        paypal: !!(t?.paypal_client_id),
+        truelayer: !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number),
+        paymentLink: !!(settings as any)?.payment_link_url,
+      });
     } catch {
       // Non-fatal — default to false
     }
