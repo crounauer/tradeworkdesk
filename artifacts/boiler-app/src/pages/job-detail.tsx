@@ -2577,9 +2577,9 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
 
   const sym = CURRENCY_SYMBOLS[summary.currency] || summary.currency + " ";
   const canExport = jobStatus === "completed" || jobStatus === "invoiced";
-  const invProvider = (companySettings?.invoicing_provider || "native") as "native" | "external" | "both";
-  const showNativeInvoice = invProvider === "native" || invProvider === "both";
-  const showExternalAccounting = invProvider === "external" || invProvider === "both";
+  const invProvider = (companySettings?.invoicing_provider || "native") as "native" | "external";
+  const showNativeInvoice = invProvider === "native";
+  const showExternalAccounting = invProvider === "external";
 
   return (
     <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">

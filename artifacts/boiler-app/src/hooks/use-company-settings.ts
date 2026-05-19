@@ -44,7 +44,7 @@ export interface CompanySettings {
   payment_link_url?: string | null;
   stripe_payments_enabled?: boolean | null;
   gocardless_payments_enabled?: boolean | null;
-  invoicing_provider?: "native" | "external" | "both" | null;
+  invoicing_provider?: "native" | "external" | null;
   created_at?: string;
   updated_at?: string;
 }

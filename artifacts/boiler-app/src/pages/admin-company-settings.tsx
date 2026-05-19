@@ -282,7 +282,7 @@ export default function AdminCompanySettings() {
       invoice_footer_text: settings.invoice_footer_text ?? "",
       invoice_bank_details: settings.invoice_bank_details ?? "",
       payment_link_url: settings.payment_link_url ?? "",
-      invoicing_provider: (settings.invoicing_provider as "native" | "external" | "both") ?? "native",
+      invoicing_provider: (settings.invoicing_provider as "native" | "external") ?? "native",
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
@@ -945,11 +945,10 @@ export default function AdminCompanySettings() {
               <p className="text-xs text-muted-foreground">
                 Choose how you create invoices. Mixing systems is unusual — pick one to keep things simple.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                 {([
                   { value: "native", label: "TradeWorkDesk", description: "Create invoices & quotes directly in TWD" },
                   { value: "external", label: "External (Zoho / Xero)", description: "Push jobs to your accounting software" },
-                  { value: "both", label: "Both", description: "Use TWD and an external system together" },
                 ] as const).map(opt => {
                   const selected = (watch("invoicing_provider") || "native") === opt.value;
                   return (
