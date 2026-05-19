@@ -2463,6 +2463,9 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
   const { data: companySettings } = useCompanySettings();
   const [creatingInternalInvoice, setCreatingInternalInvoice] = useState(false);
   const [internalInvoiceResult, setInternalInvoiceResult] = useState<{ id: string; invoice_number: string } | null>(null);
+  const { data: linkedInvoicesData } = useListInvoices({ job_id: jobId });
+  const linkedInvoices = linkedInvoicesData?.invoices ?? [];
+  const hasLinkedInvoice = linkedInvoices.length > 0;
 
   useEffect(() => {
     (async () => {
@@ -2626,7 +2629,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       )}
 
-      {canExport && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
+      {canExport && (!hasLinkedInvoice || sentExternalId) && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
           {accountingStatus?.needs_reconnect && !sentExternalId ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -2700,7 +2703,27 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
 
       {canExport && hasFeature("invoicing") && companySettings?.invoices_enabled !== false && (
         <div className="border rounded-lg p-4 mb-4 bg-violet-50/50">
-          {internalInvoiceResult ? (
+          {hasLinkedInvoice ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-violet-800">Linked Invoice{linkedInvoices.length > 1 ? "s" : ""}</p>
+              {linkedInvoices.map((inv) => (
+                <div key={inv.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-mono font-medium">{inv.invoice_number}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{inv.status}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/invoices/${inv.id}`)}
+                    className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Edit Invoice
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : internalInvoiceResult ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sm text-green-700">
