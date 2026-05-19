@@ -49,6 +49,7 @@ const PLATFORMS = [
   { value: "x", label: "X (Twitter)", color: "bg-black text-white" },
   { value: "facebook", label: "Facebook", color: "bg-blue-600 text-white" },
   { value: "instagram", label: "Instagram", color: "bg-gradient-to-r from-purple-500 to-pink-500 text-white" },
+  { value: "google_business", label: "Google Business", color: "bg-red-500 text-white" },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof CheckCircle }> = {
@@ -366,6 +367,11 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
     ],
     facebook: [{ key: "accessToken", label: "Page Access Token" }],
     instagram: [{ key: "accessToken", label: "Page Access Token" }],
+    google_business: [
+      { key: "clientId", label: "OAuth Client ID" },
+      { key: "clientSecret", label: "OAuth Client Secret" },
+      { key: "refreshToken", label: "OAuth Refresh Token" },
+    ],
   };
 
   return (
@@ -404,18 +410,22 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
             />
           </div>
 
-          {(platform === "facebook" || platform === "instagram") && (
+          {(platform === "facebook" || platform === "instagram" || platform === "google_business") && (
             <>
               <div>
-                <Label>Page ID</Label>
+                <Label>
+                  {platform === "google_business" ? "Account Name (e.g. accounts/123456)" : "Page ID"}
+                </Label>
                 <Input
                   value={pageId}
                   onChange={(e) => setPageId(e.target.value)}
-                  placeholder="Facebook Page ID"
+                  placeholder={platform === "google_business" ? "accounts/123456" : "Facebook Page ID"}
                 />
               </div>
               <div>
-                <Label>Page Name</Label>
+                <Label>
+                  {platform === "google_business" ? "Business Name" : "Page Name"}
+                </Label>
                 <Input
                   value={pageName}
                   onChange={(e) => setPageName(e.target.value)}
@@ -425,13 +435,15 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
             </>
           )}
 
-          {platform === "instagram" && (
+          {(platform === "instagram" || platform === "google_business") && (
             <div>
-              <Label>Instagram Business ID</Label>
+              <Label>
+                {platform === "google_business" ? "Location ID (e.g. locations/789012)" : "Instagram Business ID"}
+              </Label>
               <Input
                 value={instagramBusinessId}
                 onChange={(e) => setInstagramBusinessId(e.target.value)}
-                placeholder="Instagram Business Account ID"
+                placeholder={platform === "google_business" ? "locations/789012" : "Instagram Business Account ID"}
               />
             </div>
           )}

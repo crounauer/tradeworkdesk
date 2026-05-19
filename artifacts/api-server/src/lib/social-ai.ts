@@ -91,3 +91,83 @@ export async function generateSocialImage(prompt: string): Promise<string> {
 
   return urlData.publicUrl;
 }
+
+// ─── Daily suggestions ─────────────────────────────────────────────────────────
+
+const DAILY_TOPICS = [
+  "Annual boiler service — why it matters for safety and efficiency",
+  "Signs your boiler needs attention before it breaks down",
+  "How to bleed radiators and keep your heating system running well",
+  "Carbon monoxide safety: what every homeowner should know",
+  "Energy saving tips to reduce your heating bills this season",
+  "When to replace vs repair your boiler — expert advice",
+  "Central heating power flushing — what it is and when you need it",
+  "Smart thermostats and how they work with your boiler",
+  "Common boiler error codes explained",
+  "Why your radiators might have cold spots — and how to fix them",
+  "Preparing your heating system before winter",
+  "What's included in a Gas Safe boiler service",
+  "Landlord gas safety certificates — your legal obligations",
+  "How often should you service your boiler?",
+  "Condensing boilers explained — are they worth it?",
+];
+
+function getSeasonalContext(): string {
+  const m = new Date().getMonth();
+  if (m >= 2 && m <= 4) return "spring";
+  if (m >= 5 && m <= 7) return "summer";
+  if (m >= 8 && m <= 10) return "autumn";
+  return "winter";
+}
+
+export async function generateDailySuggestions(
+  companyName: string,
+  platforms: string[],
+): Promise<PostSuggestion[]> {
+  const season = getSeasonalContext();
+  const monthName = new Date().toLocaleString("en-GB", { month: "long" });
+
+  // Rotate topic daily based on day of year so it cycles without repetition
+  const startOfYear = new Date(new Date().getFullYear(), 0, 0).getTime();
+  const dayOfYear = Math.floor((Date.now() - startOfYear) / 86_400_000);
+  const topic = DAILY_TOPICS[dayOfYear % DAILY_TOPICS.length];
+
+  const gbNote = platforms.includes("google_business")
+    ? "Google Business posts must be under 300 characters, no hashtags, written as a helpful local business update."
+    : "";
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_completion_tokens: 2048,
+    messages: [
+      {
+        role: "system",
+        content: `You are a social media expert for a UK heating and boiler service company called "${companyName}".
+Write authentic, helpful posts in a friendly professional tone. Use British English.
+Include 2-3 relevant emojis and 2-3 UK hashtags per post (except Google Business — no hashtags there).
+X/Twitter: max 280 chars. Facebook: max 400 chars. Instagram: max 500 chars. ${gbNote}
+Return ONLY a valid JSON array with objects: { "platform": string, "content": string }. No markdown.`,
+      },
+      {
+        role: "user",
+        content: `Today's topic: "${topic}". Season: ${season}, Month: ${monthName}.
+Generate one post per platform for: ${platforms.join(", ")}`,
+      },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content ?? "[]";
+  try {
+    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleaned) as Array<{ platform: string; content: string }>;
+    return parsed.map((p) => ({
+      entityType: "article",
+      entityId: "daily-suggestion",
+      platform: p.platform,
+      content: p.content,
+    }));
+  } catch {
+    console.error("[social-ai] Failed to parse daily suggestions:", text);
+    return [];
+  }
+}

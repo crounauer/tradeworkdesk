@@ -2,6 +2,7 @@ import 'dotenv/config'
 import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";
+import { startDailySuggestionsCron } from "./lib/social-daily-cron";
 import { seedAllTenantsJobTypes } from "./lib/job-types-seed";
 import { runStartupMigrations } from "./lib/migrations";
 
@@ -24,6 +25,7 @@ app.listen(port, () => {
       console.error("[indexnow] Startup submission failed:", err)
     );
     startSocialScheduler();
+    startDailySuggestionsCron();
     seedAllTenantsJobTypes().catch((err) =>
       console.error("[job-types] Startup seeding failed:", err)
     );

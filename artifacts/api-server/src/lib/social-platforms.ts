@@ -217,6 +217,78 @@ async function postToInstagram(
   };
 }
 
+async function postToGoogleBusiness(
+  post: SocialPost,
+  credentials: Record<string, string>,
+  account: SocialAccount,
+): Promise<PostResult> {
+  const { clientId, clientSecret, refreshToken } = credentials;
+  // page_id             → Google Account resource name  e.g. "accounts/123456"
+  // instagram_business_id → Location resource ID        e.g. "locations/789012"
+  const accountName = account.page_id;
+  const locationId = account.instagram_business_id;
+
+  if (!clientId || !clientSecret || !refreshToken || !accountName || !locationId) {
+    throw new Error("Missing Google Business credentials, account name, or location ID");
+  }
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }).toString(),
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text();
+    throw new Error(`Failed to refresh Google token: ${tokenRes.status} ${errText}`);
+  }
+
+  const { access_token: accessToken } = await tokenRes.json() as { access_token: string };
+  const name = `${accountName}/locations/${locationId}`;
+
+  const postBody: Record<string, unknown> = {
+    languageCode: "en-GB",
+    summary: post.content,
+  };
+
+  if (post.link_url) {
+    postBody.callToAction = { actionType: "LEARN_MORE", url: post.link_url };
+  }
+
+  if (post.image_url) {
+    validateImageUrl(post.image_url);
+    postBody.media = [{ mediaFormat: "PHOTO", sourceUrl: post.image_url }];
+  }
+
+  const apiRes = await fetch(
+    `https://mybusiness.googleapis.com/v4/${name}/localPosts`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(postBody),
+    },
+  );
+
+  if (!apiRes.ok) {
+    const errBody = await apiRes.text();
+    throw new Error(`Google Business API error: ${apiRes.status} ${errBody}`);
+  }
+
+  const postData = await apiRes.json() as { name: string; searchUrl?: string };
+  return {
+    postId: postData.name,
+    postUrl: postData.searchUrl,
+  };
+}
+
 export async function dispatchPost(
   post: SocialPost,
   account: SocialAccount,
@@ -230,6 +302,8 @@ export async function dispatchPost(
       return postToFacebook(post, credentials, account);
     case "instagram":
       return postToInstagram(post, credentials, account);
+    case "google_business":
+      return postToGoogleBusiness(post, credentials, account);
     case "linkedin":
     case "pinterest":
     case "tiktok":

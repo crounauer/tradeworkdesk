@@ -5,7 +5,7 @@ import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
 import { generatePostSuggestions, generateSocialImage, type SuggestionItem } from "../lib/social-ai";
 
-const SUPPORTED_PLATFORMS = ["x", "facebook", "instagram"] as const;
+const SUPPORTED_PLATFORMS = ["x", "facebook", "instagram", "google_business"] as const;
 type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];
 
 function isSupportedPlatform(p: string): p is SupportedPlatform {
