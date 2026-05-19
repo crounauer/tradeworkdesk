@@ -1274,6 +1274,37 @@ router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedReques
   res.status(201).json(newInvoice);
 });
 
+// ─── LINK JOB ──────────────────────────────────────────────────────────────
+// POST /invoices/:id/link-job   { job_id: string }
+// Links an existing invoice/quote to a job (sets job_id on the invoice).
+router.post("/invoices/:id/link-job", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: existing, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !existing) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
+
+  const { job_id } = req.body as { job_id?: string };
+  if (!job_id) { res.status(400).json({ error: "job_id is required" }); return; }
+
+  // Verify the job belongs to this tenant
+  const { data: job, error: jobErr } = await supabaseAdmin
+    .from("jobs")
+    .select("id")
+    .eq("id", job_id)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const { data: updated, error: updateErr } = await supabaseAdmin
+    .from("invoices")
+    .update({ job_id, updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .select()
+    .single();
+
+  if (updateErr) { res.status(500).json({ error: updateErr.message }); return; }
+  res.json(updated);
+});
+
 // ─── CSV EXPORT ────────────────────────────────────────────────────────────
 // GET /invoices/export.csv
 // Optional query params: type, status, date_from, date_to, customer_id

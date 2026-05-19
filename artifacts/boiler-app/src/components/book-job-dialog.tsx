@@ -88,9 +88,10 @@ interface BookJobDialogProps {
   initialDate?: string;
   initialCustomerId?: string;
   initialPropertyId?: string;
+  invoiceId?: string;
 }
 
-export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId, initialPropertyId }: BookJobDialogProps) {
+export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId, initialPropertyId, invoiceId }: BookJobDialogProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -375,6 +376,22 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
       toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
 
       const createdJobId = (jobRes as { id: string }).id;
+
+      // Link the source invoice/quote to the new job if one was provided
+      if (invoiceId) {
+        try {
+          await fetch(`${import.meta.env.BASE_URL}api/invoices/${invoiceId}/link-job`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ job_id: createdJobId }),
+            credentials: "include",
+          });
+          qc.invalidateQueries({ queryKey: ["/api/invoices"] });
+        } catch {
+          // Non-fatal — job was created successfully, link is best-effort
+        }
+      }
+
       if (customerEmail) {
         setConfirmationState({ jobId: createdJobId, customerEmail, customerName });
       } else {

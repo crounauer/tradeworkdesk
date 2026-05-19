@@ -1041,6 +1041,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         onOpenChange={setShowBookJob}
         initialCustomerId={invoice.customer_id}
         initialPropertyId={invoice.job?.property_id ?? undefined}
+        invoiceId={id}
       />
 
       {/* ── Dialogs ── */}
