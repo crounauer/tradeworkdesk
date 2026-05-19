@@ -2595,7 +2595,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       </div>
 
-      {summary.invoice_number && (
+      {summary.invoice_number && !hasLinkedInvoice && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground mb-3">
           <span><span className="font-medium text-foreground">Invoice #:</span> {summary.invoice_number}</span>
           {summary.due_date && (
