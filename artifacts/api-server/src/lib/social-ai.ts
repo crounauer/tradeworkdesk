@@ -15,6 +15,7 @@ export interface PostSuggestion {
   entityId: string;
   platform: string;
   content: string;
+  imageUrl?: string;
 }
 
 export async function generatePostSuggestions(

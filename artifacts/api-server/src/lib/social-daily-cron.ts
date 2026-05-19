@@ -50,6 +50,22 @@ async function runDailySuggestions(): Promise<void> {
       const suggestions = await generateDailySuggestions(companyName, platforms);
       if (suggestions.length === 0) continue;
 
+      // Attach a recent gallery photo to each post
+      const { data: photoRows } = await supabaseAdmin
+        .from("file_attachments")
+        .select("storage_path")
+        .eq("tenant_id", tenantId)
+        .like("file_type", "image/%")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const photoUrls = (photoRows ?? []).flatMap((p) => {
+        const { data } = supabaseAdmin.storage
+          .from("service-photos")
+          .getPublicUrl((p as { storage_path: string }).storage_path);
+        return data.publicUrl ? [data.publicUrl] : [];
+      });
+
       await supabaseAdmin.from("social_posts").insert(
         suggestions.map((s) => ({
           tenant_id: tenantId,
@@ -58,6 +74,9 @@ async function runDailySuggestions(): Promise<void> {
           status: "draft",
           entity_type: "article",
           entity_id: "daily-suggestion",
+          image_url: photoUrls.length > 0
+            ? photoUrls[Math.floor(Math.random() * photoUrls.length)]
+            : null,
         })),
       );
 

@@ -419,7 +419,30 @@ router.get(
 
       const platforms = (req.query.platforms as string)?.split(",") || ["x", "facebook", "instagram"];
       const suggestions = await generatePostSuggestions(items, platforms);
-      res.json(suggestions);
+
+      // Attach a recent gallery photo to each suggestion
+      const { data: photoRows } = await supabaseAdmin
+        .from("file_attachments")
+        .select("storage_path")
+        .eq("tenant_id", tenantId)
+        .like("file_type", "image/%")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const photoUrls = (photoRows ?? []).flatMap((p) => {
+        const { data } = supabaseAdmin.storage
+          .from("service-photos")
+          .getPublicUrl((p as { storage_path: string }).storage_path);
+        return data.publicUrl ? [data.publicUrl] : [];
+      });
+
+      res.json(
+        suggestions.map((s) =>
+          photoUrls.length > 0
+            ? { ...s, imageUrl: photoUrls[Math.floor(Math.random() * photoUrls.length)] }
+            : s,
+        ),
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[social] Suggestions error:", message);
