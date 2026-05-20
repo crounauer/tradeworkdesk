@@ -106,27 +106,26 @@ function findPgDump(): string {
   throw new Error(`pg_dump not found. PATH=${path}`);
 }
 
-/** Convert direct Supabase host (IPv6-only) to IPv4-accessible session pooler URL */
+/** Convert direct Supabase host (IPv6-only) to IPv4-accessible session pooler URL.
+ *  Uses string manipulation because WHATWG URL setters (username, password) are
+ *  no-ops for non-special schemes like postgresql:// in Node.js.
+ */
 function toSessionPoolerUrl(dbUrl: string): string {
   try {
-    const u = new URL(dbUrl);
-    const m = u.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+    // Match: postgresql://user:pass@db.{REF}.supabase.co[:port][/db]
+    const m = dbUrl.match(/^(postgresql:\/\/)([^:@]+):([^@]*)@db\.([a-z0-9]+)\.supabase\.co(:\d+)?(\/[^?]*)?(\?.*)?$/);
     if (!m) return dbUrl;
-    const ref = m[1];
-    // Extract region from DATABASE_URL env if available, else default to eu-central-1
-    let region = "eu-central-1";
-    try {
-      const envDb = process.env.DATABASE_URL ?? "";
-      const rm = envDb.match(/aws-0-([^.]+)\.pooler\.supabase\.com/);
-      if (rm) region = rm[1];
-    } catch {}
-    u.hostname = `aws-0-${region}.pooler.supabase.com`;
-    u.port = "5432";
+    const [, scheme, user, pass, ref, , path, query] = m;
     // Session pooler requires username format: postgres.{projectRef}
-    const user = decodeURIComponent(u.username);
-    if (!user.includes(".")) u.username = encodeURIComponent(`${user}.${ref}`);
-    console.log(`[backup] transformed URL to session pooler (region=${region})`);
-    return u.toString();
+    const newUser = user.includes(".") ? user : `${user}.${ref}`;
+    // Derive region from DATABASE_URL env if available, else default to eu-central-1
+    let region = "eu-central-1";
+    const envDb = process.env.DATABASE_URL ?? "";
+    const rm = envDb.match(/aws-0-([^.]+)\.pooler\.supabase\.com/);
+    if (rm) region = rm[1];
+    const newUrl = `${scheme}${newUser}:${pass}@aws-0-${region}.pooler.supabase.com:5432${path ?? "/postgres"}${query ?? ""}`;
+    console.log(`[backup] using session pooler (user=${newUser}, region=${region})`);
+    return newUrl;
   } catch { return dbUrl; }
 }
 
