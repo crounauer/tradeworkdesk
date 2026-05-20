@@ -112,23 +112,59 @@ function findPgDump(): string {
  */
 function toSessionPoolerUrl(dbUrl: string): string {
   try {
-    // Match: postgresql://user:pass@db.{REF}.supabase.co[:port][/db]
-    const m = dbUrl.match(/^(postgresql:\/\/)([^:@]+):([^@]*)@db\.([a-z0-9]+)\.supabase\.co(:\d+)?(\/[^?]*)?(\?.*)?$/);
-    if (!m) return dbUrl;
-    const [, scheme, user, pass, ref, , path, query] = m;
-    // Session pooler requires username format: postgres.{projectRef}
-    const newUser = user.includes(".") ? user : `${user}.${ref}`;
-    // Derive region from DATABASE_URL env if available, else default to eu-central-1
-    let region = "eu-central-1";
-    const envDb = process.env.DATABASE_URL ?? "";
-    const rm = envDb.match(/aws-0-([^.]+)\.pooler\.supabase\.com/);
-    if (rm) region = rm[1];
-    // Append sslmode=require (Supabase pooler requires SSL; query already checked above)
-    const sep = (query ?? "") ? "&" : "?";
-    const sslQuery = (query ?? "").includes("sslmode") ? (query ?? "") : `${query ?? ""}${sep}sslmode=require`;
-    const newUrl = `${scheme}${newUser}:${pass}@aws-0-${region}.pooler.supabase.com:5432${path ?? "/postgres"}${sslQuery}`;
-    console.log(`[backup] using session pooler (user=${newUser}, region=${region})`);
-    return newUrl;
+    function addSsl(query: string | undefined): string {
+      if ((query ?? "").includes("sslmode")) return query ?? "";
+      const sep = query ? "&" : "?";
+      return `${query ?? ""}${sep}sslmode=require`;
+    }
+
+    // Derive region from SUPABASE_URL or DATABASE_URL env vars
+    function guessRegion(): string {
+      const envDb = process.env.DATABASE_URL ?? "";
+      const rm = envDb.match(/aws-0-([^.]+)\.pooler\.supabase\.com/);
+      if (rm) return rm[1];
+      return "eu-central-1";
+    }
+
+    // Get project ref from SUPABASE_URL env (https://{ref}.supabase.co)
+    function guessProjectRef(): string | null {
+      const supabaseUrl = process.env.SUPABASE_URL ?? "";
+      const m = supabaseUrl.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/);
+      return m ? m[1] : null;
+    }
+
+    // Case 1: Direct host URL — postgresql://user:pass@db.{REF}.supabase.co[:port][/db][?...]
+    const directMatch = dbUrl.match(/^(postgresql:\/\/)([^:@]+):([^@]*)@db\.([a-z0-9]+)\.supabase\.co(:\d+)?(\/[^?]*)?(\?.*)?$/);
+    if (directMatch) {
+      const [, scheme, user, pass, ref, , path, query] = directMatch;
+      const newUser = user.includes(".") ? user : `${user}.${ref}`;
+      const region = guessRegion();
+      const newUrl = `${scheme}${newUser}:${pass}@aws-0-${region}.pooler.supabase.com:5432${path ?? "/postgres"}${addSsl(query)}`;
+      console.log(`[backup] session pooler from direct URL (user=${newUser}, region=${region})`);
+      return newUrl;
+    }
+
+    // Case 2: Already a pooler URL — ensure username includes project ref and sslmode
+    const poolerMatch = dbUrl.match(/^(postgresql:\/\/)([^:@]+):([^@]*)@(aws-0-[^.:]+\.pooler\.supabase\.com)(:\d+)?(\/[^?]*)?(\?.*)?$/);
+    if (poolerMatch) {
+      const [, scheme, user, pass, poolerHost, , path, query] = poolerMatch;
+      let newUser = user;
+      if (!user.includes(".")) {
+        // Username missing project ref — derive it from SUPABASE_URL
+        const ref = guessProjectRef();
+        if (ref) {
+          newUser = `${user}.${ref}`;
+          console.log(`[backup] fixed pooler username (user=${newUser})`);
+        } else {
+          console.warn("[backup] pooler URL has no project ref and SUPABASE_URL not set");
+        }
+      }
+      const newUrl = `${scheme}${newUser}:${pass}@${poolerHost}:5432${path ?? "/postgres"}${addSsl(query)}`;
+      return newUrl;
+    }
+
+    console.warn("[backup] could not parse DB URL for pooler conversion — using as-is");
+    return dbUrl;
   } catch { return dbUrl; }
 }
 
@@ -137,6 +173,9 @@ function runPgDump(dbUrl: string, outputPath: string): Promise<void> {
     let pgDump: string;
     try { pgDump = findPgDump(); } catch (e) { return reject(e); }
     const poolerUrl = toSessionPoolerUrl(dbUrl);
+    // Log masked URL so we can diagnose auth issues without leaking the password
+    const maskedUrl = poolerUrl.replace(/:([^@]{3})[^@]*@/, ':$1***@');
+    console.log(`[backup] pg_dump URL: ${maskedUrl}`);
     const proc = spawn(pgDump, [
       "--dbname", poolerUrl,
       "--format", "custom",
