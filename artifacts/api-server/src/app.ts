@@ -70,7 +70,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", v: 2 });
 });
 
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
