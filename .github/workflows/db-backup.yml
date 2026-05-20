@@ -83,4 +83,5 @@ jobs:
           fi
 
       - name: Report success
-        run: echo "✓ Backup complete: ${{ env.FILENAME }}"
+        run: |
+          echo "Backup complete: ${{ env.FILENAME }}"
