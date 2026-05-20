@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "artifacts/api-server/Dockerfile"
 # updated 2026-05-20
 
 [deploy]
