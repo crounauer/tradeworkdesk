@@ -1,6 +1,6 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "artifacts/api-server/Dockerfile"
+builder = "nixpacks"
+buildCommand = "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server build"
 # updated 2026-05-20
 
 [deploy]
