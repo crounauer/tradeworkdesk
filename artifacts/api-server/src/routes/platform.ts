@@ -1399,43 +1399,25 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
   }
 });
 
-router.post("/platform/backup-trigger", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
-  const GITHUB_KEYS = ["backup_github_repo", "backup_github_pat"] as const;
-  const { data, error: fetchErr } = await supabaseAdmin
-    .from("platform_settings")
-    .select("key, value")
-    .in("key", [...GITHUB_KEYS]);
-  if (fetchErr) { res.status(500).json({ error: fetchErr.message }); return; }
-
-  const cfg: Record<string, string | null> = {};
-  for (const k of GITHUB_KEYS) cfg[k] = data?.find(r => r.key === k)?.value ?? null;
-
-  if (!cfg.backup_github_repo || !cfg.backup_github_pat) {
-    res.status(422).json({ error: "GitHub repository and personal access token must be configured in platform settings" });
+router.post("/platform/backup-trigger", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const secret = process.env.INTERNAL_CRON_SECRET;
+  if (!secret) {
+    res.status(500).json({ ok: false, error: "INTERNAL_CRON_SECRET not configured on this server" });
     return;
   }
-
   try {
-    const ghRes = await fetch(
-      `https://api.github.com/repos/${cfg.backup_github_repo}/actions/workflows/db-backup.yml/dispatches`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${cfg.backup_github_pat}`,
-          "Accept": "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ref: "master" }),
-        signal: AbortSignal.timeout(10000),
-      }
-    );
-    if (ghRes.status === 204) {
-      res.json({ ok: true });
-    } else {
-      const body = await ghRes.json().catch(() => ({}));
-      res.status(400).json({ ok: false, error: (body as { message?: string }).message ?? `GitHub API returned ${ghRes.status}` });
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const backupRes = await fetch(`${origin}/api/internal/run-backup`, {
+      method: "POST",
+      headers: { "x-cron-secret": secret, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(300000),
+    });
+    const body = await backupRes.json();
+    if (!backupRes.ok) {
+      res.status(backupRes.status).json({ ok: false, error: (body as { error?: string }).error ?? `HTTP ${backupRes.status}` });
+      return;
     }
+    res.json({ ok: true, ...(body as object) });
   } catch (e) {
     res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
   }

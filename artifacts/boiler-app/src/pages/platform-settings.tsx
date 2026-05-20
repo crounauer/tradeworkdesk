@@ -432,7 +432,11 @@ function BackupTriggerButton() {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
       }
-      toast({ title: "Backup triggered", description: "The backup workflow has been queued on GitHub Actions." });
+      const result = await res.json() as { ok: boolean; filename?: string; sizeBytes?: number };
+      const desc = result.filename
+        ? `${result.filename} (${result.sizeBytes ? (result.sizeBytes / 1024).toFixed(1) + " KB" : "done"})`
+        : "Backup complete.";
+      toast({ title: "Backup complete", description: desc });
     } catch (e) {
       toast({ title: "Failed to trigger backup", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     } finally {
