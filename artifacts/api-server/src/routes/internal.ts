@@ -481,7 +481,24 @@ router.post("/internal/run-backup", async (req: Request, res: Response): Promise
   for (const key of BACKUP_SETTING_KEYS) {
     config[key] = data?.find(r => r.key === key)?.value ?? null;
   }
-  const missing = BACKUP_SETTING_KEYS.filter(k => !config[k]);
+
+  // Allow SUPABASE_DB_PASSWORD env var to override the password in the stored URL.
+  // This is useful when the password in platform_settings is stale/wrong.
+  // Construct: postgresql://postgres.{ref}:{password}@aws-0-{region}.pooler.supabase.com:5432/postgres?sslmode=require
+  const envDbPassword = process.env.SUPABASE_DB_PASSWORD;
+  if (envDbPassword) {
+    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const refMatch = supabaseUrl.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/);
+    if (refMatch) {
+      const ref = refMatch[1];
+      const region = "eu-central-1"; // default; override with SUPABASE_DB_REGION if needed
+      config.backup_supabase_db_url = `postgresql://postgres.${ref}:${envDbPassword}@aws-0-${region}.pooler.supabase.com:5432/postgres?sslmode=require`;
+      console.log(`[backup] using SUPABASE_DB_PASSWORD env var (ref=${ref}, region=${region})`);
+    }
+  }
+
+  const r2Keys = ["backup_r2_account_id", "backup_r2_access_key_id", "backup_r2_secret_access_key", "backup_r2_bucket_name"] as const;
+  const missing = [...(config.backup_supabase_db_url ? [] : ["backup_supabase_db_url"]), ...r2Keys.filter(k => !config[k])];
   if (missing.length > 0) {
     res.status(422).json({ error: "Missing backup credentials", missing });
     return;
