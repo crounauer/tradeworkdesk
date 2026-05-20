@@ -1287,15 +1287,22 @@ router.post("/platform/backup-test", requireAuth, requireSuperAdmin, async (_req
     r2: { ok: false, error: "" },
   };
 
-  // Test database connection
-  const pool = new Pool({
-    connectionString: cfg.backup_supabase_db_url!,
-    ssl: { rejectUnauthorized: false },
-    max: 1,
-    connectionTimeoutMillis: 8000,
-    idleTimeoutMillis: 1000,
-  });
+  // Test database connection — parse URL explicitly to avoid node-postgres
+  // mishandling usernames that contain a dot (e.g. postgres.PROJECT_REF)
+  let pool: InstanceType<typeof Pool> | null = null;
   try {
+    const dbUrl = new URL(cfg.backup_supabase_db_url!);
+    pool = new Pool({
+      host: dbUrl.hostname,
+      port: parseInt(dbUrl.port) || 5432,
+      database: dbUrl.pathname.replace(/^\//, ""),
+      user: decodeURIComponent(dbUrl.username),
+      password: decodeURIComponent(dbUrl.password),
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+      connectionTimeoutMillis: 8000,
+      idleTimeoutMillis: 1000,
+    });
     const client = await pool.connect();
     await client.query("SELECT 1");
     client.release();
@@ -1303,7 +1310,7 @@ router.post("/platform/backup-test", requireAuth, requireSuperAdmin, async (_req
   } catch (e) {
     result.db.error = e instanceof Error ? e.message : String(e);
   } finally {
-    await pool.end().catch(() => {});
+    await pool?.end().catch(() => {});
   }
 
   // Test R2 via ListObjectsV2 (max-keys=1)
