@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { stripe } from "../lib/stripe";
 import { spawn } from "child_process";
+import { execSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
 import { unlink, readFile } from "fs/promises";
@@ -79,9 +80,37 @@ function signR2Delete(opts: { host: string; path: string; accessKeyId: string; s
 }
 
 // ── Backup helpers ──────────────────────────────────────────────────────────
+function findPgDump(): string {
+  // 1. Try shell's PATH (handles nix profile, custom installs, etc.)
+  try {
+    const p = execSync("which pg_dump 2>/dev/null", { encoding: "utf8", timeout: 5000 }).trim();
+    if (p) { console.log("[backup] found pg_dump via which:", p); return p; }
+  } catch {}
+  // 2. Well-known apt/homebrew locations
+  const candidates = [
+    "/usr/bin/pg_dump",
+    "/usr/local/bin/pg_dump",
+    "/usr/lib/postgresql/17/bin/pg_dump",
+    "/usr/lib/postgresql/16/bin/pg_dump",
+    "/usr/lib/postgresql/15/bin/pg_dump",
+  ];
+  for (const c of candidates) {
+    try { execSync(`test -x "${c}"`, { timeout: 2000 }); console.log("[backup] found pg_dump at:", c); return c; } catch {}
+  }
+  // 3. Nix store fallback
+  try {
+    const p = execSync("find /nix/store -name pg_dump -type f 2>/dev/null | head -1", { encoding: "utf8", timeout: 10000, shell: true }).trim();
+    if (p) { console.log("[backup] found pg_dump in nix store:", p); return p; }
+  } catch {}
+  const path = process.env.PATH ?? "(unset)";
+  throw new Error(`pg_dump not found. PATH=${path}`);
+}
+
 function runPgDump(dbUrl: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("pg_dump", [
+    let pgDump: string;
+    try { pgDump = findPgDump(); } catch (e) { return reject(e); }
+    const proc = spawn(pgDump, [
       "--dbname", dbUrl,
       "--format", "custom",
       "--no-acl",
