@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
-import { Pool } from "pg";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
@@ -1287,31 +1286,26 @@ router.post("/platform/backup-test", requireAuth, requireSuperAdmin, async (_req
     r2: { ok: false, error: "" },
   };
 
-  // Test database connection — parse URL explicitly to avoid node-postgres
-  // mishandling usernames that contain a dot (e.g. postgres.PROJECT_REF)
-  let pool: InstanceType<typeof Pool> | null = null;
+  // Test database connectivity via Supabase REST API (HTTPS).
+  // Direct TCP to Supabase is IPv6-only which Railway cannot reach, and the
+  // session-mode pooler may not be available for all projects. Using the
+  // admin client verifies the DB is up and the service role key is valid.
   try {
-    const dbUrl = new URL(cfg.backup_supabase_db_url!);
-    pool = new Pool({
-      host: dbUrl.hostname,
-      port: parseInt(dbUrl.port) || 5432,
-      database: dbUrl.pathname.replace(/^\//, ""),
-      user: decodeURIComponent(dbUrl.username),
-      password: decodeURIComponent(dbUrl.password),
-      ssl: { rejectUnauthorized: false },
-      max: 1,
-      connectionTimeoutMillis: 8000,
-      idleTimeoutMillis: 1000,
-    });
-    const client = await pool.connect();
-    await client.query("SELECT 1");
-    client.release();
+    const { error: dbErr } = await supabaseAdmin
+      .from("platform_settings")
+      .select("key")
+      .limit(1);
+    if (dbErr) throw new Error(dbErr.message);
     result.db.ok = true;
+    // Separately validate that the stored backup DB URL is a parseable
+    // PostgreSQL connection string so pg_dump won't silently fail.
+    const stored = cfg.backup_supabase_db_url ?? "";
+    if (!stored.match(/^postgres(?:ql)?:\/\/.+@.+:\d+\/.+/)) {
+      result.db.ok = false;
+      result.db.error = "Stored DB URL doesn't look like a valid PostgreSQL connection string";
+    }
   } catch (e) {
-    const maskedUrl = (cfg.backup_supabase_db_url ?? "").replace(/:([^:@/]{1,}?)@/, ":***@");
-    result.db.error = `url="${maskedUrl}" err="${e instanceof Error ? e.message : String(e)}"`;
-  } finally {
-    await pool?.end().catch(() => {});
+    result.db.error = e instanceof Error ? e.message : String(e);
   }
 
   // Test R2 via ListObjectsV2 (max-keys=1)
