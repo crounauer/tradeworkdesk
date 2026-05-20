@@ -492,7 +492,8 @@ router.post("/internal/run-backup", async (req: Request, res: Response): Promise
     if (refMatch) {
       const ref = refMatch[1];
       const region = "eu-central-1"; // default; override with SUPABASE_DB_REGION if needed
-      config.backup_supabase_db_url = `postgresql://postgres.${ref}:${envDbPassword}@aws-0-${region}.pooler.supabase.com:5432/postgres?sslmode=require`;
+      // encodeURIComponent so special chars (@, #, :, etc.) in the password don't break the URI
+      config.backup_supabase_db_url = `postgresql://postgres.${ref}:${encodeURIComponent(envDbPassword)}@aws-0-${region}.pooler.supabase.com:5432/postgres?sslmode=require`;
       console.log(`[backup] using SUPABASE_DB_PASSWORD env var (ref=${ref}, region=${region})`);
     }
   }
