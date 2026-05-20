@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock } from "lucide-react";
 
@@ -114,67 +115,102 @@ export default function PlatformSettings() {
         <p className="text-muted-foreground mt-1">Configure platform-wide API keys and integrations.</p>
       </div>
 
-      <PlatformSettingField
-        settingKey="ideal_postcodes_api_key"
-        label="Ideal Postcodes API Key"
-        description="UK address lookup service — enter a postcode and get a list of addresses with precise coordinates accurate to ~1 metre. Used for property address lookup across all tenants."
-        placeholder="ak_xxxxxxxxxxxxxxxxxxxx"
-        helpContent={
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
-            <p className="font-medium">How to get your Ideal Postcodes API key:</p>
-            <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
-              <li>Go to <a href="https://ideal-postcodes.co.uk" target="_blank" rel="noopener noreferrer" className="underline font-medium">ideal-postcodes.co.uk</a> and create a free account</li>
-              <li>Navigate to your dashboard and find your <strong>API key</strong> (starts with <code className="bg-blue-100 px-1 rounded">ak_</code>)</li>
-              <li>The free tier includes your first lookups — after that it's ~£2.50 per 1,000 lookups</li>
-              <li>Paste your API key below</li>
-            </ol>
-          </div>
-        }
-      />
+      <Tabs defaultValue="database">
+        <TabsList className="mb-6">
+          <TabsTrigger value="database" className="gap-2">
+            <Database className="w-4 h-4" />
+            Database
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-2">
+            <CreditCard className="w-4 h-4" />
+            Payments
+          </TabsTrigger>
+          <TabsTrigger value="postcodes" className="gap-2">
+            <MapPin className="w-4 h-4" />
+            Postcodes
+          </TabsTrigger>
+          <TabsTrigger value="sms" className="gap-2">
+            <MessageSquare className="w-4 h-4" />
+            SMS
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="mt-2">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <MessageSquare className="w-5 h-5" />
-          SMS Messaging
-        </h2>
-        <div className="space-y-4">
+        <TabsContent value="database" className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Credentials used by the daily automated backup job. Backups are stored in Cloudflare R2 and retained for 30 days.
+            The GitHub Actions workflow fetches these at runtime — you only need <code className="bg-slate-100 px-1 rounded text-xs">CRON_SECRET</code> and <code className="bg-slate-100 px-1 rounded text-xs">PLATFORM_API_URL</code> as GitHub Secrets.
+          </p>
           <PlatformSettingField
-            settingKey="sms_works_api_key"
-            label="SMS Works Key"
-            description="Your SMS Works API Key (the 'Key' UUID shown under Account → API Key)."
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            icon={<MessageSquare className="w-4 h-4" />}
+            settingKey="backup_supabase_db_url"
+            label="Supabase Database URL"
+            description="Direct PostgreSQL connection string. Found in Supabase → Settings → Database → Connection String → URI. Use the direct connection (port 5432), not the pooler."
+            placeholder="postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres"
+            icon={<Database className="w-4 h-4" />}
             helpContent={
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 space-y-2">
-                <p className="font-medium">How to set up SMS Works:</p>
-                <ol className="list-decimal list-inside space-y-1 text-xs text-green-700">
-                  <li>Go to <a href="https://thesmsworks.co.uk" target="_blank" rel="noopener noreferrer" className="underline font-medium">thesmsworks.co.uk</a> and create an account</li>
-                  <li>Sign in and go to <strong>Account → API Key</strong></li>
-                  <li>Copy the <strong>Key</strong> UUID and paste it here</li>
-                  <li>Copy the <strong>Secret</strong> and paste it in the field below</li>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-1">
+                <p className="font-medium">Where to find this:</p>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
+                  <li>Go to <strong>Supabase dashboard → Settings → Database</strong></li>
+                  <li>Scroll to <strong>Connection string</strong> and select the <strong>URI</strong> tab</li>
+                  <li>Copy the string — replace <code className="bg-blue-100 px-1 rounded">[YOUR-PASSWORD]</code> with your DB password</li>
+                  <li>Use port <strong>5432</strong> (direct), not 6543 (pooler)</li>
                 </ol>
               </div>
             }
           />
           <PlatformSettingField
-            settingKey="sms_works_secret"
-            label="SMS Works Secret"
-            description="Your SMS Works API Secret (the 'Secret' value shown under Account → API Key)."
-            placeholder="fe3aed49..."
-            icon={<MessageSquare className="w-4 h-4" />}
+            settingKey="backup_r2_account_id"
+            label="Cloudflare Account ID"
+            description="Your Cloudflare account ID. Found in the Cloudflare dashboard under your account name (top-right menu)."
+            placeholder="a1b2c3d4e5f6..."
+            icon={<Database className="w-4 h-4" />}
           />
-        </div>
-      </div>
+          <PlatformSettingField
+            settingKey="backup_r2_access_key_id"
+            label="R2 Access Key ID"
+            description="R2 API token Access Key ID. Create a token in Cloudflare → R2 → Manage R2 API Tokens with Object Read & Write permissions."
+            placeholder="a1b2c3d4e5f6..."
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_r2_secret_access_key"
+            label="R2 Secret Access Key"
+            description="R2 API token Secret Access Key. Shown only once when the token is created — store it here immediately."
+            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_r2_bucket_name"
+            label="R2 Bucket Name"
+            description="Name of the Cloudflare R2 bucket to store backups in (e.g. tradeworkdesk-backups). Create the bucket in Cloudflare → R2 → Create bucket."
+            placeholder="tradeworkdesk-backups"
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_github_repo"
+            label="GitHub Repository"
+            description="GitHub repository that contains the backup workflow (e.g. yourname/tradeworkdesk). Used to trigger manual backup runs."
+            placeholder="owner/repo"
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_github_pat"
+            label="GitHub Personal Access Token"
+            description="PAT with the 'workflow' scope to trigger workflow_dispatch runs. Create one at GitHub → Settings → Developer settings → Personal access tokens."
+            placeholder="ghp_xxxx..."
+            icon={<Database className="w-4 h-4" />}
+          />
+          <div className="pt-2 flex flex-wrap gap-3">
+            <BackupTestButton />
+            <BackupTriggerButton />
+          </div>
+          <BackupLogTable />
+        </TabsContent>
 
-      <div className="mt-2">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <CreditCard className="w-5 h-5" />
-          Payment Providers
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Configure platform-level credentials for payment integrations. These credentials are shared across all tenants — individual tenant connections are set up separately in each tenant's payment settings.
-        </p>
-        <div className="space-y-6">
+        <TabsContent value="payments" className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Configure platform-level credentials for payment integrations. These credentials are shared across all tenants — individual tenant connections are set up separately in each tenant's payment settings.
+          </p>
 
           <div>
             <h3 className="text-base font-medium mb-3">Stripe</h3>
@@ -264,87 +300,56 @@ export default function PlatformSettings() {
               />
             </div>
           </div>
+        </TabsContent>
 
-        </div>
-      </div>
-
-      <div className="mt-2">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <Database className="w-5 h-5" />
-          Database Backup
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Credentials used by the daily automated backup job. Backups are stored in Cloudflare R2 and retained for 30 days.
-          The GitHub Actions workflow fetches these at runtime — you only need <code className="bg-slate-100 px-1 rounded text-xs">CRON_SECRET</code> and <code className="bg-slate-100 px-1 rounded text-xs">PLATFORM_API_URL</code> as GitHub Secrets.
-        </p>
-        <div className="space-y-4">
+        <TabsContent value="postcodes" className="space-y-4">
           <PlatformSettingField
-            settingKey="backup_supabase_db_url"
-            label="Supabase Database URL"
-            description="Direct PostgreSQL connection string. Found in Supabase → Settings → Database → Connection String → URI. Use the direct connection (port 5432), not the pooler."
-            placeholder="postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres"
-            icon={<Database className="w-4 h-4" />}
+            settingKey="ideal_postcodes_api_key"
+            label="Ideal Postcodes API Key"
+            description="UK address lookup service — enter a postcode and get a list of addresses with precise coordinates accurate to ~1 metre. Used for property address lookup across all tenants."
+            placeholder="ak_xxxxxxxxxxxxxxxxxxxx"
             helpContent={
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-1">
-                <p className="font-medium">Where to find this:</p>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-2">
+                <p className="font-medium">How to get your Ideal Postcodes API key:</p>
                 <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
-                  <li>Go to <strong>Supabase dashboard → Settings → Database</strong></li>
-                  <li>Scroll to <strong>Connection string</strong> and select the <strong>URI</strong> tab</li>
-                  <li>Copy the string — replace <code className="bg-blue-100 px-1 rounded">[YOUR-PASSWORD]</code> with your DB password</li>
-                  <li>Use port <strong>5432</strong> (direct), not 6543 (pooler)</li>
+                  <li>Go to <a href="https://ideal-postcodes.co.uk" target="_blank" rel="noopener noreferrer" className="underline font-medium">ideal-postcodes.co.uk</a> and create a free account</li>
+                  <li>Navigate to your dashboard and find your <strong>API key</strong> (starts with <code className="bg-blue-100 px-1 rounded">ak_</code>)</li>
+                  <li>The free tier includes your first lookups — after that it's ~£2.50 per 1,000 lookups</li>
+                  <li>Paste your API key below</li>
+                </ol>
+              </div>
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="sms" className="space-y-4">
+          <PlatformSettingField
+            settingKey="sms_works_api_key"
+            label="SMS Works Key"
+            description="Your SMS Works API Key (the 'Key' UUID shown under Account → API Key)."
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            icon={<MessageSquare className="w-4 h-4" />}
+            helpContent={
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 space-y-2">
+                <p className="font-medium">How to set up SMS Works:</p>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-green-700">
+                  <li>Go to <a href="https://thesmsworks.co.uk" target="_blank" rel="noopener noreferrer" className="underline font-medium">thesmsworks.co.uk</a> and create an account</li>
+                  <li>Sign in and go to <strong>Account → API Key</strong></li>
+                  <li>Copy the <strong>Key</strong> UUID and paste it here</li>
+                  <li>Copy the <strong>Secret</strong> and paste it in the field below</li>
                 </ol>
               </div>
             }
           />
           <PlatformSettingField
-            settingKey="backup_r2_account_id"
-            label="Cloudflare Account ID"
-            description="Your Cloudflare account ID. Found in the Cloudflare dashboard under your account name (top-right menu)."
-            placeholder="a1b2c3d4e5f6..."
-            icon={<Database className="w-4 h-4" />}
+            settingKey="sms_works_secret"
+            label="SMS Works Secret"
+            description="Your SMS Works API Secret (the 'Secret' value shown under Account → API Key)."
+            placeholder="fe3aed49..."
+            icon={<MessageSquare className="w-4 h-4" />}
           />
-          <PlatformSettingField
-            settingKey="backup_r2_access_key_id"
-            label="R2 Access Key ID"
-            description="R2 API token Access Key ID. Create a token in Cloudflare → R2 → Manage R2 API Tokens with Object Read & Write permissions."
-            placeholder="a1b2c3d4e5f6..."
-            icon={<Database className="w-4 h-4" />}
-          />
-          <PlatformSettingField
-            settingKey="backup_r2_secret_access_key"
-            label="R2 Secret Access Key"
-            description="R2 API token Secret Access Key. Shown only once when the token is created — store it here immediately."
-            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            icon={<Database className="w-4 h-4" />}
-          />
-          <PlatformSettingField
-            settingKey="backup_r2_bucket_name"
-            label="R2 Bucket Name"
-            description="Name of the Cloudflare R2 bucket to store backups in (e.g. tradeworkdesk-backups). Create the bucket in Cloudflare → R2 → Create bucket."
-            placeholder="tradeworkdesk-backups"
-            icon={<Database className="w-4 h-4" />}
-          />
-          <PlatformSettingField
-            settingKey="backup_github_repo"
-            label="GitHub Repository"
-            description="GitHub repository that contains the backup workflow (e.g. yourname/tradeworkdesk). Used to trigger manual backup runs."
-            placeholder="owner/repo"
-            icon={<Database className="w-4 h-4" />}
-          />
-          <PlatformSettingField
-            settingKey="backup_github_pat"
-            label="GitHub Personal Access Token"
-            description="PAT with the 'workflow' scope to trigger workflow_dispatch runs. Create one at GitHub → Settings → Developer settings → Personal access tokens."
-            placeholder="ghp_xxxx..."
-            icon={<Database className="w-4 h-4" />}
-          />
-          <div className="pt-2 flex flex-wrap gap-3">
-            <BackupTestButton />
-            <BackupTriggerButton />
-          </div>
-          <BackupLogTable />
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
