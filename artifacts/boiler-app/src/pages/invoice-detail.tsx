@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { customFetch } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
@@ -23,6 +24,7 @@ import { useCompanySettings } from "@/hooks/use-company-settings";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { CreateJobFromQuoteDialog } from "@/components/create-job-from-quote-dialog";
 import {
+  invoiceKeys,
   useGetInvoice,
   useUpdateInvoice,
   useDeleteInvoice,
@@ -134,6 +136,7 @@ function NewInvoiceRedirect({ type, prefillJobId }: { type: string; prefillJobId
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: settings } = useCompanySettings();
+  const qc = useQueryClient();
 
   const [jobId, setJobId] = useState(prefillJobId);
   const [submitting, setSubmitting] = useState(false);
@@ -160,6 +163,7 @@ function NewInvoiceRedirect({ type, prefillJobId }: { type: string; prefillJobId
         throw new Error(body.error || "Failed to create");
       }
       const inv = await res.json();
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
       navigate(`/invoices/${inv.id}?edit=1`, { replace: true });
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });

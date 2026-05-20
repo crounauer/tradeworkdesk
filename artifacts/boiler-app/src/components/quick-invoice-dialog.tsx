@@ -147,6 +147,7 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
         throw new Error(body.error || "Failed to create");
       }
       const inv = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       onOpenChange(false);
       navigate(`/invoices/${inv.id}?edit=1`);
     } catch (e) {
