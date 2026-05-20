@@ -1,11 +1,142 @@
 import { Router, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { stripe } from "../lib/stripe";
+import { spawn } from "child_process";
+import { tmpdir } from "os";
+import { join } from "path";
+import { unlink, readFile } from "fs/promises";
+import crypto from "crypto";
 import {
   sendTrialExpiryReminder,
   sendRenewalReminder,
   sendLowCreditsAlert,
 } from "../lib/email";
+
+// ── SigV4 helpers for R2 ────────────────────────────────────────────────────
+function sha256hex(data: string | Buffer): string {
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
+function hmacSha256(key: Buffer | string, data: string): Buffer {
+  return crypto.createHmac("sha256", key).update(data).digest();
+}
+function signingKey(secret: string, dateStamp: string): Buffer {
+  return hmacSha256(hmacSha256(hmacSha256(hmacSha256(`AWS4${secret}`, dateStamp), "auto"), "s3"), "aws4_request");
+}
+function signR2Get(opts: { host: string; path: string; query: string; accessKeyId: string; secretAccessKey: string }): Record<string, string> {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}/, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = sha256hex("");
+  const canonHeaders = `host:${opts.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+  const canonReq = ["GET", opts.path, opts.query, canonHeaders, signedHeaders, payloadHash].join("\n");
+  const credScope = `${dateStamp}/auto/s3/aws4_request`;
+  const sts = ["AWS4-HMAC-SHA256", amzDate, credScope, sha256hex(canonReq)].join("\n");
+  const sig = hmacSha256(signingKey(opts.secretAccessKey, dateStamp), sts).toString("hex");
+  return {
+    host: opts.host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amzDate,
+    Authorization: `AWS4-HMAC-SHA256 Credential=${opts.accessKeyId}/${credScope}, SignedHeaders=${signedHeaders}, Signature=${sig}`,
+  };
+}
+function signR2Put(opts: { host: string; path: string; accessKeyId: string; secretAccessKey: string; contentLength: number }): Record<string, string> {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}/, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = "UNSIGNED-PAYLOAD";
+  const canonHeaders = `content-length:${opts.contentLength}\nhost:${opts.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = "content-length;host;x-amz-content-sha256;x-amz-date";
+  const canonReq = ["PUT", opts.path, "", canonHeaders, signedHeaders, payloadHash].join("\n");
+  const credScope = `${dateStamp}/auto/s3/aws4_request`;
+  const sts = ["AWS4-HMAC-SHA256", amzDate, credScope, sha256hex(canonReq)].join("\n");
+  const sig = hmacSha256(signingKey(opts.secretAccessKey, dateStamp), sts).toString("hex");
+  return {
+    "content-length": String(opts.contentLength),
+    host: opts.host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amzDate,
+    Authorization: `AWS4-HMAC-SHA256 Credential=${opts.accessKeyId}/${credScope}, SignedHeaders=${signedHeaders}, Signature=${sig}`,
+  };
+}
+function signR2Delete(opts: { host: string; path: string; accessKeyId: string; secretAccessKey: string }): Record<string, string> {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}/, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = sha256hex("");
+  const canonHeaders = `host:${opts.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+  const canonReq = ["DELETE", opts.path, "", canonHeaders, signedHeaders, payloadHash].join("\n");
+  const credScope = `${dateStamp}/auto/s3/aws4_request`;
+  const sts = ["AWS4-HMAC-SHA256", amzDate, credScope, sha256hex(canonReq)].join("\n");
+  const sig = hmacSha256(signingKey(opts.secretAccessKey, dateStamp), sts).toString("hex");
+  return {
+    host: opts.host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amzDate,
+    Authorization: `AWS4-HMAC-SHA256 Credential=${opts.accessKeyId}/${credScope}, SignedHeaders=${signedHeaders}, Signature=${sig}`,
+  };
+}
+
+// ── Backup helpers ──────────────────────────────────────────────────────────
+function runPgDump(dbUrl: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("pg_dump", [
+      "--dbname", dbUrl,
+      "--format", "custom",
+      "--no-acl",
+      "--no-owner",
+      "--file", outputPath,
+    ]);
+    const stderr: string[] = [];
+    proc.stderr.on("data", (d: Buffer) => stderr.push(d.toString()));
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`pg_dump exited ${code}: ${stderr.join("").trim()}`));
+    });
+  });
+}
+
+type R2Cfg = {
+  backup_r2_account_id: string;
+  backup_r2_access_key_id: string;
+  backup_r2_secret_access_key: string;
+  backup_r2_bucket_name: string;
+};
+
+async function r2Upload(cfg: R2Cfg, filename: string, buf: Buffer): Promise<void> {
+  const host = `${cfg.backup_r2_account_id}.r2.cloudflarestorage.com`;
+  const path = `/${cfg.backup_r2_bucket_name}/${filename}`;
+  const headers = signR2Put({ host, path, accessKeyId: cfg.backup_r2_access_key_id, secretAccessKey: cfg.backup_r2_secret_access_key, contentLength: buf.length });
+  const res = await fetch(`https://${host}${path}`, { method: "PUT", headers, body: buf, signal: AbortSignal.timeout(120000) });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`R2 upload failed ${res.status}: ${txt}`);
+  }
+}
+
+async function r2Prune(cfg: R2Cfg, keepCount: number): Promise<number> {
+  const host = `${cfg.backup_r2_account_id}.r2.cloudflarestorage.com`;
+  const bucketPath = `/${cfg.backup_r2_bucket_name}`;
+  const query = "list-type=2&max-keys=200&prefix=backup_";
+  const listHeaders = signR2Get({ host, path: bucketPath, query, accessKeyId: cfg.backup_r2_access_key_id, secretAccessKey: cfg.backup_r2_secret_access_key });
+  const listRes = await fetch(`https://${host}${bucketPath}?${query}`, { method: "GET", headers: listHeaders, signal: AbortSignal.timeout(15000) });
+  if (!listRes.ok) return 0;
+  const xml = await listRes.text();
+  const keys: string[] = [];
+  for (const m of xml.matchAll(/<Key>(.*?)<\/Key>/g)) {
+    if (m[1].endsWith(".dump")) keys.push(m[1]);
+  }
+  keys.sort();
+  const toDelete = keys.slice(0, Math.max(0, keys.length - keepCount));
+  for (const key of toDelete) {
+    const delPath = `/${cfg.backup_r2_bucket_name}/${key}`;
+    const delHeaders = signR2Delete({ host, path: delPath, accessKeyId: cfg.backup_r2_access_key_id, secretAccessKey: cfg.backup_r2_secret_access_key });
+    await fetch(`https://${host}${delPath}`, { method: "DELETE", headers: delHeaders, signal: AbortSignal.timeout(10000) }).catch(() => null);
+  }
+  return toDelete.length;
+}
 
 const router = Router();
 
@@ -240,6 +371,51 @@ router.get("/internal/backup-config", async (req: Request, res: Response): Promi
   }
 
   res.json(config);
+});
+
+router.post("/internal/run-backup", async (req: Request, res: Response): Promise<void> => {
+  if (!requireCronSecret(req, res)) return;
+
+  const { data, error } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", [...BACKUP_SETTING_KEYS]);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const config: Record<string, string | null> = {};
+  for (const key of BACKUP_SETTING_KEYS) {
+    config[key] = data?.find(r => r.key === key)?.value ?? null;
+  }
+  const missing = BACKUP_SETTING_KEYS.filter(k => !config[k]);
+  if (missing.length > 0) {
+    res.status(422).json({ error: "Missing backup credentials", missing });
+    return;
+  }
+
+  const now = new Date();
+  const ts = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "_");
+  const filename = `backup_${ts}.dump`;
+  const tmpPath = join(tmpdir(), filename);
+
+  try {
+    await runPgDump(config.backup_supabase_db_url!, tmpPath);
+    const buf = await readFile(tmpPath);
+    const r2cfg: R2Cfg = {
+      backup_r2_account_id: config.backup_r2_account_id!,
+      backup_r2_access_key_id: config.backup_r2_access_key_id!,
+      backup_r2_secret_access_key: config.backup_r2_secret_access_key!,
+      backup_r2_bucket_name: config.backup_r2_bucket_name!,
+    };
+    await r2Upload(r2cfg, filename, buf);
+    const pruned = await r2Prune(r2cfg, 30);
+    console.log(`[run-backup] ${filename} uploaded (${buf.length} bytes), pruned ${pruned} old file(s)`);
+    res.json({ status: "success", filename, sizeBytes: buf.length, pruned });
+  } catch (err) {
+    console.error("[run-backup] error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  } finally {
+    await unlink(tmpPath).catch(() => null);
+  }
 });
 
 export default router;
