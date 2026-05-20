@@ -1308,7 +1308,8 @@ router.post("/platform/backup-test", requireAuth, requireSuperAdmin, async (_req
     client.release();
     result.db.ok = true;
   } catch (e) {
-    result.db.error = e instanceof Error ? e.message : String(e);
+    const parsed = (() => { try { const u = new URL(cfg.backup_supabase_db_url!); return `user="${decodeURIComponent(u.username)}" host="${u.hostname}:${u.port}"`; } catch { return "url-parse-failed"; } })();
+    result.db.error = `[${parsed}] ${e instanceof Error ? e.message : String(e)}`;
   } finally {
     await pool?.end().catch(() => {});
   }
