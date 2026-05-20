@@ -1388,7 +1388,7 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
       const name = block.match(/<Key>(.*?)<\/Key>/)?.[1] ?? "";
       const size = parseInt(block.match(/<Size>(.*?)<\/Size>/)?.[1] ?? "0", 10);
       const lastModified = block.match(/<LastModified>(.*?)<\/LastModified>/)?.[1] ?? "";
-      if (name.endsWith(".dump")) {
+      if (name.endsWith(".dump") || name.endsWith(".json.gz")) {
         files.push({ name, size, lastModified });
       }
     }

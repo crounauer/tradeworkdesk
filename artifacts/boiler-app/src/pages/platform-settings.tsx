@@ -451,7 +451,7 @@ function BackupTriggerButton() {
 type BackupFile = { name: string; size: number; lastModified: string };
 
 function formatBackupName(name: string): string {
-  const m = name.match(/backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.dump/);
+  const m = name.match(/backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
   if (!m) return name;
   return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}:${m[6]} UTC`;
 }
