@@ -123,7 +123,10 @@ function toSessionPoolerUrl(dbUrl: string): string {
     const envDb = process.env.DATABASE_URL ?? "";
     const rm = envDb.match(/aws-0-([^.]+)\.pooler\.supabase\.com/);
     if (rm) region = rm[1];
-    const newUrl = `${scheme}${newUser}:${pass}@aws-0-${region}.pooler.supabase.com:5432${path ?? "/postgres"}${query ?? ""}`;
+    // Append sslmode=require (Supabase pooler requires SSL; query already checked above)
+    const sep = (query ?? "") ? "&" : "?";
+    const sslQuery = (query ?? "").includes("sslmode") ? (query ?? "") : `${query ?? ""}${sep}sslmode=require`;
+    const newUrl = `${scheme}${newUser}:${pass}@aws-0-${region}.pooler.supabase.com:5432${path ?? "/postgres"}${sslQuery}`;
     console.log(`[backup] using session pooler (user=${newUser}, region=${region})`);
     return newUrl;
   } catch { return dbUrl; }
