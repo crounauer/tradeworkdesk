@@ -1,11 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { stripe } from "../lib/stripe";
-import { spawn } from "child_process";
-import { execSync } from "child_process";
-import { tmpdir } from "os";
-import { join } from "path";
-import { unlink, readFile } from "fs/promises";
+import { promisify } from "util";
+import { gzip } from "zlib";
 import crypto from "crypto";
 import {
   sendTrialExpiryReminder,
@@ -79,118 +76,54 @@ function signR2Delete(opts: { host: string; path: string; accessKeyId: string; s
   };
 }
 
+const gzipAsync = promisify(gzip);
+
 // ── Backup helpers ──────────────────────────────────────────────────────────
-function findPgDump(): string {
-  // 1. Try shell's PATH (handles nix profile, custom installs, etc.)
-  try {
-    const p = execSync("which pg_dump 2>/dev/null", { encoding: "utf8", timeout: 5000 }).trim();
-    if (p) { console.log("[backup] found pg_dump via which:", p); return p; }
-  } catch {}
-  // 2. Well-known apt/homebrew locations
-  const candidates = [
-    "/usr/bin/pg_dump",
-    "/usr/local/bin/pg_dump",
-    "/usr/lib/postgresql/17/bin/pg_dump",
-    "/usr/lib/postgresql/16/bin/pg_dump",
-    "/usr/lib/postgresql/15/bin/pg_dump",
-  ];
-  for (const c of candidates) {
-    try { execSync(`test -x "${c}"`, { timeout: 2000 }); console.log("[backup] found pg_dump at:", c); return c; } catch {}
-  }
-  // 3. Nix store fallback
-  try {
-    const p = execSync("find /nix/store -name pg_dump -type f 2>/dev/null | head -1", { encoding: "utf8", timeout: 10000, shell: true }).trim();
-    if (p) { console.log("[backup] found pg_dump in nix store:", p); return p; }
-  } catch {}
-  const path = process.env.PATH ?? "(unset)";
-  throw new Error(`pg_dump not found. PATH=${path}`);
-}
-
-/** Convert direct Supabase host (IPv6-only) to IPv4-accessible session pooler URL.
- *  Uses string manipulation because WHATWG URL setters (username, password) are
- *  no-ops for non-special schemes like postgresql:// in Node.js.
+/** Export all public-schema tables via Supabase REST API (service role).
+ *  Bypasses pg_dump entirely — works from Railway over HTTPS with no
+ *  direct PostgreSQL connectivity needed.
  */
-function toSessionPoolerUrl(dbUrl: string): string {
-  try {
-    function addSsl(query: string | undefined): string {
-      if ((query ?? "").includes("sslmode")) return query ?? "";
-      const sep = query ? "&" : "?";
-      return `${query ?? ""}${sep}sslmode=require`;
-    }
+async function runRestBackup(): Promise<Buffer> {
+  const supabaseUrl = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  if (!supabaseUrl || !serviceKey) throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set");
 
-    // Derive region from SUPABASE_URL or DATABASE_URL env vars
-    function guessRegion(): string {
-      const envDb = process.env.DATABASE_URL ?? "";
-      const rm = envDb.match(/aws-0-([^.]+)\.pooler\.supabase\.com/);
-      if (rm) return rm[1];
-      return "eu-central-1";
-    }
-
-    // Get project ref from SUPABASE_URL env (https://{ref}.supabase.co)
-    function guessProjectRef(): string | null {
-      const supabaseUrl = process.env.SUPABASE_URL ?? "";
-      const m = supabaseUrl.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/);
-      return m ? m[1] : null;
-    }
-
-    // Case 1: Direct host URL — postgresql://user:pass@db.{REF}.supabase.co[:port][/db][?...]
-    const directMatch = dbUrl.match(/^(postgresql:\/\/)([^:@]+):([^@]*)@db\.([a-z0-9]+)\.supabase\.co(:\d+)?(\/[^?]*)?(\?.*)?$/);
-    if (directMatch) {
-      const [, scheme, user, pass, ref, , path, query] = directMatch;
-      const newUser = user.includes(".") ? user : `${user}.${ref}`;
-      const region = guessRegion();
-      const newUrl = `${scheme}${newUser}:${pass}@aws-0-${region}.pooler.supabase.com:5432${path ?? "/postgres"}${addSsl(query)}`;
-      console.log(`[backup] session pooler from direct URL (user=${newUser}, region=${region})`);
-      return newUrl;
-    }
-
-    // Case 2: Already a pooler URL — ensure username includes project ref and sslmode
-    const poolerMatch = dbUrl.match(/^(postgresql:\/\/)([^:@]+):([^@]*)@(aws-0-[^.:]+\.pooler\.supabase\.com)(:\d+)?(\/[^?]*)?(\?.*)?$/);
-    if (poolerMatch) {
-      const [, scheme, user, pass, poolerHost, , path, query] = poolerMatch;
-      let newUser = user;
-      if (!user.includes(".")) {
-        // Username missing project ref — derive it from SUPABASE_URL
-        const ref = guessProjectRef();
-        if (ref) {
-          newUser = `${user}.${ref}`;
-          console.log(`[backup] fixed pooler username (user=${newUser})`);
-        } else {
-          console.warn("[backup] pooler URL has no project ref and SUPABASE_URL not set");
-        }
-      }
-      const newUrl = `${scheme}${newUser}:${pass}@${poolerHost}:5432${path ?? "/postgres"}${addSsl(query)}`;
-      return newUrl;
-    }
-
-    console.warn("[backup] could not parse DB URL for pooler conversion — using as-is");
-    return dbUrl;
-  } catch { return dbUrl; }
-}
-
-function runPgDump(dbUrl: string, outputPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let pgDump: string;
-    try { pgDump = findPgDump(); } catch (e) { return reject(e); }
-    const poolerUrl = toSessionPoolerUrl(dbUrl);
-    // Log masked URL so we can diagnose auth issues without leaking the password
-    const maskedUrl = poolerUrl.replace(/:([^@]{3})[^@]*@/, ':$1***@');
-    console.log(`[backup] pg_dump URL: ${maskedUrl}`);
-    const proc = spawn(pgDump, [
-      "--dbname", poolerUrl,
-      "--format", "custom",
-      "--no-acl",
-      "--no-owner",
-      "--file", outputPath,
-    ]);
-    const stderr: string[] = [];
-    proc.stderr.on("data", (d: Buffer) => stderr.push(d.toString()));
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`pg_dump exited ${code}: ${stderr.join("").trim()}`));
-    });
+  // Discover tables from PostgREST OpenAPI spec
+  const specRes = await fetch(`${supabaseUrl}/rest/v1/`, {
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    signal: AbortSignal.timeout(30000),
   });
+  if (!specRes.ok) throw new Error(`PostgREST spec fetch failed: ${specRes.status}`);
+  const spec = await specRes.json() as { paths?: Record<string, unknown> };
+  const tables = Object.keys(spec.paths ?? {})
+    .filter(p => /^\/[a-z_][a-z0-9_]*$/i.test(p))
+    .map(p => p.slice(1));
+  console.log(`[backup] discovered ${tables.length} tables:`, tables.join(", "));
+
+  // Dump each table with pagination
+  const dump: Record<string, unknown[]> = {};
+  for (const table of tables) {
+    const rows: unknown[] = [];
+    let offset = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data, error } = await supabaseAdmin.from(table).select("*").range(offset, offset + PAGE - 1);
+      if (error) { console.warn(`[backup] skip ${table}: ${error.message}`); break; }
+      rows.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+      offset += PAGE;
+    }
+    dump[table] = rows;
+    console.log(`[backup] ${table}: ${rows.length} rows`);
+  }
+
+  const json = JSON.stringify({
+    format: "supabase-rest-json-v1",
+    timestamp: new Date().toISOString(),
+    tables: Object.keys(dump),
+    data: dump,
+  });
+  return gzipAsync(Buffer.from(json));
 }
 
 type R2Cfg = {
@@ -437,7 +370,6 @@ router.get("/internal/send-low-credits-alerts", async (req: Request, res: Respon
 });
 
 const BACKUP_SETTING_KEYS = [
-  "backup_supabase_db_url",
   "backup_r2_account_id",
   "backup_r2_access_key_id",
   "backup_r2_secret_access_key",
@@ -482,24 +414,7 @@ router.post("/internal/run-backup", async (req: Request, res: Response): Promise
     config[key] = data?.find(r => r.key === key)?.value ?? null;
   }
 
-  // Allow SUPABASE_DB_PASSWORD env var to override the password in the stored URL.
-  // This is useful when the password in platform_settings is stale/wrong.
-  // Construct: postgresql://postgres.{ref}:{password}@aws-0-{region}.pooler.supabase.com:5432/postgres?sslmode=require
-  const envDbPassword = process.env.SUPABASE_DB_PASSWORD;
-  if (envDbPassword) {
-    const supabaseUrl = process.env.SUPABASE_URL ?? "";
-    const refMatch = supabaseUrl.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/);
-    if (refMatch) {
-      const ref = refMatch[1];
-      const region = "eu-central-1"; // default; override with SUPABASE_DB_REGION if needed
-      // encodeURIComponent so special chars (@, #, :, etc.) in the password don't break the URI
-      config.backup_supabase_db_url = `postgresql://postgres.${ref}:${encodeURIComponent(envDbPassword)}@aws-0-${region}.pooler.supabase.com:5432/postgres?sslmode=require`;
-      console.log(`[backup] using SUPABASE_DB_PASSWORD env var (ref=${ref}, region=${region})`);
-    }
-  }
-
-  const r2Keys = ["backup_r2_account_id", "backup_r2_access_key_id", "backup_r2_secret_access_key", "backup_r2_bucket_name"] as const;
-  const missing = [...(config.backup_supabase_db_url ? [] : ["backup_supabase_db_url"]), ...r2Keys.filter(k => !config[k])];
+  const missing = BACKUP_SETTING_KEYS.filter(k => !config[k]);
   if (missing.length > 0) {
     res.status(422).json({ error: "Missing backup credentials", missing });
     return;
@@ -507,12 +422,10 @@ router.post("/internal/run-backup", async (req: Request, res: Response): Promise
 
   const now = new Date();
   const ts = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "_");
-  const filename = `backup_${ts}.dump`;
-  const tmpPath = join(tmpdir(), filename);
+  const filename = `backup_${ts}.json.gz`;
 
   try {
-    await runPgDump(config.backup_supabase_db_url!, tmpPath);
-    const buf = await readFile(tmpPath);
+    const buf = await runRestBackup();
     const r2cfg: R2Cfg = {
       backup_r2_account_id: config.backup_r2_account_id!,
       backup_r2_access_key_id: config.backup_r2_access_key_id!,
@@ -526,8 +439,6 @@ router.post("/internal/run-backup", async (req: Request, res: Response): Promise
   } catch (err) {
     console.error("[run-backup] error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
-  } finally {
-    await unlink(tmpPath).catch(() => null);
   }
 });
 

@@ -11,42 +11,21 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Install PostgreSQL client
-        run: sudo apt-get install -y --no-install-recommends postgresql-client
-
-      - name: Fetch R2 credentials from Railway
-        id: r2
+      - name: Trigger backup on Railway API
         run: |
           BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')
-          CONFIG=$(curl -sf --max-time 30 \
+          RESPONSE=$(curl -sf --max-time 300 \
+            -X POST \
             -H "x-cron-secret: ${{ secrets.INTERNAL_CRON_SECRET }}" \
-            "${BASE_URL}/api/internal/backup-config")
-          echo "account_id=$(echo "$CONFIG" | jq -r '.backup_r2_account_id')" >> $GITHUB_OUTPUT
-          echo "access_key=$(echo "$CONFIG" | jq -r '.backup_r2_access_key_id')" >> $GITHUB_OUTPUT
-          echo "bucket=$(echo "$CONFIG" | jq -r '.backup_r2_bucket_name')" >> $GITHUB_OUTPUT
-          SECRET=$(echo "$CONFIG" | jq -r '.backup_r2_secret_access_key')
-          echo "::add-mask::$SECRET"
-          echo "secret_key=$SECRET" >> $GITHUB_OUTPUT
-
-      - name: Run pg_dump (direct IPv6 connection to Supabase)
-        run: |
-          TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
-          FILENAME="backup_${TIMESTAMP}.dump"
-          DB_URL=$(printf '%s' "${{ secrets.SUPABASE_DB_URL }}" | tr -d '\n\r')
-          pg_dump "$DB_URL" \
-            --format=custom --no-acl --no-owner \
-            --file "/tmp/${FILENAME}"
-          echo "FILENAME=${FILENAME}" >> $GITHUB_ENV
-          echo "pg_dump complete: ${FILENAME} ($(du -sh /tmp/${FILENAME} | cut -f1))"
-
-      - name: Upload to R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ steps.r2.outputs.access_key }}
-          AWS_SECRET_ACCESS_KEY: ${{ steps.r2.outputs.secret_key }}
-          AWS_DEFAULT_REGION: auto
-          AWS_EC2_METADATA_DISABLED: "true"
-        run: |
-          aws s3 cp "/tmp/${FILENAME}" \
-            "s3://${{ steps.r2.outputs.bucket }}/${FILENAME}" \
-            --endpoint-url "https://${{ steps.r2.outputs.account_id }}.r2.cloudflarestorage.com"
-          echo "Backup uploaded: ${FILENAME}"
+            -H "Content-Type: application/json" \
+            "${BASE_URL}/api/internal/run-backup")
+          echo "Backup response: $RESPONSE"
+          STATUS=$(echo "$RESPONSE" | jq -r '.status // "error"')
+          if [ "$STATUS" != "success" ]; then
+            echo "Backup failed: $RESPONSE"
+            exit 1
+          fi
+          FILENAME=$(echo "$RESPONSE" | jq -r '.filename')
+          SIZE_BYTES=$(echo "$RESPONSE" | jq -r '.sizeBytes')
+          PRUNED=$(echo "$RESPONSE" | jq -r '.pruned')
+          echo "Backup complete: $FILENAME ($SIZE_BYTES bytes), pruned $PRUNED old file(s)"
