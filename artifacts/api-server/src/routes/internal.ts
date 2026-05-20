@@ -117,11 +117,24 @@ async function runRestBackup(): Promise<Buffer> {
     console.log(`[backup] ${table}: ${rows.length} rows`);
   }
 
+  // Export auth.users via Admin API (no password hashes — users will need password reset on restore)
+  const authUsers: unknown[] = [];
+  let authPage = 1;
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: authPage, perPage: 1000 });
+    if (error) { console.warn(`[backup] auth.users page ${authPage}: ${error.message}`); break; }
+    authUsers.push(...(data.users ?? []));
+    if (!data.users || data.users.length < 1000) break;
+    authPage++;
+  }
+  console.log(`[backup] auth.users: ${authUsers.length} users`);
+
   const json = JSON.stringify({
     format: "supabase-rest-json-v1",
     timestamp: new Date().toISOString(),
     tables: Object.keys(dump),
     data: dump,
+    auth: { users: authUsers },
   });
   return gzipAsync(Buffer.from(json));
 }
