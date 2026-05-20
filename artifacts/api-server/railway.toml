@@ -5,7 +5,9 @@ buildCommand = "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/ap
 [deploy]
 startCommand = "pnpm --filter @workspace/api-server start"
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 5
+restartPolicyMaxRetries = 10
+healthcheckPath = "/health"
+healthcheckTimeout = 30
 
 [env]
 NODE_ENV = "production"
