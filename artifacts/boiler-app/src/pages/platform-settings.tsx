@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -324,7 +324,25 @@ export default function PlatformSettings() {
             placeholder="tradeworkdesk-backups"
             icon={<Database className="w-4 h-4" />}
           />
-          <BackupTestButton />
+          <PlatformSettingField
+            settingKey="backup_github_repo"
+            label="GitHub Repository"
+            description="GitHub repository that contains the backup workflow (e.g. yourname/tradeworkdesk). Used to trigger manual backup runs."
+            placeholder="owner/repo"
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_github_pat"
+            label="GitHub Personal Access Token"
+            description="PAT with the 'workflow' scope to trigger workflow_dispatch runs. Create one at GitHub → Settings → Developer settings → Personal access tokens."
+            placeholder="ghp_xxxx..."
+            icon={<Database className="w-4 h-4" />}
+          />
+          <div className="pt-2 flex flex-wrap gap-3">
+            <BackupTestButton />
+            <BackupTriggerButton />
+          </div>
+          <BackupLogTable />
         </div>
       </div>
     </div>
@@ -360,7 +378,7 @@ function BackupTestButton() {
   };
 
   return (
-    <div className="pt-2 space-y-3">
+    <div className="space-y-3">
       <Button variant="outline" onClick={handleTest} disabled={testing} className="gap-2">
         {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
         {testing ? "Testing…" : "Test Backup Config"}
@@ -383,6 +401,122 @@ function BackupTestButton() {
               Cloudflare R2: {result.r2.ok ? "Bucket accessible" : result.r2.error || "Failed"}
             </span>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BackupTriggerButton() {
+  const [triggering, setTriggering] = useState(false);
+  const { toast } = useToast();
+
+  const handleTrigger = async () => {
+    setTriggering(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/backup-trigger`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.status === 422) {
+        const body = await res.json();
+        toast({ title: "Not configured", description: body.error, variant: "destructive" });
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      toast({ title: "Backup triggered", description: "The backup workflow has been queued on GitHub Actions." });
+    } catch (e) {
+      toast({ title: "Failed to trigger backup", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  return (
+    <Button variant="outline" onClick={handleTrigger} disabled={triggering} className="gap-2">
+      {triggering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+      {triggering ? "Triggering…" : "Run Backup Now"}
+    </Button>
+  );
+}
+
+type BackupFile = { name: string; size: number; lastModified: string };
+
+function formatBackupName(name: string): string {
+  const m = name.match(/backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.dump/);
+  if (!m) return name;
+  return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}:${m[6]} UTC`;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function BackupLogTable() {
+  const [loading, setLoading] = useState(false);
+  const [files, setFiles] = useState<BackupFile[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/backup-logs`, {
+        credentials: "include",
+      });
+      if (res.status === 422) {
+        setError("R2 credentials not yet configured.");
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setFiles((data as { files: BackupFile[] }).files ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load backup log");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+          <Clock className="w-4 h-4" />
+          Backup History
+        </h3>
+        <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={loading} className="gap-1 h-7 text-xs">
+          {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          {files === null ? "Load" : "Refresh"}
+        </Button>
+      </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      {files !== null && files.length === 0 && (
+        <p className="text-sm text-muted-foreground">No backups found yet.</p>
+      )}
+      {files !== null && files.length > 0 && (
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date / Time (UTC)</th>
+                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Size</th>
+              </tr>
+            </thead>
+            <tbody>
+              {files.map(f => (
+                <tr key={f.name} className="border-t">
+                  <td className="px-3 py-2">{formatBackupName(f.name)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">{formatFileSize(f.size)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

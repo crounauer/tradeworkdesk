@@ -1337,4 +1337,108 @@ router.post("/platform/backup-test", requireAuth, requireSuperAdmin, async (_req
   res.json(result);
 });
 
+const R2_KEYS = [
+  "backup_r2_account_id",
+  "backup_r2_access_key_id",
+  "backup_r2_secret_access_key",
+  "backup_r2_bucket_name",
+] as const;
+
+router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const { data, error: fetchErr } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", [...R2_KEYS]);
+  if (fetchErr) { res.status(500).json({ error: fetchErr.message }); return; }
+
+  const cfg: Record<string, string | null> = {};
+  for (const k of R2_KEYS) cfg[k] = data?.find(r => r.key === k)?.value ?? null;
+
+  const missing = R2_KEYS.filter(k => !cfg[k]);
+  if (missing.length > 0) {
+    res.status(422).json({ error: "R2 credentials not configured", missing });
+    return;
+  }
+
+  try {
+    const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+    const path = `/${cfg.backup_r2_bucket_name!}`;
+    const query = "list-type=2&max-keys=100&prefix=backup_";
+    const headers = signR2Headers({
+      method: "GET", host, path, query,
+      accessKeyId: cfg.backup_r2_access_key_id!,
+      secretAccessKey: cfg.backup_r2_secret_access_key!,
+    });
+    const r2Res = await fetch(`https://${host}${path}?${query}`, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r2Res.ok) {
+      const body = await r2Res.text().catch(() => "");
+      const msg = body.match(/<Message>(.*?)<\/Message>/)?.[1];
+      res.status(500).json({ error: msg ?? `HTTP ${r2Res.status}` });
+      return;
+    }
+    const xml = await r2Res.text();
+    const files: Array<{ name: string; size: number; lastModified: string }> = [];
+    const contentMatches = xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g);
+    for (const match of contentMatches) {
+      const block = match[1];
+      const name = block.match(/<Key>(.*?)<\/Key>/)?.[1] ?? "";
+      const size = parseInt(block.match(/<Size>(.*?)<\/Size>/)?.[1] ?? "0", 10);
+      const lastModified = block.match(/<LastModified>(.*?)<\/LastModified>/)?.[1] ?? "";
+      if (name.endsWith(".dump")) {
+        files.push({ name, size, lastModified });
+      }
+    }
+    files.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+    res.json({ files });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+router.post("/platform/backup-trigger", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const GITHUB_KEYS = ["backup_github_repo", "backup_github_pat"] as const;
+  const { data, error: fetchErr } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", [...GITHUB_KEYS]);
+  if (fetchErr) { res.status(500).json({ error: fetchErr.message }); return; }
+
+  const cfg: Record<string, string | null> = {};
+  for (const k of GITHUB_KEYS) cfg[k] = data?.find(r => r.key === k)?.value ?? null;
+
+  if (!cfg.backup_github_repo || !cfg.backup_github_pat) {
+    res.status(422).json({ error: "GitHub repository and personal access token must be configured in platform settings" });
+    return;
+  }
+
+  try {
+    const ghRes = await fetch(
+      `https://api.github.com/repos/${cfg.backup_github_repo}/actions/workflows/db-backup.yml/dispatches`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${cfg.backup_github_pat}`,
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ref: "master" }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (ghRes.status === 204) {
+      res.json({ ok: true });
+    } else {
+      const body = await ghRes.json().catch(() => ({}));
+      res.status(400).json({ ok: false, error: (body as { message?: string }).message ?? `GitHub API returned ${ghRes.status}` });
+    }
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
 export default router;
