@@ -32,7 +32,8 @@ jobs:
         run: |
           TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
           FILENAME="backup_${TIMESTAMP}.dump"
-          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+          DB_URL=$(printf '%s' "${{ secrets.SUPABASE_DB_URL }}" | tr -d '\n\r')
+          pg_dump "$DB_URL" \
             --format=custom --no-acl --no-owner \
             --file "/tmp/${FILENAME}"
           echo "FILENAME=${FILENAME}" >> $GITHUB_ENV
