@@ -15,6 +15,31 @@ function hmacSha256(key: Buffer | string, data: string): Buffer {
   return crypto.createHmac("sha256", key).update(data).digest();
 }
 
+function presignR2Get(opts: {
+  host: string; bucket: string; key: string;
+  accessKeyId: string; secretAccessKey: string;
+  expiresSeconds?: number;
+}): string {
+  const { host, bucket, key, accessKeyId, secretAccessKey, expiresSeconds = 3600 } = opts;
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}/, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const credScope = `${dateStamp}/auto/s3/aws4_request`;
+  const queryParams: [string, string][] = [
+    ["X-Amz-Algorithm", "AWS4-HMAC-SHA256"],
+    ["X-Amz-Credential", `${accessKeyId}/${credScope}`],
+    ["X-Amz-Date", amzDate],
+    ["X-Amz-Expires", String(expiresSeconds)],
+    ["X-Amz-SignedHeaders", "host"],
+  ];
+  queryParams.sort((a, b) => a[0].localeCompare(b[0]));
+  const canonQuery = queryParams.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+  const canonRequest = ["GET", `/${bucket}/${key}`, canonQuery, `host:${host}\n`, "host", "UNSIGNED-PAYLOAD"].join("\n");
+  const sts = ["AWS4-HMAC-SHA256", amzDate, credScope, sha256hex(canonRequest)].join("\n");
+  const sigKey = hmacSha256(hmacSha256(hmacSha256(hmacSha256(`AWS4${secretAccessKey}`, dateStamp), "auto"), "s3"), "aws4_request");
+  return `https://${host}/${bucket}/${key}?${canonQuery}&X-Amz-Signature=${hmacSha256(sigKey, sts).toString("hex")}`;
+}
+
 function signR2Headers(opts: {
   method: string; host: string; path: string; query: string;
   accessKeyId: string; secretAccessKey: string;
@@ -1381,7 +1406,7 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
       return;
     }
     const xml = await r2Res.text();
-    const files: Array<{ name: string; size: number; lastModified: string }> = [];
+    const files: Array<{ name: string; size: number; lastModified: string; downloadUrl: string }> = [];
     const contentMatches = xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g);
     for (const match of contentMatches) {
       const block = match[1];
@@ -1389,7 +1414,15 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
       const size = parseInt(block.match(/<Size>(.*?)<\/Size>/)?.[1] ?? "0", 10);
       const lastModified = block.match(/<LastModified>(.*?)<\/LastModified>/)?.[1] ?? "";
       if (name.endsWith(".dump") || name.endsWith(".json.gz")) {
-        files.push({ name, size, lastModified });
+        const downloadUrl = presignR2Get({
+          host,
+          bucket: cfg.backup_r2_bucket_name!,
+          key: name,
+          accessKeyId: cfg.backup_r2_access_key_id!,
+          secretAccessKey: cfg.backup_r2_secret_access_key!,
+          expiresSeconds: 3600,
+        });
+        files.push({ name, size, lastModified, downloadUrl });
       }
     }
     files.sort((a, b) => b.lastModified.localeCompare(a.lastModified));

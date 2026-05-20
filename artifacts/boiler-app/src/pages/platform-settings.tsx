@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Download } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -452,7 +452,7 @@ function BackupTriggerButton() {
   );
 }
 
-type BackupFile = { name: string; size: number; lastModified: string };
+type BackupFile = { name: string; size: number; lastModified: string; downloadUrl?: string };
 
 function formatBackupName(name: string): string {
   const m = name.match(/backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
@@ -515,6 +515,7 @@ function BackupLogTable() {
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date / Time (UTC)</th>
                 <th className="text-right px-3 py-2 font-medium text-muted-foreground">Size</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -522,6 +523,13 @@ function BackupLogTable() {
                 <tr key={f.name} className="border-t">
                   <td className="px-3 py-2">{formatBackupName(f.name)}</td>
                   <td className="px-3 py-2 text-right text-muted-foreground">{formatFileSize(f.size)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {f.downloadUrl && (
+                      <a href={f.downloadUrl} download={f.name} title="Download backup" className="inline-flex items-center text-muted-foreground hover:text-foreground">
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
