@@ -13,12 +13,10 @@ jobs:
     steps:
       - name: Fetch backup credentials from platform admin
         run: |
-          API_URL="${{ secrets.PLATFORM_API_URL }}/api/internal/backup-config"
-          echo "API URL length: ${#API_URL}"
-          echo "API URL starts with https: $(echo "$API_URL" | grep -c '^https://')"
+          BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')
           CREDS=$(curl -sf \
             -H "x-cron-secret: ${{ secrets.INTERNAL_CRON_SECRET }}" \
-            "$API_URL")
+            "${BASE_URL}/api/internal/backup-config")
 
           echo "SUPABASE_DB_URL=$(echo "$CREDS"      | jq -r .backup_supabase_db_url)"      >> "$GITHUB_ENV"
           echo "R2_ACCOUNT_ID=$(echo "$CREDS"        | jq -r .backup_r2_account_id)"        >> "$GITHUB_ENV"
