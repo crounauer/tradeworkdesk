@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -324,8 +324,67 @@ export default function PlatformSettings() {
             placeholder="tradeworkdesk-backups"
             icon={<Database className="w-4 h-4" />}
           />
+          <BackupTestButton />
         </div>
       </div>
+    </div>
+  );
+}
+
+function BackupTestButton() {
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ db: { ok: boolean; error: string }; r2: { ok: boolean; error: string } } | null>(null);
+  const { toast } = useToast();
+
+  const handleTest = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/backup-test`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.status === 422) {
+        const body = await res.json();
+        toast({ title: "Missing credentials", description: `Set these first: ${body.missing?.join(", ")}`, variant: "destructive" });
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      toast({ title: "Test failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="pt-2 space-y-3">
+      <Button variant="outline" onClick={handleTest} disabled={testing} className="gap-2">
+        {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+        {testing ? "Testing…" : "Test Backup Config"}
+      </Button>
+      {result && (
+        <div className="rounded-lg border p-4 space-y-2 text-sm">
+          <div className="flex items-center gap-2">
+            {result.db.ok
+              ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+              : <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
+            <span className={result.db.ok ? "text-green-700" : "text-red-600"}>
+              Database: {result.db.ok ? "Connected successfully" : result.db.error || "Failed"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {result.r2.ok
+              ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+              : <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
+            <span className={result.r2.ok ? "text-green-700" : "text-red-600"}>
+              Cloudflare R2: {result.r2.ok ? "Bucket accessible" : result.r2.error || "Failed"}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,44 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
+import { Pool } from "pg";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth } from "../lib/tenant-limits";
+
+function sha256hex(data: string): string {
+  return crypto.createHash("sha256").update(data).digest("hex");
+}
+
+function hmacSha256(key: Buffer | string, data: string): Buffer {
+  return crypto.createHmac("sha256", key).update(data).digest();
+}
+
+function signR2Headers(opts: {
+  method: string; host: string; path: string; query: string;
+  accessKeyId: string; secretAccessKey: string;
+}): Record<string, string> {
+  const { method, host, path, query, accessKeyId, secretAccessKey } = opts;
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}/, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const payloadHash = sha256hex("");
+  const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
+  const canonicalRequest = [method, path, query, canonicalHeaders, signedHeaders, payloadHash].join("\n");
+  const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256hex(canonicalRequest)].join("\n");
+  const signingKey = hmacSha256(hmacSha256(hmacSha256(hmacSha256(`AWS4${secretAccessKey}`, dateStamp), "auto"), "s3"), "aws4_request");
+  const signature = hmacSha256(signingKey, stringToSign).toString("hex");
+  return {
+    host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amzDate,
+    Authorization: `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+  };
+}
 
 const router: IRouter = Router();
 
@@ -1223,6 +1256,83 @@ router.get("/platform/tenants/:id/user-addons", requireAuth, requireSuperAdmin, 
 
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data ?? []);
+});
+
+const BACKUP_KEYS = [
+  "backup_supabase_db_url",
+  "backup_r2_account_id",
+  "backup_r2_access_key_id",
+  "backup_r2_secret_access_key",
+  "backup_r2_bucket_name",
+] as const;
+
+router.post("/platform/backup-test", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const { data, error: fetchErr } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", [...BACKUP_KEYS]);
+  if (fetchErr) { res.status(500).json({ error: fetchErr.message }); return; }
+
+  const cfg: Record<string, string | null> = {};
+  for (const k of BACKUP_KEYS) cfg[k] = data?.find(r => r.key === k)?.value ?? null;
+
+  const missing = BACKUP_KEYS.filter(k => !cfg[k]);
+  if (missing.length > 0) {
+    res.status(422).json({ error: "Missing credentials", missing });
+    return;
+  }
+
+  const result = {
+    db: { ok: false, error: "" },
+    r2: { ok: false, error: "" },
+  };
+
+  // Test database connection
+  const pool = new Pool({
+    connectionString: cfg.backup_supabase_db_url!,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 1000,
+  });
+  try {
+    const client = await pool.connect();
+    await client.query("SELECT 1");
+    client.release();
+    result.db.ok = true;
+  } catch (e) {
+    result.db.error = e instanceof Error ? e.message : String(e);
+  } finally {
+    await pool.end().catch(() => {});
+  }
+
+  // Test R2 via ListObjectsV2 (max-keys=1)
+  try {
+    const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+    const path = `/${cfg.backup_r2_bucket_name!}`;
+    const query = "list-type=2&max-keys=1";
+    const headers = signR2Headers({
+      method: "GET", host, path, query,
+      accessKeyId: cfg.backup_r2_access_key_id!,
+      secretAccessKey: cfg.backup_r2_secret_access_key!,
+    });
+    const r2Res = await fetch(`https://${host}${path}?${query}`, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(8000),
+    });
+    if (r2Res.ok) {
+      result.r2.ok = true;
+    } else {
+      const body = await r2Res.text().catch(() => "");
+      const msg = body.match(/<Message>(.*?)<\/Message>/)?.[1];
+      result.r2.error = msg ? `${r2Res.status}: ${msg}` : `HTTP ${r2Res.status}: ${r2Res.statusText}`;
+    }
+  } catch (e) {
+    result.r2.error = e instanceof Error ? e.message : String(e);
+  }
+
+  res.json(result);
 });
 
 export default router;
