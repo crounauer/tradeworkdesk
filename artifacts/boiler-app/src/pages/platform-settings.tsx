@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -265,6 +265,65 @@ export default function PlatformSettings() {
             </div>
           </div>
 
+        </div>
+      </div>
+
+      <div className="mt-2">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <Database className="w-5 h-5" />
+          Database Backup
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Credentials used by the daily automated backup job. Backups are stored in Cloudflare R2 and retained for 30 days.
+          The GitHub Actions workflow fetches these at runtime — you only need <code className="bg-slate-100 px-1 rounded text-xs">CRON_SECRET</code> and <code className="bg-slate-100 px-1 rounded text-xs">PLATFORM_API_URL</code> as GitHub Secrets.
+        </p>
+        <div className="space-y-4">
+          <PlatformSettingField
+            settingKey="backup_supabase_db_url"
+            label="Supabase Database URL"
+            description="Direct PostgreSQL connection string. Found in Supabase → Settings → Database → Connection String → URI. Use the direct connection (port 5432), not the pooler."
+            placeholder="postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres"
+            icon={<Database className="w-4 h-4" />}
+            helpContent={
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 space-y-1">
+                <p className="font-medium">Where to find this:</p>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-blue-700">
+                  <li>Go to <strong>Supabase dashboard → Settings → Database</strong></li>
+                  <li>Scroll to <strong>Connection string</strong> and select the <strong>URI</strong> tab</li>
+                  <li>Copy the string — replace <code className="bg-blue-100 px-1 rounded">[YOUR-PASSWORD]</code> with your DB password</li>
+                  <li>Use port <strong>5432</strong> (direct), not 6543 (pooler)</li>
+                </ol>
+              </div>
+            }
+          />
+          <PlatformSettingField
+            settingKey="backup_r2_account_id"
+            label="Cloudflare Account ID"
+            description="Your Cloudflare account ID. Found in the Cloudflare dashboard under your account name (top-right menu)."
+            placeholder="a1b2c3d4e5f6..."
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_r2_access_key_id"
+            label="R2 Access Key ID"
+            description="R2 API token Access Key ID. Create a token in Cloudflare → R2 → Manage R2 API Tokens with Object Read & Write permissions."
+            placeholder="a1b2c3d4e5f6..."
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_r2_secret_access_key"
+            label="R2 Secret Access Key"
+            description="R2 API token Secret Access Key. Shown only once when the token is created — store it here immediately."
+            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            icon={<Database className="w-4 h-4" />}
+          />
+          <PlatformSettingField
+            settingKey="backup_r2_bucket_name"
+            label="R2 Bucket Name"
+            description="Name of the Cloudflare R2 bucket to store backups in (e.g. tradeworkdesk-backups). Create the bucket in Cloudflare → R2 → Create bucket."
+            placeholder="tradeworkdesk-backups"
+            icon={<Database className="w-4 h-4" />}
+          />
         </div>
       </div>
     </div>

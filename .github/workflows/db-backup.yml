@@ -1,8 +1,8 @@
-name: Weekly Database Backup
+name: Daily Database Backup
 
 on:
   schedule:
-    - cron: '0 2 * * 0'  # Every Sunday at 02:00 UTC
+    - cron: '0 2 * * *'  # Every day at 02:00 UTC
   workflow_dispatch:      # Allow manual trigger from GitHub UI
 
 jobs:
@@ -11,21 +11,31 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Fetch backup credentials from platform admin
+        run: |
+          CREDS=$(curl -sf \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.PLATFORM_API_URL }}/api/internal/backup-config")
+
+          echo "SUPABASE_DB_URL=$(echo "$CREDS"      | jq -r .backup_supabase_db_url)"      >> "$GITHUB_ENV"
+          echo "R2_ACCOUNT_ID=$(echo "$CREDS"        | jq -r .backup_r2_account_id)"        >> "$GITHUB_ENV"
+          echo "R2_ACCESS_KEY_ID=$(echo "$CREDS"     | jq -r .backup_r2_access_key_id)"     >> "$GITHUB_ENV"
+          echo "R2_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .backup_r2_secret_access_key)" >> "$GITHUB_ENV"
+          echo "R2_BUCKET_NAME=$(echo "$CREDS"       | jq -r .backup_r2_bucket_name)"       >> "$GITHUB_ENV"
+
       - name: Install PostgreSQL client
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
 
       - name: Run pg_dump
-        env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           TIMESTAMP=$(date -u +%Y%m%d_%H%M%S)
           FILENAME="backup_${TIMESTAMP}.dump"
           echo "FILENAME=${FILENAME}" >> "$GITHUB_ENV"
 
           pg_dump \
-            --dbname="$DATABASE_URL" \
+            --dbname="$SUPABASE_DB_URL" \
             --format=custom \
             --no-acl \
             --no-owner \
@@ -36,45 +46,41 @@ jobs:
 
       - name: Upload to Cloudflare R2
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
         run: |
           aws s3 cp "${{ env.FILENAME }}" \
-            "s3://${{ secrets.R2_BUCKET_NAME }}/${{ env.FILENAME }}" \
-            --endpoint-url "$R2_ENDPOINT"
+            "s3://${{ env.R2_BUCKET_NAME }}/${{ env.FILENAME }}" \
+            --endpoint-url "https://${{ env.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
 
           echo "Uploaded to R2: ${{ env.FILENAME }}"
 
-      - name: Prune old backups (keep last 12 weeks)
+      - name: Prune old backups (keep last 30 days)
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ env.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
         run: |
-          # List files sorted oldest-first, delete any beyond the 12 most recent
-          FILES=$(aws s3 ls "s3://${{ secrets.R2_BUCKET_NAME }}/" \
-            --endpoint-url "$R2_ENDPOINT" \
+          FILES=$(aws s3 ls "s3://${{ env.R2_BUCKET_NAME }}/" \
+            --endpoint-url "https://${{ env.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
             | sort \
             | awk '{print $4}' \
             | grep '\.dump$')
 
           TOTAL=$(echo "$FILES" | grep -c '.' || true)
-          DELETE_COUNT=$(( TOTAL > 12 ? TOTAL - 12 : 0 ))
+          DELETE_COUNT=$(( TOTAL > 30 ? TOTAL - 30 : 0 ))
 
           if [ "$DELETE_COUNT" -gt 0 ]; then
             echo "Deleting ${DELETE_COUNT} old backup(s)..."
             echo "$FILES" | head -n "$DELETE_COUNT" | while read -r file; do
               echo "  Deleting: ${file}"
-              aws s3 rm "s3://${{ secrets.R2_BUCKET_NAME }}/${file}" \
-                --endpoint-url "$R2_ENDPOINT"
+              aws s3 rm "s3://${{ env.R2_BUCKET_NAME }}/${file}" \
+                --endpoint-url "https://${{ env.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
             done
           else
-            echo "No old backups to prune (${TOTAL}/12 slots used)"
+            echo "No old backups to prune (${TOTAL}/30 slots used)"
           fi
 
       - name: Report success
-        run: |
-          echo "✓ Backup complete: ${{ env.FILENAME }}"
+        run: echo "✓ Backup complete: ${{ env.FILENAME }}"

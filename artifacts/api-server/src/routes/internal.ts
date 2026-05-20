@@ -210,4 +210,36 @@ router.get("/internal/send-low-credits-alerts", async (req: Request, res: Respon
   res.json({ sent: successCount, results });
 });
 
+const BACKUP_SETTING_KEYS = [
+  "backup_supabase_db_url",
+  "backup_r2_account_id",
+  "backup_r2_access_key_id",
+  "backup_r2_secret_access_key",
+  "backup_r2_bucket_name",
+] as const;
+
+router.get("/internal/backup-config", async (req: Request, res: Response): Promise<void> => {
+  if (!requireCronSecret(req, res)) return;
+
+  const { data, error } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", [...BACKUP_SETTING_KEYS]);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const config: Record<string, string | null> = {};
+  for (const key of BACKUP_SETTING_KEYS) {
+    config[key] = data?.find(r => r.key === key)?.value ?? null;
+  }
+
+  const missing = BACKUP_SETTING_KEYS.filter(k => !config[k]);
+  if (missing.length > 0) {
+    res.status(422).json({ error: "Missing backup credentials", missing });
+    return;
+  }
+
+  res.json(config);
+});
+
 export default router;
