@@ -14,10 +14,11 @@ import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
   Briefcase, Clock, Edit, Check, X, Trash2,
   Camera, ImagePlus, Loader2, ChevronLeft, ChevronRight, Paperclip,
-  FileText, Receipt
+  FileText, Receipt, ChevronDown
 } from "lucide-react";
 import { useCreateInvoice } from "@/hooks/use-invoices";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const SOURCE_LABELS: Record<string, string> = {
   phone: "Phone", email: "Email", text: "Text/SMS", facebook: "Facebook",
@@ -567,12 +568,23 @@ function EnquiryDetailContent() {
             </Button>
           )}
           {canEdit && (
-            <>
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => handleCreateInvoiceOrQuote("quote")} disabled={createInvoiceMut.isPending}>
-                {createInvoiceMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                Convert to Quote
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1" disabled={createInvoiceMut.isPending}>
+                  {createInvoiceMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  Convert to…
+                  <ChevronDown className="w-3 h-3 ml-0.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleCreateInvoiceOrQuote("quote")}>
+                  <FileText className="w-4 h-4 mr-2" /> Quote
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleCreateInvoiceOrQuote("invoice")}>
+                  <Receipt className="w-4 h-4 mr-2" /> Invoice
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {isAdmin && (
             <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={handleDelete}>
