@@ -394,7 +394,7 @@ function EnquiryDetailContent() {
   async function doCreateInvoiceOrQuote(type: "invoice" | "quote", customerId: string) {
     try {
       const created = await createInvoiceMut.mutateAsync({ job_id: undefined as any, customer_id: customerId, type } as any);
-      navigate(`/invoices/${created.id}`);
+      navigate(`/invoices/${created.id}?edit=1`);
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
     }
