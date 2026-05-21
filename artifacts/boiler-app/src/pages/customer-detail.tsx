@@ -313,6 +313,7 @@ export default function CustomerDetail() {
         open={showBookJob}
         onOpenChange={setShowBookJob}
         initialCustomerId={customer.id}
+        initialCustomerAddress={{ address_line1: customer.address_line1, city: customer.city, postcode: customer.postcode }}
       />
 
       <SmsSendDialog

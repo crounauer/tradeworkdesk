@@ -88,10 +88,11 @@ interface BookJobDialogProps {
   initialDate?: string;
   initialCustomerId?: string;
   initialPropertyId?: string;
+  initialCustomerAddress?: { address_line1?: string; city?: string; postcode?: string };
   invoiceId?: string;
 }
 
-export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId, initialPropertyId, invoiceId }: BookJobDialogProps) {
+export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId, initialPropertyId, initialCustomerAddress, invoiceId }: BookJobDialogProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -202,21 +203,28 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
   }, [open, initialCustomerId, initialPropertyId, setValue]);
 
   // Auto-open the add-property form when the dialog opens with a pre-filled
-  // customer that has no properties yet
+  // customer that has no properties yet. Uses directly-passed address if available
+  // to avoid depending on async list queries loading in time.
   useEffect(() => {
     if (!open || !initialCustomerId || initialPropertyId) return;
     if (!properties) return;
     const customerProperties = properties.filter(p => p.customer_id === initialCustomerId);
     if (customerProperties.length === 0) {
-      const cust = customers?.find(c => c.id === initialCustomerId);
-      if (cust) {
-        setNewPropAddress((cust as any).address_line1 || "");
-        setNewPropCity((cust as any).city || "");
-        setNewPropPostcode((cust as any).postcode || "");
+      if (initialCustomerAddress) {
+        setNewPropAddress(initialCustomerAddress.address_line1 || "");
+        setNewPropCity(initialCustomerAddress.city || "");
+        setNewPropPostcode(initialCustomerAddress.postcode || "");
+      } else {
+        const cust = customers?.find(c => c.id === initialCustomerId);
+        if (cust) {
+          setNewPropAddress((cust as any).address_line1 || "");
+          setNewPropCity((cust as any).city || "");
+          setNewPropPostcode((cust as any).postcode || "");
+        }
       }
       setShowAddProperty(true);
     }
-  }, [open, initialCustomerId, initialPropertyId, properties, customers]);
+  }, [open, initialCustomerId, initialPropertyId, initialCustomerAddress, properties, customers]);
 
   const prefillPropertyFromCustomer = () => {
     if (selectedCustomer) {
