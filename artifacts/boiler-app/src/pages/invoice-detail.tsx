@@ -6,6 +6,7 @@ import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Plus, Minus, Receipt, AlertTriangle, FileText, CreditCard,
   Edit3, Save, X, Clock, Mail, ChevronDown, ChevronUp, Briefcase,
+  Package, Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -236,9 +237,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     return isDraft && sp.get("edit") === "1";
   });
   const [lines, setLines] = useState<InvoiceLineItem[]>(
-    invoice.line_items && invoice.line_items.length > 0
-      ? invoice.line_items.map((l) => ({ ...l }))
-      : [emptyLine()]
+    invoice.line_items ? invoice.line_items.map((l) => ({ ...l })) : []
   );
   const [worksOrder, setWorksOrder] = useState(invoice.works_order || "");
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
@@ -343,15 +342,14 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     }
     if (newItems.length > 0) {
       setLines(prev => {
-        // Remove trailing blank empty line if present, then append new items
         const trimmed = prev.filter(l => l.description.trim() || Number(l.unit_price) !== 0);
-        return [...trimmed, ...newItems, emptyLine()];
+        return [...trimmed, ...newItems];
       });
     }
     setLabourOpen(false);
   }
 
-  const searchCatalogue = useCallback((query: string, idx: number) => {
+  const searchCatalogue = useCallback((query: string, idx: number, sectionType: "product" | "service") => {
     if (catSearchTimeout.current) clearTimeout(catSearchTimeout.current);
     if (catAbortRef.current) catAbortRef.current.abort();
     if (!query.trim()) { setCatalogueSuggestions([]); setActiveLineIdx(null); return; }
@@ -361,14 +359,18 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       catAbortRef.current = ctrl;
       try {
         const [svcs, prods] = await Promise.all([
-          customFetch(`${import.meta.env.BASE_URL}api/services/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
-            .then(d => (Array.isArray(d) ? d : []).map((s: { id: string; name: string; default_price: number | null }) => ({ ...s, type: "service" as const }))),
-          customFetch(`${import.meta.env.BASE_URL}api/admin/products`, { signal: ctrl.signal })
-            .then(d => (Array.isArray(d) ? d : [])
-              .filter((p: { name: string }) => p.name.toLowerCase().includes(query.toLowerCase()))
-              .slice(0, 10)
-              .map((p: { id: string; name: string; default_price: number | null }) => ({ ...p, type: "product" as const }))
-            ).catch(() => [] as CatalogueItem[]),
+          sectionType === "service"
+            ? customFetch(`${import.meta.env.BASE_URL}api/services/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
+                .then(d => (Array.isArray(d) ? d : []).map((s: { id: string; name: string; default_price: number | null }) => ({ ...s, type: "service" as const })))
+            : Promise.resolve([] as CatalogueItem[]),
+          sectionType === "product"
+            ? customFetch(`${import.meta.env.BASE_URL}api/admin/products`, { signal: ctrl.signal })
+                .then(d => (Array.isArray(d) ? d : [])
+                  .filter((p: { name: string }) => p.name.toLowerCase().includes(query.toLowerCase()))
+                  .slice(0, 10)
+                  .map((p: { id: string; name: string; default_price: number | null }) => ({ ...p, type: "product" as const }))
+                ).catch(() => [] as CatalogueItem[])
+            : Promise.resolve([] as CatalogueItem[]),
         ]);
         if (seq !== catSeqRef.current) return;
         setCatalogueSuggestions([...svcs, ...prods].slice(0, 12));
@@ -453,12 +455,98 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     setLines((prev) => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
   }
 
-  function addLine() {
-    setLines((prev) => [...prev, emptyLine()]);
+  function addLineOfType(type: "product" | "service" | "labour") {
+    setLines((prev) => [...prev, { description: "", quantity: 1, unit_price: 0, item_type: type }]);
   }
 
   function removeLine(idx: number) {
     setLines((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function renderLineRow(line: InvoiceLineItem, idx: number, sectionType: "product" | "service" | "labour") {
+    return (
+      <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
+        {editing ? (
+          <>
+            <div className="relative">
+              <Input
+                value={line.description}
+                onChange={(e) => {
+                  updateLine(idx, "description", e.target.value);
+                  if (sectionType !== "labour") searchCatalogue(e.target.value, idx, sectionType);
+                }}
+                onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}
+                onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}
+                placeholder={sectionType === "labour" ? "Labour description…" : "Type to search catalogue…"}
+                className="h-8 text-sm"
+              />
+              {sectionType !== "labour" && activeLineIdx === idx && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {catalogueSuggestions.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">No matches found</p>
+                  ) : (
+                    catalogueSuggestions.map((item) => (
+                      <button
+                        key={`${item.type}-${item.id}`}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
+                        onMouseDown={(e) => { e.preventDefault(); selectCatalogueItem(item, idx); }}
+                      >
+                        <span className="truncate">{item.name}</span>
+                        {item.default_price != null && (
+                          <span className="text-muted-foreground shrink-0">{formatCurrency(item.default_price, currency)}</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                  {line.description.trim() && (
+                    <div className="border-t px-3 py-2">
+                      <button
+                        type="button"
+                        className={`text-xs px-2 py-1 rounded font-medium ${
+                          sectionType === "service" ? "bg-blue-50 text-blue-700 hover:bg-blue-100" : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                        }`}
+                        onMouseDown={(e) => { e.preventDefault(); openAddToCatalogue(sectionType as "product" | "service", idx); }}
+                      >
+                        + Save as {sectionType === "service" ? "Service" : "Product"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <Input
+              type="number" min="0" step="0.01"
+              value={line.quantity}
+              onChange={(e) => updateLine(idx, "quantity", parseFloat(e.target.value) || 0)}
+              className="h-8 text-sm" placeholder="Qty"
+            />
+            <Input
+              type="number" min="0" step="0.01"
+              value={line.unit_price}
+              onChange={(e) => updateLine(idx, "unit_price", parseFloat(e.target.value) || 0)}
+              className="h-8 text-sm" placeholder="Unit price"
+            />
+            <p className="text-sm text-right font-medium">
+              {formatCurrency(Number(line.quantity) * Number(line.unit_price), currency)}
+            </p>
+            <button onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
+              <Minus className="w-4 h-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">{line.description || "—"}</p>
+            <p className="text-sm text-muted-foreground text-right md:text-left">×{line.quantity}</p>
+            <p className="text-sm hidden md:block">{formatCurrency(Number(line.unit_price), currency)}</p>
+            <p className="text-sm font-medium text-right">
+              {formatCurrency(Number(line.quantity) * Number(line.unit_price), currency)}
+            </p>
+            <span />
+          </>
+        )}
+      </div>
+    );
   }
 
   async function saveChanges() {
@@ -562,6 +650,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const customerName = invoice.customer
     ? `${invoice.customer.first_name} ${invoice.customer.last_name}`
     : "—";
+
+  // Section views derived from flat lines array
+  const productLineIndices = lines.reduce<number[]>((acc, l, i) => { if (l.item_type === "product") acc.push(i); return acc; }, []);
+  const serviceLineIndices = lines.reduce<number[]>((acc, l, i) => { if (l.item_type === "service") acc.push(i); return acc; }, []);
+  const labourLineIndices = lines.reduce<number[]>((acc, l, i) => { if (!(["product", "service"] as string[]).includes(l.item_type || "")) acc.push(i); return acc; }, []);
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
@@ -814,155 +907,74 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Line Items</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {/* Header row */}
-              <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1">
-                <span>Description</span>
-                <span>Qty</span>
-                <span>Unit Price</span>
-                <span className="text-right">Total</span>
-                <span />
+            <CardContent className="space-y-5">
+
+              {/* ── Parts & Products ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
+                  <Package className="w-4 h-4 text-purple-600" />
+                  <h3 className="text-sm font-semibold text-purple-700">Parts &amp; Products</h3>
+                </div>
+                <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
+                  <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
+                </div>
+                {productLineIndices.length === 0 && !editing && (
+                  <p className="text-sm text-muted-foreground italic py-1">No parts or products</p>
+                )}
+                {productLineIndices.map(idx => renderLineRow(lines[idx], idx, "product"))}
+                {editing && (
+                  <Button variant="ghost" size="sm" className="w-full border-dashed border mt-1" onClick={() => addLineOfType("product")}>
+                    <Plus className="w-4 h-4 mr-1" /> Add Part / Product
+                  </Button>
+                )}
               </div>
 
-              {lines.map((line, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
-                  {editing ? (
-                    <>
-                      <div className="relative">
-                        {(line.item_type === "product" || line.item_type === "service" || line.item_type === "labour" || line.item_type === "callout") && (
-                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mb-0.5 inline-block ${
-                            line.item_type === "product" ? "bg-purple-100 text-purple-700" :
-                            line.item_type === "service" ? "bg-blue-100 text-blue-700" :
-                            line.item_type === "labour" ? "bg-amber-100 text-amber-700" :
-                            "bg-orange-100 text-orange-700"
-                          }`}>
-                            {line.item_type === "product" ? "Product" :
-                             line.item_type === "service" ? "Service" :
-                             line.item_type === "labour" ? "Labour" : "Callout"}
-                          </span>
-                        )}
-                        <Input
-                          value={line.description}
-                          onChange={(e) => {
-                            updateLine(idx, "description", e.target.value);
-                            searchCatalogue(e.target.value, idx);
-                          }}
-                          onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}
-                          onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}
-                          placeholder="Description — type to search catalogue…"
-                          className="h-8 text-sm"
-                        />
-                        {activeLineIdx === idx && (
-                          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {catalogueSuggestions.length === 0 ? (
-                              <p className="px-3 py-2 text-sm text-muted-foreground">No matches found</p>
-                            ) : (
-                              catalogueSuggestions.map((item) => (
-                                <button
-                                  key={`${item.type}-${item.id}`}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
-                                  onMouseDown={(e) => { e.preventDefault(); selectCatalogueItem(item, idx); }}
-                                >
-                                  <span className="flex items-center gap-2 min-w-0">
-                                    <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${item.type === "service" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                                      {item.type === "service" ? "Service" : "Product"}
-                                    </span>
-                                    <span className="truncate">{item.name}</span>
-                                  </span>
-                                  {item.default_price != null && (
-                                    <span className="text-muted-foreground shrink-0">{formatCurrency(item.default_price, currency)}</span>
-                                  )}
-                                </button>
-                              ))
-                            )}
-                            {line.description.trim() && (
-                              <div className="border-t px-3 py-2 flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Save as new:</span>
-                                <button
-                                  type="button"
-                                  className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium"
-                                  onMouseDown={(e) => { e.preventDefault(); openAddToCatalogue("service", idx); }}
-                                >
-                                  + Service
-                                </button>
-                                <button
-                                  type="button"
-                                  className="text-xs px-2 py-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium"
-                                  onMouseDown={(e) => { e.preventDefault(); openAddToCatalogue("product", idx); }}
-                                >
-                                  + Product
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={line.quantity}
-                        onChange={(e) => updateLine(idx, "quantity", parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm"
-                        placeholder="Qty"
-                      />
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={line.unit_price}
-                        onChange={(e) => updateLine(idx, "unit_price", parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm"
-                        placeholder="Unit price"
-                      />
-                      <p className="text-sm text-right font-medium">
-                        {formatCurrency(Number(line.quantity) * Number(line.unit_price), currency)}
-                      </p>
-                      <button onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="text-sm">{line.description || "—"}</p>
-                        {(line.item_type === "product" || line.item_type === "service" || line.item_type === "labour" || line.item_type === "callout") && (
-                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded mt-0.5 inline-block ${
-                            line.item_type === "product" ? "bg-purple-100 text-purple-700" :
-                            line.item_type === "service" ? "bg-blue-100 text-blue-700" :
-                            line.item_type === "labour" ? "bg-amber-100 text-amber-700" :
-                            "bg-orange-100 text-orange-700"
-                          }`}>
-                            {line.item_type === "product" ? "Product" :
-                             line.item_type === "service" ? "Service" :
-                             line.item_type === "labour" ? "Labour" : "Callout"}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground text-right md:text-left">×{line.quantity}</p>
-                      <p className="text-sm hidden md:block">{formatCurrency(Number(line.unit_price), currency)}</p>
-                      <p className="text-sm font-medium text-right">
-                        {formatCurrency(Number(line.quantity) * Number(line.unit_price), currency)}
-                      </p>
-                      <span />
-                    </>
-                  )}
+              {/* ── Services ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
+                  <Wrench className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-blue-700">Services</h3>
                 </div>
-              ))}
-
-              {editing && (
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="flex-1 border-dashed border" onClick={addLine}>
-                    <Plus className="w-4 h-4 mr-1" /> Add line
+                <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
+                  <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
+                </div>
+                {serviceLineIndices.length === 0 && !editing && (
+                  <p className="text-sm text-muted-foreground italic py-1">No services</p>
+                )}
+                {serviceLineIndices.map(idx => renderLineRow(lines[idx], idx, "service"))}
+                {editing && (
+                  <Button variant="ghost" size="sm" className="w-full border-dashed border mt-1" onClick={() => addLineOfType("service")}>
+                    <Plus className="w-4 h-4 mr-1" /> Add Service
                   </Button>
-                  {calloutRates.length > 0 && (
-                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setLabourOpen(true)}>
-                      <Clock className="w-4 h-4 mr-1" /> Add labour charge
-                    </Button>
-                  )}
+                )}
+              </div>
+
+              {/* ── Labour ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <h3 className="text-sm font-semibold text-amber-700">Labour</h3>
                 </div>
-              )}
+                <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
+                  <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
+                </div>
+                {labourLineIndices.length === 0 && !editing && (
+                  <p className="text-sm text-muted-foreground italic py-1">No labour charges</p>
+                )}
+                {labourLineIndices.map(idx => renderLineRow(lines[idx], idx, "labour"))}
+                {editing && (
+                  <div className="flex gap-2 mt-1">
+                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border" onClick={() => addLineOfType("labour")}>
+                      <Plus className="w-4 h-4 mr-1" /> Add Labour Line
+                    </Button>
+                    {calloutRates.length > 0 && (
+                      <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setLabourOpen(true)}>
+                        <Clock className="w-4 h-4 mr-1" /> Add from Rate Card
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Totals */}
               <div className="border-t pt-3 space-y-1 text-sm">
