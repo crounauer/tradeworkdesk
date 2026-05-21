@@ -133,7 +133,6 @@ export default function RadiatorSizing() {
         canonical="https://www.tradeworkdesk.co.uk/tools/radiator-sizing"
       />
       <div>
-      <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools
         </Link>
