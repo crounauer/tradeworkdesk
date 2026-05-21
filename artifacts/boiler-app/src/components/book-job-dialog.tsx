@@ -372,6 +372,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
       qc.invalidateQueries({ queryKey: ["/api/properties"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
+      qc.invalidateQueries({ queryKey: ["customer-jobs"] });
 
       toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
 

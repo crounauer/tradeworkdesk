@@ -196,12 +196,15 @@ function JobTypeFormDialog({
           <div>
             <Label>Default Duration (minutes)</Label>
             <Input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9]/g, "");
+                setDuration(v);
+              }}
               placeholder="e.g. 60"
-              min={1}
-              max={480}
             />
           </div>
         </div>
