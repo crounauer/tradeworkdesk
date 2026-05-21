@@ -201,6 +201,23 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
     }
   }, [open, initialCustomerId, initialPropertyId, setValue]);
 
+  // Auto-open the add-property form when the dialog opens with a pre-filled
+  // customer that has no properties yet
+  useEffect(() => {
+    if (!open || !initialCustomerId || initialPropertyId) return;
+    if (!properties) return;
+    const customerProperties = properties.filter(p => p.customer_id === initialCustomerId);
+    if (customerProperties.length === 0) {
+      const cust = customers?.find(c => c.id === initialCustomerId);
+      if (cust) {
+        setNewPropAddress((cust as any).address_line1 || "");
+        setNewPropCity((cust as any).city || "");
+        setNewPropPostcode((cust as any).postcode || "");
+      }
+      setShowAddProperty(true);
+    }
+  }, [open, initialCustomerId, initialPropertyId, properties, customers]);
+
   const prefillPropertyFromCustomer = () => {
     if (selectedCustomer) {
       setNewPropAddress((selectedCustomer as any).address_line1 || "");
