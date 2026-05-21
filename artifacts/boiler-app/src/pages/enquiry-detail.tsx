@@ -13,8 +13,10 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
   Briefcase, Clock, Edit, Check, X, Trash2,
-  Camera, ImagePlus, Loader2, ChevronLeft, ChevronRight, Paperclip
+  Camera, ImagePlus, Loader2, ChevronLeft, ChevronRight, Paperclip,
+  FileText, Receipt
 } from "lucide-react";
+import { useCreateInvoice } from "@/hooks/use-invoices";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -351,6 +353,20 @@ function EnquiryDetailContent() {
   const [noteText, setNoteText] = useState("");
   const [sendingNote, setSendingNote] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
+  const createInvoiceMut = useCreateInvoice();
+
+  async function handleCreateInvoiceOrQuote(type: "invoice" | "quote") {
+    if (!enquiry?.customer?.id) {
+      toast({ title: "No customer linked", description: "Link a customer to this enquiry before creating an invoice or quote.", variant: "destructive" });
+      return;
+    }
+    try {
+      const created = await createInvoiceMut.mutateAsync({ job_id: undefined as any, customer_id: enquiry.customer.id, type } as any);
+      navigate(`/invoices/${created.id}`);
+    } catch (e) {
+      toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
+    }
+  }
   const [noteFiles, setNoteFiles] = useState<File[]>([]);
   const noteFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -517,6 +533,18 @@ function EnquiryDetailContent() {
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => setShowConvert(true)}>
               <Briefcase className="w-4 h-4" /> Convert to Job
             </Button>
+          )}
+          {canEdit && (
+            <>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => handleCreateInvoiceOrQuote("quote")} disabled={createInvoiceMut.isPending}>
+                {createInvoiceMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                Create Quote
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => handleCreateInvoiceOrQuote("invoice")} disabled={createInvoiceMut.isPending}>
+                {createInvoiceMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
+                Create Invoice
+              </Button>
+            </>
           )}
           {isAdmin && (
             <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={handleDelete}>
