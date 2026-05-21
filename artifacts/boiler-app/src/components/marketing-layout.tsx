@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 
 const navLinks = [
   { href: "/features", label: "Features" },
+  { href: "/tools", label: "Tools" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
@@ -133,6 +134,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
               <h4 className="font-display font-semibold text-white mb-4 text-sm">Product</h4>
               <ul className="space-y-2.5 text-sm">
                 <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
+                <li><Link href="/tools" className="hover:text-white transition-colors">Free Tools</Link></li>
                 <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
                 <li><Link href="/industries" className="hover:text-white transition-colors">Industries</Link></li>
                 <li><Link href="/alternatives" className="hover:text-white transition-colors">Alternatives</Link></li>
