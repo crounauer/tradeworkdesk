@@ -126,6 +126,15 @@ const Invoices = lazyRetry(() => import("@/pages/invoices"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
 const HelpPage = lazyRetry(() => import("@/pages/help"));
 
+const ToolsIndex = lazyRetry(() => import("@/pages/tools/index"));
+const RadiatorSizing = lazyRetry(() => import("@/pages/tools/radiator-sizing"));
+const OilTankLocation = lazyRetry(() => import("@/pages/tools/oil-tank-location"));
+const VentilationCalculator = lazyRetry(() => import("@/pages/tools/ventilation-calculator"));
+const FlueSiting = lazyRetry(() => import("@/pages/tools/flue-siting"));
+const CondensatePipe = lazyRetry(() => import("@/pages/tools/condensate-pipe"));
+const ExpansionVessel = lazyRetry(() => import("@/pages/tools/expansion-vessel"));
+const PumpHead = lazyRetry(() => import("@/pages/tools/pump-head"));
+
 const PortalLogin = lazyRetry(() => import("@/pages/portal/portal-login"));
 const PortalRegister = lazyRetry(() => import("@/pages/portal/portal-register"));
 const PortalDashboard = lazyRetry(() => import("@/pages/portal/portal-dashboard"));
@@ -355,6 +364,15 @@ function AppRouter() {
         <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
         <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
         <Route path="/help" component={() => <ProtectedRoute component={HelpPage} />} />
+
+        <Route path="/tools" component={() => <ProtectedRoute component={ToolsIndex} />} />
+        <Route path="/tools/radiator-sizing" component={() => <ProtectedRoute component={RadiatorSizing} />} />
+        <Route path="/tools/oil-tank-location" component={() => <ProtectedRoute component={OilTankLocation} />} />
+        <Route path="/tools/ventilation-calculator" component={() => <ProtectedRoute component={VentilationCalculator} />} />
+        <Route path="/tools/flue-siting" component={() => <ProtectedRoute component={FlueSiting} />} />
+        <Route path="/tools/condensate-pipe" component={() => <ProtectedRoute component={CondensatePipe} />} />
+        <Route path="/tools/expansion-vessel" component={() => <ProtectedRoute component={ExpansionVessel} />} />
+        <Route path="/tools/pump-head" component={() => <ProtectedRoute component={PumpHead} />} />
 
         <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} roles={["super_admin"]} />} />
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />
