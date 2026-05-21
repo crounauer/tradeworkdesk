@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
 import { useHomepageData } from "@/hooks/use-homepage-data";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 import { 
   LayoutDashboard, Users, Home, Flame, CalendarDays,
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
@@ -41,6 +42,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const isAdmin = profile?.role === "admin" || isSuperAdmin;
   const { hasFeature, hasAddon } = usePlanFeatures();
   const { data: initData } = useInitData();
+  const { data: companySettings } = useCompanySettings();
   const tenantInfo = initData?.tenant ?? null;
 
   const hasJobManagement = hasFeature("job_management");
@@ -76,7 +78,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/properties", label: "Properties", icon: Home },
     ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
     { href: "/jobs", label: "Jobs", icon: Briefcase },
-    ...(hasFeature("invoicing") ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
+    ...(hasFeature("invoicing") && companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
     ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
     { href: "/search", label: "Search", icon: Search },
     ...(hasFeature("reports") ? [
