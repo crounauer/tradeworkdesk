@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToJobDialog } from "@/components/save-to-job-dialog";
+import { SEOHead } from "@/components/seo-head";
 
 // Internal diameters for copper pipe (mm) — BS EN 1057
 const PIPES: { label: string; nominalMm: number; idMm: number; areaMm2: number }[] = [
@@ -176,6 +177,11 @@ export default function PumpHead() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Pump Head & Pipe Sizing Calculator — CIBSE Guide C"
+        description="Size heating pipework and calculate total pump head for the index circuit. Free tool using CIBSE Guide C Table 4.9 pressure drop data and BSRIA BG 2/2003."
+        canonical="https://www.tradeworkdesk.co.uk/tools/pump-head"
+      />
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools

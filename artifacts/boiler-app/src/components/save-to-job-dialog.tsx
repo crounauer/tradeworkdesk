@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useCreateJobNote } from "@workspace/api-client-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Job {
   id: string;
@@ -24,6 +26,7 @@ interface SaveToJobDialogProps {
 }
 
 export function SaveToJobDialog({ open, onClose, content, toolName }: SaveToJobDialogProps) {
+  const { session } = useAuth();
   const { toast } = useToast();
   const createNote = useCreateJobNote();
   const [search, setSearch] = useState("");
@@ -69,32 +72,54 @@ export function SaveToJobDialog({ open, onClose, content, toolName }: SaveToJobD
         <DialogHeader>
           <DialogTitle>Save to Job</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search by job number, customer or address" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-          {isLoading ? (
-            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-          ) : (
-            <div className="max-h-64 overflow-y-auto divide-y divide-border rounded-md border">
-              {filtered.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No jobs found</p>
-              )}
-              {filtered.map(j => (
-                <button
-                  key={j.id}
-                  onClick={() => setSelectedJobId(j.id)}
-                  className={`w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors ${selectedJobId === j.id ? "bg-primary/10 font-medium" : ""}`}
-                >
-                  <span className="font-mono text-xs text-muted-foreground mr-2">{j.job_number}</span>
-                  {j.customer ? `${j.customer.first_name} ${j.customer.last_name}` : "Unknown"}
-                  {j.address && <span className="ml-1 text-muted-foreground text-xs">· {j.address}</span>}
-                </button>
-              ))}
+
+        {/* Guest: prompt to sign up */}
+        {!session ? (
+          <div className="py-4 space-y-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Create a free TradeWorkDesk account to save calculation results directly to your jobs, access your history, and manage your engineering business from one place.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Link href="/register" onClick={onClose}>
+                <Button className="w-full gap-2">
+                  Start Free Trial — 30 days free <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link href="/login" onClick={onClose}>
+                <Button variant="outline" className="w-full">Already have an account? Log in</Button>
+              </Link>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Search by job number, customer or address" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            {isLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto divide-y divide-border rounded-md border">
+                {filtered.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No jobs found</p>
+                )}
+                {filtered.map(j => (
+                  <button
+                    key={j.id}
+                    onClick={() => setSelectedJobId(j.id)}
+                    className={`w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors ${selectedJobId === j.id ? "bg-primary/10 font-medium" : ""}`}
+                  >
+                    <span className="font-mono text-xs text-muted-foreground mr-2">{j.job_number}</span>
+                    {j.customer ? `${j.customer.first_name} ${j.customer.last_name}` : "Unknown"}
+                    {j.address && <span className="ml-1 text-muted-foreground text-xs">· {j.address}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {session && (
         <DialogFooter>
           <Button variant="outline" onClick={() => { setSelectedJobId(null); setSearch(""); onClose(); }}>Cancel</Button>
           <Button onClick={handleSave} disabled={!selectedJobId || saving}>
@@ -102,6 +127,7 @@ export function SaveToJobDialog({ open, onClose, content, toolName }: SaveToJobD
             Save to Job
           </Button>
         </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

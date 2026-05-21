@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Plus, Trash2, BookmarkPlus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { SEOHead } from "@/components/seo-head";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -126,11 +127,17 @@ export default function RadiatorSizing() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Free Radiator Sizing Calculator — BS EN 442"
+        description="Calculate room heat loss and corrected radiator output at any flow temperature. Free tool for heating engineers, fully compliant with BS EN 442."
+        canonical="https://www.tradeworkdesk.co.uk/tools/radiator-sizing"
+      />
+      <div>
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools
         </Link>
-        <h1 className="text-2xl font-bold">Radiator Sizing</h1>
+        <h1 className="text-2xl font-bold">Radiator Sizing Calculator</h1>
         <p className="text-muted-foreground text-sm mt-1">BS EN 442 correction factors for any system flow temperature</p>
       </div>
 

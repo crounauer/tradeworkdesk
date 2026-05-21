@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToJobDialog } from "@/components/save-to-job-dialog";
+import { SEOHead } from "@/components/seo-head";
 
 type TerminalType = "rs_horizontal" | "rs_vertical" | "open_natural" | "open_fan";
 
@@ -201,6 +202,11 @@ export default function GasFlueSiting() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Gas Flue Terminal Siting Checklist — BS 5440-1"
+        description="Check gas flue terminal clearances for balanced flue and open-flue appliances. Free checklist compliant with BS 5440-1:2008 and Gas Safety (Installation and Use) Regulations 1998."
+        canonical="https://www.tradeworkdesk.co.uk/tools/gas-flue-siting"
+      />
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools

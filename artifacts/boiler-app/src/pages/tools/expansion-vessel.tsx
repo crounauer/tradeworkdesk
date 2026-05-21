@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToJobDialog } from "@/components/save-to-job-dialog";
+import { SEOHead } from "@/components/seo-head";
 
 // Standard commercial expansion vessel sizes (litres) — EN 13831
 const STANDARD_SIZES = [2, 5, 8, 12, 18, 24, 25, 35, 50, 80, 100, 150, 200];
@@ -112,6 +113,11 @@ export default function ExpansionVessel() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Expansion Vessel Sizing Calculator — BS EN 12828"
+        description="Calculate minimum expansion vessel size for sealed heating systems including glycol correction. Free tool compliant with BS EN 12828, BS 7074-1 and CIBSE CP1."
+        canonical="https://www.tradeworkdesk.co.uk/tools/expansion-vessel"
+      />
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToJobDialog } from "@/components/save-to-job-dialog";
+import { SEOHead } from "@/components/seo-head";
 
 type FlueTye = "open_flue" | "room_sealed" | "balanced_flue";
 type VentConfig = "combined" | "two_level";
@@ -115,6 +116,11 @@ export default function VentilationCalculator() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Combustion Air Ventilation Calculator — BS 5410-1"
+        description="Size combustion air openings for oil and gas-fired appliances. Free calculator for heating engineers, compliant with BS 5410-1:2014 and OFTEC OFS D200."
+        canonical="https://www.tradeworkdesk.co.uk/tools/ventilation-calculator"
+      />
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools

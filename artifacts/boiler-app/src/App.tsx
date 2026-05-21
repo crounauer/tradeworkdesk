@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
+import { ToolsPublicLayout } from "@/components/tools-public-layout";
 import { OfflineProvider } from "@/contexts/offline-context";
 
 async function clearSwAndReload() {
@@ -208,8 +209,28 @@ function ProtectedRoute({ component: Component, roles }: { component: React.Comp
   );
 }
 
-function PublicPage<P extends Record<string, unknown>>({ component: Component, ...props }: { component: React.ComponentType<P> } & P) {
+function PublicToolRoute({ component: Component }: { component: React.ComponentType }) {
+  const { session, isLoading } = useAuth();
+  if (isLoading) return <PageFallback />;
+  if (session) {
+    return (
+      <Layout>
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+          <Component />
+        </Suspense>
+      </Layout>
+    );
+  }
   return (
+    <ToolsPublicLayout>
+      <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+        <Component />
+      </Suspense>
+    </ToolsPublicLayout>
+  );
+}
+
+function PublicPage<P extends Record<string, unknown>>({ component: Component, ...props }: { component: React.ComponentType<P> } & P) {  return (
     <Suspense fallback={<PageFallback />}>
       <Component {...(props as P)} />
     </Suspense>
@@ -366,15 +387,15 @@ function AppRouter() {
         <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
         <Route path="/help" component={() => <ProtectedRoute component={HelpPage} />} />
 
-        <Route path="/tools" component={() => <ProtectedRoute component={ToolsIndex} />} />
-        <Route path="/tools/radiator-sizing" component={() => <ProtectedRoute component={RadiatorSizing} />} />
-        <Route path="/tools/oil-tank-location" component={() => <ProtectedRoute component={OilTankLocation} />} />
-        <Route path="/tools/ventilation-calculator" component={() => <ProtectedRoute component={VentilationCalculator} />} />
-        <Route path="/tools/flue-siting" component={() => <ProtectedRoute component={FlueSiting} />} />
-        <Route path="/tools/gas-flue-siting" component={() => <ProtectedRoute component={GasFlueSiting} />} />
-        <Route path="/tools/condensate-pipe" component={() => <ProtectedRoute component={CondensatePipe} />} />
-        <Route path="/tools/expansion-vessel" component={() => <ProtectedRoute component={ExpansionVessel} />} />
-        <Route path="/tools/pump-head" component={() => <ProtectedRoute component={PumpHead} />} />
+        <Route path="/tools" component={() => <PublicToolRoute component={ToolsIndex} />} />
+        <Route path="/tools/radiator-sizing" component={() => <PublicToolRoute component={RadiatorSizing} />} />
+        <Route path="/tools/oil-tank-location" component={() => <PublicToolRoute component={OilTankLocation} />} />
+        <Route path="/tools/ventilation-calculator" component={() => <PublicToolRoute component={VentilationCalculator} />} />
+        <Route path="/tools/flue-siting" component={() => <PublicToolRoute component={FlueSiting} />} />
+        <Route path="/tools/gas-flue-siting" component={() => <PublicToolRoute component={GasFlueSiting} />} />
+        <Route path="/tools/condensate-pipe" component={() => <PublicToolRoute component={CondensatePipe} />} />
+        <Route path="/tools/expansion-vessel" component={() => <PublicToolRoute component={ExpansionVessel} />} />
+        <Route path="/tools/pump-head" component={() => <PublicToolRoute component={PumpHead} />} />
 
         <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} roles={["super_admin"]} />} />
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />

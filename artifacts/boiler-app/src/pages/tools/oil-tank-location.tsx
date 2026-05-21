@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToJobDialog } from "@/components/save-to-job-dialog";
+import { SEOHead } from "@/components/seo-head";
 
 interface CheckItem {
   id: string;
@@ -146,6 +147,11 @@ export default function OilTankLocation() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Oil Tank Siting Distance Calculator — OFTEC OFS T100"
+        description="Check oil tank siting distances, bund requirements and secondary containment volumes. Free tool for OFTEC-registered engineers, compliant with OFS T100, Part J and CIRIA C736."
+        canonical="https://www.tradeworkdesk.co.uk/tools/oil-tank-location"
+      />
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools

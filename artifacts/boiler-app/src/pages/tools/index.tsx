@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { ArrowLeft, Calculator, Droplets, Wind, Flame, Waves, Gauge, Zap, FlameKindling } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SEOHead } from "@/components/seo-head";
 
 type Category = "all" | "gas" | "oil" | "heat-pump" | "general";
 
@@ -115,6 +116,11 @@ export default function ToolsIndex() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Free Engineering Calculators for Heating Engineers"
+        description="Free UK heating engineering calculators — radiator sizing, flue siting, oil tank distances, expansion vessel sizing and more. Built by TradeWorkDesk for gas, oil and heat pump engineers."
+        canonical="https://www.tradeworkdesk.co.uk/tools"
+      />
       <div>
         <Link href="/dashboard" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard

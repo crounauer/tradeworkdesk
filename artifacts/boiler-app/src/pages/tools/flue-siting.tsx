@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SaveToJobDialog } from "@/components/save-to-job-dialog";
+import { SEOHead } from "@/components/seo-head";
 
 type TerminalType = "balanced_horizontal" | "balanced_vertical" | "open_flue_vertical" | "low_level_discharge";
 
@@ -154,6 +155,11 @@ export default function FlueSiting() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+      <SEOHead
+        title="Oil Flue Terminal Siting Checklist — OFTEC OFS T200"
+        description="Check oil flue terminal clearances for BS 5410-1:2014 and OFTEC OFS T200. Free pass/fail checklist for heating engineers covering all terminal types."
+        canonical="https://www.tradeworkdesk.co.uk/tools/flue-siting"
+      />
       <div>
         <Link href="/tools" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Tools
