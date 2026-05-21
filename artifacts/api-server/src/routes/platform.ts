@@ -274,6 +274,7 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     singleton_id: "default",
     tenant_id: tenant.id,
     name: company_name,
+    invoices_enabled: true,
   });
 
   seedDefaultJobTypesForTenant(tenant.id).catch((e) =>

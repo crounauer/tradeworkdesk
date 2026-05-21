@@ -48,7 +48,8 @@ export async function requireTenantInvoicing(
     return;
   }
 
-  const enabled = data?.invoices_enabled === true;
+  // If no settings row exists yet, default to enabled (permissive fallback)
+  const enabled = data === null ? true : data.invoices_enabled !== false;
   invoicingEnabledCache.set(req.tenantId, { enabled, expiresAt: now + CACHE_TTL_MS });
 
   if (!enabled) {
