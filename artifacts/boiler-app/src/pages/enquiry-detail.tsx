@@ -570,7 +570,7 @@ function EnquiryDetailContent() {
             <>
               <Button variant="outline" size="sm" className="gap-1" onClick={() => handleCreateInvoiceOrQuote("quote")} disabled={createInvoiceMut.isPending}>
                 {createInvoiceMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                Create Quote
+                Convert to Quote
               </Button>
               <Button variant="outline" size="sm" className="gap-1" onClick={() => handleCreateInvoiceOrQuote("invoice")} disabled={createInvoiceMut.isPending}>
                 {createInvoiceMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
