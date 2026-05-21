@@ -103,7 +103,7 @@ function InvoicesContent() {
     return () => clearInterval(id);
   }, [settings?.invoices_enabled, qc]);
 
-  const { data, isLoading } = useListInvoices({
+  const { data, isLoading, error } = useListInvoices({
     type: tab,
     ...(statusFilter === "unpaid"
       ? { statuses: ["sent", "overdue"] as InvoiceStatus[] }
@@ -265,6 +265,12 @@ function InvoicesContent() {
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
+      ) : error ? (
+        <Card className="p-10 text-center text-muted-foreground">
+          <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-amber-500" />
+          <p className="font-medium">Failed to load {tab === "invoice" ? "invoices" : "quotes"}</p>
+          <p className="text-sm mt-1">{(error as Error).message}</p>
+        </Card>
       ) : invoices.length === 0 ? (
         <Card className="p-10 text-center text-muted-foreground">
           <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
