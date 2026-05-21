@@ -432,14 +432,16 @@ export default function AdminCompanySettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
-          <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-6">
+            <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
+            <TabsTrigger value="team" className="flex-1">Team</TabsTrigger>
+            <TabsTrigger value="billing" className="flex-1">Billing</TabsTrigger>
+            <TabsTrigger value="catalogue" className="flex-1">Catalogue</TabsTrigger>
+            <TabsTrigger value="invoicing" className="flex-1">Invoicing</TabsTrigger>
+            <TabsTrigger value="payments" className="flex-1">Payments</TabsTrigger>
+          </TabsList>
+        </div>
 
         <form>
           <TabsContent value="profile" className="space-y-6 pt-4">
