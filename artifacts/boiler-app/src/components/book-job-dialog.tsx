@@ -572,6 +572,13 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
                           <span className="text-xs font-normal text-muted-foreground ml-1">(pre-filled from customer)</span>
                         )}
                       </h4>
+                      <GatedAddressFinder
+                        onAddressSelected={(addr) => {
+                          setNewPropAddress(addr.address_line1);
+                          setNewPropCity(addr.city);
+                          setNewPropPostcode(addr.postcode);
+                        }}
+                      />
                       <div className="space-y-1.5">
                         <Label>Address *</Label>
                         <Input value={newPropAddress} onChange={e => setNewPropAddress(e.target.value)} placeholder="123 High Street" />
