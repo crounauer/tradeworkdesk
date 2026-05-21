@@ -230,6 +230,7 @@ interface DetailProps {
 function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: DetailProps) {
   const id = invoice.id;
   const isDraft = invoice.status === "draft";
+  const qc = useQueryClient();
   const isInvoice = invoice.type === "invoice";
 
   const [editing, setEditing] = useState(() => {
@@ -625,11 +626,12 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       await deleteMut.mutateAsync(id);
       if (hardDelete) {
         toast({ title: "Deleted" });
-        navigate("/invoices");
+        qc.removeQueries({ queryKey: invoiceKeys.all });
+        navigate(isInvoice ? "/invoices" : "/invoices?type=quote");
       } else {
         setDeleteOpen(false);
         toast({ title: `${isInvoice ? "Invoice" : "Quote"} cancelled` });
-        // Query invalidation in the mutation's onSuccess will refresh the page data
+        qc.invalidateQueries({ queryKey: invoiceKeys.all });
       }
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
