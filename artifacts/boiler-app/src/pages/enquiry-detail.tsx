@@ -808,7 +808,22 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
     notes: (enquiry.notes as string) || "",
     address: (enquiry.address as string) || "",
     priority: (enquiry.priority as string) || "medium",
+    linked_customer_id: ((enquiry.customer as Record<string, unknown> | null)?.id as string) || "",
   });
+  const [customerSearch, setCustomerSearch] = useState(() => {
+    const c = enquiry.customer as Record<string, unknown> | null;
+    return c ? `${c.first_name} ${c.last_name}` : "";
+  });
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const { data: allCustomers } = useListCustomers();
+  const filteredCustomers = useMemo(() => {
+    if (!allCustomers || !customerSearch.trim()) return allCustomers ?? [];
+    const q = customerSearch.toLowerCase();
+    return allCustomers.filter(c =>
+      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      (c.phone || "").toLowerCase().includes(q)
+    );
+  }, [allCustomers, customerSearch]);
 
   const SOURCE_OPTIONS = [
     { value: "phone", label: "Phone" }, { value: "email", label: "Email" },
@@ -884,6 +899,47 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
         <div className="space-y-1.5">
           <Label>Notes</Label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes..." />
+        </div>
+        <div className="space-y-1.5 relative">
+          <Label>Linked Customer</Label>
+          <Input
+            placeholder="Search customers..."
+            value={customerSearch}
+            onChange={e => {
+              setCustomerSearch(e.target.value);
+              setForm(f => ({ ...f, linked_customer_id: "" }));
+              setShowCustomerDropdown(true);
+            }}
+            onFocus={() => setShowCustomerDropdown(true)}
+            onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+          />
+          {form.linked_customer_id && (
+            <button
+              type="button"
+              className="absolute right-2 top-8 text-xs text-muted-foreground hover:text-destructive"
+              onClick={() => { setForm(f => ({ ...f, linked_customer_id: "" })); setCustomerSearch(""); }}
+            >
+              Clear
+            </button>
+          )}
+          {showCustomerDropdown && filteredCustomers.length > 0 && (
+            <div className="absolute z-50 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1">
+              {filteredCustomers.slice(0, 10).map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                  onMouseDown={() => {
+                    setForm(f => ({ ...f, linked_customer_id: c.id }));
+                    setCustomerSearch(`${c.first_name} ${c.last_name}`);
+                    setShowCustomerDropdown(false);
+                  }}
+                >
+                  {c.first_name} {c.last_name}{c.phone ? ` · ${c.phone}` : ""}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex gap-3">
           <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</Button>
