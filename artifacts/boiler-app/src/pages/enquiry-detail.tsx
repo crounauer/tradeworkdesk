@@ -354,14 +354,22 @@ function EnquiryDetailContent() {
   const [sendingNote, setSendingNote] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const createInvoiceMut = useCreateInvoice();
+  const [pendingDocType, setPendingDocType] = useState<"invoice" | "quote" | null>(null);
+  const [customerPickerSearch, setCustomerPickerSearch] = useState("");
+  const { data: allCustomersForPicker } = useListCustomers();
 
   async function handleCreateInvoiceOrQuote(type: "invoice" | "quote") {
     if (!enquiry?.customer?.id) {
-      toast({ title: "No customer linked", description: "Link a customer to this enquiry before creating an invoice or quote.", variant: "destructive" });
+      setPendingDocType(type);
+      setCustomerPickerSearch("");
       return;
     }
+    await doCreateInvoiceOrQuote(type, enquiry.customer.id);
+  }
+
+  async function doCreateInvoiceOrQuote(type: "invoice" | "quote", customerId: string) {
     try {
-      const created = await createInvoiceMut.mutateAsync({ job_id: undefined as any, customer_id: enquiry.customer.id, type } as any);
+      const created = await createInvoiceMut.mutateAsync({ job_id: undefined as any, customer_id: customerId, type } as any);
       navigate(`/invoices/${created.id}`);
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
@@ -791,6 +799,59 @@ function EnquiryDetailContent() {
             navigate(`/jobs/${jobId}`);
           }}
         />
+      )}
+
+      {pendingDocType && (
+        <Dialog open={!!pendingDocType} onOpenChange={open => { if (!open) setPendingDocType(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Select a customer</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">Choose a customer to attach to this {pendingDocType}.</p>
+            <Input
+              autoFocus
+              placeholder="Search customers..."
+              value={customerPickerSearch}
+              onChange={e => setCustomerPickerSearch(e.target.value)}
+            />
+            <div className="max-h-64 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+              {(allCustomersForPicker ?? [])
+                .filter(c => {
+                  const q = customerPickerSearch.toLowerCase();
+                  return !q || `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.phone || "").includes(q);
+                })
+                .slice(0, 20)
+                .map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted"
+                    onClick={async () => {
+                      const type = pendingDocType;
+                      setPendingDocType(null);
+                      // Also link the customer to this enquiry for future use
+                      await fetch(`/api/enquiries/${id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ linked_customer_id: c.id }),
+                      });
+                      qc.invalidateQueries({ queryKey: ["enquiry", id] });
+                      await doCreateInvoiceOrQuote(type!, c.id);
+                    }}
+                  >
+                    <span className="font-medium">{c.first_name} {c.last_name}</span>
+                    {c.phone && <span className="text-muted-foreground ml-2">{c.phone}</span>}
+                  </button>
+                ))}
+              {(allCustomersForPicker ?? []).filter(c => {
+                const q = customerPickerSearch.toLowerCase();
+                return !q || `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.phone || "").includes(q);
+              }).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No customers found</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
