@@ -122,8 +122,8 @@ export default function ToolsIndex() {
         canonical="https://www.tradeworkdesk.co.uk/tools"
       />
       <div>
-        <Link href="/dashboard" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
+        <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Home
         </Link>
         <h1 className="text-2xl font-bold">Engineering Tools</h1>
         <p className="text-muted-foreground mt-1">Calculators and checklists for heating and oil engineers. Results can be saved directly to jobs.</p>
