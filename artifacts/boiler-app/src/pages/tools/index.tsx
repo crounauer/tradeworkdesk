@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Calculator, Droplets, Wind, Flame, Waves, Gauge, Zap, Flame as FlameIcon, Thermometer } from "lucide-react";
+import { ArrowLeft, Calculator, Droplets, Wind, Flame, Waves, Gauge, Zap, FlameKindling } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,14 +57,24 @@ const tools: Tool[] = [
     categories: ["gas", "oil"],
   },
   {
-    href: "/tools/flue-siting",
-    icon: Zap,
+    href: "/tools/gas-flue-siting",
+    icon: FlameKindling,
     color: "text-amber-500",
     bg: "bg-amber-50",
-    title: "Flue Siting Checklist",
+    title: "Gas Flue Siting Checklist",
+    subtitle: "BS 5440-1:2008 · Gas Safety Regs 1998 · Part J",
+    description: "Check gas flue terminal clearances for room-sealed and open-flue appliances.",
+    categories: ["gas"],
+  },
+  {
+    href: "/tools/flue-siting",
+    icon: Zap,
+    color: "text-orange-500",
+    bg: "bg-orange-50",
+    title: "Oil Flue Siting Checklist",
     subtitle: "OFTEC OFS T200 · BS 5410-1 · Part J",
-    description: "Check flue terminal clearances from windows, doors, boundaries and other obstacles.",
-    categories: ["gas", "oil"],
+    description: "Check oil flue terminal clearances from windows, doors, boundaries and other obstacles.",
+    categories: ["oil"],
   },
   {
     href: "/tools/condensate-pipe",
