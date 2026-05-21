@@ -70,14 +70,15 @@ type BookJobFormData = {
   description: string;
 };
 
-function GatedAddressFinder({ onAddressSelected }: {
+function GatedAddressFinder({ onAddressSelected, initialPostcode }: {
   onAddressSelected: (addr: { address_line1: string; address_line2: string; city: string; county: string; postcode: string; latitude?: number; longitude?: number }) => void;
+  initialPostcode?: string;
 }) {
   const { hasFeature } = usePlanFeatures();
   if (!hasFeature("uk_address_lookup")) return null;
   return (
     <Suspense fallback={null}>
-      <PostcodeAddressFinder onAddressSelected={onAddressSelected} />
+      <PostcodeAddressFinder onAddressSelected={onAddressSelected} initialPostcode={initialPostcode} />
     </Suspense>
   );
 }
@@ -573,6 +574,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
                         )}
                       </h4>
                       <GatedAddressFinder
+                        initialPostcode={newPropPostcode}
                         onAddressSelected={(addr) => {
                           setNewPropAddress(addr.address_line1);
                           setNewPropCity(addr.city);
