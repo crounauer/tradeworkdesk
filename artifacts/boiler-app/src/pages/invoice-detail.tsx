@@ -620,10 +620,17 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   }
 
   async function handleDelete() {
+    const hardDelete = ["draft", "cancelled", "converted"].includes(invoice.status as string);
     try {
       await deleteMut.mutateAsync(id);
-      toast({ title: "Deleted" });
-      navigate("/invoices");
+      if (hardDelete) {
+        toast({ title: "Deleted" });
+        navigate("/invoices");
+      } else {
+        setDeleteOpen(false);
+        toast({ title: `${isInvoice ? "Invoice" : "Quote"} cancelled` });
+        // Query invalidation in the mutation's onSuccess will refresh the page data
+      }
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
     }
