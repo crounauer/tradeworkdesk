@@ -172,6 +172,8 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
   const [newPropCity, setNewPropCity] = useState("");
   const [newPropPostcode, setNewPropPostcode] = useState("");
   const [creatingProperty, setCreatingProperty] = useState(false);
+  // ID to select once the new property appears in filteredProperties
+  const [pendingSelectPropertyId, setPendingSelectPropertyId] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [confirmationState, setConfirmationState] = useState<{
@@ -181,12 +183,23 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
   } | null>(null);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
 
+  // Once the newly created property appears in the list, select it in the dropdown
+  useEffect(() => {
+    if (!pendingSelectPropertyId) return;
+    const found = filteredProperties?.some(p => p.id === pendingSelectPropertyId);
+    if (found) {
+      setValue("property_id", pendingSelectPropertyId);
+      setPendingSelectPropertyId(null);
+    }
+  }, [pendingSelectPropertyId, filteredProperties, setValue]);
+
   const handleClose = () => {
     setConfirmationState(null);
     setShowAddProperty(false);
     setNewPropAddress("");
     setNewPropCity("");
     setNewPropPostcode("");
+    setPendingSelectPropertyId(null);
     reset();
     onOpenChange(false);
   };
@@ -251,8 +264,13 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
         },
       });
       const newId = (propRes as { id: string }).id;
+      // Add to cache immediately so the <option> renders before we try to select it
+      qc.setQueryData(getListPropertiesQueryKey(), (old: typeof onlineProperties) =>
+        Array.isArray(old) ? [...old, propRes] : [propRes]
+      );
       qc.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-      setValue("property_id", newId);
+      // Use pending state — the useEffect will setValue once the option is in the DOM
+      setPendingSelectPropertyId(newId);
       setShowAddProperty(false);
       setNewPropAddress("");
       setNewPropCity("");
