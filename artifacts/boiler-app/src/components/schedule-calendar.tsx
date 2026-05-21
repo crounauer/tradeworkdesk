@@ -844,7 +844,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           const dayJobs = jobsByDate[ds] || [];
           const isToday = isSameDay(ds, todayStr);
 
-          if (viewMode === "month" && dayJobs.length === 0) return null;
+          if (viewMode === "month" && day.getMonth() !== anchorDate.getMonth()) return null;
 
           return (
             <div
