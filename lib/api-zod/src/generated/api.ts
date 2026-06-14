@@ -1065,6 +1065,8 @@ export const GetJobResponse = zod
           created_at: zod.coerce.date(),
           updated_at: zod.coerce.date(),
           customer_name: zod.string().nullish(),
+          latitude: zod.number().nullish(),
+          longitude: zod.number().nullish(),
         })
         .optional(),
       appliance: zod
