@@ -1,6 +1,7 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "artifacts/api-server/Dockerfile"
+watchPatterns = ["artifacts/api-server/**", "lib/**", "scripts/**", "package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "tsconfig.base.json"]
 # updated 2026-05-20
 
 [deploy]

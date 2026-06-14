@@ -294,7 +294,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
-          <div className="p-4 space-y-2">
+          <div className="p-4 pb-16 space-y-2">
             {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {/* renderStorageIndicator(true) */}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
