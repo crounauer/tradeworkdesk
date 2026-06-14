@@ -17,7 +17,8 @@ import {
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
 import { formatDateTime, formatDate } from "@/lib/utils";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
+const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
 import { useListInvoices, type InvoiceStatus } from "@/hooks/use-invoices";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -885,6 +886,14 @@ export default function JobDetail() {
                       <Mail className="w-3.5 h-3.5" /> {job.customer.email}
                     </a>
                   )}
+                </div>
+              )}
+              {job.property?.latitude != null && job.property?.longitude != null && (
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                  <p className="text-xs text-muted-foreground font-mono">{(job.property.latitude as number).toFixed(6)}, {(job.property.longitude as number).toFixed(6)}</p>
+                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
+                    <PropertyMapPreview key={`${job.property.latitude}-${job.property.longitude}`} latitude={job.property.latitude as number} longitude={job.property.longitude as number} />
+                  </Suspense>
                 </div>
               )}
               <div className="flex items-center gap-3 mt-2">
