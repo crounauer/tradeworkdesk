@@ -235,6 +235,21 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="p-4 border-t border-border/50">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">
+              {profile?.full_name?.charAt(0) || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">{profile?.full_name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{profile?.role?.replace('_', ' ')}</p>
+            </div>
+          </div>
+          <Link href="/account">
+            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground mb-1">
+              <UserCog className="w-4 h-4 mr-2" />
+              My Account
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-foreground mb-1 text-xs"
@@ -255,21 +270,6 @@ export function Layout({ children }: { children: ReactNode }) {
             <RefreshCcw className="w-3.5 h-3.5 mr-2" />
             Clear Cache
           </Button>
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">
-              {profile?.full_name?.charAt(0) || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground truncate">{profile?.full_name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile?.role?.replace('_', ' ')}</p>
-            </div>
-          </div>
-          <Link href="/account">
-            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground mb-1">
-              <UserCog className="w-4 h-4 mr-2" />
-              My Account
-            </Button>
-          </Link>
           <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
