@@ -12,7 +12,7 @@ import {
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
-  Timer, Phone, Smartphone, Receipt, Download
+  Timer, Phone, Smartphone, Receipt, Download, Copy
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
@@ -118,6 +118,37 @@ export default function JobDetail() {
   const [loadingCache, setLoadingCache] = useState(false);
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
+  const handleDuplicate = async () => {
+    if (!id || duplicating) return;
+    setDuplicating(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${id}/duplicate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to duplicate job");
+      }
+      const newJob = await res.json();
+      const dateStr = new Date(newJob.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      toast({
+        title: "Job rebooked",
+        description: `${newJob.job_ref ?? "New job"} scheduled for ${dateStr}`,
+        action: (
+          <button className="text-sm font-medium underline" onClick={() => navigate(`/jobs/${newJob.id}`)}>
+            View
+          </button>
+        ),
+      });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to duplicate job", variant: "destructive" });
+    } finally {
+      setDuplicating(false);
+    }
+  };
   const [finishingJob, setFinishingJob] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
@@ -372,6 +403,12 @@ export default function JobDetail() {
           {canCreateFollowUp && (
             <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowFollowUpForm(true)}>
               <ClipboardList className="w-4 h-4 mr-2" /> Create Follow-Up
+            </Button>
+          )}
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={duplicating || !isOnline}>
+              {duplicating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-2" />}
+              Rebook (1yr)
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
