@@ -560,6 +560,9 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
   const overrideDate = typeof req.body?.scheduled_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.body.scheduled_date)
     ? req.body.scheduled_date
     : null;
+  const overrideTime = typeof req.body?.scheduled_time === "string" && /^\d{2}:\d{2}(:\d{2})?$/.test(req.body.scheduled_time)
+    ? req.body.scheduled_time
+    : null;
 
   const newScheduledDate = overrideDate ?? addOneYear(original.scheduled_date);
   // If a custom date was provided shift the end date by the same delta; otherwise +1yr
@@ -629,7 +632,7 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
       status: "scheduled",
       scheduled_date: newScheduledDate,
       scheduled_end_date: newScheduledEndDate,
-      scheduled_time: original.scheduled_time ?? null,
+      scheduled_time: overrideTime ?? original.scheduled_time ?? null,
       estimated_duration: original.estimated_duration ?? null,
       description: original.description ?? null,
       job_ref: newJobRef ?? null,

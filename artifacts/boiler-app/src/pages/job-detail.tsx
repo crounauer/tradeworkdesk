@@ -388,6 +388,7 @@ export default function JobDetail() {
               onOpenChange={setShowRebook}
               jobId={job.id}
               originalDate={String(job.scheduled_date).slice(0, 10)}
+              originalTime={job.scheduled_time ? String(job.scheduled_time) : null}
             />
           )}
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>

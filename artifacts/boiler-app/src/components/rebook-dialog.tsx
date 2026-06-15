@@ -28,6 +28,8 @@ interface RebookDialogProps {
   jobId: string;
   /** Original scheduled date as YYYY-MM-DD */
   originalDate: string;
+  /** Original scheduled time as HH:MM, or null */
+  originalTime?: string | null;
 }
 
 function addOneYear(dateStr: string): string {
@@ -75,18 +77,22 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-slate-200 text-slate-500",
 };
 
-export function RebookDialog({ open, onOpenChange, jobId, originalDate }: RebookDialogProps) {
+export function RebookDialog({ open, onOpenChange, jobId, originalDate, originalTime }: RebookDialogProps) {
   const defaultDate = addOneYear(originalDate);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
+  const [selectedTime, setSelectedTime] = useState(originalTime ? originalTime.slice(0, 5) : "");
   const [confirming, setConfirming] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
 
-  // Reset date each time dialog opens
+  // Reset each time dialog opens
   useEffect(() => {
-    if (open) setSelectedDate(addOneYear(originalDate));
-  }, [open, originalDate]);
+    if (open) {
+      setSelectedDate(addOneYear(originalDate));
+      setSelectedTime(originalTime ? originalTime.slice(0, 5) : "");
+    }
+  }, [open, originalDate, originalTime]);
 
   const { from, to } = getWeekRange(selectedDate);
 
@@ -113,7 +119,10 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate }: Rebook
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ scheduled_date: selectedDate }),
+        body: JSON.stringify({
+          scheduled_date: selectedDate,
+          ...(selectedTime ? { scheduled_time: selectedTime + ":00" } : {}),
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -156,20 +165,32 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate }: Rebook
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Date picker */}
-          <div className="space-y-1.5">
-            <Label htmlFor="rebook-date">Scheduled Date</Label>
-            <input
-              id="rebook-date"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <p className="text-xs text-muted-foreground">
-              Default is 1 year from original ({formatDateDisplay(defaultDate)})
-            </p>
+          {/* Date + Time row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="rebook-date">Scheduled Date</Label>
+              <input
+                id="rebook-date"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rebook-time">Time <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <input
+                id="rebook-time"
+                type="time"
+                value={selectedTime}
+                onChange={(e) => setSelectedTime(e.target.value)}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground -mt-2">
+            Default is 1 year from original ({formatDateDisplay(defaultDate)})
+          </p>
 
           {/* Availability for chosen date */}
           <div className="border border-border rounded-lg overflow-hidden">
