@@ -28,6 +28,7 @@ import { useCompanySettings } from "@/hooks/use-company-settings";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
+import { RebookDialog } from "@/components/rebook-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,37 +119,7 @@ export default function JobDetail() {
   const [loadingCache, setLoadingCache] = useState(false);
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
-  const [duplicating, setDuplicating] = useState(false);
-
-  const handleDuplicate = async () => {
-    if (!id || duplicating) return;
-    setDuplicating(true);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${id}/duplicate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to duplicate job");
-      }
-      const newJob = await res.json();
-      const dateStr = new Date(newJob.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-      toast({
-        title: "Job rebooked",
-        description: `${newJob.job_ref ?? "New job"} scheduled for ${dateStr}`,
-        action: (
-          <button className="text-sm font-medium underline" onClick={() => navigate(`/jobs/${newJob.id}`)}>
-            View
-          </button>
-        ),
-      });
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to duplicate job", variant: "destructive" });
-    } finally {
-      setDuplicating(false);
-    }
-  };
+  const [showRebook, setShowRebook] = useState(false);
   const [finishingJob, setFinishingJob] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
@@ -406,10 +377,18 @@ export default function JobDetail() {
             </Button>
           )}
           {isAdmin && (
-            <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={duplicating || !isOnline}>
-              {duplicating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-2" />}
+            <Button variant="outline" size="sm" onClick={() => setShowRebook(true)} disabled={!isOnline}>
+              <Copy className="w-4 h-4 mr-2" />
               Rebook (1yr)
             </Button>
+          )}
+          {isAdmin && job.scheduled_date && (
+            <RebookDialog
+              open={showRebook}
+              onOpenChange={setShowRebook}
+              jobId={job.id}
+              originalDate={String(job.scheduled_date).slice(0, 10)}
+            />
           )}
           <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
             <Mail className="w-4 h-4 mr-2" /> Email Customer

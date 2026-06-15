@@ -556,8 +556,24 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
     return d.toISOString().slice(0, 10);
   };
 
-  const newScheduledDate = addOneYear(original.scheduled_date);
-  const newScheduledEndDate = original.scheduled_end_date ? addOneYear(original.scheduled_end_date) : null;
+  // Allow caller to supply a custom date; otherwise default to +1 year
+  const overrideDate = typeof req.body?.scheduled_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.body.scheduled_date)
+    ? req.body.scheduled_date
+    : null;
+
+  const newScheduledDate = overrideDate ?? addOneYear(original.scheduled_date);
+  // If a custom date was provided shift the end date by the same delta; otherwise +1yr
+  const newScheduledEndDate = (() => {
+    if (!original.scheduled_end_date) return null;
+    if (overrideDate) {
+      const origStart = new Date(original.scheduled_date).getTime();
+      const origEnd = new Date(original.scheduled_end_date).getTime();
+      const delta = origEnd - origStart;
+      const newEnd = new Date(new Date(overrideDate).getTime() + delta);
+      return newEnd.toISOString().slice(0, 10);
+    }
+    return addOneYear(original.scheduled_end_date);
+  })();
 
   // Generate new job_ref using same counter logic as create
   let newJobRef: string | undefined;

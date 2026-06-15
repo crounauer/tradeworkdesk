@@ -19,6 +19,7 @@ import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTe
 import { PendingSyncBadge, OfflineMutationsList } from "@/components/offline-indicator";
 import { cacheJob, getAllCachedJobs, type CachedJob } from "@/lib/offline-db";
 import { BookJobDialog } from "@/components/book-job-dialog";
+import { RebookDialog } from "@/components/rebook-dialog";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -418,42 +419,7 @@ function JobCard({
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [duplicating, setDuplicating] = useState(false);
-
-  const handleDuplicate = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (duplicating) return;
-    setDuplicating(true);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/duplicate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to duplicate job");
-      }
-      const newJob = await res.json();
-      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({
-        title: "Job rebooked",
-        description: `${newJob.job_ref ?? "New job"} scheduled for ${new Date(newJob.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`,
-        action: (
-          <button
-            className="text-sm font-medium underline"
-            onClick={() => navigate(`/jobs/${newJob.id}`)}
-          >
-            View
-          </button>
-        ),
-      });
-    } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to duplicate job", variant: "destructive" });
-    } finally {
-      setDuplicating(false);
-    }
-  };
+  const [showRebook, setShowRebook] = useState(false);
 
   // Swipe gesture state
   const [swipeX, setSwipeX] = useState(0);
@@ -603,13 +569,20 @@ function JobCard({
           <button
             type="button"
             title="Rebook for next year"
-            disabled={duplicating}
-            onClick={handleDuplicate}
-            className="h-full px-2 flex items-center justify-center rounded-lg border border-border/50 bg-background hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors text-muted-foreground disabled:opacity-50"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowRebook(true); }}
+            className="h-full px-2 flex items-center justify-center rounded-lg border border-border/50 bg-background hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors text-muted-foreground"
           >
-            {duplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+            <Copy className="w-4 h-4" />
           </button>
         </div>
+      )}
+      {isAdminOrOffice && (
+        <RebookDialog
+          open={showRebook}
+          onOpenChange={setShowRebook}
+          jobId={job.id}
+          originalDate={String(job.scheduled_date).slice(0, 10)}
+        />
       )}
     </div>
   );
