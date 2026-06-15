@@ -10,4 +10,5 @@ ALTER TABLE heat_pump_service_records
   ADD COLUMN IF NOT EXISTS anti_freeze_valves BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS inhibitor BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS fungicide BOOLEAN DEFAULT false,
-  ADD COLUMN IF NOT EXISTS evaporator_cleaned BOOLEAN DEFAULT false;
+  ADD COLUMN IF NOT EXISTS evaporator_cleaned BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS y_strainer_cleaned BOOLEAN DEFAULT false;

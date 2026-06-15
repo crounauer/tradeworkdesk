@@ -1816,6 +1816,7 @@ export type HeatPumpServiceRecord = {
   inhibitor?: boolean;
   fungicide?: boolean;
   evaporator_cleaned?: boolean;
+  y_strainer_cleaned?: boolean;
   defects_found?: boolean;
   defects_details?: string | null;
   advisories?: string | null;
@@ -1846,6 +1847,7 @@ export type CreateHeatPumpServiceRecordBody = {
   inhibitor?: boolean;
   fungicide?: boolean;
   evaporator_cleaned?: boolean;
+  y_strainer_cleaned?: boolean;
   defects_found?: boolean;
   defects_details?: string;
   advisories?: string;

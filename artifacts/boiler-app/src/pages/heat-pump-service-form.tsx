@@ -28,6 +28,7 @@ interface HeatPumpServiceFormData {
   inhibitor: boolean;
   fungicide: boolean;
   evaporator_cleaned: boolean;
+  y_strainer_cleaned: boolean;
   defects_found: boolean;
   defects_details: string;
   advisories: string;
@@ -74,6 +75,7 @@ export default function HeatPumpServiceForm() {
         inhibitor: existingRecord.inhibitor ?? false,
         fungicide: existingRecord.fungicide ?? false,
         evaporator_cleaned: existingRecord.evaporator_cleaned ?? false,
+        y_strainer_cleaned: existingRecord.y_strainer_cleaned ?? false,
         defects_found: existingRecord.defects_found ?? false,
         defects_details: existingRecord.defects_details || "",
         advisories: existingRecord.advisories || "",
@@ -104,6 +106,7 @@ export default function HeatPumpServiceForm() {
       inhibitor: data.inhibitor,
       fungicide: data.fungicide,
       evaporator_cleaned: data.evaporator_cleaned,
+      y_strainer_cleaned: data.y_strainer_cleaned,
       defects_found: data.defects_found,
       defects_details: data.defects_details || undefined,
       advisories: data.advisories || undefined,
@@ -199,6 +202,7 @@ export default function HeatPumpServiceForm() {
               ["inhibitor", "Inhibitor Added"],
               ["fungicide", "Fungicide Added"],
               ["evaporator_cleaned", "Evaporator Cleaned"],
+              ["y_strainer_cleaned", "Y-Strainer Cleaned"],
             ] as const).map(([field, label]) => (
               <label key={field} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-cyan-50 cursor-pointer transition-colors text-sm">
                 <input type="checkbox" {...register(field)} className="w-4 h-4 accent-cyan-600 rounded" />
@@ -208,7 +212,7 @@ export default function HeatPumpServiceForm() {
           </div>
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
-              <Label>Filter Condition</Label>
+              <Label>Magnetic Filter Condition</Label>
               <Input {...register("filter_condition")} placeholder="e.g. Clean, Dirty - Cleaned, Replaced" />
             </div>
             <div className="space-y-2">
