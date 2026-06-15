@@ -527,6 +527,109 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
   res.json({ success: true, sent_to: customer.email });
 });
 
+router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: original, error: fetchErr } = await supabaseAdmin
+    .from("jobs")
+    .select("*")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId)
+    .single();
+  if (fetchErr || !original) { res.status(404).json({ error: "Job not found" }); return; }
+
+  const [limits, jobsThisMonth] = await Promise.all([
+    getEffectiveLimits(req.tenantId!),
+    getJobsThisMonth(req.tenantId!),
+  ]);
+  if (limits.maxJobsPerMonth !== 9999 && jobsThisMonth >= limits.maxJobsPerMonth) {
+    res.status(400).json({
+      error: `You've reached your monthly limit of ${limits.maxJobsPerMonth} jobs. Purchase additional job capacity to create more.`,
+      code: "MAX_JOBS_REACHED",
+    });
+    return;
+  }
+
+  const addOneYear = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const newScheduledDate = addOneYear(original.scheduled_date);
+  const newScheduledEndDate = original.scheduled_end_date ? addOneYear(original.scheduled_end_date) : null;
+
+  // Generate new job_ref using same counter logic as create
+  let newJobRef: string | undefined;
+  if (req.tenantId) {
+    const { data: cs } = await supabaseAdmin
+      .from("company_settings")
+      .select("job_number_prefix, job_number_next")
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", SINGLETON_ID)
+      .maybeSingle();
+    const prefix = (cs?.job_number_prefix ?? "").trim().toUpperCase();
+    const nextNum = cs?.job_number_next ?? 1;
+    newJobRef = prefix
+      ? `${prefix}${String(nextNum).padStart(4, "0")}`
+      : `JOB-${String(nextNum).padStart(4, "0")}`;
+    const { error: updErr } = await supabaseAdmin
+      .from("company_settings")
+      .update({ job_number_next: nextNum + 1 })
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", SINGLETON_ID)
+      .eq("job_number_next", nextNum);
+    if (updErr || !cs) {
+      const retryResult = await supabaseAdmin
+        .from("company_settings")
+        .select("job_number_next")
+        .eq("tenant_id", req.tenantId)
+        .eq("singleton_id", SINGLETON_ID)
+        .maybeSingle();
+      const retryNum = retryResult.data?.job_number_next ?? nextNum + 1;
+      newJobRef = prefix
+        ? `${prefix}${String(retryNum).padStart(4, "0")}`
+        : `JOB-${String(retryNum).padStart(4, "0")}`;
+      await supabaseAdmin
+        .from("company_settings")
+        .update({ job_number_next: retryNum + 1 })
+        .eq("tenant_id", req.tenantId)
+        .eq("singleton_id", SINGLETON_ID);
+    }
+  }
+
+  const { data: newJob, error: insertErr } = await supabaseAdmin
+    .from("jobs")
+    .insert({
+      tenant_id: req.tenantId,
+      customer_id: original.customer_id,
+      property_id: original.property_id,
+      appliance_id: original.appliance_id ?? null,
+      assigned_technician_id: original.assigned_technician_id ?? null,
+      job_type: original.job_type,
+      job_type_id: original.job_type_id ?? null,
+      fuel_category: original.fuel_category ?? null,
+      priority: original.priority,
+      status: "scheduled",
+      scheduled_date: newScheduledDate,
+      scheduled_end_date: newScheduledEndDate,
+      scheduled_time: original.scheduled_time ?? null,
+      estimated_duration: original.estimated_duration ?? null,
+      description: original.description ?? null,
+      job_ref: newJobRef ?? null,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (insertErr) { res.status(500).json({ error: insertErr.message }); return; }
+
+  invalidateJobsCache(req.tenantId);
+  invalidateCalendarCache(req.tenantId);
+  invalidateHomepageCache(req.tenantId);
+  res.status(201).json(newJob);
+});
+
 router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }

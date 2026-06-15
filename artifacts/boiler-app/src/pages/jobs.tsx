@@ -2,7 +2,7 @@ import { useListJobs, useCreateJob, useCreateCustomer, useCreateProperty, useLis
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff, Home, Check, CalendarCheck } from "lucide-react";
+import { Briefcase, Calendar, MapPin, User, Plus, Filter, X, Download, FileText, Map, List, UserPlus, Mail, Loader2, ChevronDown, ChevronUp, CheckCircle2, XCircle, Receipt, CloudOff, WifiOff, Home, Check, CalendarCheck, Copy } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -418,6 +418,42 @@ function JobCard({
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [duplicating, setDuplicating] = useState(false);
+
+  const handleDuplicate = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (duplicating) return;
+    setDuplicating(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/duplicate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to duplicate job");
+      }
+      const newJob = await res.json();
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({
+        title: "Job rebooked",
+        description: `${newJob.job_ref ?? "New job"} scheduled for ${new Date(newJob.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`,
+        action: (
+          <button
+            className="text-sm font-medium underline"
+            onClick={() => navigate(`/jobs/${newJob.id}`)}
+          >
+            View
+          </button>
+        ),
+      });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed to duplicate job", variant: "destructive" });
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   // Swipe gesture state
   const [swipeX, setSwipeX] = useState(0);
@@ -562,6 +598,19 @@ function JobCard({
         </Card>
         </Link>
       </div>
+      {isAdminOrOffice && (
+        <div className="flex items-center">
+          <button
+            type="button"
+            title="Rebook for next year"
+            disabled={duplicating}
+            onClick={handleDuplicate}
+            className="h-full px-2 flex items-center justify-center rounded-lg border border-border/50 bg-background hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors text-muted-foreground disabled:opacity-50"
+          >
+            {duplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
