@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, FileDown, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, FileDown, Zap, Wind, ClipboardCheck, AlertCircle, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface HeatPumpServiceFormData {
@@ -31,11 +31,8 @@ interface HeatPumpServiceFormData {
   defects_found: boolean;
   defects_details: string;
   advisories: string;
-  appliance_safe: boolean;
   follow_up_required: boolean;
   follow_up_notes: string;
-  customer_name_signed: string;
-  technician_name_signed: string;
   additional_notes: string;
 }
 
@@ -56,9 +53,7 @@ export default function HeatPumpServiceForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
-  const { register, handleSubmit, reset } = useForm<HeatPumpServiceFormData>({
-    defaultValues: { appliance_safe: true },
-  });
+  const { register, handleSubmit, reset } = useForm<HeatPumpServiceFormData>();
   const populatedAt = useRef(0);
 
   useEffect(() => {
@@ -82,11 +77,8 @@ export default function HeatPumpServiceForm() {
         defects_found: existingRecord.defects_found ?? false,
         defects_details: existingRecord.defects_details || "",
         advisories: existingRecord.advisories || "",
-        appliance_safe: existingRecord.appliance_safe ?? true,
         follow_up_required: existingRecord.follow_up_required ?? false,
         follow_up_notes: existingRecord.follow_up_notes || "",
-        customer_name_signed: existingRecord.customer_name_signed || "",
-        technician_name_signed: existingRecord.technician_name_signed || "",
         additional_notes: existingRecord.additional_notes || "",
       });
     }
@@ -115,11 +107,8 @@ export default function HeatPumpServiceForm() {
       defects_found: data.defects_found,
       defects_details: data.defects_details || undefined,
       advisories: data.advisories || undefined,
-      appliance_safe: data.appliance_safe,
       follow_up_required: data.follow_up_required,
       follow_up_notes: data.follow_up_notes || undefined,
-      customer_name_signed: data.customer_name_signed || undefined,
-      technician_name_signed: data.technician_name_signed || undefined,
       additional_notes: data.additional_notes || undefined,
     };
 
@@ -282,26 +271,6 @@ export default function HeatPumpServiceForm() {
                 {...register("follow_up_notes")}
                 placeholder="Details of required follow-up work..."
               />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 shadow-sm border-border/50">
-          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><UserCheck className="w-5 h-5"/> Sign-off</h2>
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            <label className="flex items-center gap-2 p-3 border rounded-xl hover:bg-emerald-50 cursor-pointer transition-colors text-sm">
-              <input type="checkbox" {...register("appliance_safe")} className="w-5 h-5 accent-emerald-600 rounded" />
-              <span className="font-medium">Appliance Safe to Use</span>
-            </label>
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Technician Name (printed)</Label>
-              <Input {...register("technician_name_signed")} placeholder="Technician name..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Customer Name (printed)</Label>
-              <Input {...register("customer_name_signed")} placeholder="Customer name..." />
             </div>
           </div>
         </Card>
