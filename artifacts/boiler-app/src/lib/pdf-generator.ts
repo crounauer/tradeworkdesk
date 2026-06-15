@@ -662,20 +662,20 @@ interface HeatPumpServicePdfData {
   technicianName: string;
   scheduledDate: string;
   record: {
-    refrigerant_type?: string;
-    refrigerant_pressure_high?: string;
-    refrigerant_pressure_low?: string;
-    flow_temp?: string;
-    return_temp?: string;
-    delta_t?: string;
-    cop_reading?: string;
-    compressor_amps?: string;
     outdoor_unit_condition?: string;
     indoor_unit_condition?: string;
     controls_checked?: boolean;
     filter_condition?: string;
     dhw_cylinder_checked?: boolean;
     dhw_cylinder_temp?: string;
+    prv_checked?: boolean;
+    expansion_vessel_charge?: string;
+    glycol?: boolean;
+    glycol_temp_rating?: string;
+    anti_freeze_valves?: boolean;
+    inhibitor?: boolean;
+    fungicide?: boolean;
+    evaporator_cleaned?: boolean;
     defects_found?: boolean;
     defects_details?: string;
     advisories?: string;
@@ -709,20 +709,6 @@ export function generateHeatPumpServicePdf(data: HeatPumpServicePdfData, company
   ], [6, 182, 212]);
 
   const r = data.record;
-  y = addSection(y, "Refrigerant Data", [
-    ["Refrigerant Type", r.refrigerant_type || ""],
-    ["High Pressure (bar)", r.refrigerant_pressure_high || ""],
-    ["Low Pressure (bar)", r.refrigerant_pressure_low || ""],
-  ], [6, 182, 212]);
-
-  y = addSection(y, "Temperature & Performance", [
-    ["Flow Temp (°C)", r.flow_temp || ""],
-    ["Return Temp (°C)", r.return_temp || ""],
-    ["Delta-T (°C)", r.delta_t || ""],
-    ["COP Reading", r.cop_reading || ""],
-    ["Compressor Amps (A)", r.compressor_amps || ""],
-  ], [6, 182, 212]);
-
   y = addSection(y, "Unit Condition", [
     ["Outdoor Unit", r.outdoor_unit_condition || ""],
     ["Indoor Unit", r.indoor_unit_condition || ""],
@@ -732,7 +718,21 @@ export function generateHeatPumpServicePdf(data: HeatPumpServicePdfData, company
   y = addSection(y, "Service Checks", [
     ["Controls Checked", bool(r.controls_checked)],
     ["DHW Cylinder Checked", bool(r.dhw_cylinder_checked)],
+    ["PRV Checked", bool(r.prv_checked)],
+    ["Anti-freeze Valves", bool(r.anti_freeze_valves)],
+    ["Inhibitor", bool(r.inhibitor)],
+    ["Fungicide", bool(r.fungicide)],
+    ["Evaporator Cleaned", bool(r.evaporator_cleaned)],
+  ], [6, 182, 212]);
+
+  y = addSection(y, "System Details", [
     ["DHW Cylinder Temp (°C)", r.dhw_cylinder_temp || ""],
+    ["Expansion Vessel Charge (bar)", r.expansion_vessel_charge || ""],
+  ], [6, 182, 212]);
+
+  y = addSection(y, "Glycol", [
+    ["Glycol Present", bool(r.glycol)],
+    ["Glycol Temp Rating (°C)", r.glycol_temp_rating || ""],
   ], [6, 182, 212]);
 
   y = addSection(y, "Defects & Advisories", [

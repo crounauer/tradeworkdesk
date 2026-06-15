@@ -10,24 +10,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, FileDown, Thermometer, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, FileDown, Zap, Wind, ClipboardCheck, UserCheck, AlertCircle, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface HeatPumpServiceFormData {
-  refrigerant_type: string;
-  refrigerant_pressure_high: string;
-  refrigerant_pressure_low: string;
-  flow_temp: string;
-  return_temp: string;
-  delta_t: string;
-  cop_reading: string;
-  compressor_amps: string;
   outdoor_unit_condition: string;
   indoor_unit_condition: string;
   controls_checked: boolean;
   filter_condition: string;
   dhw_cylinder_checked: boolean;
   dhw_cylinder_temp: string;
+  prv_checked: boolean;
+  expansion_vessel_charge: string;
+  glycol: boolean;
+  glycol_temp_rating: string;
+  anti_freeze_valves: boolean;
+  inhibitor: boolean;
+  fungicide: boolean;
+  evaporator_cleaned: boolean;
   defects_found: boolean;
   defects_details: string;
   advisories: string;
@@ -65,20 +65,20 @@ export default function HeatPumpServiceForm() {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
       reset({
-        refrigerant_type: existingRecord.refrigerant_type || "",
-        refrigerant_pressure_high: existingRecord.refrigerant_pressure_high || "",
-        refrigerant_pressure_low: existingRecord.refrigerant_pressure_low || "",
-        flow_temp: existingRecord.flow_temp || "",
-        return_temp: existingRecord.return_temp || "",
-        delta_t: existingRecord.delta_t || "",
-        cop_reading: existingRecord.cop_reading || "",
-        compressor_amps: existingRecord.compressor_amps || "",
         outdoor_unit_condition: existingRecord.outdoor_unit_condition || "",
         indoor_unit_condition: existingRecord.indoor_unit_condition || "",
         controls_checked: existingRecord.controls_checked ?? false,
         filter_condition: existingRecord.filter_condition || "",
         dhw_cylinder_checked: existingRecord.dhw_cylinder_checked ?? false,
         dhw_cylinder_temp: existingRecord.dhw_cylinder_temp || "",
+        prv_checked: existingRecord.prv_checked ?? false,
+        expansion_vessel_charge: existingRecord.expansion_vessel_charge || "",
+        glycol: existingRecord.glycol ?? false,
+        glycol_temp_rating: existingRecord.glycol_temp_rating || "",
+        anti_freeze_valves: existingRecord.anti_freeze_valves ?? false,
+        inhibitor: existingRecord.inhibitor ?? false,
+        fungicide: existingRecord.fungicide ?? false,
+        evaporator_cleaned: existingRecord.evaporator_cleaned ?? false,
         defects_found: existingRecord.defects_found ?? false,
         defects_details: existingRecord.defects_details || "",
         advisories: existingRecord.advisories || "",
@@ -98,20 +98,20 @@ export default function HeatPumpServiceForm() {
     const payload: CreateHeatPumpServiceRecordBody = {
       job_id: jobId,
       technician_id: user.id,
-      refrigerant_type: data.refrigerant_type || undefined,
-      refrigerant_pressure_high: data.refrigerant_pressure_high || undefined,
-      refrigerant_pressure_low: data.refrigerant_pressure_low || undefined,
-      flow_temp: data.flow_temp || undefined,
-      return_temp: data.return_temp || undefined,
-      delta_t: data.delta_t || undefined,
-      cop_reading: data.cop_reading || undefined,
-      compressor_amps: data.compressor_amps || undefined,
       outdoor_unit_condition: data.outdoor_unit_condition || undefined,
       indoor_unit_condition: data.indoor_unit_condition || undefined,
       controls_checked: data.controls_checked,
       filter_condition: data.filter_condition || undefined,
       dhw_cylinder_checked: data.dhw_cylinder_checked,
       dhw_cylinder_temp: data.dhw_cylinder_temp || undefined,
+      prv_checked: data.prv_checked,
+      expansion_vessel_charge: data.expansion_vessel_charge || undefined,
+      glycol: data.glycol,
+      glycol_temp_rating: data.glycol_temp_rating || undefined,
+      anti_freeze_valves: data.anti_freeze_valves,
+      inhibitor: data.inhibitor,
+      fungicide: data.fungicide,
+      evaporator_cleaned: data.evaporator_cleaned,
       defects_found: data.defects_found,
       defects_details: data.defects_details || undefined,
       advisories: data.advisories || undefined,
@@ -177,50 +177,6 @@ export default function HeatPumpServiceForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
-        <Card className="p-6 shadow-sm border-cyan-200 bg-cyan-50/30">
-          <h2 className="font-bold text-lg mb-4 text-cyan-700 flex items-center gap-2"><Wind className="w-5 h-5"/> Refrigerant Data</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Refrigerant Type</Label>
-              <Input {...register("refrigerant_type")} placeholder="e.g. R32, R410A" />
-            </div>
-            <div className="space-y-2">
-              <Label>High Pressure (bar)</Label>
-              <Input {...register("refrigerant_pressure_high")} placeholder="e.g. 28.5" />
-            </div>
-            <div className="space-y-2">
-              <Label>Low Pressure (bar)</Label>
-              <Input {...register("refrigerant_pressure_low")} placeholder="e.g. 8.2" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 shadow-sm border-border/50">
-          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Thermometer className="w-5 h-5"/> Temperature & Performance</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Flow Temperature (°C)</Label>
-              <Input {...register("flow_temp")} placeholder="e.g. 45" />
-            </div>
-            <div className="space-y-2">
-              <Label>Return Temperature (°C)</Label>
-              <Input {...register("return_temp")} placeholder="e.g. 40" />
-            </div>
-            <div className="space-y-2">
-              <Label>Delta-T (°C)</Label>
-              <Input {...register("delta_t")} placeholder="e.g. 5" />
-            </div>
-            <div className="space-y-2">
-              <Label>COP Reading</Label>
-              <Input {...register("cop_reading")} placeholder="e.g. 3.2" />
-            </div>
-            <div className="space-y-2">
-              <Label>Compressor Amps (A)</Label>
-              <Input {...register("compressor_amps")} placeholder="e.g. 8.4" />
-            </div>
-          </div>
-        </Card>
-
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Zap className="w-5 h-5"/> Unit Condition</h2>
           <div className="grid md:grid-cols-2 gap-4">
@@ -249,6 +205,11 @@ export default function HeatPumpServiceForm() {
             {([
               ["controls_checked", "Controls Checked"],
               ["dhw_cylinder_checked", "DHW Cylinder Checked"],
+              ["prv_checked", "PRV Checked"],
+              ["anti_freeze_valves", "Anti-freeze Valves"],
+              ["inhibitor", "Inhibitor"],
+              ["fungicide", "Fungicide"],
+              ["evaporator_cleaned", "Evaporator Cleaned"],
             ] as const).map(([field, label]) => (
               <label key={field} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-cyan-50 cursor-pointer transition-colors text-sm">
                 <input type="checkbox" {...register(field)} className="w-4 h-4 accent-cyan-600 rounded" />
@@ -256,7 +217,7 @@ export default function HeatPumpServiceForm() {
               </label>
             ))}
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
               <Label>Filter Condition</Label>
               <Input {...register("filter_condition")} placeholder="e.g. Clean, Dirty - Cleaned, Replaced" />
@@ -264,6 +225,23 @@ export default function HeatPumpServiceForm() {
             <div className="space-y-2">
               <Label>DHW Cylinder Temperature (°C)</Label>
               <Input {...register("dhw_cylinder_temp")} placeholder="e.g. 55" />
+            </div>
+            <div className="space-y-2">
+              <Label>Expansion Vessel Charge (bar)</Label>
+              <Input {...register("expansion_vessel_charge")} placeholder="e.g. 1.5" />
+            </div>
+          </div>
+          <div className="border rounded-xl p-4 bg-cyan-50/30">
+            <h3 className="font-semibold text-sm mb-3 text-cyan-700">Glycol</h3>
+            <div className="flex items-center gap-4 mb-3">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
+                <input type="checkbox" {...register("glycol")} className="w-4 h-4 accent-cyan-600 rounded" />
+                <span className="font-medium">Glycol Present</span>
+              </label>
+            </div>
+            <div className="space-y-2">
+              <Label>Glycol Temp Rating (°C)</Label>
+              <Input {...register("glycol_temp_rating")} placeholder="e.g. -15" />
             </div>
           </div>
         </Card>

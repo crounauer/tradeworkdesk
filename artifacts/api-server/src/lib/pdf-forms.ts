@@ -490,27 +490,24 @@ const OIL_TANK_RISK_ASSESSMENT_SECTIONS: SectionDef[] = [
 
 const HEAT_PUMP_SERVICE_SECTIONS: SectionDef[] = [
   {
-    title: "Refrigerant Details",
-    fields: ["refrigerant_type", "refrigerant_pressure_high", "refrigerant_pressure_low"],
+    title: "Unit Condition",
+    fields: ["outdoor_unit_condition", "indoor_unit_condition", "filter_condition"],
     color: [37, 99, 235],
   },
   {
-    title: "Temperature Readings",
-    fields: ["flow_temp", "return_temp", "delta_t", "cop_reading", "compressor_amps"],
-  },
-  {
-    title: "Unit Condition",
-    fields: ["outdoor_unit_condition", "indoor_unit_condition", "filter_condition"],
-  },
-  {
-    title: "Checks",
-    fields: ["controls_checked", "dhw_cylinder_checked"],
+    title: "Service Checks",
+    fields: ["controls_checked", "dhw_cylinder_checked", "prv_checked", "anti_freeze_valves",
+             "inhibitor", "fungicide", "evaporator_cleaned"],
     checkboxGrid: true,
     color: [22, 163, 74],
   },
   {
-    title: "DHW Details",
-    fields: ["dhw_cylinder_temp"],
+    title: "System Details",
+    fields: ["dhw_cylinder_temp", "expansion_vessel_charge"],
+  },
+  {
+    title: "Glycol",
+    fields: ["glycol", "glycol_temp_rating"],
   },
   {
     title: "Safety & Defects",
