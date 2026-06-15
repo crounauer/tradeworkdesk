@@ -196,8 +196,8 @@ export default function HeatPumpServiceForm() {
               ["dhw_cylinder_checked", "DHW Cylinder Checked"],
               ["prv_checked", "PRV Checked"],
               ["anti_freeze_valves", "Anti-freeze Valves"],
-              ["inhibitor", "Inhibitor"],
-              ["fungicide", "Fungicide"],
+              ["inhibitor", "Inhibitor Added"],
+              ["fungicide", "Fungicide Added"],
               ["evaporator_cleaned", "Evaporator Cleaned"],
             ] as const).map(([field, label]) => (
               <label key={field} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-cyan-50 cursor-pointer transition-colors text-sm">
