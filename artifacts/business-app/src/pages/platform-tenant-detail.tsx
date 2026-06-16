@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -92,6 +92,24 @@ export default function PlatformTenantDetail() {
       queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
       queryClient.invalidateQueries({ queryKey: ["platform-tenant-addons", params.id] });
       toast({ title: "Free access revoked", description: "Downgraded to Free Plan, all add-ons deactivated." });
+    },
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const switchPlanMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/switch-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: planId }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed to switch plan"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
+      queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
+      toast({ title: "Plan updated" });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -457,6 +475,60 @@ export default function PlatformTenantDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Plan selector */}
+      {plans && plans.filter((p: { id: string; monthly_price: number; is_legacy?: boolean }) => p.monthly_price > 0 && !p.is_legacy).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Plan</CardTitle>
+            <p className="text-sm text-muted-foreground">Switch this tenant to a different plan. Takes effect immediately.</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {(plans as { id: string; name: string; monthly_price: number; annual_price: number; is_popular: boolean; is_legacy?: boolean }[])
+                .filter(p => p.monthly_price > 0 && !p.is_legacy)
+                .sort((a, b) => a.monthly_price - b.monthly_price)
+                .map(plan => {
+                  const isCurrent = tenant.plan_id === plan.id;
+                  const isSwitching = switchPlanMutation.isPending;
+                  const PlanIcon = plan.name === "Website Builder" ? Globe : plan.name === "Bundle" ? Package : Briefcase;
+                  return (
+                    <div key={plan.id} className={`relative rounded-xl border-2 p-4 flex flex-col gap-2 transition-all ${isCurrent ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                      {isCurrent && (
+                        <div className="absolute -top-3 right-3">
+                          <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">Current</Badge>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <PlanIcon className={`w-4 h-4 ${isCurrent ? "text-primary" : "text-slate-500"}`} />
+                        <span className="font-semibold text-sm">{plan.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-xl font-bold">£{Number(plan.monthly_price).toFixed(0)}</span>
+                        <span className="text-muted-foreground text-xs">/mo</span>
+                      </div>
+                      {!isCurrent ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full mt-1"
+                          disabled={isSwitching}
+                          onClick={() => switchPlanMutation.mutate(plan.id)}
+                        >
+                          {isSwitching ? "Switching…" : `Switch to ${plan.name}`}
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-xs text-primary font-medium mt-1">
+                          <Check className="w-3.5 h-3.5" /> Active plan
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {tenant.users && tenant.users.length > 0 && (
         <Card>

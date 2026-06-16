@@ -157,6 +157,46 @@ router.patch("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req
   res.json(data);
 });
 
+/**
+ * POST /api/platform/tenants/:id/switch-plan
+ * Super-admin: move a tenant to any active, non-free plan immediately.
+ */
+router.post("/platform/tenants/:id/switch-plan", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { plan_id } = req.body as { plan_id: string };
+  if (!plan_id) { res.status(400).json({ error: "plan_id is required" }); return; }
+
+  const { data: newPlan } = await supabaseAdmin
+    .from("plans")
+    .select("id, name")
+    .eq("id", plan_id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!newPlan) { res.status(404).json({ error: "Plan not found or inactive" }); return; }
+
+  const { data: tenant, error: tErr } = await supabaseAdmin
+    .from("tenants")
+    .update({ plan_id } as Record<string, unknown>)
+    .eq("id", id)
+    .select("id, plan_id")
+    .single();
+
+  if (tErr || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "switched_plan",
+    entity_type: "tenant",
+    entity_id: id,
+    detail: { new_plan_id: plan_id, new_plan_name: newPlan.name },
+  });
+
+  bustInitCache(id);
+  res.json({ success: true });
+});
+
 router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const BASE_PLAN_ID = "37421994-c20d-49f8-aee1-a896e030a5f5";
