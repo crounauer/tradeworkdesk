@@ -146,6 +146,11 @@ export default function Billing() {
     },
   });
 
+  // initData.tenant is already cached and available immediately; tenantInfo may
+  // still be loading, so fall back to initData to avoid a flash where all plans
+  // show "Switch to X" before the tenant-info fetch completes.
+  const currentPlanId = initData?.tenant?.plan_id ?? tenantInfo?.plan_id ?? null;
+
   const { data: paymentMethod } = useQuery<PaymentMethod | null>({
     queryKey: ["payment-method"],
     queryFn: async () => {
@@ -413,7 +418,7 @@ export default function Billing() {
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {availablePlans.map(plan => {
-                const isCurrent = tenantInfo?.plan_id === plan.id;
+                const isCurrent = currentPlanId === plan.id;
                 const isSwitching = switchPlanMutation.isPending;
                 const bullets = PLAN_BULLETS[plan.name] ?? (plan.description ? [plan.description] : []);
                 const PlanIcon = plan.name === "Website Builder" ? Globe : plan.name === "Bundle" ? Package : Briefcase;
