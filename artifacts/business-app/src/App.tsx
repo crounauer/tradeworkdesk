@@ -114,6 +114,7 @@ const PlatformAnnouncements = lazyRetry(() => import("@/pages/platform-announcem
 const PlatformAuditLog = lazyRetry(() => import("@/pages/platform-audit-log"));
 const PlatformBetaInvites = lazyRetry(() => import("@/pages/platform-beta-invites"));
 const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
+const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
 const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
@@ -433,6 +434,7 @@ function AppRouter() {
         <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />
         <Route path="/platform/tenants" component={() => <ProtectedRoute component={PlatformTenants} roles={["super_admin"]} />} />
         <Route path="/platform/addons" component={() => <ProtectedRoute component={PlatformAddons} roles={["super_admin"]} />} />
+        <Route path="/platform/plans" component={() => <ProtectedRoute component={PlatformPlans} roles={["super_admin"]} />} />
         <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} roles={["super_admin"]} />} />
         <Route path="/platform/beta-invites" component={() => <ProtectedRoute component={PlatformBetaInvites} roles={["super_admin"]} />} />
         <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} roles={["super_admin"]} />} />
