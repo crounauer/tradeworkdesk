@@ -1,13 +1,11 @@
--- Simplify plan features to flat-rate model.
--- All plans now include everything; the only meaningful distinction is
--- job_management vs website_builder vs both (Bundle).
--- Strip all granular feature flags from every plan, preserving only these two keys.
+-- Flat-rate plan simplification:
+-- All plans include everything. Remove granular feature flags and job limits.
 
-UPDATE plans
-SET features = jsonb_build_object(
-  'job_management', COALESCE((features->>'job_management')::boolean, false),
-  'website_builder', COALESCE((features->>'website_builder')::boolean, false)
-);
+-- Clear the features column (no longer used for gating)
+UPDATE plans SET features = '{}'::jsonb;
+
+-- Set all plans to unlimited jobs
+UPDATE plans SET max_jobs_per_month = 2147483647;
 
 -- Rename plans to clearer product names.
 UPDATE plans SET name = 'Job Management' WHERE name = 'TradeWorkDesk';

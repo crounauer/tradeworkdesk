@@ -460,7 +460,7 @@ router.get("/platform/plans", requireAuth, requireSuperAdmin, async (_req, res):
 });
 
 router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_popular, stripe_price_id, stripe_price_id_annual } = req.body;
+  const { name, description, monthly_price, annual_price, per_user_price, user_note, max_users, is_popular, stripe_price_id, stripe_price_id_annual } = req.body;
   if (!name) { res.status(400).json({ error: "Plan name is required" }); return; }
 
   const { count } = await supabaseAdmin.from("plans").select("id", { count: "exact", head: true });
@@ -473,8 +473,6 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
     per_user_price: per_user_price ?? null,
     user_note: user_note || null,
     max_users: max_users || 5,
-    max_jobs_per_month: max_jobs_per_month || 100,
-    features: features || {},
     is_popular: is_popular || false,
     sort_order: (count || 0) + 1,
     stripe_price_id: stripe_price_id || null,
@@ -536,7 +534,7 @@ router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req
 
 router.patch("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const allowed = ["name", "description", "monthly_price", "annual_price", "per_user_price", "user_note", "max_users", "max_jobs_per_month", "features", "is_active", "is_popular", "sort_order", "stripe_price_id", "stripe_price_id_annual"];
+  const allowed = ["name", "description", "monthly_price", "annual_price", "per_user_price", "user_note", "max_users", "is_active", "is_popular", "sort_order", "stripe_price_id", "stripe_price_id_annual"];
   const patchOnlyNew = ["per_user_price", "user_note", "is_popular"];
 
   const updates: Record<string, unknown> = {};

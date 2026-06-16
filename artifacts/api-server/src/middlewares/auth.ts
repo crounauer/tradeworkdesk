@@ -389,46 +389,10 @@ export async function getTenantFeatures(tenantId: string): Promise<Record<string
   return features;
 }
 
-export function requirePlanFeature(featureName: string) {
-  return async (
-    req: AuthenticatedRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    if (req.userRole === "super_admin") {
-      next();
-      return;
-    }
-
-    if (!req.tenantId) {
-      res.status(403).json({ error: "No tenant associated with this account" });
-      return;
-    }
-
-    const features = await getTenantFeatures(req.tenantId);
-
-    if (features === null) {
-      res.status(403).json({ error: "Could not verify plan features" });
-      return;
-    }
-
-    // Under the flat-rate model only job_management and website_builder are
-    // meaningful plan-type gates. All other feature keys are included in every
-    // plan, so skip the check for them.
-    const PLAN_TYPE_GATES = ["job_management", "website_builder"];
-    if (!PLAN_TYPE_GATES.includes(featureName)) {
-      next();
-      return;
-    }
-
-    if (!features[featureName]) {
-      res.status(402).json({
-        error: "Plan upgrade required",
-        feature: featureName,
-      });
-      return;
-    }
-
+export function requirePlanFeature(_featureName: string) {
+  // All plans are flat-rate — every feature is included. This middleware is
+  // kept as a no-op so existing route declarations don't need to change.
+  return (_req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
     next();
   };
 }

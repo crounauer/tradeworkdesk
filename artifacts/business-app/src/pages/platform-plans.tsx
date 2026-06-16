@@ -18,8 +18,7 @@ interface Plan {
   per_user_price: number | null;
   user_note: string | null;
   max_users: number;
-  max_jobs_per_month: number;
-  features: { job_management: boolean; website_builder: boolean } | null;
+  features?: Record<string, unknown> | null;
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
@@ -35,11 +34,8 @@ interface PlanFormState {
   per_user_price: number | string;
   user_note: string;
   max_users: number | string;
-  max_jobs_per_month: number | string;
   is_active: boolean;
   is_popular: boolean;
-  job_management: boolean;
-  website_builder: boolean;
   stripe_price_id: string;
   stripe_price_id_annual: string;
 }
@@ -52,11 +48,8 @@ const EMPTY_FORM: PlanFormState = {
   per_user_price: "",
   user_note: "",
   max_users: "",
-  max_jobs_per_month: "",
   is_active: true,
   is_popular: false,
-  job_management: true,
-  website_builder: false,
   stripe_price_id: "",
   stripe_price_id_annual: "",
 };
@@ -85,10 +78,8 @@ export default function PlatformPlans() {
     per_user_price: f.per_user_price !== "" ? Number(f.per_user_price) : null,
     user_note: f.user_note || null,
     max_users: Number(f.max_users) || 5,
-    max_jobs_per_month: Number(f.max_jobs_per_month) || 100,
     is_active: f.is_active,
     is_popular: f.is_popular,
-    features: { job_management: f.job_management, website_builder: f.website_builder },
     stripe_price_id: f.stripe_price_id || null,
     stripe_price_id_annual: f.stripe_price_id_annual || null,
   });
@@ -179,11 +170,8 @@ export default function PlatformPlans() {
       per_user_price: plan.per_user_price ?? "",
       user_note: plan.user_note || "",
       max_users: plan.max_users,
-      max_jobs_per_month: plan.max_jobs_per_month,
       is_active: plan.is_active,
       is_popular: plan.is_popular ?? false,
-      job_management: plan.features?.job_management ?? false,
-      website_builder: plan.features?.website_builder ?? false,
       stripe_price_id: plan.stripe_price_id || "",
       stripe_price_id_annual: plan.stripe_price_id_annual || "",
     });
@@ -231,10 +219,6 @@ export default function PlatformPlans() {
             <Label className="text-xs">Max Users</Label>
             <Input type="number" value={form.max_users} onChange={(e) => setForm({ ...form, max_users: e.target.value })} />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Max Jobs/Month</Label>
-            <Input type="number" value={form.max_jobs_per_month} onChange={(e) => setForm({ ...form, max_jobs_per_month: e.target.value })} />
-          </div>
           <div className="flex items-center gap-2 pt-5">
             <Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} />
             <Label className="text-xs">Popular Badge</Label>
@@ -242,20 +226,6 @@ export default function PlatformPlans() {
           <div className="flex items-center gap-2 pt-5">
             <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
             <Label className="text-xs">Active</Label>
-          </div>
-        </div>
-
-        <div className="border-t pt-3 space-y-3">
-          <Label className="text-xs font-semibold">Plan Type</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2">
-              <Switch checked={form.job_management} onCheckedChange={(v) => setForm({ ...form, job_management: v })} />
-              <Label className="text-xs">Job Management</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.website_builder} onCheckedChange={(v) => setForm({ ...form, website_builder: v })} />
-              <Label className="text-xs">Website Builder</Label>
-            </div>
           </div>
         </div>
 
@@ -371,13 +341,6 @@ export default function PlatformPlans() {
                     <span className="text-muted-foreground">Max Users</span>
                     <span>{plan.max_users}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Max Jobs/mo</span>
-                    <span>{plan.max_jobs_per_month}</span>
-                  </div>
-                  {(plan.features?.job_management || plan.features?.website_builder) && (
-                    <div className="pt-2 space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Plan Type</p>
                       <div className="flex flex-wrap gap-1">
                         {plan.features?.job_management && <Badge variant="default" className="text-xs">Job Management</Badge>}
                         {plan.features?.website_builder && <Badge variant="default" className="text-xs">Website Builder</Badge>}

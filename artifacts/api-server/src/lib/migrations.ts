@@ -17,12 +17,8 @@ async function ensureFreePlan() {
       monthly_price: 0,
       annual_price: 0,
       max_users: 1,
-      max_jobs_per_month: 5,
+      max_jobs_per_month: 2147483647,
       sort_order: 0,
-      features: {
-        job_management: true,
-        website_builder: false,
-      },
     });
     if (error) {
       console.error("[migrations] Failed to insert Free plan:", error.message);
