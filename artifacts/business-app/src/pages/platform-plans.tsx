@@ -23,6 +23,7 @@ interface PlanFeatures {
   analytics: string;
   priority_support: boolean;
   social_media: boolean;
+  website_builder: boolean;
   job_management: boolean;
   invoicing: boolean;
   team_management: boolean;
@@ -64,6 +65,7 @@ const DEFAULT_FEATURES: PlanFeatures = {
   analytics: "",
   priority_support: false,
   social_media: false,
+  website_builder: false,
   job_management: true,
   invoicing: true,
   team_management: true,
@@ -80,6 +82,7 @@ const CORE_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
   { key: "reports", label: "Reports Dashboard" },
   { key: "team_management", label: "Team Management" },
   { key: "social_media", label: "Social Media Scheduling" },
+  { key: "website_builder", label: "Website Builder" },
 ];
 
 const FORM_TYPE_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
