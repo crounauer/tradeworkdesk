@@ -530,7 +530,7 @@ router.post("/admin/switch-to-company", requireAuth, requireTenant, requireRole(
 });
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, company_type, addon_ids, addon_quantities = {}, beta_code, start_on_free } = req.body;
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, product, company_type, addon_ids, addon_quantities = {}, beta_code, start_on_free } = req.body;
 
   if (!beta_code?.trim()) {
     res.status(400).json({ error: "A beta invite code is required to register during the beta period." });
@@ -602,20 +602,43 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   } catch {}
   const trialEnds = new Date(Date.now() + trialDays * 86400000).toISOString();
 
+  // Map product name → plan name
+  const PRODUCT_PLAN_MAP: Record<string, string> = {
+    tradeworkdesk: "TradeWorkDesk",
+    tradesite: "TradeSite",
+    bundle: "Bundle",
+  };
+
   let resolvedPlanId = plan_id;
   if (start_on_free) {
     resolvedPlanId = FREE_PLAN_ID;
   } else if (!resolvedPlanId) {
-    const { data: basePlan } = await supabaseAdmin
-      .from("plans")
-      .select("id")
-      .eq("is_active", true)
-      .eq("is_legacy", false)
-      .gt("monthly_price", 0)
-      .order("monthly_price", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    resolvedPlanId = basePlan?.id || "00000000-0000-0000-0000-000000000001";
+    const productKey = (typeof product === "string" ? product : "").toLowerCase();
+    const planName = PRODUCT_PLAN_MAP[productKey];
+    if (planName) {
+      const { data: productPlan } = await supabaseAdmin
+        .from("plans")
+        .select("id")
+        .eq("is_active", true)
+        .eq("is_legacy", false)
+        .ilike("name", planName)
+        .limit(1)
+        .maybeSingle();
+      resolvedPlanId = productPlan?.id;
+    }
+    if (!resolvedPlanId) {
+      // Fallback: cheapest active non-legacy plan
+      const { data: basePlan } = await supabaseAdmin
+        .from("plans")
+        .select("id")
+        .eq("is_active", true)
+        .eq("is_legacy", false)
+        .gt("monthly_price", 0)
+        .order("monthly_price", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      resolvedPlanId = basePlan?.id || "00000000-0000-0000-0000-000000000001";
+    }
   }
 
   const { data: tenant, error: tenantError } = await supabaseAdmin
@@ -629,6 +652,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       plan_id: resolvedPlanId,
       trial_ends_at: start_on_free ? null : trialEnds,
       company_type: resolvedCompanyType,
+      source: (PRODUCT_PLAN_MAP[(typeof product === "string" ? product : "").toLowerCase()] ? (product as string).toLowerCase() : "tradeworkdesk") as "tradeworkdesk" | "tradesite" | "bundle",
     })
     .select()
     .single();

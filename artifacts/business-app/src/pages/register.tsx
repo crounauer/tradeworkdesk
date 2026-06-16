@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, User, Loader2, Ticket } from "lucide-react";
+import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, User, Loader2, Ticket, Wrench, Globe, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -21,6 +21,7 @@ function getBetaCodeFromUrl() {
 type ValidateResult = { valid: boolean; role: string } | null;
 type RegisterMode = "invite" | "company";
 type CompanyType = "sole_trader" | "company";
+type Product = "tradeworkdesk" | "tradesite" | "bundle";
 
 export default function Register() {
   const [mode, setMode] = useState<RegisterMode>(() => getCodeFromUrl() ? "invite" : "company");
@@ -44,6 +45,7 @@ export default function Register() {
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
   const [signupPath, setSignupPath] = useState<"trial" | "subscribe">("trial");
+  const [product, setProduct] = useState<Product>("tradeworkdesk");
 
   const [betaCode, setBetaCode] = useState(getBetaCodeFromUrl);
   const [betaValid, setBetaValid] = useState<boolean | null>(null);
@@ -205,6 +207,7 @@ export default function Register() {
           contact_email: email,
           contact_phone: phone || undefined,
           password,
+          product,
           addon_ids: signupPath === "trial" ? [] : [...selectedAddons],
           addon_quantities: signupPath === "trial" ? {} : addonQuantities,
           company_type: companyType,
@@ -232,6 +235,33 @@ export default function Register() {
 
   const canAdvanceStep1 = betaValid === true && (companyType === "sole_trader" || companyName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
 
+  const PRODUCTS: { key: Product; label: string; tagline: string; price: string; icon: React.ReactNode; features: string[] }[] = [
+    {
+      key: "tradeworkdesk",
+      label: "TradeWorkDesk",
+      tagline: "Job management software",
+      price: "£25/mo",
+      icon: <Wrench className="w-6 h-6" />,
+      features: ["Jobs & scheduling", "Invoicing", "Compliance forms", "Customer records"],
+    },
+    {
+      key: "tradesite",
+      label: "TradeSite",
+      tagline: "Website builder",
+      price: "£15/mo",
+      icon: <Globe className="w-6 h-6" />,
+      features: ["Custom domain", "Blog & gallery", "Contact forms", "SEO tools"],
+    },
+    {
+      key: "bundle",
+      label: "Bundle",
+      tagline: "Both products — best value",
+      price: "£35/mo",
+      icon: <Layers className="w-6 h-6" />,
+      features: ["Everything in TradeWorkDesk", "Everything in TradeSite", "Discounted price", "Single login"],
+    },
+  ];
+
   if (done) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -249,7 +279,7 @@ export default function Register() {
     );
   }
 
-  const totalSteps = signupPath === "trial" ? 2 : 3;
+  const totalSteps = signupPath === "trial" ? 3 : 4;
   const stepIndicator = (
     <div className="flex items-center justify-center gap-2 mb-5">
       {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
@@ -396,6 +426,50 @@ export default function Register() {
 
             {step === 1 && (
               <div className="space-y-4">
+                <p className="text-sm text-muted-foreground text-center font-medium">What would you like to sign up for?</p>
+                <div className="space-y-2">
+                  {PRODUCTS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setProduct(p.key)}
+                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                        product === p.key
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${product === p.key ? "bg-primary text-white" : "bg-slate-100 text-slate-500"}`}>
+                          {p.icon}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-sm">{p.label}</span>
+                            <span className="text-sm font-bold text-primary">{p.price}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{p.tagline}</p>
+                        </div>
+                      </div>
+                      <ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 pl-12">
+                        {p.features.map((f) => (
+                          <li key={f} className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-500 shrink-0" />{f}
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-center text-muted-foreground">All plans include a {trialDays}-day free trial. No credit card required.</p>
+                <Button className="w-full h-12 text-base mt-2" onClick={() => setStep(2)}>
+                  Next: Your Details <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">
                   {companyType === "sole_trader" ? "Your details" : "Company & contact details"}
                 </p>
@@ -424,42 +498,18 @@ export default function Register() {
                     <Input placeholder="07xxx" value={phone} onChange={e => setPhone(e.target.value)} />
                   </div>
                 </div>
-                <div className="space-y-2 mt-2">
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">How would you like to start?</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${
-                        signupPath === "trial"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/30"
-                      }`}
-                      onClick={() => setSignupPath("trial")}
-                    >
-                      <p className="font-medium text-sm">Free {trialDays}-Day Trial</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Full access, no card needed</p>
-                    </button>
-                    <button
-                      type="button"
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${
-                        signupPath === "subscribe"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/30"
-                      }`}
-                      onClick={() => setSignupPath("subscribe")}
-                    >
-                      <p className="font-medium text-sm">Subscribe Now</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Choose your plan & add-ons</p>
-                    </button>
-                  </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(1)}>
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                  </Button>
+                  <Button className="flex-1 h-12 text-base" disabled={!canAdvanceStep1} onClick={() => setStep(signupPath === "subscribe" ? 3 : 3)}>
+                    Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
                 </div>
-                <Button className="w-full h-12 text-base mt-2" disabled={!canAdvanceStep1} onClick={() => setStep(2)}>
-                  {signupPath === "trial" ? "Next: Credentials" : "Next: Choose Add-ons"} <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
               </div>
             )}
 
-            {step === 2 && signupPath === "subscribe" && (
+            {step === 3 && signupPath === "subscribe" && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">
                   Choose the add-ons you need. You can change these anytime.
@@ -502,10 +552,10 @@ export default function Register() {
                   <p className="text-sm text-muted-foreground text-center py-4">No add-ons available yet.</p>
                 )}
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(1)}>
+                  <Button variant="outline" className="flex-1 h-12" onClick={() => setStep(2)}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
-                  <Button className="flex-1 h-12" onClick={() => setStep(3)}>
+                  <Button className="flex-1 h-12" onClick={() => setStep(4)}>
                     Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -513,7 +563,7 @@ export default function Register() {
               </div>
             )}
 
-            {((step === 2 && signupPath === "trial") || (step === 3 && signupPath === "subscribe")) && (
+            {((step === 3 && signupPath === "trial") || (step === 4 && signupPath === "subscribe")) && (
               <form onSubmit={handleCompanySubmit} className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">Set your login credentials</p>
                 <div className="p-3 rounded-lg bg-slate-50 border text-sm">
@@ -521,6 +571,9 @@ export default function Register() {
                   <p className="text-xs text-muted-foreground">
                     {companyType === "sole_trader" && <span className="inline-block bg-blue-100 text-blue-700 text-xs font-medium px-1.5 py-0.5 rounded mr-1.5">Sole Trader</span>}
                     {fullName} &middot; {email}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Product: <span className="font-medium capitalize">{PRODUCTS.find(p => p.key === product)?.label}</span>
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -532,15 +585,15 @@ export default function Register() {
                   <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(signupPath === "trial" ? 1 : 2)}>
+                  <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(signupPath === "trial" ? 2 : 3)}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
                   <Button type="submit" className="flex-1 h-12 text-base" disabled={loading}>
-                    {loading ? "Setting up..." : signupPath === "trial" ? `Start ${trialDays}-Day Trial` : "Subscribe & Create Account"}
+                    {loading ? "Setting up..." : `Start ${trialDays}-Day Trial`}
                   </Button>
                 </div>
                 <p className="text-xs text-center text-muted-foreground">
-                  {signupPath === "trial" ? "No credit card required. Full access to all features during your trial." : "You'll set up payment after creating your account."}
+                  No credit card required. Full access during your trial.
                 </p>
               </form>
             )}
