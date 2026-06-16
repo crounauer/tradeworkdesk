@@ -49,6 +49,8 @@ import impersonationRouter from "./impersonation";
 import supportNotesRouter from "./support-notes";
 import websiteRouter from "./website";
 import websiteDomainsBlogRouter from "./website-domains-blog";
+import { bookingRouter, bookingPublicRouter } from "./booking";
+import { reviewRequestRouter, reviewRequestPublicRouter } from "./review-requests";
 
 const router: IRouter = Router();
 
@@ -102,6 +104,10 @@ router.use(impersonationRouter);
 router.use(supportNotesRouter);
 router.use(websiteRouter);
 router.use(websiteDomainsBlogRouter);
+router.use(bookingRouter);
+router.use(bookingPublicRouter);
+router.use(reviewRequestRouter);
+router.use(reviewRequestPublicRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

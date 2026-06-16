@@ -134,6 +134,10 @@ const WebsiteDomain = lazyRetry(() => import("@/pages/website-domain"));
 const WebsiteSettings = lazyRetry(() => import("@/pages/website-settings"));
 const WebsiteBlog = lazyRetry(() => import("@/pages/website-blog"));
 
+const Bookings = lazyRetry(() => import("@/pages/bookings"));
+const BookingSetup = lazyRetry(() => import("@/pages/booking-setup"));
+const ReviewRequests = lazyRetry(() => import("@/pages/review-requests"));
+
 const ToolsIndex = lazyRetry(() => import("@/pages/tools/index"));
 const RadiatorSizing = lazyRetry(() => import("@/pages/tools/radiator-sizing"));
 const OilTankLocation = lazyRetry(() => import("@/pages/tools/oil-tank-location"));
@@ -397,9 +401,14 @@ function AppRouter() {
         <Route path="/website" component={() => <ProtectedRoute component={WebsiteSetup} />} />
         <Route path="/website/pages" component={() => <ProtectedRoute component={WebsitePages} />} />
         <Route path="/website/pages/:pageId" component={() => <ProtectedRoute component={WebsitePageEditor} />} />
-        <Route path="/website/domain" component={() => <ProtectedRoute component={WebsiteDomain} />} />
+        <Route path="/website/domain"
+ component={() => <ProtectedRoute component={WebsiteDomain} />} />
         <Route path="/website/settings" component={() => <ProtectedRoute component={WebsiteSettings} />} />
         <Route path="/website/blog" component={() => <ProtectedRoute component={WebsiteBlog} />} />
+
+        <Route path="/booking" component={() => <ProtectedRoute component={Bookings} />} />
+        <Route path="/booking/setup" component={() => <ProtectedRoute component={BookingSetup} />} />
+        <Route path="/review-requests" component={() => <ProtectedRoute component={ReviewRequests} />} />
 
         <Route path="/tools" component={() => <PublicToolRoute component={ToolsIndex} />} />
         <Route path="/tools/radiator-sizing" component={() => <PublicToolRoute component={RadiatorSizing} />} />
