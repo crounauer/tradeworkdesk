@@ -163,13 +163,13 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/website/settings", label: "Site Settings", icon: Settings2 },
   ] : [];
 
-  const automationNavItems = [
+  const automationNavItems = hasFeature("website_builder") ? [
     { href: "/booking", label: "Online Booking", icon: CalendarCheck },
     { href: "/review-requests", label: "Review Requests", icon: Star },
     { href: "/maintenance", label: "Maintenance Plans", icon: ShieldPlus },
     { href: "/campaigns", label: "Email Campaigns", icon: MailOpen },
     { href: "/missed-call", label: "Missed Call Text-Back", icon: PhoneCall },
-  ];
+  ] : [];
 
   const visibleNavItems = navItems.filter(item => 
     !item.roles || (profile && item.roles.includes(profile.role))
