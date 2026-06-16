@@ -21,18 +21,7 @@ async function ensureFreePlan() {
       sort_order: 0,
       features: {
         job_management: true,
-        scheduling: true,
-        heat_pump_forms: false,
-        combustion_analysis: false,
-        reports: false,
-        api_access: false,
-        invoicing: false,
-        team_management: false,
-        social_media: false,
-        oil_tank_forms: false,
-        commissioning_forms: false,
-        custom_branding: false,
-        priority_support: false,
+        website_builder: false,
       },
     });
     if (error) {
