@@ -460,7 +460,7 @@ router.get("/platform/plans", requireAuth, requireSuperAdmin, async (_req, res):
 });
 
 router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, description, monthly_price, annual_price, per_user_price, user_note, max_users, is_popular, stripe_price_id, stripe_price_id_annual } = req.body;
+  const { name, description, monthly_price, annual_price, per_user_price, max_users, is_popular, stripe_price_id, stripe_price_id_annual } = req.body;
   if (!name) { res.status(400).json({ error: "Plan name is required" }); return; }
 
   const { count } = await supabaseAdmin.from("plans").select("id", { count: "exact", head: true });
@@ -471,7 +471,6 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
     monthly_price: monthly_price || 0,
     annual_price: annual_price || 0,
     per_user_price: per_user_price ?? null,
-    user_note: user_note || null,
     max_users: max_users || 5,
     is_popular: is_popular || false,
     sort_order: (count || 0) + 1,
@@ -482,7 +481,7 @@ router.post("/platform/plans", requireAuth, requireSuperAdmin, async (req: Authe
   let result = await supabaseAdmin.from("plans").insert(fullPayload).select().single();
 
   if (result.error?.code === "42703") {
-    const { per_user_price: _a, user_note: _b, is_popular: _c, ...basePayload } = fullPayload;
+    const { per_user_price: _a, is_popular: _c, ...basePayload } = fullPayload;
     result = await supabaseAdmin.from("plans").insert(basePayload).select().single();
   }
 
@@ -534,8 +533,8 @@ router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req
 
 router.patch("/platform/plans/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const allowed = ["name", "description", "monthly_price", "annual_price", "per_user_price", "user_note", "max_users", "is_active", "is_popular", "sort_order", "stripe_price_id", "stripe_price_id_annual"];
-  const patchOnlyNew = ["per_user_price", "user_note", "is_popular"];
+  const allowed = ["name", "description", "monthly_price", "annual_price", "per_user_price", "max_users", "is_active", "is_popular", "sort_order", "stripe_price_id", "stripe_price_id_annual"];
+  const patchOnlyNew = ["per_user_price", "is_popular"];
 
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {

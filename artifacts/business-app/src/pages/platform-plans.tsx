@@ -16,7 +16,6 @@ interface Plan {
   monthly_price: number;
   annual_price: number;
   per_user_price: number | null;
-  user_note: string | null;
   max_users: number;
   features?: Record<string, unknown> | null;
   is_active: boolean;
@@ -32,7 +31,6 @@ interface PlanFormState {
   monthly_price: number | string;
   annual_price: number | string;
   per_user_price: number | string;
-  user_note: string;
   max_users: number | string;
   is_active: boolean;
   is_popular: boolean;
@@ -46,13 +44,111 @@ const EMPTY_FORM: PlanFormState = {
   monthly_price: "",
   annual_price: "",
   per_user_price: "",
-  user_note: "",
   max_users: "",
   is_active: true,
   is_popular: false,
   stripe_price_id: "",
   stripe_price_id_annual: "",
 };
+
+interface PlanFormProps {
+  isNew: boolean;
+  form: PlanFormState;
+  setForm: (f: PlanFormState) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onSyncStripe: () => void;
+  isSaving: boolean;
+  isSyncing: boolean;
+}
+
+function PlanForm({ isNew, form, setForm, onSave, onCancel, onSyncStripe, isSaving, isSyncing }: PlanFormProps) {
+  return (
+    <Card className="border-primary/30">
+      <CardContent className="p-4 space-y-4">
+        <p className="text-sm font-bold">{isNew ? "New Plan" : "Edit Plan"}</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Name</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Plan name" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Description</Label>
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. For solo engineers" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Base Price (£/mo)</Label>
+            <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Per User (£/mo)</Label>
+            <Input type="number" step="0.01" value={form.per_user_price} onChange={(e) => setForm({ ...form, per_user_price: e.target.value })} placeholder="Leave blank for flat rate" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Annual Price (£/yr)</Label>
+            <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Max Users</Label>
+            <Input type="number" value={form.max_users} onChange={(e) => setForm({ ...form, max_users: e.target.value })} />
+          </div>
+          <div className="flex items-center gap-2 pt-5">
+            <Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} />
+            <Label className="text-xs">Popular Badge</Label>
+          </div>
+          <div className="flex items-center gap-2 pt-5">
+            <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+            <Label className="text-xs">Active</Label>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
+            {!isNew && (form.stripe_price_id || form.stripe_price_id_annual) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={onSyncStripe}
+                disabled={isSyncing}
+              >
+                <CreditCard className="w-3 h-3 mr-1" />
+                {isSyncing ? "Validating…" : "Sync with Stripe"}
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Monthly Price ID</Label>
+              <Input value={form.stripe_price_id} onChange={(e) => setForm({ ...form, stripe_price_id: e.target.value })} placeholder="price_..." className="font-mono text-xs" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Annual Price ID</Label>
+              <Input value={form.stripe_price_id_annual} onChange={(e) => setForm({ ...form, stripe_price_id_annual: e.target.value })} placeholder="price_..." className="font-mono text-xs" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button size="sm" onClick={onSave} disabled={isSaving || !form.name}>
+            <Save className="w-3 h-3 mr-1" />{isNew ? "Create" : "Save"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            <X className="w-3 h-3 mr-1" />Cancel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function PlatformPlans() {
   const { toast } = useToast();
@@ -76,7 +172,6 @@ export default function PlatformPlans() {
     monthly_price: Number(f.monthly_price) || 0,
     annual_price: Number(f.annual_price) || 0,
     per_user_price: f.per_user_price !== "" ? Number(f.per_user_price) : null,
-    user_note: f.user_note || null,
     max_users: Number(f.max_users) || 5,
     is_active: f.is_active,
     is_popular: f.is_popular,
@@ -168,7 +263,6 @@ export default function PlatformPlans() {
       monthly_price: plan.monthly_price,
       annual_price: plan.annual_price,
       per_user_price: plan.per_user_price ?? "",
-      user_note: plan.user_note || "",
       max_users: plan.max_users,
       is_active: plan.is_active,
       is_popular: plan.is_popular ?? false,
@@ -178,100 +272,6 @@ export default function PlatformPlans() {
     setEditingId(plan.id);
     setShowNew(false);
   };
-
-  const PlanForm = ({ isNew }: { isNew: boolean }) => (
-    <Card className="border-primary/30">
-      <CardContent className="p-4 space-y-4">
-        <p className="text-sm font-bold">{isNew ? "New Plan" : "Edit Plan"}</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Name</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Plan name" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Description</Label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. For solo engineers" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Base Price (£/mo)</Label>
-            <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Per User (£/mo)</Label>
-            <Input type="number" step="0.01" value={form.per_user_price} onChange={(e) => setForm({ ...form, per_user_price: e.target.value })} placeholder="Leave blank for flat rate" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Annual Price (£/yr)</Label>
-            <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">User Note</Label>
-            <Input value={form.user_note} onChange={(e) => setForm({ ...form, user_note: e.target.value })} placeholder="e.g. Up to 10 users" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Max Users</Label>
-            <Input type="number" value={form.max_users} onChange={(e) => setForm({ ...form, max_users: e.target.value })} />
-          </div>
-          <div className="flex items-center gap-2 pt-5">
-            <Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} />
-            <Label className="text-xs">Popular Badge</Label>
-          </div>
-          <div className="flex items-center gap-2 pt-5">
-            <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
-            <Label className="text-xs">Active</Label>
-          </div>
-        </div>
-
-        <div className="border-t pt-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold text-muted-foreground">Stripe Price IDs</Label>
-            {!isNew && (form.stripe_price_id || form.stripe_price_id_annual) && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={() => syncStripeMutation.mutate()}
-                disabled={syncStripeMutation.isPending}
-              >
-                <CreditCard className="w-3 h-3 mr-1" />
-                {syncStripeMutation.isPending ? "Validating\u2026" : "Sync with Stripe"}
-              </Button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Monthly Price ID</Label>
-              <Input value={form.stripe_price_id} onChange={(e) => setForm({ ...form, stripe_price_id: e.target.value })} placeholder="price_..." className="font-mono text-xs" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Annual Price ID</Label>
-              <Input value={form.stripe_price_id_annual} onChange={(e) => setForm({ ...form, stripe_price_id_annual: e.target.value })} placeholder="price_..." className="font-mono text-xs" />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-2 pt-2">
-          <Button
-            size="sm"
-            onClick={() => isNew ? createMutation.mutate() : updateMutation.mutate()}
-            disabled={createMutation.isPending || updateMutation.isPending || !form.name}
-          >
-            <Save className="w-3 h-3 mr-1" />{isNew ? "Create" : "Save"}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditingId(null); setForm(EMPTY_FORM); }}>
-            <X className="w-3 h-3 mr-1" />Cancel
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <div className="space-y-6">
@@ -285,7 +285,18 @@ export default function PlatformPlans() {
         </Button>
       </div>
 
-      {showNew && <PlanForm isNew />}
+      {showNew && (
+        <PlanForm
+          isNew
+          form={form}
+          setForm={setForm}
+          onSave={() => createMutation.mutate()}
+          onCancel={() => { setShowNew(false); setForm(EMPTY_FORM); }}
+          onSyncStripe={() => {}}
+          isSaving={createMutation.isPending}
+          isSyncing={false}
+        />
+      )}
 
       {isLoading ? (
         <div className="space-y-3">{[...Array(3)].map((_, i) => <Card key={i}><CardContent className="p-4"><div className="h-16 bg-slate-100 rounded animate-pulse" /></CardContent></Card>)}</div>
@@ -293,7 +304,17 @@ export default function PlatformPlans() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(plans || []).map((plan) =>
             editingId === plan.id ? (
-              <PlanForm key={plan.id} isNew={false} />
+              <PlanForm
+                key={plan.id}
+                isNew={false}
+                form={form}
+                setForm={setForm}
+                onSave={() => updateMutation.mutate()}
+                onCancel={() => { setEditingId(null); setForm(EMPTY_FORM); }}
+                onSyncStripe={() => syncStripeMutation.mutate()}
+                isSaving={updateMutation.isPending}
+                isSyncing={syncStripeMutation.isPending}
+              />
             ) : (
               <Card key={plan.id} className={`${!plan.is_active ? "opacity-60" : ""} ${plan.is_popular ? "ring-2 ring-primary" : ""}`}>
                 <CardHeader className="pb-2 flex flex-row items-start justify-between">
@@ -331,12 +352,7 @@ export default function PlatformPlans() {
                     <span className="text-muted-foreground">Annual</span>
                     <span className="font-bold">&pound;{Number(plan.annual_price).toFixed(2)}/yr</span>
                   </div>
-                  {plan.user_note && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Users</span>
-                      <span>{plan.user_note}</span>
-                    </div>
-                  )}
+
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Users</span>
                     <span>{plan.max_users}</span>
