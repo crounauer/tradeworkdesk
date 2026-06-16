@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -120,6 +120,14 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];
 
+  const websiteNavItems = hasFeature("website_builder") ? [
+    { href: "/website", label: "My Website", icon: Globe2 },
+    { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
+    { href: "/website/blog", label: "Blog", icon: FileText },
+    { href: "/website/domain", label: "Domain", icon: Globe },
+    { href: "/website/settings", label: "Site Settings", icon: Settings2 },
+  ] : [];
+
   const visibleNavItems = navItems.filter(item => 
     !item.roles || (profile && item.roles.includes(profile.role))
   );
@@ -222,6 +230,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {/* renderStorageIndicator()*/}
 
+          {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
+
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
 
           {isSuperAdmin && (
@@ -297,6 +307,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="p-4 pb-16 space-y-2">
             {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {/* renderStorageIndicator(true) */}
+            {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>

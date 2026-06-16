@@ -47,6 +47,8 @@ import smsRouter from "./sms";
 import invoicesRouter from "./invoices";
 import impersonationRouter from "./impersonation";
 import supportNotesRouter from "./support-notes";
+import websiteRouter from "./website";
+import websiteDomainsBlogRouter from "./website-domains-blog";
 
 const router: IRouter = Router();
 
@@ -98,6 +100,8 @@ router.use(smsRouter);
 router.use(invoicesRouter);
 router.use(impersonationRouter);
 router.use(supportNotesRouter);
+router.use(websiteRouter);
+router.use(websiteDomainsBlogRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }

@@ -127,6 +127,13 @@ const Invoices = lazyRetry(() => import("@/pages/invoices"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
 const HelpPage = lazyRetry(() => import("@/pages/help"));
 
+const WebsiteSetup = lazyRetry(() => import("@/pages/website-setup"));
+const WebsitePages = lazyRetry(() => import("@/pages/website-pages"));
+const WebsitePageEditor = lazyRetry(() => import("@/pages/website-page-editor"));
+const WebsiteDomain = lazyRetry(() => import("@/pages/website-domain"));
+const WebsiteSettings = lazyRetry(() => import("@/pages/website-settings"));
+const WebsiteBlog = lazyRetry(() => import("@/pages/website-blog"));
+
 const ToolsIndex = lazyRetry(() => import("@/pages/tools/index"));
 const RadiatorSizing = lazyRetry(() => import("@/pages/tools/radiator-sizing"));
 const OilTankLocation = lazyRetry(() => import("@/pages/tools/oil-tank-location"));
@@ -386,6 +393,13 @@ function AppRouter() {
         <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
         <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
         <Route path="/help" component={() => <ProtectedRoute component={HelpPage} />} />
+
+        <Route path="/website" component={() => <ProtectedRoute component={WebsiteSetup} />} />
+        <Route path="/website/pages" component={() => <ProtectedRoute component={WebsitePages} />} />
+        <Route path="/website/pages/:pageId" component={() => <ProtectedRoute component={WebsitePageEditor} />} />
+        <Route path="/website/domain" component={() => <ProtectedRoute component={WebsiteDomain} />} />
+        <Route path="/website/settings" component={() => <ProtectedRoute component={WebsiteSettings} />} />
+        <Route path="/website/blog" component={() => <ProtectedRoute component={WebsiteBlog} />} />
 
         <Route path="/tools" component={() => <PublicToolRoute component={ToolsIndex} />} />
         <Route path="/tools/radiator-sizing" component={() => <PublicToolRoute component={RadiatorSizing} />} />
