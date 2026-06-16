@@ -83,7 +83,7 @@ export function useInitData() {
       }
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,  // 5 minutes — avoids unnecessary remounts during edits
     retry: (failureCount, error) => {
       // Don't retry auth failures
       if (error instanceof Error && error.message === "unauthorized") return false;

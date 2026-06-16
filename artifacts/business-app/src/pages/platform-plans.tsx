@@ -164,6 +164,8 @@ export default function PlatformPlans() {
       if (!res.ok) throw new Error("Failed");
       return res.json() as Promise<Plan[]>;
     },
+    staleTime: 5 * 60 * 1000,      // 5 minutes
+    refetchOnWindowFocus: false,   // don't disrupt an active edit
   });
 
   const toPayload = (f: PlanFormState) => ({
