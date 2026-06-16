@@ -864,7 +864,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
           const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
           const { data: freePlan } = await supabaseAdmin
             .from("plans")
-            .select("name, features, monthly_price, max_users, max_jobs_per_month")
+            .select("name, monthly_price, max_users")
             .eq("id", FREE_PLAN_ID)
             .single();
           await Promise.all([
@@ -888,7 +888,13 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         }
       }
       const plan = tenantRes.data.plans;
-      const baseFeatures: Record<string, boolean> = { ...(plan?.features ?? {}) };
+      // All plans are flat-rate — every standard feature is included.
+      const baseFeatures: Record<string, boolean> = {
+        job_management: true, invoicing: true, reports: true, team_management: true,
+        social_media: true, heat_pump_forms: true, oil_tank_forms: true,
+        commissioning_forms: true, combustion_analysis: true, api_access: true,
+        scheduling: true, custom_branding: true, priority_support: true,
+      };
 
       for (const ta of activeAddons) {
         if (ta.addons?.feature_keys) {
