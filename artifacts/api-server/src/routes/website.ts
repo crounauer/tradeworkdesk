@@ -159,6 +159,261 @@ router.post(
   }
 );
 
+// ─── Quick Start — seed a fully populated website from company data ───────────
+
+router.post(
+  "/website/quickstart",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const existing = await getWebsiteForTenant(req.tenantId!);
+    if (existing) {
+      res.status(409).json({ error: "Website already exists for this account.", website_id: existing.id });
+      return;
+    }
+
+    // Load company settings to personalise the content
+    const { data: cs } = await supabaseAdmin
+      .from("company_settings")
+      .select("name, trading_name, phone, email, address_line1, city, county, postcode, gas_safe_number, oftec_number")
+      .eq("tenant_id", req.tenantId!)
+      .eq("singleton_id", "default")
+      .maybeSingle();
+
+    const tradeName: string = (cs as any)?.trading_name || (cs as any)?.name || "Your Business";
+    const city: string = (cs as any)?.city || "your area";
+    const county: string = (cs as any)?.county || "";
+    const phone: string = (cs as any)?.phone || "";
+    const email: string = (cs as any)?.email || "";
+    const gasSafeNo: string = (cs as any)?.gas_safe_number || "";
+    const oftecNo: string = (cs as any)?.oftec_number || "";
+    const hasGasSafe = !!gasSafeNo;
+    const hasOftec = !!oftecNo;
+
+    const addressParts: string[] = [
+      (cs as any)?.address_line1,
+      (cs as any)?.city,
+      (cs as any)?.postcode,
+    ].filter(Boolean) as string[];
+    const address = addressParts.join(", ");
+
+    const tradeLabel = hasGasSafe
+      ? "Gas & Heating Engineer"
+      : hasOftec
+      ? "Oil Heating Engineer"
+      : "Plumber";
+
+    const locationText = county ? `${city}, ${county}` : city;
+
+    // Build service list based on accreditations
+    type Service = { title: string; description: string; icon: string };
+    const services: Service[] = [
+      { title: "Emergency Call-Outs", description: "Available 24/7 for burst pipes, leaks, and urgent plumbing emergencies.", icon: "🚨" },
+      { title: "Bathroom Installations", description: "Full bathroom suite supply and fit, wet rooms, showers, and tiling.", icon: "🛁" },
+      { title: "Leak Detection & Repair", description: "Expert leak tracing and repair to prevent damage and reduce water bills.", icon: "💧" },
+      { title: "Central Heating", description: "Radiator installations, TRV upgrades, power flushing, and full system maintenance.", icon: "🏠" },
+    ];
+
+    if (hasGasSafe) {
+      services.push(
+        { title: "Boiler Repair & Servicing", description: "Fast fault diagnosis, annual servicing, and full boiler replacements by a Gas Safe registered engineer.", icon: "🔧" },
+        { title: "Gas Safety Certificates", description: "Landlord gas safety inspections (CP12) and homeowner checks. Certificate issued same day.", icon: "✅" },
+      );
+    } else if (hasOftec) {
+      services.push(
+        { title: "Oil Boiler Servicing", description: "Annual service and repair for all makes of oil boiler by an OFTEC registered engineer.", icon: "🔧" },
+        { title: "Oil Tank Installation", description: "New oil tank supply and fit, including line runs, filters, and safety valves.", icon: "⛽" },
+      );
+    } else {
+      services.push(
+        { title: "Boiler Repairs", description: "Keep your heating running with our boiler repair and maintenance service.", icon: "🔧" },
+        { title: "Pipe & Drain Work", description: "Blocked drains, pipe repairs, and full repiping services.", icon: "🔩" },
+      );
+    }
+
+    const phoneUrl = phone ? `tel:${phone.replace(/\s+/g, "")}` : "/contact";
+
+    // Build about HTML
+    const accredLine = hasGasSafe
+      ? `<p>We are <strong>Gas Safe registered</strong>${gasSafeNo ? ` (no. ${gasSafeNo})` : ""}. You can verify our registration at <a href="https://www.gassaferegister.co.uk" target="_blank" rel="noopener noreferrer">GasSafeRegister.co.uk</a>.</p>`
+      : hasOftec
+      ? `<p>We are <strong>OFTEC registered</strong>${oftecNo ? ` (no. ${oftecNo})` : ""} for all oil heating work.</p>`
+      : "";
+
+    const aboutHtml = `<h2>About ${tradeName}</h2>
+<p>Based in ${locationText}, ${tradeName} provides reliable, professional ${tradeLabel.toLowerCase()} services to homeowners and businesses across the area. Whether you need an emergency callout or a planned installation, our experienced team is ready to help.</p>
+<p>We pride ourselves on honest pricing, quality workmanship, and getting the job done right first time. All work is fully guaranteed.</p>
+${accredLine}
+<p>Contact us today for a free, no-obligation quote.</p>`;
+
+    const contactDetails: string[] = [];
+    if (phone) contactDetails.push(`<li>📞 <a href="${phoneUrl}">${phone}</a></li>`);
+    if (email) contactDetails.push(`<li>✉️ <a href="mailto:${email}">${email}</a></li>`);
+    if (address) contactDetails.push(`<li>📍 ${address}</li>`);
+
+    const contactHtml = `<h2>Contact ${tradeName}</h2>
+<p>Get in touch with us today — we'd love to hear from you.</p>
+${contactDetails.length ? `<ul style="list-style:none;padding:0;line-height:2">${contactDetails.join("\n")}</ul>` : ""}
+<p>We aim to respond to all enquiries within one business day.</p>`;
+
+    // ── 1. Create website ────────────────────────────────────────────────────
+    const { data: website, error: wsError } = await db
+      .from("websites")
+      .insert({
+        tenant_id: req.tenantId,
+        site_name: tradeName,
+        tagline: `Professional ${tradeLabel} Services in ${city}`,
+        status: "draft",
+        default_meta_title: `${tradeName} — ${tradeLabel} in ${city}`,
+        default_meta_description: `${tradeName} offers professional ${tradeLabel.toLowerCase()} services in ${locationText}. Call us today for a free quote.`,
+      })
+      .select()
+      .single() as { data: Record<string, unknown> | null; error: unknown };
+
+    if (wsError || !website) {
+      console.error("[website/quickstart] create website failed:", wsError);
+      res.status(500).json({ error: "Failed to create website" });
+      return;
+    }
+
+    // ── 2. Create pages ──────────────────────────────────────────────────────
+    const pageRows = [
+      { website_id: website.id, tenant_id: req.tenantId, slug: "home", title: "Home",     page_type: "home",   status: "draft", show_in_nav: true,  nav_label: "Home",     nav_order: 1 },
+      { website_id: website.id, tenant_id: req.tenantId, slug: "services", title: "Services", page_type: "custom", status: "draft", show_in_nav: true,  nav_label: "Services", nav_order: 2 },
+      { website_id: website.id, tenant_id: req.tenantId, slug: "about",    title: "About Us",  page_type: "custom", status: "draft", show_in_nav: true,  nav_label: "About",    nav_order: 3 },
+      { website_id: website.id, tenant_id: req.tenantId, slug: "contact",  title: "Contact",   page_type: "custom", status: "draft", show_in_nav: true,  nav_label: "Contact",  nav_order: 4 },
+    ];
+
+    const { data: pages, error: pagesError } = await db
+      .from("website_pages")
+      .insert(pageRows)
+      .select("id, slug, page_type") as { data: Array<{ id: string; slug: string; page_type: string }> | null; error: unknown };
+
+    if (pagesError || !pages) {
+      console.error("[website/quickstart] create pages failed:", pagesError);
+      res.status(500).json({ error: "Failed to create pages" });
+      return;
+    }
+
+    const homeId     = pages.find(p => p.page_type === "home")?.id;
+    const servicesId = pages.find(p => p.slug === "services")?.id;
+    const aboutId    = pages.find(p => p.slug === "about")?.id;
+    const contactId  = pages.find(p => p.slug === "contact")?.id;
+
+    // ── 3. Build block rows ──────────────────────────────────────────────────
+    type BlockRow = { page_id: string; tenant_id: string; block_type: string; content: Record<string, unknown>; sort_order: number; is_visible: boolean };
+
+    const blockRows: BlockRow[] = [];
+
+    function addBlocks(pageId: string | undefined, blocks: Array<{ block_type: string; content: Record<string, unknown> }>) {
+      if (!pageId) return;
+      blocks.forEach((b, i) => {
+        blockRows.push({ page_id: pageId, tenant_id: req.tenantId!, block_type: b.block_type, content: b.content, sort_order: i, is_visible: true });
+      });
+    }
+
+    // Home page
+    addBlocks(homeId, [
+      {
+        block_type: "hero",
+        content: {
+          heading: `Your Local ${tradeLabel} in ${city}`,
+          subheading: `Fast, reliable, and fully insured. ${tradeName} covers ${locationText} and surrounding areas. Call us today for a free quote.`,
+          cta_text: phone ? `Call ${phone}` : "Get a Free Quote",
+          cta_url: phoneUrl,
+          align: "center",
+        },
+      },
+      {
+        block_type: "services",
+        content: {
+          heading: "What We Do",
+          services,
+          columns: 3,
+        },
+      },
+      {
+        block_type: "cta",
+        content: {
+          heading: "Need a Plumber Fast?",
+          subheading: `${tradeName} is available for emergency call-outs and scheduled work across ${locationText}.`,
+          cta_text: phone ? `Call ${phone}` : "Get in Touch",
+          cta_url: phoneUrl,
+        },
+      },
+    ]);
+
+    // Services page
+    addBlocks(servicesId, [
+      {
+        block_type: "hero",
+        content: {
+          heading: "Our Services",
+          subheading: `${tradeName} offers a full range of ${tradeLabel.toLowerCase()} services for residential and commercial customers in ${locationText}.`,
+          align: "center",
+        },
+      },
+      {
+        block_type: "services",
+        content: {
+          heading: "Services We Offer",
+          services,
+          columns: 3,
+        },
+      },
+      {
+        block_type: "cta",
+        content: {
+          heading: "Ready to Book?",
+          subheading: "Get in touch for a fast, friendly quote with no obligation.",
+          cta_text: phone ? `Call ${phone}` : "Contact Us",
+          cta_url: phoneUrl,
+        },
+      },
+    ]);
+
+    // About page
+    addBlocks(aboutId, [
+      {
+        block_type: "hero",
+        content: {
+          heading: `About ${tradeName}`,
+          subheading: `Your trusted local ${tradeLabel.toLowerCase()} in ${city}.`,
+          align: "center",
+        },
+      },
+      {
+        block_type: "text",
+        content: { html: aboutHtml },
+      },
+    ]);
+
+    // Contact page
+    addBlocks(contactId, [
+      {
+        block_type: "hero",
+        content: {
+          heading: "Get In Touch",
+          subheading: `We'd love to hear from you. Reach ${tradeName} using the details below.`,
+          align: "center",
+        },
+      },
+      {
+        block_type: "text",
+        content: { html: contactHtml },
+      },
+    ]);
+
+    if (blockRows.length > 0) {
+      await db.from("website_blocks").insert(blockRows);
+    }
+
+    res.status(201).json(website);
+  }
+);
+
 router.patch(
   "/website",
   requireAuth,

@@ -17,7 +17,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
-  ExternalLink, ChevronRight, Loader2, Eye,
+  ExternalLink, ChevronRight, Loader2, Eye, Zap, Pencil,
 } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
@@ -90,6 +90,18 @@ export default function WebsiteSetup() {
     },
   });
 
+  const quickstartMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/api/website/quickstart", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
+      toast({ title: "Website ready!", description: "Your site has been built and pre-filled with your business details. Review each page and tweak the text as needed." });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
   const publishMutation = useMutation({
     mutationFn: () =>
       apiFetch("/api/website/publish", { method: "POST" }),
@@ -120,45 +132,93 @@ export default function WebsiteSetup() {
   }
 
   if (!website) {
+    const busy = quickstartMutation.isPending || createMutation.isPending;
     return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-1">Create Your Website</h1>
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold mb-2">Create Your Website</h1>
           <p className="text-muted-foreground">
-            Choose a template and get your professional trade website up in minutes.
+            Choose how you'd like to get started.
           </p>
         </div>
 
-        {templates && templates.length > 0 && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Choose a template</label>
-            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-              <SelectTrigger>
-                <SelectValue placeholder="Default template" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="grid sm:grid-cols-2 gap-6">
+          {/* Quick Start — recommended */}
+          <Card className="border-2 border-primary/40 relative">
+            <div className="absolute -top-3 left-4">
+              <Badge className="bg-primary text-primary-foreground text-xs px-2">Recommended</Badge>
+            </div>
+            <CardContent className="p-6 flex flex-col h-full">
+              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4">
+                <Zap className="w-7 h-7 text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold mb-2">Quick Start</h2>
+              <p className="text-sm text-muted-foreground flex-1 mb-6">
+                We'll build a complete website for you in seconds — pre-filled with your
+                business name, services, contact details, and a professional layout across
+                4 pages (Home, Services, About, Contact). Just update the text and photos.
+              </p>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => quickstartMutation.mutate()}
+                disabled={busy}
+              >
+                {quickstartMutation.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building your site…</>
+                ) : (
+                  <><Zap className="w-4 h-4 mr-2" /> Build My Website Now</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
 
-        <Button
-          onClick={() => createMutation.mutate()}
-          disabled={createMutation.isPending}
-          size="lg"
-          className="w-full"
-        >
-          {createMutation.isPending ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating…</>
-          ) : (
-            <><Globe className="w-4 h-4 mr-2" /> Create My Website</>
-          )}
-        </Button>
+          {/* Start from scratch */}
+          <Card>
+            <CardContent className="p-6 flex flex-col h-full">
+              <div className="p-3 bg-muted rounded-xl w-fit mb-4">
+                <Pencil className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-semibold mb-2">Start from Scratch</h2>
+              <p className="text-sm text-muted-foreground flex-1 mb-4">
+                Create a blank website and build each page yourself. Useful if you want
+                full control from the start.
+              </p>
+
+              {templates && templates.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Template (optional)</label>
+                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Default (blank)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                className="w-full"
+                size="lg"
+                onClick={() => createMutation.mutate()}
+                disabled={busy}
+              >
+                {createMutation.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating…</>
+                ) : (
+                  <><Globe className="w-4 h-4 mr-2" /> Create Blank Website</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
