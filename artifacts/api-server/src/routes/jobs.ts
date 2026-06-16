@@ -2264,6 +2264,7 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
     cc: entry.cc,
     subject: entry.subject,
     forms_included: entry.forms_included,
+    photos_included: entry.photos_included ?? null,
     created_at: entry.created_at,
   }));
 

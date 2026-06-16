@@ -1457,4 +1457,69 @@ router.post("/platform/backup-trigger", requireAuth, requireSuperAdmin, async (r
   }
 });
 
+// New tables not yet in Supabase generated types — use untyped alias for ai usage queries
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dbUntyped = supabaseAdmin as any;
+
+// ---------------------------------------------------------------------------
+// GET /api/platform/tenants/:id/ai-usage
+// Returns AI usage summary for a tenant (current month + last 6 months)
+// ---------------------------------------------------------------------------
+
+router.get("/platform/tenants/:id/ai-usage", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const { id: tenantId } = req.params;
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  sixMonthsAgo.setDate(1);
+
+  const { data, error } = await supabaseAdmin
+    .from("ai_usage_monthly")
+    .select("month, tokens_total, images_generated, social_posts, blog_posts, website_rewrites")
+    .eq("tenant_id", tenantId)
+    .gte("month", sixMonthsAgo.toISOString().slice(0, 10))
+    .order("month", { ascending: false });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json(data || []);
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/platform/stats/ai-usage
+// Platform-wide AI usage totals for current month
+// ---------------------------------------------------------------------------
+
+router.get("/platform/stats/ai-usage", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const month = new Date();
+  month.setDate(1);
+  const monthStr = month.toISOString().slice(0, 10);
+
+  const { data, error } = await supabaseAdmin
+    .from("ai_usage_monthly")
+    .select("tokens_total, images_generated, social_posts, blog_posts, website_rewrites")
+    .eq("month", monthStr);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const totals = (data || []).reduce(
+    (acc, row) => ({
+      tokens_total: acc.tokens_total + (row.tokens_total || 0),
+      images_generated: acc.images_generated + (row.images_generated || 0),
+      social_posts: acc.social_posts + (row.social_posts || 0),
+      blog_posts: acc.blog_posts + (row.blog_posts || 0),
+      website_rewrites: acc.website_rewrites + (row.website_rewrites || 0),
+    }),
+    { tokens_total: 0, images_generated: 0, social_posts: 0, blog_posts: 0, website_rewrites: 0 }
+  );
+
+  res.json({ month: monthStr, tenant_count: data?.length || 0, ...totals });
+});
+
 export default router;

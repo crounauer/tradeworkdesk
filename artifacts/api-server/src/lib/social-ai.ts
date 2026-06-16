@@ -1,6 +1,7 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { generateImageBuffer } from "@workspace/integrations-openai-ai-server/image";
 import { supabaseAdmin } from "./supabase";
+import { trackAiUsage } from "./ai-usage";
 import crypto from "crypto";
 
 export interface SuggestionItem {
@@ -21,6 +22,7 @@ export interface PostSuggestion {
 export async function generatePostSuggestions(
   items: SuggestionItem[],
   platforms: string[] = ["x", "facebook", "instagram"],
+  context?: { tenantId?: string; userId?: string },
 ): Promise<PostSuggestion[]> {
   if (items.length === 0) return [];
 
@@ -56,6 +58,19 @@ Item types in order: ${items.map((i) => i.entityType).join(", ")}`,
     ],
   });
 
+  if (context?.tenantId) {
+    const usage = response.usage;
+    void trackAiUsage({
+      tenantId: context.tenantId,
+      userId: context.userId,
+      operation: "social_post",
+      module: "social",
+      model: "gpt-4o-mini",
+      tokensIn: usage?.prompt_tokens ?? 0,
+      tokensOut: usage?.completion_tokens ?? 0,
+    });
+  }
+
   const text = response.choices[0]?.message?.content || "[]";
   try {
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -66,7 +81,7 @@ Item types in order: ${items.map((i) => i.entityType).join(", ")}`,
   }
 }
 
-export async function generateSocialImage(prompt: string): Promise<string> {
+export async function generateSocialImage(prompt: string, context?: { tenantId?: string; userId?: string }): Promise<string> {
   const buffer = await generateImageBuffer(
     `Create a professional, clean social media banner image for a boiler service company. ${prompt}. Modern flat design, blue and orange color scheme, 1:1 aspect ratio.`,
     "1024x1024",
@@ -89,6 +104,17 @@ export async function generateSocialImage(prompt: string): Promise<string> {
   const { data: urlData } = supabaseAdmin.storage
     .from("service-photos")
     .getPublicUrl(fileName);
+
+  if (context?.tenantId) {
+    void trackAiUsage({
+      tenantId: context.tenantId,
+      userId: context.userId,
+      operation: "social_image",
+      module: "social",
+      model: "dall-e-3",
+      imagesGenerated: 1,
+    });
+  }
 
   return urlData.publicUrl;
 }

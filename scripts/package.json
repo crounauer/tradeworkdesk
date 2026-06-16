@@ -5,10 +5,20 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "db:migrate": "tsx ./src/migrate.ts",
+    "db:migrate:baseline": "tsx ./src/migrate.ts --baseline",
+    "db:migrate:status": "tsx ./src/migrate.ts --status",
+    "db:migrate:dry-run": "tsx ./src/migrate.ts --dry-run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
+    "dotenv": "^17.4.2",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "^8.18.0",
     "tsx": "catalog:"
   }
 }
