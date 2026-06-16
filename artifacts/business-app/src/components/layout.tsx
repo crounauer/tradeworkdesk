@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Star
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Star, MailOpen, PhoneCall, ShieldPlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -131,6 +131,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const automationNavItems = [
     { href: "/booking", label: "Online Booking", icon: CalendarCheck },
     { href: "/review-requests", label: "Review Requests", icon: Star },
+    { href: "/maintenance", label: "Maintenance Plans", icon: ShieldPlus },
+    { href: "/campaigns", label: "Email Campaigns", icon: MailOpen },
+    { href: "/missed-call", label: "Missed Call Text-Back", icon: PhoneCall },
   ];
 
   const visibleNavItems = navItems.filter(item => 

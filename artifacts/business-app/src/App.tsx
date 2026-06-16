@@ -137,6 +137,9 @@ const WebsiteBlog = lazyRetry(() => import("@/pages/website-blog"));
 const Bookings = lazyRetry(() => import("@/pages/bookings"));
 const BookingSetup = lazyRetry(() => import("@/pages/booking-setup"));
 const ReviewRequests = lazyRetry(() => import("@/pages/review-requests"));
+const MaintenancePlans = lazyRetry(() => import("@/pages/maintenance-plans"));
+const EmailCampaigns = lazyRetry(() => import("@/pages/email-campaigns"));
+const MissedCallSettings = lazyRetry(() => import("@/pages/missed-call-settings"));
 
 const ToolsIndex = lazyRetry(() => import("@/pages/tools/index"));
 const RadiatorSizing = lazyRetry(() => import("@/pages/tools/radiator-sizing"));
@@ -409,6 +412,10 @@ function AppRouter() {
         <Route path="/booking" component={() => <ProtectedRoute component={Bookings} />} />
         <Route path="/booking/setup" component={() => <ProtectedRoute component={BookingSetup} />} />
         <Route path="/review-requests" component={() => <ProtectedRoute component={ReviewRequests} />} />
+
+        <Route path="/maintenance" component={() => <ProtectedRoute component={MaintenancePlans} />} />
+        <Route path="/campaigns" component={() => <ProtectedRoute component={EmailCampaigns} />} />
+        <Route path="/missed-call" component={() => <ProtectedRoute component={MissedCallSettings} />} />
 
         <Route path="/tools" component={() => <PublicToolRoute component={ToolsIndex} />} />
         <Route path="/tools/radiator-sizing" component={() => <PublicToolRoute component={RadiatorSizing} />} />

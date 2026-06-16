@@ -51,6 +51,9 @@ import websiteRouter from "./website";
 import websiteDomainsBlogRouter from "./website-domains-blog";
 import { bookingRouter, bookingPublicRouter } from "./booking";
 import { reviewRequestRouter, reviewRequestPublicRouter } from "./review-requests";
+import { maintenancePlansRouter, maintenancePlansPublicRouter } from "./maintenance-plans";
+import { emailCampaignsRouter, emailCampaignsPublicRouter } from "./email-campaigns";
+import { missedCallRouter, missedCallPublicRouter } from "./missed-call";
 
 const router: IRouter = Router();
 
@@ -108,6 +111,12 @@ router.use(bookingRouter);
 router.use(bookingPublicRouter);
 router.use(reviewRequestRouter);
 router.use(reviewRequestPublicRouter);
+router.use(maintenancePlansRouter);
+router.use(maintenancePlansPublicRouter);
+router.use(emailCampaignsRouter);
+router.use(emailCampaignsPublicRouter);
+router.use(missedCallRouter);
+router.use(missedCallPublicRouter);
 if (process.env.NODE_ENV !== "production") {
   router.use(emailPreviewRouter);
 }
