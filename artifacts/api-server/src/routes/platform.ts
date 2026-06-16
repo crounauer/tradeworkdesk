@@ -785,7 +785,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     job_management: true, invoicing: true, reports: true, team_management: true,
     social_media: true, heat_pump_forms: true, oil_tank_forms: true,
     commissioning_forms: true, combustion_analysis: true, api_access: true,
-    scheduling: true, custom_branding: true, priority_support: true,
+    scheduling: true, custom_branding: true, priority_support: true, website_builder: true,
   };
 
   const profilePromise = supabaseAdmin
@@ -933,7 +933,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         job_management: true, invoicing: true, reports: true, team_management: true,
         social_media: true, heat_pump_forms: true, oil_tank_forms: true,
         commissioning_forms: true, combustion_analysis: true, api_access: true,
-        scheduling: true, custom_branding: true, priority_support: true,
+        scheduling: true, custom_branding: true, priority_support: true, website_builder: true,
       };
 
       for (const ta of activeAddons) {
