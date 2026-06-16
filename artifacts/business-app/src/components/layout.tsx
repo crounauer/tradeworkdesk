@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Star, MailOpen, PhoneCall, ShieldPlus, Palette
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Star, MailOpen, PhoneCall, ShieldPlus, Palette, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -157,6 +157,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const websiteNavItems = hasFeature("website_builder") ? [
     { href: "/website", label: "My Website", icon: Globe2 },
+    { href: "/website/preview", label: "Preview", icon: Eye },
     { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
     { href: "/website/blog", label: "Blog", icon: FileText },
     { href: "/website/domain", label: "Domain", icon: Globe },

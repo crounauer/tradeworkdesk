@@ -170,6 +170,9 @@ export default function WebsitePages() {
                       <Globe className="w-3.5 h-3.5 mr-1" /> Publish
                     </Button>
                   )}
+                  <Link href={`/website/preview?page=${page.page_type === "home" ? "/" : page.slug}`}>
+                    <Button variant="outline" size="icon" title="Preview"><Eye className="w-4 h-4" /></Button>
+                  </Link>
                   <Link href={`/website/pages/${page.id}`}>
                     <Button variant="outline" size="icon"><Edit className="w-4 h-4" /></Button>
                   </Link>
