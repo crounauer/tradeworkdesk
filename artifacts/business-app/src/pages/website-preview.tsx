@@ -25,6 +25,7 @@ interface WebsiteData {
   id: string;
   site_name: string;
   status: "draft" | "published";
+  preview_url: string | null;
   domains: Array<{ id: string; domain: string; is_active: boolean; ssl_status: string; verification_status: string }>;
 }
 
@@ -63,13 +64,21 @@ export default function WebsitePreview() {
   const activeDomain = website?.domains.find(d => d.is_active);
   const currentDevice = DEVICES.find(d => d.id === device) ?? DEVICES[0];
 
-  // Build the iframe src
+  // Build the iframe src — use custom domain if available, otherwise fall back
+  // to the renderer's preview route (no domain required)
   const previewUrl = (() => {
-    if (!activeDomain) return null;
-    const base = `https://${activeDomain.domain}`;
+    if (!website) return null;
+    if (activeDomain) {
+      const base = `https://${activeDomain.domain}`;
+      if (!selectedPage || selectedPage === "/" || selectedPage === "home") return base;
+      const slug = selectedPage.startsWith("/") ? selectedPage : `/${selectedPage}`;
+      return `${base}${slug}`;
+    }
+    // No custom domain — use renderer's preview route
+    if (!website.preview_url) return null;
+    const base = website.preview_url; // e.g. https://renderer.example.com/preview/{id}
     if (!selectedPage || selectedPage === "/" || selectedPage === "home") return base;
-    const slug = selectedPage.startsWith("/") ? selectedPage : `/${selectedPage}`;
-    return `${base}${slug}`;
+    return `${base}?page=${encodeURIComponent(selectedPage)}`;
   })();
 
   const externalUrl = previewUrl;
@@ -148,12 +157,12 @@ export default function WebsitePreview() {
             <Globe className="w-10 h-10 opacity-30" />
             <p className="text-sm">No website found. <Link href="/website" className="underline text-primary">Create your website first.</Link></p>
           </div>
-        ) : !activeDomain ? (
+        ) : !previewUrl ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 max-w-sm text-center">
             <Globe className="w-10 h-10 opacity-30" />
             <div>
-              <p className="text-sm font-medium text-foreground">No active domain connected</p>
-              <p className="text-sm mt-1">Connect a custom domain to preview your site here.</p>
+              <p className="text-sm font-medium text-foreground">Preview unavailable</p>
+              <p className="text-sm mt-1">The website renderer URL is not configured. Please contact support or add a custom domain.</p>
             </div>
             <Link href="/website/domain">
               <Button size="sm" variant="outline">Add a domain</Button>

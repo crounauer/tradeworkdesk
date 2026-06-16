@@ -68,7 +68,11 @@ router.get(
       .eq("website_id", website.id)
       .order("created_at", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json({ ...website, domains: domains || [] });
+    // Provide a preview URL using the renderer base URL (no custom domain required)
+    const rendererBase = (process.env.RENDERER_BASE_URL || "").replace(/\/$/, "");
+    const previewUrl = rendererBase ? `${rendererBase}/preview/${website.id}` : null;
+
+    res.json({ ...website, domains: domains || [], preview_url: previewUrl });
   }
 );
 

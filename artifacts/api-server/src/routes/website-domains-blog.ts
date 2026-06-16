@@ -606,7 +606,90 @@ router.get(
   }
 );
 
+// ─── Preview by websiteId (no domain required) ───────────────────────────────
+// Used by the renderer's /preview/[websiteId] route so tenants can preview
+// their site before connecting a custom domain. Returns all pages (incl. draft).
+
+router.get(
+  "/public/website/preview-data/:websiteId",
+  async (req, res): Promise<void> => {
+    if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { websiteId } = req.params;
+
+    const { data: website } = await db
+      .from("websites")
+      .select("*")
+      .eq("id", websiteId)
+      .single() as { data: Record<string, unknown> | null };
+
+    if (!website) {
+      res.status(404).json({ error: "Website not found" });
+      return;
+    }
+
+    const [pagesRes, testimonialsRes, galleryRes] = await Promise.all([
+      // Include draft pages — this is a preview
+      db.from("website_pages")
+        .select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at")
+        .eq("website_id", websiteId)
+        .order("nav_order", { ascending: true }),
+      db.from("website_testimonials")
+        .select("id, author_name, location, rating, body, sort_order")
+        .eq("website_id", websiteId)
+        .eq("is_visible", true)
+        .order("sort_order", { ascending: true }),
+      db.from("website_gallery_items")
+        .select("id, image_url, caption, alt_text, category, sort_order")
+        .eq("website_id", websiteId)
+        .eq("is_visible", true)
+        .order("sort_order", { ascending: true })
+        .limit(50),
+    ]) as Array<{ data: unknown }>;
+
+    const { data: companySettings } = await supabaseAdmin
+      .from("company_settings")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, gas_safe_number, oftec_number, logo_url")
+      .eq("tenant_id", String(website.tenant_id))
+      .eq("singleton_id", "default")
+      .maybeSingle();
+
+    res.json({
+      website,
+      pages: (pagesRes.data as unknown[]) || [],
+      blog_posts: [],
+      testimonials: (testimonialsRes.data as unknown[]) || [],
+      gallery: (galleryRes.data as unknown[]) || [],
+      company: companySettings,
+    });
+  }
+);
+
 // ─── Get page blocks for renderer ─────────────────────────────────────────────
+
+router.get(
+  "/public/website/preview-blocks/:pageId",
+  async (req, res): Promise<void> => {
+    if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { pageId } = req.params;
+
+    const { data: blocks } = await db
+      .from("website_blocks")
+      .select("id, block_type, content, sort_order")
+      .eq("page_id", pageId)
+      .eq("is_visible", true)
+      .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
+
+    res.json(blocks || []);
+  }
+);
 
 router.get(
   "/public/website/pages/:websiteId/:slug",

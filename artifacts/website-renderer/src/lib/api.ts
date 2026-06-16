@@ -113,6 +113,34 @@ function apiHeaders(): HeadersInit {
 }
 
 /**
+ * Fetch all site data by website ID (no domain required).
+ * Used by the /preview/[websiteId] route — returns draft pages too.
+ */
+export async function getSiteByWebsiteId(websiteId: string): Promise<SiteData | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/public/website/preview-data/${encodeURIComponent(websiteId)}`,
+      {
+        headers: apiHeaders(),
+        // Always fresh — this is a live preview
+        cache: "no-store",
+      },
+    );
+
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      console.error(`[renderer] getSiteByWebsiteId(${websiteId}) → ${res.status}`);
+      return null;
+    }
+
+    return res.json() as Promise<SiteData>;
+  } catch (err) {
+    console.error(`[renderer] getSiteByWebsiteId error:`, err);
+    return null;
+  }
+}
+
+/**
  * Fetch all site data for a domain.
  * Returns null if the domain is not found or not active.
  */
@@ -136,6 +164,26 @@ export async function getSiteByDomain(domain: string): Promise<SiteData | null> 
   } catch (err) {
     console.error(`[renderer] getSiteByDomain error:`, err);
     return null;
+  }
+}
+
+/**
+ * Fetch blocks for a page by ID, regardless of publish status.
+ * Used in the /preview/[websiteId] route.
+ */
+export async function getPreviewBlocksByPageId(pageId: string): Promise<SiteBlock[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/public/website/preview-blocks/${encodeURIComponent(pageId)}`,
+      {
+        headers: apiHeaders(),
+        cache: "no-store",
+      },
+    );
+    if (!res.ok) return [];
+    return res.json() as Promise<SiteBlock[]>;
+  } catch {
+    return [];
   }
 }
 
