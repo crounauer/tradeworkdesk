@@ -1631,16 +1631,7 @@ router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "o
   }
 
   if (formConfig.feature) {
-    const { data: tenant } = await supabaseAdmin
-      .from("tenants")
-      .select("plan_id, plans(features)")
-      .eq("id", req.tenantId)
-      .single();
-    const features = (tenant?.plans as { features?: Record<string, unknown> } | null)?.features ?? {};
-    if (!(features as Record<string, boolean>)[formConfig.feature]) {
-      res.status(402).json({ error: `Your plan does not include access to this form type. Please upgrade.` });
-      return;
-    }
+    // All plans are flat-rate and include all form types — no gate needed.
   }
 
   const fkChecks: Array<{ table: string; id: string }> = [

@@ -18,7 +18,7 @@ export interface EffectiveLimits {
 interface PreFetchedTenantData {
   status?: string;
   trial_ends_at?: string | null;
-  plans?: { max_users?: number; max_jobs_per_month?: number | null } | null;
+  plans?: { max_users?: number } | null;
 }
 
 function computeLimitsFromData(
@@ -53,7 +53,7 @@ export function getEffectiveLimitsFromCache(
 export async function getEffectiveLimits(tenantId: string): Promise<EffectiveLimits> {
   const { data: tenantRes } = await supabaseAdmin
     .from("tenants")
-    .select("plan_id, status, trial_ends_at, plans(max_users, max_jobs_per_month)")
+    .select("plan_id, status, trial_ends_at, plans(max_users)")
     .eq("id", tenantId)
     .single();
 

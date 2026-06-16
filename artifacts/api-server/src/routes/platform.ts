@@ -441,8 +441,8 @@ router.get("/platform/payment-fees", async (_req, res): Promise<void> => {
 });
 
 router.get("/platform/plans/public", async (_req, res): Promise<void> => {
-  const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, user_note, max_users, max_jobs_per_month, features, is_active, is_popular, sort_order, sole_trader_price, sole_trader_price_annual, stripe_price_id, stripe_price_id_annual, stripe_sole_trader_price_id, stripe_sole_trader_price_id_annual";
-  const basicSelect = "id, name, description, monthly_price, annual_price, max_users, max_jobs_per_month, features, is_active, sort_order";
+  const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, max_users, is_active, is_popular, is_legacy, sort_order, stripe_price_id, stripe_price_id_annual";
+  const basicSelect = "id, name, description, monthly_price, annual_price, max_users, is_active, sort_order";
 
   let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).eq("is_legacy", false).order("sort_order", { ascending: true });
   if (result.error?.code === "42703") {
@@ -711,7 +711,7 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
 
   const { data, error } = await supabaseAdmin
     .from("tenants")
-    .select("id, company_name, company_type, status, trial_ends_at, plan_id, plans(name, max_users, max_jobs_per_month)")
+    .select("id, company_name, company_type, status, trial_ends_at, plan_id, plans(name, max_users)")
     .eq("id", req.tenantId)
     .single();
 
@@ -786,7 +786,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     promises.push(
       supabaseAdmin
         .from("tenants")
-        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, features, monthly_price, max_users, max_jobs_per_month)")
+        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users)")
         .eq("id", req.tenantId)
         .single(),
       supabaseAdmin
@@ -978,7 +978,7 @@ router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, r
   const [tenantRes, addonsRes] = await Promise.all([
     supabaseAdmin
       .from("tenants")
-      .select("plan_id, plans(name, features)")
+      .select("plan_id, plans(name)")
       .eq("id", req.tenantId)
       .single(),
     supabaseAdmin

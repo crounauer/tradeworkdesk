@@ -648,15 +648,7 @@ async function createEnquiryFromFormSubmission(
   data: Record<string, unknown>,
 ): Promise<void> {
   try {
-    // Check if job_management feature is enabled for this tenant
-    const { data: tenant } = await supabaseAdmin
-      .from("tenants")
-      .select("plan_id, plans(features)")
-      .eq("id", tenantId)
-      .single();
-
-    const features = (tenant as any)?.plans?.features || {};
-    if (!features.job_management) return;
+    // All plans include job_management — create the enquiry unconditionally.
 
     // Build enquiry from form data
     const name = String(data.name || data.full_name || "Website enquiry");

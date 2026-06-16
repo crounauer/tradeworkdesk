@@ -781,7 +781,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 router.get("/admin/company-type", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data: tenant, error } = await supabaseAdmin
     .from("tenants")
-    .select("company_type, plan_id, plans(features, name)")
+    .select("company_type, plan_id, plans(name)")
     .eq("id", req.tenantId!)
     .single();
 
@@ -793,11 +793,9 @@ router.get("/admin/company-type", requireAuth, requireTenant, requireRole("admin
     .eq("tenant_id", req.tenantId!)
     .eq("is_active", true);
 
-  const features = (tenant.plans as { features?: Record<string, boolean> } | null)?.features ?? {};
-
   res.json({
     company_type: tenant.company_type,
-    has_team_management: !!features.team_management,
+    has_team_management: true,
     plan_name: (tenant.plans as { name?: string } | null)?.name ?? null,
     active_user_count: userCount || 0,
   });
@@ -806,22 +804,13 @@ router.get("/admin/company-type", requireAuth, requireTenant, requireRole("admin
 router.post("/admin/company-type/upgrade", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data: tenant } = await supabaseAdmin
     .from("tenants")
-    .select("company_type, plan_id, plans(features)")
+    .select("company_type, plan_id")
     .eq("id", req.tenantId!)
     .single();
 
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
   if (tenant.company_type === "company") {
     res.status(400).json({ error: "Already operating as a company." }); return;
-  }
-
-  const features = (tenant.plans as { features?: Record<string, boolean> } | null)?.features ?? {};
-  if (!features.team_management) {
-    res.status(400).json({
-      error: "Your current plan doesn't include team management. Please upgrade your plan first.",
-      code: "PLAN_UPGRADE_REQUIRED",
-    });
-    return;
   }
 
   await supabaseAdmin

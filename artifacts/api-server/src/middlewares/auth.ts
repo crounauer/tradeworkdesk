@@ -353,26 +353,14 @@ export async function getTenantFeatures(tenantId: string): Promise<Record<string
     return cached.features;
   }
 
-  const [tenantRes, addonsRes] = await Promise.all([
-    supabaseAdmin
-      .from("tenants")
-      .select("plan_id, plans(features)")
-      .eq("id", tenantId)
-      .single(),
-    supabaseAdmin
-      .from("tenant_addons")
-      .select("addon_id, addons(feature_keys)")
-      .eq("tenant_id", tenantId)
-      .eq("is_active", true),
-  ]);
+  // All plan features are included flat-rate. Only addon feature_keys still matter.
+  const addonsRes = await supabaseAdmin
+    .from("tenant_addons")
+    .select("addon_id, addons(feature_keys)")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
 
-  if (tenantRes.error || !tenantRes.data) return null;
-
-  const planFeatures =
-    (tenantRes.data.plans as { features?: Record<string, unknown> } | null)
-      ?.features ?? {};
-
-  const features: Record<string, unknown> = { ...planFeatures };
+  const features: Record<string, unknown> = {};
 
   if (addonsRes.data) {
     for (const ta of addonsRes.data) {
