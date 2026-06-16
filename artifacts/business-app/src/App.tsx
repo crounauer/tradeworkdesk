@@ -293,19 +293,146 @@ function PortalProtectedRoute({ component: Component }: { component: React.Compo
   );
 }
 
+// ─── Stable module-level route components ────────────────────────────────────
+// Inline arrow functions like `() => <ProtectedRoute component={X} />` inside
+// AppRouter create a new component type on every render, causing React to
+// unmount and remount the page (resetting all local state). Defining wrappers
+// here gives every route a permanent stable identity.
+
+function protect(C: React.ComponentType, roles?: string[]) {
+  return function ProtectedPage() { return <ProtectedRoute component={C} roles={roles} />; };
+}
+function pub(C: React.ComponentType, extra?: Record<string, unknown>) {
+  return function PublicPageRoute() { return <PublicPage component={C} {...(extra as Record<string, unknown>)} />; };
+}
+function tool(C: React.ComponentType) {
+  return function ToolRoute() { return <PublicToolRoute component={C} />; };
+}
+function portalPage(C: React.ComponentType) {
+  return function PortalRoute() { return <PortalProtectedRoute component={C} />; };
+}
+
+const PortalLoginRoute = () => <Suspense fallback={<PageFallback />}><PortalLogin /></Suspense>;
+const PortalRegisterRoute = () => <Suspense fallback={<PageFallback />}><PortalRegister /></Suspense>;
+const PortalDashboardRoute = portalPage(PortalDashboard);
+const PortalPropertiesRoute = portalPage(PortalProperties);
+const PortalPropertyDetailRoute = portalPage(PortalPropertyDetail);
+const PortalJobsRoute = portalPage(PortalJobs);
+const PortalJobDetailRoute = portalPage(PortalJobDetail);
+const PortalInvoicesRoute = portalPage(PortalInvoices);
+
+const FeaturesRoute = pub(FeaturesPage);
+const PricingRoute = pub(PricingPage);
+const AboutRoute = pub(AboutPage);
+const ContactRoute = pub(ContactPage);
+const BlogRoute = pub(BlogIndex);
+const BlogPostRoute = pub(BlogPostPage);
+const GasEngineerRoute = pub(TradeLandingPage, { slug: "gas-engineer-software" });
+const BoilerServiceRoute = pub(TradeLandingPage, { slug: "boiler-service-management-software" });
+const JobMgmtHeatingRoute = pub(TradeLandingPage, { slug: "job-management-software-heating-engineers" });
+const OilEngineerRoute = pub(TradeLandingPage, { slug: "oil-engineer-software" });
+const HeatPumpEngineerRoute = pub(TradeLandingPage, { slug: "heat-pump-engineer-software" });
+const PlumberRoute = pub(TradeLandingPage, { slug: "plumber-software" });
+const LandlordGasRoute = pub(TradeLandingPage, { slug: "landlord-gas-safety-software" });
+const SoleTraderRoute = pub(TradeLandingPage, { slug: "sole-trader-software" });
+const HeatingCompanyRoute = pub(TradeLandingPage, { slug: "heating-company-software" });
+const IndustriesRoute = pub(IndustriesPage);
+const AlternativesRoute = pub(AlternativesPage);
+const FindRoute = pub(DirectoryPage);
+const FindSlugRoute = pub(BusinessProfilePage);
+const PrivacyRoute = pub(PrivacyPolicyPage);
+const TermsRoute = pub(TermsOfServicePage);
+
+const CustomersRoute = protect(Customers);
+const CustomerDetailRoute = protect(CustomerDetail);
+const PropertiesRoute = protect(Properties);
+const PropertyDetailRoute = protect(PropertyDetail);
+const JobsRoute = protect(Jobs);
+const JobDetailRoute = protect(JobDetail);
+const ServiceRecordRoute = protect(ServiceRecordForm);
+const BreakdownReportRoute = protect(BreakdownReportForm);
+const CommissioningRoute = protect(CommissioningRecordForm);
+const OilTankInspectionRoute = protect(OilTankInspectionForm);
+const OilTankRiskAssessmentRoute = protect(OilTankRiskAssessmentForm);
+const CombustionAnalysisRoute = protect(CombustionAnalysisForm);
+const BurnerSetupRoute = protect(BurnerSetupForm);
+const FireValveTestRoute = protect(FireValveTestForm);
+const OilLineVacuumTestRoute = protect(OilLineVacuumTestForm);
+const JobCompletionRoute = protect(JobCompletionReportForm);
+const HeatPumpServiceRoute = protect(HeatPumpServiceForm);
+const HeatPumpCommissioningRoute = protect(HeatPumpCommissioningForm);
+const JobFilesRoute = protect(JobFiles);
+const JobSignaturesRoute = protect(JobSignatures);
+const ScheduleRoute = protect(SchedulePage);
+const FollowUpsRoute = protect(FollowUps);
+const EnquiriesRoute = protect(Enquiries);
+const EnquiryDetailRoute = protect(EnquiryDetail);
+const QuickRecordRoute = protect(QuickRecord);
+const SearchRoute = protect(SearchPage);
+const ReportsRoute = protect(Reports);
+const AdminCompanySettingsRoute = protect(AdminCompanySettings);
+const AdminBrandingRoute = protect(AdminBranding);
+const AdminUsersRoute = protect(AdminUsers);
+const AdminInviteCodesRoute = protect(AdminInviteCodes);
+const AdminLookupOptionsRoute = protect(AdminLookupOptions);
+const AdminSocialRoute = protect(AdminSocial, ["admin", "super_admin"]);
+const AdminSmsTemplatesRoute = protect(AdminSmsTemplates, ["admin", "super_admin"]);
+const AdminReassignJobsRoute = protect(AdminReassignJobs, ["admin"]);
+const AdminJobTypesRoute = protect(AdminJobTypes, ["admin"]);
+const AdminInvoiceLogRoute = protect(AdminInvoiceLog, ["admin", "office_staff"]);
+const AdminStripeConnectRoute = protect(AdminStripeConnect, ["admin"]);
+const AdminPaymentProvidersRoute = protect(AdminPaymentProviders, ["admin"]);
+const BillingRoute = protect(Billing);
+const AccountRoute = protect(AccountSettings);
+const TodosRoute = protect(Todos);
+const InvoicesRoute = protect(Invoices);
+const InvoiceDetailRoute = protect(InvoiceDetail);
+const HelpRoute = protect(HelpPage);
+const WebsiteSetupRoute = protect(WebsiteSetup);
+const WebsitePagesRoute = protect(WebsitePages);
+const WebsitePageEditorRoute = protect(WebsitePageEditor);
+const WebsiteDomainRoute = protect(WebsiteDomain);
+const WebsiteSettingsRoute = protect(WebsiteSettings);
+const WebsiteBlogRoute = protect(WebsiteBlog);
+const BookingsRoute = protect(Bookings);
+const BookingSetupRoute = protect(BookingSetup);
+const ReviewRequestsRoute = protect(ReviewRequests);
+const MaintenancePlansRoute = protect(MaintenancePlans);
+const EmailCampaignsRoute = protect(EmailCampaigns);
+const MissedCallRoute = protect(MissedCallSettings);
+const ToolsIndexRoute = tool(ToolsIndex);
+const RadiatorSizingRoute = tool(RadiatorSizing);
+const OilTankLocationRoute = tool(OilTankLocation);
+const VentilationCalculatorRoute = tool(VentilationCalculator);
+const FlueSitingRoute = tool(FlueSiting);
+const GasFlueSitingRoute = tool(GasFlueSiting);
+const CondensatePipeRoute = tool(CondensatePipe);
+const ExpansionVesselRoute = tool(ExpansionVessel);
+const PumpHeadRoute = tool(PumpHead);
+const PlatformDashboardRoute = protect(PlatformDashboard, ["super_admin"]);
+const PlatformTenantDetailRoute = protect(PlatformTenantDetail, ["super_admin"]);
+const PlatformTenantsRoute = protect(PlatformTenants, ["super_admin"]);
+const PlatformAddonsRoute = protect(PlatformAddons, ["super_admin"]);
+const PlatformPlansRoute = protect(PlatformPlans, ["super_admin"]);
+const PlatformAnnouncementsRoute = protect(PlatformAnnouncements, ["super_admin"]);
+const PlatformBetaInvitesRoute = protect(PlatformBetaInvites, ["super_admin"]);
+const PlatformAuditLogRoute = protect(PlatformAuditLog, ["super_admin"]);
+const PlatformSettingsRoute = protect(PlatformSettingsPage, ["super_admin"]);
+const NotFoundRoute = () => <Suspense fallback={<PageFallback />}><NotFound /></Suspense>;
+
 function PortalRoutes() {
   return (
     <PortalAuthProvider>
       <Suspense fallback={<PageFallback />}>
         <Switch>
-          <Route path="/portal/login" component={() => <Suspense fallback={<PageFallback />}><PortalLogin /></Suspense>} />
-          <Route path="/portal/register" component={() => <Suspense fallback={<PageFallback />}><PortalRegister /></Suspense>} />
-          <Route path="/portal" component={() => <PortalProtectedRoute component={PortalDashboard} />} />
-          <Route path="/portal/properties" component={() => <PortalProtectedRoute component={PortalProperties} />} />
-          <Route path="/portal/properties/:id" component={() => <PortalProtectedRoute component={PortalPropertyDetail} />} />
-          <Route path="/portal/jobs" component={() => <PortalProtectedRoute component={PortalJobs} />} />
-          <Route path="/portal/jobs/:id" component={() => <PortalProtectedRoute component={PortalJobDetail} />} />
-          <Route path="/portal/invoices" component={() => <PortalProtectedRoute component={PortalInvoices} />} />
+          <Route path="/portal/login" component={PortalLoginRoute} />
+          <Route path="/portal/register" component={PortalRegisterRoute} />
+          <Route path="/portal" component={PortalDashboardRoute} />
+          <Route path="/portal/properties" component={PortalPropertiesRoute} />
+          <Route path="/portal/properties/:id" component={PortalPropertyDetailRoute} />
+          <Route path="/portal/jobs" component={PortalJobsRoute} />
+          <Route path="/portal/jobs/:id" component={PortalJobDetailRoute} />
+          <Route path="/portal/invoices" component={PortalInvoicesRoute} />
         </Switch>
       </Suspense>
     </PortalAuthProvider>
@@ -331,120 +458,115 @@ function AppRouter() {
 
         <Route path="/" component={RootRoute} />
 
-        <Route path="/features" component={() => <PublicPage component={FeaturesPage} />} />
-        <Route path="/pricing" component={() => <PublicPage component={PricingPage} />} />
-        <Route path="/about" component={() => <PublicPage component={AboutPage} />} />
-        <Route path="/contact" component={() => <PublicPage component={ContactPage} />} />
-        <Route path="/blog" component={() => <PublicPage component={BlogIndex} />} />
-        <Route path="/blog/:slug" component={() => <PublicPage component={BlogPostPage} />} />
-        <Route path="/gas-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="gas-engineer-software" />} />
-        <Route path="/boiler-service-management-software" component={() => <PublicPage component={TradeLandingPage} slug="boiler-service-management-software" />} />
-        <Route path="/job-management-software-heating-engineers" component={() => <PublicPage component={TradeLandingPage} slug="job-management-software-heating-engineers" />} />
-        <Route path="/oil-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="oil-engineer-software" />} />
-        <Route path="/heat-pump-engineer-software" component={() => <PublicPage component={TradeLandingPage} slug="heat-pump-engineer-software" />} />
-        <Route path="/plumber-software" component={() => <PublicPage component={TradeLandingPage} slug="plumber-software" />} />
-        <Route path="/landlord-gas-safety-software" component={() => <PublicPage component={TradeLandingPage} slug="landlord-gas-safety-software" />} />
-        <Route path="/sole-trader-software" component={() => <PublicPage component={TradeLandingPage} slug="sole-trader-software" />} />
-        <Route path="/heating-company-software" component={() => <PublicPage component={TradeLandingPage} slug="heating-company-software" />} />
-        <Route path="/industries" component={() => <PublicPage component={IndustriesPage} />} />
-        <Route path="/alternatives" component={() => <PublicPage component={AlternativesPage} />} />
-        <Route path="/find" component={() => <PublicPage component={DirectoryPage} />} />
-        <Route path="/find/:slug" component={() => <PublicPage component={BusinessProfilePage} />} />
-        <Route path="/privacy-policy" component={() => <PublicPage component={PrivacyPolicyPage} />} />
-        <Route path="/terms-of-service" component={() => <PublicPage component={TermsOfServicePage} />} />
+        <Route path="/features" component={FeaturesRoute} />
+        <Route path="/pricing" component={PricingRoute} />
+        <Route path="/about" component={AboutRoute} />
+        <Route path="/contact" component={ContactRoute} />
+        <Route path="/blog" component={BlogRoute} />
+        <Route path="/blog/:slug" component={BlogPostRoute} />
+        <Route path="/gas-engineer-software" component={GasEngineerRoute} />
+        <Route path="/boiler-service-management-software" component={BoilerServiceRoute} />
+        <Route path="/job-management-software-heating-engineers" component={JobMgmtHeatingRoute} />
+        <Route path="/oil-engineer-software" component={OilEngineerRoute} />
+        <Route path="/heat-pump-engineer-software" component={HeatPumpEngineerRoute} />
+        <Route path="/plumber-software" component={PlumberRoute} />
+        <Route path="/landlord-gas-safety-software" component={LandlordGasRoute} />
+        <Route path="/sole-trader-software" component={SoleTraderRoute} />
+        <Route path="/heating-company-software" component={HeatingCompanyRoute} />
+        <Route path="/industries" component={IndustriesRoute} />
+        <Route path="/alternatives" component={AlternativesRoute} />
+        <Route path="/find" component={FindRoute} />
+        <Route path="/find/:slug" component={FindSlugRoute} />
+        <Route path="/privacy-policy" component={PrivacyRoute} />
+        <Route path="/terms-of-service" component={TermsRoute} />
 
-        <Route path="/customers" component={() => <ProtectedRoute component={Customers} />} />
-        <Route path="/customers/:id" component={() => <ProtectedRoute component={CustomerDetail} />} />
+        <Route path="/customers" component={CustomersRoute} />
+        <Route path="/customers/:id" component={CustomerDetailRoute} />
 
-        <Route path="/properties" component={() => <ProtectedRoute component={Properties} />} />
-        <Route path="/properties/:id" component={() => <ProtectedRoute component={PropertyDetail} />} />
+        <Route path="/properties" component={PropertiesRoute} />
+        <Route path="/properties/:id" component={PropertyDetailRoute} />
 
-        <Route path="/jobs" component={() => <ProtectedRoute component={Jobs} />} />
-        <Route path="/jobs/:id" component={() => <ProtectedRoute component={JobDetail} />} />
-        <Route path="/jobs/:jobId/service-record" component={() => <ProtectedRoute component={ServiceRecordForm} />} />
-        <Route path="/jobs/:jobId/breakdown-report" component={() => <ProtectedRoute component={BreakdownReportForm} />} />
-        <Route path="/jobs/:jobId/commissioning" component={() => <ProtectedRoute component={CommissioningRecordForm} />} />
-        <Route path="/jobs/:jobId/oil-tank-inspection" component={() => <ProtectedRoute component={OilTankInspectionForm} />} />
-        <Route path="/jobs/:jobId/oil-tank-risk-assessment" component={() => <ProtectedRoute component={OilTankRiskAssessmentForm} />} />
-        <Route path="/jobs/:jobId/combustion-analysis" component={() => <ProtectedRoute component={CombustionAnalysisForm} />} />
-        <Route path="/jobs/:jobId/burner-setup" component={() => <ProtectedRoute component={BurnerSetupForm} />} />
-        <Route path="/jobs/:jobId/fire-valve-test" component={() => <ProtectedRoute component={FireValveTestForm} />} />
-        <Route path="/jobs/:jobId/oil-line-vacuum-test" component={() => <ProtectedRoute component={OilLineVacuumTestForm} />} />
-        <Route path="/jobs/:jobId/job-completion" component={() => <ProtectedRoute component={JobCompletionReportForm} />} />
-        <Route path="/jobs/:jobId/heat-pump-service" component={() => <ProtectedRoute component={HeatPumpServiceForm} />} />
-        <Route path="/jobs/:jobId/heat-pump-commissioning" component={() => <ProtectedRoute component={HeatPumpCommissioningForm} />} />
-        <Route path="/jobs/:jobId/files" component={() => <ProtectedRoute component={JobFiles} />} />
-        <Route path="/jobs/:jobId/signatures" component={() => <ProtectedRoute component={JobSignatures} />} />
+        <Route path="/jobs" component={JobsRoute} />
+        <Route path="/jobs/:id" component={JobDetailRoute} />
+        <Route path="/jobs/:jobId/service-record" component={ServiceRecordRoute} />
+        <Route path="/jobs/:jobId/breakdown-report" component={BreakdownReportRoute} />
+        <Route path="/jobs/:jobId/commissioning" component={CommissioningRoute} />
+        <Route path="/jobs/:jobId/oil-tank-inspection" component={OilTankInspectionRoute} />
+        <Route path="/jobs/:jobId/oil-tank-risk-assessment" component={OilTankRiskAssessmentRoute} />
+        <Route path="/jobs/:jobId/combustion-analysis" component={CombustionAnalysisRoute} />
+        <Route path="/jobs/:jobId/burner-setup" component={BurnerSetupRoute} />
+        <Route path="/jobs/:jobId/fire-valve-test" component={FireValveTestRoute} />
+        <Route path="/jobs/:jobId/oil-line-vacuum-test" component={OilLineVacuumTestRoute} />
+        <Route path="/jobs/:jobId/job-completion" component={JobCompletionRoute} />
+        <Route path="/jobs/:jobId/heat-pump-service" component={HeatPumpServiceRoute} />
+        <Route path="/jobs/:jobId/heat-pump-commissioning" component={HeatPumpCommissioningRoute} />
+        <Route path="/jobs/:jobId/files" component={JobFilesRoute} />
+        <Route path="/jobs/:jobId/signatures" component={JobSignaturesRoute} />
 
-        <Route path="/schedule" component={() => <ProtectedRoute component={SchedulePage} />} />
-        <Route path="/follow-ups" component={() => <ProtectedRoute component={FollowUps} />} />
-        <Route path="/enquiries" component={() => <ProtectedRoute component={Enquiries} />} />
-        <Route path="/enquiries/:id" component={() => <ProtectedRoute component={EnquiryDetail} />} />
-        <Route path="/quick-record" component={() => <ProtectedRoute component={QuickRecord} />} />
-        <Route path="/search" component={() => <ProtectedRoute component={SearchPage} />} />
-        <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
+        <Route path="/schedule" component={ScheduleRoute} />
+        <Route path="/follow-ups" component={FollowUpsRoute} />
+        <Route path="/enquiries" component={EnquiriesRoute} />
+        <Route path="/enquiries/:id" component={EnquiryDetailRoute} />
+        <Route path="/quick-record" component={QuickRecordRoute} />
+        <Route path="/search" component={SearchRoute} />
+        <Route path="/reports" component={ReportsRoute} />
 
-        <Route path="/admin/company-settings" component={() => <ProtectedRoute component={AdminCompanySettings} />} />
-        <Route path="/admin/branding" component={() => <ProtectedRoute component={AdminBranding} />} />
-        <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
-        <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
-        <Route path="/admin/lookup-options" component={() => <ProtectedRoute component={AdminLookupOptions} />} />
-        <Route path="/admin/social" component={() => <ProtectedRoute component={AdminSocial} roles={["admin", "super_admin"]} />} />
-        <Route path="/admin/sms-templates" component={() => <ProtectedRoute component={AdminSmsTemplates} roles={["admin", "super_admin"]} />} />
-        <Route path="/admin/reassign-jobs" component={() => <ProtectedRoute component={AdminReassignJobs} roles={["admin"]} />} />
-        <Route path="/admin/job-types" component={() => <ProtectedRoute component={AdminJobTypes} roles={["admin"]} />} />
-        <Route path="/admin/invoice-log" component={() => <ProtectedRoute component={AdminInvoiceLog} roles={["admin", "office_staff"]} />} />
-        <Route path="/admin/stripe-connect" component={() => <ProtectedRoute component={AdminStripeConnect} roles={["admin"]} />} />
-        <Route path="/admin/payment-providers" component={() => <ProtectedRoute component={AdminPaymentProviders} roles={["admin"]} />} />
+        <Route path="/admin/company-settings" component={AdminCompanySettingsRoute} />
+        <Route path="/admin/branding" component={AdminBrandingRoute} />
+        <Route path="/admin/users" component={AdminUsersRoute} />
+        <Route path="/admin/invite-codes" component={AdminInviteCodesRoute} />
+        <Route path="/admin/lookup-options" component={AdminLookupOptionsRoute} />
+        <Route path="/admin/social" component={AdminSocialRoute} />
+        <Route path="/admin/sms-templates" component={AdminSmsTemplatesRoute} />
+        <Route path="/admin/reassign-jobs" component={AdminReassignJobsRoute} />
+        <Route path="/admin/job-types" component={AdminJobTypesRoute} />
+        <Route path="/admin/invoice-log" component={AdminInvoiceLogRoute} />
+        <Route path="/admin/stripe-connect" component={AdminStripeConnectRoute} />
+        <Route path="/admin/payment-providers" component={AdminPaymentProvidersRoute} />
 
-        <Route path="/billing" component={() => <ProtectedRoute component={Billing} />} />
-        <Route path="/account" component={() => <ProtectedRoute component={AccountSettings} />} />
-        <Route path="/todos" component={() => <ProtectedRoute component={Todos} />} />
-        <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
-        <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
-        <Route path="/help" component={() => <ProtectedRoute component={HelpPage} />} />
+        <Route path="/billing" component={BillingRoute} />
+        <Route path="/account" component={AccountRoute} />
+        <Route path="/todos" component={TodosRoute} />
+        <Route path="/invoices" component={InvoicesRoute} />
+        <Route path="/invoices/:id" component={InvoiceDetailRoute} />
+        <Route path="/help" component={HelpRoute} />
 
-        <Route path="/website" component={() => <ProtectedRoute component={WebsiteSetup} />} />
-        <Route path="/website/pages" component={() => <ProtectedRoute component={WebsitePages} />} />
-        <Route path="/website/pages/:pageId" component={() => <ProtectedRoute component={WebsitePageEditor} />} />
-        <Route path="/website/domain"
- component={() => <ProtectedRoute component={WebsiteDomain} />} />
-        <Route path="/website/settings" component={() => <ProtectedRoute component={WebsiteSettings} />} />
-        <Route path="/website/blog" component={() => <ProtectedRoute component={WebsiteBlog} />} />
+        <Route path="/website" component={WebsiteSetupRoute} />
+        <Route path="/website/pages" component={WebsitePagesRoute} />
+        <Route path="/website/pages/:pageId" component={WebsitePageEditorRoute} />
+        <Route path="/website/domain" component={WebsiteDomainRoute} />
+        <Route path="/website/settings" component={WebsiteSettingsRoute} />
+        <Route path="/website/blog" component={WebsiteBlogRoute} />
 
-        <Route path="/booking" component={() => <ProtectedRoute component={Bookings} />} />
-        <Route path="/booking/setup" component={() => <ProtectedRoute component={BookingSetup} />} />
-        <Route path="/review-requests" component={() => <ProtectedRoute component={ReviewRequests} />} />
+        <Route path="/booking" component={BookingsRoute} />
+        <Route path="/booking/setup" component={BookingSetupRoute} />
+        <Route path="/review-requests" component={ReviewRequestsRoute} />
 
-        <Route path="/maintenance" component={() => <ProtectedRoute component={MaintenancePlans} />} />
-        <Route path="/campaigns" component={() => <ProtectedRoute component={EmailCampaigns} />} />
-        <Route path="/missed-call" component={() => <ProtectedRoute component={MissedCallSettings} />} />
+        <Route path="/maintenance" component={MaintenancePlansRoute} />
+        <Route path="/campaigns" component={EmailCampaignsRoute} />
+        <Route path="/missed-call" component={MissedCallRoute} />
 
-        <Route path="/tools" component={() => <PublicToolRoute component={ToolsIndex} />} />
-        <Route path="/tools/radiator-sizing" component={() => <PublicToolRoute component={RadiatorSizing} />} />
-        <Route path="/tools/oil-tank-location" component={() => <PublicToolRoute component={OilTankLocation} />} />
-        <Route path="/tools/ventilation-calculator" component={() => <PublicToolRoute component={VentilationCalculator} />} />
-        <Route path="/tools/flue-siting" component={() => <PublicToolRoute component={FlueSiting} />} />
-        <Route path="/tools/gas-flue-siting" component={() => <PublicToolRoute component={GasFlueSiting} />} />
-        <Route path="/tools/condensate-pipe" component={() => <PublicToolRoute component={CondensatePipe} />} />
-        <Route path="/tools/expansion-vessel" component={() => <PublicToolRoute component={ExpansionVessel} />} />
-        <Route path="/tools/pump-head" component={() => <PublicToolRoute component={PumpHead} />} />
+        <Route path="/tools" component={ToolsIndexRoute} />
+        <Route path="/tools/radiator-sizing" component={RadiatorSizingRoute} />
+        <Route path="/tools/oil-tank-location" component={OilTankLocationRoute} />
+        <Route path="/tools/ventilation-calculator" component={VentilationCalculatorRoute} />
+        <Route path="/tools/flue-siting" component={FlueSitingRoute} />
+        <Route path="/tools/gas-flue-siting" component={GasFlueSitingRoute} />
+        <Route path="/tools/condensate-pipe" component={CondensatePipeRoute} />
+        <Route path="/tools/expansion-vessel" component={ExpansionVesselRoute} />
+        <Route path="/tools/pump-head" component={PumpHeadRoute} />
 
-        <Route path="/platform" component={() => <ProtectedRoute component={PlatformDashboard} roles={["super_admin"]} />} />
-        <Route path="/platform/tenants/:id" component={() => <ProtectedRoute component={PlatformTenantDetail} roles={["super_admin"]} />} />
-        <Route path="/platform/tenants" component={() => <ProtectedRoute component={PlatformTenants} roles={["super_admin"]} />} />
-        <Route path="/platform/addons" component={() => <ProtectedRoute component={PlatformAddons} roles={["super_admin"]} />} />
-        <Route path="/platform/plans" component={() => <ProtectedRoute component={PlatformPlans} roles={["super_admin"]} />} />
-        <Route path="/platform/announcements" component={() => <ProtectedRoute component={PlatformAnnouncements} roles={["super_admin"]} />} />
-        <Route path="/platform/beta-invites" component={() => <ProtectedRoute component={PlatformBetaInvites} roles={["super_admin"]} />} />
-        <Route path="/platform/audit-log" component={() => <ProtectedRoute component={PlatformAuditLog} roles={["super_admin"]} />} />
-        <Route path="/platform/settings" component={() => <ProtectedRoute component={PlatformSettingsPage} roles={["super_admin"]} />} />
+        <Route path="/platform" component={PlatformDashboardRoute} />
+        <Route path="/platform/tenants/:id" component={PlatformTenantDetailRoute} />
+        <Route path="/platform/tenants" component={PlatformTenantsRoute} />
+        <Route path="/platform/addons" component={PlatformAddonsRoute} />
+        <Route path="/platform/plans" component={PlatformPlansRoute} />
+        <Route path="/platform/announcements" component={PlatformAnnouncementsRoute} />
+        <Route path="/platform/beta-invites" component={PlatformBetaInvitesRoute} />
+        <Route path="/platform/audit-log" component={PlatformAuditLogRoute} />
+        <Route path="/platform/settings" component={PlatformSettingsRoute} />
 
-        <Route component={() => (
-          <Suspense fallback={<PageFallback />}>
-            <NotFound />
-          </Suspense>
-        )} />
+        <Route component={NotFoundRoute} />
       </Switch>
     </Suspense>
   );
