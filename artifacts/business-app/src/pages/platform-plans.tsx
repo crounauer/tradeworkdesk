@@ -341,12 +341,6 @@ export default function PlatformPlans() {
                     <span className="text-muted-foreground">Max Users</span>
                     <span>{plan.max_users}</span>
                   </div>
-                      <div className="flex flex-wrap gap-1">
-                        {plan.features?.job_management && <Badge variant="default" className="text-xs">Job Management</Badge>}
-                        {plan.features?.website_builder && <Badge variant="default" className="text-xs">Website Builder</Badge>}
-                      </div>
-                    </div>
-                  )}
                   <div className="pt-2 space-y-1">
                     <Badge variant={plan.is_active ? "default" : "secondary"}>
                       {plan.is_active ? "Active" : "Inactive"}
