@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import {
   CreditCard, Check, ExternalLink, AlertTriangle, Loader2,
-  Calendar, Users, Package, Zap, ShoppingCart, HardDrive,
+  Calendar, Users, Package, Zap, ShoppingCart, HardDrive, Briefcase, Globe,
 } from "lucide-react";
 import { useInitData } from "@/hooks/use-init-data";
 
@@ -55,6 +55,41 @@ interface BillingCreditsRow {
   total_purchased: number;
   last_topped_up: string | null;
 }
+
+interface AvailablePlan {
+  id: string;
+  name: string;
+  description: string | null;
+  monthly_price: number;
+  annual_price: number;
+  max_users: number;
+  is_popular: boolean;
+  sort_order: number;
+}
+
+// Bullet points shown under each plan — based on plan name
+const PLAN_BULLETS: Record<string, string[]> = {
+  "Job Management": [
+    "Full job scheduling & calendar",
+    "Customer & property records",
+    "Invoicing & quotes",
+    "Online booking & enquiries",
+    "Up to 2 users (£10/mo each above 2)",
+  ],
+  "Website Builder": [
+    "Professional trade website",
+    "Custom domain support",
+    "Blog & service pages",
+    "Contact form with job enquiries",
+    "1 user included",
+  ],
+  "Bundle": [
+    "Everything in Job Management",
+    "Everything in Website Builder",
+    "Best value — save vs. buying separately",
+    "Up to 2 users (£10/mo each above 2)",
+  ],
+};
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -141,6 +176,34 @@ export default function Billing() {
     },
     enabled: isAdmin,
     staleTime: 10_000,
+  });
+
+  const { data: availablePlans } = useQuery<AvailablePlan[]>({
+    queryKey: ["billing-plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/plans");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const switchPlanMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await fetch("/api/billing/switch-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: planId }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Failed to switch plan"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-info"] });
+      queryClient.invalidateQueries({ queryKey: ["me-init"] });
+      toast({ title: "Plan updated successfully" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const { data: creditsData } = useQuery<BillingCreditsRow[]>({
@@ -338,6 +401,91 @@ export default function Billing() {
             <p>Your account has been suspended. Please contact support to resolve this.</p>
           </div>
         </div>
+      )}
+
+      {/* Plan selector */}
+      {availablePlans && availablePlans.length > 0 && isAdmin && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Choose Your Plan</CardTitle>
+            <p className="text-sm text-muted-foreground">Select the plan that works for your business. Changes take effect immediately.</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {availablePlans.map(plan => {
+                const isCurrent = tenantInfo?.plan_id === plan.id;
+                const isSwitching = switchPlanMutation.isPending;
+                const bullets = PLAN_BULLETS[plan.name] ?? (plan.description ? [plan.description] : []);
+                const PlanIcon = plan.name === "Website Builder" ? Globe : plan.name === "Bundle" ? Package : Briefcase;
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative rounded-xl border-2 p-4 flex flex-col gap-3 transition-all ${
+                      isCurrent
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:border-primary/40"
+                    } ${plan.is_popular && !isCurrent ? "ring-2 ring-primary/20" : ""}`}
+                  >
+                    {plan.is_popular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-primary text-primary-foreground text-xs px-2 py-0.5">Most popular</Badge>
+                      </div>
+                    )}
+                    {isCurrent && (
+                      <div className="absolute -top-3 right-3">
+                        <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">Current plan</Badge>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${isCurrent ? "bg-primary/10" : "bg-slate-100"}`}>
+                        <PlanIcon className={`w-4 h-4 ${isCurrent ? "text-primary" : "text-slate-600"}`} />
+                      </div>
+                      <h3 className="font-semibold text-sm">{plan.name}</h3>
+                    </div>
+                    <div>
+                      <span className="text-2xl font-bold">£{Number(plan.monthly_price).toFixed(0)}</span>
+                      <span className="text-muted-foreground text-sm">/mo</span>
+                      {plan.annual_price > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5">or £{Number(plan.annual_price).toFixed(0)}/year</p>
+                      )}
+                    </div>
+                    {bullets.length > 0 && (
+                      <ul className="space-y-1.5 flex-1">
+                        {bullets.map((b, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
+                            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {!isCurrent && isAdmin && (
+                      <Button
+                        size="sm"
+                        variant={plan.is_popular ? "default" : "outline"}
+                        className="w-full mt-auto"
+                        disabled={isSwitching}
+                        onClick={() => switchPlanMutation.mutate(plan.id)}
+                      >
+                        {isSwitching ? <Loader2 className="w-4 h-4 animate-spin" /> : `Switch to ${plan.name}`}
+                      </Button>
+                    )}
+                    {isCurrent && (
+                      <div className="flex items-center gap-1.5 text-xs text-primary font-medium mt-auto pt-1">
+                        <Check className="w-3.5 h-3.5" /> Active
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {tenantInfo?.status === "active" && tenantInfo.stripe_subscription_id && (
+              <p className="text-xs text-muted-foreground mt-4">
+                Plan changes are prorated and applied immediately. Your next invoice will reflect the new price.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Current status card */}

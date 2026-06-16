@@ -121,6 +121,96 @@ router.post("/billing/checkout", requireAuth, requireTenant, requireRole("admin"
   res.json({ url: session.url });
 });
 
+/**
+ * GET /api/billing/plans
+ * Returns all active, non-legacy, non-free plans for the plan selector UI.
+ */
+router.get("/billing/plans", requireAuth, requireTenant, async (_req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("plans")
+    .select("id, name, description, monthly_price, annual_price, max_users, is_popular, sort_order")
+    .eq("is_active", true)
+    .eq("is_legacy", false)
+    .neq("id", "00000000-0000-0000-0000-000000000000")
+    .gt("monthly_price", 0)
+    .order("sort_order", { ascending: true });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data ?? []);
+});
+
+/**
+ * POST /api/billing/switch-plan
+ * Switch the tenant's plan. For trial tenants, just updates the DB.
+ * For active subscribers, also attempts to update the Stripe subscription.
+ */
+router.post("/billing/switch-plan", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { plan_id } = req.body as { plan_id: string };
+  if (!plan_id) { res.status(400).json({ error: "plan_id is required" }); return; }
+
+  // Validate target plan
+  const { data: newPlan } = await supabaseAdmin
+    .from("plans")
+    .select("id, name, stripe_price_id, monthly_price")
+    .eq("id", plan_id)
+    .eq("is_active", true)
+    .eq("is_legacy", false)
+    .neq("id", "00000000-0000-0000-0000-000000000000")
+    .maybeSingle();
+
+  if (!newPlan) { res.status(404).json({ error: "Plan not found or inactive" }); return; }
+
+  // Get current tenant
+  const { data: tenantRaw } = await supabaseAdmin
+    .from("tenants")
+    .select("id, status, plan_id, stripe_subscription_id")
+    .eq("id", req.tenantId!)
+    .single();
+  const tenant = tenantRaw as { id: string; status: string; plan_id: string | null; stripe_subscription_id: string | null } | null;
+
+  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (tenant.plan_id === plan_id) { res.json({ success: true }); return; }
+
+  // Update plan in DB
+  await supabaseAdmin
+    .from("tenants")
+    .update({ plan_id } as Record<string, unknown>)
+    .eq("id", req.tenantId!);
+
+  // If active Stripe subscription, update the subscription item to the new plan price
+  if (tenant.stripe_subscription_id && newPlan.stripe_price_id) {
+    const stripeClient = requireStripe(false);
+    if (stripeClient) {
+      try {
+        // Get all plan price IDs so we can identify the main plan item
+        const { data: allPlans } = await supabaseAdmin
+          .from("plans")
+          .select("stripe_price_id")
+          .not("stripe_price_id", "is", null);
+        const planPriceIds = new Set((allPlans ?? []).map(p => p.stripe_price_id).filter(Boolean));
+
+        const sub = await stripeClient.subscriptions.retrieve(tenant.stripe_subscription_id, {
+          expand: ["items"],
+        });
+        const mainItem = sub.items.data.find(item => planPriceIds.has(item.price.id));
+
+        if (mainItem) {
+          await stripeClient.subscriptions.update(tenant.stripe_subscription_id, {
+            items: [{ id: mainItem.id, price: newPlan.stripe_price_id }],
+            proration_behavior: "always_invoice",
+          });
+        }
+      } catch (err) {
+        // Non-fatal — DB is already updated, log for investigation
+        console.error("[switch-plan] Stripe update failed:", err);
+      }
+    }
+  }
+
+  bustInitCache(req.tenantId!);
+  res.json({ success: true });
+});
+
 // Internal endpoint: re-sync per-seat quantity for the current tenant
 router.post("/billing/sync-seats", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   try {
