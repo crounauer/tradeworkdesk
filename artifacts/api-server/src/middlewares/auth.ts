@@ -412,6 +412,15 @@ export function requirePlanFeature(featureName: string) {
       return;
     }
 
+    // Under the flat-rate model only job_management and website_builder are
+    // meaningful plan-type gates. All other feature keys are included in every
+    // plan, so skip the check for them.
+    const PLAN_TYPE_GATES = ["job_management", "website_builder"];
+    if (!PLAN_TYPE_GATES.includes(featureName)) {
+      next();
+      return;
+    }
+
     if (!features[featureName]) {
       res.status(402).json({
         error: "Plan upgrade required",

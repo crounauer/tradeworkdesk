@@ -9,30 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, X, Save, CreditCard, Trash2, Star } from "lucide-react";
 
-interface PlanFeatures {
-  forms: string;
-  signatures: string;
-  per_user_display: string;
-  unlimited_jobs: boolean;
-  scheduling: boolean;
-  reports: boolean;
-  photo_storage: string;
-  compliance_forms: boolean;
-  api_access: boolean;
-  custom_branding: boolean;
-  analytics: string;
-  priority_support: boolean;
-  social_media: boolean;
-  website_builder: boolean;
-  job_management: boolean;
-  invoicing: boolean;
-  team_management: boolean;
-  heat_pump_forms: boolean;
-  oil_tank_forms: boolean;
-  commissioning_forms: boolean;
-  combustion_analysis: boolean;
-}
-
 interface Plan {
   id: string;
   name: string;
@@ -43,76 +19,13 @@ interface Plan {
   user_note: string | null;
   max_users: number;
   max_jobs_per_month: number;
-  features: PlanFeatures;
+  features: { job_management: boolean; website_builder: boolean } | null;
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
   stripe_price_id: string | null;
   stripe_price_id_annual: string | null;
 }
-
-const DEFAULT_FEATURES: PlanFeatures = {
-  forms: "Unlimited",
-  signatures: "Unlimited",
-  per_user_display: "Included",
-  unlimited_jobs: true,
-  scheduling: true,
-  reports: true,
-  photo_storage: "5 GB",
-  compliance_forms: true,
-  api_access: false,
-  custom_branding: false,
-  analytics: "",
-  priority_support: false,
-  social_media: false,
-  website_builder: false,
-  job_management: true,
-  invoicing: true,
-  team_management: true,
-  heat_pump_forms: true,
-  oil_tank_forms: true,
-  commissioning_forms: true,
-  combustion_analysis: true,
-};
-
-const CORE_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
-  { key: "job_management", label: "Job Management" },
-  { key: "scheduling", label: "Scheduling & Calendar" },
-  { key: "invoicing", label: "Invoicing & Export" },
-  { key: "reports", label: "Reports Dashboard" },
-  { key: "team_management", label: "Team Management" },
-  { key: "social_media", label: "Social Media Scheduling" },
-  { key: "website_builder", label: "Website Builder" },
-];
-
-const FORM_TYPE_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
-  { key: "heat_pump_forms", label: "Heat Pump Forms" },
-  { key: "oil_tank_forms", label: "Oil Tank Forms" },
-  { key: "commissioning_forms", label: "Commissioning Forms" },
-  { key: "combustion_analysis", label: "Combustion Analysis" },
-  { key: "compliance_forms", label: "Compliance Forms" },
-];
-
-const ADVANCED_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
-  { key: "unlimited_jobs", label: "Unlimited Jobs" },
-  { key: "api_access", label: "API Access" },
-  { key: "custom_branding", label: "Custom Branding" },
-  { key: "priority_support", label: "Priority Support" },
-];
-
-const BOOL_FEATURES: { key: keyof PlanFeatures; label: string }[] = [
-  ...CORE_FEATURES,
-  ...FORM_TYPE_FEATURES,
-  ...ADVANCED_FEATURES,
-];
-
-const TEXT_FEATURES: { key: keyof PlanFeatures; label: string; placeholder: string }[] = [
-  { key: "forms", label: "Forms", placeholder: "e.g. Unlimited, 50/month" },
-  { key: "signatures", label: "Signatures", placeholder: "e.g. Unlimited, 20/month" },
-  { key: "per_user_display", label: "Per User Display", placeholder: "e.g. Included, £12 / user" },
-  { key: "photo_storage", label: "Photo Storage", placeholder: "e.g. 5 GB, 25 GB, Unlimited" },
-  { key: "analytics", label: "Analytics", placeholder: "e.g. Basic, Advanced, or leave blank" },
-];
 
 interface PlanFormState {
   name: string;
@@ -125,7 +38,8 @@ interface PlanFormState {
   max_jobs_per_month: number | string;
   is_active: boolean;
   is_popular: boolean;
-  features: PlanFeatures;
+  job_management: boolean;
+  website_builder: boolean;
   stripe_price_id: string;
   stripe_price_id_annual: string;
 }
@@ -141,7 +55,8 @@ const EMPTY_FORM: PlanFormState = {
   max_jobs_per_month: "",
   is_active: true,
   is_popular: false,
-  features: { ...DEFAULT_FEATURES },
+  job_management: true,
+  website_builder: false,
   stripe_price_id: "",
   stripe_price_id_annual: "",
 };
@@ -173,7 +88,7 @@ export default function PlatformPlans() {
     max_jobs_per_month: Number(f.max_jobs_per_month) || 100,
     is_active: f.is_active,
     is_popular: f.is_popular,
-    features: f.features,
+    features: { job_management: f.job_management, website_builder: f.website_builder },
     stripe_price_id: f.stripe_price_id || null,
     stripe_price_id_annual: f.stripe_price_id_annual || null,
   });
@@ -267,19 +182,13 @@ export default function PlatformPlans() {
       max_jobs_per_month: plan.max_jobs_per_month,
       is_active: plan.is_active,
       is_popular: plan.is_popular ?? false,
-      features: { ...DEFAULT_FEATURES, ...(plan.features || {}) },
+      job_management: plan.features?.job_management ?? false,
+      website_builder: plan.features?.website_builder ?? false,
       stripe_price_id: plan.stripe_price_id || "",
       stripe_price_id_annual: plan.stripe_price_id_annual || "",
     });
     setEditingId(plan.id);
     setShowNew(false);
-  };
-
-  const setFeature = (key: keyof PlanFeatures, value: string | boolean) => {
-    setForm(prev => ({
-      ...prev,
-      features: { ...prev.features, [key]: value },
-    }));
   };
 
   const PlanForm = ({ isNew }: { isNew: boolean }) => (
@@ -337,56 +246,15 @@ export default function PlatformPlans() {
         </div>
 
         <div className="border-t pt-3 space-y-3">
-          <Label className="text-xs font-semibold">Feature Values (text)</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {TEXT_FEATURES.map(({ key, label, placeholder }) => (
-              <div key={key} className="space-y-1">
-                <Label className="text-xs">{label}</Label>
-                <Input
-                  value={(form.features[key] as string) || ""}
-                  onChange={(e) => setFeature(key, e.target.value)}
-                  placeholder={placeholder}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Label className="text-xs font-semibold">Feature Gating</Label>
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Core Features</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {CORE_FEATURES.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={!!form.features[key]} onChange={() => setFeature(key, !form.features[key])} className="rounded border-gray-300" />
-                    {label}
-                  </label>
-                ))}
-              </div>
+          <Label className="text-xs font-semibold">Plan Type</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2">
+              <Switch checked={form.job_management} onCheckedChange={(v) => setForm({ ...form, job_management: v })} />
+              <Label className="text-xs">Job Management</Label>
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Form Types</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {FORM_TYPE_FEATURES.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={!!form.features[key]} onChange={() => setFeature(key, !form.features[key])} className="rounded border-gray-300" />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Advanced</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {ADVANCED_FEATURES.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="checkbox" checked={!!form.features[key]} onChange={() => setFeature(key, !form.features[key])} className="rounded border-gray-300" />
-                    {label}
-                  </label>
-                ))}
-              </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={form.website_builder} onCheckedChange={(v) => setForm({ ...form, website_builder: v })} />
+              <Label className="text-xs">Website Builder</Label>
             </div>
           </div>
         </div>
@@ -434,15 +302,6 @@ export default function PlatformPlans() {
       </CardContent>
     </Card>
   );
-
-  const featureDisplay = (features: PlanFeatures | null) => {
-    if (!features) return null;
-    const items: { label: string; value: string | boolean }[] = [
-      ...TEXT_FEATURES.map(f => ({ label: f.label, value: (features[f.key] as string) || "" })),
-      ...BOOL_FEATURES.map(f => ({ label: f.label, value: !!features[f.key] })),
-    ];
-    return items;
-  };
 
   return (
     <div className="space-y-6">
@@ -516,21 +375,15 @@ export default function PlatformPlans() {
                     <span className="text-muted-foreground">Max Jobs/mo</span>
                     <span>{plan.max_jobs_per_month}</span>
                   </div>
-                  <div className="pt-2 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Features</p>
-                    <div className="flex flex-wrap gap-1">
-                      {featureDisplay(plan.features)?.map(({ label, value }) => (
-                        <Badge
-                          key={label}
-                          variant={value ? "default" : "outline"}
-                          className="text-xs"
-                          title={typeof value === "string" ? value : undefined}
-                        >
-                          {label}{typeof value === "string" && value ? `: ${value}` : ""}
-                        </Badge>
-                      ))}
+                  {(plan.features?.job_management || plan.features?.website_builder) && (
+                    <div className="pt-2 space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Plan Type</p>
+                      <div className="flex flex-wrap gap-1">
+                        {plan.features?.job_management && <Badge variant="default" className="text-xs">Job Management</Badge>}
+                        {plan.features?.website_builder && <Badge variant="default" className="text-xs">Website Builder</Badge>}
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="pt-2 space-y-1">
                     <Badge variant={plan.is_active ? "default" : "secondary"}>
                       {plan.is_active ? "Active" : "Inactive"}
