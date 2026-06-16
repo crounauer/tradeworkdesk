@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Star, MailOpen, PhoneCall, ShieldPlus
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Star, MailOpen, PhoneCall, ShieldPlus, Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -44,6 +44,39 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: initData } = useInitData();
   const { data: companySettings } = useCompanySettings();
   const tenantInfo = initData?.tenant ?? null;
+
+  // ── White-label: inject brand CSS variables ───────────────────────────────
+  useEffect(() => {
+    if (!companySettings?.white_label_enabled || !companySettings.primary_color) return;
+    const hex = companySettings.primary_color;
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else h = ((r - g) / d + 4) / 6;
+    }
+    const hsl = `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    document.documentElement.style.setProperty('--primary', hsl);
+    document.documentElement.style.setProperty('--ring', hsl);
+    return () => {
+      document.documentElement.style.removeProperty('--primary');
+      document.documentElement.style.removeProperty('--ring');
+    };
+  }, [companySettings?.primary_color, companySettings?.white_label_enabled]);
+
+  // ── White-label: swap favicon ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!companySettings?.white_label_enabled || !companySettings.favicon_url) return;
+    const link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+    if (link) link.href = companySettings.favicon_url;
+  }, [companySettings?.favicon_url, companySettings?.white_label_enabled]);
 
   const hasJobManagement = hasFeature("job_management");
 
@@ -96,6 +129,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const adminNavItems = [
     { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
+    { href: "/admin/branding", label: "Branding", icon: Palette },
     ...(hasFeature("team_management") && isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
       { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
@@ -221,9 +255,23 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-slate-50/50 w-full">
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
-        <div className="px-6 py-5 flex items-center gap-2.5 border-b border-border/50">
-          <Flame className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+        <div className="px-4 py-4 flex items-center gap-2.5 border-b border-border/50 min-h-[64px]">
+          {companySettings?.white_label_enabled && companySettings.logo_url ? (
+            <img
+              src={companySettings.logo_url}
+              alt={companySettings.brand_name ?? "Logo"}
+              className="h-8 w-auto max-w-[160px] object-contain"
+            />
+          ) : (
+            <>
+              <Flame className="w-5 h-5 text-primary shrink-0" />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                {companySettings?.white_label_enabled && companySettings.brand_name
+                  ? companySettings.brand_name
+                  : "TradeWorkDesk"}
+              </span>
+            </>
+          )}
           {!isOnline && (
             <span className="ml-auto flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               <WifiOff className="w-3 h-3" />
@@ -299,8 +347,22 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2">
-          <Flame className="w-5 h-5 text-primary" />
-          <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+          {companySettings?.white_label_enabled && companySettings.logo_url ? (
+            <img
+              src={companySettings.logo_url}
+              alt={companySettings.brand_name ?? "Logo"}
+              className="h-7 w-auto max-w-[120px] object-contain"
+            />
+          ) : (
+            <>
+              <Flame className="w-5 h-5 text-primary" />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                {companySettings?.white_label_enabled && companySettings.brand_name
+                  ? companySettings.brand_name
+                  : "TradeWorkDesk"}
+              </span>
+            </>
+          )}
           {!isOnline && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
               <WifiOff className="w-3 h-3" />

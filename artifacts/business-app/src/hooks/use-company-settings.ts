@@ -45,6 +45,14 @@ export interface CompanySettings {
   stripe_payments_enabled?: boolean | null;
   gocardless_payments_enabled?: boolean | null;
   invoicing_provider?: "native" | "external" | "both" | null;
+  // White-label branding
+  white_label_enabled?: boolean | null;
+  brand_name?: string | null;
+  primary_color?: string | null;
+  accent_color?: string | null;
+  favicon_url?: string | null;
+  email_from_name?: string | null;
+  email_reply_to?: string | null;
   created_at?: string;
   updated_at?: string;
 }

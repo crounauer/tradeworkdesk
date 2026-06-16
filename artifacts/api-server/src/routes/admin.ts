@@ -387,6 +387,9 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "stripe_payments_enabled", "gocardless_payments_enabled",
     // Invoicing provider preference
     "invoicing_provider",
+    // White-label branding
+    "white_label_enabled", "brand_name", "primary_color", "accent_color",
+    "favicon_url", "email_from_name", "email_reply_to",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };
@@ -407,6 +410,15 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
         res.status(400).json({ error: `${urlField} is not a valid URL` });
         return;
       }
+    }
+  }
+
+  // Validate hex colour format
+  for (const colorField of ["primary_color", "accent_color"] as const) {
+    const val = updates[colorField];
+    if (val && typeof val === "string" && !/^#[0-9A-Fa-f]{6}$/.test(val)) {
+      res.status(400).json({ error: `${colorField} must be a valid 6-digit hex colour (e.g. #6366f1)` });
+      return;
     }
   }
 

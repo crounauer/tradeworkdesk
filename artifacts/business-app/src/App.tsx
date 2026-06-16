@@ -98,6 +98,7 @@ const AdminUsers = lazyRetry(() => import("@/pages/admin-users"));
 const AdminInviteCodes = lazyRetry(() => import("@/pages/admin-invite-codes"));
 const AdminLookupOptions = lazyRetry(() => import("@/pages/admin-lookup-options"));
 const AdminCompanySettings = lazyRetry(() => import("@/pages/admin-company-settings"));
+const AdminBranding = lazyRetry(() => import("@/pages/admin-branding"));
 const AdminSocial = lazyRetry(() => import("@/pages/admin-social"));
 const AdminJobTypes = lazyRetry(() => import("@/pages/admin-job-types"));
 const AdminSmsTemplates = lazyRetry(() => import("@/pages/admin-sms-templates"));
@@ -383,6 +384,7 @@ function AppRouter() {
         <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
 
         <Route path="/admin/company-settings" component={() => <ProtectedRoute component={AdminCompanySettings} />} />
+        <Route path="/admin/branding" component={() => <ProtectedRoute component={AdminBranding} />} />
         <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
         <Route path="/admin/invite-codes" component={() => <ProtectedRoute component={AdminInviteCodes} />} />
         <Route path="/admin/lookup-options" component={() => <ProtectedRoute component={AdminLookupOptions} />} />
