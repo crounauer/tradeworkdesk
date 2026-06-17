@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, CheckCircle2, LayoutTemplate } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -30,11 +30,22 @@ interface Website {
   logo_url: string | null;
   favicon_url: string | null;
   theme: Record<string, string>;
+  template_id: string | null;
   default_meta_title: string | null;
   default_meta_description: string | null;
   google_analytics_id: string | null;
   google_search_console_verification: string | null;
   social_links: Record<string, string> | null;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  thumbnail_url: string | null;
+  preview_url: string | null;
+  category: string | null;
 }
 
 export default function WebsiteSettings() {
@@ -138,6 +149,7 @@ export default function WebsiteSettings() {
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="template">Template</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding" className="space-y-4 pt-4">
@@ -203,7 +215,94 @@ export default function WebsiteSettings() {
             );
           })}
         </TabsContent>
+
+        <TabsContent value="template" className="pt-4">
+          <TemplatePicker websiteId={website.id} currentTemplateId={website.template_id} />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function TemplatePicker({ websiteId, currentTemplateId }: { websiteId: string; currentTemplateId: string | null }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: templates = [], isLoading } = useQuery<Template[]>({
+    queryKey: ["/api/website/templates"],
+    queryFn: () => apiFetch("/api/website/templates"),
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: (templateId: string) =>
+      apiFetch("/api/website/apply-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
+      toast({ title: "Template applied", description: "Your site design has been updated." });
+    },
+    onError: (e: Error) => toast({ title: "Failed to apply template", description: e.message, variant: "destructive" }),
+  });
+
+  void websiteId;
+
+  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+
+  if (templates.length === 0) {
+    return (
+      <div className="text-center py-10 text-muted-foreground">
+        <LayoutTemplate className="w-8 h-8 mx-auto mb-2 opacity-40" />
+        <p className="text-sm">No templates available yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Choose a design for your website. Switching templates changes your site's layout and colours.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {templates.map((t) => {
+          const isActive = (currentTemplateId ?? "classic") === t.slug;
+          return (
+            <div
+              key={t.id}
+              className={`relative border-2 rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-md ${
+                isActive ? "border-primary shadow-md" : "border-border hover:border-primary/50"
+              }`}
+              onClick={() => !isActive && applyMutation.mutate(t.id)}
+            >
+              {t.thumbnail_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={t.thumbnail_url} alt={t.name} className="w-full h-36 object-cover" />
+              ) : (
+                <div className="w-full h-36 bg-muted flex items-center justify-center">
+                  <LayoutTemplate className="w-8 h-8 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-sm">{t.name}</p>
+                  {isActive && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                </div>
+                {t.description && <p className="text-xs text-muted-foreground mt-0.5">{t.description}</p>}
+              </div>
+              {isActive && (
+                <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
+                  Active
+                </div>
+              )}
+              {!isActive && applyMutation.isPending && (
+                <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
