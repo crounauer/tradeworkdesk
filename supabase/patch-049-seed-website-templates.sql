@@ -24,11 +24,19 @@ VALUES
   (
     'Modern',
     'modern',
-    'White header with bold accent bar. Clean and contemporary.',
+    'White header with teal accent bar. Clean, contemporary split-hero layout.',
     'general',
     2,
-    '[]'::jsonb,
-    '{"nav_background": "#ffffff", "nav_text": "#111827", "footer_background": "#1f2937", "footer_text": "#9ca3af", "accent_color": "#3b82f6"}'::jsonb,
+    '[
+      {"slug": "", "title": "Home", "page_type": "home", "show_in_nav": true, "nav_label": "Home", "nav_order": 1},
+      {"slug": "services", "title": "Services", "page_type": "custom", "show_in_nav": true, "nav_label": "Services", "nav_order": 2},
+      {"slug": "how-it-works", "title": "How It Works", "page_type": "custom", "show_in_nav": true, "nav_label": "How It Works", "nav_order": 3},
+      {"slug": "projects", "title": "Projects", "page_type": "custom", "show_in_nav": true, "nav_label": "Projects", "nav_order": 4},
+      {"slug": "reviews", "title": "Reviews", "page_type": "custom", "show_in_nav": true, "nav_label": "Reviews", "nav_order": 5},
+      {"slug": "areas", "title": "Areas", "page_type": "custom", "show_in_nav": true, "nav_label": "Areas", "nav_order": 6},
+      {"slug": "contact", "title": "Contact", "page_type": "contact", "show_in_nav": true, "nav_label": "Contact", "nav_order": 7}
+    ]'::jsonb,
+    '{"nav_background": "#ffffff", "nav_text": "#111827", "footer_background": "#1f2937", "footer_text": "#9ca3af", "accent_color": "#0d9488"}'::jsonb,
     true
   ),
   (

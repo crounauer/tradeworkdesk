@@ -36,6 +36,9 @@ import WhyChooseUsBlock from "./WhyChooseUsBlock";
 import FaqBlock from "./FaqBlock";
 import AreasBlock from "./AreasBlock";
 import BrandsBlock from "./BrandsBlock";
+import FeaturesBarBlock from "./FeaturesBarBlock";
+import ProcessBlock from "./ProcessBlock";
+import ProjectShowcaseBlock from "./ProjectShowcaseBlock";
 
 interface Props {
   block: SiteBlock;
@@ -77,6 +80,15 @@ export default function BlockRenderer({ block }: Props) {
     case "brands":
     case "partners":
       return <BrandsBlock content={content} />;
+    case "features_bar":
+      return <FeaturesBarBlock content={content} />;
+    case "process":
+    case "steps":
+    case "how_it_works":
+      return <ProcessBlock content={content} />;
+    case "project_showcase":
+    case "case_study":
+      return <ProjectShowcaseBlock content={content} />;
     default:
       return null;
   }
