@@ -69,7 +69,8 @@ router.get(
       .order("created_at", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
     // Provide a preview URL using the renderer base URL (no custom domain required)
-    const rendererBase = (process.env.RENDERER_BASE_URL || "").replace(/\/$/, "");
+    let rendererBase = (process.env.RENDERER_BASE_URL || "").replace(/\/$/, "");
+    if (rendererBase && !rendererBase.startsWith("http")) rendererBase = `https://${rendererBase}`;
     const previewUrl = rendererBase ? `${rendererBase}/preview/${website.id}` : null;
 
     res.json({ ...website, domains: domains || [], preview_url: previewUrl });
