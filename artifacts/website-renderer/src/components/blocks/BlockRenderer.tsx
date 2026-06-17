@@ -12,6 +12,10 @@
  *   services    — service cards list
  *   accreditations — logos/badges row
  *   map         — embedded map (iframe or static)
+ *   why_choose_us — feature columns (icon/title/desc), coloured bg
+ *   faq         — accordion FAQ list
+ *   areas       — areas covered tag pills + text
+ *   brands      — brand/partner logo bar
  *   spacer      — vertical spacer
  *   html        — raw HTML embed (sanitised)
  */
@@ -28,6 +32,10 @@ import TestimonialsBlock from "./TestimonialsBlock";
 import GalleryBlock from "./GalleryBlock";
 import AccreditationsBlock from "./AccreditationsBlock";
 import SpacerBlock from "./SpacerBlock";
+import WhyChooseUsBlock from "./WhyChooseUsBlock";
+import FaqBlock from "./FaqBlock";
+import AreasBlock from "./AreasBlock";
+import BrandsBlock from "./BrandsBlock";
 
 interface Props {
   block: SiteBlock;
@@ -58,6 +66,17 @@ export default function BlockRenderer({ block }: Props) {
       return <AccreditationsBlock content={content} />;
     case "spacer":
       return <SpacerBlock content={content} />;
+    case "why_choose_us":
+    case "features":
+      return <WhyChooseUsBlock content={content} />;
+    case "faq":
+    case "accordion":
+      return <FaqBlock content={content} />;
+    case "areas":
+      return <AreasBlock content={content} />;
+    case "brands":
+    case "partners":
+      return <BrandsBlock content={content} />;
     default:
       return null;
   }

@@ -20,15 +20,19 @@ export default function ClassicTemplate({ site, children, basePath, previewToken
         logoUrl={website.logo_url}
         pages={navPages}
         theme={website.theme as Record<string, string>}
+        company={company}
         basePath={basePath}
         previewToken={previewToken}
       />
       <div style={{ minHeight: "60vh" }}>{children}</div>
       <SiteFooter
         siteName={website.site_name}
+        logoUrl={website.logo_url}
+        tagline={website.tagline}
         company={company}
         socialLinks={website.social_links}
         theme={website.theme as Record<string, string>}
+        pages={navPages}
       />
     </>
   );
