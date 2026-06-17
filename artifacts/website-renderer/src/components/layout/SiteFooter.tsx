@@ -90,7 +90,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme }: Pr
         {/* Bottom bar */}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 24, textAlign: "center", fontSize: "0.875rem" }}>
           &copy; {year} {company?.trading_name || company?.name || siteName}. All rights reserved.
-          <span style={{ marginLeft: 16, opacity: 0.5 }}>Powered by TradeSite</span>
+          <span style={{ marginLeft: 16, opacity: 0.5 }}>Powered by TradeWorkDesk</span>
         </div>
       </div>
     </footer>
