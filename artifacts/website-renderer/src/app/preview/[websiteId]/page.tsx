@@ -48,7 +48,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
   const blocks = await getPreviewBlocksByPageId(page.id);
 
   return (
-    <SiteLayout site={site}>
+    <SiteLayout site={site} basePath={`/preview/${websiteId}`}>
       <main>
         {blocks.map((block) => (
           <BlockRenderer key={block.id} block={block} />

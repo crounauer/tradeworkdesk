@@ -7,9 +7,10 @@ import GoogleAnalytics from "./GoogleAnalytics";
 interface Props {
   site: SiteData;
   children: ReactNode;
+  basePath?: string;
 }
 
-export default function SiteLayout({ site, children }: Props) {
+export default function SiteLayout({ site, children, basePath }: Props) {
   const { website, company } = site;
 
   const navPages = site.pages.filter((p) => p.show_in_nav);
@@ -24,6 +25,7 @@ export default function SiteLayout({ site, children }: Props) {
         logoUrl={website.logo_url}
         pages={navPages}
         theme={website.theme as Record<string, string>}
+        basePath={basePath}
       />
       <div style={{ minHeight: "60vh" }}>{children}</div>
       <SiteFooter

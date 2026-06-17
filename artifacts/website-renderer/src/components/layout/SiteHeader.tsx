@@ -6,11 +6,22 @@ interface Props {
   logoUrl: string | null;
   pages: SitePage[];
   theme: Record<string, string>;
+  basePath?: string; // e.g. "/preview/{websiteId}" — rewrites nav links for in-app preview
 }
 
-export default function SiteHeader({ siteName, logoUrl, pages, theme }: Props) {
+export default function SiteHeader({ siteName, logoUrl, pages, theme, basePath }: Props) {
   const navBg = theme?.nav_background || "#1f2937";
   const navText = theme?.nav_text || "#ffffff";
+
+  function pageHref(page: SitePage): string {
+    if (basePath) {
+      const slug = page.page_type === "home" ? "/" : (page.slug.startsWith("/") ? page.slug.slice(1) : page.slug);
+      return slug === "/" ? basePath : `${basePath}?page=${encodeURIComponent(slug)}`;
+    }
+    return page.slug.startsWith("/") ? page.slug : `/${page.slug}`;
+  }
+
+  const homeHref = basePath ?? "/";
 
   return (
     <header
@@ -35,7 +46,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme }: Props) {
         }}
       >
         {/* Logo / Site name */}
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", color: navText }}>
+        <Link href={homeHref} style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", color: navText }}>
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt={siteName} style={{ height: 40, objectFit: "contain" }} />
@@ -57,7 +68,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme }: Props) {
             {pages.map((page) => (
               <li key={page.id}>
                 <Link
-                  href={page.slug.startsWith("/") ? page.slug : `/${page.slug}`}
+                  href={pageHref(page)}
                   style={{
                     padding: "8px 14px",
                     borderRadius: 4,
