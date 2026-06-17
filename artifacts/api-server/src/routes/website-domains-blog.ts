@@ -39,7 +39,7 @@ import {
 } from "../middlewares/auth";
 import { resolveCname } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
-import { addDomainToRailway, removeDomainFromRailway } from "../lib/railway";
+import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -184,9 +184,9 @@ router.delete(
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
 
-    // Remove from Railway (frees the SSL cert slot)
-    removeDomainFromRailway(domain.domain).catch((e) =>
-      console.error("[railway] removeDomainFromRailway failed:", e)
+    // Remove from Vercel (releases the SSL cert)
+    removeDomainFromVercel(domain.domain).catch((e) =>
+      console.error("[vercel] removeDomainFromVercel failed:", e)
     );
 
     await db.from("website_domains").delete().eq("id", id);
@@ -230,9 +230,9 @@ router.post(
       updates.ssl_status = "active";  // SSL handled by Railway/platform
       updates.is_active = true;
       updates.activated_at = new Date().toISOString();
-      // Provision SSL cert on Railway renderer
-      addDomainToRailway(domain.domain).catch((e) =>
-        console.error("[railway] addDomainToRailway failed:", e)
+      // Provision SSL cert on Vercel renderer
+      addDomainToVercel(domain.domain).catch((e) =>
+        console.error("[vercel] addDomainToVercel failed:", e)
       );
     } else {
       updates.verification_status = "pending";

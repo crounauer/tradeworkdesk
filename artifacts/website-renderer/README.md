@@ -5,10 +5,12 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 ## How it works
 
 1. A custom domain is added by the tenant in the business app
-2. Cloudflare for SaaS routes the domain → this renderer service (on Railway)
-3. The middleware reads the `Host` header and forwards it as `x-tenant-domain`
-4. Pages call `getSiteByDomain()` which hits the platform API to get all site data
-5. Pages are ISR-cached for 60 seconds
+2. The tenant points their domain CNAME at `sites.tradeworkdesk.co.uk`
+3. When DNS propagates, the tenant clicks "Check Status" — the API server verifies the CNAME and adds the domain to this Vercel project via the Vercel API
+4. Vercel provisions an SSL certificate automatically
+5. The middleware reads the `Host` header and forwards it as `x-tenant-domain`
+6. Pages call `getSiteByDomain()` which hits the platform API to get all site data
+7. Pages are ISR-cached for 60 seconds
 
 ## Environment variables
 
@@ -16,8 +18,15 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 |---|---|
 | `API_BASE_URL` | Platform API base URL (e.g. `https://api.tradeworkdesk.co.uk`) |
 | `RENDERER_SECRET` | Shared secret for renderer → API server calls |
-| `PLATFORM_CNAME_TARGET` | Hostname tenants should CNAME their domain to |
-| `PORT` | Port to bind (Railway sets this automatically) |
+| `PLATFORM_CNAME_TARGET` | Hostname tenants should CNAME their domain to (e.g. `sites.tradeworkdesk.co.uk`) |
+
+### API server env vars (for domain provisioning)
+
+| Variable | Description |
+|---|---|
+| `VERCEL_API_TOKEN` | Vercel API token (Account Settings → Tokens) |
+| `VERCEL_RENDERER_PROJECT_ID` | Project ID of this renderer on Vercel |
+| `VERCEL_TEAM_ID` | (optional) Team ID if project is under a Vercel team |
 
 ## Development
 
@@ -69,9 +78,14 @@ artifacts/website-renderer/
         BlogPostContent.tsx
 ```
 
-## Deployment (Railway)
+## Deployment (Vercel)
 
-- Service name: `website-renderer`
-- Build command: `pnpm --filter @workspace/website-renderer build`
-- Start command: `pnpm --filter @workspace/website-renderer start`
-- Domain: Assign a Railway-provided subdomain (e.g. `renderer.up.railway.app`) — this is what tenant CNAMEs point to via Cloudflare for SaaS.
+Deploy the `artifacts/website-renderer` directory as a Vercel project.
+
+- **Framework**: Next.js (auto-detected)
+- **Root directory**: `artifacts/website-renderer`
+- **Project name**: `tradeworkdesk-renderer` (or similar)
+
+After deploying, add `sites.tradeworkdesk.co.uk` as a custom domain on the Vercel project and point a DNS CNAME/ALIAS at Vercel's assigned hostname (e.g. `cname.vercel-dns.com`).
+
+Get the **Project ID** from Project Settings → General, and add it as `VERCEL_RENDERER_PROJECT_ID` on the api-server.
