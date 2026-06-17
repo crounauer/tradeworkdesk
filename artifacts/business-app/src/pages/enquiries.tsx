@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+
+const PostcodeAddressFinder = lazy(() =>
+  import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
+);
 import {
   Plus, Search, Phone, Mail, MessageSquare, Globe, Users, Hash,
   Clock, Filter, ChevronRight, ChevronDown, ChevronUp, CheckCircle2, FileText, XCircle
@@ -360,6 +364,7 @@ function EnquirySections({
 function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const { hasFeature } = usePlanFeatures();
   const [form, setForm] = useState({
     contact_name: "",
     contact_phone: "",
@@ -367,7 +372,10 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     source: "phone",
     description: "",
     notes: "",
-    address: "",
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    postcode: "",
     priority: "medium",
   });
 
@@ -439,7 +447,25 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
           </div>
           <div className="space-y-1.5">
             <Label>Address</Label>
-            <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 High Street, Manchester, M1 1AA" />
+            {hasFeature("uk_address_lookup") && (
+              <Suspense fallback={null}>
+                <PostcodeAddressFinder
+                  onAddressSelected={(addr) => setForm(f => ({
+                    ...f,
+                    address_line1: addr.address_line1,
+                    address_line2: addr.address_line2 || "",
+                    city: addr.city || "",
+                    postcode: addr.postcode,
+                  }))}
+                />
+              </Suspense>
+            )}
+            <Input value={form.address_line1} onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))} placeholder="Address Line 1" />
+            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-2" />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Town / City" />
+              <Input value={form.postcode} onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))} placeholder="Postcode" />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Description</Label>

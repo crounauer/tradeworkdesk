@@ -592,6 +592,7 @@ function BookEnquiryDialog({
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [submitting, setSubmitting] = useState(false);
+  const { hasFeature } = usePlanFeatures();
   const [form, setForm] = useState({
     contact_name: "",
     contact_phone: "",
@@ -599,7 +600,10 @@ function BookEnquiryDialog({
     source: "phone",
     description: "",
     notes: "",
-    address: "",
+    address_line1: "",
+    address_line2: "",
+    city: "",
+    postcode: "",
     priority: "medium",
   });
 
@@ -681,6 +685,28 @@ function BookEnquiryDialog({
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            {hasFeature("uk_address_lookup") && (
+              <Suspense fallback={null}>
+                <PostcodeAddressFinder
+                  onAddressSelected={(addr) => setForm(f => ({
+                    ...f,
+                    address_line1: addr.address_line1,
+                    address_line2: addr.address_line2 || "",
+                    city: addr.city || "",
+                    postcode: addr.postcode,
+                  }))}
+                />
+              </Suspense>
+            )}
+            <Input value={form.address_line1} onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))} placeholder="Address Line 1" />
+            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-2" />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Town / City" />
+              <Input value={form.postcode} onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))} placeholder="Postcode" />
             </div>
           </div>
           <div className="space-y-1.5">
