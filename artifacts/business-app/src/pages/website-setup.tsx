@@ -131,7 +131,13 @@ export default function WebsiteSetup() {
       apiFetch("/api/website/publish", { method: "POST" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
-      toast({ title: "Website published!", description: "Your website is now live." });
+      const hasDomain = queryClient.getQueryData<WebsiteData>(["website"])?.domains?.some((d) => d.is_active);
+      toast({
+        title: "Website published!",
+        description: hasDomain
+          ? "Your website is now live."
+          : "Your website is published but won't be publicly visible until you connect a custom domain.",
+      });
     },
   });
 
@@ -302,6 +308,18 @@ export default function WebsiteSetup() {
           </Badge>
         )}
       </div>
+
+      {/* No domain warning */}
+      {website.status === "published" && !activeDomain && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <Globe className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <span className="font-medium">Not publicly visible.</span>{" "}
+            Your website is published but visitors can't find it yet — you need to{" "}
+            <Link href="/website/domain" className="underline hover:text-amber-900">connect a custom domain</Link>{" "}first.
+          </div>
+        </div>
+      )}
 
       {/* Quick access cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
