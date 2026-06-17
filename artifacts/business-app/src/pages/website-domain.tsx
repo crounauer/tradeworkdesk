@@ -269,34 +269,38 @@ export default function WebsiteDomain() {
         </div>
       )}
 
-      {/* Add custom domain */}\n      {!adding ? (\n        <div>\n          <h2 className=\"text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3\">Connect Your Own Domain</h2>\n          <Button variant=\"outline\" onClick={() => setAdding(true)}>
-          <Globe className="w-4 h-4 mr-2" /> Add Custom Domain
-        </Button>
-      ) : (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="space-y-1">
-              <Label>Domain</Label>
-              <Input
-                placeholder="www.myplumbingco.co.uk"
-                value={newDomain}
-                onChange={(e) => setNewDomain(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => addMutation.mutate(newDomain)}
-                disabled={!newDomain || addMutation.isPending}
-              >
-                {addMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Add Domain
-              </Button>
-              <Button variant="outline" onClick={() => { setAdding(false); setNewDomain(""); }}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Add custom domain */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Connect Your Own Domain</h2>
+        {!adding ? (
+          <Button variant="outline" onClick={() => setAdding(true)}>
+            <Globe className="w-4 h-4 mr-2" /> Add Custom Domain
+          </Button>
+        ) : (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1">
+                <Label>Domain</Label>
+                <Input
+                  placeholder="www.myplumbingco.co.uk"
+                  value={newDomain}
+                  onChange={(e) => setNewDomain(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => addMutation.mutate(newDomain)}
+                  disabled={!newDomain || addMutation.isPending}
+                >
+                  {addMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Add Domain
+                </Button>
+                <Button variant="outline" onClick={() => { setAdding(false); setNewDomain(""); }}>Cancel</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <AlertDialog open={!!deletingDomain} onOpenChange={(o) => !o && setDeletingDomain(null)}>
