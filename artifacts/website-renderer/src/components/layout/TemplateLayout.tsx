@@ -20,7 +20,7 @@ const TEMPLATE_MAP: Record<string, React.ComponentType<TemplateLayoutProps>> = {
 };
 
 export default function TemplateLayout(props: TemplateLayoutProps) {
-  const templateId = props.site.website.template_id ?? "classic";
+  const templateId = props.site.website.template_slug ?? props.site.website.template_id ?? "classic";
   const Layout = TEMPLATE_MAP[templateId] ?? ClassicTemplate;
   return <Layout {...props} />;
 }

@@ -591,7 +591,7 @@ router.get(
 
     // Fetch full site data
     const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes] = await Promise.all([
-      db.from("websites").select("*").eq("id", domainRecord.website_id).single(),
+      db.from("websites").select("*, website_templates(slug)").eq("id", domainRecord.website_id).single(),
       db.from("website_pages").select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at").eq("website_id", domainRecord.website_id).eq("status", "published").order("nav_order", { ascending: true }),
       db.from("website_blog_posts").select("id, slug, title, excerpt, featured_image_url, published_at, meta_title, meta_description, website_blog_categories(name, slug)").eq("website_id", domainRecord.website_id).eq("status", "published").order("published_at", { ascending: false }).limit(20),
       db.from("website_testimonials").select("id, author_name, location, rating, body, sort_order").eq("website_id", domainRecord.website_id).eq("is_visible", true).order("sort_order", { ascending: true }),
@@ -606,8 +606,13 @@ router.get(
       .eq("singleton_id", "default")
       .maybeSingle();
 
+    // Flatten template slug onto website object
+    const websiteData = websiteRes.data as Record<string, unknown> | null;
+    const templateSlug = (websiteData?.website_templates as { slug?: string } | null)?.slug ?? null;
+    const websiteOut = websiteData ? { ...websiteData, template_slug: templateSlug, website_templates: undefined } : null;
+
     res.json({
-      website: websiteRes.data,
+      website: websiteOut,
       pages: pagesRes.data || [],
       blog_posts: blogsRes.data || [],
       testimonials: testimonialsRes.data || [],
@@ -633,7 +638,7 @@ router.get(
 
     const { data: website } = await db
       .from("websites")
-      .select("*")
+      .select("*, website_templates(slug)")
       .eq("id", websiteId)
       .single() as { data: Record<string, unknown> | null };
 
@@ -668,8 +673,11 @@ router.get(
       .eq("singleton_id", "default")
       .maybeSingle();
 
+    const templateSlug2 = (website?.website_templates as { slug?: string } | null)?.slug ?? null;
+    const websiteOut2 = { ...website, template_slug: templateSlug2, website_templates: undefined };
+
     res.json({
-      website,
+      website: websiteOut2,
       pages: (pagesRes.data as unknown[]) || [],
       blog_posts: [],
       testimonials: (testimonialsRes.data as unknown[]) || [],
