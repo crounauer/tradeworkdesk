@@ -20,19 +20,18 @@ export default function GalleryBlock({ content }: Props) {
 
   return (
     <section style={{ padding: "64px 24px" }}>
+      <style>{`
+        .gallery-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        @media (min-width: 500px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 900px) { .gallery-grid { grid-template-columns: repeat(${columns}, 1fr); } }
+      `}</style>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         {heading && (
           <h2 style={{ textAlign: "center", fontSize: "2rem", fontWeight: 700, marginBottom: 40 }}>
             {heading}
           </h2>
         )}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${columns === 4 ? 180 : columns === 2 ? 300 : 220}px, 1fr))`,
-            gap: 12,
-          }}
-        >
+        <div className="gallery-grid">
           {images.map((img, i) => (
             <div key={i} style={{ overflow: "hidden", borderRadius: 8 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

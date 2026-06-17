@@ -191,6 +191,7 @@ export default function WebsitePreview() {
               src={previewUrl ?? "about:blank"}
               title="Website Preview"
               className="w-full h-full border-0"
+              style={{ width: currentDevice.width, maxWidth: "100%" }}
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           </div>

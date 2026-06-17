@@ -18,22 +18,22 @@ export default function ServicesBlock({ content }: Props) {
   // Support both field names: 'services' (current) and 'items' (legacy editor name)
   const services = (Array.isArray(content.services) ? content.services : Array.isArray(content.items) ? content.items : []) as Service[];
   const { heading, columns = 3 } = content;
+  const gridId = `sg-${columns}`;
 
   return (
     <section style={{ padding: "64px 24px", backgroundColor: "#f9fafb" }}>
+      <style>{`
+        .services-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+        @media (min-width: 600px) { .services-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 900px) { .services-grid { grid-template-columns: repeat(${columns}, 1fr); } }
+      `}</style>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         {heading && (
           <h2 style={{ textAlign: "center", fontSize: "2rem", fontWeight: 700, marginBottom: 48 }}>
             {heading}
           </h2>
         )}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${columns === 4 ? 200 : columns === 2 ? 280 : 240}px, 1fr))`,
-            gap: 24,
-          }}
-        >
+        <div className="services-grid">
           {services.map((service, i) => (
             <div
               key={i}
