@@ -149,6 +149,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
     { href: "/platform/plans", label: "Plans", icon: CreditCard },
+    { href: "/platform/templates", label: "Templates", icon: LayoutTemplate },
     { href: "/platform/settings", label: "Settings", icon: Settings2 },
     { href: "/platform/beta-invites", label: "Beta Invites", icon: Ticket },
     { href: "/platform/announcements", label: "Announcements", icon: Megaphone },

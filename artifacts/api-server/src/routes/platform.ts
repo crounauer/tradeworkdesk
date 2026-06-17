@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
+import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendWelcomeEmail } from "../lib/email";
@@ -1563,6 +1564,87 @@ router.get("/platform/stats/ai-usage", requireAuth, requireSuperAdmin, async (_r
   );
 
   res.json({ month: monthStr, tenant_count: data?.length || 0, ...totals });
+});
+
+// ─── Template Asset Management (superadmin) ──────────────────────────────────
+
+const TEMPLATE_ASSET_BUCKET = "website-template-assets";
+
+const templateAssetUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/svg+xml", "image/gif"];
+    if (!allowed.includes(file.mimetype)) {
+      cb(new Error("Only image files are allowed (jpg, png, webp, svg, gif)."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+// GET /platform/template-assets/:templateId — list assets for a template
+router.get("/platform/template-assets/:templateId", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const { templateId } = req.params;
+  const { data, error } = await supabaseAdmin.storage
+    .from(TEMPLATE_ASSET_BUCKET)
+    .list(templateId, { limit: 100, sortBy: { column: "name", order: "asc" } });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const assets = (data || []).map((file) => {
+    const { data: urlData } = supabaseAdmin.storage
+      .from(TEMPLATE_ASSET_BUCKET)
+      .getPublicUrl(`${templateId}/${file.name}`);
+    return { name: file.name, url: urlData.publicUrl, size: file.metadata?.size, created_at: file.created_at };
+  });
+
+  res.json(assets);
+});
+
+// POST /platform/template-assets/:templateId — upload an asset
+router.post(
+  "/platform/template-assets/:templateId",
+  requireAuth,
+  requireSuperAdmin,
+  templateAssetUpload.single("file"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!req.file) { res.status(400).json({ error: "No file uploaded." }); return; }
+    const { templateId } = req.params;
+
+    const ext = req.file.originalname.split(".").pop()?.toLowerCase() || "bin";
+    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${templateId}/${safeName}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(TEMPLATE_ASSET_BUCKET)
+      .upload(storagePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) { res.status(500).json({ error: uploadError.message }); return; }
+
+    const { data: urlData } = supabaseAdmin.storage
+      .from(TEMPLATE_ASSET_BUCKET)
+      .getPublicUrl(storagePath);
+
+    void ext; // used in safeName derivation
+    res.status(201).json({ name: safeName, url: urlData.publicUrl, path: storagePath });
+  }
+);
+
+// DELETE /platform/template-assets/:templateId/:filename — delete an asset
+router.delete("/platform/template-assets/:templateId/:filename", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const { templateId, filename } = req.params;
+  const storagePath = `${templateId}/${filename}`;
+
+  const { error } = await supabaseAdmin.storage
+    .from(TEMPLATE_ASSET_BUCKET)
+    .remove([storagePath]);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.sendStatus(204);
 });
 
 export default router;

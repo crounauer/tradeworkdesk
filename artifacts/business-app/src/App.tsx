@@ -116,6 +116,7 @@ const PlatformBetaInvites = lazyRetry(() => import("@/pages/platform-beta-invite
 const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
 const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
+const PlatformTemplatesPage = lazyRetry(() => import("@/pages/platform-templates"));
 const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
@@ -420,6 +421,7 @@ const PlatformAnnouncementsRoute = protect(PlatformAnnouncements, ["super_admin"
 const PlatformBetaInvitesRoute = protect(PlatformBetaInvites, ["super_admin"]);
 const PlatformAuditLogRoute = protect(PlatformAuditLog, ["super_admin"]);
 const PlatformSettingsRoute = protect(PlatformSettingsPage, ["super_admin"]);
+const PlatformTemplatesRoute = protect(PlatformTemplatesPage, ["super_admin"]);
 const NotFoundRoute = () => <Suspense fallback={<PageFallback />}><NotFound /></Suspense>;
 
 function PortalRoutes() {
@@ -568,6 +570,7 @@ function AppRouter() {
         <Route path="/platform/beta-invites" component={PlatformBetaInvitesRoute} />
         <Route path="/platform/audit-log" component={PlatformAuditLogRoute} />
         <Route path="/platform/settings" component={PlatformSettingsRoute} />
+        <Route path="/platform/templates" component={PlatformTemplatesRoute} />
 
         <Route component={NotFoundRoute} />
       </Switch>
