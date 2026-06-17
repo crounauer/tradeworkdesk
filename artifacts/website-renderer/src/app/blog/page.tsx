@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain, getPageBySlug } from "@/lib/api";
-import SiteLayout from "@/components/layout/SiteLayout";
+import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogList from "@/components/blog/BlogList";
 
 export const revalidate = 60;
@@ -24,8 +24,8 @@ export default async function BlogIndexPage() {
   if (!site) notFound();
 
   return (
-    <SiteLayout site={site}>
+    <TemplateLayout site={site}>
       <BlogList posts={site.blog_posts} siteName={site.website.site_name} />
-    </SiteLayout>
+    </TemplateLayout>
   );
 }

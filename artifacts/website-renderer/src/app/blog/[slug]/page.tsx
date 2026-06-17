@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
-import SiteLayout from "@/components/layout/SiteLayout";
+import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogPostContent from "@/components/blog/BlogPostContent";
 
 export const revalidate = 60;
@@ -43,8 +43,8 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
   if (!post) notFound();
 
   return (
-    <SiteLayout site={site}>
+    <TemplateLayout site={site}>
       <BlogPostContent post={post} />
-    </SiteLayout>
+    </TemplateLayout>
   );
 }

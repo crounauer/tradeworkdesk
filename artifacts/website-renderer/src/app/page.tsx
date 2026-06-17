@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
-import SiteLayout from "@/components/layout/SiteLayout";
+import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 
 // ISR — re-validate every 60 seconds
@@ -38,12 +38,12 @@ export default async function HomePage() {
   if (!homePage) notFound();
 
   return (
-    <SiteLayout site={site}>
+    <TemplateLayout site={site}>
       <PageRenderer
         websiteId={site.website.id}
         slug={homePage.slug}
         page={homePage}
       />
-    </SiteLayout>
+    </TemplateLayout>
   );
 }

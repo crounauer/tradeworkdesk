@@ -72,6 +72,7 @@ export interface Website {
   logo_url: string | null;
   favicon_url: string | null;
   theme: Record<string, unknown>;
+  template_id: string | null;
   default_meta_title: string | null;
   default_meta_description: string | null;
   google_analytics_id: string | null;

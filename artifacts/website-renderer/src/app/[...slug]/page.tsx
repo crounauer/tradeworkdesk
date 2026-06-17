@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
-import SiteLayout from "@/components/layout/SiteLayout";
+import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 
 export const revalidate = 60;
@@ -50,12 +50,12 @@ export default async function DynamicPage({ params }: PageProps) {
   if (!page) notFound();
 
   return (
-    <SiteLayout site={site}>
+    <TemplateLayout site={site}>
       <PageRenderer
         websiteId={site.website.id}
         slug={page.slug}
         page={page}
       />
-    </SiteLayout>
+    </TemplateLayout>
   );
 }

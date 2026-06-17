@@ -8,7 +8,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByWebsiteId, getPreviewBlocksByPageId } from "@/lib/api";
-import SiteLayout from "@/components/layout/SiteLayout";
+import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
 
 // Always fresh — never cache preview renders
@@ -60,7 +60,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
   const blocks = await getPreviewBlocksByPageId(page.id);
 
   return (
-    <SiteLayout site={site} basePath={`/preview/${websiteId}`} previewToken={token}>
+    <TemplateLayout site={site} basePath={`/preview/${websiteId}`} previewToken={token}>
       <main>
         {blocks.map((block) => (
           <BlockRenderer key={block.id} block={block} />
@@ -79,6 +79,6 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
           </div>
         )}
       </main>
-    </SiteLayout>
+    </TemplateLayout>
   );
 }
