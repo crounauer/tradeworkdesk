@@ -1607,7 +1607,10 @@ router.post(
   "/platform/template-assets/:templateId",
   requireAuth,
   requireSuperAdmin,
-  templateAssetUpload.single("file"),
+  (req, res, next) => templateAssetUpload.single("file")(req, res, (err) => {
+    if (err) { res.status(400).json({ error: err.message }); return; }
+    next();
+  }),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     if (!req.file) { res.status(400).json({ error: "No file uploaded." }); return; }
     const { templateId } = req.params;

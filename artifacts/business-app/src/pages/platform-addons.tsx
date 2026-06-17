@@ -676,14 +676,6 @@ export default function PlatformAddons() {
                     </>
                   )}
                   <div className="pt-2 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Feature Keys</p>
-                    <div className="flex flex-wrap gap-1">
-                      {(addon.feature_keys || []).map(key => (
-                        <Badge key={key} variant="secondary" className="text-xs font-mono">{key}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="pt-2 space-y-1">
                     <Badge variant={addon.is_active ? "default" : "secondary"}>
                       {addon.is_active ? "Active" : "Inactive"}
                     </Badge>

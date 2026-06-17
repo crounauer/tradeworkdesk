@@ -85,12 +85,17 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 }, router);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error("Unhandled error:", err.message);
+  console.error("Unhandled error:", err.stack || err.message);
   if (err.name === "ZodError") {
     res.status(422).json({ error: "Response validation failed", details: err.message });
     return;
   }
-  res.status(500).json({ error: "Internal server error" });
+  // Multer errors (file size, wrong type, etc.)
+  if (err.name === "MulterError" || (err as { code?: string }).code === "LIMIT_FILE_SIZE") {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  res.status(500).json({ error: err.message || "Internal server error" });
 });
 
 export default app;
