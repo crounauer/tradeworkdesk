@@ -15,7 +15,9 @@ interface Props {
 }
 
 export default function ServicesBlock({ content }: Props) {
-  const { heading, services = [], columns = 3 } = content;
+  // Support both field names: 'services' (current) and 'items' (legacy editor name)
+  const services = (Array.isArray(content.services) ? content.services : Array.isArray(content.items) ? content.items : []) as Service[];
+  const { heading, columns = 3 } = content;
 
   return (
     <section style={{ padding: "64px 24px", backgroundColor: "#f9fafb" }}>

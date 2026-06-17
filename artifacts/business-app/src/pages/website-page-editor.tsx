@@ -295,7 +295,7 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
         <div className="space-y-3">
           <FieldRow label="Heading (optional)"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} placeholder="Section heading..." /></FieldRow>
           <FieldRow label="Content">
-            <Textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={6} placeholder="Enter your content here..." />
+            <Textarea value={String(c.html ?? "")} onChange={(e) => set("html", e.target.value)} rows={6} placeholder="Enter your content here..." />
           </FieldRow>
           <FieldRow label="Alignment">
             <Select value={String(c.align ?? "left")} onValueChange={(v) => set("align", v)}>
@@ -314,8 +314,8 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
         <div className="space-y-3">
           <FieldRow label="Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
           <FieldRow label="Subheading"><Input value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} /></FieldRow>
-          <FieldRow label="Button Text"><Input value={String(c.button_text ?? "")} onChange={(e) => set("button_text", e.target.value)} /></FieldRow>
-          <FieldRow label="Button URL"><Input value={String(c.button_url ?? "")} onChange={(e) => set("button_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <FieldRow label="Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
+          <FieldRow label="Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
           <div className="flex gap-3">
             <FieldRow label="Background">
               <div className="flex items-center gap-2">
@@ -334,7 +334,7 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       );
 
     case "services": {
-      const items = Array.isArray(c.items) ? c.items as Array<{ title: string; description: string; icon: string }> : [];
+      const items = Array.isArray(c.services) ? c.services as Array<{ title: string; description: string; icon: string }> : [];
       return (
         <div className="space-y-3">
           <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
@@ -343,16 +343,16 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
             {items.map((item, i) => (
               <Card key={i} className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; set("items", n); }} placeholder="🔥" className="w-16 text-center" />
-                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; set("items", n); }} placeholder="Service name" className="flex-1" />
-                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("items", items.filter((_, j) => j !== i))}>
+                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; set("services", n); }} placeholder="🔥" className="w-16 text-center" />
+                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; set("services", n); }} placeholder="Service name" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("services", items.filter((_, j) => j !== i))}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; set("items", n); }} placeholder="Short description..." rows={2} />
+                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; set("services", n); }} placeholder="Short description..." rows={2} />
               </Card>
             ))}
-            <Button variant="outline" size="sm" onClick={() => set("items", [...items, { title: "", description: "", icon: "⚙️" }])}>
+            <Button variant="outline" size="sm" onClick={() => set("services", [...items, { title: "", description: "", icon: "⚙️" }])}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Service
             </Button>
           </div>

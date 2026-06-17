@@ -9,7 +9,10 @@ interface Props {
 }
 
 export default function TextBlock({ content }: Props) {
-  const { html, text, align = "left" } = content;
+  // Support both field names: 'html' (current) and 'body' (legacy editor name)
+  const html = (content.html || content.body) as string | undefined;
+  const text = content.text as string | undefined;
+  const align = (content.align as "left" | "center" | "right") ?? "left";
 
   if (html) {
     return (

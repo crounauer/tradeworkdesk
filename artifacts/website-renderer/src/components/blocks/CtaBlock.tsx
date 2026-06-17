@@ -15,11 +15,12 @@ export default function CtaBlock({ content }: Props) {
   const {
     heading,
     subheading,
-    cta_text,
-    cta_url,
     background_color = "#f97316",
     text_color = "#ffffff",
   } = content;
+  // Support both field names: cta_text/cta_url (current) and button_text/button_url (legacy)
+  const cta_text = (content.cta_text || content.button_text) as string | undefined;
+  const cta_url = (content.cta_url || content.button_url) as string | undefined;
 
   return (
     <section
