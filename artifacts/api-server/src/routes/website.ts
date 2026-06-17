@@ -473,6 +473,9 @@ router.delete(
     res.sendStatus(204);
   }
 );
+
+router.post(
+  "/website/publish",
   requireAuth,
   requireTenant,
   requireRole("admin"),
