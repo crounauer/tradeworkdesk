@@ -1,5 +1,5 @@
 [build]
-buildCommand = "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @workspace/website-renderer build"
+buildCommand = "pnpm install --frozen-lockfile && pnpm --filter @workspace/website-renderer build"
 watchPatterns = ["artifacts/website-renderer/**", "package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml"]
 
 [deploy]
