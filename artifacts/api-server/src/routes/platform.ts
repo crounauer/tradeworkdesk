@@ -469,6 +469,18 @@ router.get("/platform/tenants/:id/billing-portal", requireAuth, requireSuperAdmi
   res.json({ url: session.url });
 });
 
+// GET /platform/tenants/:id/website-domains — list website domains for a tenant
+router.get("/platform/tenants/:id/website-domains", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { data, error } = await supabaseAdmin
+    .from("website_domains")
+    .select("id, domain, verification_status, ssl_status, is_active, is_primary, created_at")
+    .eq("tenant_id", id)
+    .order("created_at");
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
 // Public endpoint — returns PayPal surcharge config so portal can display fees to customers
 router.get("/platform/payment-fees", async (_req, res): Promise<void> => {
   const { data } = await supabaseAdmin

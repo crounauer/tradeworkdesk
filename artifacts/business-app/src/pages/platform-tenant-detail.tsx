@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -23,6 +23,7 @@ export default function PlatformTenantDetail() {
   const [form, setForm] = useState<Record<string, string>>({});
   const [confirmAction, setConfirmAction] = useState<{ action: string; status: string } | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [syncingDomain, setSyncingDomain] = useState<string | null>(null);
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["platform-tenant", params.id],
@@ -113,6 +114,34 @@ export default function PlatformTenantDetail() {
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const { data: websiteDomains, refetch: refetchDomains } = useQuery({
+    queryKey: ["platform-tenant-domains", params.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/website-domains`);
+      if (!res.ok) return [];
+      return res.json() as Promise<{ id: string; domain: string; verification_status: string; ssl_status: string; is_active: boolean; is_primary: boolean }[]>;
+    },
+    enabled: !!params.id,
+  });
+
+  const syncDomainToVercel = async (domain: string) => {
+    setSyncingDomain(domain);
+    try {
+      const res = await fetch("/api/platform/domains/sync-vercel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      toast({ title: "Domain synced", description: `${domain} added to Vercel` });
+    } catch (e) {
+      toast({ title: "Sync failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setSyncingDomain(null);
+    }
+  };
 
   const { data: tenantCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["platform-tenant-credits", params.id],
@@ -686,6 +715,50 @@ export default function PlatformTenantDetail() {
                   </div>
                 );
               })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {websiteDomains && websiteDomains.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-blue-500" /> Website Domains
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {websiteDomains.map(d => (
+                <div key={d.id} className="py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium font-mono">{d.domain}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline" className={`text-xs ${
+                        d.verification_status === "verified" ? "bg-green-50 text-green-700 border-green-200" :
+                        d.verification_status === "failed" ? "bg-red-50 text-red-700 border-red-200" :
+                        "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}>{d.verification_status}</Badge>
+                      <Badge variant="outline" className={`text-xs ${
+                        d.ssl_status === "active" ? "bg-green-50 text-green-700 border-green-200" :
+                        d.ssl_status === "failed" ? "bg-red-50 text-red-700 border-red-200" :
+                        "bg-slate-50 text-slate-600"
+                      }`}>SSL: {d.ssl_status}</Badge>
+                      {d.is_active && <Badge className="text-xs bg-green-600 text-white">Active</Badge>}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={syncingDomain === d.domain}
+                    onClick={() => syncDomainToVercel(d.domain)}
+                    title="Force-add this domain to Vercel renderer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncingDomain === d.domain ? "animate-spin" : ""}`} />
+                    {syncingDomain === d.domain ? "Syncing…" : "Sync to Vercel"}
+                  </Button>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
