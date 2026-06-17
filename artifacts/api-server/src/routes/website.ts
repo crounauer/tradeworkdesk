@@ -575,10 +575,13 @@ router.get(
   requireTenant,
   requireWebsiteBuilder(),
   async (_req: AuthenticatedRequest, res): Promise<void> => {
+    const KNOWN_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
+
     const { data, error } = await db
       .from("website_templates")
       .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, default_theme")
       .eq("is_active", true)
+      .in("slug", KNOWN_SLUGS)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to load templates" }); return; }
