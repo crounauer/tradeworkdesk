@@ -37,12 +37,8 @@ import {
   requirePlanFeature,
   type AuthenticatedRequest,
 } from "../middlewares/auth";
-import {
-  createCustomHostname,
-  deleteCustomHostname,
-  syncDomainStatus,
-  getDnsInstructions,
-} from "../lib/cloudflare-saas";
+import { resolveCname } from "node:dns/promises";
+import { getDnsInstructions } from "../lib/cloudflare-saas";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -144,19 +140,14 @@ router.post(
       return;
     }
 
-    // Provision on Cloudflare
-    const cf = await createCustomHostname(normDomain);
-
     const { data: domainRecord, error } = await db
       .from("website_domains")
       .insert({
         website_id: website.id,
         tenant_id: req.tenantId,
         domain: normDomain,
-        verification_status: cf.ok ? "pending" : "failed",
+        verification_status: "pending",
         ssl_status: "pending",
-        cf_hostname_id: cf.hostnameId || null,
-        verification_token: cf.ownershipToken || null,
         is_primary: true,
         is_active: false,
       })
@@ -168,17 +159,9 @@ router.post(
       return;
     }
 
-    const instructions = getDnsInstructions(
-      normDomain,
-      cf.ownershipToken,
-    );
+    const instructions = getDnsInstructions(normDomain);
 
-    res.status(201).json({
-      ...domainRecord,
-      cloudflare_configured: cf.ok,
-      cloudflare_error: cf.ok ? undefined : cf.error,
-      dns_instructions: instructions,
-    });
+    res.status(201).json({ ...domainRecord, dns_instructions: instructions });
   }
 );
 
@@ -193,17 +176,12 @@ router.delete(
 
     const { data: domain } = await db
       .from("website_domains")
-      .select("id, cf_hostname_id")
+      .select("id")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string; cf_hostname_id: string | null } | null };
+      .single() as { data: { id: string } | null };
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
-
-    // Remove from Cloudflare
-    if (domain.cf_hostname_id) {
-      await deleteCustomHostname(domain.cf_hostname_id);
-    }
 
     await db.from("website_domains").delete().eq("id", id);
     res.sendStatus(204);
@@ -220,33 +198,41 @@ router.post(
 
     const { data: domain } = await db
       .from("website_domains")
-      .select("id, domain, cf_hostname_id, verification_token")
+      .select("id, domain")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string; domain: string; cf_hostname_id: string | null; verification_token: string | null } | null };
+      .single() as { data: { id: string; domain: string } | null };
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
 
-    // If not yet provisioned on Cloudflare, try provisioning now
-    if (!domain.cf_hostname_id) {
-      const cf = await createCustomHostname(domain.domain);
-      if (!cf.ok) {
-        res.status(400).json({ error: cf.error || "Cloudflare provisioning failed. Check CF_ZONE_ID and CF_API_TOKEN are configured." });
-        return;
-      }
-      await db.from("website_domains").update({
-        cf_hostname_id: cf.hostnameId,
-        verification_token: cf.ownershipToken || null,
-        verification_status: "pending",
-      }).eq("id", id);
+    // DNS-based verification: check CNAME resolves to our platform target
+    const PLATFORM_TARGET = (process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk").toLowerCase();
+    let dnsOk = false;
+    try {
+      const addresses = await resolveCname(domain.domain);
+      dnsOk = addresses.some((a) => a.toLowerCase() === PLATFORM_TARGET || a.toLowerCase().endsWith(`.${PLATFORM_TARGET}`));
+    } catch {
+      // DNS not yet propagated — not an error, just not ready
     }
 
-    // Sync current status from Cloudflare
-    await syncDomainStatus(String(id));
+    const updates: Record<string, unknown> = {
+      dns_checked_at: new Date().toISOString(),
+    };
+
+    if (dnsOk) {
+      updates.verification_status = "verified";
+      updates.ssl_status = "active";  // SSL handled by Railway/platform
+      updates.is_active = true;
+      updates.activated_at = new Date().toISOString();
+    } else {
+      updates.verification_status = "pending";
+    }
+
+    await db.from("website_domains").update(updates).eq("id", id);
 
     const { data: updated } = await db
       .from("website_domains")
-      .select("id, domain, verification_status, ssl_status, is_active, cf_ownership_verified, cf_ssl_verified")
+      .select("id, domain, verification_status, ssl_status, is_active")
       .eq("id", id)
       .single() as { data: Record<string, unknown> | null };
 

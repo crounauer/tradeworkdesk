@@ -246,10 +246,9 @@ export async function syncDomainStatus(domainId: string): Promise<void> {
 /**
  * Returns the DNS records the tenant needs to configure for their domain.
  */
-export function getDnsInstructions(domain: string, ownershipToken?: string): {
+export function getDnsInstructions(domain: string): {
   cname: { type: string; name: string; value: string; ttl: string };
   www: { type: string; name: string; value: string; ttl: string };
-  ownership?: { type: string; name: string; value: string; ttl: string };
 } {
   const PLATFORM_DOMAIN = process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk";
 
@@ -266,15 +265,5 @@ export function getDnsInstructions(domain: string, ownershipToken?: string): {
       value: PLATFORM_DOMAIN,
       ttl: "Auto",
     },
-    ...(ownershipToken
-      ? {
-          ownership: {
-            type: "TXT",
-            name: `_cf-custom-hostname.${domain.replace(/^www\./, "")}`,
-            value: ownershipToken,
-            ttl: "Auto",
-          },
-        }
-      : {}),
   };
 }

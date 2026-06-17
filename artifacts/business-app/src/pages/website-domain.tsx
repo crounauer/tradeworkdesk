@@ -55,8 +55,7 @@ interface Domain {
   dns_instructions?: {
     cname: DnsRecord;
     www: DnsRecord;
-    ownership?: DnsRecord;
-  };
+  } | null;
 }
 
 function StatusBadge({ status, type }: { status: string; type: "verification" | "ssl" }) {
@@ -244,9 +243,6 @@ export default function WebsiteDomain() {
                       <tbody>
                         <DnsRow record={d.dns_instructions.cname} />
                         <DnsRow record={d.dns_instructions.www} />
-                        {d.dns_instructions.ownership && (
-                          <DnsRow record={d.dns_instructions.ownership} />
-                        )}
                       </tbody>
                     </table>
                   </div>
