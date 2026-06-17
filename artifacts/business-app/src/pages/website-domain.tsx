@@ -50,6 +50,7 @@ interface Domain {
   verification_status: "pending" | "verifying" | "verified" | "failed";
   ssl_status: "pending" | "provisioning" | "active" | "failed";
   is_active: boolean;
+  is_platform_subdomain: boolean;
   verification_token: string | null;
   dns_instructions?: {
     cname: DnsRecord;
@@ -111,6 +112,9 @@ export default function WebsiteDomain() {
     queryFn: () => apiFetch("/api/website/domains"),
   });
 
+  const platformDomain = domains.find((d) => d.is_platform_subdomain);
+  const customDomains = domains.filter((d) => !d.is_platform_subdomain);
+
   const addMutation = useMutation({
     mutationFn: (domain: string) =>
       apiFetch("/api/website/domains", {
@@ -157,20 +161,48 @@ export default function WebsiteDomain() {
         <Link href="/website">
           <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
         </Link>
-        <h1 className="text-2xl font-bold">Custom Domain</h1>
+        <h1 className="text-2xl font-bold">Website Domain</h1>
       </div>
 
       <p className="text-muted-foreground text-sm">
-        Connect your own domain (e.g. <code className="text-xs bg-muted px-1 rounded">www.myplumbingco.co.uk</code>) to your TradeSite website.
-        SSL is automatically provisioned once your DNS records are set.
+        Your site comes with a free address instantly. You can also connect your own domain (e.g. <code className="text-xs bg-muted px-1 rounded">www.myplumbingco.co.uk</code>) at any time.
       </p>
 
-      {/* Existing domains */}
+      {/* Free platform subdomain */}
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : (
+      ) : platformDomain ? (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-green-700 font-medium uppercase tracking-wide mb-1">Your free site address</p>
+                <CardTitle className="text-base font-mono text-green-900">{platformDomain.domain}</CardTitle>
+              </div>
+              <Badge variant="default" className="bg-green-600 gap-1">
+                <CheckCircle className="w-3 h-3" /> Live
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <a
+              href={`https://${platformDomain.domain}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-green-700 underline"
+            >
+              https://{platformDomain.domain}
+            </a>
+            <p className="text-xs text-green-700 mt-1">This address is always active — no setup needed.</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Custom domains */}
+      {!isLoading && customDomains.length > 0 && (
         <div className="space-y-4">
-          {domains.map((d) => (
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Custom Domain</h2>
+          {customDomains.map((d) => (
             <Card key={d.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -237,9 +269,7 @@ export default function WebsiteDomain() {
         </div>
       )}
 
-      {/* Add domain */}
-      {!adding ? (
-        <Button variant="outline" onClick={() => setAdding(true)}>
+      {/* Add custom domain */}\n      {!adding ? (\n        <div>\n          <h2 className=\"text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3\">Connect Your Own Domain</h2>\n          <Button variant=\"outline\" onClick={() => setAdding(true)}>
           <Globe className="w-4 h-4 mr-2" /> Add Custom Domain
         </Button>
       ) : (
@@ -267,6 +297,7 @@ export default function WebsiteDomain() {
           </CardContent>
         </Card>
       )}
+      </div>
 
       <AlertDialog open={!!deletingDomain} onOpenChange={(o) => !o && setDeletingDomain(null)}>
         <AlertDialogContent>

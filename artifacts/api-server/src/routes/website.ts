@@ -42,6 +42,52 @@ async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unk
   return data;
 }
 
+/** Convert a company name to a URL-safe slug: "North East Ecoheat Ltd" → "north-east-ecoheat-ltd" */
+function toSubdomainSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")   // strip anything not alphanumeric/space/dash
+    .trim()
+    .replace(/\s+/g, "-")            // spaces → hyphens
+    .replace(/-+/g, "-")             // collapse multiple hyphens
+    .slice(0, 40);                   // max length
+}
+
+/**
+ * Auto-provision a platform subdomain (e.g. gasboilersuk.tradeworkdesk.co.uk)
+ * for a newly created website. Always active — no DNS verification needed.
+ */
+async function provisionPlatformSubdomain(websiteId: string, tenantId: string, companyName: string): Promise<void> {
+  const base = process.env.PLATFORM_SUBDOMAIN_BASE || "tradeworkdesk.co.uk";
+  const baseSlug = toSubdomainSlug(companyName) || "site";
+
+  // Find a unique slug (append -2, -3 if already taken)
+  let slug = baseSlug;
+  for (let counter = 2; counter < 100; counter++) {
+    const { data: existing } = await db
+      .from("website_domains")
+      .select("id")
+      .eq("domain", `${slug}.${base}`)
+      .maybeSingle() as { data: { id: string } | null };
+    if (!existing) break;
+    slug = `${baseSlug}-${counter}`;
+  }
+
+  await db.from("website_domains").insert({
+    website_id: websiteId,
+    tenant_id: tenantId,
+    domain: `${slug}.${base}`,
+    is_platform_subdomain: true,
+    is_primary: false,
+    is_active: true,
+    verification_status: "verified",
+    ssl_status: "active",
+    cf_ownership_verified: false,
+    cf_ssl_verified: false,
+    activated_at: new Date().toISOString(),
+  });
+}
+
 function requireWebsiteBuilder() {
   return requirePlanFeature("website_builder");
 }
@@ -132,6 +178,12 @@ router.post(
       res.status(500).json({ error: "Failed to create website" });
       return;
     }
+
+    // Auto-provision a free platform subdomain (e.g. gasboilersuk.tradeworkdesk.co.uk)
+    const companyName = defaultName;
+    provisionPlatformSubdomain(String(website.id), req.tenantId!, companyName).catch((e) =>
+      console.error("[website] subdomain provision failed:", e)
+    );
 
     // If a template is chosen, seed default pages from it
     if (template_id) {
@@ -288,6 +340,11 @@ ${contactDetails.length ? `<ul style="list-style:none;padding:0;line-height:2">$
       res.status(500).json({ error: "Failed to create website" });
       return;
     }
+
+    // Auto-provision a free platform subdomain
+    provisionPlatformSubdomain(String(website.id), req.tenantId!, tradeName).catch((e) =>
+      console.error("[website/quickstart] subdomain provision failed:", e)
+    );
 
     // ── 2. Create pages ──────────────────────────────────────────────────────
     const pageRows = [

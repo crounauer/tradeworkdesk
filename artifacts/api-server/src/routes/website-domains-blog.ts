@@ -88,6 +88,8 @@ router.get(
       .order("created_at", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
     const domains = (data || []).map((d: Record<string, unknown>) => {
+      // Platform subdomains don't need DNS instructions — they're always active
+      if (d.is_platform_subdomain) return { ...d, dns_instructions: null };
       const instructions = getDnsInstructions(
         String(d.domain),
         d.verification_token ? String(d.verification_token) : undefined,
