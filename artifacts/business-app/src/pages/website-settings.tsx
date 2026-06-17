@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save, CheckCircle2, LayoutTemplate } from "lucide-react";
+import { ArrowLeft, Loader2, Save } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -36,16 +36,6 @@ interface Website {
   google_analytics_id: string | null;
   google_search_console_verification: string | null;
   social_links: Record<string, string> | null;
-}
-
-interface Template {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  thumbnail_url: string | null;
-  preview_url: string | null;
-  category: string | null;
 }
 
 export default function WebsiteSettings() {
@@ -149,7 +139,6 @@ export default function WebsiteSettings() {
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
-          <TabsTrigger value="template">Template</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding" className="space-y-4 pt-4">
@@ -216,115 +205,8 @@ export default function WebsiteSettings() {
           })}
         </TabsContent>
 
-        <TabsContent value="template" className="pt-4">
-          <TemplatePicker websiteId={website.id} currentTemplateId={website.template_id} />
-        </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function TemplatePicker({ websiteId, currentTemplateId }: { websiteId: string; currentTemplateId: string | null }) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: templates = [], isLoading } = useQuery<Template[]>({
-    queryKey: ["/api/website/templates"],
-    queryFn: () => apiFetch("/api/website/templates"),
-  });
-
-  const applyMutation = useMutation({
-    mutationFn: (templateId: string) =>
-      apiFetch("/api/website/apply-template", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: templateId }),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/website"] });
-      toast({ title: "Template applied", description: "Your site design has been updated." });
-    },
-    onError: (e: Error) => toast({ title: "Failed to apply template", description: e.message, variant: "destructive" }),
-  });
-
-  void websiteId;
-
-  if (isLoading) return <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
-
-  if (templates.length === 0) {
-    return (
-      <div className="text-center py-10 text-muted-foreground">
-        <LayoutTemplate className="w-8 h-8 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">No templates available yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Choose a design for your website. Switching templates changes your site's layout and colours.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {templates.map((t) => {
-          const isActive = currentTemplateId === t.id;
-          const isApplying = applyMutation.isPending && applyMutation.variables === t.id;
-          return (
-            <div
-              key={t.id}
-              onClick={() => !isActive && !applyMutation.isPending && applyMutation.mutate(t.id)}
-              className={`relative rounded-xl overflow-hidden transition-all ${
-                isActive
-                  ? "ring-2 ring-primary shadow-lg cursor-default"
-                  : "border border-border hover:border-primary/60 hover:shadow-md cursor-pointer"
-              }`}
-            >
-              {/* Thumbnail */}
-              {t.thumbnail_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.thumbnail_url} alt={t.name} className="w-full h-36 object-cover" />
-              ) : (
-                <div className={`w-full h-36 flex items-center justify-center ${
-                  isActive ? "bg-primary/10" : "bg-muted"
-                }`}>
-                  <LayoutTemplate className={`w-8 h-8 ${
-                    isActive ? "text-primary/60" : "text-muted-foreground/30"
-                  }`} />
-                </div>
-              )}
-
-              {/* Active banner across bottom of thumbnail */}
-              {isActive && (
-                <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-xs font-semibold py-1.5 text-center tracking-wide">
-                  ✓ Currently Active
-                </div>
-              )}
-
-              {/* Info */}
-              <div className={`p-3 ${
-                isActive ? "bg-primary/5 border-t-2 border-primary" : "bg-background"
-              }`}>
-                <p className={`font-semibold text-sm ${
-                  isActive ? "text-primary" : ""
-                }`}>{t.name}</p>
-                {t.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t.description}</p>
-                )}
-                {!isActive && (
-                  <p className="text-xs text-primary font-medium mt-2">
-                    {isApplying ? "Applying…" : "Click to apply →"}
-                  </p>
-                )}
-              </div>
-
-              {/* Applying spinner overlay */}
-              {isApplying && (
-                <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
