@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { MessageSquarePlus, AlertTriangle, Plus, FileText, Receipt, CalendarDays, MapPin, ChevronRight } from "lucide-react";
+import { MessageSquarePlus, AlertTriangle, Plus, FileText, Receipt, CalendarDays, MapPin, ChevronRight, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useCallback, lazy, Suspense } from "react";
 import { Link } from "wouter";
@@ -29,6 +29,7 @@ type DashboardJob = {
 type DashboardData = {
   todays_jobs?: DashboardJob[];
   upcoming_jobs?: DashboardJob[];
+  follow_up_required?: DashboardJob[];
   stats?: {
     total_jobs_today: number;
     completed_this_week: number;
@@ -71,6 +72,7 @@ export default function Dashboard() {
   const dashboard = homepageData?.dashboard as DashboardData | undefined;
   const todaysJobs = dashboard?.todays_jobs ?? [];
   const upcomingJobs = (dashboard?.upcoming_jobs ?? []).slice(0, 5);
+  const awaitingParts = (dashboard?.follow_up_required ?? []).filter(j => j.status === "awaiting_parts");
   const stats = dashboard?.stats;
 
   const checkJobLimit = useCallback(() => {
@@ -168,6 +170,51 @@ export default function Dashboard() {
               </Card>
             </Link>
           )}
+        </div>
+      )}
+
+      {/* Waiting on Parts */}
+      {hasJobManagement && awaitingParts.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Package className="w-5 h-5 text-orange-500" />
+              Waiting on Parts
+              <span className="text-sm font-medium bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{awaitingParts.length}</span>
+            </h2>
+            <Link href="/jobs?status=awaiting_parts" className="text-sm text-primary hover:underline">View all</Link>
+          </div>
+          <div className="space-y-2">
+            {awaitingParts.map(job => {
+              const dateStr = job.scheduled_date
+                ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+                : null;
+              return (
+                <Link key={job.id} href={`/jobs/${job.id}`}>
+                  <Card className="p-4 border border-orange-200 bg-orange-50/40 hover:border-orange-400 hover:shadow-sm transition-all cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <Package className="w-4 h-4 text-orange-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
+                          {dateStr && <span className="text-xs text-muted-foreground shrink-0">{dateStr}</span>}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                          {job.property_address && (
+                            <span className="flex items-center gap-1 truncate">
+                              <MapPin className="w-3 h-3 shrink-0" />{job.property_address}
+                            </span>
+                          )}
+                          <span className="shrink-0">{JOB_TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 
