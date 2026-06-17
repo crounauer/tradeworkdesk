@@ -29,7 +29,7 @@ export default function GalleryBlock({ content }: Props) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gridTemplateColumns: `repeat(auto-fill, minmax(${columns === 4 ? 180 : columns === 2 ? 300 : 220}px, 1fr))`,
             gap: 12,
           }}
         >

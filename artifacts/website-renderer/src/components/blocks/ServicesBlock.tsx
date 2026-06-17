@@ -30,7 +30,7 @@ export default function ServicesBlock({ content }: Props) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gridTemplateColumns: `repeat(auto-fill, minmax(${columns === 4 ? 200 : columns === 2 ? 280 : 240}px, 1fr))`,
             gap: 24,
           }}
         >
