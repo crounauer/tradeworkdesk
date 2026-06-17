@@ -266,37 +266,59 @@ function TemplatePicker({ websiteId, currentTemplateId }: { websiteId: string; c
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {templates.map((t) => {
           const isActive = currentTemplateId === t.id;
+          const isApplying = applyMutation.isPending && applyMutation.variables === t.id;
           return (
             <div
               key={t.id}
-              className={`relative border-2 rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-md ${
-                isActive ? "border-primary shadow-md" : "border-border hover:border-primary/50"
+              onClick={() => !isActive && !applyMutation.isPending && applyMutation.mutate(t.id)}
+              className={`relative rounded-xl overflow-hidden transition-all ${
+                isActive
+                  ? "ring-2 ring-primary shadow-lg cursor-default"
+                  : "border border-border hover:border-primary/60 hover:shadow-md cursor-pointer"
               }`}
-              onClick={() => !isActive && applyMutation.mutate(t.id)}
             >
+              {/* Thumbnail */}
               {t.thumbnail_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={t.thumbnail_url} alt={t.name} className="w-full h-36 object-cover" />
               ) : (
-                <div className="w-full h-36 bg-muted flex items-center justify-center">
-                  <LayoutTemplate className="w-8 h-8 text-muted-foreground/40" />
+                <div className={`w-full h-36 flex items-center justify-center ${
+                  isActive ? "bg-primary/10" : "bg-muted"
+                }`}>
+                  <LayoutTemplate className={`w-8 h-8 ${
+                    isActive ? "text-primary/60" : "text-muted-foreground/30"
+                  }`} />
                 </div>
               )}
-              <div className="p-3">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-sm">{t.name}</p>
-                  {isActive && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                </div>
-                {t.description && <p className="text-xs text-muted-foreground mt-0.5">{t.description}</p>}
-              </div>
+
+              {/* Active banner across bottom of thumbnail */}
               {isActive && (
-                <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
-                  Active
+                <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-xs font-semibold py-1.5 text-center tracking-wide">
+                  ✓ Currently Active
                 </div>
               )}
-              {!isActive && applyMutation.isPending && (
-                <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+
+              {/* Info */}
+              <div className={`p-3 ${
+                isActive ? "bg-primary/5 border-t-2 border-primary" : "bg-background"
+              }`}>
+                <p className={`font-semibold text-sm ${
+                  isActive ? "text-primary" : ""
+                }`}>{t.name}</p>
+                {t.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t.description}</p>
+                )}
+                {!isActive && (
+                  <p className="text-xs text-primary font-medium mt-2">
+                    {isApplying ? "Applying…" : "Click to apply →"}
+                  </p>
+                )}
+              </div>
+
+              {/* Applying spinner overlay */}
+              {isApplying && (
+                <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               )}
             </div>

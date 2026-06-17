@@ -1,6 +1,9 @@
 -- patch-049: Seed all 5 website templates
 -- Slugs must match TEMPLATE_MAP keys in TemplateLayout.tsx
 
+-- Remove legacy templates that are no longer supported
+DELETE FROM website_templates WHERE slug NOT IN ('classic', 'modern', 'bold', 'professional', 'minimal');
+
 INSERT INTO website_templates (name, slug, description, category, sort_order, default_pages, default_theme, is_active)
 VALUES
   (
