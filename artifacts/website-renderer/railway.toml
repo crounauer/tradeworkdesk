@@ -6,8 +6,6 @@ watchPatterns = ["artifacts/website-renderer/**", "package.json", "pnpm-workspac
 startCommand = "pnpm --filter @workspace/website-renderer start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
-healthcheckPath = "/"
-healthcheckTimeout = 30
 
 [env]
 NODE_ENV = "production"
