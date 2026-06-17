@@ -8,9 +8,10 @@ interface Props {
   site: SiteData;
   children: ReactNode;
   basePath?: string;
+  previewToken?: string;
 }
 
-export default function SiteLayout({ site, children, basePath }: Props) {
+export default function SiteLayout({ site, children, basePath, previewToken }: Props) {
   const { website, company } = site;
 
   const navPages = site.pages.filter((p) => p.show_in_nav);
@@ -26,6 +27,7 @@ export default function SiteLayout({ site, children, basePath }: Props) {
         pages={navPages}
         theme={website.theme as Record<string, string>}
         basePath={basePath}
+        previewToken={previewToken}
       />
       <div style={{ minHeight: "60vh" }}>{children}</div>
       <SiteFooter

@@ -71,7 +71,13 @@ router.get(
     // Provide a preview URL using the renderer base URL (no custom domain required)
     let rendererBase = (process.env.RENDERER_BASE_URL || "").replace(/\/$/, "");
     if (rendererBase && !rendererBase.startsWith("http")) rendererBase = `https://${rendererBase}`;
-    const previewUrl = rendererBase ? `${rendererBase}/preview/${website.id}` : null;
+    const previewSecret = process.env.RENDERER_PREVIEW_SECRET;
+    const previewToken = previewSecret
+      ? require("crypto").createHmac("sha256", previewSecret).update(website.id).digest("hex")
+      : null;
+    const previewUrl = rendererBase
+      ? `${rendererBase}/preview/${website.id}${previewToken ? `?token=${previewToken}` : ""}`
+      : null;
 
     res.json({ ...website, domains: domains || [], preview_url: previewUrl });
   }

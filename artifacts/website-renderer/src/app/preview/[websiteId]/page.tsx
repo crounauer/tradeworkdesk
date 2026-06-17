@@ -16,7 +16,7 @@ export const revalidate = 0;
 
 interface PageProps {
   params: Promise<{ websiteId: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; token?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -31,7 +31,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PreviewPage({ params, searchParams }: PageProps) {
   const { websiteId } = await params;
-  const { page: pageSlug } = await searchParams;
+  const { page: pageSlug, token } = await searchParams;
+
+  // Validate HMAC token when RENDERER_PREVIEW_SECRET is configured
+  const secret = process.env.RENDERER_PREVIEW_SECRET;
+  if (secret) {
+    const { createHmac, timingSafeEqual } = await import("crypto");
+    const expected = createHmac("sha256", secret).update(websiteId).digest("hex");
+    const provided = token ?? "";
+    const valid =
+      provided.length === expected.length &&
+      timingSafeEqual(Buffer.from(provided, "hex"), Buffer.from(expected, "hex"));
+    if (!valid) notFound();
+  }
 
   const site = await getSiteByWebsiteId(websiteId);
   if (!site) notFound();
@@ -48,7 +60,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
   const blocks = await getPreviewBlocksByPageId(page.id);
 
   return (
-    <SiteLayout site={site} basePath={`/preview/${websiteId}`}>
+    <SiteLayout site={site} basePath={`/preview/${websiteId}`} previewToken={token}>
       <main>
         {blocks.map((block) => (
           <BlockRenderer key={block.id} block={block} />
