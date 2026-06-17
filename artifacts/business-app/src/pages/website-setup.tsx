@@ -17,7 +17,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
-  ExternalLink, ChevronRight, Loader2, Eye, Zap, Pencil, Trash2,
+  ExternalLink, ChevronRight, Loader2, Eye, Zap, Pencil, Trash2, LayoutTemplate, CheckCircle2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -48,6 +48,7 @@ interface Website {
   status: "draft" | "published";
   published_at: string | null;
   theme: Record<string, string>;
+  template_id: string | null;
   domains: Array<{ id: string; domain: string; is_active: boolean; is_platform_subdomain: boolean; ssl_status: string; verification_status: string }>;
 }
 
@@ -142,6 +143,20 @@ export default function WebsiteSetup() {
           : "Your website is published. Connect a custom domain to make it findable.",
       });
     },
+  });
+
+  const applyTemplateMutation = useMutation({
+    mutationFn: (templateId: string) =>
+      apiFetch("/api/website/apply-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
+      toast({ title: "Template applied", description: "Your site design has been updated." });
+    },
+    onError: (e: Error) => toast({ title: "Failed to apply template", description: e.message, variant: "destructive" }),
   });
 
   if (featuresLoading || websiteLoading) {
@@ -350,6 +365,70 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
         <QuickCard href="/website/forms" icon={<MessageSquare className="w-5 h-5" />} title="Contact Forms" description="Manage enquiry forms and submissions" />
       </div>
+
+      {/* Template selector */}
+      {templates && templates.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold mb-3">Design Template</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {templates.map((t) => {
+              const isActive = website.template_id === t.id;
+              const isApplying = applyTemplateMutation.isPending && applyTemplateMutation.variables === t.id;
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => !isActive && !applyTemplateMutation.isPending && applyTemplateMutation.mutate(t.id)}
+                  className={`relative rounded-xl overflow-hidden transition-all ${
+                    isActive
+                      ? "ring-2 ring-primary shadow-md cursor-default"
+                      : "border border-border hover:border-primary/60 hover:shadow-sm cursor-pointer"
+                  }`}
+                >
+                  {/* Thumbnail */}
+                  {t.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={t.thumbnail_url} alt={t.name} className="w-full h-20 object-cover" />
+                  ) : (
+                    <div className={`w-full h-20 flex items-center justify-center ${
+                      isActive ? "bg-primary/10" : "bg-muted"
+                    }`}>
+                      <LayoutTemplate className={`w-6 h-6 ${
+                        isActive ? "text-primary/60" : "text-muted-foreground/30"
+                      }`} />
+                    </div>
+                  )}
+
+                  {/* Active banner */}
+                  {isActive && (
+                    <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-xs font-semibold py-1 text-center">
+                      ✓ Active
+                    </div>
+                  )}
+
+                  <div className={`px-2.5 py-2 ${
+                    isActive ? "bg-primary/5 border-t-2 border-primary" : "bg-background"
+                  }`}>
+                    <p className={`text-xs font-semibold truncate ${
+                      isActive ? "text-primary" : ""
+                    }`}>{t.name}</p>
+                    {!isActive && (
+                      <p className="text-xs text-muted-foreground">
+                        {isApplying ? "Applying…" : "Click to apply"}
+                      </p>
+                    )}
+                  </div>
+
+                  {isApplying && (
+                    <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={(o) => !deleteMutation.isPending && setShowDeleteConfirm(o)}>
