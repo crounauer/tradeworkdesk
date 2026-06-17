@@ -37,7 +37,7 @@ import {
   requirePlanFeature,
   type AuthenticatedRequest,
 } from "../middlewares/auth";
-import { resolveCname } from "node:dns/promises";
+import { resolveCname, resolve4 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 
@@ -211,14 +211,23 @@ router.post(
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
 
-    // DNS-based verification: check CNAME resolves to our platform target
+    // DNS-based verification: accept either
+    //   • CNAME → sites.tradeworkdesk.co.uk  (works for www subdomains)
+    //   • A     → 76.76.21.21                 (needed for apex domains — most registrars
+    //                                          won't allow CNAME at @)
     const PLATFORM_TARGET = (process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk").toLowerCase();
+    const VERCEL_APEX_IP = process.env.VERCEL_APEX_IP || "76.76.21.21";
     let dnsOk = false;
     try {
-      const addresses = await resolveCname(domain.domain);
-      dnsOk = addresses.some((a) => a.toLowerCase() === PLATFORM_TARGET || a.toLowerCase().endsWith(`.${PLATFORM_TARGET}`));
-    } catch {
-      // DNS not yet propagated — not an error, just not ready
+      const cnameAddresses = await resolveCname(domain.domain).catch(() => [] as string[]);
+      dnsOk = cnameAddresses.some((a) => a.toLowerCase() === PLATFORM_TARGET || a.toLowerCase().endsWith(`.${PLATFORM_TARGET}`));
+    } catch { /* ignore */ }
+
+    if (!dnsOk) {
+      try {
+        const aRecords = await resolve4(domain.domain).catch(() => [] as string[]);
+        dnsOk = aRecords.includes(VERCEL_APEX_IP);
+      } catch { /* ignore */ }
     }
 
     const updates: Record<string, unknown> = {

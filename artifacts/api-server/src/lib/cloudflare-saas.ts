@@ -245,25 +245,39 @@ export async function syncDomainStatus(domainId: string): Promise<void> {
 
 /**
  * Returns the DNS records the tenant needs to configure for their domain.
+ *
+ * Apex domains (e.g. example.co.uk) cannot use CNAME at @ on most registrars,
+ * so we instruct them to set an A record to Vercel's anycast IP instead.
+ * www subdomains always use CNAME.
  */
-export function getDnsInstructions(domain: string): {
+export function getDnsInstructions(domain: string, _verificationToken?: string): {
+  records: Array<{ type: string; name: string; value: string; ttl: string; note?: string }>;
+  /** @deprecated use records[] */
   cname: { type: string; name: string; value: string; ttl: string };
+  /** @deprecated use records[] */
   www: { type: string; name: string; value: string; ttl: string };
 } {
   const PLATFORM_DOMAIN = process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk";
+  // Vercel's anycast IP — used for A records on apex domains
+  const VERCEL_APEX_IP = "76.76.21.21";
 
-  return {
-    cname: {
-      type: "CNAME",
-      name: "@",
-      value: PLATFORM_DOMAIN,
-      ttl: "Auto",
-    },
-    www: {
-      type: "CNAME",
-      name: `www.${domain.replace(/^www\./, "")}`,
-      value: PLATFORM_DOMAIN,
-      ttl: "Auto",
-    },
-  };
+  const isApex = !domain.startsWith("www.");
+  const apexDomain = domain.replace(/^www\./, "");
+
+  const records = isApex
+    ? [
+        { type: "A",     name: "@",               value: VERCEL_APEX_IP,  ttl: "Auto", note: "Points your root domain to Vercel" },
+        { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points www to TradeWorkDesk" },
+      ]
+    : [
+        { type: "CNAME", name: domain, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points your domain to TradeWorkDesk" },
+      ];
+
+  // Legacy shape (kept for backward compat with existing UI code)
+  const legacyCname = isApex
+    ? { type: "A",     name: "@",               value: VERCEL_APEX_IP,  ttl: "Auto" }
+    : { type: "CNAME", name: domain,             value: PLATFORM_DOMAIN, ttl: "Auto" };
+  const legacyWww   = { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto" };
+
+  return { records, cname: legacyCname, www: legacyWww };
 }

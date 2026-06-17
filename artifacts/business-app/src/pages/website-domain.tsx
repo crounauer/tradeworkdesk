@@ -53,8 +53,9 @@ interface Domain {
   is_platform_subdomain: boolean;
   verification_token: string | null;
   dns_instructions?: {
-    cname: DnsRecord;
-    www: DnsRecord;
+    records?: DnsRecord[];
+    /** @deprecated */ cname: DnsRecord;
+    /** @deprecated */ www: DnsRecord;
   } | null;
 }
 
@@ -241,8 +242,9 @@ export default function WebsiteDomain() {
                         </tr>
                       </thead>
                       <tbody>
-                        <DnsRow record={d.dns_instructions.cname} />
-                        <DnsRow record={d.dns_instructions.www} />
+                        {(d.dns_instructions.records ?? [d.dns_instructions.cname, d.dns_instructions.www]).map((rec, i) => (
+                          <DnsRow key={i} record={rec} />
+                        ))}
                       </tbody>
                     </table>
                   </div>

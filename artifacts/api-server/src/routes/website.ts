@@ -20,6 +20,7 @@
 
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { addDomainToVercel } from "../lib/vercel";
 import {
   requireAuth,
   requireTenant,
@@ -86,6 +87,11 @@ async function provisionPlatformSubdomain(websiteId: string, tenantId: string, c
     cf_ssl_verified: false,
     activated_at: new Date().toISOString(),
   });
+
+  // Register with Vercel so the renderer serves traffic for this subdomain
+  addDomainToVercel(`${slug}.${base}`).catch((e) =>
+    console.error(`[vercel] addDomainToVercel(${slug}.${base}) failed:`, e)
+  );
 }
 
 function requireWebsiteBuilder() {
