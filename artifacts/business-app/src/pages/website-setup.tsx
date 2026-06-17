@@ -48,7 +48,7 @@ interface Website {
   status: "draft" | "published";
   published_at: string | null;
   theme: Record<string, string>;
-  domains: Array<{ id: string; domain: string; is_active: boolean; ssl_status: string; verification_status: string }>;
+  domains: Array<{ id: string; domain: string; is_active: boolean; is_platform_subdomain: boolean; ssl_status: string; verification_status: string }>;
 }
 
 interface Template {
@@ -131,12 +131,15 @@ export default function WebsiteSetup() {
       apiFetch("/api/website/publish", { method: "POST" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
-      const hasDomain = queryClient.getQueryData<WebsiteData>(["website"])?.domains?.some((d) => d.is_active);
+      const hasCustomDomain = website?.domains.some((d) => !d.is_platform_subdomain && d.is_active);
+      const platformSubdomain = website?.domains.find((d) => d.is_platform_subdomain);
       toast({
         title: "Website published!",
-        description: hasDomain
+        description: hasCustomDomain
           ? "Your website is now live."
-          : "Your website is published but won't be publicly visible until you connect a custom domain.",
+          : platformSubdomain
+          ? `Your site is live at ${platformSubdomain.domain}`
+          : "Your website is published. Connect a custom domain to make it findable.",
       });
     },
   });
@@ -254,10 +257,14 @@ export default function WebsiteSetup() {
   }
 
   // Website exists — show overview
-  const activeDomain = website.domains.find((d) => d.is_active);
-  const pendingDomains = website.domains.filter((d) => !d.is_active);
-  const previewUrl = activeDomain
-    ? `https://${activeDomain.domain}`
+  const platformDomain = website.domains.find((d) => d.is_platform_subdomain && d.is_active);
+  const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && d.is_active);
+  const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && !d.is_active);
+  // Show custom domain URL once active, otherwise fall back to the free platform subdomain
+  const liveUrl = activeCustomDomain
+    ? `https://${activeCustomDomain.domain}`
+    : platformDomain
+    ? `https://${platformDomain.domain}`
     : undefined;
 
   return (
@@ -295,28 +302,41 @@ export default function WebsiteSetup() {
       </div>
 
       {/* Status */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Badge variant={website.status === "published" ? "default" : "secondary"}>
-          {website.status === "published" ? "Live" : "Draft"}
+          {website.status === "published" ? "Published" : "Draft"}
         </Badge>
-        {activeDomain && (
-          <span className="text-sm text-muted-foreground">{activeDomain.domain}</span>
+        {liveUrl && (
+          <a
+            href={liveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary underline font-mono"
+          >
+            {liveUrl.replace("https://", "")}
+          </a>
+        )}
+        {activeCustomDomain && platformDomain && (
+          <Badge variant="outline" className="text-xs text-muted-foreground">
+            Free address also redirects here
+          </Badge>
         )}
         {pendingDomains.length > 0 && (
           <Badge variant="outline" className="text-amber-600 border-amber-300">
-            {pendingDomains.length} domain{pendingDomains.length > 1 ? "s" : ""} pending
+            {pendingDomains.length} custom domain{pendingDomains.length > 1 ? "s" : ""} pending
           </Badge>
         )}
       </div>
 
-      {/* No domain warning */}
-      {website.status === "published" && !activeDomain && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <Globe className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+      {/* Draft warning — no custom domain yet, show the free subdomain */}
+      {website.status === "published" && !activeCustomDomain && platformDomain && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <Globe className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
           <div>
-            <span className="font-medium">Not publicly visible.</span>{" "}
-            Your website is published but visitors can't find it yet — you need to{" "}
-            <Link href="/website/domain" className="underline hover:text-amber-900">connect a custom domain</Link>{" "}first.
+            Your site is live at{" "}
+            <a href={`https://${platformDomain.domain}`} target="_blank" rel="noopener noreferrer" className="font-mono underline">{platformDomain.domain}</a>.
+            {" "}Want your own address?{" "}
+            <Link href="/website/domain" className="underline hover:text-blue-900">Connect a custom domain</Link>.
           </div>
         </div>
       )}
