@@ -49,53 +49,24 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
 
   return (
     <SiteLayout site={site}>
-      {/* Preview banner */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 9999,
-          background: "#1e293b",
-          color: "#f1f5f9",
-          fontSize: "0.75rem",
-          fontFamily: "system-ui, sans-serif",
-          padding: "6px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        <span style={{ background: "#f97316", borderRadius: "4px", padding: "2px 8px", fontWeight: 600, fontSize: "0.7rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-          Preview
-        </span>
-        <span style={{ opacity: 0.7 }}>
-          {page.title} — {site.website.site_name}
-          {page.status === "draft" && " (draft)"}
-        </span>
-      </div>
-      {/* Push content below the banner */}
-      <div style={{ paddingTop: "32px" }}>
-        <main>
-          {blocks.map((block) => (
-            <BlockRenderer key={block.id} block={block} />
-          ))}
-          {blocks.length === 0 && (
-            <div
-              style={{
-                padding: "80px 24px",
-                textAlign: "center",
-                color: "#94a3b8",
-                fontFamily: "system-ui, sans-serif",
-              }}
-            >
-              <p style={{ fontSize: "1.125rem", marginBottom: 8 }}>This page has no content blocks yet.</p>
-              <p style={{ fontSize: "0.875rem" }}>Go to Website → Pages to start editing.</p>
-            </div>
-          )}
-        </main>
-      </div>
+      <main>
+        {blocks.map((block) => (
+          <BlockRenderer key={block.id} block={block} />
+        ))}
+        {blocks.length === 0 && (
+          <div
+            style={{
+              padding: "80px 24px",
+              textAlign: "center",
+              color: "#94a3b8",
+              fontFamily: "system-ui, sans-serif",
+            }}
+          >
+            <p style={{ fontSize: "1.125rem", marginBottom: 8 }}>This page has no content blocks yet.</p>
+            <p style={{ fontSize: "0.875rem" }}>Go to Website → Pages to start editing.</p>
+          </div>
+        )}
+      </main>
     </SiteLayout>
   );
 }
