@@ -39,6 +39,7 @@ import {
 } from "../middlewares/auth";
 import { resolveCname } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
+import { addDomainToRailway, removeDomainFromRailway } from "../lib/railway";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -176,12 +177,17 @@ router.delete(
 
     const { data: domain } = await db
       .from("website_domains")
-      .select("id")
+      .select("id, domain")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string } | null };
+      .single() as { data: { id: string; domain: string } | null };
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
+
+    // Remove from Railway (frees the SSL cert slot)
+    removeDomainFromRailway(domain.domain).catch((e) =>
+      console.error("[railway] removeDomainFromRailway failed:", e)
+    );
 
     await db.from("website_domains").delete().eq("id", id);
     res.sendStatus(204);
@@ -224,6 +230,10 @@ router.post(
       updates.ssl_status = "active";  // SSL handled by Railway/platform
       updates.is_active = true;
       updates.activated_at = new Date().toISOString();
+      // Provision SSL cert on Railway renderer
+      addDomainToRailway(domain.domain).catch((e) =>
+        console.error("[railway] addDomainToRailway failed:", e)
+      );
     } else {
       updates.verification_status = "pending";
     }
