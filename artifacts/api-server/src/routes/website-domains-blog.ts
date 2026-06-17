@@ -683,6 +683,48 @@ router.get(
   }
 );
 
+// ─── Canonical domain redirect check ─────────────────────────────────────────
+// Called by the renderer middleware to detect whether a platform subdomain
+// should 301-redirect to the tenant's active custom domain.
+
+router.get(
+  "/public/website/canonical-domain/:domain",
+  async (req, res): Promise<void> => {
+    if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { domain } = req.params;
+
+    // Find the website this domain belongs to
+    const { data: thisDomain } = await db
+      .from("website_domains")
+      .select("website_id, is_platform_subdomain")
+      .eq("domain", domain)
+      .maybeSingle() as { data: { website_id: string; is_platform_subdomain: boolean } | null };
+
+    if (!thisDomain?.is_platform_subdomain) {
+      // Not a platform subdomain — no redirect needed
+      res.json({ canonical: null });
+      return;
+    }
+
+    // Look for an active custom (non-platform) domain on the same website
+    const { data: customDomain } = await db
+      .from("website_domains")
+      .select("domain")
+      .eq("website_id", thisDomain.website_id)
+      .eq("is_platform_subdomain", false)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle() as { data: { domain: string } | null };
+
+    res.json({ canonical: customDomain?.domain ?? null });
+  }
+);
+
 // ─── Get page blocks for renderer ─────────────────────────────────────────────
 
 router.get(
