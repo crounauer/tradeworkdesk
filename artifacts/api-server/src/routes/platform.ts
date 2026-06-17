@@ -7,6 +7,7 @@ import { sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth } from "../lib/tenant-limits";
+import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 
 function sha256hex(data: string): string {
   return crypto.createHash("sha256").update(data).digest("hex");
@@ -1648,6 +1649,31 @@ router.delete("/platform/template-assets/:templateId/:filename", requireAuth, re
 
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.sendStatus(204);
+});
+
+// POST /platform/domains/sync-vercel — force-add or remove a domain from Vercel renderer
+router.post("/platform/domains/sync-vercel", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { domain, action = "add" } = req.body as { domain?: string; action?: "add" | "remove" };
+  if (!domain) { res.status(400).json({ error: "domain is required" }); return; }
+
+  try {
+    if (action === "remove") {
+      await removeDomainFromVercel(domain);
+    } else {
+      await addDomainToVercel(domain);
+    }
+    await supabaseAdmin.from("platform_audit_log").insert({
+      actor_id: req.userId,
+      actor_email: req.userEmail,
+      event_type: "domain_vercel_synced",
+      entity_type: "website_domain",
+      entity_id: null,
+      detail: { domain, action },
+    });
+    res.json({ ok: true, domain, action });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "Vercel sync failed" });
+  }
 });
 
 export default router;
