@@ -1,0 +1,25 @@
+# Fly.io config for tradeworkdesk api-server
+# Deploy from monorepo root: fly deploy
+# First-time setup: fly launch --no-deploy (then set secrets, then fly deploy)
+app = "tradeworkdesk-api"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "artifacts/api-server/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # Keep at least 1 machine running so setInterval schedulers stay alive
+  min_machines_running = 1
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

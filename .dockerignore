@@ -1,0 +1,20 @@
+# Exclude heavy dirs not needed by api-server build
+.git
+.github
+**/.env
+**/.env.*
+
+# node_modules everywhere (pnpm install runs in container)
+**/node_modules
+
+# Build outputs not needed
+**/dist
+**/.next
+
+# Other apps not needed by api-server
+artifacts/business-app
+artifacts/website-renderer
+
+# Misc
+**/*.md
+.DS_Store
