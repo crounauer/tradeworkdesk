@@ -138,6 +138,7 @@ export default function WebsiteDomain() {
         toast({ title: "Verification checked", description: "DNS may still be propagating. Check back in a few minutes." });
       }
     },
+    onError: (e: Error) => toast({ title: "Verification failed", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({

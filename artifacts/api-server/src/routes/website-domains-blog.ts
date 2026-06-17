@@ -218,13 +218,26 @@ router.post(
 
     const { data: domain } = await db
       .from("website_domains")
-      .select("id, cf_hostname_id")
+      .select("id, domain, cf_hostname_id, verification_token")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string; cf_hostname_id: string | null } | null };
+      .single() as { data: { id: string; domain: string; cf_hostname_id: string | null; verification_token: string | null } | null };
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
-    if (!domain.cf_hostname_id) { res.status(400).json({ error: "Domain not yet provisioned on Cloudflare" }); return; }
+
+    // If not yet provisioned on Cloudflare, try provisioning now
+    if (!domain.cf_hostname_id) {
+      const cf = await createCustomHostname(domain.domain);
+      if (!cf.ok) {
+        res.status(400).json({ error: cf.error || "Cloudflare provisioning failed. Check CF_ZONE_ID and CF_API_TOKEN are configured." });
+        return;
+      }
+      await db.from("website_domains").update({
+        cf_hostname_id: cf.hostnameId,
+        verification_token: cf.ownershipToken || null,
+        verification_status: "pending",
+      }).eq("id", id);
+    }
 
     // Sync current status from Cloudflare
     await syncDomainStatus(String(id));

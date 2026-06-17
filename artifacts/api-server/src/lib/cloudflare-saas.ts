@@ -252,12 +252,11 @@ export function getDnsInstructions(domain: string, ownershipToken?: string): {
   ownership?: { type: string; name: string; value: string; ttl: string };
 } {
   const PLATFORM_DOMAIN = process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk";
-  const isApex = !domain.startsWith("www.");
 
   return {
     cname: {
       type: "CNAME",
-      name: isApex ? "@" : domain,
+      name: "@",
       value: PLATFORM_DOMAIN,
       ttl: "Auto",
     },
