@@ -453,8 +453,26 @@ router.patch(
   }
 );
 
-router.post(
-  "/website/publish",
+router.delete(
+  "/website",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    // Delete in dependency order: blocks → page versions → pages → domains → website
+    await db.from("website_blocks").delete().eq("tenant_id", req.tenantId);
+    await db.from("website_page_versions").delete().eq("tenant_id", req.tenantId);
+    await db.from("website_pages").delete().eq("website_id", website.id);
+    await db.from("website_domains").delete().eq("website_id", website.id);
+    await db.from("websites").delete().eq("id", website.id);
+
+    res.sendStatus(204);
+  }
+);
   requireAuth,
   requireTenant,
   requireRole("admin"),

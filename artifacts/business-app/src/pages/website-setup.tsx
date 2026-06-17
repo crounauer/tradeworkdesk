@@ -17,8 +17,18 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
-  ExternalLink, ChevronRight, Loader2, Eye, Zap, Pencil,
+  ExternalLink, ChevronRight, Loader2, Eye, Zap, Pencil, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -58,6 +68,7 @@ export default function WebsiteSetup() {
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [creating, setCreating] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: website, isLoading: websiteLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -96,6 +107,19 @@ export default function WebsiteSetup() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
       toast({ title: "Website ready!", description: "Your site has been built and pre-filled with your business details. Review each page and tweak the text as needed." });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiFetch("/api/website", { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
+      qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
+      setShowDeleteConfirm(false);
+      toast({ title: "Website deleted", description: "Your website and all its pages have been permanently deleted." });
     },
     onError: (e: Error) => {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -253,6 +277,14 @@ export default function WebsiteSetup() {
               Publish Site
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="w-4 h-4 mr-1" /> Delete
+          </Button>
         </div>
       </div>
 
@@ -280,6 +312,29 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
         <QuickCard href="/website/forms" icon={<MessageSquare className="w-5 h-5" />} title="Contact Forms" description="Manage enquiry forms and submissions" />
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(o) => !deleteMutation.isPending && setShowDeleteConfirm(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete website?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{website.site_name}</strong> including all pages,
+              content blocks, blog posts, and connected domains. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Deleting…</> : "Delete Website"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
