@@ -149,9 +149,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const websiteNavItems = [
     { href: "/website", label: "My Website", icon: Globe2 },
-    { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
-    { href: "/website/blog", label: "Blog", icon: FileText },
-    { href: "/website/domain", label: "Domain", icon: Globe },
   ];
 
   const automationNavItems = [
