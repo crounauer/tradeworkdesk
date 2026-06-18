@@ -675,12 +675,12 @@ export default function WebsiteBlogEditor() {
                 {/* Content options */}
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground">Include in post:</p>
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <div className="space-y-1.5">
                     {CONTENT_OPTIONS.map(opt => (
-                      <label key={opt.id} className="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-slate-50 cursor-pointer" title={opt.description}>
+                      <label key={opt.id} className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 hover:bg-slate-100 cursor-pointer" title={opt.description}>
                         <input
                           type="checkbox"
-                          className="rounded shrink-0"
+                          className="rounded shrink-0 mt-0.5"
                           checked={contentOptions.has(opt.id)}
                           onChange={e => setContentOptions(prev => {
                             const next = new Set(prev);
@@ -688,10 +688,16 @@ export default function WebsiteBlogEditor() {
                             return next;
                           })}
                         />
-                        {opt.icon}
-                        <span className="text-xs truncate">{opt.label}</span>
+                        <div className="flex items-start gap-1.5 min-w-0">
+                          <span className="shrink-0 mt-0.5">{opt.icon}</span>
+                          <span className="text-xs leading-4 text-slate-700">
+                            <span className="font-medium text-slate-900">{opt.label}</span>
+                            <span className="block text-[11px] text-slate-500 mt-0.5">{opt.description}</span>
+                          </span>
+                        </div>
                       </label>
-                    ))}\n                  </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
