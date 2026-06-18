@@ -33,8 +33,9 @@ export default function AccreditationsBlock({ content }: Props) {
   const headingColor = isDark ? "#ffffff" : "#374151";
 
   return (
-    <section style={{ padding: "40px 24px", backgroundColor: resolvedBg }}>
-      <div style={{ maxWidth: 960, margin: "0 auto", textAlign: "center" }}>
+    <section style={{ padding: "40px 24px", backgroundColor: "transparent" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ backgroundColor: resolvedBg, borderRadius: 16, padding: "34px 28px", textAlign: "center" }}>
         {show_heading && heading && (
           <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 28, color: headingColor, letterSpacing: "0.04em" }}>
             {heading}
@@ -56,6 +57,7 @@ export default function AccreditationsBlock({ content }: Props) {
               )}
             </div>
           ))}
+        </div>
         </div>
       </div>
     </section>
