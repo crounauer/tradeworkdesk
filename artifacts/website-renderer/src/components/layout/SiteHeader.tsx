@@ -47,7 +47,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
   // Slightly darker shade for top bar
   const topBarBg = navBg + "dd";
 
-  const hasTopBar = !!(company?.email || company?.city || company?.gas_safe_number || company?.oftec_number);
+  const hasTopBar = !!(company?.phone || company?.email || company?.city || company?.gas_safe_number || company?.oftec_number);
 
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 50 }}>
@@ -74,6 +74,11 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
                   <span>✉</span> {company.email}
                 </a>
               )}
+                            {company?.phone && (
+                              <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: navText, textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}>
+                                <span>📞</span> {company.phone}
+                              </a>
+                            )}
               {company?.city && (
                 <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <span>📍</span> {company.city}{company.county ? `, ${company.county}` : ""}

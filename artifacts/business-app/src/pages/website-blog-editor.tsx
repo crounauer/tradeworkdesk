@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Save, Globe, Loader2, Sparkles, ChevronDown, ChevronUp,
-  AlertTriangle, CreditCard, Wand2, FileText, RefreshCw, ZapOff, Image, List, HelpCircle, GitCompare, BarChart2, Lightbulb, CheckSquare,
+  AlertTriangle, CreditCard, Wand2, FileText, RefreshCw, ZapOff, Image, List, HelpCircle, GitCompare, BarChart2, Lightbulb, CheckSquare, ExternalLink,
 } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
@@ -114,6 +114,15 @@ export default function WebsiteBlogEditor() {
     queryFn: () => apiFetch(`/api/website/blog/${params.id}`),
     enabled: !!params.id,
   });
+
+  // Load domain for live preview link
+  const { data: domains = [] } = useQuery<{ domain: string; is_platform_subdomain: boolean; status: string }[]>({
+    queryKey: ["/api/website/domains"],
+    queryFn: () => apiFetch("/api/website/domains"),
+  });
+  const liveDomain = domains.find(d => d.status === "active" && !d.is_platform_subdomain)?.domain
+    ?? domains.find(d => d.is_platform_subdomain)?.domain
+    ?? null;
 
   // Load AI credits
   const { data: creditsData } = useQuery<AiCredits[]>({
@@ -295,6 +304,14 @@ export default function WebsiteBlogEditor() {
               Publish
             </Button>
           )}
+                    {post.status === "published" && liveDomain && (
+                      <Button variant="outline" asChild>
+                        <a href={`https://${liveDomain}/blog/${post.slug}`} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-4 h-4 mr-1.5" />
+                          View post
+                        </a>
+                      </Button>
+                    )}
           <Button
             onClick={() => saveMutation.mutate()}
             disabled={!dirty || saveMutation.isPending}
