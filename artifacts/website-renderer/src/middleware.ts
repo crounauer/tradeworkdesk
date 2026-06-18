@@ -43,10 +43,14 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Pass the domain to the route via a header
-  const res = NextResponse.next();
-  res.headers.set("x-tenant-domain", domain);
-  return res;
+  // Pass the domain to the route as a request header so server components can
+  // read it via headers(). Response headers set on NextResponse.next() are NOT
+  // visible to server components — only request headers are.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-tenant-domain", domain);
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 
 export const config = {
