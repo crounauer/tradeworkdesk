@@ -872,24 +872,30 @@ router.post(
 
     // ── 3. Create pages from template default_pages ─────────────────────────
     const defaultPages = (template.default_pages as Array<Record<string, unknown>>) || [];
-    type PageRow = { website_id: string; tenant_id: string; slug: string; title: string; page_type: string; status: string; show_in_nav: boolean; nav_label: string | null; nav_order: number; published_at: string | null };
+    type PageRow = { website_id: unknown; tenant_id: string; slug: string; title: string; page_type: string; status: string; show_in_nav: boolean; nav_label: string | null; nav_order: number };
     const pageRows: PageRow[] = defaultPages.map((p, i) => ({
-      website_id: String(website.id),
+      website_id: website.id,
       tenant_id: req.tenantId!,
-      slug: String(p.slug || ""),
+      // Normalise empty-string slug to "home" for the home page to avoid potential constraint edge cases
+      slug: p.slug === "" || p.page_type === "home" ? "home" : String(p.slug || "").toLowerCase().replace(/[^a-z0-9-]/g, "-"),
       title: String(p.title || "Page"),
       page_type: String(p.page_type || "custom"),
-      status: "published",
+      status: "draft",
       show_in_nav: Boolean(p.show_in_nav),
       nav_label: p.nav_label ? String(p.nav_label) : null,
       nav_order: typeof p.nav_order === "number" ? p.nav_order : i + 1,
-      published_at: new Date().toISOString(),
     }));
 
-    const { data: pages } = await db
+    const { data: pages, error: pagesError } = await db
       .from("website_pages")
       .insert(pageRows)
-      .select("id, slug, page_type") as { data: Array<{ id: string; slug: string; page_type: string }> | null };
+      .select("id, slug, page_type") as { data: Array<{ id: string; slug: string; page_type: string }> | null; error: { message: string; code: string } | null };
+
+    if (pagesError || !pages?.length) {
+      console.error("[apply-template] page insert failed:", pagesError);
+      res.status(500).json({ error: "Failed to create pages", detail: pagesError?.message });
+      return;
+    }
 
     // ── 4. Ensure a contact form exists ─────────────────────────────────────
     const { data: existingForm } = await db
@@ -933,7 +939,7 @@ router.post(
       // Other template slugs can be added here in future
 
       if (homeBlocks.length > 0) {
-        await db.from("website_blocks").insert(
+        const { error: blocksError } = await db.from("website_blocks").insert(
           homeBlocks.map((b, i) => ({
             page_id: homePageId,
             tenant_id: req.tenantId,
@@ -943,10 +949,18 @@ router.post(
             is_visible: true,
           }))
         );
+        if (blocksError) {
+          console.error("[apply-template] block insert failed:", blocksError);
+        }
       }
     }
 
-    // ── 6. Publish the website ───────────────────────────────────────────────
+    // ── 6. Publish all pages and the website ────────────────────────────────
+    await db
+      .from("website_pages")
+      .update({ status: "published", published_at: new Date().toISOString() })
+      .eq("website_id", website.id);
+
     await db
       .from("websites")
       .update({ status: "published", published_at: new Date().toISOString() })
