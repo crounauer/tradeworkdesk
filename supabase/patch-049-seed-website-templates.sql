@@ -76,5 +76,6 @@ ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,
   sort_order = EXCLUDED.sort_order,
+  default_pages = EXCLUDED.default_pages,
   default_theme = EXCLUDED.default_theme,
   is_active = EXCLUDED.is_active;
