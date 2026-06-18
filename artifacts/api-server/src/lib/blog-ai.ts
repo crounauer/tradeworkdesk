@@ -34,12 +34,15 @@ export interface BlogAiResult {
 
 const GBP_PER_USD = 0.79;
 const MARKUP_MULTIPLIER = 8.5; // cost + 750%
+const BLOG_IMAGE_COST_USD = 0.04;
 
 function calcCredits(costUsd: number): number {
   // 1 credit = £0.01 (1 penny). Charge at cost+100%.
   const pence = costUsd * GBP_PER_USD * MARKUP_MULTIPLIER * 100;
   return Math.max(1, Math.ceil(pence));
 }
+
+export const BLOG_IMAGE_CREDITS_ESTIMATE = calcCredits(BLOG_IMAGE_COST_USD);
 
 const SYSTEM_PROMPT_BASE = (companyName?: string, tradeType?: string) =>
   `You are an expert copywriter specialising in trade and home services businesses${tradeType ? `, particularly ${tradeType}` : ""}.
@@ -167,6 +170,56 @@ export interface BlogImageGenerationResult {
   creditsUsed: number;
 }
 
+async function generateBlogImageAsset(
+  prompt: string,
+  options: {
+    folder: string;
+    promptPrefix: string;
+    operation: "blog_featured_image" | "blog_inline_image";
+    size?: "1024x1024" | "512x512";
+  },
+  context?: { tenantId?: string; userId?: string },
+): Promise<BlogImageGenerationResult> {
+  const enhancedPrompt = `${options.promptPrefix} ${prompt}. High quality, professional appearance, suitable for plumbing, heating, or gas engineer services. Clean, modern design.`;
+  const buffer = await generateImageBuffer(enhancedPrompt, options.size ?? "1024x1024");
+
+  const fileName = `${options.folder}/${crypto.randomUUID()}.png`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("website-images")
+    .upload(fileName, buffer, {
+      contentType: "image/png",
+      upsert: false,
+    });
+
+  let publicUrl: string;
+  if (uploadError) {
+    console.error("[blog-ai] Failed to upload blog image:", uploadError);
+    publicUrl = `data:image/png;base64,${buffer.toString("base64")}`;
+  } else {
+    const { data: urlData } = supabaseAdmin.storage
+      .from("website-images")
+      .getPublicUrl(fileName);
+    publicUrl = urlData.publicUrl;
+  }
+
+  if (context?.tenantId) {
+    void trackAiUsage({
+      tenantId: context.tenantId,
+      userId: context.userId,
+      operation: options.operation,
+      module: "website",
+      model: "dall-e-3",
+      imagesGenerated: 1,
+    });
+  }
+
+  return {
+    imageUrl: publicUrl,
+    costUsd: BLOG_IMAGE_COST_USD,
+    creditsUsed: calcCredits(BLOG_IMAGE_COST_USD),
+  };
+}
+
 /**
  * Generate a featured image for a blog post using DALL-E.
  * Uploads to Supabase and tracks usage.
@@ -176,55 +229,31 @@ export async function generateBlogFeaturedImage(
   context?: { tenantId?: string; userId?: string },
   size: "1024x1024" | "512x512" = "1024x1024",
 ): Promise<BlogImageGenerationResult> {
-  // Enhance prompt with professional context
-  const enhancedPrompt = `Professional blog header image for a trade services blog. ${prompt}. 
-High quality, professional appearance, suitable for plumbing, heating, or gas engineer services.
-Clean, modern design.`;
-
-  // Generate image via DALL-E
-  const buffer = await generateImageBuffer(enhancedPrompt, size);
-
-  // Upload to Supabase website-images bucket
-  const fileName = `blog-featured-images/${crypto.randomUUID()}.png`;
-  const { error: uploadError } = await supabaseAdmin.storage
-    .from("website-images")
-    .upload(fileName, buffer, {
-      contentType: "image/png",
-      upsert: false,
-    });
-
-  let publicUrl: string;
-
-  if (uploadError) {
-    // Fallback: return as data URI if upload fails
-    console.error("[blog-ai] Failed to upload blog image:", uploadError);
-    publicUrl = `data:image/png;base64,${buffer.toString("base64")}`;
-  } else {
-    // Get public URL
-    const { data: urlData } = supabaseAdmin.storage
-      .from("website-images")
-      .getPublicUrl(fileName);
-    publicUrl = urlData.publicUrl;
-  }
-
-  // Track usage (fire-and-forget)
-  if (context?.tenantId) {
-    void trackAiUsage({
-      tenantId: context.tenantId,
-      userId: context.userId,
+  return generateBlogImageAsset(
+    prompt,
+    {
+      folder: "blog-featured-images",
+      promptPrefix: "Professional blog header image for a trade services blog.",
       operation: "blog_featured_image",
-      module: "website",
-      model: "dall-e-3",
-      imagesGenerated: 1,
-    });
-  }
+      size,
+    },
+    context,
+  );
+}
 
-  // DALL-E-3: $0.040 per image (1024x1024)
-  const costUsd = 0.04;
-
-  return {
-    imageUrl: publicUrl,
-    costUsd,
-    creditsUsed: calcCredits(costUsd),
-  };
+export async function generateBlogInlineImage(
+  prompt: string,
+  context?: { tenantId?: string; userId?: string },
+  size: "1024x1024" | "512x512" = "1024x1024",
+): Promise<BlogImageGenerationResult> {
+  return generateBlogImageAsset(
+    prompt,
+    {
+      folder: "blog-inline-images",
+      promptPrefix: "Professional in-article image for a trade services blog.",
+      operation: "blog_inline_image",
+      size,
+    },
+    context,
+  );
 }

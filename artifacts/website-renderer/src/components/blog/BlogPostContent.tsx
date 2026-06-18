@@ -12,6 +12,7 @@ type RenderBlock =
   | { type: "unordered-list"; items: string[] }
   | { type: "ordered-list"; items: string[] }
   | { type: "table"; rows: string[][] }
+  | { type: "image"; src: string; alt: string }
   | { type: "image-placeholder"; text: string };
 
 function getContentText(content: unknown): string {
@@ -68,6 +69,13 @@ function parseContentBlocks(content: string): RenderBlock[] {
     const imageMatch = line.match(/^\[IMAGE:\s*(.+?)\]$/i);
     if (imageMatch) {
       blocks.push({ type: "image-placeholder", text: imageMatch[1] });
+      i += 1;
+      continue;
+    }
+
+    const markdownImageMatch = line.match(/^!\[(.*?)\]\((.+)\)$/);
+    if (markdownImageMatch) {
+      blocks.push({ type: "image", alt: markdownImageMatch[1].trim(), src: markdownImageMatch[2].trim() });
       i += 1;
       continue;
     }
@@ -138,6 +146,7 @@ function parseContentBlocks(content: string): RenderBlock[] {
       const paragraphLine = (lines[i] ?? "").trim();
       if (!paragraphLine) break;
       if (/^\[IMAGE:\s*.+\]$/i.test(paragraphLine)) break;
+      if (/^!\[(.*?)\]\((.+)\)$/.test(paragraphLine)) break;
       if (/^(#{2,3})\s+/.test(paragraphLine)) break;
       if (/^[-*]\s+/.test(paragraphLine)) break;
       if (/^\d+\.\s+/.test(paragraphLine)) break;
@@ -258,6 +267,22 @@ export default function BlogPostContent({ post }: Props) {
                   </tbody>
                 </table>
               </div>
+            );
+          }
+
+          if (block.type === "image") {
+            return (
+              <figure key={i} style={{ margin: "0 0 28px" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={block.src}
+                  alt={block.alt || "Blog image"}
+                  style={{ width: "100%", borderRadius: 10, border: "1px solid #e5e7eb", maxHeight: 520, objectFit: "cover" }}
+                />
+                {block.alt && (
+                  <figcaption style={{ marginTop: 8, fontSize: "0.85rem", color: "#6b7280" }}>{block.alt}</figcaption>
+                )}
+              </figure>
             );
           }
 

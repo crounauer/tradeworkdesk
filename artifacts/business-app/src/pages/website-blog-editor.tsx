@@ -111,6 +111,8 @@ export default function WebsiteBlogEditor() {
   const [contentOptions, setContentOptions] = useState<Set<string>>(new Set(["cta"]));
   const [imageGenerationPrompt, setImageGenerationPrompt] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
+  const [inlineImageCount, setInlineImageCount] = useState(1);
+  const [generatingInlineImages, setGeneratingInlineImages] = useState(false);
 
   // Load post
   const { data: post, isLoading } = useQuery<BlogPost>({
@@ -171,6 +173,7 @@ export default function WebsiteBlogEditor() {
           slug: slug.trim(),
           content: bodyText,
           excerpt: excerpt.trim() || null,
+          featured_image_url: featuredImageUrl,
           meta_title: metaTitle.trim() || null,
           meta_description: metaDescription.trim() || null,
         }),
@@ -292,7 +295,7 @@ export default function WebsiteBlogEditor() {
       setFeaturedImageUrl(data.imageUrl ?? null);
       setImageGenerationPrompt("");
       setDirty(true);
-      setAiCredits(aiCredits! - (data.creditsUsed ?? 1));
+      setAiCredits(prev => (prev == null ? prev : Math.max(0, prev - (data.creditsUsed ?? 1))));
       qc.invalidateQueries({ queryKey: ["billing-credits"] });
       toast({
         title: "Image generated",
@@ -302,6 +305,57 @@ export default function WebsiteBlogEditor() {
       toast({ title: "Image Generation Error", description: (err as Error).message, variant: "destructive" });
     } finally {
       setGeneratingImage(false);
+    }
+  }
+
+  async function generateInlineImages() {
+    const placeholderCount = (bodyText.match(/^\[IMAGE:\s*.+\]$/gim) ?? []).length;
+    if (placeholderCount === 0) {
+      toast({ title: "No image placeholders", description: "Add [IMAGE: description] lines in your content first.", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingInlineImages(true);
+    try {
+      const res = await fetch(`/api/website/blog/${params.id}/generate-inline-images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          count: inlineImageCount,
+        }),
+      });
+
+      const data = await res.json() as {
+        content?: string;
+        generated_count?: number;
+        credits_used?: number;
+        credits_remaining?: number;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        toast({ title: "Inline Image Generation Error", description: data.error ?? "Failed to generate inline images", variant: "destructive" });
+        return;
+      }
+
+      if (data.content != null) {
+        setBodyText(data.content);
+        setDirty(true);
+      }
+
+      if (data.credits_remaining != null) {
+        setAiCredits(data.credits_remaining);
+      }
+
+      qc.invalidateQueries({ queryKey: ["billing-credits"] });
+      toast({
+        title: "Inline images generated",
+        description: `Generated ${data.generated_count ?? 0} image${(data.generated_count ?? 0) === 1 ? "" : "s"} · Used ${data.credits_used ?? 0} credits`,
+      });
+    } catch (err) {
+      toast({ title: "Inline Image Generation Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setGeneratingInlineImages(false);
     }
   }
 
@@ -325,6 +379,7 @@ export default function WebsiteBlogEditor() {
   }
 
   const creditsInPounds = aiCredits != null ? `£${(aiCredits / 100).toFixed(2)}` : null;
+  const imagePlaceholderCount = (bodyText.match(/^\[IMAGE:\s*.+\]$/gim) ?? []).length;
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
@@ -625,6 +680,38 @@ export default function WebsiteBlogEditor() {
                     {aiRunning === "meta_description" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-500" />}
                     Generate meta description
                   </Button>
+                </div>
+
+                <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-slate-700">In-post images</p>
+                    <span className="text-xs text-muted-foreground">{imagePlaceholderCount} placeholder{imagePlaceholderCount === 1 ? "" : "s"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs shrink-0" htmlFor="inline-image-count">Generate</Label>
+                    <Input
+                      id="inline-image-count"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={inlineImageCount}
+                      onChange={(e) => setInlineImageCount(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+                      className="h-8 text-xs"
+                      disabled={generatingInlineImages || imagePlaceholderCount === 0}
+                    />
+                    <span className="text-xs text-muted-foreground">image{inlineImageCount === 1 ? "" : "s"}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2 text-xs"
+                    onClick={generateInlineImages}
+                    disabled={generatingInlineImages || imagePlaceholderCount === 0 || !params.id}
+                  >
+                    {generatingInlineImages ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5 text-purple-500" />}
+                    Generate in-post images
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">Replaces [IMAGE: ...] placeholders with generated images in the post content.</p>
                 </div>
 
                 <Button size="sm" variant="ghost" className="w-full text-xs text-muted-foreground" asChild>

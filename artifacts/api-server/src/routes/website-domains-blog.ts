@@ -15,6 +15,7 @@
  *   DELETE /api/website/blog/:id             — delete post
  *   POST   /api/website/blog/:id/publish     — publish post
  *   POST   /api/website/blog/:id/generate-featured-image — generate featured image with AI
+ *   POST   /api/website/blog/:id/generate-inline-images  — generate in-post images from [IMAGE: ...] placeholders
  *   GET    /api/website/blog/categories      — list categories
  *
  * Forms:
@@ -45,7 +46,7 @@ import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 import { sendSimpleNotification } from "../lib/email";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
-import { runBlogAi, generateBlogFeaturedImage, type BlogAiOperation } from "../lib/blog-ai";
+import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -400,6 +401,31 @@ router.get(
 
 const AI_BLOG_FEATURE = "ai_blog_writing";
 
+function getContentText(content: unknown): string {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+
+  return content
+    .map((block) => {
+      if (typeof block === "string") return block.trim();
+      const value = block as Record<string, unknown>;
+      return String(value.text || value.body || value.content || "").trim();
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function extractImagePlaceholders(content: string): Array<{ raw: string; description: string }> {
+  const placeholders: Array<{ raw: string; description: string }> = [];
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^\[IMAGE:\s*(.+?)\]$/i);
+    if (match) placeholders.push({ raw: trimmed, description: match[1].trim() });
+  }
+  return placeholders;
+}
+
 router.post(
   "/website/blog/ai-assist",
   requireAuth,
@@ -668,7 +694,7 @@ router.post(
     }
 
     const credits = await getAddonCredits(req.tenantId!, "ai_blog_writing");
-    if (credits < 1) {
+    if (!credits || credits.credits_remaining < BLOG_IMAGE_CREDITS_ESTIMATE) {
       res.status(403).json({ error: "Insufficient credits to generate image" });
       return;
     }
@@ -705,6 +731,102 @@ router.post(
       console.error("Failed to generate featured image:", error);
       res.status(500).json({ error: "Failed to generate featured image" });
     }
+  }
+);
+
+router.post(
+  "/website/blog/:id/generate-inline-images",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id: postId } = req.params;
+    const { count } = req.body as { count?: number };
+    const requestedCount = Math.max(1, Math.min(10, Number(count) || 1));
+
+    const hasAddon = await hasActiveAddon(req.tenantId!, AI_BLOG_FEATURE);
+    if (!hasAddon) {
+      res.status(403).json({ error: "AI Blog Writing addon not active" });
+      return;
+    }
+
+    const { data: post, error: postError } = await db
+      .from("website_blog_posts")
+      .select("id, title, content")
+      .eq("id", postId)
+      .eq("tenant_id", req.tenantId)
+      .single() as { data: { id: string; title: string; content: unknown } | null; error: unknown };
+
+    if (postError || !post) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    const contentText = getContentText(post.content);
+    const placeholders = extractImagePlaceholders(contentText);
+    if (placeholders.length === 0) {
+      res.status(400).json({ error: "No [IMAGE: ...] placeholders found in this post" });
+      return;
+    }
+
+    const targetCount = Math.min(requestedCount, placeholders.length);
+    const neededCredits = targetCount * BLOG_IMAGE_CREDITS_ESTIMATE;
+    const credits = await getAddonCredits(req.tenantId!, AI_BLOG_FEATURE);
+    if (!credits || credits.credits_remaining < neededCredits) {
+      res.status(403).json({
+        error: `Insufficient credits. Need ${neededCredits} credits to generate ${targetCount} image${targetCount === 1 ? "" : "s"}.`,
+        needed_credits: neededCredits,
+        credits_remaining: credits?.credits_remaining ?? 0,
+      });
+      return;
+    }
+
+    let updatedContent = contentText;
+    let totalCreditsUsed = 0;
+    let totalCostUsd = 0;
+    const generatedImages: Array<{ description: string; imageUrl: string }> = [];
+
+    for (let i = 0; i < targetCount; i += 1) {
+      const placeholder = placeholders[i];
+      const result = await generateBlogInlineImage(placeholder.description, {
+        tenantId: req.tenantId,
+        userId: req.userId,
+      });
+
+      const creditDeducted = await deductAddonCreditsAmount(req.tenantId!, AI_BLOG_FEATURE, result.creditsUsed);
+      if (!creditDeducted) {
+        res.status(403).json({ error: "Insufficient credits while generating images. Please top up and retry." });
+        return;
+      }
+
+      updatedContent = updatedContent.replace(placeholder.raw, `![${placeholder.description}](${result.imageUrl})`);
+      totalCreditsUsed += result.creditsUsed;
+      totalCostUsd += result.costUsd;
+      generatedImages.push({ description: placeholder.description, imageUrl: result.imageUrl });
+    }
+
+    const { error: updateError } = await db
+      .from("website_blog_posts")
+      .update({ content: updatedContent })
+      .eq("id", postId)
+      .eq("tenant_id", req.tenantId);
+
+    if (updateError) {
+      res.status(500).json({ error: "Failed to save generated images to post content" });
+      return;
+    }
+
+    const updatedCredits = await getAddonCredits(req.tenantId!, AI_BLOG_FEATURE);
+
+    res.json({
+      content: updatedContent,
+      generated_count: generatedImages.length,
+      generated_images: generatedImages,
+      credits_used: totalCreditsUsed,
+      credits_remaining: updatedCredits?.credits_remaining ?? 0,
+      cost_usd: totalCostUsd,
+    });
   }
 );
 
