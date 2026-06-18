@@ -102,38 +102,37 @@ export function Layout({ children }: { children: ReactNode }) {
     (a: { id: string }) => !dismissedAnnouncements.has(a.id)
   );
 
-  const navItems = [
+  // ── Work: core day-to-day items ──────────────────────────────────────────
+  const workNavItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
-    { href: "/customers", label: "Customers", icon: Users },
-    { href: "/properties", label: "Properties", icon: Home },
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
     { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
-    { href: "/search", label: "Search", icon: Search },
-    { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
     { href: "/todos", label: "To-Do List", icon: CheckSquare },
-    { href: "/tools", label: "Tools", icon: Wrench },
-    { href: "/help", label: "Help & Guide", icon: HelpCircle },
   ];
+
+  // ── Customers ─────────────────────────────────────────────────────────────
+  const customerNavItems = [
+    { href: "/customers", label: "Customers", icon: Users },
+    { href: "/properties", label: "Properties", icon: Home },
+    { href: "/search", label: "Search", icon: Search },
+  ];
+
+  // Legacy alias used in some render paths
+  const navItems = workNavItems;
 
   const isCompanyType = tenantInfo?.company_type === "company";
 
   const adminNavItems = [
-    { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
     { href: "/admin/branding", label: "Branding", icon: Palette },
     ...(isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
-      { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
-      { href: "/admin/reassign-jobs", label: "Reassign Jobs", icon: Briefcase },
     ] : []),
     { href: "/admin/job-types", label: "Job Types", icon: ListTree },
-    { href: "/admin/invoice-log", label: "Invoice Log", icon: FileText },
-    { href: "/admin/lookup-options", label: "Lookup Options", icon: Settings2 },
-    { href: "/admin/social", label: "Social Media", icon: Share2 },
-    ...(hasAddon("sms_messaging") ? [{ href: "/admin/sms-templates", label: "SMS", icon: MessageSquare }] : []),
+    { href: "/billing", label: "Billing", icon: CreditCard },
   ];
 
   const platformNavItems = [
@@ -150,7 +149,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const websiteNavItems = [
     { href: "/website", label: "My Website", icon: Globe2 },
-    { href: "/website/preview", label: "Preview", icon: Eye },
     { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
     { href: "/website/blog", label: "Blog", icon: FileText },
     { href: "/website/domain", label: "Domain", icon: Globe },
@@ -165,7 +163,15 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/missed-call", label: "Missed Call Text-Back", icon: PhoneCall },
   ];
 
-  const visibleNavItems = navItems.filter(item => 
+  // Bottom utility links (reports, tools, help)
+  const utilityNavItems = [
+    { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
+    { href: "/tools", label: "Tools", icon: Wrench },
+    { href: "/help", label: "Help & Guide", icon: HelpCircle },
+  ];
+
+  const visibleNavItems = workNavItems; // kept for any remaining references
+  const visibleUtilityItems = utilityNavItems.filter(item =>
     !item.roles || (profile && item.roles.includes(profile.role))
   );
 
@@ -289,13 +295,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
         
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
-          {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item))}
+          {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item))}
 
-          {/* renderStorageIndicator()*/}
+          {!isSuperAdmin && renderSection("Customers", customerNavItems)}
 
           {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
 
-          {!isSuperAdmin && renderSection("Automation", automationNavItems)}
+          {!isSuperAdmin && renderSection("Grow", automationNavItems)}
 
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
 
@@ -308,6 +314,13 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           )}
         </div>
+
+        {/* Utility footer: Reports, Tools, Help */}
+        {!isSuperAdmin && (
+          <div className="px-4 pb-2 pt-2 border-t border-border/30 space-y-0.5">
+            {visibleUtilityItems.map((item) => renderNavLink(item))}
+          </div>
+        )}
 
         <div className="p-4 border-t border-border/50">
           <div className="flex items-center gap-3 mb-4 px-2">
@@ -393,11 +406,12 @@ export function Layout({ children }: { children: ReactNode }) {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
-            {!isSuperAdmin && visibleNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
-            {/* renderStorageIndicator(true) */}
+            {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
+            {!isSuperAdmin && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && renderSection("Automation", automationNavItems, () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && renderSection("More", utilityNavItems.filter(item => !item.roles || (profile && item.roles.includes(profile.role))), () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 px-4">
