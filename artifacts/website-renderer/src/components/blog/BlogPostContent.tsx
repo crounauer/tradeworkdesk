@@ -80,6 +80,24 @@ function parseContentBlocks(content: string): RenderBlock[] {
       continue;
     }
 
+    // Some content ends up with markdown image syntax split across two lines:
+    // ![alt text]
+    // (https://...)
+    const splitImageAltMatch = line.match(/^!\[(.*?)\]$/);
+    if (splitImageAltMatch) {
+      const nextLine = (lines[i + 1] ?? "").trim();
+      const splitImageUrlMatch = nextLine.match(/^\((.+)\)$/);
+      if (splitImageUrlMatch) {
+        blocks.push({
+          type: "image",
+          alt: splitImageAltMatch[1].trim(),
+          src: splitImageUrlMatch[1].trim(),
+        });
+        i += 2;
+        continue;
+      }
+    }
+
     const headingMatch = line.match(/^(#{2,3})\s+(.+)$/);
     if (headingMatch) {
       blocks.push({
@@ -147,6 +165,7 @@ function parseContentBlocks(content: string): RenderBlock[] {
       if (!paragraphLine) break;
       if (/^\[IMAGE:\s*.+\]$/i.test(paragraphLine)) break;
       if (/^!\[(.*?)\]\((.+)\)$/.test(paragraphLine)) break;
+      if (/^!\[(.*?)\]$/.test(paragraphLine) && /^\((.+)\)$/.test((lines[i + 1] ?? "").trim())) break;
       if (/^(#{2,3})\s+/.test(paragraphLine)) break;
       if (/^[-*]\s+/.test(paragraphLine)) break;
       if (/^\d+\.\s+/.test(paragraphLine)) break;
