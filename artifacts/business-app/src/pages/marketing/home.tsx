@@ -96,9 +96,18 @@ export default function HomePage() {
   });
 
   const featuredPlan = plans.find((p) => p.is_popular) ?? plans.find((p) => p.monthly_price > 0);
-  const basePrice = featuredPlan ? fmtPounds(featuredPlan.monthly_price) : "£25";
-  const perUserPrice = featuredPlan?.per_user_price ? fmtPounds(featuredPlan.per_user_price) : "£10";
-  const maxUsers = featuredPlan?.max_users ?? 2;
+  const jobPlan    = plans.find((p) => /job.?management/i.test(p.name));
+  const webPlan    = plans.find((p) => /website/i.test(p.name));
+  const bundlePlan = plans.find((p) => /bundle/i.test(p.name)) ?? featuredPlan;
+
+  const jobPlanPrice    = jobPlan    ? fmtPounds(jobPlan.monthly_price)    : "£25";
+  const webPlanPrice    = webPlan    ? fmtPounds(webPlan.monthly_price)    : "£20";
+  const bundlePlanPrice = bundlePlan ? fmtPounds(bundlePlan.monthly_price) : "£40";
+  const bundlePerUser   = bundlePlan?.per_user_price ? fmtPounds(bundlePlan.per_user_price) : "£10";
+
+  const basePrice = bundlePlan ? fmtPounds(bundlePlan.monthly_price) : "£40";
+  const perUserPrice = bundlePlan?.per_user_price ? fmtPounds(bundlePlan.per_user_price) : "£10";
+  const maxUsers = bundlePlan?.max_users ?? 2;
 
   return (
     <MarketingLayout>
@@ -251,58 +260,67 @@ export default function HomePage() {
 
       <section className="bg-slate-50 py-20 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16">
+          <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-slate-900">
               Simple, transparent pricing
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              One plan. Every feature included. Add more engineers as you grow.
+              Start with job management, the website builder, or get both together — your choice.
             </p>
           </div>
-          <div className="max-w-xl mx-auto">
-            <div className="rounded-2xl bg-primary text-white p-8 shadow-xl">
-              <h3 className="font-display text-2xl font-bold">TradeWorkDesk</h3>
-              <p className="mt-2 text-blue-100 text-sm">Everything you need to run and grow your heating engineering business.</p>
+
+          {/* Three plan summary cards */}
+          <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {/* Job Management */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <Briefcase className="w-5 h-5 text-primary mb-3" />
+              <h3 className="font-display font-bold text-lg text-slate-900">Job Management</h3>
+              <p className="text-sm text-slate-500 mt-1">Run jobs, customers, invoicing and compliance from one place.</p>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-5xl font-display font-bold">{basePrice}</span>
-                <div className="ml-1">
-                  <div className="text-blue-100 text-lg">/month</div>
-                  <div className="text-sm text-blue-200">includes {maxUsers} users</div>
-                </div>
+                <span className="font-display text-3xl font-bold text-slate-900">{jobPlanPrice}</span>
+                <span className="text-slate-500 text-sm">/mo</span>
               </div>
-              <p className="mt-1 text-sm text-blue-200">+ {perUserPrice}/month per additional user &nbsp;·&nbsp; cancel any time</p>
-              <ul className="mt-6 space-y-3">
-                {["Unlimited jobs & job types", "Gas, oil & heat pump service records", "Customer & property management", "Invoicing & payment tracking", "Scheduling & calendar sync", "Team management & job assignment", "Website builder with custom domain"].map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-blue-200 shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/register">
-                <Button className="w-full mt-8 bg-white text-primary hover:bg-blue-50 font-semibold text-base py-5">
-                  Start Free Trial
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
+              <p className="text-xs text-slate-400 mt-1">incl. 2 users</p>
             </div>
-            <div className="mt-8 text-center">
-              <h3 className="font-display text-lg font-semibold text-slate-900 mb-3">See all features</h3>
-              <p className="text-sm text-slate-600 mb-4">Everything is included — no add-ons required to unlock core features.</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {addons.map((a) => (
-                  <span key={a} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-sm text-slate-700">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                    {a}
-                  </span>
-                ))}
+
+            {/* Bundle */}
+            <div className="rounded-xl border-2 border-primary bg-primary text-white p-6 relative shadow-lg">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full">
+                Most popular
+              </span>
+              <Globe className="w-5 h-5 text-blue-200 mb-3" />
+              <h3 className="font-display font-bold text-lg text-white">Bundle</h3>
+              <p className="text-sm text-blue-100 mt-1">Job Management + Website Builder at a discounted price.</p>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="font-display text-3xl font-bold text-white">{bundlePlanPrice}</span>
+                <span className="text-blue-200 text-sm">/mo</span>
               </div>
-              <Link href="/pricing">
-                <Button variant="link" className="mt-4 text-primary">
-                  See all add-ons & pricing <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              </Link>
+              <p className="text-xs text-blue-300 mt-1">incl. 2 users &nbsp;·&nbsp; + {bundlePerUser}/mo per extra user</p>
             </div>
+
+            {/* Website Builder */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <Globe className="w-5 h-5 text-primary mb-3" />
+              <h3 className="font-display font-bold text-lg text-slate-900">Website Builder</h3>
+              <p className="text-sm text-slate-500 mt-1">Professional trade website with custom domain, blog and contact forms.</p>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="font-display text-3xl font-bold text-slate-900">{webPlanPrice}</span>
+                <span className="text-slate-500 text-sm">/mo</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">incl. 1 user</p>
+            </div>
+          </div>
+
+          <div className="mt-6 text-center text-sm text-slate-500">
+            All prices exclude VAT. 30-day free trial on every plan — no credit card required.
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link href="/pricing">
+              <Button variant="outline" className="border-primary text-primary hover:bg-primary/5">
+                Compare all plans in detail <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

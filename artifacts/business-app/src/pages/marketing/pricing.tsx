@@ -138,20 +138,76 @@ export default function PricingPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Featured plan: is_popular=true, else first non-free plan
-  const featuredPlan = plans.find((p) => p.is_popular) ?? plans.find((p) => p.monthly_price > 0);
-  const faqs = buildFaqs(featuredPlan);
-  const teamExamples = buildTeamExamples(featuredPlan);
+  // Identify plans by name pattern (robust to price changes)
+  const jobPlan     = plans.find((p) => /job.?management/i.test(p.name));
+  const webPlan     = plans.find((p) => /website/i.test(p.name));
+  const bundlePlan  = plans.find((p) => /bundle/i.test(p.name)) ?? plans.find((p) => p.is_popular);
 
-  const basePrice = featuredPlan ? fmtPounds(featuredPlan.monthly_price) : "£25";
-  const perUserPrice = featuredPlan?.per_user_price ? fmtPounds(featuredPlan.per_user_price) : "£10";
-  const maxUsers = featuredPlan?.max_users ?? 2;
+  // For FAQ / team examples use bundle if available, else job plan
+  const featuredPlan = bundlePlan ?? jobPlan;
+  const faqs = buildFaqs(featuredPlan);
+  const teamExamples = buildTeamExamples(bundlePlan ?? jobPlan);
+
+  function planCard(plan: Plan | undefined, fallbackName: string, fallbackDesc: string, features: string[], accent: boolean, badge?: string) {
+    const price    = plan ? fmtPounds(plan.monthly_price) : null;
+    const perUser  = plan?.per_user_price ? fmtPounds(plan.per_user_price) : null;
+    const maxUsers = plan?.max_users ?? 2;
+    return (
+      <div className={"relative rounded-2xl border-2 p-8 flex flex-col " + (accent ? "border-primary bg-primary text-white shadow-2xl" : "border-slate-200 bg-white text-slate-900")}>
+        {badge && (
+          <span className={"absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold " + (accent ? "bg-amber-400 text-amber-900" : "bg-primary text-white")}>
+            {badge}
+          </span>
+        )}
+        <div className="flex-1">
+          <h3 className={"font-display text-2xl font-bold " + (accent ? "text-white" : "text-slate-900")}>
+            {plan?.name ?? fallbackName}
+          </h3>
+          <p className={"mt-1.5 text-sm " + (accent ? "text-blue-100" : "text-slate-500")}>
+            {plan?.description ?? fallbackDesc}
+          </p>
+          {price ? (
+            <div className="mt-5 flex items-end gap-1.5">
+              <span className={"font-display text-5xl font-bold " + (accent ? "text-white" : "text-slate-900")}>{price}</span>
+              <div className={"pb-1 text-sm " + (accent ? "text-blue-200" : "text-slate-500")}>
+                <div>/month</div>
+                <div>incl. {maxUsers} users</div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5">
+              <span className={"font-display text-3xl font-bold " + (accent ? "text-white" : "text-slate-900")}>Loading…</span>
+            </div>
+          )}
+          {perUser && (
+            <p className={"mt-1 text-xs " + (accent ? "text-blue-300" : "text-slate-400")}>
+              + {perUser}/month per additional user
+            </p>
+          )}
+          <ul className={"mt-6 space-y-2 " + (accent ? "" : "")}>
+            {features.map((f) => (
+              <li key={f} className={"flex items-start gap-2.5 text-sm " + (accent ? "text-blue-50" : "text-slate-700")}>
+                <CheckCircle className={"w-4 h-4 shrink-0 mt-0.5 " + (accent ? "text-blue-300" : "text-primary")} />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <Link href="/register">
+          <Button className={"w-full mt-8 font-semibold text-sm py-5 " + (accent ? "bg-white text-primary hover:bg-blue-50" : "bg-primary text-white hover:bg-primary/90")}>
+            Start free trial
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <MarketingLayout>
       <SEOHead
-        title="Pricing — One plan. Everything included."
-        description={"TradeWorkDesk is " + basePrice + "/month for up to " + maxUsers + " users, with every feature included. Add more engineers at " + perUserPrice + "/month each. No contracts, no hidden fees."}
+        title="Pricing — Choose what you need"
+        description="TradeWorkDesk offers flexible plans: Job Management software from £25/month, Website Builder from £20/month, or both together in the Bundle. No contracts, no hidden fees."
         canonical={`${SITE_URL}/pricing`}
         schema={[
           breadcrumbSchema([
@@ -169,96 +225,63 @@ export default function PricingPage() {
             Simple pricing
           </span>
           <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
-            One plan. Everything included.
+            Pay for what you need.
           </h1>
           <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-            No tiers. No add-ons to figure out. Every feature is included from day one.
+            Start with job management, the website builder, or get both together at a discounted price.
+            All plans include every feature — no add-ons required.
           </p>
         </div>
       </section>
 
-      {/* Plan card */}
+      {/* Plan cards */}
       <section className="bg-white py-12">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {plansLoading ? (
             <div className="flex justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-          <div className="rounded-2xl bg-primary text-white p-8 md:p-12 shadow-xl">
-            {/* Price + CTA */}
-            <div className="flex flex-col md:flex-row gap-8 items-start mb-10">
-              <div className="flex-1">
-                <h2 className="font-display text-3xl font-bold">{featuredPlan?.name ?? "TradeWorkDesk"}</h2>
-                <p className="mt-2 text-blue-100">
-                  {featuredPlan?.description ?? "Job management and a professional website — both fully included, no extras."}
-                </p>
-                <div className="mt-6 flex items-end gap-2">
-                  <span className="font-display text-6xl font-bold">{basePrice}</span>
-                  <div className="pb-1">
-                    <div className="text-blue-100">/month</div>
-                    <div className="text-sm text-blue-200">includes {maxUsers} users</div>
-                  </div>
-                </div>
-                <p className="mt-2 text-sm text-blue-200">
-                  + {perUserPrice}/month per additional user &nbsp;·&nbsp; billed monthly &nbsp;·&nbsp; cancel any time
-                </p>
-                <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                  <Link href="/register">
-                    <Button className="bg-white text-primary hover:bg-blue-50 font-semibold text-base px-8 py-5">
-                      Start 30-day free trial
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-                <p className="mt-3 text-xs text-blue-300">No credit card required for trial.</p>
-              </div>
-            </div>
-
-            {/* Two-column feature groups */}
-            <div className="grid md:grid-cols-2 gap-8 border-t border-blue-500/40 pt-8">
+            <div className="grid md:grid-cols-3 gap-6 items-start">
               {/* Job Management */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Briefcase className="w-4 h-4 text-blue-300" />
-                  <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide">
-                    Job Management
-                  </h3>
-                </div>
-                <ul className="space-y-2.5">
-                  {JOB_FEATURES.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5 text-sm">
-                      <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {planCard(
+                jobPlan,
+                "Job Management",
+                "Run your jobs, customers, invoicing, scheduling and compliance from one place.",
+                JOB_FEATURES,
+                false,
+              )}
+
+              {/* Bundle — centre / highlighted */}
+              {planCard(
+                bundlePlan,
+                "Bundle",
+                "Everything in Job Management plus the Website Builder — at a discounted price.",
+                [...JOB_FEATURES.slice(0, 6), "Website Builder included", "Custom domain", "Contact forms & auto-enquiries", "Blog, gallery & SEO tools"],
+                true,
+                "Most popular",
+              )}
 
               {/* Website Builder */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Globe className="w-4 h-4 text-blue-300" />
-                  <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide">
-                    Website Builder
-                  </h3>
-                </div>
-                <ul className="space-y-2.5">
-                  {WEBSITE_FEATURES.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5 text-sm">
-                      <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {planCard(
+                webPlan,
+                "Website Builder",
+                "A professional, SEO-optimised trade website with custom domain, blog and contact forms.",
+                WEBSITE_FEATURES,
+                false,
+              )}
             </div>
-          </div>
           )}
 
+          {/* Callout: plans are independent */}
+          <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800 text-center">
+            <strong>Completely flexible</strong> — Job Management and Website Builder are separate products.
+            Buy one, the other, or both. You can add or remove the Website Builder at any time.
+          </div>
+
           {/* Per-seat explainer */}
-          <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-            <h3 className="font-semibold text-slate-900 mb-3">Growing team?</h3>
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+            <h3 className="font-semibold text-slate-900 mb-3">Growing team? (Bundle pricing)</h3>
             <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-600">
               {teamExamples.map((ex) => (
                 <span key={ex.label} className="rounded-lg bg-white border border-slate-200 px-4 py-2">
