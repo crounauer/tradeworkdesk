@@ -14,6 +14,12 @@ import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
 
+const SUPERADMIN_OVERRIDE_MARKER = "superadmin_access_override=true";
+
+function hasFreeAccessOverride(notes: string | null | undefined): boolean {
+  return typeof notes === "string" && notes.includes(SUPERADMIN_OVERRIDE_MARKER);
+}
+
 export default function PlatformTenantDetail() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -410,7 +416,7 @@ export default function PlatformTenantDetail() {
         <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            {tenant.plan_id !== "00000000-0000-0000-0000-000000000000" && !tenant.stripe_subscription_id ? (
+            {hasFreeAccessOverride(tenant.notes) ? (
               <Button
                 variant="outline"
                 className="text-orange-600 border-orange-200 hover:bg-orange-50"
