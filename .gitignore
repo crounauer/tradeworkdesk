@@ -57,3 +57,5 @@ Thumbs.db
 dist/
 build/
 .vercel
+artifacts/website-renderer/.next/
+artifacts/website-renderer/next-env.d.ts
