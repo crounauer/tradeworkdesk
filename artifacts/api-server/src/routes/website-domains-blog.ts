@@ -742,7 +742,7 @@ router.post(
   requireWebsiteBuilder(),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id: postId } = req.params;
-    const { count } = req.body as { count?: number };
+    const { count, content } = req.body as { count?: number; content?: string };
     const requestedCount = Math.max(1, Math.min(10, Number(count) || 1));
 
     const hasAddon = await hasActiveAddon(req.tenantId!, AI_BLOG_FEATURE);
@@ -763,7 +763,9 @@ router.post(
       return;
     }
 
-    const contentText = getContentText(post.content);
+    const contentText = typeof content === "string" && content.trim().length > 0
+      ? content
+      : getContentText(post.content);
     const placeholders = extractImagePlaceholders(contentText);
     if (placeholders.length === 0) {
       res.status(400).json({ error: "No [IMAGE: ...] placeholders found in this post" });

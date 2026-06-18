@@ -112,6 +112,7 @@ export default function WebsiteBlogEditor() {
   const [imageGenerationPrompt, setImageGenerationPrompt] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
   const [autoGenerateFeaturedImage, setAutoGenerateFeaturedImage] = useState(false);
+  const [autoGenerateInlineImages, setAutoGenerateInlineImages] = useState(false);
   const [inlineImageCount, setInlineImageCount] = useState(1);
   const [generatingInlineImages, setGeneratingInlineImages] = useState(false);
 
@@ -305,6 +306,13 @@ export default function WebsiteBlogEditor() {
         const nextContent = data.content ?? "";
         setBodyText(nextContent);
 
+        if (autoGenerateInlineImages) {
+          const inlineOk = await requestInlineImages(nextContent, { showSuccessToast: false });
+          if (inlineOk) {
+            toast({ title: "In-post images generated", description: `Generated up to ${inlineImageCount} in-post image${inlineImageCount === 1 ? "" : "s"}.` });
+          }
+        }
+
         if (autoGenerateFeaturedImage) {
           const autoPrompt = buildAutoFeaturedPrompt(title.trim(), nextContent);
           const imageOk = await requestFeaturedImage(autoPrompt, { showSuccessToast: false });
@@ -334,11 +342,11 @@ export default function WebsiteBlogEditor() {
     await requestFeaturedImage(imageGenerationPrompt);
   }
 
-  async function generateInlineImages() {
-    const placeholderCount = (bodyText.match(/^\[IMAGE:\s*.+\]$/gim) ?? []).length;
+  async function requestInlineImages(contentText: string, opts?: { showSuccessToast?: boolean }) {
+    const placeholderCount = (contentText.match(/^\[IMAGE:\s*.+\]$/gim) ?? []).length;
     if (placeholderCount === 0) {
       toast({ title: "No image placeholders", description: "Add [IMAGE: description] lines in your content first.", variant: "destructive" });
-      return;
+      return false;
     }
 
     setGeneratingInlineImages(true);
@@ -348,6 +356,7 @@ export default function WebsiteBlogEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           count: inlineImageCount,
+          content: contentText,
         }),
       });
 
@@ -361,7 +370,7 @@ export default function WebsiteBlogEditor() {
 
       if (!res.ok) {
         toast({ title: "Inline Image Generation Error", description: data.error ?? "Failed to generate inline images", variant: "destructive" });
-        return;
+        return false;
       }
 
       if (data.content != null) {
@@ -374,15 +383,23 @@ export default function WebsiteBlogEditor() {
       }
 
       qc.invalidateQueries({ queryKey: ["billing-credits"] });
-      toast({
-        title: "Inline images generated",
-        description: `Generated ${data.generated_count ?? 0} image${(data.generated_count ?? 0) === 1 ? "" : "s"} · Used ${data.credits_used ?? 0} credits`,
-      });
+      if (opts?.showSuccessToast !== false) {
+        toast({
+          title: "Inline images generated",
+          description: `Generated ${data.generated_count ?? 0} image${(data.generated_count ?? 0) === 1 ? "" : "s"} · Used ${data.credits_used ?? 0} credits`,
+        });
+      }
+      return true;
     } catch (err) {
       toast({ title: "Inline Image Generation Error", description: (err as Error).message, variant: "destructive" });
+      return false;
     } finally {
       setGeneratingInlineImages(false);
     }
+  }
+
+  async function generateInlineImages() {
+    await requestInlineImages(bodyText);
   }
 
   if (isLoading) {
@@ -674,6 +691,16 @@ export default function WebsiteBlogEditor() {
                       onChange={(e) => setAutoGenerateFeaturedImage(e.target.checked)}
                     />
                     <span className="text-xs text-slate-700">Auto-generate a featured image after AI Generate/Improve</span>
+                  </label>
+
+                  <label className="flex items-start gap-2 rounded-md border bg-slate-50 px-2 py-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="rounded mt-0.5 shrink-0"
+                      checked={autoGenerateInlineImages}
+                      onChange={(e) => setAutoGenerateInlineImages(e.target.checked)}
+                    />
+                    <span className="text-xs text-slate-700">Auto-generate in-post images after AI Generate/Improve (uses selected image count)</span>
                   </label>
 
                   <Button
