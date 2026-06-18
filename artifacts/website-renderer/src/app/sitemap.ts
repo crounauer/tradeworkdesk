@@ -11,7 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = `https://${domain}`;
 
   const pageEntries: MetadataRoute.Sitemap = site.pages.map((page) => ({
-    url: `${base}/${page.slug}`.replace(/\/\/$/, "/").replace("//", "/"),
+    url: page.page_type === "home" ? base : `${base}/${page.slug.replace(/^\//, "")}`,
     lastModified: page.published_at ? new Date(page.published_at) : undefined,
     changeFrequency: page.page_type === "home" ? "weekly" : "monthly",
     priority: page.page_type === "home" ? 1.0 : 0.7,

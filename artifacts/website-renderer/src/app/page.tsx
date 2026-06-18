@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
+import SchemaMarkup from "@/components/SchemaMarkup";
 
 // ISR — re-validate every 60 seconds
 export const revalidate = 60;
@@ -13,16 +14,22 @@ export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteByDomain(domain);
   if (!site) return {};
 
-  const { website, company } = site;
+  const { website } = site;
   const title = website.default_meta_title || website.site_name;
   const description = website.default_meta_description || website.tagline || undefined;
+  const canonicalUrl = `https://${domain}`;
 
   return {
     title,
     description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: website.site_name,
+      images: [],
     },
     icons: website.favicon_url ? { icon: website.favicon_url } : undefined,
   };
@@ -68,6 +75,7 @@ export default async function HomePage() {
 
   return (
     <TemplateLayout site={site}>
+      <SchemaMarkup site={site} domain={domain} pageType="home" />
       <PageRenderer
         websiteId={site.website.id}
         slug={homePage.slug}

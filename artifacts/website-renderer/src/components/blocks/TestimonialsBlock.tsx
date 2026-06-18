@@ -1,10 +1,13 @@
 "use client";
 
+// Supports both legacy field names (author, text) and current names (author_name, body)
 interface Testimonial {
-  author_name: string;
+  author_name?: string;
+  author?: string;
   location?: string;
   rating?: number;
-  body: string;
+  body?: string;
+  text?: string;
   source?: string;
   source_url?: string;
 }
@@ -30,19 +33,6 @@ function Stars({ count }: { count: number }) {
       ))}
     </div>
   );
-}
-
-interface Props {
-  content: {
-    heading?: string;
-    subheading?: string;
-    label?: string;
-    testimonials?: Testimonial[];
-    accent_color?: string;
-    background_color?: string;
-    aggregate_rating?: string;
-    review_count?: string;
-  } & Record<string, unknown>;
 }
 
 export default function TestimonialsBlock({ content }: Props) {
@@ -72,15 +62,18 @@ export default function TestimonialsBlock({ content }: Props) {
           {subheading && <p style={{ color: "#6b7280", fontSize: "1.0625rem", maxWidth: 560, margin: "0 auto" }}>{subheading}</p>}
         </div>
         <div className="test-grid">
-          {testimonials.map((t, i) => (
+          {testimonials.map((t, i) => {
+            const authorName = t.author_name || t.author || "";
+            const bodyText = t.body || t.text || "";
+            return (
             <div key={i} style={{ backgroundColor: "#f9fafb", borderRadius: 10, padding: "24px", border: "1px solid #e5e7eb" }}>
               <Stars count={t.rating ?? 5} />
               <blockquote style={{ margin: "0 0 20px", color: "#374151", lineHeight: 1.7, fontSize: "0.9375rem" }}>
-                &ldquo;{t.body}&rdquo;
+                &ldquo;{bodyText}&rdquo;
               </blockquote>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <footer style={{ fontWeight: 700, color: "#111827", fontSize: "0.9rem" }}>
-                  {t.author_name}
+                  {authorName}
                   {t.location && <span style={{ fontWeight: 400, color: "#9ca3af", marginLeft: 5 }}>— {t.location}</span>}
                 </footer>
                 {t.source && (
@@ -90,7 +83,8 @@ export default function TestimonialsBlock({ content }: Props) {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

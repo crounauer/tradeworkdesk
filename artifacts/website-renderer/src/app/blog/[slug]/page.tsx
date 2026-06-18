@@ -20,12 +20,19 @@ export async function generateMetadata({ params }: BlogPostProps): Promise<Metad
   const post = site.blog_posts.find((p) => p.slug === slug);
   if (!post) return {};
 
+  const canonicalUrl = `https://${domain}/blog/${slug}`;
+  const title = post.meta_title || `${post.title} | ${site.website.site_name}`;
+  const description = post.meta_description || post.excerpt || undefined;
+
   return {
-    title: post.meta_title || `${post.title} | ${site.website.site_name}`,
-    description: post.meta_description || post.excerpt || undefined,
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title: post.meta_title || post.title,
-      description: post.meta_description || post.excerpt || undefined,
+      description,
+      url: canonicalUrl,
+      siteName: site.website.site_name,
       images: post.featured_image_url ? [post.featured_image_url] : [],
       type: "article",
       publishedTime: post.published_at || undefined,
@@ -42,8 +49,25 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
   const post = site.blog_posts.find((p) => p.slug === slug);
   if (!post) notFound();
 
+  const siteUrl = `https://${domain}`;
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "@id": `${siteUrl}/blog/${post.slug}`,
+    headline: post.title,
+    ...(post.excerpt ? { description: post.excerpt } : {}),
+    ...(post.featured_image_url ? { image: post.featured_image_url } : {}),
+    ...(post.published_at ? { datePublished: post.published_at } : {}),
+    url: `${siteUrl}/blog/${post.slug}`,
+    publisher: { "@id": `${siteUrl}/#business` },
+  };
+
   return (
     <TemplateLayout site={site}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
       <BlogPostContent post={post} />
     </TemplateLayout>
   );

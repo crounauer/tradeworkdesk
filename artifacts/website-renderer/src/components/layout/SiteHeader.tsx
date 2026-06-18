@@ -105,7 +105,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
           </Link>
 
           {/* Desktop nav links */}
-          <nav className="snav-desktop" style={{ flex: 1, justifyContent: "center" }}>
+          <nav className="snav-desktop" aria-label="Main navigation" style={{ flex: 1, justifyContent: "center" }}>
             <ul style={{ display: "flex", gap: 2, listStyle: "none", margin: 0, padding: 0 }}>
               {pages.map((page) => (
                 <li key={page.id}>
@@ -141,7 +141,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
         </div>
 
         {/* Mobile menu */}
-        <div className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: navBg, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+        <nav role="navigation" aria-label="Mobile navigation" className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: navBg, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <ul style={{ listStyle: "none", margin: 0, padding: "8px 0 16px" }}>
             {pages.map((page) => (
               <li key={page.id}>
@@ -163,7 +163,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
               </a>
             </li>
           </ul>
-        </div>
+        </nav>
       </div>
     </header>
   );
