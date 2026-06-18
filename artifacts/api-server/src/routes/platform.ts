@@ -237,8 +237,8 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
     .from("tenants")
     .update({
       plan_id: basePlan.id,
-      status: "active",
-      trial_ends_at: null,
+      status: "trial",
+      trial_ends_at: trialEnds,
       stripe_subscription_id: null,
       notes: addSuperAdminAccessOverride((existingTenant as { notes?: string | null } | null)?.notes),
     })
