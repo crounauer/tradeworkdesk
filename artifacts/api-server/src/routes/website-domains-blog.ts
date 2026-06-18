@@ -1078,7 +1078,7 @@ async function createEnquiryFromFormSubmission(
     const phone = String(data.phone || data.mobile || data.contact_phone || "").trim() || null;
 
     // Build a rich description from all submitted fields
-    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone"]);
+    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone", "photos"]);
     const extraLines: string[] = [];
     for (const [key, val] of Object.entries(data)) {
       if (skip.has(key) || !val) continue;
