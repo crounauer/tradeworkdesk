@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ImagePickerField } from "@/components/image-picker-field";
 import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
@@ -360,8 +361,20 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           <FieldRow label="Primary Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
           <FieldRow label="Secondary Button Text (optional)"><Input value={String(c.secondary_cta_text ?? "")} onChange={(e) => set("secondary_cta_text", e.target.value)} /></FieldRow>
           <FieldRow label="Secondary Button URL"><Input value={String(c.secondary_cta_url ?? "")} onChange={(e) => set("secondary_cta_url", e.target.value)} placeholder="/services" /></FieldRow>
-          <FieldRow label="Background Image URL (full/centered layouts)"><Input value={String(c.background_image_url ?? "")} onChange={(e) => set("background_image_url", e.target.value)} placeholder="https://..." /></FieldRow>
-          <FieldRow label="Hero Image URL (split layout only)"><Input value={String(c.hero_image_url ?? "")} onChange={(e) => set("hero_image_url", e.target.value)} placeholder="https://..." /></FieldRow>
+          <ImagePickerField
+            label="Background Image URL (full/centered layouts)"
+            value={String(c.background_image_url ?? "")}
+            onChange={(url) => set("background_image_url", url)}
+            hint="Recommended: 1920 × 1080 px (landscape). Used as the hero background."
+            fieldName="hero_background"
+          />
+          <ImagePickerField
+            label="Hero Image URL (split layout only)"
+            value={String(c.hero_image_url ?? "")}
+            onChange={(url) => set("hero_image_url", url)}
+            hint="Recommended: 900 × 700 px (portrait or square works best)."
+            fieldName="hero_image"
+          />
           <div className="flex gap-3">
             <FieldRow label="Background Colour">
               <div className="flex items-center gap-2">
@@ -531,7 +544,13 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     case "image":
       return (
         <div className="space-y-3">
-          <FieldRow label="Image URL"><Input value={String(c.image_url ?? "")} onChange={(e) => set("image_url", e.target.value)} placeholder="https://..." /></FieldRow>
+          <ImagePickerField
+            label="Image"
+            value={String(c.image_url ?? "")}
+            onChange={(url) => set("image_url", url)}
+            hint="Recommended: 1200 × 800 px or wider. Will be displayed full-width or normal width."
+            fieldName="image"
+          />
           <FieldRow label="Alt Text"><Input value={String(c.alt_text ?? "")} onChange={(e) => set("alt_text", e.target.value)} placeholder="Describe the image for accessibility" /></FieldRow>
           <FieldRow label="Caption (optional)"><Input value={String(c.caption ?? "")} onChange={(e) => set("caption", e.target.value)} /></FieldRow>
           <FieldRow label="Width">
@@ -702,7 +721,13 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
                   </Button>
                 </div>
                 <Input value={proj.location} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], location: e.target.value }; set("projects", n); }} placeholder="Location" />
-                <Input value={proj.image_url} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], image_url: e.target.value }; set("projects", n); }} placeholder="Image URL (https://...)" />
+                <ImagePickerField
+                  label="Project Image"
+                  value={proj.image_url}
+                  onChange={(url) => { const n = [...projects]; n[i] = { ...n[i], image_url: url }; set("projects", n); }}
+                  hint="Recommended: 800 × 600 px (landscape)."
+                  fieldName={`project_${i}_image`}
+                />
                 <Textarea value={proj.description} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], description: e.target.value }; set("projects", n); }} placeholder="Project description..." rows={3} />
                 <div className="flex gap-2">
                   <Input value={proj.cta_text} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], cta_text: e.target.value }; set("projects", n); }} placeholder="Button text" className="flex-1" />

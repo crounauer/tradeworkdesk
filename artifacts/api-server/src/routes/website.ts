@@ -19,6 +19,8 @@
  */
 
 import { Router, type IRouter } from "express";
+import multer from "multer";
+import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
 import { addDomainToVercel } from "../lib/vercel";
 import {
@@ -1776,6 +1778,143 @@ router.put(
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
     res.json(data || []);
+  }
+);
+
+// ─── Media Library ────────────────────────────────────────────────────────────
+
+const MEDIA_BUCKET = "website-images";
+// Max dimension for web-optimised output
+const MEDIA_MAX_DIMENSION = 2400;
+const MEDIA_JPEG_QUALITY = 82;
+
+const mediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB raw input limit
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+}).single("file");
+
+router.post(
+  "/website/media/upload",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  (req, res, next) => mediaUpload(req, res, next),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const file = req.file;
+    if (!file) { res.status(400).json({ error: "No file provided" }); return; }
+
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    // Optimise with sharp: resize to max 2400px, convert to webp
+    let processedBuffer: Buffer;
+    let width: number | undefined;
+    let height: number | undefined;
+    try {
+      const image = sharp(file.buffer).rotate(); // auto-orient from EXIF
+      const meta = await image.metadata();
+      const w = meta.width || 0;
+      const h = meta.height || 0;
+
+      let pipeline = image;
+      if (w > MEDIA_MAX_DIMENSION || h > MEDIA_MAX_DIMENSION) {
+        pipeline = pipeline.resize(MEDIA_MAX_DIMENSION, MEDIA_MAX_DIMENSION, { fit: "inside", withoutEnlargement: true });
+      }
+
+      const webp = await pipeline.webp({ quality: MEDIA_JPEG_QUALITY }).toBuffer({ resolveWithObject: true });
+      processedBuffer = webp.data;
+      width = webp.info.width;
+      height = webp.info.height;
+    } catch {
+      processedBuffer = file.buffer;
+    }
+
+    // Store under tenant/websiteId/timestamp-filename.webp
+    const baseName = file.originalname.replace(/\.[^.]+$/, "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+    const storagePath = `${req.tenantId}/${website.id}/${Date.now()}-${baseName}.webp`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(MEDIA_BUCKET)
+      .upload(storagePath, processedBuffer, { contentType: "image/webp", upsert: false });
+
+    if (uploadError) { res.status(500).json({ error: uploadError.message }); return; }
+
+    const { data: publicUrlData } = supabaseAdmin.storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
+    const publicUrl = publicUrlData.publicUrl;
+
+    const altText = (req.body.alt_text as string | undefined) || baseName.replace(/_/g, " ");
+
+    const { data: mediaRow, error: insertError } = await db
+      .from("website_media")
+      .insert({
+        tenant_id: req.tenantId,
+        website_id: website.id,
+        file_name: file.originalname,
+        storage_path: storagePath,
+        public_url: publicUrl,
+        width: width ?? null,
+        height: height ?? null,
+        file_size: processedBuffer.length,
+        mime_type: "image/webp",
+        alt_text: altText,
+      })
+      .select()
+      .single() as { data: Record<string, unknown> | null; error: unknown };
+
+    if (insertError) { res.status(500).json({ error: "Failed to save media record" }); return; }
+
+    res.json(mediaRow);
+  }
+);
+
+router.get(
+  "/website/media",
+  requireAuth,
+  requireTenant,
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const { data, error } = await db
+      .from("website_media")
+      .select("id, file_name, public_url, width, height, file_size, alt_text, created_at")
+      .eq("website_id", website.id)
+      .order("created_at", { ascending: false })
+      .limit(200) as { data: Record<string, unknown>[] | null; error: unknown };
+
+    if (error) { res.status(500).json({ error: "Failed to fetch media" }); return; }
+    res.json(data || []);
+  }
+);
+
+router.delete(
+  "/website/media/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+
+    const { data: media } = await db
+      .from("website_media")
+      .select("storage_path, tenant_id")
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId)
+      .single() as { data: { storage_path: string; tenant_id: string } | null };
+
+    if (!media) { res.status(404).json({ error: "Not found" }); return; }
+
+    await supabaseAdmin.storage.from(MEDIA_BUCKET).remove([media.storage_path]);
+    await db.from("website_media").delete().eq("id", id).eq("tenant_id", req.tenantId);
+
+    res.sendStatus(204);
   }
 );
 
