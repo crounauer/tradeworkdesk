@@ -7,7 +7,16 @@ import "./index.css";
 // When a new service worker takes control (after skipWaiting), reload the page
 // so the installed PWA gets fresh assets instead of serving the old cached bundle.
 if ("serviceWorker" in navigator) {
+  const SW_RELOAD_GUARD_KEY = "sw_controllerchange_last_reload";
+  const SW_RELOAD_COOLDOWN_MS = 60_000;
+
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const now = Date.now();
+    const previous = Number(sessionStorage.getItem(SW_RELOAD_GUARD_KEY) || "0");
+    if (Number.isFinite(previous) && now - previous < SW_RELOAD_COOLDOWN_MS) {
+      return;
+    }
+    sessionStorage.setItem(SW_RELOAD_GUARD_KEY, String(now));
     window.location.reload();
   });
 }
