@@ -5,10 +5,12 @@
  * Uses gpt-4o-mini for cost efficiency; tracks usage via ai-usage.ts.
  */
 
-import { openai } from "@workspace/integrations-openai-ai-server";
+import crypto from "crypto";
+import { openai, generateImageBuffer } from "@workspace/integrations-openai-ai-server";
+import { supabaseAdmin } from "./supabase";
 import { trackAiUsage } from "./ai-usage";
 
-export type BlogAiOperation = "generate" | "improve" | "excerpt" | "meta_description";
+export type BlogAiOperation = "generate" | "improve" | "excerpt" | "meta_description" | "blog_featured_image";
 
 interface BlogAiOptions {
   operation: BlogAiOperation;
@@ -152,6 +154,76 @@ ${opts.existingContent.slice(0, 1500)}`;
     content: text.trim(),
     tokensIn,
     tokensOut,
+    costUsd,
+    creditsUsed: calcCredits(costUsd),
+  };
+}
+
+// ─── Image Generation ──────────────────────────────────────────────────────
+
+export interface BlogImageGenerationResult {
+  imageUrl: string;
+  costUsd: number;
+  creditsUsed: number;
+}
+
+/**
+ * Generate a featured image for a blog post using DALL-E.
+ * Uploads to Supabase and tracks usage.
+ */
+export async function generateBlogFeaturedImage(
+  prompt: string,
+  context?: { tenantId?: string; userId?: string },
+  size: "1024x1024" | "512x512" = "1024x1024",
+): Promise<BlogImageGenerationResult> {
+  // Enhance prompt with professional context
+  const enhancedPrompt = `Professional blog header image for a trade services blog. ${prompt}. 
+High quality, professional appearance, suitable for plumbing, heating, or gas engineer services.
+Clean, modern design.`;
+
+  // Generate image via DALL-E
+  const buffer = await generateImageBuffer(enhancedPrompt, size);
+
+  // Upload to Supabase website-images bucket
+  const fileName = `blog-featured-images/${crypto.randomUUID()}.png`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("website-images")
+    .upload(fileName, buffer, {
+      contentType: "image/png",
+      upsert: false,
+    });
+
+  let publicUrl: string;
+
+  if (uploadError) {
+    // Fallback: return as data URI if upload fails
+    console.error("[blog-ai] Failed to upload blog image:", uploadError);
+    publicUrl = `data:image/png;base64,${buffer.toString("base64")}`;
+  } else {
+    // Get public URL
+    const { data: urlData } = supabaseAdmin.storage
+      .from("website-images")
+      .getPublicUrl(fileName);
+    publicUrl = urlData.publicUrl;
+  }
+
+  // Track usage (fire-and-forget)
+  if (context?.tenantId) {
+    void trackAiUsage({
+      tenantId: context.tenantId,
+      userId: context.userId,
+      operation: "blog_featured_image",
+      module: "website",
+      model: "dall-e-3",
+      imagesGenerated: 1,
+    });
+  }
+
+  // DALL-E-3: $0.040 per image (1024x1024)
+  const costUsd = 0.04;
+
+  return {
+    imageUrl: publicUrl,
     costUsd,
     creditsUsed: calcCredits(costUsd),
   };

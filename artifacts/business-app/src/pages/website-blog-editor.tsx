@@ -33,6 +33,7 @@ interface BlogPost {
   title: string;
   excerpt: string | null;
   content: string | string[] | null;
+  featured_image_url: string | null;
   meta_title: string | null;
   meta_description: string | null;
   status: "draft" | "published";
@@ -96,6 +97,7 @@ export default function WebsiteBlogEditor() {
   const [slug, setSlug] = useState("");
   const [bodyText, setBodyText] = useState("");
   const [excerpt, setExcerpt] = useState("");
+  const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(null);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -107,6 +109,8 @@ export default function WebsiteBlogEditor() {
   const [aiCredits, setAiCredits] = useState<number | null>(null);
   const [addonActive, setAddonActive] = useState<boolean | null>(null);
   const [contentOptions, setContentOptions] = useState<Set<string>>(new Set(["cta"]));
+  const [imageGenerationPrompt, setImageGenerationPrompt] = useState("");
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   // Load post
   const { data: post, isLoading } = useQuery<BlogPost>({
@@ -151,6 +155,7 @@ export default function WebsiteBlogEditor() {
     setSlug(post.slug ?? "");
     setBodyText(getBodyText(post.content as string | string[] | Record<string, unknown>[] | null));
     setExcerpt(post.excerpt ?? "");
+    setFeaturedImageUrl(post.featured_image_url ?? null);
     setMetaTitle(post.meta_title ?? "");
     setMetaDescription(post.meta_description ?? "");
     setDirty(false);
@@ -253,6 +258,50 @@ export default function WebsiteBlogEditor() {
       toast({ title: "AI Error", description: (err as Error).message, variant: "destructive" });
     } finally {
       setAiRunning(null);
+    }
+  }
+
+  async function generateFeaturedImage() {
+    if (!imageGenerationPrompt.trim()) {
+      toast({ title: "Enter a prompt", description: "Describe the image you want to generate.", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingImage(true);
+    try {
+      const res = await fetch(`/api/website/blog/${params.id}/generate-featured-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: imageGenerationPrompt.trim(),
+        }),
+      });
+
+      const data = await res.json() as {
+        imageUrl?: string;
+        creditsUsed?: number;
+        costUsd?: number;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        toast({ title: "Image Generation Error", description: data.error ?? "Failed to generate image", variant: "destructive" });
+        return;
+      }
+
+      setFeaturedImageUrl(data.imageUrl ?? null);
+      setImageGenerationPrompt("");
+      setDirty(true);
+      setAiCredits(aiCredits! - (data.creditsUsed ?? 1));
+      qc.invalidateQueries({ queryKey: ["billing-credits"] });
+      toast({
+        title: "Image generated",
+        description: `Used ${data.creditsUsed ?? 1} credit${(data.creditsUsed ?? 1) === 1 ? "" : "s"}`,
+      });
+    } catch (err) {
+      toast({ title: "Image Generation Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setGeneratingImage(false);
     }
   }
 
@@ -366,6 +415,50 @@ export default function WebsiteBlogEditor() {
                   rows={2}
                 />
                 <p className="text-xs text-slate-500">Used in blog listings and helps the AI create better posts. Not displayed on the published post.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Featured Image</Label>
+                {featuredImageUrl && (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={featuredImageUrl} alt="Featured" className="w-full max-h-40 object-cover rounded-lg border border-slate-200" />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => { setFeaturedImageUrl(null); setDirty(true); }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+                {!featuredImageUrl && (
+                  <div className="space-y-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Generate with AI</Label>
+                      <Input
+                        value={imageGenerationPrompt}
+                        onChange={e => setImageGenerationPrompt(e.target.value)}
+                        placeholder="e.g. 'A technician installing a modern boiler in a cozy home'"
+                        disabled={generatingImage || !addonActive || (aiCredits ?? 0) < 1}
+                      />
+                      <Button
+                        type="button"
+                        onClick={generateFeaturedImage}
+                        disabled={generatingImage || !addonActive || (aiCredits ?? 0) < 1 || !imageGenerationPrompt.trim()}
+                        size="sm"
+                        className="w-full"
+                      >
+                        {generatingImage ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Image className="w-3.5 h-3.5 mr-1.5" />}
+                        Generate Image (~34 credits)
+                      </Button>
+                      {!addonActive && <p className="text-xs text-red-500">AI Writing addon required</p>}
+                      {(aiCredits ?? 0) < 1 && <p className="text-xs text-red-500">Insufficient credits</p>}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -14,6 +14,7 @@
  *   PATCH  /api/website/blog/:id             — update post
  *   DELETE /api/website/blog/:id             — delete post
  *   POST   /api/website/blog/:id/publish     — publish post
+ *   POST   /api/website/blog/:id/generate-featured-image — generate featured image with AI
  *   GET    /api/website/blog/categories      — list categories
  *
  * Forms:
@@ -44,7 +45,7 @@ import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 import { sendSimpleNotification } from "../lib/email";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
-import { runBlogAi, type BlogAiOperation } from "../lib/blog-ai";
+import { runBlogAi, generateBlogFeaturedImage, type BlogAiOperation } from "../lib/blog-ai";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -639,6 +640,71 @@ router.delete(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     await db.from("website_blog_posts").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId);
     res.sendStatus(204);
+  }
+);
+
+// ─── Blog Image Generation ────────────────────────────────────────────────
+
+router.post(
+  "/website/blog/:id/generate-featured-image",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id: postId } = req.params;
+    const { prompt } = req.body as { prompt?: string };
+
+    if (!prompt?.trim()) {
+      res.status(400).json({ error: "prompt is required" });
+      return;
+    }
+
+    // Check if blog addon is active and has credits
+    const hasAddon = await hasActiveAddon(req.tenantId!, "ai_blog_writing");
+    if (!hasAddon) {
+      res.status(403).json({ error: "AI Blog Writing addon not active" });
+      return;
+    }
+
+    const credits = await getAddonCredits(req.tenantId!, "ai_blog_writing");
+    if (credits < 1) {
+      res.status(403).json({ error: "Insufficient credits to generate image" });
+      return;
+    }
+
+    try {
+      // Generate image
+      const result = await generateBlogFeaturedImage(prompt, {
+        tenantId: req.tenantId,
+        userId: req.userId,
+      });
+
+      // Deduct credits
+      await deductAddonCreditsAmount(req.tenantId!, "ai_blog_writing", result.creditsUsed);
+
+      // Update blog post with featured image URL
+      const { error: updateError } = await db
+        .from("website_blog_posts")
+        .update({ featured_image_url: result.imageUrl })
+        .eq("id", postId)
+        .eq("tenant_id", req.tenantId);
+
+      if (updateError) {
+        console.error("Failed to update featured image URL:", updateError);
+        res.status(500).json({ error: "Failed to save image URL to post" });
+        return;
+      }
+
+      res.json({
+        imageUrl: result.imageUrl,
+        costUsd: result.costUsd,
+        creditsUsed: result.creditsUsed,
+      });
+    } catch (error) {
+      console.error("Failed to generate featured image:", error);
+      res.status(500).json({ error: "Failed to generate featured image" });
+    }
   }
 );
 
