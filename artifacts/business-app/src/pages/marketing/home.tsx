@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Briefcase, Users, FileText, BarChart3, Shield, Smartphone,
-  CheckCircle, ArrowRight, Star, Flame, Wrench, ClipboardCheck
+  CheckCircle, ArrowRight, Star, Flame, Wrench, ClipboardCheck, Globe
 } from "lucide-react";
 
 const features = [
@@ -43,6 +43,11 @@ const features = [
     title: "Compliance Ready",
     desc: "Records organised by property and appliance. Ready for Gas Safe inspections at a moment's notice.",
   },
+  {
+    icon: Globe,
+    title: "Your Own Website",
+    desc: "A fully SEO-optimised business website with your own domain — built in minutes from within the app.",
+  },
 ];
 
 const stats = [
@@ -56,6 +61,7 @@ const addons = [
   "Digital Forms & Certificates",
   "Digital Signatures",
   "Team Management",
+  "Website Builder & Custom Domain",
   "Accounting Integration",
   "Social Media & AI Marketing",
   "Advanced Analytics",
@@ -154,6 +160,65 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Website builder spotlight */}
+      <section className="bg-slate-900 py-20 md:py-24 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/20 text-teal-400 text-sm font-medium mb-6">
+                <Globe className="w-4 h-4" />
+                Included in every plan
+              </div>
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-white">
+                A professional website, live in minutes
+              </h2>
+              <p className="mt-4 text-lg text-slate-300 leading-relaxed">
+                TradeWorkDesk includes a full website builder. Choose your pages, click
+                &ldquo;Build My Website&rdquo; and get an SEO-optimised site with your own domain — no
+                developer needed.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "7 pre-built pages — Home, Services, How It Works, Projects, Reviews, Areas, Contact",
+                  "Block-based editor — hero, FAQ, testimonials, gallery, case studies and more",
+                  "Custom domain with automatic SSL",
+                  "Structured data (LocalBusiness, FAQPage, BreadcrumbList) built in",
+                  "Automatic XML sitemap and robots.txt",
+                  "Upload and optimise images from within the editor",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-slate-300">
+                    <CheckCircle className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8">
+                <Link href="/register">
+                  <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white text-base px-8 h-12">
+                    Start Free Trial
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+            {/* Illustration / feature cards */}
+            <div className="flex-1 min-w-0 grid grid-cols-2 gap-4">
+              {[
+                { label: "Block Editor", desc: "Drag-and-drop blocks — hero, FAQ, testimonials, gallery, contact form and more" },
+                { label: "SEO Built In", desc: "Schema markup, canonical URLs, and sitemaps generated automatically" },
+                { label: "Custom Domain", desc: "Connect your own domain with one click and automatic SSL" },
+                { label: "Image Library", desc: "Upload images directly in the editor — auto-converted to WebP for speed" },
+              ].map((card) => (
+                <div key={card.label} className="rounded-xl bg-slate-800 border border-slate-700 p-5">
+                  <p className="font-semibold text-white text-sm mb-2">{card.label}</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">{card.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="bg-slate-50 py-20 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -177,7 +242,7 @@ export default function HomePage() {
               </div>
               <p className="mt-1 text-sm text-blue-200">+ £10/month per additional user &nbsp;·&nbsp; cancel any time</p>
               <ul className="mt-6 space-y-3">
-                {["Unlimited jobs & job types", "Gas, oil & heat pump service records", "Customer & property management", "Invoicing & payment tracking", "Scheduling & calendar sync", "Team management & job assignment"].map((f) => (
+                {["Unlimited jobs & job types", "Gas, oil & heat pump service records", "Customer & property management", "Invoicing & payment tracking", "Scheduling & calendar sync", "Team management & job assignment", "Website builder with custom domain"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm">
                     <CheckCircle className="w-4 h-4 text-blue-200 shrink-0" />
                     {f}

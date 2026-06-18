@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Briefcase, Users, FileText, BarChart3, Shield, Smartphone,
   ClipboardCheck, Camera, Wifi, Wrench, Building2, ArrowRight,
-  CheckCircle, Flame, Droplets, ThermometerSun
+  CheckCircle, Flame, Droplets, ThermometerSun, Globe
 } from "lucide-react";
 
 const featureGroups = [
@@ -85,6 +85,21 @@ const featureGroups = [
       "Per-engineer job assignment and tracking",
       "Company settings and branding",
       "Lookup options for custom dropdown values",
+    ],
+  },
+  {
+    title: "Website Builder",
+    icon: Globe,
+    description: "A fully SEO-optimised business website included in every plan — no developer needed.",
+    items: [
+      "7 pre-built pages: Home, Services, How It Works, Projects, Reviews, Areas, Contact",
+      "Block-based editor — hero, FAQ, testimonials, case studies, gallery, contact form, and more",
+      "Connect your own custom domain with automatic SSL",
+      "Structured data (LocalBusiness, FAQPage, BreadcrumbList) generated automatically",
+      "Automatic XML sitemap and robots.txt",
+      "Image upload library with automatic WebP optimisation",
+      "Per-page SEO settings — meta title, description, canonical URL",
+      "Draft / published workflow with version history",
     ],
   },
 ];

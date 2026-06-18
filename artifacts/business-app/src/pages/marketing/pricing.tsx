@@ -19,6 +19,7 @@ const FEATURES = [
   "Compliance forms & combustion analysis",
   "UK address lookup & geo-mapping",
   "Advanced analytics & dashboard",
+  "Website builder with custom domain",
   "Priority support",
 ];
 
@@ -50,6 +51,14 @@ const faqs = [
   {
     question: "Is my data secure?",
     answer: "Yes. All data is encrypted in transit and at rest. Our infrastructure is hosted in UK/EU data centres and we are fully GDPR compliant.",
+  },
+  {
+    question: "Does the website builder cost extra?",
+    answer: "No. The website builder is included in every plan at no extra cost. You can build a fully SEO-optimised business website, connect your own custom domain, and manage all your pages from within the app.",
+  },
+  {
+    question: "Can I use my own domain for the website?",
+    answer: "Yes. You can connect any domain you own. We also provide a free platform subdomain (e.g. yourbusiness.tradeworkdesk.co.uk) that is active instantly while you set up your custom domain.",
   },
 ];
 
