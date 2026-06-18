@@ -81,6 +81,7 @@ export default async function HomePage() {
         slug={homePage.slug}
         page={homePage}
         theme={siteTheme}
+        tenantId={site.website.tenant_id}
       />
     </TemplateLayout>
   );

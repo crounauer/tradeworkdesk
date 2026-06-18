@@ -50,7 +50,7 @@ import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
   Type, Image, Layout, MessageSquare, Star, Grid3X3,
-  Phone, Award, Minus, Undo2,
+  Phone, Award, Minus, Undo2, CalendarCheck,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,8 @@ type BlockType =
   | "process"
   | "areas"
   | "project_showcase"
-  | "spacer";
+  | "spacer"
+  | "online_booking";
 
 interface Block {
   id: string;
@@ -291,6 +292,20 @@ const BLOCK_PALETTE: { type: BlockType; label: string; icon: React.ComponentType
           cta_url: "/contact",
         },
       ],
+    },
+  },
+  {
+    type: "online_booking",
+    label: "Online Booking",
+    icon: CalendarCheck,
+    description: "Multi-step booking widget — customers pick service, date & time",
+    defaultContent: {
+      heading: "Book an Appointment",
+      subheading: "Choose a service and pick a time that suits you.",
+      require_postcode: true,
+      require_description: true,
+      show_price: true,
+      complex_keywords: "repair,breakdown,fault,emergency,not working,no hot water,leak",
     },
   },
   {
@@ -739,6 +754,42 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Project
             </Button>
           </div>
+        </div>
+      );
+    }
+
+    case "online_booking": {
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Section Heading">
+            <Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} placeholder="Book an Appointment" />
+          </FieldRow>
+          <FieldRow label="Subheading">
+            <Input value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} placeholder="Choose a service and pick a time that suits you." />
+          </FieldRow>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+            <strong>Booking settings</strong> — services, working hours and auto-confirm are managed in{" "}
+            <a href="/booking/setup" className="underline font-medium">Online Booking → Setup</a>.
+          </div>
+          <FieldRow label="Show prices on services">
+            <Switch checked={Boolean(c.show_price ?? true)} onCheckedChange={(v) => set("show_price", v)} />
+          </FieldRow>
+          <FieldRow label="Require postcode from customer">
+            <Switch checked={Boolean(c.require_postcode ?? true)} onCheckedChange={(v) => set("require_postcode", v)} />
+          </FieldRow>
+          <FieldRow label="Require job description">
+            <Switch checked={Boolean(c.require_description ?? true)} onCheckedChange={(v) => set("require_description", v)} />
+          </FieldRow>
+          <FieldRow label="Complex job keywords">
+            <Input
+              value={String(c.complex_keywords ?? "")}
+              onChange={(e) => set("complex_keywords", e.target.value)}
+              placeholder="repair,breakdown,fault,emergency"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Comma-separated. If a service name/description contains any of these words, the booking is flagged as complex and marked as pending approval.
+            </p>
+          </FieldRow>
         </div>
       );
     }

@@ -13,16 +13,18 @@ interface Props {
   page: SitePage;
   /** Site-level theme overrides (e.g. accent_color) applied to every block */
   theme?: Record<string, string>;
+  /** Tenant ID injected into blocks that call the public API */
+  tenantId?: string;
 }
 
-export default async function PageRenderer({ websiteId, slug, page, theme }: Props) {
+export default async function PageRenderer({ websiteId, slug, page, theme, tenantId }: Props) {
   const fullPage = await getPageBySlug(websiteId, slug);
   if (!fullPage) notFound();
 
   return (
     <main>
       {fullPage.blocks.map((block) => (
-        <BlockRenderer key={block.id} block={block} theme={theme} />
+        <BlockRenderer key={block.id} block={block} theme={theme} tenantId={tenantId} />
       ))}
     </main>
   );

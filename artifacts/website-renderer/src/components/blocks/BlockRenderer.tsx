@@ -18,6 +18,7 @@
  *   brands      — brand/partner logo bar
  *   spacer      — vertical spacer
  *   html        — raw HTML embed (sanitised)
+ *   online_booking — customer booking widget (multi-step)
  */
 "use client";
 
@@ -39,19 +40,24 @@ import BrandsBlock from "./BrandsBlock";
 import FeaturesBarBlock from "./FeaturesBarBlock";
 import ProcessBlock from "./ProcessBlock";
 import ProjectShowcaseBlock from "./ProjectShowcaseBlock";
+import OnlineBookingBlock from "./OnlineBookingBlock";
 
 interface Props {
   block: SiteBlock;
   /** Site-level theme — values here are used as fallbacks when the block
    *  doesn't define its own accent_color / background_color etc. */
   theme?: Record<string, string>;
+  /** Tenant ID — injected into blocks that need it (e.g. online_booking) */
+  tenantId?: string;
 }
 
-export default function BlockRenderer({ block, theme }: Props) {
+export default function BlockRenderer({ block, theme, tenantId }: Props) {
   // Merge site theme as low-priority defaults so per-block overrides still win.
   const siteAccent = theme?.accent_color;
   const base = siteAccent ? { accent_color: siteAccent } : {};
-  const content = { ...base, ...(block.content as Record<string, unknown>) };
+  // Inject tenantId for blocks that need to call public APIs
+  const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
+  const content = { ...base, ...tenantOverride, ...(block.content as Record<string, unknown>) };
 
   switch (block.block_type) {
     case "hero":
@@ -95,6 +101,9 @@ export default function BlockRenderer({ block, theme }: Props) {
     case "project_showcase":
     case "case_study":
       return <ProjectShowcaseBlock content={content} />;
+    case "online_booking":
+    case "booking":
+      return <OnlineBookingBlock content={content} />;
     default:
       return null;
   }

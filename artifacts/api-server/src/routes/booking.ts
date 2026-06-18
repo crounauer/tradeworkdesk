@@ -250,13 +250,80 @@ router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking
 });
 
 router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  const { data, error } = await db.from("bookings")
+  // 1. Confirm the booking
+  const { data: booking, error } = await db.from("bookings")
     .update({ status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: req.userId })
     .eq("id", req.params.id).eq("tenant_id", req.tenantId)
     .select().single();
   if (error) return res.status(500).json({ error: error.message });
-  if (!data) return res.status(404).json({ error: "Not found" });
-  res.json(data);
+  if (!booking) return res.status(404).json({ error: "Not found" });
+
+  // 2. Auto-create job if setting enabled
+  try {
+    const { data: settings } = await db.from("booking_settings")
+      .select("auto_create_job, default_job_type_id")
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle();
+
+    if (settings?.auto_create_job) {
+      const { data: svc } = await db.from("booking_services")
+        .select("name, duration_minutes")
+        .eq("id", booking.booking_service_id)
+        .maybeSingle();
+
+      const serviceLabel = svc?.name || "Online Booking";
+      const scheduledDate = booking.scheduled_start
+        ? new Date(booking.scheduled_start).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+      const scheduledTime = booking.scheduled_start
+        ? new Date(booking.scheduled_start).toTimeString().slice(0, 5)
+        : null;
+
+      const { data: job } = await db.from("jobs").insert({
+        tenant_id: req.tenantId,
+        title: serviceLabel + " — " + (booking.customer_name || "Customer"),
+        description: booking.notes || null,
+        status: "scheduled",
+        job_type_id: settings.default_job_type_id || null,
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
+        created_by: req.userId,
+      }).select("id").single();
+
+      if (job?.id) {
+        // Link booking to job and create/link enquiry
+        await db.from("bookings")
+          .update({ job_id: job.id })
+          .eq("id", req.params.id);
+
+        // Also create an enquiry so the job shows in the inbox
+        const { data: enquiry } = await db.from("enquiries").insert({
+          tenant_id: req.tenantId,
+          contact_name: booking.customer_name,
+          contact_email: booking.customer_email || null,
+          contact_phone: booking.customer_phone || null,
+          address: [booking.customer_address, booking.customer_postcode].filter(Boolean).join(", ") || null,
+          source: "website",
+          description: [
+            serviceLabel,
+            booking.notes,
+          ].filter(Boolean).join("\n") || null,
+          status: "converted",
+          notes: "Auto-created from confirmed online booking (ID: " + req.params.id + ")",
+          linked_job_id: job.id,
+        }).select("id").single();
+
+        if (enquiry?.id) {
+          await db.from("bookings").update({ enquiry_id: enquiry.id }).eq("id", req.params.id);
+        }
+      }
+    }
+  } catch (autoErr) {
+    // Non-fatal — log but don't fail the confirm response
+    console.error("[booking] auto-create job failed:", (autoErr as Error).message);
+  }
+
+  res.json(booking);
 });
 
 router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {

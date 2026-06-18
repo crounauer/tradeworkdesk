@@ -67,6 +67,7 @@ export default async function DynamicPage({ params }: PageProps) {
         slug={page.slug}
         page={page}
         theme={siteTheme}
+        tenantId={site.website.tenant_id}
       />
     </TemplateLayout>
   );
