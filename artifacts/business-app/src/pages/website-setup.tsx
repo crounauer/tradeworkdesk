@@ -14,7 +14,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
-  ExternalLink, ChevronRight, Loader2, Eye, Zap, Pencil, Trash2, LayoutTemplate, CheckCircle2,
+  ExternalLink, ChevronRight, Loader2, Eye, Zap, Trash2, LayoutTemplate, CheckCircle2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -64,9 +64,7 @@ export default function WebsiteSetup() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [createStep, setCreateStep] = useState<"pick-template" | "pick-method">("pick-template");
 
   const { data: website, isLoading: websiteLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -99,14 +97,25 @@ export default function WebsiteSetup() {
     },
   });
 
-  const quickstartMutation = useMutation({
-    mutationFn: () =>
-      apiFetch("/api/website/quickstart", { method: "POST" }),
+  const buildMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      await apiFetch("/api/website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      await apiFetch("/api/website/apply-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId }),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
-      toast({ title: "Website ready!", description: "Your site has been built and pre-filled with your business details. Review each page and tweak the text as needed." });
+      toast({ title: "Your website is ready!", description: "Review each page and publish when you're happy." });
     },
     onError: (e: Error) => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
       toast({ title: "Error", description: e.message, variant: "destructive" });
     },
   });
@@ -177,156 +186,59 @@ export default function WebsiteSetup() {
   }
 
   if (!website) {
-    const busy = quickstartMutation.isPending || createMutation.isPending;
-    const pickedTemplate = templates?.find((t) => t.id === selectedTemplate);
+    const modernTemplate = templates?.find((t) => t.slug === "modern");
+    const busy = buildMutation.isPending || createMutation.isPending;
 
-    // Step 1: choose a template
-    if (createStep === "pick-template") {
-      return (
-        <div className="p-6 max-w-5xl mx-auto">
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold mb-2">Choose a Template</h1>
-            <p className="text-muted-foreground">Pick a design to get started. You can change it at any time.</p>
-          </div>
-
-          {!templates ? (
-            <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-muted-foreground" /></div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-                {templates.map((t) => {
-                  const isSelected = selectedTemplate === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setSelectedTemplate(t.id)}
-                      className={`relative rounded-xl overflow-hidden text-left transition-all focus:outline-none ${
-                        isSelected
-                          ? "ring-2 ring-primary shadow-lg"
-                          : "border border-border hover:border-primary/50 hover:shadow-md"
-                      }`}
-                    >
-                      {/* Thumbnail */}
-                      {t.thumbnail_url ? (
-                        <img src={t.thumbnail_url} alt={t.name} className="w-full h-32 object-cover" />
-                      ) : (
-                        <div className={`w-full h-32 flex items-center justify-center ${isSelected ? "bg-primary/10" : "bg-muted"}`}>
-                          <LayoutTemplate className={`w-8 h-8 ${isSelected ? "text-primary/60" : "text-muted-foreground/30"}`} />
-                        </div>
-                      )}
-                      {/* Active tick */}
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 bg-primary rounded-full p-0.5">
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                        </div>
-                      )}
-                      <div className={`p-3 ${isSelected ? "bg-primary/5" : "bg-background"}`}>
-                        <p className={`font-semibold text-sm ${isSelected ? "text-primary" : ""}`}>{t.name}</p>
-                        {t.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.description}</p>}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex justify-center">
-                <Button
-                  size="lg"
-                  disabled={!selectedTemplate}
-                  onClick={() => setCreateStep("pick-method")}
-                  className="px-10"
-                >
-                  Continue →
-                </Button>
-              </div>
-              {!selectedTemplate && (
-                <p className="text-center text-sm text-muted-foreground mt-3">Select a template above to continue</p>
-              )}
-            </>
-          )}
-        </div>
-      );
-    }
-
-    // Step 2: quick start vs scratch
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <button
-          type="button"
-          onClick={() => setCreateStep("pick-template")}
-          className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6"
-        >
-          ← Back
-          {pickedTemplate && (
-            <span className="ml-2 bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs">{pickedTemplate.name} template</span>
-          )}
-        </button>
-
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold mb-2">How would you like to start?</h1>
-          <p className="text-muted-foreground">
-            We'll use the <strong>{pickedTemplate?.name}</strong> template.
+      <div className="p-6 max-w-xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Globe className="w-8 h-8 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Build Your Website</h1>
+          <p className="text-muted-foreground max-w-sm mx-auto text-sm">
+            We'll create a complete, professional website in seconds — pre-filled with your
+            business details, services, and contact information. Just review and publish.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-6">
-          {/* Quick Start — recommended */}
-          <Card className="border-2 border-primary/40 relative">
-            <div className="absolute -top-3 left-4">
-              <Badge className="bg-primary text-primary-foreground text-xs px-2">Recommended</Badge>
+        <div className="grid grid-cols-2 gap-2 mb-8 text-sm text-muted-foreground">
+          {[
+            { icon: "📄", text: "7 ready-made pages" },
+            { icon: "📞", text: "Contact form included" },
+            { icon: "🔍", text: "SEO optimised" },
+            { icon: "📱", text: "Mobile friendly" },
+            { icon: "🌐", text: "Free web address" },
+            { icon: "✏️", text: "Fully editable" },
+          ].map(({ icon, text }) => (
+            <div key={text} className="flex items-center gap-2">
+              <span>{icon}</span> {text}
             </div>
-            <CardContent className="p-6 flex flex-col h-full">
-              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4">
-                <Zap className="w-7 h-7 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold mb-2">Quick Start</h2>
-              <p className="text-sm text-muted-foreground flex-1 mb-6">
-                We'll build a complete website for you in seconds — pre-filled with your
-                business name, services, contact details, and a professional layout.
-                Just update the text and photos.
-              </p>
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => quickstartMutation.mutate()}
-                disabled={busy}
-              >
-                {quickstartMutation.isPending ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building your site…</>
-                ) : (
-                  <><Zap className="w-4 h-4 mr-2" /> Build My Website Now</>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+          ))}
+        </div>
 
-          {/* Start from scratch */}
-          <Card>
-            <CardContent className="p-6 flex flex-col h-full">
-              <div className="p-3 bg-muted rounded-xl w-fit mb-4">
-                <Pencil className="w-7 h-7 text-muted-foreground" />
-              </div>
-              <h2 className="text-lg font-semibold mb-2">Start from Scratch</h2>
-              <p className="text-sm text-muted-foreground flex-1 mb-6">
-                Create a blank website and build each page yourself. Useful if you want
-                full control from the start.
-              </p>
-              <Button
-                variant="outline"
-                className="w-full"
-                size="lg"
-                onClick={() => createMutation.mutate()}
-                disabled={busy}
-              >
-                {createMutation.isPending ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating…</>
-                ) : (
-                  <><Globe className="w-4 h-4 mr-2" /> Create Blank Website</>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() => buildMutation.mutate(modernTemplate?.id ?? "")}
+          disabled={busy || !modernTemplate}
+        >
+          {buildMutation.isPending ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building your website…</>
+          ) : (
+            <><Zap className="w-4 h-4 mr-2" /> Build My Website</>
+          )}
+        </Button>
+
+        <div className="text-center mt-4">
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+            onClick={() => createMutation.mutate()}
+            disabled={busy}
+          >
+            Start with a blank website instead
+          </button>
         </div>
       </div>
     );
