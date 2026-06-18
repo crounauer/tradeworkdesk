@@ -72,11 +72,11 @@ export default function PlatformTenantDetail() {
   const grantFreeAccessMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/platform/tenants/${params.id}/grant-free-access`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to grant free access");
+        throw new Error(data.error || "Failed to grant free access");
       }
-      return res.json();
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
@@ -89,11 +89,11 @@ export default function PlatformTenantDetail() {
   const revokeFreeAccessMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/platform/tenants/${params.id}/revoke-free-access`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to revoke free access");
+        throw new Error(data.error || "Failed to revoke free access");
       }
-      return res.json();
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
