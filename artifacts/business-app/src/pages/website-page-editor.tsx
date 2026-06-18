@@ -179,6 +179,7 @@ const BLOCK_PALETTE: { type: BlockType; label: string; icon: React.ComponentType
       heading: "Get in Touch",
       subheading: "Fill in the form below and we'll get back to you shortly.",
       form_type: "contact",
+      allow_photos: true,
     },
   },
   {
@@ -510,6 +511,9 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
                 <SelectItem value="emergency">Emergency Callout</SelectItem>
               </SelectContent>
             </Select>
+          </FieldRow>
+          <FieldRow label="Allow customer photo uploads">
+            <Switch checked={Boolean(c.allow_photos ?? true)} onCheckedChange={(v) => set("allow_photos", v)} />
           </FieldRow>
         </div>
       );

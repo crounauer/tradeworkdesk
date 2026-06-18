@@ -36,7 +36,7 @@ export default function ContactFormBlock({ content }: Props) {
     success_message = "Thank you! We'll be in touch soon.",
     accent_color = "#0d9488",
     contact_info,
-    allow_photos = false,
+    allow_photos = true,
     fields = [
       { name: "name", label: "Full Name", type: "text", required: true },
       { name: "phone", label: "Phone Number", type: "tel", required: true },
