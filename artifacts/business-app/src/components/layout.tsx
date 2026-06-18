@@ -152,7 +152,6 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
     { href: "/website/blog", label: "Blog", icon: FileText },
     { href: "/website/domain", label: "Domain", icon: Globe },
-    { href: "/website/settings", label: "Site Settings", icon: Settings2 },
   ];
 
   const automationNavItems = [
