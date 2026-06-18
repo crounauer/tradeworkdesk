@@ -3,7 +3,10 @@ import { getSiteByDomain } from "@/lib/api";
 import type { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const h = await headers();
+  const domain =
+    h.get("x-tenant-domain") ||
+    (h.get("host") || "localhost").replace(/:\d+$/, "");
   const site = await getSiteByDomain(domain);
 
   if (!site) return [];
