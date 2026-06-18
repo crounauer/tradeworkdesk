@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
 import { OfflineBanner } from "./offline-indicator";
 import { useOffline } from "@/contexts/offline-context";
@@ -270,10 +271,22 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50/50 w-full">
-      <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
-        <div className="px-4 py-4 flex items-center gap-2.5 border-b border-border/50 min-h-[64px]">
-          {isSuperAdmin ? (
+      <aside className={cn("hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm", isReadOnlySupportMode && "bg-red-50/50")}>
+        <div className={cn("px-4 py-4 flex items-center gap-2.5 border-b border-border/50 min-h-[64px]", isReadOnlySupportMode && "border-red-200 bg-red-50")}>
+          {isSuperAdmin && !isReadOnlySupportMode ? (
             // Super-admin always sees TradeWorkDesk platform branding
+            <>
+              <Flame className="w-5 h-5 text-primary shrink-0" />
+              <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+            </>
+          ) : isReadOnlySupportMode ? (
+            // Read-only support mode — show prominent lock indicator
+            <>
+              <Lock className="w-5 h-5 text-red-600 shrink-0" />
+              <span className="text-sm font-bold tracking-tight text-red-700">Support Mode</span>
+              <Badge className="ml-auto bg-red-600 text-white text-xs px-1.5 py-0.5 h-fit">READ-ONLY</Badge>
+            </>
+          ) : isSuperAdmin ? (
             <>
               <Flame className="w-5 h-5 text-primary shrink-0" />
               <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
@@ -481,23 +494,30 @@ export function Layout({ children }: { children: ReactNode }) {
         <OfflineBanner />
 
         {isReadOnlySupportMode && (
-          <div className="border-b border-blue-200 bg-blue-50 px-4 py-2.5 flex flex-wrap items-center justify-center gap-3 text-sm text-blue-900">
-            <Eye className="w-4 h-4 shrink-0" />
-            <span className="font-medium">Superadmin Read-Only Support Mode</span>
-            <span className="text-xs opacity-90">Viewing {tenantInfo?.company_name || "tenant"} for troubleshooting. Write actions are blocked.</span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={() => {
-                localStorage.removeItem("superadmin_readonly_tenant_id");
-                queryClient.invalidateQueries({ queryKey: ["me-init"] });
-                queryClient.invalidateQueries({ queryKey: ["tenant-info"] });
-                window.location.href = "/platform";
-              }}
-            >
-              Exit Support Mode
-            </Button>
+          <div className="border-b-4 border-red-600 bg-red-50 px-4 py-3.5 flex flex-col gap-3 text-sm text-red-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-bold">
+                <Lock className="w-5 h-5 shrink-0" />
+                <span>⚠️ READ-ONLY SUPPORT MODE</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs border-red-300 hover:bg-red-100"
+                onClick={() => {
+                  localStorage.removeItem("superadmin_readonly_tenant_id");
+                  queryClient.invalidateQueries({ queryKey: ["me-init"] });
+                  queryClient.invalidateQueries({ queryKey: ["tenant-info"] });
+                  window.location.href = "/platform";
+                }}
+              >
+                Exit Support Mode
+              </Button>
+            </div>
+            <div className="text-xs leading-relaxed">
+              <p><strong>You are viewing {tenantInfo?.company_name || "a tenant"} for troubleshooting only.</strong></p>
+              <p>No changes can be made. All write actions are blocked. Click "Exit" to return to platform admin.</p>
+            </div>
           </div>
         )}
 
