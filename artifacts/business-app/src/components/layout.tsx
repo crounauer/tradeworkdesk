@@ -259,8 +259,8 @@ export function Layout({ children }: { children: ReactNode }) {
               <Flame className="w-5 h-5 text-primary shrink-0" />
               <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
             </>
-          ) : companySettings?.logo_url ? (
-            // Tenant has uploaded a logo — show it
+          ) : companySettings?.white_label_enabled && companySettings?.logo_url ? (
+            // Tenant has uploaded a logo and white-label is enabled — show it
             <img
               src={companySettings.logo_url}
               alt={companySettings.trading_name ?? companySettings.name ?? "Logo"}
@@ -368,7 +368,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <Flame className="w-5 h-5 text-primary" />
               <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
             </>
-          ) : companySettings?.logo_url ? (
+          ) : companySettings?.white_label_enabled && companySettings?.logo_url ? (
             <img
               src={companySettings.logo_url}
               alt={companySettings.trading_name ?? companySettings.name ?? "Logo"}
