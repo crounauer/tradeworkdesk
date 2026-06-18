@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { MarketingLayout } from "@/components/marketing-layout";
 import { SEOHead, SITE_URL } from "@/components/seo-head";
 import {
@@ -69,7 +70,36 @@ const addons = [
   "Specialist Forms",
 ];
 
+interface Plan {
+  id: string;
+  name: string;
+  monthly_price: number;
+  per_user_price: number | null;
+  max_users: number;
+  is_popular: boolean;
+}
+
+function normalisePounds(raw: number): number {
+  return raw > 500 ? raw / 100 : raw;
+}
+
+function fmtPounds(raw: number): string {
+  const p = normalisePounds(raw);
+  return p % 1 === 0 ? `£${p}` : `£${p.toFixed(2)}`;
+}
+
 export default function HomePage() {
+  const { data: plans = [] } = useQuery<Plan[]>({
+    queryKey: ["/api/platform/plans/public"],
+    queryFn: () => fetch("/api/platform/plans/public").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const featuredPlan = plans.find((p) => p.is_popular) ?? plans.find((p) => p.monthly_price > 0);
+  const basePrice = featuredPlan ? fmtPounds(featuredPlan.monthly_price) : "£25";
+  const perUserPrice = featuredPlan?.per_user_price ? fmtPounds(featuredPlan.per_user_price) : "£10";
+  const maxUsers = featuredPlan?.max_users ?? 2;
+
   return (
     <MarketingLayout>
       <SEOHead
@@ -234,13 +264,13 @@ export default function HomePage() {
               <h3 className="font-display text-2xl font-bold">TradeWorkDesk</h3>
               <p className="mt-2 text-blue-100 text-sm">Everything you need to run and grow your heating engineering business.</p>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-5xl font-display font-bold">£25</span>
+                <span className="text-5xl font-display font-bold">{basePrice}</span>
                 <div className="ml-1">
                   <div className="text-blue-100 text-lg">/month</div>
-                  <div className="text-sm text-blue-200">includes 2 users</div>
+                  <div className="text-sm text-blue-200">includes {maxUsers} users</div>
                 </div>
               </div>
-              <p className="mt-1 text-sm text-blue-200">+ £10/month per additional user &nbsp;·&nbsp; cancel any time</p>
+              <p className="mt-1 text-sm text-blue-200">+ {perUserPrice}/month per additional user &nbsp;·&nbsp; cancel any time</p>
               <ul className="mt-6 space-y-3">
                 {["Unlimited jobs & job types", "Gas, oil & heat pump service records", "Customer & property management", "Invoicing & payment tracking", "Scheduling & calendar sync", "Team management & job assignment", "Website builder with custom domain"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm">
