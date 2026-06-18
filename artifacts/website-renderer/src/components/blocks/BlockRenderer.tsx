@@ -42,10 +42,16 @@ import ProjectShowcaseBlock from "./ProjectShowcaseBlock";
 
 interface Props {
   block: SiteBlock;
+  /** Site-level theme — values here are used as fallbacks when the block
+   *  doesn't define its own accent_color / background_color etc. */
+  theme?: Record<string, string>;
 }
 
-export default function BlockRenderer({ block }: Props) {
-  const content = block.content as Record<string, unknown>;
+export default function BlockRenderer({ block, theme }: Props) {
+  // Merge site theme as low-priority defaults so per-block overrides still win.
+  const siteAccent = theme?.accent_color;
+  const base = siteAccent ? { accent_color: siteAccent } : {};
+  const content = { ...base, ...(block.content as Record<string, unknown>) };
 
   switch (block.block_type) {
     case "hero":

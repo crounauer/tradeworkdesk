@@ -49,12 +49,15 @@ export default async function DynamicPage({ params }: PageProps) {
   const page = site.pages.find((p) => p.slug === slugStr || p.slug === `/${slugStr}`);
   if (!page) notFound();
 
+  const siteTheme = site.website.theme as Record<string, string>;
+
   return (
     <TemplateLayout site={site}>
       <PageRenderer
         websiteId={site.website.id}
         slug={page.slug}
         page={page}
+        theme={siteTheme}
       />
     </TemplateLayout>
   );

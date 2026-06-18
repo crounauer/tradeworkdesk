@@ -64,12 +64,15 @@ export default async function HomePage() {
     );
   }
 
+  const siteTheme = site.website.theme as Record<string, string>;
+
   return (
     <TemplateLayout site={site}>
       <PageRenderer
         websiteId={site.website.id}
         slug={homePage.slug}
         page={homePage}
+        theme={siteTheme}
       />
     </TemplateLayout>
   );

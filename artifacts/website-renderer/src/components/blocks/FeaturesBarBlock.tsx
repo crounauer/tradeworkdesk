@@ -25,7 +25,8 @@ export default function FeaturesBarBlock({ content }: Props) {
   ) as Feature[];
 
   const {
-    background_color = "#0d9488",
+    accent_color,
+    background_color = accent_color || "#0d9488",
     text_color = "#ffffff",
     columns,
   } = content;
