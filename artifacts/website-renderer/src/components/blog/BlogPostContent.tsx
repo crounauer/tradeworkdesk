@@ -189,12 +189,6 @@ export default function BlogPostContent({ post }: Props) {
         />
       )}
 
-      {post.excerpt && (
-        <p style={{ fontSize: "1.25rem", color: "#374151", fontStyle: "italic", borderLeft: "4px solid #f97316", paddingLeft: 16, margin: "0 0 32px" }}>
-          {post.excerpt}
-        </p>
-      )}
-
       <div style={{ color: "#374151" }}>
         {contentBlocks.map((block, i) => {
           if (block.type === "heading") {

@@ -365,6 +365,7 @@ export default function WebsiteBlogEditor() {
                   placeholder="Short summary shown on the blog index…"
                   rows={2}
                 />
+                <p className="text-xs text-slate-500">Used in blog listings and helps the AI create better posts. Not displayed on the published post.</p>
               </div>
             </CardContent>
           </Card>
