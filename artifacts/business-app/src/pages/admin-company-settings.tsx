@@ -1534,7 +1534,7 @@ function ServiceCatalogueSection() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { if (hasAddon("service_catalogue")) fetchServices(); else setLoading(false); }, [fetchServices, hasAddon]);
+  useEffect(() => { fetchServices(); }, [fetchServices]);
 
   const resetForm = () => { setForm({ name: "", default_price: "" }); setShowAdd(false); setEditingId(null); };
 
@@ -1602,21 +1602,13 @@ function ServiceCatalogueSection() {
               Pre-defined services such as boiler services and gas safety checks with fixed prices. Technicians can select these when recording services on a job.
             </CardDescription>
           </div>
-          {hasAddon("service_catalogue") && (
-            <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
-              {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
-            </Button>
-          )}
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
+            {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
-        {!hasAddon("service_catalogue") ? (
-          <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800">
-            <span className="font-medium">Service Catalogue add-on required.</span>{" "}
-            <a href="/settings/billing" className="underline hover:no-underline">Upgrade to unlock</a> this feature and pre-define recurring services with fixed prices.
-          </div>
-        ) : (
-          <>
+        <>
             {showAdd && (
               <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -1688,7 +1680,6 @@ function ServiceCatalogueSection() {
               </div>
             )}
           </>
-        )}
       </CardContent>
     </Card>
   );

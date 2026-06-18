@@ -1821,22 +1821,6 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
 
   const servicesSubtotal = services.reduce((sum, s) => sum + (Number(s.unit_price) || 0) * s.quantity, 0);
 
-  if (!hasAddon("service_catalogue")) {
-    return (
-      <Card className="p-4 sm:p-6 border border-border/50 shadow-sm">
-        <div className="flex items-center gap-2 mb-2">
-          <Wrench className="w-5 h-5 text-purple-500" />
-          <h3 className="font-bold text-lg text-purple-600">Services Offered</h3>
-        </div>
-        <p className="text-sm text-muted-foreground mb-3">Record fixed-price services performed on this job, such as boiler services or gas safety checks.</p>
-        <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800 flex items-center gap-2">
-          <span className="font-medium">Service Catalogue add-on required.</span>
-          <a href="/settings/billing" className="underline hover:no-underline">Upgrade to unlock</a>
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
       <div className="flex items-center justify-between mb-4">
