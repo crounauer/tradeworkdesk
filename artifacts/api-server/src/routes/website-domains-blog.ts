@@ -29,6 +29,7 @@
 
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { geocodeAddress } from "../lib/geocode";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
 import {
@@ -765,7 +766,7 @@ router.get(
     // Fetch company settings for contact info
     const { data: companySettings } = await supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, gas_safe_number, oftec_number, logo_url")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url")
       .eq("tenant_id", domainRecord.tenant_id)
       .eq("singleton_id", "default")
       .maybeSingle();
@@ -832,7 +833,7 @@ router.get(
 
     const { data: companySettings } = await supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, gas_safe_number, oftec_number, logo_url")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url")
       .eq("tenant_id", String(website.tenant_id))
       .eq("singleton_id", "default")
       .maybeSingle();
@@ -847,6 +848,84 @@ router.get(
       testimonials: (testimonialsRes.data as unknown[]) || [],
       gallery: (galleryRes.data as unknown[]) || [],
       company: companySettings,
+    });
+  }
+);
+
+router.post(
+  "/public/website/postcode-coverage/:websiteId",
+  async (req, res): Promise<void> => {
+    if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { websiteId } = req.params;
+    const postcode = typeof req.body?.postcode === "string"
+      ? req.body.postcode.trim().toUpperCase().replace(/\s+/g, "")
+      : "";
+
+    if (!postcode) {
+      res.status(400).json({ error: "Postcode is required" });
+      return;
+    }
+
+    const { data: website } = await supabaseAdmin
+      .from("websites")
+      .select("tenant_id")
+      .eq("id", websiteId)
+      .maybeSingle() as { data: { tenant_id: string } | null };
+
+    if (!website?.tenant_id) {
+      res.status(404).json({ error: "Website not found" });
+      return;
+    }
+
+    const { data: company } = await supabaseAdmin
+      .from("company_settings")
+      .select("postcode, service_area, coverage_radius_miles")
+      .eq("tenant_id", website.tenant_id)
+      .eq("singleton_id", "default")
+      .maybeSingle() as { data: { postcode: string | null; service_area: string | null; coverage_radius_miles: number | null } | null };
+
+    const radius = Number(company?.coverage_radius_miles ?? 0);
+    if (!radius || radius <= 0) {
+      res.json({ covered: null, mode: "text-only", reason: company?.service_area || "Postcode coverage has not been configured yet." });
+      return;
+    }
+
+    const originPostcode = (company?.postcode || "").trim();
+    if (!originPostcode) {
+      res.json({ covered: null, mode: "radius", reason: "Add your business postcode in admin to enable postcode checks." });
+      return;
+    }
+
+    const [origin, target] = await Promise.all([
+      geocodeAddress(originPostcode),
+      geocodeAddress(postcode),
+    ]);
+
+    if (!origin || !target) {
+      res.json({ covered: null, mode: "radius", reason: "We could not verify that postcode right now." });
+      return;
+    }
+
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const earthRadiusMiles = 3958.8;
+    const dLat = toRad(target.latitude - origin.latitude);
+    const dLon = toRad(target.longitude - origin.longitude);
+    const lat1 = toRad(origin.latitude);
+    const lat2 = toRad(target.latitude);
+    const a = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+    const distanceMiles = 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const covered = distanceMiles <= radius;
+
+    res.json({
+      covered,
+      mode: "radius",
+      distance_miles: Number(distanceMiles.toFixed(1)),
+      radius_miles: radius,
+      reason: covered ? "This postcode is within your service area." : "This postcode is outside your service area.",
     });
   }
 );

@@ -374,6 +374,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "name", "trading_name",
     "address_line1", "address_line2", "city", "county", "postcode", "country",
     "phone", "email", "website",
+    "service_area", "coverage_radius_miles",
     "gas_safe_number", "oftec_number", "vat_number", "company_number",
     "default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days", "currency",
     "rates_url", "trading_terms_url", "job_number_prefix",

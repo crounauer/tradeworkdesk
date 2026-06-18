@@ -92,6 +92,8 @@ export interface CompanySettings {
   city: string | null;
   county: string | null;
   postcode: string | null;
+  service_area: string | null;
+  coverage_radius_miles: number | null;
   gas_safe_number: string | null;
   oftec_number: string | null;
   logo_url: string | null;

@@ -21,6 +21,7 @@ interface ListingRow {
   public_description: string | null;
   trade_types: string | null;
   service_area: string | null;
+  coverage_radius_miles: number | null;
   tenant_id: string;
 }
 
@@ -128,24 +129,25 @@ router.get("/directory/:slug", async (req: Request, res: Response): Promise<void
 router.get("/admin/directory-listing", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let q = supabaseAdmin
     .from("company_settings")
-    .select("is_publicly_listed, listing_slug, public_description, trade_types, service_area")
+    .select("is_publicly_listed, listing_slug, public_description, trade_types, service_area, coverage_radius_miles")
     .eq("singleton_id", "default");
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || { is_publicly_listed: false, listing_slug: null, public_description: null, trade_types: null, service_area: null });
+  res.json(data || { is_publicly_listed: false, listing_slug: null, public_description: null, trade_types: null, service_area: null, coverage_radius_miles: null });
 });
 
 // ---------------------------------------------------------------------------
 // PRIVATE: PATCH /api/admin/directory-listing — update listing settings
 // ---------------------------------------------------------------------------
 router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { is_publicly_listed, listing_slug, public_description, trade_types, service_area } = req.body as {
+  const { is_publicly_listed, listing_slug, public_description, trade_types, service_area, coverage_radius_miles } = req.body as {
     is_publicly_listed?: boolean;
     listing_slug?: string;
     public_description?: string;
     trade_types?: string;
     service_area?: string;
+    coverage_radius_miles?: number | string;
   };
 
   const updates: Record<string, unknown> = {};
@@ -153,6 +155,10 @@ router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole
   if (public_description !== undefined) updates.public_description = public_description.trim() || null;
   if (trade_types !== undefined) updates.trade_types = trade_types.trim() || null;
   if (service_area !== undefined) updates.service_area = service_area.trim() || null;
+  if (coverage_radius_miles !== undefined) {
+    const parsed = typeof coverage_radius_miles === "string" ? Number(coverage_radius_miles) : coverage_radius_miles;
+    updates.coverage_radius_miles = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
 
   if (listing_slug !== undefined) {
     const slug = listing_slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");

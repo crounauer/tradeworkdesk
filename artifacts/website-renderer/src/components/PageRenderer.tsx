@@ -24,7 +24,7 @@ export default async function PageRenderer({ websiteId, slug, page, theme, tenan
   return (
     <main>
       {fullPage.blocks.map((block) => (
-        <BlockRenderer key={block.id} block={block} theme={theme} tenantId={tenantId} />
+        <BlockRenderer key={block.id} block={block} websiteId={websiteId} theme={theme} tenantId={tenantId} />
       ))}
     </main>
   );

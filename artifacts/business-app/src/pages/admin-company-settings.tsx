@@ -1705,6 +1705,7 @@ function PublicDirectoryCard() {
   const [description, setDescription] = useState("");
   const [tradeTypes, setTradeTypes] = useState("");
   const [serviceArea, setServiceArea] = useState("");
+  const [coverageRadius, setCoverageRadius] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
   const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1717,6 +1718,7 @@ function PublicDirectoryCard() {
         setDescription((data.public_description as string) ?? "");
         setTradeTypes((data.trade_types as string) ?? "");
         setServiceArea((data.service_area as string) ?? "");
+        setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -1742,7 +1744,7 @@ function PublicDirectoryCard() {
       await customFetch("/api/admin/directory-listing", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea }),
+        body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea, coverage_radius_miles: coverageRadius }),
       });
       toast({ title: "Directory listing saved", description: isListed ? "Your business is now publicly listed." : "Listing saved (not publicly visible)." });
       setSlugStatus("idle");
@@ -1830,6 +1832,20 @@ function PublicDirectoryCard() {
             onChange={e => setServiceArea(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">Shown on your profile so customers know if you cover their area.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="coverage_radius">Postcode coverage radius</Label>
+          <Input
+            id="coverage_radius"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="e.g. 20"
+            value={coverageRadius}
+            onChange={e => setCoverageRadius(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Used by the website postcode checker. Leave blank to keep the checker text-only.</p>
         </div>
 
         <div className="flex justify-end pt-1">

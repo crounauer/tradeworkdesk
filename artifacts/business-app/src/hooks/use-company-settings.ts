@@ -14,6 +14,8 @@ export interface CompanySettings {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  service_area?: string | null;
+  coverage_radius_miles?: number | null;
   gas_safe_number?: string | null;
   oftec_number?: string | null;
   vat_number?: string | null;

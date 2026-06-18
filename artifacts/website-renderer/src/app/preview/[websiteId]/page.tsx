@@ -63,7 +63,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
     <TemplateLayout site={site} basePath={`/preview/${websiteId}`} previewToken={token}>
       <main>
         {blocks.map((block) => (
-          <BlockRenderer key={block.id} block={block} />
+          <BlockRenderer key={block.id} block={block} websiteId={websiteId} />
         ))}
         {blocks.length === 0 && (
           <div

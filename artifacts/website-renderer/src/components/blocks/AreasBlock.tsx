@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 interface Props {
   content: {
     heading?: string;
@@ -10,6 +12,7 @@ interface Props {
     phone?: string;
     cta_text?: string;
     cta_url?: string;
+    website_id?: string;
     accent_color?: string;
     background_color?: string;
     outer_background?: string;
@@ -26,10 +29,16 @@ export default function AreasBlock({ content }: Props) {
     phone,
     cta_text,
     cta_url,
+    website_id,
     accent_color = "#0d9488",
     background_color = "#0d9488",
     outer_background = "#f9fafb",
   } = content;
+
+  const [postcode, setPostcode] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [coverage, setCoverage] = useState<{ covered: boolean | null; reason?: string | null; distance_miles?: number; radius_miles?: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const isTealCard = background_color.startsWith("#0") || background_color.startsWith("#1") || background_color === "#0d9488";
   const cardText = isTealCard ? "#ffffff" : "#111827";
@@ -38,6 +47,42 @@ export default function AreasBlock({ content }: Props) {
   const pillText = isTealCard ? "#ffffff" : "#374151";
   const ctaBg = isTealCard ? "#ffffff" : accent_color;
   const ctaColor = isTealCard ? accent_color : "#ffffff";
+
+  const hasChecker = useMemo(() => Boolean(website_id), [website_id]);
+
+  const checkPostcode = async () => {
+    const cleaned = postcode.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleaned) {
+      setError("Enter a postcode to check coverage.");
+      setCoverage(null);
+      return;
+    }
+
+    if (!website_id) {
+      setError("Coverage check is unavailable for this site.");
+      return;
+    }
+
+    setChecking(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/postcode-coverage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ websiteId: website_id, postcode: cleaned }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error((data as { error?: string }).error || "Failed to check postcode.");
+      }
+      setCoverage(data as typeof coverage);
+    } catch (err) {
+      setCoverage(null);
+      setError((err as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <section style={{ padding: "72px 24px", backgroundColor: outer_background }}>
@@ -78,6 +123,63 @@ export default function AreasBlock({ content }: Props) {
               </a>
             </div>
           )}
+
+          <div style={{ marginTop: 28, paddingTop: 24, borderTop: isTealCard ? "1px solid rgba(255,255,255,0.14)" : "1px solid #e5e7eb" }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <input
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value)}
+                placeholder="Enter your postcode"
+                aria-label="Postcode"
+                style={{
+                  minWidth: 220,
+                  flex: "1 1 240px",
+                  maxWidth: 320,
+                  borderRadius: 10,
+                  border: `1px solid ${isTealCard ? "rgba(255,255,255,0.22)" : "#d1d5db"}`,
+                  background: isTealCard ? "rgba(255,255,255,0.08)" : "#ffffff",
+                  color: cardText,
+                  padding: "12px 14px",
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={checkPostcode}
+                disabled={checking}
+                style={{
+                  border: 0,
+                  borderRadius: 10,
+                  padding: "12px 18px",
+                  backgroundColor: ctaBg,
+                  color: ctaColor,
+                  fontWeight: 700,
+                  cursor: checking ? "wait" : "pointer",
+                }}
+              >
+                {checking ? "Checking…" : "Check postcode"}
+              </button>
+            </div>
+
+            {error && <p style={{ marginTop: 12, color: "#ef4444", fontSize: "0.9375rem" }}>{error}</p>}
+
+            {coverage && coverage.covered !== null && (
+              <p style={{ marginTop: 12, color: cardSubText, fontSize: "0.9375rem" }}>
+                {coverage.covered ? "This postcode looks covered." : "This postcode is outside the current service area."}
+                {typeof coverage.distance_miles === "number" && typeof coverage.radius_miles === "number" && (
+                  <span> {coverage.distance_miles} miles away from the centre, with a {coverage.radius_miles} mile radius.</span>
+                )}
+              </p>
+            )}
+
+            {coverage && coverage.covered === null && coverage.reason && (
+              <p style={{ marginTop: 12, color: cardSubText, fontSize: "0.9375rem" }}>{coverage.reason}</p>
+            )}
+
+            {!hasChecker && !coverage && (
+              <p style={{ marginTop: 12, color: cardSubText, fontSize: "0.9375rem" }}>Add a postcode radius in admin to enable live postcode checks.</p>
+            )}
+          </div>
         </div>
       </div>
     </section>

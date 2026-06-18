@@ -1586,6 +1586,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN NULL;
 END $$;
 
+DO $$ BEGIN
+  ALTER TABLE company_settings ADD COLUMN coverage_radius_miles INTEGER;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
 -- =============================================================================
 -- Section 19: Add Free plan for freemium tier
 -- =============================================================================

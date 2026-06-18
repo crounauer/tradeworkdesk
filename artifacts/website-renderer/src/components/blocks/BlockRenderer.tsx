@@ -44,6 +44,7 @@ import OnlineBookingBlock from "./OnlineBookingBlock";
 
 interface Props {
   block: SiteBlock;
+  websiteId: string;
   /** Site-level theme — values here are used as fallbacks when the block
    *  doesn't define its own accent_color / background_color etc. */
   theme?: Record<string, string>;
@@ -51,13 +52,14 @@ interface Props {
   tenantId?: string;
 }
 
-export default function BlockRenderer({ block, theme, tenantId }: Props) {
+export default function BlockRenderer({ block, websiteId, theme, tenantId }: Props) {
   // Merge site theme as low-priority defaults so per-block overrides still win.
   const siteAccent = theme?.accent_color;
   const base = siteAccent ? { accent_color: siteAccent } : {};
   // Inject tenantId for blocks that need to call public APIs
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
-  const content = { ...base, ...tenantOverride, ...(block.content as Record<string, unknown>) };
+  const websiteOverride = websiteId ? { website_id: websiteId } : {};
+  const content = { ...base, ...tenantOverride, ...websiteOverride, ...(block.content as Record<string, unknown>) };
 
   switch (block.block_type) {
     case "hero":
