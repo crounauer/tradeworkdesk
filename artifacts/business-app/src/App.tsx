@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-qu
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
 import { ToolsPublicLayout } from "@/components/tools-public-layout";
@@ -208,12 +209,20 @@ const PageFallback = () => (
   </div>
 );
 
-function ProtectedRoute({ component: Component, roles }: { component: React.ComponentType; roles?: string[] }) {
+function ProtectedRoute({ component: Component, roles, requiredFeature }: { component: React.ComponentType; roles?: string[]; requiredFeature?: "job_management" | "website_builder" }) {
   const { session, isLoading, profile, mfaPending } = useAuth();
+  const { hasFeature } = usePlanFeatures();
 
   if (isLoading) return <PageFallback />;
   if (!session) return <Redirect to="/login" />;
   if (mfaPending) return <Redirect to="/login" />;
+
+  if (requiredFeature && !hasFeature(requiredFeature)) {
+    if (requiredFeature === "job_management") {
+      return <Redirect to={hasFeature("website_builder") ? "/website" : "/billing"} />;
+    }
+    return <Redirect to={hasFeature("job_management") ? "/" : "/billing"} />;
+  }
 
   if (roles) {
     if (!profile) return <PageFallback />;
@@ -259,6 +268,7 @@ function PublicPage<P extends Record<string, unknown>>({ component: Component, .
 
 function RootRoute() {
   const { session, isLoading, mfaPending, profile, profileReady } = useAuth();
+  const { hasFeature } = usePlanFeatures();
 
   if (isLoading) return <PageFallback />;
   if (mfaPending) return <Redirect to="/login" />;
@@ -267,6 +277,10 @@ function RootRoute() {
 
   if (session && profile?.role === "super_admin") {
     return <Redirect to="/platform" />;
+  }
+
+  if (session && !hasFeature("job_management") && hasFeature("website_builder")) {
+    return <Redirect to="/website" />;
   }
 
   if (session) {
@@ -305,6 +319,9 @@ function PortalProtectedRoute({ component: Component }: { component: React.Compo
 
 function protect(C: React.ComponentType, roles?: string[]) {
   return function ProtectedPage() { return <ProtectedRoute component={C} roles={roles} />; };
+}
+function protectFeature(C: React.ComponentType, requiredFeature: "job_management" | "website_builder", roles?: string[]) {
+  return function ProtectedFeaturePage() { return <ProtectedRoute component={C} roles={roles} requiredFeature={requiredFeature} />; };
 }
 function pub(C: React.ComponentType, extra?: Record<string, unknown>) {
   return function PublicPageRoute() { return <PublicPage component={C} {...(extra as Record<string, unknown>)} />; };
@@ -347,34 +364,34 @@ const FindSlugRoute = pub(BusinessProfilePage);
 const PrivacyRoute = pub(PrivacyPolicyPage);
 const TermsRoute = pub(TermsOfServicePage);
 
-const CustomersRoute = protect(Customers);
-const CustomerDetailRoute = protect(CustomerDetail);
-const PropertiesRoute = protect(Properties);
-const PropertyDetailRoute = protect(PropertyDetail);
-const JobsRoute = protect(Jobs);
-const JobDetailRoute = protect(JobDetail);
-const ServiceRecordRoute = protect(ServiceRecordForm);
-const BreakdownReportRoute = protect(BreakdownReportForm);
-const CommissioningRoute = protect(CommissioningRecordForm);
-const OilTankInspectionRoute = protect(OilTankInspectionForm);
-const OilTankRiskAssessmentRoute = protect(OilTankRiskAssessmentForm);
-const CombustionAnalysisRoute = protect(CombustionAnalysisForm);
-const BurnerSetupRoute = protect(BurnerSetupForm);
-const FireValveTestRoute = protect(FireValveTestForm);
-const OilLineVacuumTestRoute = protect(OilLineVacuumTestForm);
-const JobCompletionRoute = protect(JobCompletionReportForm);
-const HeatPumpServiceRoute = protect(HeatPumpServiceForm);
-const HeatPumpCommissioningRoute = protect(HeatPumpCommissioningForm);
-const JobFilesRoute = protect(JobFiles);
-const JobSignaturesRoute = protect(JobSignatures);
-const ScheduleRoute = protect(SchedulePage);
-const LeaveHolidaysRoute = protect(LeaveHolidaysPage);
-const FollowUpsRoute = protect(FollowUps);
-const EnquiriesRoute = protect(Enquiries);
-const EnquiryDetailRoute = protect(EnquiryDetail);
-const QuickRecordRoute = protect(QuickRecord);
-const SearchRoute = protect(SearchPage);
-const ReportsRoute = protect(Reports);
+const CustomersRoute = protectFeature(Customers, "job_management");
+const CustomerDetailRoute = protectFeature(CustomerDetail, "job_management");
+const PropertiesRoute = protectFeature(Properties, "job_management");
+const PropertyDetailRoute = protectFeature(PropertyDetail, "job_management");
+const JobsRoute = protectFeature(Jobs, "job_management");
+const JobDetailRoute = protectFeature(JobDetail, "job_management");
+const ServiceRecordRoute = protectFeature(ServiceRecordForm, "job_management");
+const BreakdownReportRoute = protectFeature(BreakdownReportForm, "job_management");
+const CommissioningRoute = protectFeature(CommissioningRecordForm, "job_management");
+const OilTankInspectionRoute = protectFeature(OilTankInspectionForm, "job_management");
+const OilTankRiskAssessmentRoute = protectFeature(OilTankRiskAssessmentForm, "job_management");
+const CombustionAnalysisRoute = protectFeature(CombustionAnalysisForm, "job_management");
+const BurnerSetupRoute = protectFeature(BurnerSetupForm, "job_management");
+const FireValveTestRoute = protectFeature(FireValveTestForm, "job_management");
+const OilLineVacuumTestRoute = protectFeature(OilLineVacuumTestForm, "job_management");
+const JobCompletionRoute = protectFeature(JobCompletionReportForm, "job_management");
+const HeatPumpServiceRoute = protectFeature(HeatPumpServiceForm, "job_management");
+const HeatPumpCommissioningRoute = protectFeature(HeatPumpCommissioningForm, "job_management");
+const JobFilesRoute = protectFeature(JobFiles, "job_management");
+const JobSignaturesRoute = protectFeature(JobSignatures, "job_management");
+const ScheduleRoute = protectFeature(SchedulePage, "job_management");
+const LeaveHolidaysRoute = protectFeature(LeaveHolidaysPage, "job_management");
+const FollowUpsRoute = protectFeature(FollowUps, "job_management");
+const EnquiriesRoute = protectFeature(Enquiries, "job_management");
+const EnquiryDetailRoute = protectFeature(EnquiryDetail, "job_management");
+const QuickRecordRoute = protectFeature(QuickRecord, "job_management");
+const SearchRoute = protectFeature(SearchPage, "job_management");
+const ReportsRoute = protectFeature(Reports, "job_management");
 const AdminCompanySettingsRoute = protect(AdminCompanySettings);
 const AdminBrandingRoute = protect(AdminBranding);
 const AdminUsersRoute = protect(AdminUsers);
@@ -390,17 +407,17 @@ const AdminPaymentProvidersRoute = protect(AdminPaymentProviders, ["admin"]);
 const BillingRoute = protect(Billing);
 const AccountRoute = protect(AccountSettings);
 const TodosRoute = protect(Todos);
-const InvoicesRoute = protect(Invoices);
-const InvoiceDetailRoute = protect(InvoiceDetail);
+const InvoicesRoute = protectFeature(Invoices, "job_management");
+const InvoiceDetailRoute = protectFeature(InvoiceDetail, "job_management");
 const HelpRoute = protect(HelpPage);
-const WebsiteSetupRoute = protect(WebsiteSetup);
-const WebsitePagesRoute = protect(WebsitePages);
-const WebsitePageEditorRoute = protect(WebsitePageEditor);
-const WebsiteDomainRoute = protect(WebsiteDomain);
-const WebsiteSettingsRoute = protect(WebsiteSettings);
-const WebsiteBlogRoute = protect(WebsiteBlog);
-const WebsiteBlogEditorRoute = protect(WebsiteBlogEditor);
-const WebsitePreviewRoute = protect(WebsitePreview);
+const WebsiteSetupRoute = protectFeature(WebsiteSetup, "website_builder");
+const WebsitePagesRoute = protectFeature(WebsitePages, "website_builder");
+const WebsitePageEditorRoute = protectFeature(WebsitePageEditor, "website_builder");
+const WebsiteDomainRoute = protectFeature(WebsiteDomain, "website_builder");
+const WebsiteSettingsRoute = protectFeature(WebsiteSettings, "website_builder");
+const WebsiteBlogRoute = protectFeature(WebsiteBlog, "website_builder");
+const WebsiteBlogEditorRoute = protectFeature(WebsiteBlogEditor, "website_builder");
+const WebsitePreviewRoute = protectFeature(WebsitePreview, "website_builder");
 const BookingsRoute = protect(Bookings);
 const BookingSetupRoute = protect(BookingSetup);
 const ReviewRequestsRoute = protect(ReviewRequests);

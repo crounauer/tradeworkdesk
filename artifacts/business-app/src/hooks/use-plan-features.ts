@@ -2,6 +2,7 @@ import { useInitData } from "./use-init-data";
 
 export interface PlanFeatures {
   job_management?: boolean;
+  website_builder?: boolean;
   invoicing?: boolean;
   reports?: boolean;
   team_management?: boolean;
@@ -25,8 +26,11 @@ export function usePlanFeatures() {
   const pf = data?.planFeatures;
   const features = pf?.features ?? {};
 
-  const hasFeature = (_key: string): boolean => {
-    // All features are included for all tenants — no feature gating.
+  const hasFeature = (key: string): boolean => {
+    if (isLoading) return true;
+    // If a feature is explicitly present in the resolved map, respect it.
+    if (Object.prototype.hasOwnProperty.call(features, key)) return !!features[key];
+    // Preserve existing behavior for features not explicitly mapped.
     return true;
   };
 

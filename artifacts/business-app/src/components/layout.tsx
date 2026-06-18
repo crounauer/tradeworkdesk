@@ -110,8 +110,11 @@ export function Layout({ children }: { children: ReactNode }) {
     (a: { id: string }) => !dismissedAnnouncements.has(a.id)
   );
 
+  const hasJobManagement = hasFeature("job_management");
+  const hasWebsiteBuilder = hasFeature("website_builder");
+
   // ── Work: core day-to-day items ──────────────────────────────────────────
-  const workNavItems = [
+  const workNavItems = hasJobManagement ? [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
@@ -122,14 +125,14 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
     { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
     { href: "/todos", label: "To-Do List", icon: CheckSquare },
-  ];
+  ] : [];
 
   // ── Customers ─────────────────────────────────────────────────────────────
-  const customerNavItems = [
+  const customerNavItems = hasJobManagement ? [
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
     { href: "/search", label: "Search", icon: Search },
-  ];
+  ] : [];
 
   // Legacy alias used in some render paths
   const navItems = workNavItems;
@@ -158,9 +161,9 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];
 
-  const websiteNavItems = [
+  const websiteNavItems = hasWebsiteBuilder ? [
     { href: "/website", label: "My Website", icon: Globe2 },
-  ];
+  ] : [];
 
   const automationNavItems = [
     { href: "/booking", label: "Online Booking", icon: CalendarCheck },

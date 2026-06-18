@@ -989,12 +989,22 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         activeAddons = [];
       }
       const plan = tenantRes.data.plans;
-      // All plans are flat-rate — every standard feature is included.
+      const planName = String(plan?.name || "").toLowerCase();
+      const hasJobManagement = planName.includes("bundle") || planName.includes("job");
+      const hasWebsiteBuilder = planName.includes("bundle") || planName.includes("website");
+
+      // Product split: job plan vs website plan vs bundle.
+      // Other legacy features remain enabled unless explicitly gated elsewhere.
       const baseFeatures: Record<string, boolean> = {
-        job_management: true, invoicing: true, reports: true, team_management: true,
+        job_management: hasJobManagement,
+        website_builder: hasWebsiteBuilder,
+        invoicing: hasJobManagement,
+        reports: hasJobManagement,
+        team_management: hasJobManagement,
         social_media: true, heat_pump_forms: true, oil_tank_forms: true,
         commissioning_forms: true, combustion_analysis: true, api_access: true,
-        scheduling: true, custom_branding: true, priority_support: true, website_builder: true,
+        scheduling: hasJobManagement,
+        custom_branding: true, priority_support: true,
       };
 
       for (const ta of activeAddons) {
@@ -1101,7 +1111,18 @@ router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, r
   }
 
   const plan = tenantRes.data.plans as { name?: string; features?: Record<string, boolean> } | null;
-  const features: Record<string, boolean> = { ...(plan?.features ?? {}) };
+  const planName = String(plan?.name || "").toLowerCase();
+  const hasJobManagement = planName.includes("bundle") || planName.includes("job");
+  const hasWebsiteBuilder = planName.includes("bundle") || planName.includes("website");
+  const features: Record<string, boolean> = {
+    ...(plan?.features ?? {}),
+    job_management: hasJobManagement,
+    website_builder: hasWebsiteBuilder,
+    invoicing: hasJobManagement,
+    reports: hasJobManagement,
+    team_management: hasJobManagement,
+    scheduling: hasJobManagement,
+  };
 
   if (addonsRes.data) {
     for (const ta of addonsRes.data) {
