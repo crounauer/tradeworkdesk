@@ -543,6 +543,7 @@ function AppRouter() {
         <Route path="/website/pages/:pageId" component={WebsitePageEditorRoute} />
         <Route path="/website/domain" component={WebsiteDomainRoute} />
         <Route path="/website/settings" component={WebsiteSettingsRoute} />
+        <Route path="/website/forms">{() => { window.location.replace("/website/settings?tab=forms"); return null; }}</Route>
         <Route path="/website/blog" component={WebsiteBlogRoute} />
         <Route path="/website/blog/:id" component={WebsiteBlogEditorRoute} />
 

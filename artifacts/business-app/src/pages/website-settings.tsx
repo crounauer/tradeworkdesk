@@ -2,7 +2,7 @@
  * Website Settings page — branding, theme colours, SEO defaults, social links, analytics
  */
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,8 @@ interface WebsiteForm {
 export default function WebsiteSettings() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const search = useSearch();
+  const defaultTab = new URLSearchParams(search).get("tab") || "branding";
 
   const { data: website, isLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -180,7 +182,7 @@ export default function WebsiteSettings() {
         </Button>
       </div>
 
-      <Tabs defaultValue="branding">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>

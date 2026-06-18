@@ -338,7 +338,7 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/blog" icon={<FileText className="w-5 h-5" />} title="Blog" description="Write and publish blog posts" />
         <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your custom domain" />
         <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
-        <QuickCard href="/website/forms" icon={<MessageSquare className="w-5 h-5" />} title="Contact Forms" description="Manage enquiry forms and submissions" />
+        <QuickCard href="/website/settings?tab=forms" icon={<MessageSquare className="w-5 h-5" />} title="Contact Forms" description="Manage enquiry forms and submissions" />
       </div>
 
       {/* Template selector */}
