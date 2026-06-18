@@ -132,6 +132,8 @@ export interface AuthenticatedRequest extends Request {
   userRole?: string;
   userEmail?: string;
   tenantId?: string;
+  isReadOnlyMode?: boolean;
+  supportTenantId?: string;
 }
 
 export async function requireAuth(
@@ -260,6 +262,39 @@ export async function requireAuth(
   req.userRole = profile?.role || "technician";
   req.userEmail = user.email;
   req.tenantId = profile?.tenant_id || undefined;
+
+  const supportTenantHeader = String(req.headers["x-superadmin-tenant-id"] || "").trim();
+  const supportReadOnlyHeader = String(req.headers["x-superadmin-readonly"] || "").trim();
+  const supportModeRequested = req.userRole === "super_admin" && supportTenantHeader.length > 0 && supportReadOnlyHeader === "1";
+
+  if (supportModeRequested) {
+    const { data: supportTenant } = await supabaseAdmin
+      .from("tenants")
+      .select("id")
+      .eq("id", supportTenantHeader)
+      .maybeSingle();
+
+    if (!supportTenant) {
+      res.status(400).json({ error: "Invalid support tenant id" });
+      return;
+    }
+
+    req.tenantId = supportTenantHeader;
+    req.isReadOnlyMode = true;
+    req.supportTenantId = supportTenantHeader;
+  }
+
+  if (req.isReadOnlyMode) {
+    const method = req.method.toUpperCase();
+    const isWriteMethod = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+    if (isWriteMethod) {
+      res.status(403).json({
+        error: "read_only_mode",
+        message: "This request is blocked because you are in superadmin read-only support mode.",
+      });
+      return;
+    }
+  }
 
   if (req.userRole !== "super_admin" && req.tenantId) {
     const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";

@@ -431,6 +431,16 @@ export default function PlatformTenantDetail() {
                 {grantFreeAccessMutation.isPending ? "Granting…" : "Grant Free Access"}
               </Button>
             )}
+            <Button
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={() => {
+                localStorage.setItem("superadmin_readonly_tenant_id", tenant.id);
+                window.location.href = "/";
+              }}
+            >
+              <Eye className="w-4 h-4 mr-2" />View Read Only
+            </Button>
             {tenant.stripe_customer_id && (
               <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>
                 <ExternalLink className="w-4 h-4 mr-2" />{portalLoading ? "Opening…" : "Billing Portal"}

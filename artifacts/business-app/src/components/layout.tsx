@@ -38,8 +38,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const { isOnline, pendingMutations } = useOffline();
   // useOfflineReferenceDataSync();
 
-  const isSuperAdmin = profile?.role === "super_admin";
-  const isAdmin = profile?.role === "admin" || isSuperAdmin;
+  const supportTenantId = localStorage.getItem("superadmin_readonly_tenant_id");
+  const isReadOnlySupportMode = profile?.role === "super_admin" && !!supportTenantId;
+  const isSuperAdmin = profile?.role === "super_admin" && !isReadOnlySupportMode;
+  const isAdmin = profile?.role === "admin" || isSuperAdmin || isReadOnlySupportMode;
   const { hasFeature, hasAddon } = usePlanFeatures();
   const { data: initData } = useInitData();
   const { data: companySettings } = useCompanySettings();
@@ -102,7 +104,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const accountSuspended = tenantInfo?.status === "suspended";
   const accountCancelled = tenantInfo?.status === "cancelled";
-  const isLockedOut = !isSuperAdmin && (accountSuspended || accountCancelled);
+  const isLockedOut = !isSuperAdmin && !isReadOnlySupportMode && (accountSuspended || accountCancelled);
   const allowedLockedPaths = ["/billing", "/account"];
   const isOnAllowedPath = allowedLockedPaths.some(p => location === p || location.startsWith(p + "/"));
 
@@ -474,6 +476,27 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
+
+        {isReadOnlySupportMode && (
+          <div className="border-b border-blue-200 bg-blue-50 px-4 py-2.5 flex flex-wrap items-center justify-center gap-3 text-sm text-blue-900">
+            <Eye className="w-4 h-4 shrink-0" />
+            <span className="font-medium">Superadmin Read-Only Support Mode</span>
+            <span className="text-xs opacity-90">Viewing {tenantInfo?.company_name || "tenant"} for troubleshooting. Write actions are blocked.</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => {
+                localStorage.removeItem("superadmin_readonly_tenant_id");
+                queryClient.invalidateQueries({ queryKey: ["me-init"] });
+                queryClient.invalidateQueries({ queryKey: ["tenant-info"] });
+                window.location.href = "/platform";
+              }}
+            >
+              Exit Support Mode
+            </Button>
+          </div>
+        )}
 
         {isTrial && trialDaysLeft !== null && !isSuperAdmin && (
           <div className={cn(

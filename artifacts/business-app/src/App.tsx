@@ -212,6 +212,7 @@ const PageFallback = () => (
 function ProtectedRoute({ component: Component, roles, requiredFeature }: { component: React.ComponentType; roles?: string[]; requiredFeature?: "job_management" | "website_builder" }) {
   const { session, isLoading, profile, mfaPending } = useAuth();
   const { hasFeature } = usePlanFeatures();
+  const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
 
   if (isLoading) return <PageFallback />;
   if (!session) return <Redirect to="/login" />;
@@ -226,7 +227,8 @@ function ProtectedRoute({ component: Component, roles, requiredFeature }: { comp
 
   if (roles) {
     if (!profile) return <PageFallback />;
-    if (!roles.includes(profile.role)) return <Redirect to="/dashboard" />;
+    const hasRole = roles.includes(profile.role) || (isReadOnlySupportMode && profile.role === "super_admin");
+    if (!hasRole) return <Redirect to="/dashboard" />;
   }
 
   return (
@@ -269,13 +271,14 @@ function PublicPage<P extends Record<string, unknown>>({ component: Component, .
 function RootRoute() {
   const { session, isLoading, mfaPending, profile, profileReady } = useAuth();
   const { hasFeature } = usePlanFeatures();
+  const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
 
   if (isLoading) return <PageFallback />;
   if (mfaPending) return <Redirect to="/login" />;
 
   if (session && !profileReady) return <PageFallback />;
 
-  if (session && profile?.role === "super_admin") {
+  if (session && profile?.role === "super_admin" && !isReadOnlySupportMode) {
     return <Redirect to="/platform" />;
   }
 
@@ -470,10 +473,13 @@ function AppRouter() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
+      const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
         <Route path="/portal" component={PortalRoutes} />
         <Route path="/portal/:rest*" component={PortalRoutes} />
 
         <Route path="/login">
+            {isReadOnlySupportMode && <Route path="/platform/:rest*">{() => <Redirect to="/" />}</Route>}
+
           {session && !mfaPending ? <Redirect to="/" /> : <Login />}
         </Route>
 

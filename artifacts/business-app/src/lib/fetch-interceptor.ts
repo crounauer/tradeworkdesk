@@ -56,6 +56,13 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       init = init || {};
       const merged = new Headers(init.headers);
       merged.set('Authorization', `Bearer ${token}`);
+
+      const supportTenantId = localStorage.getItem('superadmin_readonly_tenant_id');
+      if (supportTenantId) {
+        merged.set('x-superadmin-tenant-id', supportTenantId);
+        merged.set('x-superadmin-readonly', '1');
+      }
+
       init.headers = merged;
     }
   }
