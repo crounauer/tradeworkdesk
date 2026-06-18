@@ -10,6 +10,10 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 app.use(helmet({
+  // API is consumed by a SPA on a separate domain; relax CSP and frame options
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(compression());
 // Broad CORS: allow the business app, all *.tradeworkdesk.co.uk subdomains,
 // and any custom tenant domain (public endpoints are rate-limited separately).
