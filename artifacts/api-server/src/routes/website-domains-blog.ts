@@ -1073,9 +1073,12 @@ async function createEnquiryFromFormSubmission(
 
     const enquiryId = String((enquiry as Record<string, unknown>).id || "");
 
+    // Resolve a real tenant user for uploaded_by to satisfy stricter DB setups.
+    const uploadedBy = await resolveAttachmentUploaderId(tenantId);
+
     // Mirror uploaded public website photos into enquiry attachments so they
     // appear in the tenant dashboard photo panel.
-    await attachSubmissionPhotosToEnquiry(tenantId, enquiryId, data);
+    await attachSubmissionPhotosToEnquiry(tenantId, enquiryId, data, uploadedBy);
 
     // Link submission to enquiry
     await (supabaseAdmin as any)
@@ -1104,6 +1107,7 @@ async function attachSubmissionPhotosToEnquiry(
   tenantId: string,
   enquiryId: string,
   data: Record<string, unknown>,
+  uploadedBy: string | null,
 ): Promise<void> {
   const photoUrls = extractPhotoUrls(data);
   if (photoUrls.length === 0) return;
@@ -1158,7 +1162,7 @@ async function attachSubmissionPhotosToEnquiry(
           storage_path: storagePath,
           entity_type: "enquiry",
           entity_id: enquiryId,
-          uploaded_by: null,
+          uploaded_by: uploadedBy,
           description: "Uploaded from website contact form",
         });
 
@@ -1169,6 +1173,28 @@ async function attachSubmissionPhotosToEnquiry(
       console.error("[website-form] Failed to attach submission photo:", (photoErr as Error).message);
     }
   }
+}
+
+async function resolveAttachmentUploaderId(tenantId: string): Promise<string | null> {
+  // Prefer admin/office users; fall back to any tenant profile.
+  const { data: adminOrOffice } = await (supabaseAdmin as any)
+    .from("profiles")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .in("role", ["admin", "office_staff"])
+    .limit(1)
+    .maybeSingle();
+
+  if (adminOrOffice?.id) return String(adminOrOffice.id);
+
+  const { data: anyProfile } = await (supabaseAdmin as any)
+    .from("profiles")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .limit(1)
+    .maybeSingle();
+
+  return anyProfile?.id ? String(anyProfile.id) : null;
 }
 
 function extractPhotoUrls(data: Record<string, unknown>): string[] {

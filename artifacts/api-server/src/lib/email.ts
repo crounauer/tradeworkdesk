@@ -553,8 +553,13 @@ export async function sendSimpleNotification(
   bodyText: string,
 ): Promise<void> {
   if (!resend) return; // email not configured — skip silently
+  const normalized = bodyText.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1: $2");
+  const escaped = escHtml(normalized);
+  const linked = escaped.replace(/\bhttps?:\/\/[^\s<]+/g, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;word-break:break-all;">${url}</a>`;
+  });
   const html = `<div style="font-family:sans-serif;font-size:14px;color:#1e293b;max-width:600px;margin:0 auto;padding:24px">
-    <p style="margin:0 0 16px;">${bodyText.replace(/\n/g, "<br>")}</p>
+    <p style="margin:0 0 16px;">${linked.replace(/\n/g, "<br>")}</p>
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
     <p style="font-size:12px;color:#94a3b8;">Sent from TradeWorkDesk</p>
   </div>`;
