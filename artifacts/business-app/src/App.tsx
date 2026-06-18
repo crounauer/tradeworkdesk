@@ -136,6 +136,7 @@ const WebsitePageEditor = lazyRetry(() => import("@/pages/website-page-editor"))
 const WebsiteDomain = lazyRetry(() => import("@/pages/website-domain"));
 const WebsiteSettings = lazyRetry(() => import("@/pages/website-settings"));
 const WebsiteBlog = lazyRetry(() => import("@/pages/website-blog"));
+const WebsiteBlogEditor = lazyRetry(() => import("@/pages/website-blog-editor"));
 const WebsitePreview = lazyRetry(() => import("@/pages/website-preview"));
 
 const Bookings = lazyRetry(() => import("@/pages/bookings"));
@@ -396,6 +397,7 @@ const WebsitePageEditorRoute = protect(WebsitePageEditor);
 const WebsiteDomainRoute = protect(WebsiteDomain);
 const WebsiteSettingsRoute = protect(WebsiteSettings);
 const WebsiteBlogRoute = protect(WebsiteBlog);
+const WebsiteBlogEditorRoute = protect(WebsiteBlogEditor);
 const WebsitePreviewRoute = protect(WebsitePreview);
 const BookingsRoute = protect(Bookings);
 const BookingSetupRoute = protect(BookingSetup);
@@ -542,6 +544,7 @@ function AppRouter() {
         <Route path="/website/domain" component={WebsiteDomainRoute} />
         <Route path="/website/settings" component={WebsiteSettingsRoute} />
         <Route path="/website/blog" component={WebsiteBlogRoute} />
+        <Route path="/website/blog/:id" component={WebsiteBlogEditorRoute} />
 
         <Route path="/booking" component={BookingsRoute} />
         <Route path="/booking/setup" component={BookingSetupRoute} />

@@ -43,6 +43,8 @@ import { resolveCname, resolve4 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 import { sendSimpleNotification } from "../lib/email";
+import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
+import { runBlogAi, type BlogAiOperation } from "../lib/blog-ai";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -390,6 +392,104 @@ router.get(
       .eq("website_id", website.id) as { data: Record<string, unknown>[] | null };
 
     res.json(data || []);
+  }
+);
+
+// ─── AI Blog Assist ───────────────────────────────────────────────────────────
+
+const AI_BLOG_FEATURE = "ai_blog_writing";
+
+router.post(
+  "/website/blog/ai-assist",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { operation, title, existingContent } = req.body as {
+      operation?: string;
+      title?: string;
+      existingContent?: string;
+    };
+
+    if (!operation || !["generate", "improve", "excerpt", "meta_description"].includes(operation)) {
+      res.status(400).json({ error: "operation must be one of: generate, improve, excerpt, meta_description" });
+      return;
+    }
+    if (!title?.trim()) {
+      res.status(400).json({ error: "title is required" });
+      return;
+    }
+    if ((operation === "improve" || operation === "excerpt" || operation === "meta_description") && !existingContent?.trim()) {
+      res.status(400).json({ error: "existingContent is required for this operation" });
+      return;
+    }
+
+    // ── Check addon is active ─────────────────────────────────────────────────
+    const addonActive = await hasActiveAddon(req.tenantId!, AI_BLOG_FEATURE);
+    if (!addonActive) {
+      res.status(402).json({
+        error: "AI Blog Writing add-on is not active. Go to Billing → Add-on Packages to enable it.",
+        code: "addon_not_active",
+      });
+      return;
+    }
+
+    // ── Check credit balance ──────────────────────────────────────────────────
+    const credits = await getAddonCredits(req.tenantId!, AI_BLOG_FEATURE);
+    if (!credits || credits.credits_remaining <= 0) {
+      res.status(402).json({
+        error: "You have no AI writing credits remaining. Purchase more on the Billing page.",
+        code: "no_credits",
+        credits_remaining: 0,
+        bundle_price: credits?.bundle_price ?? 25,
+      });
+      return;
+    }
+
+    // ── Fetch company context for better prompts ──────────────────────────────
+    const { data: company } = await supabaseAdmin
+      .from("company_settings")
+      .select("name, trading_name, trade_types")
+      .eq("tenant_id", req.tenantId!)
+      .eq("singleton_id", "default")
+      .maybeSingle() as { data: { name?: string; trading_name?: string; trade_types?: string } | null };
+
+    const companyName = company?.trading_name ?? company?.name ?? undefined;
+    const tradeType = (company as { trade_types?: string } | null)?.trade_types?.split(",")[0]?.trim();
+
+    // ── Run AI ────────────────────────────────────────────────────────────────
+    let result;
+    try {
+      result = await runBlogAi({
+        operation: operation as BlogAiOperation,
+        title: title.trim(),
+        existingContent: existingContent?.trim(),
+        companyName,
+        tradeType,
+        tenantId: req.tenantId!,
+        userId: req.userId,
+      });
+    } catch (err) {
+      console.error("[blog-ai] AI generation error:", err);
+      res.status(500).json({ error: "AI generation failed. Please try again." });
+      return;
+    }
+
+    // ── Deduct credits ────────────────────────────────────────────────────────
+    const deducted = await deductAddonCreditsAmount(req.tenantId!, AI_BLOG_FEATURE, result.creditsUsed);
+    if (!deducted) {
+      // Extremely unlikely (race condition) — still return the result but warn
+      console.warn("[blog-ai] Credit deduction failed after successful generation — tenant:", req.tenantId);
+    }
+
+    const updatedCredits = await getAddonCredits(req.tenantId!, AI_BLOG_FEATURE);
+
+    res.json({
+      content: result.content,
+      credits_used: result.creditsUsed,
+      credits_remaining: updatedCredits?.credits_remaining ?? credits.credits_remaining - result.creditsUsed,
+    });
   }
 );
 

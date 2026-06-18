@@ -239,6 +239,45 @@ export async function deductAddonCredit(tenantId: string, featureKey: string): P
 }
 
 /**
+ * Deduct a variable number of credits for a tenant/addon (by feature key).
+ * Used for AI operations where cost is proportional to token usage.
+ * Returns false if credits are insufficient.
+ * @param amount - number of credits to deduct (min 1)
+ */
+export async function deductAddonCreditsAmount(tenantId: string, featureKey: string, amount: number): Promise<boolean> {
+  const creditsToDeduct = Math.max(1, Math.ceil(amount));
+
+  const { data: addon } = await supabaseAdmin
+    .from("addons")
+    .select("id")
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .contains("feature_keys", [featureKey])
+    .maybeSingle();
+
+  if (!addon) return true; // addon not usage-based, no credit needed
+
+  const addonId = (addon as { id: string }).id;
+
+  const { data: existing } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("id, credits_remaining")
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  const row = existing as { id: string; credits_remaining: number } | null;
+  if (!row || row.credits_remaining < creditsToDeduct) return false; // insufficient credits
+
+  await supabaseAdmin
+    .from("tenant_addon_credits")
+    .update({ credits_remaining: row.credits_remaining - creditsToDeduct, updated_at: new Date().toISOString() } as Record<string, unknown>)
+    .eq("id", row.id);
+
+  return true;
+}
+
+/**
  * Add N credit bundles for a tenant/addon.
  */
 export async function topUpAddonCredits(tenantId: string, addonId: string, bundles: number): Promise<{ credits_remaining: number; total_purchased: number }> {

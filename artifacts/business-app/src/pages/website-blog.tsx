@@ -19,7 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Globe, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Globe, ArrowLeft, Loader2, Sparkles } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -105,9 +105,7 @@ export default function WebsiteBlog() {
         <Button onClick={() => setShowCreate(true)}>
           <Plus className="w-4 h-4 mr-2" /> New Post
         </Button>
-      </div>
-
-      {isLoading ? (
+      </div>      {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <div className="space-y-2">
@@ -122,7 +120,7 @@ export default function WebsiteBlog() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {post.ai_generated && <Badge variant="outline" className="text-xs">AI</Badge>}
+                  {post.ai_generated && <Badge variant="outline" className="text-xs flex items-center gap-1"><Sparkles className="w-3 h-3" />AI</Badge>}
                   <Badge variant={post.status === "published" ? "default" : "secondary"}>
                     {post.status}
                   </Badge>
@@ -133,6 +131,11 @@ export default function WebsiteBlog() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  <Link href={`/website/blog/${post.id}`}>
+                    <Button variant="outline" size="icon">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </Link>
                   {post.status === "draft" && (
                     <Button
                       variant="outline" size="sm"
