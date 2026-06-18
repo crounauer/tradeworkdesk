@@ -1419,14 +1419,15 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
     }
   }
 
-  // Auto-assign for sole traders / single-user tenants
+  // Auto-assign when tenant has only one active user
   let finalTechnicianId = assigned_technician_id || null;
   if (req.tenantId) {
-    const [countResult, tenantRow] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("tenant_id", req.tenantId).eq("is_active", true),
-      supabaseAdmin.from("tenants").select("company_type").eq("id", req.tenantId).single(),
-    ]);
-    if (tenantRow.data?.company_type === "sole_trader" || (countResult.count ?? 0) <= 1) {
+    const countResult = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", req.tenantId)
+      .eq("is_active", true);
+    if ((countResult.count ?? 0) <= 1) {
       finalTechnicianId = req.userId!;
     }
   }

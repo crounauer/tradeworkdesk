@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter } from "express";
 import multer from "multer";
 import { bustInitCache } from "./platform";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
@@ -14,22 +14,7 @@ import { syncUserAddonSeats } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
-async function requireNotSoleTrader(req: AuthenticatedRequest, res: Response): Promise<boolean> {
-  if (!req.tenantId) return true;
-  const { data: tenant } = await supabaseAdmin
-    .from("tenants")
-    .select("company_type")
-    .eq("id", req.tenantId)
-    .single();
-  if (tenant?.company_type === "sole_trader") {
-    res.status(403).json({ error: "Team management is not available in sole trader mode. Switch to Company mode first." });
-    return false;
-  }
-  return true;
-}
-
 router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!(await requireNotSoleTrader(req, res))) return;
   let q = supabaseAdmin
     .from("profiles")
     .select("*")
@@ -43,7 +28,6 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 });
 
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
   const { role, full_name, phone, can_be_assigned_jobs } = req.body;
 
@@ -71,7 +55,6 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
 });
 
 router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
 
   if (id === req.userId) {
@@ -99,7 +82,6 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
 });
 
 router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!(await requireNotSoleTrader(req, res))) return;
   let q = supabaseAdmin
     .from("invite_codes")
     .select("*")
@@ -126,7 +108,6 @@ router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin
 });
 
 router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!(await requireNotSoleTrader(req, res))) return;
   const { role = "technician", expires_at, note } = req.body;
 
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
@@ -149,7 +130,6 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
 });
 
 router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!(await requireNotSoleTrader(req, res))) return;
   const { id } = req.params;
 
   let q = supabaseAdmin.from("invite_codes").update({ is_active: false }).eq("id", id);
@@ -601,8 +581,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const resolvedCompanyType = company_type === "sole_trader" ? "sole_trader" : "company";
-  const resolvedCompanyName = resolvedCompanyType === "sole_trader" && !company_name ? contact_name : company_name;
+  const resolvedCompanyType = "company";
+  const resolvedCompanyName = company_name || contact_name;
 
   if (!resolvedCompanyName || !contact_email || !password || !contact_name) {
     res.status(400).json({ error: "contact_name, contact_email, and password are required." });

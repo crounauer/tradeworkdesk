@@ -105,7 +105,7 @@ export default function JobDetail() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
-  const { isSoleTrader } = useAutoAssign();
+  const { currentUsers } = useAutoAssign();
   const { hasAddon } = usePlanFeatures();
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -541,7 +541,7 @@ export default function JobDetail() {
                     })()}
                   </p>
                 </div>
-                {!isSoleTrader && (
+                {currentUsers > 1 && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><User className="w-4 h-4"/> Technician</p>
                   <p className="font-medium text-foreground">{job.technician?.full_name || 'Unassigned'}</p>

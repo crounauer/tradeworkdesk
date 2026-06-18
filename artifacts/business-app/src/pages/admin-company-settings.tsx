@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useCompanySettings, useUploadCompanyLogo, useUpdateCompanySettings } from "@/hooks/use-company-settings";
 import type { CompanySettings } from "@/hooks/use-company-settings";
-import { useCompanyType, useUpgradeToCompany, useDowngradeToSoleTrader } from "@/hooks/use-company-type";
+import { useCompanyType } from "@/hooks/use-company-type";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { customFetch } from "@workspace/api-client-react";
@@ -15,7 +15,7 @@ import { Link, useSearch } from "wouter";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
   Upload, Trash2, Loader2, MapPin, BadgeCheck, PoundSterling,
-  ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
+  Users, AlertTriangle, CreditCard,
   Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench,
   Search, Save, Zap, Banknote, CheckCircle2, XCircle, Link as LinkIcon, Bell,
 } from "lucide-react";
@@ -153,13 +153,9 @@ export default function AdminCompanySettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
-  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
   const [doFieldWork, setDoFieldWork] = useState<boolean | null>(null);
   const [savingFieldWork, setSavingFieldWork] = useState(false);
-  const { companyType, isSoleTrader, isCompany, hasTeamManagement, activeUserCount, isLoading: companyTypeLoading, isError: companyTypeError } = useCompanyType();
-  const upgradeToCompany = useUpgradeToCompany();
-  const downgradeToSoleTrader = useDowngradeToSoleTrader();
+  const { activeUserCount, isLoading: companyTypeLoading, isError: companyTypeError } = useCompanyType();
   const isAdmin = profile?.role === "admin";
   const { hasAddon } = usePlanFeatures();
 
@@ -203,9 +199,9 @@ export default function AdminCompanySettings() {
     );
   }
 
-  // Load admin's own can_be_assigned_jobs flag when in company mode
+  // Load admin's own can_be_assigned_jobs flag for Team settings.
   useEffect(() => {
-    if (!isCompany || !profile?.id || doFieldWork !== null) return;
+    if (!isAdmin || !profile?.id || doFieldWork !== null) return;
     customFetch(`${import.meta.env.BASE_URL}api/admin/users`)
       .then((data) => {
         const users = data as { id: string; can_be_assigned_jobs: boolean }[];
@@ -213,7 +209,7 @@ export default function AdminCompanySettings() {
         if (me) setDoFieldWork(me.can_be_assigned_jobs);
       })
       .catch(() => {});
-  }, [isCompany, profile?.id, doFieldWork]);
+  }, [isAdmin, profile?.id, doFieldWork]);
 
   const handleFieldWorkToggle = async (checked: boolean) => {
     if (!profile?.id) return;
@@ -535,86 +531,50 @@ export default function AdminCompanySettings() {
           <TabsContent value="team" className="space-y-6 pt-4">
 
           {isAdmin && !companyTypeLoading && !companyTypeError && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Business Mode
-            </CardTitle>
-            <CardDescription>
-              {isSoleTrader
-                ? "You're currently operating as a sole trader. Upgrade to company mode to unlock team features."
-                : "You're operating as a company with team features enabled."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSoleTrader ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
-                {isSoleTrader ? <Building2 className="w-5 h-5" /> : <Users className="w-5 h-5" />}
-              </div>
-              <div>
-                <p className="font-semibold text-sm">{isSoleTrader ? "Sole Trader" : "Company"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isSoleTrader
-                    ? "Single user mode — jobs auto-assign to you"
-                    : `Team mode — ${activeUserCount} active user${activeUserCount !== 1 ? "s" : ""}`}
-                </p>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Team Settings
+                </CardTitle>
+                <CardDescription>
+                  Team behavior is based on active users and your plan. With one active user, jobs auto-assign to you. With multiple active users, assignment can be shared.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeUserCount <= 1 ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{activeUserCount <= 1 ? "Single User Mode" : "Team Mode"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {activeUserCount <= 1
+                        ? "Jobs auto-assign to your user by default"
+                        : `${activeUserCount} active users can be assigned to jobs`}
+                    </p>
+                  </div>
+                </div>
 
-            {isSoleTrader && (
-              <>
-                {hasTeamManagement ? (
-                  <>
-                    {!showUpgradeConfirm ? (
-                      <Button onClick={() => setShowUpgradeConfirm(true)} className="gap-2">
-                        <ArrowUpCircle className="w-4 h-4" />
-                        Upgrade to Company
-                      </Button>
-                    ) : (
-                      <div className="border border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
-                        <h4 className="font-semibold text-sm">Confirm Upgrade to Company Mode</h4>
-                        <ul className="text-sm text-muted-foreground space-y-1.5">
-                          <li className="flex items-start gap-2"><span className="text-green-600 font-bold mt-0.5">+</span> Team management and invite codes become available</li>
-                          <li className="flex items-start gap-2"><span className="text-green-600 font-bold mt-0.5">+</span> Job assignment dropdown appears for assigning technicians</li>
-                          <li className="flex items-start gap-2"><span className="text-green-600 font-bold mt-0.5">+</span> You can still be assigned jobs as the admin</li>
-                        </ul>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => upgradeToCompany.mutate(undefined, { onSuccess: () => setShowUpgradeConfirm(false) })}
-                            disabled={upgradeToCompany.isPending}
-                          >
-                            {upgradeToCompany.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Upgrading...</> : "Confirm Upgrade"}
-                          </Button>
-                          <Button variant="outline" onClick={() => setShowUpgradeConfirm(false)}>Cancel</Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
+                {activeUserCount <= 1 && (
                   <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
                     <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <div className="text-sm">
-                      <p className="font-medium text-amber-800">Plan upgrade required</p>
-                      <p className="text-amber-700 mt-1">Your current plan doesn't include team management. Upgrade your plan to unlock company mode.</p>
-                      <Link href="/billing">
+                      <p className="font-medium text-amber-800">Need multi-user assignment?</p>
+                      <p className="text-amber-700 mt-1">Invite at least one more user to enable technician assignment across multiple users.</p>
+                      <Link href="/admin/users">
                         <Button size="sm" variant="outline" className="mt-2 gap-1.5">
-                          <CreditCard className="w-3.5 h-3.5" /> View Plans
+                          <Users className="w-3.5 h-3.5" /> Manage Team
                         </Button>
                       </Link>
                     </div>
                   </div>
                 )}
-              </>
-            )}
 
-            {isCompany && (
-              <>
-                {/* I do field work toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
                   <div className="space-y-0.5">
                     <p className="text-sm font-medium">I also do field work</p>
-                    <p className="text-xs text-muted-foreground">Show your name in the job assignment list alongside your technicians.</p>
+                    <p className="text-xs text-muted-foreground">Show your name in the job assignment list.</p>
                   </div>
                   <Switch
                     checked={doFieldWork ?? false}
@@ -622,44 +582,8 @@ export default function AdminCompanySettings() {
                     disabled={savingFieldWork || doFieldWork === null}
                   />
                 </div>
-                {!showDowngradeConfirm ? (
-                  <Button variant="outline" onClick={() => setShowDowngradeConfirm(true)} className="gap-2 text-muted-foreground">
-                    <ArrowDownCircle className="w-4 h-4" />
-                    Switch to Sole Trader
-                  </Button>
-                ) : (
-                  <div className="border border-amber-200 rounded-lg p-4 space-y-3 bg-amber-50">
-                    <h4 className="font-semibold text-sm text-amber-800">Switch to Sole Trader Mode</h4>
-                    {activeUserCount > 1 ? (
-                      <div className="flex items-start gap-2 text-sm text-amber-700">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <p>You must remove all other team members before switching to sole trader mode. You currently have {activeUserCount - 1} other user{activeUserCount - 1 !== 1 ? "s" : ""}.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <ul className="text-sm text-muted-foreground space-y-1.5">
-                          <li className="flex items-start gap-2"><span className="text-amber-600 font-bold mt-0.5">-</span> Team management and invite codes will be deactivated</li>
-                          <li className="flex items-start gap-2"><span className="text-amber-600 font-bold mt-0.5">-</span> Active invite codes will be revoked</li>
-                          <li className="flex items-start gap-2"><span className="text-amber-600 font-bold mt-0.5">-</span> Jobs will auto-assign to you</li>
-                        </ul>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="destructive"
-                            onClick={() => downgradeToSoleTrader.mutate(undefined, { onSuccess: () => setShowDowngradeConfirm(false) })}
-                            disabled={downgradeToSoleTrader.isPending}
-                          >
-                            {downgradeToSoleTrader.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Switching...</> : "Confirm Switch"}
-                          </Button>
-                          <Button variant="outline" onClick={() => setShowDowngradeConfirm(false)}>Cancel</Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
           )}
 
           </TabsContent>

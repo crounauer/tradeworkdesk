@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, User, Loader2, Ticket, Wrench, Globe, Layers } from "lucide-react";
+import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, Loader2, Ticket, Wrench, Globe, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -20,7 +20,6 @@ function getBetaCodeFromUrl() {
 
 type ValidateResult = { valid: boolean; role: string } | null;
 type RegisterMode = "invite" | "company";
-type CompanyType = "sole_trader" | "company";
 type Product = "tradeworkdesk" | "tradesite" | "bundle";
 
 export default function Register() {
@@ -40,7 +39,6 @@ export default function Register() {
 
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
-  const [companyType, setCompanyType] = useState<CompanyType>("company");
   const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
 
@@ -191,7 +189,7 @@ export default function Register() {
   async function handleCompanySubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!betaValid) { toast({ title: "A valid beta invite code is required", variant: "destructive" }); return; }
-    const effectiveCompanyName = companyType === "sole_trader" ? (companyName || fullName) : companyName;
+    const effectiveCompanyName = companyName || fullName;
     if (!effectiveCompanyName) { toast({ title: "Company name is required", variant: "destructive" }); return; }
     if (password !== confirmPassword) { toast({ title: "Passwords do not match", variant: "destructive" }); return; }
     if (password.length < 8) { toast({ title: "Password must be at least 8 characters", variant: "destructive" }); return; }
@@ -210,7 +208,6 @@ export default function Register() {
           product,
           addon_ids: signupPath === "trial" ? [] : [...selectedAddons],
           addon_quantities: signupPath === "trial" ? {} : addonQuantities,
-          company_type: companyType,
           beta_code: betaCode.trim().toUpperCase(),
           start_on_free: false,
         }),
@@ -233,7 +230,7 @@ export default function Register() {
     technician: "Technician",
   };
 
-  const canAdvanceStep1 = betaValid === true && (companyType === "sole_trader" || companyName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
+  const canAdvanceStep1 = betaValid === true && (companyName.trim().length > 0 || fullName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
 
   const PRODUCTS: { key: Product; label: string; tagline: string; price: string; icon: React.ReactNode; features: string[] }[] = [
     {
@@ -359,23 +356,6 @@ export default function Register() {
           </button>
         </div>
 
-        {mode === "company" && (
-          <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
-            <button
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${companyType === "sole_trader" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
-              onClick={() => setCompanyType("sole_trader")}
-            >
-              <User className="w-4 h-4 inline mr-1.5 -mt-0.5" />Sole Trader
-            </button>
-            <button
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${companyType === "company" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
-              onClick={() => setCompanyType("company")}
-            >
-              <Building2 className="w-4 h-4 inline mr-1.5 -mt-0.5" />Company
-            </button>
-          </div>
-        )}
-
         {mode === "invite" ? (
           <form onSubmit={handleInviteSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -471,23 +451,16 @@ export default function Register() {
             {step === 2 && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  {companyType === "sole_trader" ? "Your details" : "Company & contact details"}
+                  Company and contact details
                 </p>
                 <div className="space-y-2">
                   <Label>Your Full Name</Label>
                   <Input placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required />
                 </div>
-                {companyType === "company" ? (
-                  <div className="space-y-2">
-                    <Label>Company Name</Label>
-                    <Input placeholder="Acme Heating Ltd" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>Trading Name <span className="text-xs text-muted-foreground">(optional — defaults to your name)</span></Label>
-                    <Input placeholder={fullName || "e.g. Smith Plumbing"} value={companyName} onChange={e => setCompanyName(e.target.value)} />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label>Business / Trading Name <span className="text-xs text-muted-foreground">(defaults to your name if left blank)</span></Label>
+                  <Input placeholder={fullName || "e.g. Smith Plumbing"} value={companyName} onChange={e => setCompanyName(e.target.value)} />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Email Address</Label>
@@ -567,9 +540,8 @@ export default function Register() {
               <form onSubmit={handleCompanySubmit} className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">Set your login credentials</p>
                 <div className="p-3 rounded-lg bg-slate-50 border text-sm">
-                  <p className="font-medium">{companyType === "sole_trader" ? (companyName || fullName) : companyName}</p>
+                  <p className="font-medium">{companyName || fullName}</p>
                   <p className="text-xs text-muted-foreground">
-                    {companyType === "sole_trader" && <span className="inline-block bg-blue-100 text-blue-700 text-xs font-medium px-1.5 py-0.5 rounded mr-1.5">Sole Trader</span>}
                     {fullName} &middot; {email}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
