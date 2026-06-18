@@ -632,9 +632,11 @@ router.post(
       return;
     }
 
-    // If job management module is enabled and auto_create_enquiry is on, create an enquiry
+    // If auto_create_enquiry is enabled, create enquiry first so notifications
+    // can include a direct deep-link URL.
+    let enquiryId: string | null = null;
     if (form.auto_create_enquiry) {
-      void createEnquiryFromFormSubmission(
+      enquiryId = await createEnquiryFromFormSubmission(
         String(form.tenant_id),
         submission!.id,
         form.form_type as string,
@@ -649,6 +651,7 @@ router.post(
       String(form.form_type || "contact"),
       submissionData,
       submission!.id,
+      enquiryId,
     );
 
     res.json({ ok: true, submission_id: submission?.id });
@@ -911,6 +914,7 @@ async function sendFormSubmissionNotifications(
   formType: string,
   data: Record<string, unknown>,
   submissionId: string,
+  enquiryId: string | null,
 ): Promise<void> {
   try {
     // Fetch company settings for notification prefs + contact info
@@ -940,6 +944,9 @@ async function sendFormSubmissionNotifications(
       lines.push(`${label}: ${String(val)}`);
     }
     const photoUrls = Array.isArray(data.photos) ? (data.photos as string[]) : [];
+    const enquiryUrl = enquiryId
+      ? `https://www.tradeworkdesk.co.uk/enquiries/${enquiryId}`
+      : "https://www.tradeworkdesk.co.uk/enquiries";
 
     // ── Email ─────────────────────────────────────────────────────────────────
     if (emailEnabled) {
@@ -957,9 +964,10 @@ async function sendFormSubmissionNotifications(
           ...photoSection,
           "",
           `Submission ID: ${submissionId}`,
+          enquiryId ? `Enquiry ID: ${enquiryId}` : "",
           "",
-          "Log in to TradeWorkDesk to view and manage this enquiry:",
-          "https://app.tradeworkdesk.co.uk/enquiries",
+          "Open this enquiry directly:",
+          enquiryUrl,
         ].join("\n");
         await sendSimpleNotification(toEmail, subject, body).catch((e) =>
           console.error("[website-form] Failed to send notification email:", (e as Error).message)
@@ -981,7 +989,7 @@ async function sendFormSubmissionNotifications(
         if (creds["sms_works_api_key"] && creds["sms_works_secret"]) {
           const submitterName = String(data.name || data.full_name || "Someone").trim();
           const submitterPhone = String(data.phone || data.mobile || "").trim();
-          const smsBody = `New ${formType} enquiry from ${submitterName}${submitterPhone ? " (" + submitterPhone + ")" : ""}. Log in to app.tradeworkdesk.co.uk to view.`;
+          const smsBody = `New ${formType} enquiry from ${submitterName}${submitterPhone ? " (" + submitterPhone + ")" : ""}. ${enquiryUrl}`;
           const senderName = cs.sms_sender_name || cs.trading_name || cs.name || "TradeWork";
 
           // Authenticate with SMS Works
@@ -1019,7 +1027,7 @@ async function createEnquiryFromFormSubmission(
   submissionId: string,
   formType: string,
   data: Record<string, unknown>,
-): Promise<void> {
+): Promise<string | null> {
   try {
     // Map common form field names to enquiry fields
     const contactName = String(
@@ -1060,8 +1068,14 @@ async function createEnquiryFromFormSubmission(
 
     if (error || !enquiry) {
       console.error("[website-form] Failed to create enquiry:", error?.message);
-      return;
+      return null;
     }
+
+    const enquiryId = String((enquiry as Record<string, unknown>).id || "");
+
+    // Mirror uploaded public website photos into enquiry attachments so they
+    // appear in the tenant dashboard photo panel.
+    await attachSubmissionPhotosToEnquiry(tenantId, enquiryId, data);
 
     // Link submission to enquiry
     await (supabaseAdmin as any)
@@ -1069,8 +1083,91 @@ async function createEnquiryFromFormSubmission(
       .update({ enquiry_id: (enquiry as Record<string, unknown>).id, status: "converted" })
       .eq("id", submissionId);
 
+    return enquiryId;
+
   } catch (err) {
     console.error("[website-form] Failed to create enquiry:", (err as Error).message);
+    return null;
+  }
+}
+
+function publicUploadsPathFromUrl(url: string): string | null {
+  const marker = "/storage/v1/object/public/public-uploads/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  const encodedPath = url.slice(idx + marker.length).split("?")[0] || "";
+  if (!encodedPath) return null;
+  return decodeURIComponent(encodedPath);
+}
+
+async function attachSubmissionPhotosToEnquiry(
+  tenantId: string,
+  enquiryId: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const photoUrls = Array.isArray(data.photos) ? (data.photos as unknown[]) : [];
+  if (photoUrls.length === 0) return;
+
+  for (let i = 0; i < photoUrls.length; i++) {
+    const photo = photoUrls[i];
+    if (typeof photo !== "string" || !photo.trim()) continue;
+
+    const photoUrl = photo.trim();
+    let buffer: Buffer | null = null;
+    let mimeType = "image/jpeg";
+
+    try {
+      const srcPath = publicUploadsPathFromUrl(photoUrl);
+      if (srcPath) {
+        const { data: blob, error } = await supabaseAdmin.storage
+          .from("public-uploads")
+          .download(srcPath);
+        if (!error && blob) {
+          const arr = await blob.arrayBuffer();
+          buffer = Buffer.from(arr);
+        }
+      }
+
+      if (!buffer) {
+        const resp = await fetch(photoUrl);
+        if (!resp.ok) continue;
+        mimeType = resp.headers.get("content-type") || mimeType;
+        const arr = await resp.arrayBuffer();
+        buffer = Buffer.from(arr);
+      }
+
+      const urlFileName = photoUrl.split("/").pop()?.split("?")[0] || `website-photo-${i + 1}.jpg`;
+      const storagePath = `enquiry/${enquiryId}/${Date.now()}-${i + 1}-${urlFileName}`;
+
+      const { error: uploadErr } = await supabaseAdmin.storage
+        .from("service-photos")
+        .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
+
+      if (uploadErr) {
+        console.error("[website-form] Failed to copy photo to enquiry attachments:", uploadErr.message);
+        continue;
+      }
+
+      const { error: insertErr } = await (supabaseAdmin as any)
+        .from("file_attachments")
+        .insert({
+          tenant_id: tenantId,
+          file_name: urlFileName,
+          file_type: mimeType,
+          file_size: buffer.length,
+          storage_path: storagePath,
+          entity_type: "enquiry",
+          entity_id: enquiryId,
+          uploaded_by: null,
+          description: "Uploaded from website contact form",
+        });
+
+      if (insertErr) {
+        console.error("[website-form] Failed to insert enquiry photo attachment:", insertErr.message);
+      }
+    } catch (photoErr) {
+      console.error("[website-form] Failed to attach submission photo:", (photoErr as Error).message);
+    }
   }
 }
 
