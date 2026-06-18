@@ -319,7 +319,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
 
-          {!isSuperAdmin && renderSection("Grow", automationNavItems)}
+          {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems)}
 
           {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
 
@@ -433,7 +433,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && renderSection("More", utilityNavItems.filter(item => !item.roles || (profile && item.roles.includes(profile.role))), () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
