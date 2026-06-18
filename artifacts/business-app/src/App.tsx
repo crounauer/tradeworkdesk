@@ -131,6 +131,8 @@ const Todos = lazyRetry(() => import("@/pages/todos"));
 const Invoices = lazyRetry(() => import("@/pages/invoices"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
 const HelpPage = lazyRetry(() => import("@/pages/help"));
+const SupportTicketsPage = lazyRetry(() => import("@/pages/support-tickets"));
+const PlatformSupportTicketsPage = lazyRetry(() => import("@/pages/platform-support-tickets"));
 
 const WebsiteSetup = lazyRetry(() => import("@/pages/website-setup"));
 const WebsitePages = lazyRetry(() => import("@/pages/website-pages"));
@@ -413,6 +415,7 @@ const TodosRoute = protect(Todos);
 const InvoicesRoute = protectFeature(Invoices, "job_management");
 const InvoiceDetailRoute = protectFeature(InvoiceDetail, "job_management");
 const HelpRoute = protect(HelpPage);
+const SupportTicketsRoute = protect(SupportTicketsPage);
 const WebsiteSetupRoute = protectFeature(WebsiteSetup, "website_builder");
 const WebsitePagesRoute = protectFeature(WebsitePages, "website_builder");
 const WebsitePageEditorRoute = protectFeature(WebsitePageEditor, "website_builder");
@@ -446,6 +449,7 @@ const PlatformBetaInvitesRoute = protect(PlatformBetaInvites, ["super_admin"]);
 const PlatformAuditLogRoute = protect(PlatformAuditLog, ["super_admin"]);
 const PlatformSettingsRoute = protect(PlatformSettingsPage, ["super_admin"]);
 const PlatformTemplatesRoute = protect(PlatformTemplatesPage, ["super_admin"]);
+const PlatformSupportTicketsRoute = protect(PlatformSupportTicketsPage, ["super_admin"]);
 const NotFoundRoute = () => <Suspense fallback={<PageFallback />}><NotFound /></Suspense>;
 
 function PortalRoutes() {
@@ -562,6 +566,7 @@ function AppRouter() {
         <Route path="/invoices" component={InvoicesRoute} />
         <Route path="/invoices/:id" component={InvoiceDetailRoute} />
         <Route path="/help" component={HelpRoute} />
+  <Route path="/support" component={SupportTicketsRoute} />
 
         <Route path="/website" component={WebsiteSetupRoute} />
         <Route path="/website/preview" component={WebsitePreviewRoute} />
@@ -599,6 +604,7 @@ function AppRouter() {
         <Route path="/platform/announcements" component={PlatformAnnouncementsRoute} />
         <Route path="/platform/beta-invites" component={PlatformBetaInvitesRoute} />
         <Route path="/platform/audit-log" component={PlatformAuditLogRoute} />
+        <Route path="/platform/support-tickets" component={PlatformSupportTicketsRoute} />
         <Route path="/platform/settings" component={PlatformSettingsRoute} />
         <Route path="/platform/templates" component={PlatformTemplatesRoute} />
 

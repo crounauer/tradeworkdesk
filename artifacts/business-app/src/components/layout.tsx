@@ -114,6 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const hasJobManagement = hasFeature("job_management");
   const hasWebsiteBuilder = hasFeature("website_builder");
+  const supportHref = isSuperAdmin ? "/platform/support-tickets" : "/support";
 
   // ── Work: core day-to-day items ──────────────────────────────────────────
   const workNavItems = hasJobManagement ? [
@@ -154,6 +155,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const platformNavItems = [
     { href: "/platform", label: "Overview", icon: Globe },
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
+    { href: "/platform/support-tickets", label: "Support Tickets", icon: MessageSquare },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
     { href: "/platform/plans", label: "Plans", icon: CreditCard },
     { href: "/platform/templates", label: "Templates", icon: LayoutTemplate },
@@ -178,6 +180,7 @@ export function Layout({ children }: { children: ReactNode }) {
   // Bottom utility links (reports, tools, help)
   const utilityNavItems = [
     { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
+    { href: supportHref, label: "Support", icon: MessageSquare },
     { href: "/tools", label: "Tools", icon: Wrench },
     { href: "/help", label: "Help & Guide", icon: HelpCircle },
   ];
