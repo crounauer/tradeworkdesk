@@ -498,7 +498,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {isOnFreeAfterTrial && !isTrial && !isSuperAdmin && (
           <div className="border-b border-amber-300 bg-amber-100/80 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 text-sm text-amber-900">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span className="font-medium">You are currently on the free plan.</span>
+            <span className="font-medium">Your free trial has ended. You are now on the free plan.</span>
             <span className="text-xs opacity-90">Upgrade to a paid plan to unlock full features and paid add-ons.</span>
             {isAdmin && (
               <Link href="/billing">
