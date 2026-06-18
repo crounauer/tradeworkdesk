@@ -8,7 +8,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 
-const API_BASE = process.env.API_BASE_URL || "https://api.tradeworkdesk.co.uk";
+const API_BASE = process.env.API_BASE_URL || "https://tradeworkdesk-api.fly.dev";
 const RENDERER_SECRET = process.env.RENDERER_SECRET || "";
 const PLATFORM_SUBDOMAIN_BASE = process.env.PLATFORM_SUBDOMAIN_BASE || "tradeworkdesk.co.uk";
 

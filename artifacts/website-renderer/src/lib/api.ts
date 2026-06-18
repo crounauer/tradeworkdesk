@@ -3,7 +3,7 @@
  * Used in server components for ISR (Incremental Static Regeneration).
  */
 
-const API_BASE = process.env.API_BASE_URL || "https://api.tradeworkdesk.co.uk";
+const API_BASE = process.env.API_BASE_URL || "https://tradeworkdesk-api.fly.dev";
 const RENDERER_SECRET = process.env.RENDERER_SECRET || "";
 
 // Revalidation TTL: 60 seconds for published sites, 0 for drafts
