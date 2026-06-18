@@ -19,7 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Globe, ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, Globe, ArrowLeft, Loader2, Sparkles, ExternalLink } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -42,6 +42,12 @@ interface BlogPost {
   ai_generated: boolean;
 }
 
+interface WebsiteDomain {
+  domain: string;
+  is_platform_subdomain: boolean;
+  status: string;
+}
+
 export default function WebsiteBlog() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -54,6 +60,15 @@ export default function WebsiteBlog() {
     queryKey: ["/api/website/blog"],
     queryFn: () => apiFetch("/api/website/blog"),
   });
+
+  const { data: domains = [] } = useQuery<WebsiteDomain[]>({
+    queryKey: ["/api/website/domains"],
+    queryFn: () => apiFetch("/api/website/domains"),
+  });
+
+  const liveDomain = domains.find((d) => d.status === "active" && !d.is_platform_subdomain)?.domain
+    ?? domains.find((d) => d.is_platform_subdomain)?.domain
+    ?? null;
 
   const createMutation = useMutation({
     mutationFn: (data: typeof form) =>
@@ -132,6 +147,13 @@ export default function WebsiteBlog() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  {post.status === "published" && liveDomain && (
+                    <Button variant="outline" size="icon" asChild>
+                      <a href={`https://${liveDomain}/blog/${post.slug}`} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </Button>
+                  )}
                   <Link href={`/website/blog/${post.id}`}>
                     <Button variant="outline" size="icon">
                       <Edit className="w-4 h-4" />

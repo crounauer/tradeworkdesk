@@ -23,6 +23,10 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
   const displayName = company?.trading_name || company?.name || siteName;
 
   const navPages = pages.filter((p) => p.show_in_nav && p.page_type !== "home");
+  const quickLinks = [
+    ...navPages.map((page) => ({ key: page.id, href: page.slug.startsWith("/") ? page.slug : `/${page.slug}`, label: page.nav_label || page.title })),
+    { key: "blog", href: "/blog", label: "Blog" },
+  ].filter((link, index, arr) => arr.findIndex((item) => item.href === link.href) === index);
 
   return (
     <footer style={{ backgroundColor: footerBg, color: footerText }}>
@@ -56,14 +60,14 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
           </div>
 
           {/* Col 2: Quick Links */}
-          {navPages.length > 0 && (
+          {quickLinks.length > 0 && (
             <div>
               <h4 style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Quick Links</h4>
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-                {navPages.map((page) => (
-                  <li key={page.id}>
-                    <a href={page.slug.startsWith("/") ? page.slug : `/${page.slug}`} style={{ color: footerText, textDecoration: "none", fontSize: "0.9rem" }}>
-                      {page.nav_label || page.title}
+                {quickLinks.map((link) => (
+                  <li key={link.key}>
+                    <a href={link.href} style={{ color: footerText, textDecoration: "none", fontSize: "0.9rem" }}>
+                      {link.label}
                     </a>
                   </li>
                 ))}
