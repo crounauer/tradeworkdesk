@@ -36,13 +36,13 @@ export default function FeaturesBarBlock({ content }: Props) {
   const cols = columns ?? Math.min(features.length, 4);
 
   return (
-    <section style={{ backgroundColor: background_color, color: text_color, padding: "36px 24px" }}>
+    <section style={{ padding: "36px 24px", backgroundColor: "transparent" }}>
       <style>{`
         .fbar-grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
         @media (min-width: 600px) { .fbar-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 900px) { .fbar-grid { grid-template-columns: repeat(${cols}, 1fr); } }
       `}</style>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", backgroundColor: background_color, color: text_color, borderRadius: 16, padding: "32px 28px" }}>
         <div className="fbar-grid">
           {features.map((f, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
