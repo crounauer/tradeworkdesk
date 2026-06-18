@@ -840,7 +840,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     promises.push(
       supabaseAdmin
         .from("tenants")
-        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, plans(name, monthly_price, max_users)")
+        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, stripe_subscription_id, plan_id, plans(name, monthly_price, max_users)")
         .eq("id", req.tenantId)
         .single(),
       supabaseAdmin
@@ -912,6 +912,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     const overdueFollowUpsRes = results[5] as { count: number | null };
 
     if (tenantRes?.data) {
+      const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
       if (tenantRes.data.status === "trial" && tenantRes.data.trial_ends_at) {
         const trialEnd = new Date(tenantRes.data.trial_ends_at as string).getTime();
         if (trialEnd < Date.now()) {
@@ -929,6 +930,21 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
           tenantRes.data.status = "suspended";
           activeAddons = [];
         }
+      }
+      if (tenantRes.data.status === "active" && tenantRes.data.plan_id === FREE_PLAN_ID && !tenantRes.data.stripe_subscription_id) {
+        await Promise.all([
+          supabaseAdmin
+            .from("tenants")
+            .update({ status: "suspended" })
+            .eq("id", req.tenantId!),
+          supabaseAdmin
+            .from("tenant_addons")
+            .update({ is_active: false })
+            .eq("tenant_id", req.tenantId!)
+            .eq("is_active", true),
+        ]);
+        tenantRes.data.status = "suspended";
+        activeAddons = [];
       }
       const plan = tenantRes.data.plans;
       // All plans are flat-rate — every standard feature is included.
@@ -1065,6 +1081,7 @@ router.get("/me/plan-features", requireAuth, async (req: AuthenticatedRequest, r
 
 router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.json(null); return; }
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
 
   const [tenantRes, subscriptionRes] = await Promise.all([
     supabaseAdmin
@@ -1082,6 +1099,28 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
   ]);
 
   if (tenantRes.error || !tenantRes.data) { res.json(null); return; }
+
+  const tenantData = tenantRes.data as {
+    id: string;
+    status: string;
+    plan_id: string | null;
+    stripe_subscription_id: string | null;
+  };
+
+  if (tenantData.status === "active" && tenantData.plan_id === FREE_PLAN_ID && !tenantData.stripe_subscription_id) {
+    await Promise.all([
+      supabaseAdmin
+        .from("tenants")
+        .update({ status: "suspended" })
+        .eq("id", req.tenantId),
+      supabaseAdmin
+        .from("tenant_addons")
+        .update({ is_active: false })
+        .eq("tenant_id", req.tenantId)
+        .eq("is_active", true),
+    ]);
+    (tenantRes.data as { status: string }).status = "suspended";
+  }
 
   res.json({ ...tenantRes.data, subscription: subscriptionRes.data || null });
 });

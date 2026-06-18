@@ -91,6 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
     tenantInfo?.status === "suspended" &&
     !!tenantInfo?.trial_ends_at &&
     new Date(tenantInfo.trial_ends_at).getTime() < Date.now();
+  const isNoPaidPlanSuspended = tenantInfo?.status === "suspended" && !tenantInfo?.subscription;
 
   const trialDaysLeft = tenantInfo?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(tenantInfo.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
@@ -496,7 +497,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {isTrialExpiredSuspended && !isTrial && !isSuperAdmin && (
+        {(isTrialExpiredSuspended || isNoPaidPlanSuspended) && !isTrial && !isSuperAdmin && (
           <div className="border-b border-amber-300 bg-amber-100/80 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 text-sm text-amber-900">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span className="font-medium">Your free trial has ended. Account access is now locked.</span>
@@ -516,7 +517,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5 flex items-center justify-center gap-2 text-sm text-red-800">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>
-              {isTrialExpiredSuspended
+              {(isTrialExpiredSuspended || isNoPaidPlanSuspended)
                 ? <><strong>Trial ended.</strong> Start a paid plan to restore access.</>
                 : tenantInfo.status === "payment_overdue"
                 ? <><strong>Payment overdue.</strong> Please update your payment method to avoid service interruption.</>
@@ -552,7 +553,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <LockedOutScreen
               accountSuspended={accountSuspended}
               accountCancelled={accountCancelled}
-              trialExpired={isTrialExpiredSuspended}
+              trialExpired={isTrialExpiredSuspended || isNoPaidPlanSuspended}
               isAdmin={isAdmin}
               signOut={signOut}
             />

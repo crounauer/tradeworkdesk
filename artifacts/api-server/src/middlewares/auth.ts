@@ -29,7 +29,13 @@ const SUPABASE_TIMEOUT_MS = 8_000; // 8 s — adjust down if you want faster 401
 const planFeaturesCache = new Map<string, { features: Record<string, unknown>; expiresAt: number }>();
 const PLAN_CACHE_TTL_MS = 60_000;
 
-const tenantStatusCache = new Map<string, { status: string; trial_ends_at: string | null; expiresAt: number }>();
+const tenantStatusCache = new Map<string, {
+  status: string;
+  trial_ends_at: string | null;
+  plan_id: string | null;
+  stripe_subscription_id: string | null;
+  expiresAt: number;
+}>();
 const TENANT_STATUS_CACHE_TTL_MS = 60_000;
 
 const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
@@ -297,18 +303,25 @@ export async function requireTenant(
     return;
   }
 
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const isBillingPath = req.path.startsWith("/billing");
   const now = Date.now();
   let cached = tenantStatusCache.get(req.tenantId);
   if (!cached || cached.expiresAt <= now) {
     const { data: tenant } = await supabaseAdmin
       .from("tenants")
-      .select("status, trial_ends_at")
+      .select("status, trial_ends_at, plan_id, stripe_subscription_id")
       .eq("id", req.tenantId)
       .single();
 
     if (tenant) {
-      cached = { status: tenant.status, trial_ends_at: tenant.trial_ends_at, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS };
+      cached = {
+        status: tenant.status,
+        trial_ends_at: tenant.trial_ends_at,
+        plan_id: tenant.plan_id,
+        stripe_subscription_id: tenant.stripe_subscription_id,
+        expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS,
+      };
       tenantStatusCache.set(req.tenantId, cached);
     }
   }
@@ -336,8 +349,26 @@ export async function requireTenant(
         tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
       }
     }
+    const legacyNoPlan = cached.status === "active" && cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id;
+    if (legacyNoPlan) {
+      await Promise.all([
+        supabaseAdmin
+          .from("tenants")
+          .update({ status: "suspended" })
+          .eq("id", req.tenantId),
+        supabaseAdmin
+          .from("tenant_addons")
+          .update({ is_active: false })
+          .eq("tenant_id", req.tenantId!)
+          .eq("is_active", true),
+      ]);
+      cached.status = "suspended";
+      tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
+    }
     if (cached.status === "suspended") {
-      const trialExpired = !!cached.trial_ends_at && new Date(cached.trial_ends_at).getTime() < now;
+      const trialExpired =
+        (!!cached.trial_ends_at && new Date(cached.trial_ends_at).getTime() < now) ||
+        (cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id);
       if (isBillingPath) {
         next();
         return;

@@ -354,6 +354,7 @@ export default function Billing() {
     tenantInfo?.status === "suspended" &&
     !!tenantInfo?.trial_ends_at &&
     new Date(tenantInfo.trial_ends_at).getTime() < Date.now();
+  const isNoPaidPlanSuspended = tenantInfo?.status === "suspended" && !tenantInfo?.stripe_subscription_id;
 
   if (tenantLoading) {
     return (
@@ -415,7 +416,7 @@ export default function Billing() {
         </Card>
       )}
 
-      {isTrialExpiredSuspended && (
+      {(isTrialExpiredSuspended || isNoPaidPlanSuspended) && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -449,9 +450,9 @@ export default function Billing() {
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold">{isTrialExpiredSuspended ? "Trial ended" : "Account suspended"}</p>
-            <p>{isTrialExpiredSuspended ? "Start a paid plan to restore access." : "Your account has been suspended. Please contact support to resolve this."}</p>
-            {isAdmin && isTrialExpiredSuspended && (
+            <p className="font-semibold">{(isTrialExpiredSuspended || isNoPaidPlanSuspended) ? "Trial ended" : "Account suspended"}</p>
+            <p>{(isTrialExpiredSuspended || isNoPaidPlanSuspended) ? "Start a paid plan to restore access." : "Your account has been suspended. Please contact support to resolve this."}</p>
+            {isAdmin && (isTrialExpiredSuspended || isNoPaidPlanSuspended) && (
               <Button size="sm" className="mt-2" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending}>
                 {checkoutMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Start Paid Plan"}
               </Button>
