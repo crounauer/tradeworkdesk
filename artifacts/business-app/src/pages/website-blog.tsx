@@ -2,7 +2,7 @@
  * Website Blog management — list, create, edit, publish posts
  */
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ interface BlogPost {
 export default function WebsiteBlog() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: "", slug: "", excerpt: "" });
@@ -61,11 +62,11 @@ export default function WebsiteBlog() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-    onSuccess: () => {
+    onSuccess: (data: { id: string }) => {
       qc.invalidateQueries({ queryKey: ["/api/website/blog"] });
       setShowCreate(false);
       setForm({ title: "", slug: "", excerpt: "" });
-      toast({ title: "Post created" });
+      navigate(`/website/blog/${data.id}`);
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
