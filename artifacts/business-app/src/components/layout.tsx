@@ -145,7 +145,7 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
     ] : []),
-    { href: "/admin/job-types", label: "Job Types", icon: ListTree },
+    ...(hasJobManagement ? [{ href: "/admin/job-types", label: "Job Types", icon: ListTree }] : []),
     { href: "/billing", label: "Billing", icon: CreditCard },
   ];
 
