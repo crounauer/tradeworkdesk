@@ -826,6 +826,7 @@ export default function WebsitePageEditor() {
   const [isDirty, setIsDirty] = useState(false);
   const [metaForm, setMetaForm] = useState({
     title: "",
+    slug: "",
     meta_title: "",
     meta_description: "",
     no_index: false,
@@ -848,6 +849,7 @@ export default function WebsitePageEditor() {
       );
       setMetaForm({
         title: page.title,
+        slug: page.slug.replace(/^\//, ""),
         meta_title: page.meta_title ?? "",
         meta_description: page.meta_description ?? "",
         no_index: page.no_index,
@@ -889,6 +891,7 @@ export default function WebsitePageEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: metaForm.title,
+          ...(page?.page_type !== "home" ? { slug: metaForm.slug || page?.slug } : {}),
           meta_title: metaForm.meta_title || null,
           meta_description: metaForm.meta_description || null,
           no_index: metaForm.no_index,
@@ -959,6 +962,7 @@ export default function WebsitePageEditor() {
     if (
       page && (
         metaForm.title !== page.title ||
+        metaForm.slug !== page.slug.replace(/^\//, "") ||
         metaForm.meta_title !== (page.meta_title ?? "") ||
         metaForm.meta_description !== (page.meta_description ?? "") ||
         metaForm.no_index !== page.no_index ||
@@ -1085,6 +1089,32 @@ export default function WebsitePageEditor() {
               <div className="space-y-3">
                 <FieldRow label="Page Title">
                   <Input value={metaForm.title} onChange={(e) => setMetaForm((f) => ({ ...f, title: e.target.value }))} />
+                </FieldRow>
+                <FieldRow label="Page URL">
+                  {page.page_type === "home" ? (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground px-3 py-2 rounded-md border bg-muted/50">
+                      <span className="text-muted-foreground/60">/</span>
+                      <span>(home page — fixed)</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                      <span className="px-2 py-2 text-sm text-muted-foreground bg-muted border-r select-none">/</span>
+                      <Input
+                        value={metaForm.slug}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-/]/g, "-")
+                            .replace(/-+/g, "-")
+                            .replace(/^\//, "");
+                          setMetaForm((f) => ({ ...f, slug: raw }));
+                        }}
+                        className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                        placeholder="page-url"
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-0.5">Only lowercase letters, numbers and hyphens</p>
                 </FieldRow>
                 <div className="flex items-center justify-between">
                   <Label className="text-xs text-muted-foreground">Show in navigation</Label>
