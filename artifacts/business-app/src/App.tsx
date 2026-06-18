@@ -473,17 +473,17 @@ function PortalRoutes() {
 
 function AppRouter() {
   const { session, mfaPending } = useAuth();
+  const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
 
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
-      const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
         <Route path="/portal" component={PortalRoutes} />
         <Route path="/portal/:rest*" component={PortalRoutes} />
 
-        <Route path="/login">
-            {isReadOnlySupportMode && <Route path="/platform/:rest*">{() => <Redirect to="/" />}</Route>}
+        {isReadOnlySupportMode && <Route path="/platform/:rest*">{() => <Redirect to="/" />}</Route>}
 
+        <Route path="/login">
           {session && !mfaPending ? <Redirect to="/" /> : <Login />}
         </Route>
 
