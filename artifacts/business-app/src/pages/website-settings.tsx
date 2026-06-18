@@ -193,12 +193,44 @@ export default function WebsiteSettings() {
         <TabsContent value="branding" className="space-y-4 pt-4">
           {field("site_name", "Site Name", "text", "Plumbing & Heating Co.")}
           {field("tagline", "Tagline", "text", "Your local heating experts")}
-          {field("logo_url", "Logo URL", "url", "https://...")}
-          {field("favicon_url", "Favicon URL", "url", "https://.../favicon.ico")}
+          <div className="space-y-1">
+            <Label>Logo URL</Label>
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={form.logo_url}
+              onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))}
+            />
+            {form.logo_url && (
+              <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">{form.logo_url}</div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Favicon URL</Label>
+            <Input
+              type="url"
+              placeholder="https://.../favicon.ico"
+              value={form.favicon_url}
+              onChange={(e) => setForm((f) => ({ ...f, favicon_url: e.target.value }))}
+            />
+            {form.favicon_url && (
+              <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">{form.favicon_url}</div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="seo" className="space-y-4 pt-4">
-          {field("default_meta_title", "Default Page Title", "text", "Gas & Heating Services | Plumbing Co.")}
+          <p className="text-sm text-muted-foreground">Set default SEO information for your website pages. These appear in search results and social media previews.</p>
+          <div className="space-y-1">
+            <Label>Default Page Title</Label>
+            <Input
+              type="text"
+              placeholder="Gas & Heating Services | Plumbing Co."
+              value={form.default_meta_title}
+              onChange={(e) => setForm((f) => ({ ...f, default_meta_title: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">Shown in browser tabs and search results (50-60 characters recommended)</p>
+          </div>
           <div className="space-y-1">
             <Label>Default Meta Description</Label>
             <Textarea
@@ -207,10 +239,12 @@ export default function WebsiteSettings() {
               onChange={(e) => setForm((f) => ({ ...f, default_meta_description: e.target.value }))}
               rows={3}
             />
+            <p className="text-xs text-muted-foreground">Shown under the page title in search results (120-160 characters recommended)</p>
           </div>
         </TabsContent>
 
         <TabsContent value="social" className="space-y-4 pt-4">
+          <p className="text-sm text-muted-foreground">Add links to your social media profiles so visitors can find and follow you.</p>
           {(["facebook", "instagram", "twitter", "linkedin", "youtube"] as const).map((platform) => (
             <div key={platform} className="space-y-1">
               <Label className="capitalize">{platform}</Label>
@@ -219,13 +253,39 @@ export default function WebsiteSettings() {
                 value={form.social_links[platform] || ""}
                 onChange={(e) => setForm((f) => ({ ...f, social_links: { ...f.social_links, [platform]: e.target.value } }))}
               />
+              {form.social_links[platform] && (
+                <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">{form.social_links[platform]}</div>
+              )}
             </div>
           ))}
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4 pt-4">
-          {field("google_analytics_id", "Google Analytics ID", "text", "G-XXXXXXXXXX")}
-          {field("google_search_console_verification", "Google Search Console Verification", "text", "google-site-verification=...")}
+          <p className="text-sm text-muted-foreground">Add your tracking codes to monitor website visitor behaviour and SEO performance.</p>
+          <div className="space-y-1">
+            <Label>Google Analytics ID</Label>
+            <Input
+              type="text"
+              placeholder="G-XXXXXXXXXX (e.g. G-ABC123XYZ)"
+              value={form.google_analytics_id}
+              onChange={(e) => setForm((f) => ({ ...f, google_analytics_id: e.target.value }))}
+            />
+            {form.google_analytics_id && (
+              <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded">{form.google_analytics_id}</div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Google Search Console Verification</Label>
+            <Input
+              type="text"
+              placeholder="google-site-verification=XXXXXXXXXX"
+              value={form.google_search_console_verification}
+              onChange={(e) => setForm((f) => ({ ...f, google_search_console_verification: e.target.value }))}
+            />
+            {form.google_search_console_verification && (
+              <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded">{form.google_search_console_verification}</div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="theme" className="space-y-4 pt-4">
