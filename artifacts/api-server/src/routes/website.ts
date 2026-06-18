@@ -589,6 +589,231 @@ router.get(
   }
 );
 
+// ─── Template block seeder ────────────────────────────────────────────────────
+// Builds the block content for the home page of each template, personalised
+// from company settings.  Every field here corresponds 1-to-1 with the
+// published design reference for that template.
+
+interface CompanyData {
+  tradeName: string;
+  city: string;
+  county: string;
+  phone: string;
+  email: string;
+  gasSafeNo: string;
+  oftecNo: string;
+  locationText: string;
+  phoneUrl: string;
+}
+
+function buildModernHomeBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, county, phone, email, gasSafeNo, oftecNo, locationText, phoneUrl } = cs;
+
+  const accredBadges = [
+    ...(gasSafeNo ? [{ name: "Gas Safe Registered", number: gasSafeNo }] : []),
+    ...(oftecNo ? [{ name: "OFTEC Registered", number: oftecNo }] : []),
+    { name: "MCS Certified" },
+    { name: "Which? Trusted Trader" },
+    { name: "TrustMark" },
+  ];
+
+  return [
+    // 1. Hero — split layout
+    {
+      block_type: "hero",
+      content: {
+        layout: "split",
+        heading: "Modern Heating Solutions for Efficient Homes",
+        heading_accent: "Solutions",
+        subheading: `Heat pumps, underfloor heating, and boiler upgrades designed around your property. Free surveys, transparent pricing, and full MCS certification.`,
+        cta_text: "Book a Survey",
+        cta_url: "#contact",
+        secondary_cta_text: "View Services",
+        secondary_cta_url: "#services",
+        badges: [{ label: "MCS Certified Installers" }],
+        stats: [
+          { value: "500+", label: "Installations completed" },
+          { value: "£7,500", label: "BUS grant available" },
+          { value: "10yr", label: "Warranty on select systems" },
+        ],
+        hero_image_url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&h=700&fit=crop&auto=format",
+        accent_color: "#0d9488",
+      },
+    },
+
+    // 2. Features bar — teal background
+    {
+      block_type: "features_bar",
+      content: {
+        background_color: "#0d9488",
+        text_color: "#ffffff",
+        items: [
+          { icon: "⚡", title: "High Efficiency", description: "Modern heat pump technology delivers 3–4 units of heat per unit of electricity used." },
+          { icon: "🏠", title: "Year-Round Comfort", description: "Consistent warmth with even heat distribution and optional summer cooling." },
+          { icon: "🌿", title: "Lower Carbon", description: "Reduce your home's carbon footprint by up to 70% compared to a gas boiler." },
+          { icon: "👍", title: "Expert Design", description: "Every system is MCS-compliant and sized correctly for your specific property." },
+        ],
+      },
+    },
+
+    // 3. Services — 6 cards, 3 columns
+    {
+      block_type: "services",
+      content: {
+        label: "What We Do",
+        heading: "Heating Solutions for Every Home",
+        subheading: `From future-proof heat pumps to reliable boiler replacements, ${tradeName} designs and installs the right system for your property and budget.`,
+        columns: 3,
+        accent_color: "#0d9488",
+        services: [
+          { icon: "💧", title: "Heat Pumps", description: "Air source and ground source heat pumps designed to replace your boiler and cut running costs by up to 60%. We handle the full project from survey to MCS certification.", badge: "Most Popular", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "🔥", title: "Underfloor Heating", description: "Wet and electric underfloor heating systems for new builds and retrofits. Pairs perfectly with heat pumps for maximum efficiency and whole-home comfort.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "☀️", title: "Solar Thermal", description: "Solar hot water systems that use free energy from the sun to heat your water, reducing your hot water bills by up to 70% throughout the year.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "🔧", title: "Gas Boiler Upgrades", description: "High-efficiency condensing gas boiler installations and replacements. Same-day or next-day fitting available with a full 10-year parts and labour guarantee.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "⛽", title: "Oil Boiler Upgrades", description: "OFTEC-registered oil boiler replacements and full system upgrades. We also advise on transitioning from oil to low-carbon alternatives.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "🌱", title: "Low-Carbon Systems", description: "Hybrid heating systems, heat pump-ready radiators, and whole-home energy assessments to future-proof your property and reduce your carbon footprint.", badge: "New", cta_text: "Get a quote", cta_url: "#contact" },
+        ],
+      },
+    },
+
+    // 4. Process — 4 steps
+    {
+      block_type: "process",
+      content: {
+        label: "The Process",
+        heading: "Simple from Start to Finish",
+        subheading: "We handle everything so you don't have to — from your first survey through to commissioning and aftercare.",
+        background_color: "#ffffff",
+        accent_color: "#0d9488",
+        cta_text: "Book Your Free Survey",
+        cta_url: "#contact",
+        steps: [
+          { icon: "🔍", title: "Free Survey", description: "We visit your property and assess the best system for your home, insulation levels, and budget. No obligation, no hard sell." },
+          { icon: "📋", title: "Bespoke Design", description: "Our engineers design a system sized correctly for your home with a detailed, transparent quotation and expected running costs." },
+          { icon: "📅", title: "Professional Install", description: "Fully qualified, MCS-certified engineers carry out the installation with minimal disruption to your home." },
+          { icon: "✅", title: "Aftercare & Warranty", description: "We commission your system, handle all registrations, and provide ongoing support with a comprehensive parts and labour warranty." },
+        ],
+      },
+    },
+
+    // 5. Project showcase — case study
+    {
+      block_type: "project_showcase",
+      content: {
+        label: "Project Highlight",
+        heading: "Real Homes, Real Results",
+        background_color: "#f9fafb",
+        accent_color: "#0d9488",
+        projects: [
+          {
+            title: "Victorian Semi — Oil to Heat Pump Conversion",
+            location: locationText,
+            image_url: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format",
+            description: `A period property in ${locationText} was converted from an ageing oil system to a Mitsubishi Ecodan heat pump with a new cylinder and upgraded radiators. The project qualified for the full BUS grant and was completed in three days.`,
+            stats: [
+              { value: "8kW Air Source HP", label: "System Installed" },
+              { value: "£820/yr", label: "Running Cost Saving" },
+              { value: "3.2 tonnes CO₂/yr", label: "Carbon Reduction" },
+              { value: "£7,500", label: "BUS Grant Secured" },
+            ],
+            cta_text: "Start your project",
+            cta_url: "#contact",
+          },
+        ],
+      },
+    },
+
+    // 6. Accreditations — dark strip
+    {
+      block_type: "accreditations",
+      content: {
+        heading: "Our Accreditations & Memberships",
+        background_color: "#1f2937",
+        text_color: "#9ca3af",
+        show_heading: true,
+        badges: accredBadges,
+      },
+    },
+
+    // 7. Testimonials
+    {
+      block_type: "testimonials",
+      content: {
+        label: "Customer Reviews",
+        heading: "Trusted by Homeowners Across the Region",
+        accent_color: "#0d9488",
+        testimonials: [
+          { author: "Sarah M.", location: city, rating: 5, text: `${tradeName} installed a 10kW air source heat pump. The process was seamless from survey to commissioning. Our heating bills have dropped by nearly half.` },
+          { author: "James & Claire T.", location: county || city, rating: 5, text: "We had underfloor heating installed throughout our ground floor alongside a new heat pump. The team were tidy, professional and explained everything clearly. Couldn't recommend them more highly." },
+          { author: "David R.", location: city, rating: 5, text: "Switched from an ageing oil boiler to a ground source heat pump. The whole project was managed brilliantly. Our grant application was handled for us too." },
+        ],
+      },
+    },
+
+    // 8. Areas — teal card
+    {
+      block_type: "areas",
+      content: {
+        label: "Coverage",
+        heading: "Areas We Cover",
+        subheading: `We serve homeowners across ${locationText} and the surrounding area. Contact us to check availability in your postcode.`,
+        background_color: "#0d9488",
+        outer_background: "#f0fdfb",
+        accent_color: "#0d9488",
+        areas: [city, ...(county && county !== city ? [county] : [])],
+        cta_text: "Check Your Postcode",
+        cta_url: "#contact",
+      },
+    },
+
+    // 9. FAQ
+    {
+      block_type: "faq",
+      content: {
+        label: "FAQs",
+        heading: "Common Questions",
+        accent_color: "#0d9488",
+        background_color: "#ffffff",
+        items: [
+          { question: "Is my home suitable for a heat pump?", answer: "Most homes can benefit from a heat pump, though modern insulation helps maximise efficiency. We carry out a full MCS-compliant heat loss survey to assess your property and recommend the right system size before any commitment." },
+          { question: "Can I get a government grant towards a heat pump?", answer: "Yes — the Boiler Upgrade Scheme (BUS) currently offers £7,500 towards an air source heat pump or ground source heat pump. We handle your application from start to finish as part of your installation." },
+          { question: "How long does a heat pump installation take?", answer: "Most air source heat pump installations take two to three days. Ground source systems typically take three to five days. We minimise disruption throughout." },
+          { question: "What warranty do you offer?", answer: "We provide a minimum five-year parts and labour warranty on all heat pump installations, and up to ten years on selected manufacturers. Boiler installations include a manufacturer warranty of up to ten years." },
+          { question: "Do you service and maintain heat pumps after installation?", answer: "Yes. We offer annual service plans that keep your system running at peak efficiency and protect your warranty." },
+          { question: "What areas do you cover?", answer: `We serve homeowners across ${locationText} and the surrounding area. Contact us to confirm coverage in your postcode.` },
+        ],
+      },
+    },
+
+    // 10. Contact form
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Contact",
+        heading: "Get in Touch",
+        subheading: "Book Your Free Home Survey",
+        body: "Tell us about your property and we'll arrange a free, no-obligation survey at a time that suits you. Our engineers will assess your home and provide a detailed, transparent quote.",
+        submit_label: "Request Free Survey",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: {
+          phone: phone || undefined,
+          email: email || undefined,
+          service_area: locationText ? `Serving ${locationText}` : undefined,
+        },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "email", label: "Email Address", type: "email", required: true },
+          { name: "postcode", label: "Property Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Additional Information", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
 router.post(
   "/website/apply-template",
   requireAuth,
@@ -610,13 +835,124 @@ router.post(
 
     if (!template) { res.status(404).json({ error: "Template not found" }); return; }
 
-    // Update template and theme
+    // Load company settings to personalise content
+    const { data: rawCs } = await supabaseAdmin
+      .from("company_settings")
+      .select("name, trading_name, phone, email, city, county, gas_safe_number, oftec_number")
+      .eq("tenant_id", req.tenantId!)
+      .eq("singleton_id", "default")
+      .maybeSingle() as { data: Record<string, string | null> | null };
+
+    const tradeName = rawCs?.trading_name || rawCs?.name || website.site_name as string || "Your Business";
+    const city = rawCs?.city || "";
+    const county = rawCs?.county || "";
+    const phone = rawCs?.phone || "";
+    const email = rawCs?.email || "";
+    const gasSafeNo = rawCs?.gas_safe_number || "";
+    const oftecNo = rawCs?.oftec_number || "";
+    const locationText = county && county !== city ? `${city}, ${county}` : city;
+    const phoneUrl = phone ? `tel:${phone.replace(/\s+/g, "")}` : "#contact";
+
+    const cs: CompanyData = { tradeName, city, county, phone, email, gasSafeNo, oftecNo, locationText, phoneUrl };
+
+    // ── 1. Apply theme and template id ──────────────────────────────────────
     await db
       .from("websites")
-      .update({ template_id, theme: template.default_theme })
+      .update({
+        template_id,
+        theme: template.default_theme,
+        default_meta_title: `${tradeName} — MCS Certified Heating Engineers`,
+        default_meta_description: `${tradeName} offers heat pumps, underfloor heating, and boiler upgrades in ${locationText}. Free surveys and full MCS certification.`,
+      })
       .eq("id", website.id);
 
-    res.json({ ok: true });
+    // ── 2. Wipe existing pages and blocks ───────────────────────────────────
+    await db.from("website_blocks").delete().eq("tenant_id", req.tenantId);
+    await db.from("website_pages").delete().eq("website_id", website.id);
+
+    // ── 3. Create pages from template default_pages ─────────────────────────
+    const defaultPages = (template.default_pages as Array<Record<string, unknown>>) || [];
+    type PageRow = { website_id: string; tenant_id: string; slug: string; title: string; page_type: string; status: string; show_in_nav: boolean; nav_label: string | null; nav_order: number; published_at: string | null };
+    const pageRows: PageRow[] = defaultPages.map((p, i) => ({
+      website_id: String(website.id),
+      tenant_id: req.tenantId!,
+      slug: String(p.slug || ""),
+      title: String(p.title || "Page"),
+      page_type: String(p.page_type || "custom"),
+      status: "published",
+      show_in_nav: Boolean(p.show_in_nav),
+      nav_label: p.nav_label ? String(p.nav_label) : null,
+      nav_order: typeof p.nav_order === "number" ? p.nav_order : i + 1,
+      published_at: new Date().toISOString(),
+    }));
+
+    const { data: pages } = await db
+      .from("website_pages")
+      .insert(pageRows)
+      .select("id, slug, page_type") as { data: Array<{ id: string; slug: string; page_type: string }> | null };
+
+    // ── 4. Ensure a contact form exists ─────────────────────────────────────
+    const { data: existingForm } = await db
+      .from("website_forms")
+      .select("id")
+      .eq("website_id", website.id)
+      .eq("form_type", "contact")
+      .maybeSingle() as { data: { id: string } | null };
+
+    let formId: string;
+    if (existingForm) {
+      formId = existingForm.id;
+    } else {
+      const { data: newForm } = await db
+        .from("website_forms")
+        .insert({
+          website_id: website.id,
+          tenant_id: req.tenantId,
+          name: "Contact Form",
+          form_type: "contact",
+          notify_email: email || null,
+          auto_create_enquiry: true,
+          is_active: true,
+          fields: [],
+        })
+        .select("id")
+        .single() as { data: { id: string } | null };
+      formId = newForm?.id || "";
+    }
+
+    // ── 5. Seed blocks for home page based on template slug ─────────────────
+    const homePageId = pages?.find((p) => p.page_type === "home" || p.slug === "" || p.slug === "/")?.id;
+
+    if (homePageId) {
+      const templateSlug = String(template.slug || "");
+      let homeBlocks: Array<{ block_type: string; content: Record<string, unknown> }> = [];
+
+      if (templateSlug === "modern") {
+        homeBlocks = buildModernHomeBlocks(cs, formId);
+      }
+      // Other template slugs can be added here in future
+
+      if (homeBlocks.length > 0) {
+        await db.from("website_blocks").insert(
+          homeBlocks.map((b, i) => ({
+            page_id: homePageId,
+            tenant_id: req.tenantId,
+            block_type: b.block_type,
+            content: b.content,
+            sort_order: i,
+            is_visible: true,
+          }))
+        );
+      }
+    }
+
+    // ── 6. Publish the website ───────────────────────────────────────────────
+    await db
+      .from("websites")
+      .update({ status: "published", published_at: new Date().toISOString() })
+      .eq("id", website.id);
+
+    res.json({ ok: true, pages_created: pages?.length ?? 0 });
   }
 );
 
