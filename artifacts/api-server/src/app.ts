@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import router from "./routes";
 import { startServiceReminderScheduler } from "./lib/service-reminders";
+import { getSentry } from "./lib/sentry";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -82,6 +83,15 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", v: 2 });
+});
+
+// Monitoring helper endpoint: confirms if Sentry SDK is initialised.
+app.get("/health/sentry", (_req: Request, res: Response) => {
+  res.json({
+    sentryEnabled: Boolean(process.env.SENTRY_DSN),
+    sentryInitialized: Boolean(getSentry()),
+    environment: process.env.SENTRY_ENV || "production",
+  });
 });
 
 // Test endpoint for monitoring verification
