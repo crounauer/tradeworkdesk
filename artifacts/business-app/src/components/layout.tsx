@@ -251,19 +251,31 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-slate-50/50 w-full">
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 z-50 bg-card border-r border-border shadow-sm">
         <div className="px-4 py-4 flex items-center gap-2.5 border-b border-border/50 min-h-[64px]">
-          {companySettings?.white_label_enabled && companySettings.logo_url ? (
-            <img
-              src={companySettings.logo_url}
-              alt={companySettings.brand_name ?? "Logo"}
-              className="h-8 w-auto max-w-[160px] object-contain"
-            />
-          ) : (
+          {isSuperAdmin ? (
+            // Super-admin always sees TradeWorkDesk platform branding
             <>
               <Flame className="w-5 h-5 text-primary shrink-0" />
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                {companySettings?.white_label_enabled && companySettings.brand_name
-                  ? companySettings.brand_name
-                  : "TradeWorkDesk"}
+              <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+            </>
+          ) : companySettings?.logo_url ? (
+            // Tenant has uploaded a logo — show it
+            <img
+              src={companySettings.logo_url}
+              alt={companySettings.trading_name ?? companySettings.name ?? "Logo"}
+              className="h-9 w-auto max-w-[168px] object-contain"
+            />
+          ) : (
+            // No logo — show company name with a coloured initial badge
+            <>
+              {(companySettings?.trading_name ?? companySettings?.name) ? (
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
+                  {(companySettings.trading_name ?? companySettings.name ?? "?").charAt(0).toUpperCase()}
+                </div>
+              ) : (
+                <Flame className="w-5 h-5 text-primary shrink-0" />
+              )}
+              <span className="text-sm font-bold tracking-tight text-foreground truncate">
+                {companySettings?.trading_name ?? companySettings?.name ?? "TradeWorkDesk"}
               </span>
             </>
           )}
@@ -342,19 +354,28 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2">
-          {companySettings?.white_label_enabled && companySettings.logo_url ? (
+          {isSuperAdmin ? (
+            <>
+              <Flame className="w-5 h-5 text-primary" />
+              <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
+            </>
+          ) : companySettings?.logo_url ? (
             <img
               src={companySettings.logo_url}
-              alt={companySettings.brand_name ?? "Logo"}
-              className="h-7 w-auto max-w-[120px] object-contain"
+              alt={companySettings.trading_name ?? companySettings.name ?? "Logo"}
+              className="h-8 w-auto max-w-[140px] object-contain"
             />
           ) : (
             <>
-              <Flame className="w-5 h-5 text-primary" />
-              <span className="text-lg font-bold tracking-tight text-foreground">
-                {companySettings?.white_label_enabled && companySettings.brand_name
-                  ? companySettings.brand_name
-                  : "TradeWorkDesk"}
+              {(companySettings?.trading_name ?? companySettings?.name) ? (
+                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {(companySettings.trading_name ?? companySettings.name ?? "?").charAt(0).toUpperCase()}
+                </div>
+              ) : (
+                <Flame className="w-5 h-5 text-primary" />
+              )}
+              <span className="text-sm font-bold tracking-tight text-foreground truncate max-w-[160px]">
+                {companySettings?.trading_name ?? companySettings?.name ?? "TradeWorkDesk"}
               </span>
             </>
           )}
