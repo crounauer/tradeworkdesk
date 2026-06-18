@@ -1,5 +1,5 @@
 import type { QueryKey, UseMutationOptions, UseMutationResult, UseQueryOptions, UseQueryResult } from "@tanstack/react-query";
-import type { Appliance, ApplianceDetail, BreakdownReport, BurnerSetupRecord, CombustionAnalysisRecord, CommissioningRecord, CreateApplianceBody, CreateBreakdownReportBody, CreateBurnerSetupRecordBody, CreateCombustionAnalysisRecordBody, CreateCommissioningRecordBody, CreateCustomerBody, CreateFireValveTestRecordBody, CreateJobBody, CreateJobCompletionReportBody, CreateJobNoteBody, CreateOilLineVacuumTestBody, CreateOilTankInspectionBody, CreateOilTankRiskAssessmentBody, CreatePropertyBody, CreateServiceRecordBody, CreateSignatureBody, Customer, CustomerDetail, DashboardData, FileAttachment, FileUrl, FireValveTestRecord, GetCompletedByTechnicianParams, GlobalSearchParams, HealthStatus, Job, JobCompletionReport, JobDetail, JobListItem, JobNote, ListAppliancesParams, ListCustomersParams, ListFilesParams, ListJobsParams, ListPropertiesParams, OilLineVacuumTest, OilTankInspection, OilTankRiskAssessment, Profile, Property, PropertyDetail, SearchResults, ServiceRecord, Signature, TechnicianStats, UpcomingService, UpdateApplianceBody, UpdateBreakdownReportBody, UpdateBurnerSetupRecordBody, UpdateCombustionAnalysisRecordBody, UpdateCommissioningRecordBody, UpdateCustomerBody, UpdateFireValveTestRecordBody, UpdateJobBody, UpdateJobCompletionReportBody, UpdateOilLineVacuumTestBody, UpdateOilTankInspectionBody, UpdateOilTankRiskAssessmentBody, UpdateProfileBody, UpdatePropertyBody, UpdateServiceRecordBody, UploadFileBody, HeatPumpServiceRecord, CreateHeatPumpServiceRecordBody, UpdateHeatPumpServiceRecordBody, HeatPumpCommissioningRecord, CreateHeatPumpCommissioningRecordBody, UpdateHeatPumpCommissioningRecordBody } from "./api.schemas";
+import type { Appliance, ApplianceDetail, BreakdownReport, BurnerSetupRecord, CombustionAnalysisRecord, CommissioningRecord, CreateApplianceBody, CreateBreakdownReportBody, CreateBurnerSetupRecordBody, CreateCombustionAnalysisRecordBody, CreateCommissioningRecordBody, CreateCustomerBody, CreateFireValveTestRecordBody, CreateJobBody, CreateJobCompletionReportBody, CreateJobNoteBody, CreateOilLineVacuumTestBody, CreateOilTankInspectionBody, CreateOilTankRiskAssessmentBody, CreatePropertyBody, CreateServiceRecordBody, CreateSignatureBody, Customer, CustomerDetail, DashboardData, FileAttachment, FileUrl, FireValveTestRecord, GetCompletedByTechnicianParams, GlobalSearchParams, HealthStatus, Job, JobCompletionReport, JobDetail, JobNote, ListAppliancesParams, ListCustomersParams, ListFilesParams, ListJobsParams, ListJobsResponse as ListJobsResponseType, ListPropertiesParams, OilLineVacuumTest, OilTankInspection, OilTankRiskAssessment, Profile, Property, PropertyDetail, SearchResults, ServiceRecord, Signature, TechnicianStats, UpcomingService, UpdateApplianceBody, UpdateBreakdownReportBody, UpdateBurnerSetupRecordBody, UpdateCombustionAnalysisRecordBody, UpdateCommissioningRecordBody, UpdateCustomerBody, UpdateFireValveTestRecordBody, UpdateJobBody, UpdateJobCompletionReportBody, UpdateOilLineVacuumTestBody, UpdateOilTankInspectionBody, UpdateOilTankRiskAssessmentBody, UpdateProfileBody, UpdatePropertyBody, UpdateServiceRecordBody, UploadFileBody, HeatPumpServiceRecord, CreateHeatPumpServiceRecordBody, UpdateHeatPumpServiceRecordBody, HeatPumpCommissioningRecord, CreateHeatPumpCommissioningRecordBody, UpdateHeatPumpCommissioningRecordBody, JobTimeEntry, CreateJobTimeEntryBody, UpdateJobTimeEntryBody } from "./api.schemas";
 import { customFetch } from "../custom-fetch";
 import type { ErrorType, BodyType } from "../custom-fetch";
 type AwaitedInput<T> = PromiseLike<T> | T;
@@ -518,7 +518,7 @@ export declare const useDeleteAppliance: <TError = ErrorType<unknown>, TContext 
  * @summary List jobs
  */
 export declare const getListJobsUrl: (params?: ListJobsParams) => string;
-export declare const listJobs: (params?: ListJobsParams, options?: RequestInit) => Promise<JobListItem[]>;
+export declare const listJobs: (params?: ListJobsParams, options?: RequestInit) => Promise<ListJobsResponseType>;
 export declare const getListJobsQueryKey: (params?: ListJobsParams) => readonly ["/api/jobs", ...ListJobsParams[]];
 export declare const getListJobsQueryOptions: <TData = Awaited<ReturnType<typeof listJobs>>, TError = ErrorType<unknown>>(params?: ListJobsParams, options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof listJobs>>, TError, TData>;
@@ -2171,6 +2171,103 @@ export declare const useUpdateHeatPumpCommissioningRecord: <TError = ErrorType<u
 }) => UseMutationResult<Awaited<ReturnType<typeof updateHeatPumpCommissioningRecord>>, TError, {
     jobId: string;
     data: BodyType<UpdateHeatPumpCommissioningRecordBody>;
+}, TContext>;
+/**
+ * @summary List job time entries
+ */
+export declare const getListJobTimeEntriesUrl: (jobId: string) => string;
+export declare const listJobTimeEntries: (jobId: string, options?: RequestInit) => Promise<JobTimeEntry[]>;
+export declare const getListJobTimeEntriesQueryKey: (jobId: string) => readonly [`/api/jobs/${string}/time-entries`];
+export declare const getListJobTimeEntriesQueryOptions: <TData = Awaited<ReturnType<typeof listJobTimeEntries>>, TError = ErrorType<unknown>>(jobId: string, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listJobTimeEntries>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseQueryOptions<Awaited<ReturnType<typeof listJobTimeEntries>>, TError, TData> & {
+    queryKey: QueryKey;
+};
+export declare function useListJobTimeEntries<TData = Awaited<ReturnType<typeof listJobTimeEntries>>, TError = ErrorType<unknown>>(jobId: string, options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof listJobTimeEntries>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+};
+/**
+ * @summary Create a job time entry
+ */
+export declare const getCreateJobTimeEntryUrl: (jobId: string) => string;
+export declare const createJobTimeEntry: (jobId: string, createJobTimeEntryBody: CreateJobTimeEntryBody, options?: RequestInit) => Promise<JobTimeEntry>;
+export declare const getCreateJobTimeEntryMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createJobTimeEntry>>, TError, {
+        jobId: string;
+        data: BodyType<CreateJobTimeEntryBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof createJobTimeEntry>>, TError, {
+    jobId: string;
+    data: BodyType<CreateJobTimeEntryBody>;
+}, TContext>;
+export declare const useCreateJobTimeEntry: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof createJobTimeEntry>>, TError, {
+        jobId: string;
+        data: BodyType<CreateJobTimeEntryBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof createJobTimeEntry>>, TError, {
+    jobId: string;
+    data: BodyType<CreateJobTimeEntryBody>;
+}, TContext>;
+/**
+ * @summary Delete a job time entry
+ */
+export declare const getDeleteJobTimeEntryUrl: (jobId: string, entryId: string) => string;
+export declare const deleteJobTimeEntry: (jobId: string, entryId: string, options?: RequestInit) => Promise<void>;
+export declare const getDeleteJobTimeEntryMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteJobTimeEntry>>, TError, {
+        jobId: string;
+        entryId: string;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof deleteJobTimeEntry>>, TError, {
+    jobId: string;
+    entryId: string;
+}, TContext>;
+export declare const useDeleteJobTimeEntry: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteJobTimeEntry>>, TError, {
+        jobId: string;
+        entryId: string;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof deleteJobTimeEntry>>, TError, {
+    jobId: string;
+    entryId: string;
+}, TContext>;
+/**
+ * @summary Update a job time entry
+ */
+export declare const getUpdateJobTimeEntryUrl: (jobId: string, entryId: string) => string;
+export declare const updateJobTimeEntry: (jobId: string, entryId: string, updateJobTimeEntryBody: UpdateJobTimeEntryBody, options?: RequestInit) => Promise<JobTimeEntry>;
+export declare const getUpdateJobTimeEntryMutationOptions: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateJobTimeEntry>>, TError, {
+        jobId: string;
+        entryId: string;
+        data: BodyType<UpdateJobTimeEntryBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationOptions<Awaited<ReturnType<typeof updateJobTimeEntry>>, TError, {
+    jobId: string;
+    entryId: string;
+    data: BodyType<UpdateJobTimeEntryBody>;
+}, TContext>;
+export declare const useUpdateJobTimeEntry: <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateJobTimeEntry>>, TError, {
+        jobId: string;
+        entryId: string;
+        data: BodyType<UpdateJobTimeEntryBody>;
+    }, TContext>;
+    request?: SecondParameter<typeof customFetch>;
+}) => UseMutationResult<Awaited<ReturnType<typeof updateJobTimeEntry>>, TError, {
+    jobId: string;
+    entryId: string;
+    data: BodyType<UpdateJobTimeEntryBody>;
 }, TContext>;
 export {};
 //# sourceMappingURL=api.d.ts.map

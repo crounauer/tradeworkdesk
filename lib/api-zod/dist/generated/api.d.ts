@@ -169,7 +169,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -186,7 +186,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -233,7 +233,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -250,7 +250,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -328,7 +328,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -345,7 +345,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -392,7 +392,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -409,7 +409,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -459,7 +459,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
     }>>;
 }, "strip", zod.ZodTypeAny, {
     todays_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -481,7 +481,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     upcoming_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -514,7 +514,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         serial_number?: string | null | undefined;
     }[] | undefined;
     recent_completed?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -536,7 +536,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     follow_up_required?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -566,7 +566,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
     } | undefined;
 }, {
     todays_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -588,7 +588,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     upcoming_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -621,7 +621,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         serial_number?: string | null | undefined;
     }[] | undefined;
     recent_completed?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -643,7 +643,7 @@ export declare const GetDashboardResponse: zod.ZodObject<{
         technician_name?: string | null | undefined;
     })[] | undefined;
     follow_up_required?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -805,6 +805,8 @@ export declare const CreateCustomerBody: zod.ZodObject<{
     county: zod.ZodOptional<zod.ZodString>;
     postcode: zod.ZodOptional<zod.ZodString>;
     notes: zod.ZodOptional<zod.ZodString>;
+    latitude: zod.ZodOptional<zod.ZodNumber>;
+    longitude: zod.ZodOptional<zod.ZodNumber>;
 }, "strip", zod.ZodTypeAny, {
     first_name: string;
     last_name: string;
@@ -818,6 +820,8 @@ export declare const CreateCustomerBody: zod.ZodObject<{
     city?: string | undefined;
     county?: string | undefined;
     postcode?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
 }, {
     first_name: string;
     last_name: string;
@@ -831,6 +835,8 @@ export declare const CreateCustomerBody: zod.ZodObject<{
     city?: string | undefined;
     county?: string | undefined;
     postcode?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
 }>;
 /**
  * @summary Get customer by ID
@@ -859,6 +865,8 @@ export declare const GetCustomerResponse: zod.ZodIntersection<zod.ZodObject<{
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
 }, "strip", zod.ZodTypeAny, {
     id: string;
     is_active: boolean;
@@ -876,6 +884,8 @@ export declare const GetCustomerResponse: zod.ZodIntersection<zod.ZodObject<{
     city?: string | null | undefined;
     county?: string | null | undefined;
     postcode?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
 }, {
     id: string;
     is_active: boolean;
@@ -893,6 +903,8 @@ export declare const GetCustomerResponse: zod.ZodIntersection<zod.ZodObject<{
     city?: string | null | undefined;
     county?: string | null | undefined;
     postcode?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
 }>, zod.ZodObject<{
     properties: zod.ZodOptional<zod.ZodArray<zod.ZodObject<{
         id: zod.ZodString;
@@ -1070,6 +1082,8 @@ export declare const UpdateCustomerResponse: zod.ZodObject<{
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
 }, "strip", zod.ZodTypeAny, {
     id: string;
     is_active: boolean;
@@ -1087,6 +1101,8 @@ export declare const UpdateCustomerResponse: zod.ZodObject<{
     city?: string | null | undefined;
     county?: string | null | undefined;
     postcode?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
 }, {
     id: string;
     is_active: boolean;
@@ -1104,6 +1120,8 @@ export declare const UpdateCustomerResponse: zod.ZodObject<{
     city?: string | null | undefined;
     county?: string | null | undefined;
     postcode?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
 }>;
 /**
  * @summary Soft-delete customer
@@ -1144,6 +1162,8 @@ export declare const ListPropertiesResponseItem: zod.ZodObject<{
     flue_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     tank_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
@@ -1161,6 +1181,8 @@ export declare const ListPropertiesResponseItem: zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1181,6 +1203,8 @@ export declare const ListPropertiesResponseItem: zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1205,6 +1229,8 @@ export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     flue_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     tank_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
@@ -1222,6 +1248,8 @@ export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1242,6 +1270,8 @@ export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1268,6 +1298,8 @@ export declare const CreatePropertyBody: zod.ZodObject<{
     flue_location: zod.ZodOptional<zod.ZodString>;
     tank_location: zod.ZodOptional<zod.ZodString>;
     notes: zod.ZodOptional<zod.ZodString>;
+    latitude: zod.ZodOptional<zod.ZodNumber>;
+    longitude: zod.ZodOptional<zod.ZodNumber>;
 }, "strip", zod.ZodTypeAny, {
     customer_id: string;
     address_line1: string;
@@ -1276,6 +1308,8 @@ export declare const CreatePropertyBody: zod.ZodObject<{
     address_line2?: string | undefined;
     city?: string | undefined;
     county?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
     property_type?: string | undefined;
     occupancy_type?: string | undefined;
     access_notes?: string | undefined;
@@ -1291,6 +1325,8 @@ export declare const CreatePropertyBody: zod.ZodObject<{
     address_line2?: string | undefined;
     city?: string | undefined;
     county?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
     property_type?: string | undefined;
     occupancy_type?: string | undefined;
     access_notes?: string | undefined;
@@ -1325,6 +1361,8 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
     flue_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     tank_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
@@ -1342,6 +1380,8 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1362,6 +1402,8 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1510,7 +1552,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1527,7 +1569,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1600,7 +1642,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         last_service_date?: Date | null | undefined;
     }[] | undefined;
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1665,7 +1707,7 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
         last_service_date?: Date | null | undefined;
     }[] | undefined;
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -1712,6 +1754,8 @@ export declare const UpdatePropertyBody: zod.ZodObject<{
     flue_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     tank_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     is_active: zod.ZodOptional<zod.ZodBoolean>;
 }, "strip", zod.ZodTypeAny, {
     is_active?: boolean | undefined;
@@ -1722,6 +1766,8 @@ export declare const UpdatePropertyBody: zod.ZodObject<{
     city?: string | null | undefined;
     county?: string | null | undefined;
     postcode?: string | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1738,6 +1784,8 @@ export declare const UpdatePropertyBody: zod.ZodObject<{
     city?: string | null | undefined;
     county?: string | null | undefined;
     postcode?: string | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1762,6 +1810,8 @@ export declare const UpdatePropertyResponse: zod.ZodObject<{
     flue_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     tank_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
@@ -1779,6 +1829,8 @@ export declare const UpdatePropertyResponse: zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -1799,6 +1851,8 @@ export declare const UpdatePropertyResponse: zod.ZodObject<{
     address_line2?: string | null | undefined;
     city?: string | null | undefined;
     county?: string | null | undefined;
+    latitude?: number | null | undefined;
+    longitude?: number | null | undefined;
     property_type?: string | null | undefined;
     occupancy_type?: string | null | undefined;
     access_notes?: string | null | undefined;
@@ -2187,7 +2241,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2204,7 +2258,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2235,7 +2289,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
     }>>, "many">>;
 }, "strip", zod.ZodTypeAny, {
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2279,7 +2333,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
     } | undefined;
 }, {
     recent_jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -2478,22 +2532,31 @@ export declare const ListJobsQueryParams: zod.ZodObject<{
     date_to: zod.ZodOptional<zod.ZodDate>;
     customer_id: zod.ZodOptional<zod.ZodString>;
     property_id: zod.ZodOptional<zod.ZodString>;
+    limit: zod.ZodOptional<zod.ZodNumber>;
+    page: zod.ZodOptional<zod.ZodNumber>;
+    search: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     status?: string | undefined;
     customer_id?: string | undefined;
     property_id?: string | undefined;
     job_type?: string | undefined;
+    search?: string | undefined;
     technician_id?: string | undefined;
     date_from?: Date | undefined;
     date_to?: Date | undefined;
+    limit?: number | undefined;
+    page?: number | undefined;
 }, {
     status?: string | undefined;
     customer_id?: string | undefined;
     property_id?: string | undefined;
     job_type?: string | undefined;
+    search?: string | undefined;
     technician_id?: string | undefined;
     date_from?: Date | undefined;
     date_to?: Date | undefined;
+    limit?: number | undefined;
+    page?: number | undefined;
 }>;
 export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     id: zod.ZodString;
@@ -2514,7 +2577,7 @@ export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2532,7 +2595,7 @@ export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2554,16 +2617,25 @@ export declare const ListJobsResponseItem: zod.ZodIntersection<zod.ZodObject<{
     property_address: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     technician_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    property_latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    property_longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    property_postcode: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
     customer_name?: string | null | undefined;
     property_address?: string | null | undefined;
     technician_name?: string | null | undefined;
     job_type_name?: string | null | undefined;
+    property_latitude?: number | null | undefined;
+    property_longitude?: number | null | undefined;
+    property_postcode?: string | null | undefined;
 }, {
     customer_name?: string | null | undefined;
     property_address?: string | null | undefined;
     technician_name?: string | null | undefined;
     job_type_name?: string | null | undefined;
+    property_latitude?: number | null | undefined;
+    property_longitude?: number | null | undefined;
+    property_postcode?: string | null | undefined;
 }>>;
 export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodObject<{
     id: zod.ZodString;
@@ -2584,7 +2656,7 @@ export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodO
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2602,7 +2674,7 @@ export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodO
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2624,16 +2696,25 @@ export declare const ListJobsResponse: zod.ZodArray<zod.ZodIntersection<zod.ZodO
     property_address: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     technician_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    property_latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    property_longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+    property_postcode: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
     customer_name?: string | null | undefined;
     property_address?: string | null | undefined;
     technician_name?: string | null | undefined;
     job_type_name?: string | null | undefined;
+    property_latitude?: number | null | undefined;
+    property_longitude?: number | null | undefined;
+    property_postcode?: string | null | undefined;
 }, {
     customer_name?: string | null | undefined;
     property_address?: string | null | undefined;
     technician_name?: string | null | undefined;
     job_type_name?: string | null | undefined;
+    property_latitude?: number | null | undefined;
+    property_longitude?: number | null | undefined;
+    property_postcode?: string | null | undefined;
 }>>, "many">;
 /**
  * @summary Create a job
@@ -2645,6 +2726,7 @@ export declare const CreateJobBody: zod.ZodObject<{
     assigned_technician_id: zod.ZodOptional<zod.ZodString>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
     job_type_id: zod.ZodOptional<zod.ZodNumber>;
+    fuel_category: zod.ZodOptional<zod.ZodNullable<zod.ZodEnum<["gas", "oil", "heat_pump", "general"]>>>;
     priority: zod.ZodOptional<zod.ZodEnum<["low", "medium", "high", "urgent"]>>;
     scheduled_date: zod.ZodDate;
     scheduled_end_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -2666,6 +2748,7 @@ export declare const CreateJobBody: zod.ZodObject<{
     notes?: string | undefined;
     scheduled_end_date?: string | null | undefined;
     job_type_id?: number | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
 }, {
     customer_id: string;
     property_id: string;
@@ -2680,6 +2763,7 @@ export declare const CreateJobBody: zod.ZodObject<{
     notes?: string | undefined;
     scheduled_end_date?: string | null | undefined;
     job_type_id?: number | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
 }>;
 /**
  * @summary Get job by ID
@@ -2698,6 +2782,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
+    fuel_category: zod.ZodOptional<zod.ZodNullable<zod.ZodEnum<["gas", "oil", "heat_pump", "general"]>>>;
     status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
     priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
     scheduled_date: zod.ZodDate;
@@ -2705,11 +2790,17 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     scheduled_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     estimated_duration: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     description: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    arrival_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     is_active: zod.ZodBoolean;
+    external_invoice_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    external_invoice_provider: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    external_invoice_sent_at: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    from_quote_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2725,8 +2816,15 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     estimated_duration?: number | null | undefined;
     description?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
+    arrival_time?: string | null | undefined;
+    departure_time?: string | null | undefined;
+    external_invoice_id?: string | null | undefined;
+    external_invoice_provider?: string | null | undefined;
+    external_invoice_sent_at?: string | null | undefined;
+    from_quote_id?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -2742,6 +2840,13 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
     estimated_duration?: number | null | undefined;
     description?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
+    arrival_time?: string | null | undefined;
+    departure_time?: string | null | undefined;
+    external_invoice_id?: string | null | undefined;
+    external_invoice_provider?: string | null | undefined;
+    external_invoice_sent_at?: string | null | undefined;
+    from_quote_id?: string | null | undefined;
 }>, zod.ZodObject<{
     customer: zod.ZodOptional<zod.ZodObject<{
         id: zod.ZodString;
@@ -2815,6 +2920,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
         customer_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        latitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+        longitude: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     }, "strip", zod.ZodTypeAny, {
         id: string;
         is_active: boolean;
@@ -2828,6 +2935,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         address_line2?: string | null | undefined;
         city?: string | null | undefined;
         county?: string | null | undefined;
+        latitude?: number | null | undefined;
+        longitude?: number | null | undefined;
         property_type?: string | null | undefined;
         occupancy_type?: string | null | undefined;
         access_notes?: string | null | undefined;
@@ -2848,6 +2957,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         address_line2?: string | null | undefined;
         city?: string | null | undefined;
         county?: string | null | undefined;
+        latitude?: number | null | undefined;
+        longitude?: number | null | undefined;
         property_type?: string | null | undefined;
         occupancy_type?: string | null | undefined;
         access_notes?: string | null | undefined;
@@ -2975,6 +3086,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         nozzle_checked: zod.ZodOptional<zod.ZodBoolean>;
         nozzle_replaced: zod.ZodOptional<zod.ZodBoolean>;
         nozzle_size_fitted: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        oil_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         electrodes_checked: zod.ZodOptional<zod.ZodBoolean>;
         electrodes_replaced: zod.ZodOptional<zod.ZodBoolean>;
         filter_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -3050,6 +3162,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         nozzle_checked?: boolean | undefined;
         nozzle_replaced?: boolean | undefined;
         nozzle_size_fitted?: string | null | undefined;
+        oil_pressure?: string | null | undefined;
         electrodes_checked?: boolean | undefined;
         electrodes_replaced?: boolean | undefined;
         filter_checked?: boolean | undefined;
@@ -3121,6 +3234,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         nozzle_checked?: boolean | undefined;
         nozzle_replaced?: boolean | undefined;
         nozzle_size_fitted?: string | null | undefined;
+        oil_pressure?: string | null | undefined;
         electrodes_checked?: boolean | undefined;
         electrodes_replaced?: boolean | undefined;
         filter_checked?: boolean | undefined;
@@ -3361,6 +3475,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         address_line2?: string | null | undefined;
         city?: string | null | undefined;
         county?: string | null | undefined;
+        latitude?: number | null | undefined;
+        longitude?: number | null | undefined;
         property_type?: string | null | undefined;
         occupancy_type?: string | null | undefined;
         access_notes?: string | null | undefined;
@@ -3418,6 +3534,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         nozzle_checked?: boolean | undefined;
         nozzle_replaced?: boolean | undefined;
         nozzle_size_fitted?: string | null | undefined;
+        oil_pressure?: string | null | undefined;
         electrodes_checked?: boolean | undefined;
         electrodes_replaced?: boolean | undefined;
         filter_checked?: boolean | undefined;
@@ -3557,6 +3674,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         address_line2?: string | null | undefined;
         city?: string | null | undefined;
         county?: string | null | undefined;
+        latitude?: number | null | undefined;
+        longitude?: number | null | undefined;
         property_type?: string | null | undefined;
         occupancy_type?: string | null | undefined;
         access_notes?: string | null | undefined;
@@ -3614,6 +3733,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         nozzle_checked?: boolean | undefined;
         nozzle_replaced?: boolean | undefined;
         nozzle_size_fitted?: string | null | undefined;
+        oil_pressure?: string | null | undefined;
         electrodes_checked?: boolean | undefined;
         electrodes_replaced?: boolean | undefined;
         filter_checked?: boolean | undefined;
@@ -3719,6 +3839,7 @@ export declare const UpdateJobBody: zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodOptional<zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>>;
+    fuel_category: zod.ZodOptional<zod.ZodNullable<zod.ZodEnum<["gas", "oil", "heat_pump", "general"]>>>;
     status: zod.ZodOptional<zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>>;
     priority: zod.ZodOptional<zod.ZodEnum<["low", "medium", "high", "urgent"]>>;
     scheduled_date: zod.ZodOptional<zod.ZodDate>;
@@ -3727,8 +3848,10 @@ export declare const UpdateJobBody: zod.ZodObject<{
     estimated_duration: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     description: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    arrival_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
-    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | undefined;
+    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced" | undefined;
     customer_id?: string | undefined;
     property_id?: string | undefined;
     appliance_id?: string | null | undefined;
@@ -3741,8 +3864,11 @@ export declare const UpdateJobBody: zod.ZodObject<{
     description?: string | null | undefined;
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
+    arrival_time?: string | null | undefined;
+    departure_time?: string | null | undefined;
 }, {
-    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | undefined;
+    status?: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced" | undefined;
     customer_id?: string | undefined;
     property_id?: string | undefined;
     appliance_id?: string | null | undefined;
@@ -3755,6 +3881,9 @@ export declare const UpdateJobBody: zod.ZodObject<{
     description?: string | null | undefined;
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
+    arrival_time?: string | null | undefined;
+    departure_time?: string | null | undefined;
 }>;
 export declare const UpdateJobResponse: zod.ZodObject<{
     id: zod.ZodString;
@@ -3763,6 +3892,7 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     assigned_technician_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     job_type: zod.ZodEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
+    fuel_category: zod.ZodOptional<zod.ZodNullable<zod.ZodEnum<["gas", "oil", "heat_pump", "general"]>>>;
     status: zod.ZodEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "awaiting_parts", "invoiced"]>;
     priority: zod.ZodEnum<["low", "medium", "high", "urgent"]>;
     scheduled_date: zod.ZodDate;
@@ -3771,11 +3901,13 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     estimated_duration: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     description: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    arrival_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     is_active: zod.ZodBoolean;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
 }, "strip", zod.ZodTypeAny, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -3792,8 +3924,11 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     description?: string | null | undefined;
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
+    arrival_time?: string | null | undefined;
+    departure_time?: string | null | undefined;
 }, {
-    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+    status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
     id: string;
     is_active: boolean;
     created_at: Date;
@@ -3810,6 +3945,9 @@ export declare const UpdateJobResponse: zod.ZodObject<{
     description?: string | null | undefined;
     notes?: string | null | undefined;
     scheduled_end_date?: string | null | undefined;
+    fuel_category?: "gas" | "oil" | "heat_pump" | "general" | null | undefined;
+    arrival_time?: string | null | undefined;
+    departure_time?: string | null | undefined;
 }>;
 /**
  * @summary Soft-delete job
@@ -3844,6 +3982,7 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     nozzle_checked: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_replaced: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_size_fitted: zod.ZodOptional<zod.ZodString>;
+    oil_pressure: zod.ZodOptional<zod.ZodString>;
     electrodes_checked: zod.ZodOptional<zod.ZodBoolean>;
     electrodes_replaced: zod.ZodOptional<zod.ZodBoolean>;
     filter_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -3914,6 +4053,7 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | undefined;
+    oil_pressure?: string | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -3982,6 +4122,7 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | undefined;
+    oil_pressure?: string | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4060,6 +4201,7 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     nozzle_checked: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_replaced: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_size_fitted: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    oil_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     electrodes_checked: zod.ZodOptional<zod.ZodBoolean>;
     electrodes_replaced: zod.ZodOptional<zod.ZodBoolean>;
     filter_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -4135,6 +4277,7 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4206,6 +4349,7 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4281,6 +4425,7 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
     nozzle_checked: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_replaced: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_size_fitted: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    oil_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     electrodes_checked: zod.ZodOptional<zod.ZodBoolean>;
     electrodes_replaced: zod.ZodOptional<zod.ZodBoolean>;
     filter_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -4349,6 +4494,7 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4415,6 +4561,7 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4483,6 +4630,7 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     nozzle_checked: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_replaced: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_size_fitted: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    oil_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     electrodes_checked: zod.ZodOptional<zod.ZodBoolean>;
     electrodes_replaced: zod.ZodOptional<zod.ZodBoolean>;
     filter_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -4558,6 +4706,7 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4629,6 +4778,7 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4707,6 +4857,7 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     nozzle_checked: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_replaced: zod.ZodOptional<zod.ZodBoolean>;
     nozzle_size_fitted: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    oil_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     electrodes_checked: zod.ZodOptional<zod.ZodBoolean>;
     electrodes_replaced: zod.ZodOptional<zod.ZodBoolean>;
     filter_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -4782,6 +4933,7 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -4853,6 +5005,7 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     nozzle_checked?: boolean | undefined;
     nozzle_replaced?: boolean | undefined;
     nozzle_size_fitted?: string | null | undefined;
+    oil_pressure?: string | null | undefined;
     electrodes_checked?: boolean | undefined;
     electrodes_replaced?: boolean | undefined;
     filter_checked?: boolean | undefined;
@@ -8001,12 +8154,15 @@ export declare const ListFilesResponseItem: zod.ZodObject<{
     file_type: zod.ZodString;
     file_size: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     storage_path: zod.ZodString;
+    thumbnail_storage_path: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     entity_type: zod.ZodString;
     entity_id: zod.ZodString;
+    note_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     uploaded_by: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     description: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     created_at: zod.ZodDate;
     signed_url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    thumbnail_signed_url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
     id: string;
     created_at: Date;
@@ -8019,6 +8175,9 @@ export declare const ListFilesResponseItem: zod.ZodObject<{
     file_size?: number | null | undefined;
     uploaded_by?: string | null | undefined;
     signed_url?: string | null | undefined;
+    thumbnail_storage_path?: string | null | undefined;
+    note_id?: string | null | undefined;
+    thumbnail_signed_url?: string | null | undefined;
 }, {
     id: string;
     created_at: Date;
@@ -8031,6 +8190,9 @@ export declare const ListFilesResponseItem: zod.ZodObject<{
     file_size?: number | null | undefined;
     uploaded_by?: string | null | undefined;
     signed_url?: string | null | undefined;
+    thumbnail_storage_path?: string | null | undefined;
+    note_id?: string | null | undefined;
+    thumbnail_signed_url?: string | null | undefined;
 }>;
 export declare const ListFilesResponse: zod.ZodArray<zod.ZodObject<{
     id: zod.ZodString;
@@ -8038,12 +8200,15 @@ export declare const ListFilesResponse: zod.ZodArray<zod.ZodObject<{
     file_type: zod.ZodString;
     file_size: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     storage_path: zod.ZodString;
+    thumbnail_storage_path: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     entity_type: zod.ZodString;
     entity_id: zod.ZodString;
+    note_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     uploaded_by: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     description: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     created_at: zod.ZodDate;
     signed_url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    thumbnail_signed_url: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
     id: string;
     created_at: Date;
@@ -8056,6 +8221,9 @@ export declare const ListFilesResponse: zod.ZodArray<zod.ZodObject<{
     file_size?: number | null | undefined;
     uploaded_by?: string | null | undefined;
     signed_url?: string | null | undefined;
+    thumbnail_storage_path?: string | null | undefined;
+    note_id?: string | null | undefined;
+    thumbnail_signed_url?: string | null | undefined;
 }, {
     id: string;
     created_at: Date;
@@ -8068,6 +8236,9 @@ export declare const ListFilesResponse: zod.ZodArray<zod.ZodObject<{
     file_size?: number | null | undefined;
     uploaded_by?: string | null | undefined;
     signed_url?: string | null | undefined;
+    thumbnail_storage_path?: string | null | undefined;
+    note_id?: string | null | undefined;
+    thumbnail_signed_url?: string | null | undefined;
 }>, "many">;
 /**
  * @summary Upload a file
@@ -8412,7 +8583,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8429,7 +8600,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8523,7 +8694,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         postcode?: string | null | undefined;
     }[] | undefined;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8609,7 +8780,7 @@ export declare const GlobalSearchResponse: zod.ZodObject<{
         postcode?: string | null | undefined;
     }[] | undefined;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8796,7 +8967,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8813,7 +8984,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8847,7 +9018,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8873,7 +9044,7 @@ export declare const GetCompletedByTechnicianResponseItem: zod.ZodObject<{
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8917,7 +9088,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
         created_at: zod.ZodDate;
         updated_at: zod.ZodDate;
     }, "strip", zod.ZodTypeAny, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8934,7 +9105,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
         description?: string | null | undefined;
         notes?: string | null | undefined;
     }, {
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8968,7 +9139,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -8994,7 +9165,7 @@ export declare const GetCompletedByTechnicianResponse: zod.ZodArray<zod.ZodObjec
     technician_id: string;
     completed_count: number;
     jobs?: ({
-        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts";
+        status: "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced";
         id: string;
         is_active: boolean;
         created_at: Date;
@@ -9020,20 +9191,21 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
-    refrigerant_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_high: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_low: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    flow_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    return_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    delta_t: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    cop_reading: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    compressor_amps: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
     filter_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     dhw_cylinder_checked: zod.ZodOptional<zod.ZodBoolean>;
     dhw_cylinder_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    prv_checked: zod.ZodOptional<zod.ZodBoolean>;
+    expansion_vessel_charge: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    glycol: zod.ZodOptional<zod.ZodBoolean>;
+    glycol_temp_rating: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    anti_freeze_valves: zod.ZodOptional<zod.ZodBoolean>;
+    inhibitor: zod.ZodOptional<zod.ZodBoolean>;
+    fungicide: zod.ZodOptional<zod.ZodBoolean>;
+    evaporator_cleaned: zod.ZodOptional<zod.ZodBoolean>;
+    y_strainer_cleaned: zod.ZodOptional<zod.ZodBoolean>;
     defects_found: zod.ZodOptional<zod.ZodBoolean>;
     defects_details: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     advisories: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -9061,18 +9233,19 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }, {
     id: string;
@@ -9090,38 +9263,40 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }>;
 export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
-    refrigerant_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_high: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_low: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    flow_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    return_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    delta_t: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    cop_reading: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    compressor_amps: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
     filter_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     dhw_cylinder_checked: zod.ZodOptional<zod.ZodBoolean>;
     dhw_cylinder_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    prv_checked: zod.ZodOptional<zod.ZodBoolean>;
+    expansion_vessel_charge: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    glycol: zod.ZodOptional<zod.ZodBoolean>;
+    glycol_temp_rating: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    anti_freeze_valves: zod.ZodOptional<zod.ZodBoolean>;
+    inhibitor: zod.ZodOptional<zod.ZodBoolean>;
+    fungicide: zod.ZodOptional<zod.ZodBoolean>;
+    evaporator_cleaned: zod.ZodOptional<zod.ZodBoolean>;
+    y_strainer_cleaned: zod.ZodOptional<zod.ZodBoolean>;
     defects_found: zod.ZodOptional<zod.ZodBoolean>;
     defects_details: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     advisories: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -9149,18 +9324,19 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }, {
     id: string;
@@ -9178,38 +9354,40 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }>;
 export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
-    refrigerant_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_high: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_low: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    flow_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    return_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    delta_t: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    cop_reading: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    compressor_amps: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
     filter_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     dhw_cylinder_checked: zod.ZodOptional<zod.ZodBoolean>;
     dhw_cylinder_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    prv_checked: zod.ZodOptional<zod.ZodBoolean>;
+    expansion_vessel_charge: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    glycol: zod.ZodOptional<zod.ZodBoolean>;
+    glycol_temp_rating: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    anti_freeze_valves: zod.ZodOptional<zod.ZodBoolean>;
+    inhibitor: zod.ZodOptional<zod.ZodBoolean>;
+    fungicide: zod.ZodOptional<zod.ZodBoolean>;
+    evaporator_cleaned: zod.ZodOptional<zod.ZodBoolean>;
+    y_strainer_cleaned: zod.ZodOptional<zod.ZodBoolean>;
     defects_found: zod.ZodOptional<zod.ZodBoolean>;
     defects_details: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     advisories: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -9237,18 +9415,19 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }, {
     id: string;
@@ -9266,38 +9445,40 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }>;
 export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
-    refrigerant_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_high: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_low: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    flow_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    return_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    delta_t: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    cop_reading: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    compressor_amps: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
     filter_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     dhw_cylinder_checked: zod.ZodOptional<zod.ZodBoolean>;
     dhw_cylinder_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    prv_checked: zod.ZodOptional<zod.ZodBoolean>;
+    expansion_vessel_charge: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    glycol: zod.ZodOptional<zod.ZodBoolean>;
+    glycol_temp_rating: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    anti_freeze_valves: zod.ZodOptional<zod.ZodBoolean>;
+    inhibitor: zod.ZodOptional<zod.ZodBoolean>;
+    fungicide: zod.ZodOptional<zod.ZodBoolean>;
+    evaporator_cleaned: zod.ZodOptional<zod.ZodBoolean>;
+    y_strainer_cleaned: zod.ZodOptional<zod.ZodBoolean>;
     defects_found: zod.ZodOptional<zod.ZodBoolean>;
     defects_details: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     advisories: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -9325,18 +9506,19 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }, {
     id: string;
@@ -9354,18 +9536,19 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }>;
 export declare const GetHeatPumpServiceRecordParams: zod.ZodObject<{
@@ -9385,20 +9568,21 @@ export declare const GetHeatPumpServiceRecordByJobParams: zod.ZodObject<{
 export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
-    refrigerant_type: zod.ZodOptional<zod.ZodString>;
-    refrigerant_pressure_high: zod.ZodOptional<zod.ZodString>;
-    refrigerant_pressure_low: zod.ZodOptional<zod.ZodString>;
-    flow_temp: zod.ZodOptional<zod.ZodString>;
-    return_temp: zod.ZodOptional<zod.ZodString>;
-    delta_t: zod.ZodOptional<zod.ZodString>;
-    cop_reading: zod.ZodOptional<zod.ZodString>;
-    compressor_amps: zod.ZodOptional<zod.ZodString>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodString>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodString>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
     filter_condition: zod.ZodOptional<zod.ZodString>;
     dhw_cylinder_checked: zod.ZodOptional<zod.ZodBoolean>;
     dhw_cylinder_temp: zod.ZodOptional<zod.ZodString>;
+    prv_checked: zod.ZodOptional<zod.ZodBoolean>;
+    expansion_vessel_charge: zod.ZodOptional<zod.ZodString>;
+    glycol: zod.ZodOptional<zod.ZodBoolean>;
+    glycol_temp_rating: zod.ZodOptional<zod.ZodString>;
+    anti_freeze_valves: zod.ZodOptional<zod.ZodBoolean>;
+    inhibitor: zod.ZodOptional<zod.ZodBoolean>;
+    fungicide: zod.ZodOptional<zod.ZodBoolean>;
+    evaporator_cleaned: zod.ZodOptional<zod.ZodBoolean>;
+    y_strainer_cleaned: zod.ZodOptional<zod.ZodBoolean>;
     defects_found: zod.ZodOptional<zod.ZodBoolean>;
     defects_details: zod.ZodOptional<zod.ZodString>;
     advisories: zod.ZodOptional<zod.ZodString>;
@@ -9421,18 +9605,19 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | undefined;
     customer_name_signed?: string | undefined;
     filter_condition?: string | undefined;
-    refrigerant_type?: string | undefined;
-    refrigerant_pressure_high?: string | undefined;
-    refrigerant_pressure_low?: string | undefined;
-    flow_temp?: string | undefined;
-    return_temp?: string | undefined;
-    delta_t?: string | undefined;
-    cop_reading?: string | undefined;
-    compressor_amps?: string | undefined;
     outdoor_unit_condition?: string | undefined;
     indoor_unit_condition?: string | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | undefined;
 }, {
     technician_id: string;
@@ -9447,18 +9632,19 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | undefined;
     customer_name_signed?: string | undefined;
     filter_condition?: string | undefined;
-    refrigerant_type?: string | undefined;
-    refrigerant_pressure_high?: string | undefined;
-    refrigerant_pressure_low?: string | undefined;
-    flow_temp?: string | undefined;
-    return_temp?: string | undefined;
-    delta_t?: string | undefined;
-    cop_reading?: string | undefined;
-    compressor_amps?: string | undefined;
     outdoor_unit_condition?: string | undefined;
     indoor_unit_condition?: string | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | undefined;
 }>;
 export declare const UpdateHeatPumpServiceRecordParams: zod.ZodObject<{
@@ -9469,20 +9655,21 @@ export declare const UpdateHeatPumpServiceRecordParams: zod.ZodObject<{
     id: string;
 }>;
 export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
-    refrigerant_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_high: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    refrigerant_pressure_low: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    flow_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    return_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    delta_t: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    cop_reading: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
-    compressor_amps: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
     filter_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     dhw_cylinder_checked: zod.ZodOptional<zod.ZodBoolean>;
     dhw_cylinder_temp: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    prv_checked: zod.ZodOptional<zod.ZodBoolean>;
+    expansion_vessel_charge: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    glycol: zod.ZodOptional<zod.ZodBoolean>;
+    glycol_temp_rating: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    anti_freeze_valves: zod.ZodOptional<zod.ZodBoolean>;
+    inhibitor: zod.ZodOptional<zod.ZodBoolean>;
+    fungicide: zod.ZodOptional<zod.ZodBoolean>;
+    evaporator_cleaned: zod.ZodOptional<zod.ZodBoolean>;
+    y_strainer_cleaned: zod.ZodOptional<zod.ZodBoolean>;
     defects_found: zod.ZodOptional<zod.ZodBoolean>;
     defects_details: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     advisories: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -9503,18 +9690,19 @@ export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }, {
     follow_up_required?: boolean | undefined;
@@ -9527,18 +9715,19 @@ export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
-    refrigerant_pressure_high?: string | null | undefined;
-    refrigerant_pressure_low?: string | null | undefined;
-    flow_temp?: string | null | undefined;
-    return_temp?: string | null | undefined;
-    delta_t?: string | null | undefined;
-    cop_reading?: string | null | undefined;
-    compressor_amps?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
     dhw_cylinder_temp?: string | null | undefined;
+    prv_checked?: boolean | undefined;
+    expansion_vessel_charge?: string | null | undefined;
+    glycol?: boolean | undefined;
+    glycol_temp_rating?: string | null | undefined;
+    anti_freeze_valves?: boolean | undefined;
+    inhibitor?: boolean | undefined;
+    fungicide?: boolean | undefined;
+    evaporator_cleaned?: boolean | undefined;
+    y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }>;
 export declare const HeatPumpCommissioningRecordBase: zod.ZodObject<{
@@ -9578,10 +9767,10 @@ export declare const HeatPumpCommissioningRecordBase: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9602,10 +9791,10 @@ export declare const HeatPumpCommissioningRecordBase: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9651,10 +9840,10 @@ export declare const GetHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9675,10 +9864,10 @@ export declare const GetHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9724,10 +9913,10 @@ export declare const GetHeatPumpCommissioningRecordByJobResponse: zod.ZodObject<
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9748,10 +9937,10 @@ export declare const GetHeatPumpCommissioningRecordByJobResponse: zod.ZodObject<
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9797,10 +9986,10 @@ export declare const UpdateHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9821,10 +10010,10 @@ export declare const UpdateHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9878,10 +10067,10 @@ export declare const CreateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | undefined;
-    refrigerant_type?: string | undefined;
     technician_name_signed?: string | undefined;
     heat_loss_kwh?: string | undefined;
     design_flow_temp?: string | undefined;
+    refrigerant_type?: string | undefined;
     refrigerant_charge_weight?: string | undefined;
     commissioning_pressure_high?: string | undefined;
     commissioning_pressure_low?: string | undefined;
@@ -9899,10 +10088,10 @@ export declare const CreateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | undefined;
-    refrigerant_type?: string | undefined;
     technician_name_signed?: string | undefined;
     heat_loss_kwh?: string | undefined;
     design_flow_temp?: string | undefined;
+    refrigerant_type?: string | undefined;
     refrigerant_charge_weight?: string | undefined;
     commissioning_pressure_high?: string | undefined;
     commissioning_pressure_low?: string | undefined;
@@ -9945,10 +10134,10 @@ export declare const UpdateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9964,10 +10153,10 @@ export declare const UpdateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     inhibitor_added?: boolean | undefined;
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | null | undefined;
-    refrigerant_type?: string | null | undefined;
     technician_name_signed?: string | null | undefined;
     heat_loss_kwh?: string | null | undefined;
     design_flow_temp?: string | null | undefined;
+    refrigerant_type?: string | null | undefined;
     refrigerant_charge_weight?: string | null | undefined;
     commissioning_pressure_high?: string | null | undefined;
     commissioning_pressure_low?: string | null | undefined;
@@ -9975,5 +10164,96 @@ export declare const UpdateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     controls_commissioned?: boolean | undefined;
     buffer_tank_checked?: boolean | undefined;
     cylinder_checked?: boolean | undefined;
+}>;
+/**
+ * @summary Job time entries
+ */
+export declare const JobTimeEntryResponseItem: zod.ZodObject<{
+    id: zod.ZodString;
+    job_id: zod.ZodString;
+    arrival_time: zod.ZodDate;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
+    notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    created_by: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    created_by_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_id: zod.ZodString;
+    created_at: zod.ZodDate;
+}, "strip", zod.ZodTypeAny, {
+    id: string;
+    created_at: Date;
+    arrival_time: Date;
+    job_id: string;
+    tenant_id: string;
+    notes?: string | null | undefined;
+    departure_time?: Date | null | undefined;
+    created_by?: string | null | undefined;
+    created_by_name?: string | null | undefined;
+}, {
+    id: string;
+    created_at: Date;
+    arrival_time: Date;
+    job_id: string;
+    tenant_id: string;
+    notes?: string | null | undefined;
+    departure_time?: Date | null | undefined;
+    created_by?: string | null | undefined;
+    created_by_name?: string | null | undefined;
+}>;
+export declare const JobTimeEntriesResponse: zod.ZodArray<zod.ZodObject<{
+    id: zod.ZodString;
+    job_id: zod.ZodString;
+    arrival_time: zod.ZodDate;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
+    notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    created_by: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    created_by_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_id: zod.ZodString;
+    created_at: zod.ZodDate;
+}, "strip", zod.ZodTypeAny, {
+    id: string;
+    created_at: Date;
+    arrival_time: Date;
+    job_id: string;
+    tenant_id: string;
+    notes?: string | null | undefined;
+    departure_time?: Date | null | undefined;
+    created_by?: string | null | undefined;
+    created_by_name?: string | null | undefined;
+}, {
+    id: string;
+    created_at: Date;
+    arrival_time: Date;
+    job_id: string;
+    tenant_id: string;
+    notes?: string | null | undefined;
+    departure_time?: Date | null | undefined;
+    created_by?: string | null | undefined;
+    created_by_name?: string | null | undefined;
+}>, "many">;
+export declare const CreateJobTimeEntryBody: zod.ZodObject<{
+    arrival_time: zod.ZodString;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+}, "strip", zod.ZodTypeAny, {
+    arrival_time: string;
+    notes?: string | null | undefined;
+    departure_time?: string | null | undefined;
+}, {
+    arrival_time: string;
+    notes?: string | null | undefined;
+    departure_time?: string | null | undefined;
+}>;
+export declare const UpdateJobTimeEntryBody: zod.ZodObject<{
+    arrival_time: zod.ZodOptional<zod.ZodString>;
+    departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+}, "strip", zod.ZodTypeAny, {
+    notes?: string | null | undefined;
+    arrival_time?: string | undefined;
+    departure_time?: string | null | undefined;
+}, {
+    notes?: string | null | undefined;
+    arrival_time?: string | undefined;
+    departure_time?: string | null | undefined;
 }>;
 //# sourceMappingURL=api.d.ts.map

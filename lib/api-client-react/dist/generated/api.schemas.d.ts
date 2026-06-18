@@ -57,6 +57,10 @@ export interface Customer {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    /** @nullable */
+    latitude?: number | null;
+    /** @nullable */
+    longitude?: number | null;
 }
 export interface Property {
     id: string;
@@ -85,6 +89,10 @@ export interface Property {
     tank_location?: string | null;
     /** @nullable */
     notes?: string | null;
+    /** @nullable */
+    latitude?: number | null;
+    /** @nullable */
+    longitude?: number | null;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -107,6 +115,8 @@ export interface CreateCustomerBody {
     county?: string;
     postcode?: string;
     notes?: string;
+    latitude?: number;
+    longitude?: number;
 }
 export interface UpdateCustomerBody {
     /** @nullable */
@@ -222,6 +232,12 @@ export interface Job {
     /** @nullable */
     notes?: string | null;
     is_active: boolean;
+    /** @nullable */
+    external_invoice_id?: string | null;
+    /** @nullable */
+    external_invoice_provider?: string | null;
+    /** @nullable */
+    external_invoice_sent_at?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -234,6 +250,12 @@ export type JobListItem = Job & {
     technician_name?: string | null;
     /** @nullable */
     job_type_name?: string | null;
+    /** @nullable */
+    property_latitude?: number | null;
+    /** @nullable */
+    property_longitude?: number | null;
+    /** @nullable */
+    property_postcode?: string | null;
 };
 export type PropertyDetail = Property & {
     customer?: Customer;
@@ -255,6 +277,8 @@ export interface CreatePropertyBody {
     flue_location?: string;
     tank_location?: string;
     notes?: string;
+    latitude?: number;
+    longitude?: number;
 }
 export interface UpdatePropertyBody {
     customer_id?: string;
@@ -282,6 +306,10 @@ export interface UpdatePropertyBody {
     tank_location?: string | null;
     /** @nullable */
     notes?: string | null;
+    /** @nullable */
+    latitude?: number | null;
+    /** @nullable */
+    longitude?: number | null;
     is_active?: boolean;
 }
 export type ApplianceDetail = Appliance & {
@@ -386,6 +414,8 @@ export interface ServiceRecord {
     nozzle_replaced?: boolean;
     /** @nullable */
     nozzle_size_fitted?: string | null;
+    /** @nullable */
+    oil_pressure?: string | null;
     electrodes_checked?: boolean;
     electrodes_replaced?: boolean;
     filter_checked?: boolean;
@@ -503,6 +533,8 @@ export interface FileAttachment {
     /** @nullable */
     file_size?: number | null;
     storage_path: string;
+    /** @nullable */
+    thumbnail_storage_path?: string | null;
     entity_type: string;
     entity_id: string;
     /** @nullable */
@@ -512,6 +544,8 @@ export interface FileAttachment {
     created_at: string;
     /** @nullable */
     signed_url?: string | null;
+    /** @nullable */
+    thumbnail_signed_url?: string | null;
 }
 export type SignatureSignerType = (typeof SignatureSignerType)[keyof typeof SignatureSignerType];
 export declare const SignatureSignerType: {
@@ -673,6 +707,7 @@ export interface CreateServiceRecordBody {
     nozzle_checked?: boolean;
     nozzle_replaced?: boolean;
     nozzle_size_fitted?: string;
+    oil_pressure?: string;
     electrodes_checked?: boolean;
     electrodes_replaced?: boolean;
     filter_checked?: boolean;
@@ -763,6 +798,8 @@ export interface UpdateServiceRecordBody {
     nozzle_replaced?: boolean;
     /** @nullable */
     nozzle_size_fitted?: string | null;
+    /** @nullable */
+    oil_pressure?: string | null;
     electrodes_checked?: boolean;
     electrodes_replaced?: boolean;
     filter_checked?: boolean;
@@ -1615,6 +1652,19 @@ export type ListJobsParams = {
     date_to?: string;
     customer_id?: string;
     property_id?: string;
+    limit?: number;
+    page?: number;
+    search?: string;
+};
+export type ListJobsPagination = {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+};
+export type ListJobsResponse = {
+    jobs: JobListItem[];
+    pagination: ListJobsPagination;
 };
 export type ListFilesParams = {
     entity_type: string;
@@ -1637,20 +1687,21 @@ export type HeatPumpServiceRecord = {
     id: string;
     job_id: string;
     technician_id: string;
-    refrigerant_type?: string | null;
-    refrigerant_pressure_high?: string | null;
-    refrigerant_pressure_low?: string | null;
-    flow_temp?: string | null;
-    return_temp?: string | null;
-    delta_t?: string | null;
-    cop_reading?: string | null;
-    compressor_amps?: string | null;
     outdoor_unit_condition?: string | null;
     indoor_unit_condition?: string | null;
     controls_checked?: boolean;
     filter_condition?: string | null;
     dhw_cylinder_checked?: boolean;
     dhw_cylinder_temp?: string | null;
+    prv_checked?: boolean;
+    expansion_vessel_charge?: string | null;
+    glycol?: boolean;
+    glycol_temp_rating?: string | null;
+    anti_freeze_valves?: boolean;
+    inhibitor?: boolean;
+    fungicide?: boolean;
+    evaporator_cleaned?: boolean;
+    y_strainer_cleaned?: boolean;
     defects_found?: boolean;
     defects_details?: string | null;
     advisories?: string | null;
@@ -1666,20 +1717,21 @@ export type HeatPumpServiceRecord = {
 export type CreateHeatPumpServiceRecordBody = {
     job_id: string;
     technician_id: string;
-    refrigerant_type?: string;
-    refrigerant_pressure_high?: string;
-    refrigerant_pressure_low?: string;
-    flow_temp?: string;
-    return_temp?: string;
-    delta_t?: string;
-    cop_reading?: string;
-    compressor_amps?: string;
     outdoor_unit_condition?: string;
     indoor_unit_condition?: string;
     controls_checked?: boolean;
     filter_condition?: string;
     dhw_cylinder_checked?: boolean;
     dhw_cylinder_temp?: string;
+    prv_checked?: boolean;
+    expansion_vessel_charge?: string;
+    glycol?: boolean;
+    glycol_temp_rating?: string;
+    anti_freeze_valves?: boolean;
+    inhibitor?: boolean;
+    fungicide?: boolean;
+    evaporator_cleaned?: boolean;
+    y_strainer_cleaned?: boolean;
     defects_found?: boolean;
     defects_details?: string;
     advisories?: string;
@@ -1739,4 +1791,33 @@ export type CreateHeatPumpCommissioningRecordBody = {
     notes?: string;
 };
 export type UpdateHeatPumpCommissioningRecordBody = Omit<CreateHeatPumpCommissioningRecordBody, 'job_id' | 'technician_id'>;
+export interface JobTimeEntry {
+    id: string;
+    job_id: string;
+    arrival_time: string;
+    /** @nullable */
+    departure_time?: string | null;
+    /** @nullable */
+    notes?: string | null;
+    /** @nullable */
+    created_by?: string | null;
+    /** @nullable */
+    created_by_name?: string | null;
+    tenant_id: string;
+    created_at: string;
+}
+export interface CreateJobTimeEntryBody {
+    arrival_time: string;
+    /** @nullable */
+    departure_time?: string | null;
+    /** @nullable */
+    notes?: string | null;
+}
+export interface UpdateJobTimeEntryBody {
+    arrival_time?: string;
+    /** @nullable */
+    departure_time?: string | null;
+    /** @nullable */
+    notes?: string | null;
+}
 //# sourceMappingURL=api.schemas.d.ts.map

@@ -1,0 +1,54 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "business-app typecheck",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"--filter",
+				"@workspace/business-app",
+				"typecheck"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "workspace build",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "mockup-sandbox build",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"--filter",
+				"@workspace/mockup-sandbox",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "workspace build",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "workspace build",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"build"
+			],
+			"isBackground": false
+		}
+	]
+}
