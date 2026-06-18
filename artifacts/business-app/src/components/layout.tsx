@@ -20,6 +20,7 @@ import { useOffline } from "@/contexts/offline-context";
 import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 
 export function Layout({ children }: { children: ReactNode }) {
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const [location] = useLocation();
   const { profile, signOut } = useAuth();
   const queryClient = useQueryClient();
@@ -87,9 +88,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const homepageData = undefined; // const { data: homepageData } = useHomepageData();
 
   const isTrial = tenantInfo?.status === "trial";
+  const isFreePlan = tenantInfo?.plan_id === FREE_PLAN_ID;
+  const isOnFreeAfterTrial = tenantInfo?.status === "active" && isFreePlan;
 
   const trialDaysLeft = tenantInfo?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(tenantInfo.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    : null;
+  const trialEndsOn = tenantInfo?.trial_ends_at
+    ? new Date(tenantInfo.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
   const accountSuspended = tenantInfo?.status === "suspended";
@@ -464,20 +470,41 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
 
-        {isTrial && trialDaysLeft !== null && trialDaysLeft > 0 && !isSuperAdmin && (
+        {isTrial && trialDaysLeft !== null && !isSuperAdmin && (
           <div className={cn(
-            "border-b px-4 py-2.5 flex flex-wrap items-center justify-center gap-2 text-sm",
-            trialDaysLeft <= 7 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-blue-50 border-blue-200 text-blue-800"
+            "border-b px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 text-sm",
+            trialDaysLeft <= 7 ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-blue-50 border-blue-200 text-blue-900"
           )}>
             {trialDaysLeft <= 7 ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Info className="w-4 h-4 shrink-0" />}
-            <span>
-              Your trial expires in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>.
+            <span className="font-medium">
+              {trialDaysLeft > 0
+                ? <>Free trial: <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong> left{trialEndsOn ? <> (ends {trialEndsOn})</> : null}.</>
+                : <>Free trial has ended.</>}
+            </span>
+            <span className="text-xs opacity-90">
+              When the trial ends, your account moves to the free plan until you start a paid subscription.
             </span>
             {isAdmin && !isSuperAdmin && (
               <Link href="/billing">
-                <Button size="sm" variant={trialDaysLeft <= 7 ? "default" : "outline"} className="h-7 text-xs">
+                <Button size="sm" variant="default" className="h-7 text-xs">
                   <CreditCard className="w-3 h-3 mr-1" />
-                  Upgrade Plan
+                  Start Paid Plan
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+
+        {isOnFreeAfterTrial && !isTrial && !isSuperAdmin && (
+          <div className="border-b border-amber-300 bg-amber-100/80 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 text-sm text-amber-900">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span className="font-medium">You are currently on the free plan.</span>
+            <span className="text-xs opacity-90">Upgrade to a paid plan to unlock full features and paid add-ons.</span>
+            {isAdmin && (
+              <Link href="/billing">
+                <Button size="sm" className="h-7 text-xs">
+                  <CreditCard className="w-3 h-3 mr-1" />
+                  Start Paid Plan
                 </Button>
               </Link>
             )}

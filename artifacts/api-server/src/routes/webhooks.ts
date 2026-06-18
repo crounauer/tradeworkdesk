@@ -9,6 +9,7 @@ import {
 import { sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { syncSeats } from "./billing";
+import { bustInitCache } from "./platform";
 import { getPlatformSetting } from "../lib/geocode";
 
 const router = Router();
@@ -176,6 +177,7 @@ router.post(
 
           const updates: Record<string, unknown> = {
             status: "active",
+            trial_ends_at: null,
             subscription_started_at: new Date().toISOString(),
           };
           if (session.customer) updates.stripe_customer_id = session.customer;
@@ -188,6 +190,7 @@ router.post(
           }
 
           await supabaseAdmin.from("tenants").update(updates as Record<string, unknown>).eq("id", tenantId);
+          bustInitCache(tenantId);
 
           // Store per-seat subscription item ID so syncSeats can update quantity later
           if (session.subscription && session.metadata?.plan_id) {

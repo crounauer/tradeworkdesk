@@ -125,6 +125,7 @@ function statusLabel(status: string) {
 }
 
 export default function Billing() {
+  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -347,6 +348,10 @@ export default function Billing() {
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     return days > 0 ? days : 0;
   })();
+  const trialEndsOn = tenantInfo?.trial_ends_at
+    ? new Date(tenantInfo.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+  const isOnFreePlan = tenantInfo?.status === "active" && tenantInfo?.plan_id === FREE_PLAN_ID;
 
   if (tenantLoading) {
     return (
@@ -375,6 +380,51 @@ export default function Billing() {
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>Checkout was cancelled. Your plan hasn't changed.</span>
+        </div>
+      )}
+
+      {tenantInfo?.status === "trial" && trialDaysLeft !== null && (
+        <Card className={trialDaysLeft <= 7 ? "border-amber-300 bg-amber-50" : "border-blue-200 bg-blue-50"}>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2">
+                {trialDaysLeft <= 7 ? <AlertTriangle className="w-5 h-5 text-amber-700" /> : <Calendar className="w-5 h-5 text-blue-700" />}
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {trialDaysLeft > 0
+                      ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in your free trial`
+                      : "Your free trial has ended"}
+                  </p>
+                  <p className="text-xs text-slate-700">
+                    {trialEndsOn ? `Trial end date: ${trialEndsOn}. ` : ""}
+                    After trial, your account moves to the free plan until you start paid billing.
+                  </p>
+                </div>
+              </div>
+              {isAdmin && (
+                <div className="sm:ml-auto">
+                  <Button onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending}>
+                    {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start Paid Plan"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isOnFreePlan && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold">You are on the free plan</p>
+            <p>To enable paid subscription features, start a paid plan now.</p>
+          </div>
+          {isAdmin && (
+            <Button size="sm" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending}>
+              {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start Paid Plan"}
+            </Button>
+          )}
         </div>
       )}
 
@@ -510,7 +560,7 @@ export default function Billing() {
             <div className="ml-auto flex gap-2">
               {isAdmin && tenantInfo.status === "trial" && (
                 <Button size="sm" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending}>
-                  {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Subscribe now"}
+                  {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start Paid Plan"}
                 </Button>
               )}
               {isAdmin && tenantInfo.status === "active" && tenantInfo.stripe_subscription_id && (
