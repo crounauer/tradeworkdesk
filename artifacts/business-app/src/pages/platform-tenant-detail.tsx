@@ -393,12 +393,17 @@ export default function PlatformTenantDetail() {
         <Card><CardContent className="p-4 flex items-center gap-3">
           <Building2 className="w-5 h-5 text-blue-500" />
           <div><p className="text-sm text-muted-foreground">Status</p>
-          <Badge variant="secondary" className={
-            tenant.status === "active" ? "bg-green-100 text-green-700" :
-            tenant.status === "trial" ? "bg-amber-100 text-amber-700" :
-            tenant.status === "payment_overdue" ? "bg-orange-100 text-orange-700" :
-            tenant.status === "suspended" ? "bg-red-100 text-red-700" : ""
-          }>{tenant.status?.replace("_", " ")}</Badge></div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className={
+              tenant.status === "active" ? "bg-green-100 text-green-700" :
+              tenant.status === "trial" ? "bg-amber-100 text-amber-700" :
+              tenant.status === "payment_overdue" ? "bg-orange-100 text-orange-700" :
+              tenant.status === "suspended" ? "bg-red-100 text-red-700" : ""
+            }>{tenant.status?.replace("_", " ")}</Badge>
+            {hasFreeAccessOverride(tenant.notes) && (
+              <Badge className="bg-blue-100 text-blue-700 text-xs">Free</Badge>
+            )}
+          </div></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center gap-3">
           <Users className="w-5 h-5 text-purple-500" />
