@@ -26,7 +26,7 @@ export default function ServicesBlock({ content }: Props) {
   const { heading, subheading, label, columns = 3, accent_color = "#f97316" } = content;
 
   return (
-    <section style={{ padding: "72px 24px", backgroundColor: "#f9fafb" }}>
+    <section style={{ padding: "72px 24px", backgroundColor: "#ffffff" }}>
       <style>{`
         .svc-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
         @media (min-width: 600px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -49,7 +49,7 @@ export default function ServicesBlock({ content }: Props) {
                 </span>
               )}
               {service.icon && (
-                <div style={{ width: 48, height: 48, backgroundColor: "#fff7ed", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", marginBottom: 16 }}>
+                <div style={{ width: 48, height: 48, backgroundColor: `${accent_color}18`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", marginBottom: 16 }}>
                   {service.icon}
                 </div>
               )}

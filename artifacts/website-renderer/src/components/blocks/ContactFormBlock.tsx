@@ -3,14 +3,25 @@
 import { useState, type FormEvent } from "react";
 import { submitForm } from "@/lib/api";
 
+interface ContactInfo {
+  phone?: string;
+  email?: string;
+  address?: string;
+  service_area?: string;
+  hours?: string;
+}
+
 interface Props {
   content: {
     form_id?: string;
     heading?: string;
+    label?: string;
     subheading?: string;
     submit_label?: string;
     success_message?: string;
-    fields?: Array<{ name: string; label: string; type: string; required?: boolean }>;
+    accent_color?: string;
+    contact_info?: ContactInfo;
+    fields?: Array<{ name: string; label: string; type: string; required?: boolean; options?: string[] }>;
   } & Record<string, unknown>;
 }
 
@@ -18,14 +29,17 @@ export default function ContactFormBlock({ content }: Props) {
   const {
     form_id,
     heading = "Get in Touch",
+    label,
     subheading,
     submit_label = "Send Message",
     success_message = "Thank you! We'll be in touch soon.",
+    accent_color = "#0d9488",
+    contact_info,
     fields = [
-      { name: "name", label: "Your Name", type: "text", required: true },
+      { name: "name", label: "Full Name", type: "text", required: true },
+      { name: "phone", label: "Phone Number", type: "tel", required: true },
       { name: "email", label: "Email Address", type: "email", required: true },
-      { name: "phone", label: "Phone Number", type: "tel" },
-      { name: "message", label: "Message", type: "textarea", required: true },
+      { name: "message", label: "Message", type: "textarea" },
     ],
   } = content;
 
@@ -59,83 +73,115 @@ export default function ContactFormBlock({ content }: Props) {
     );
   }
 
+  const hasSplit = !!(contact_info && (contact_info.phone || contact_info.email || contact_info.address));
+
   return (
-    <section style={{ padding: "64px 24px", backgroundColor: "#f9fafb" }}>
-      <div style={{ maxWidth: 600, margin: "0 auto" }}>
-        {heading && <h2 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: 8 }}>{heading}</h2>}
-        {subheading && <p style={{ color: "#666", marginBottom: 32 }}>{subheading}</p>}
+    <section style={{ padding: "72px 24px", backgroundColor: "#f9fafb" }}>
+      <style>{`
+        .cf-layout { display: grid; grid-template-columns: 1fr; gap: 48px; }
+        @media (min-width: 800px) { .cf-layout.split { grid-template-columns: 1fr 1.6fr; } }
+      `}</style>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div className={`cf-layout${hasSplit ? " split" : ""}`}>
+          {/* Left: heading + contact info */}
+          <div>
+            {label && <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>}
+            {heading && <h2 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, margin: "0 0 12px", color: "#111827" }}>{heading}</h2>}
+            {subheading && <p style={{ color: "#6b7280", marginBottom: 32, lineHeight: 1.7 }}>{subheading}</p>}
+            {contact_info && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 28 }}>
+                {contact_info.phone && (
+                  <a href={`tel:${contact_info.phone.replace(/\s/g, "")}`} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+                    <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>📞</span>
+                    <span style={{ fontWeight: 700, fontSize: "1.125rem", color: "#111827" }}>{contact_info.phone}</span>
+                  </a>
+                )}
+                {contact_info.email && (
+                  <a href={`mailto:${contact_info.email}`} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+                    <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>✉️</span>
+                    <span style={{ color: "#374151", fontSize: "1rem" }}>{contact_info.email}</span>
+                  </a>
+                )}
+                {contact_info.address && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>📍</span>
+                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{contact_info.address}</span>
+                  </div>
+                )}
+                {contact_info.service_area && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>🗺️</span>
+                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{contact_info.service_area}</span>
+                  </div>
+                )}
+                {contact_info.hours && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                    <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>🕐</span>
+                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{contact_info.hours}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {!hasSplit && heading && <h2 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, margin: "0 0 12px", color: "#111827" }}></h2>}
+          </div>
 
-        <form onSubmit={handleSubmit}>
-          {fields.map((field) => (
-            <div key={field.name} style={{ marginBottom: 20 }}>
-              <label
-                htmlFor={field.name}
-                style={{ display: "block", fontWeight: 500, marginBottom: 6 }}
+          {/* Right: form */}
+          <div style={{ backgroundColor: "#fff", borderRadius: 12, padding: "36px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb" }}>
+            {!hasSplit && heading && <h2 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: 8 }}>{heading}</h2>}
+            {!hasSplit && subheading && <p style={{ color: "#666", marginBottom: 24 }}>{subheading}</p>}
+            <form onSubmit={handleSubmit}>
+              {fields.map((field) => (
+                <div key={field.name} style={{ marginBottom: 18 }}>
+                  <label htmlFor={field.name} style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: "#374151" }}>
+                    {field.label}{field.required && <span style={{ color: "#ef4444", marginLeft: 4 }}>*</span>}
+                  </label>
+                  {field.type === "textarea" ? (
+                    <textarea
+                      id={field.name}
+                      name={field.name}
+                      required={field.required}
+                      rows={4}
+                      value={values[field.name] || ""}
+                      onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: "0.9375rem", resize: "vertical", boxSizing: "border-box" }}
+                    />
+                  ) : field.type === "select" && field.options ? (
+                    <select
+                      id={field.name}
+                      name={field.name}
+                      required={field.required}
+                      value={values[field.name] || ""}
+                      onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: "0.9375rem", backgroundColor: "#fff", boxSizing: "border-box" }}
+                    >
+                      <option value="">Select...</option>
+                      {field.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      id={field.name}
+                      type={field.type}
+                      name={field.name}
+                      required={field.required}
+                      value={values[field.name] || ""}
+                      onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: "0.9375rem", boxSizing: "border-box" }}
+                    />
+                  )}
+                </div>
+              ))}
+
+              {error && <p style={{ color: "#ef4444", marginBottom: 16 }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{ width: "100%", padding: "14px", backgroundColor: accent_color, color: "#fff", border: "none", borderRadius: 6, fontSize: "1rem", fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.7 : 1, marginTop: 8 }}
               >
-                {field.label}
-                {field.required && <span style={{ color: "#ef4444", marginLeft: 4 }}>*</span>}
-              </label>
-
-              {field.type === "textarea" ? (
-                <textarea
-                  id={field.name}
-                  name={field.name}
-                  required={field.required}
-                  rows={5}
-                  value={values[field.name] || ""}
-                  onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: "1rem",
-                    resize: "vertical",
-                  }}
-                />
-              ) : (
-                <input
-                  id={field.name}
-                  type={field.type}
-                  name={field.name}
-                  required={field.required}
-                  value={values[field.name] || ""}
-                  onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 6,
-                    fontSize: "1rem",
-                  }}
-                />
-              )}
-            </div>
-          ))}
-
-          {error && (
-            <p style={{ color: "#ef4444", marginBottom: 16 }}>{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              width: "100%",
-              padding: "14px",
-              backgroundColor: "#f97316",
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              fontSize: "1.1rem",
-              fontWeight: 600,
-              cursor: submitting ? "not-allowed" : "pointer",
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? "Sending..." : submit_label}
-          </button>
-        </form>
+                {submitting ? "Sending…" : submit_label}
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </section>
   );

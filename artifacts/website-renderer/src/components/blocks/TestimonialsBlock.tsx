@@ -17,6 +17,8 @@ interface Props {
     testimonials?: Testimonial[];
     accent_color?: string;
     background_color?: string;
+    aggregate_rating?: string;
+    review_count?: string;
   } & Record<string, unknown>;
 }
 
@@ -30,8 +32,21 @@ function Stars({ count }: { count: number }) {
   );
 }
 
+interface Props {
+  content: {
+    heading?: string;
+    subheading?: string;
+    label?: string;
+    testimonials?: Testimonial[];
+    accent_color?: string;
+    background_color?: string;
+    aggregate_rating?: string;
+    review_count?: string;
+  } & Record<string, unknown>;
+}
+
 export default function TestimonialsBlock({ content }: Props) {
-  const { heading = "What Our Customers Say", subheading, label, testimonials = [], accent_color = "#f97316", background_color = "#ffffff" } = content;
+  const { heading = "What Our Customers Say", subheading, label, testimonials = [], accent_color = "#0d9488", background_color = "#f9fafb", aggregate_rating, review_count } = content;
   if (!testimonials.length) return null;
 
   return (
@@ -45,6 +60,15 @@ export default function TestimonialsBlock({ content }: Props) {
         <div style={{ textAlign: "center", marginBottom: 52 }}>
           {label && <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>}
           <h2 style={{ fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, margin: "0 0 12px", color: "#111827" }}>{heading}</h2>
+          {(aggregate_rating || review_count) && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12, marginBottom: 4 }}>
+              {aggregate_rating && <span style={{ fontWeight: 800, fontSize: "1.125rem", color: "#111827" }}>{aggregate_rating}</span>}
+              <div style={{ display: "flex", gap: 2 }}>
+                {[1,2,3,4,5].map((i) => <span key={i} style={{ color: "#f59e0b", fontSize: "1.125rem" }}>★</span>)}
+              </div>
+              {review_count && <span style={{ color: "#6b7280", fontSize: "0.9375rem" }}>{review_count}</span>}
+            </div>
+          )}
           {subheading && <p style={{ color: "#6b7280", fontSize: "1.0625rem", maxWidth: 560, margin: "0 auto" }}>{subheading}</p>}
         </div>
         <div className="test-grid">
