@@ -520,7 +520,7 @@ export default function WebsiteBlogEditor() {
                   </Button>
                 </div>
 
-                <p className="text-xs text-muted-foreground">Each operation deducts a small number of credits from your balance. 1 credit = £0.01. Credits are charged at OpenAI cost + 100%.</p>
+                <p className="text-xs text-muted-foreground">A typical blog post costs around <span className="font-medium text-slate-600">1–10 credits (1–10p)</span>. Credits = £0.01 each, charged at AI cost + markup.</p>
 
                 <Button size="sm" variant="ghost" className="w-full text-xs text-muted-foreground" asChild>
                   <Link href="/billing">Buy more credits →</Link>

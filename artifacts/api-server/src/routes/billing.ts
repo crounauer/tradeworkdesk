@@ -344,7 +344,7 @@ router.get("/billing/credits", requireAuth, requireTenant, requireRole("admin"),
 
   const { data: usageAddons } = await supabaseAdmin
     .from("addons")
-    .select("id, name, description, feature_keys, usage_unit_label, usage_bundle_size, usage_bundle_price")
+    .select("id, name, description, feature_keys, usage_unit_label, usage_bundle_size, usage_bundle_price, small_bundle_size, small_bundle_price")
     .eq("billing_model", "usage")
     .eq("is_active", true)
     .in("id", Array.from(addonIdSet))
@@ -383,19 +383,22 @@ router.get("/billing/credits", requireAuth, requireTenant, requireRole("admin"),
 router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { addonId } = req.params;
   const bundles = Math.max(1, Math.floor(Number(req.body.bundles) || 1));
+  const bundleType: "small" | "standard" = req.body.bundle_type === "small" ? "small" : "standard";
 
   const { data: addonRaw } = await supabaseAdmin
     .from("addons")
-    .select("id, name, billing_model, usage_bundle_size, usage_bundle_price, stripe_price_id")
+    .select("id, name, billing_model, usage_bundle_size, usage_bundle_price, small_bundle_size, small_bundle_price, stripe_price_id")
     .eq("id", addonId)
     .eq("billing_model", "usage")
     .eq("is_active", true)
     .maybeSingle();
 
   if (!addonRaw) { res.status(404).json({ error: "Usage-based addon not found" }); return; }
-  const addon = addonRaw as { id: string; name: string; usage_bundle_size: number | null; usage_bundle_price: number | null; stripe_price_id: string | null };
+  const addon = addonRaw as { id: string; name: string; usage_bundle_size: number | null; usage_bundle_price: number | null; small_bundle_size: number | null; small_bundle_price: number | null; stripe_price_id: string | null };
 
-  const bundlePrice = addon.usage_bundle_price ?? 10;
+  const useSmall = bundleType === "small" && addon.small_bundle_size != null && addon.small_bundle_price != null;
+  const effectiveBundleSize = useSmall ? addon.small_bundle_size! : (addon.usage_bundle_size ?? 1000);
+  const bundlePrice = useSmall ? addon.small_bundle_price! : (addon.usage_bundle_price ?? 10);
   const totalCharge = bundlePrice * bundles;
 
   // Stripe: charge if tenant has active subscription and addon has a price ID
@@ -415,7 +418,7 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
           customer: tenant.stripe_customer_id,
           amount: Math.round(totalCharge * 100), // pence
           currency: "gbp",
-          description: `${addon.name} — ${bundles} × ${addon.usage_bundle_size ?? 1000} credits`,
+          description: `${addon.name} — ${bundles} × ${effectiveBundleSize.toLocaleString()} credits`,
         });
         // Immediately finalise via a one-off invoice
         const invoice = await stripeClient.invoices.create({
@@ -432,7 +435,7 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
     }
   }
 
-  const result = await topUpAddonCredits(req.tenantId!, addonId, bundles);
+  const result = await topUpAddonCredits(req.tenantId!, addonId, bundles, useSmall ? effectiveBundleSize : undefined);
   res.json({ ok: true, ...result, bundles_purchased: bundles, total_charged: totalCharge });
 });
 

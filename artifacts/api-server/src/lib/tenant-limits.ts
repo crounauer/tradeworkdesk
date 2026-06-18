@@ -280,14 +280,18 @@ export async function deductAddonCreditsAmount(tenantId: string, featureKey: str
 /**
  * Add N credit bundles for a tenant/addon.
  */
-export async function topUpAddonCredits(tenantId: string, addonId: string, bundles: number): Promise<{ credits_remaining: number; total_purchased: number }> {
-  const { data: addon } = await supabaseAdmin
-    .from("addons")
-    .select("usage_bundle_size")
-    .eq("id", addonId)
-    .single();
-
-  const bundleSize = (addon as { usage_bundle_size: number | null } | null)?.usage_bundle_size ?? 1000;
+export async function topUpAddonCredits(tenantId: string, addonId: string, bundles: number, overrideBundleSize?: number): Promise<{ credits_remaining: number; total_purchased: number }> {
+  let bundleSize: number;
+  if (overrideBundleSize != null) {
+    bundleSize = overrideBundleSize;
+  } else {
+    const { data: addon } = await supabaseAdmin
+      .from("addons")
+      .select("usage_bundle_size")
+      .eq("id", addonId)
+      .single();
+    bundleSize = (addon as { usage_bundle_size: number | null } | null)?.usage_bundle_size ?? 1000;
+  }
   const creditsToAdd = bundleSize * bundles;
 
   const { data: existing } = await supabaseAdmin

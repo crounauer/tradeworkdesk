@@ -31,7 +31,7 @@ export interface BlogAiResult {
 }
 
 const GBP_PER_USD = 0.79;
-const MARKUP_MULTIPLIER = 2; // cost + 100%
+const MARKUP_MULTIPLIER = 8.5; // cost + 750%
 
 function calcCredits(costUsd: number): number {
   // 1 credit = £0.01 (1 penny). Charge at cost+100%.

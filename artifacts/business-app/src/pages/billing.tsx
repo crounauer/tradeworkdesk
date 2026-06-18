@@ -51,6 +51,8 @@ interface BillingCreditsRow {
   usage_unit_label: string | null;
   usage_bundle_size: number | null;
   usage_bundle_price: number | null;
+  small_bundle_size: number | null;
+  small_bundle_price: number | null;
   credits_remaining: number;
   total_purchased: number;
   last_topped_up: string | null;
@@ -221,12 +223,12 @@ export default function Billing() {
   });
 
   const buyCredits = useMutation({
-    mutationFn: async ({ addonId, bundles }: { addonId: string; bundles: number }) => {
+    mutationFn: async ({ addonId, bundles, bundleType }: { addonId: string; bundles: number; bundleType?: "small" | "standard" }) => {
       setBuyingAddonId(addonId);
       const res = await fetch(`/api/billing/credits/${addonId}/buy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bundles }),
+        body: JSON.stringify({ bundles, bundle_type: bundleType ?? "standard" }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Purchase failed"); }
       return res.json();
@@ -676,6 +678,9 @@ export default function Billing() {
                 const bundles = bundleCounts[credit.id] ?? 1;
                 const bundleSize = credit.usage_bundle_size ?? 1000;
                 const bundlePrice = credit.usage_bundle_price ?? 10;
+                const hasSmallBundle = credit.small_bundle_size != null && credit.small_bundle_price != null;
+                const smallBundleSize = credit.small_bundle_size ?? 0;
+                const smallBundlePrice = credit.small_bundle_price ?? 0;
                 const unitLabel = credit.usage_unit_label || "units";
                 const isLow = !isStorage && credit.credits_remaining < bundleSize * 0.1;
                 // For storage: compute effective limit in bytes for the bar
@@ -690,7 +695,11 @@ export default function Billing() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{credit.name}</p>
                         {credit.description && <p className="text-xs text-muted-foreground mt-0.5">{credit.description}</p>}
-                        <p className="text-xs text-slate-500 mt-1">£{bundlePrice.toFixed(2)} per {bundleSize.toLocaleString()} {unitLabel} · billed in advance</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {hasSmallBundle
+                            ? <>Starter: £{smallBundlePrice.toFixed(2)} = {smallBundleSize.toLocaleString()} {unitLabel} · Standard: £{bundlePrice.toFixed(2)} = {bundleSize.toLocaleString()} {unitLabel}</>
+                            : <>£{bundlePrice.toFixed(2)} per {bundleSize.toLocaleString()} {unitLabel} · billed in advance</>}
+                        </p>
                         {isStorage && storageStats && (
                           <div className="mt-2 space-y-1">
                             <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
@@ -719,32 +728,72 @@ export default function Billing() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground whitespace-nowrap">
-                        {isStorage ? "GB to buy:" : "Bundles to buy:"}
-                      </label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={100}
-                        className="w-20 h-7 text-sm"
-                        value={bundles}
-                        onChange={(e) => setBundleCounts(prev => ({ ...prev, [credit.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        = {(bundles * bundleSize).toLocaleString()} {unitLabel} for £{(bundles * bundlePrice).toFixed(2)}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="ml-auto gap-1.5"
-                        disabled={buyingAddonId === credit.id}
-                        onClick={() => buyCredits.mutate({ addonId: credit.id, bundles })}
-                      >
-                        {buyingAddonId === credit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
-                        {isStorage ? "Buy storage" : "Buy credits"}
-                      </Button>
-                    </div>
+                    {isStorage && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">GB to buy:</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          className="w-20 h-7 text-sm"
+                          value={bundles}
+                          onChange={(e) => setBundleCounts(prev => ({ ...prev, [credit.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          = {(bundles * bundleSize).toLocaleString()} {unitLabel} for £{(bundles * bundlePrice).toFixed(2)}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto gap-1.5"
+                          disabled={buyingAddonId === credit.id}
+                          onClick={() => buyCredits.mutate({ addonId: credit.id, bundles })}
+                        >
+                          {buyingAddonId === credit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
+                          Buy storage
+                        </Button>
+                      </div>
+                    )}
+                    {!isStorage && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {hasSmallBundle && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            disabled={buyingAddonId === credit.id}
+                            onClick={() => buyCredits.mutate({ addonId: credit.id, bundles: 1, bundleType: "small" })}
+                          >
+                            {buyingAddonId === credit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
+                            Starter — {smallBundleSize.toLocaleString()} credits (£{smallBundlePrice.toFixed(2)})
+                          </Button>
+                        )}
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">
+                          {hasSmallBundle ? "Or buy standard:" : "Bundles to buy:"}
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          className="w-20 h-7 text-sm"
+                          value={bundles}
+                          onChange={(e) => setBundleCounts(prev => ({ ...prev, [credit.id]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          = {(bundles * bundleSize).toLocaleString()} {unitLabel} for £{(bundles * bundlePrice).toFixed(2)}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          disabled={buyingAddonId === credit.id}
+                          onClick={() => buyCredits.mutate({ addonId: credit.id, bundles })}
+                        >
+                          {buyingAddonId === credit.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingCart className="w-3 h-3" />}
+                          Buy credits
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
