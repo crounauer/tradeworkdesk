@@ -454,12 +454,12 @@ export default function WebsiteBlogEditor() {
                 {/* Content options */}
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground">Include in post:</p>
-                  <div className="grid grid-cols-1 gap-1">
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                     {CONTENT_OPTIONS.map(opt => (
-                      <label key={opt.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50 cursor-pointer">
+                      <label key={opt.id} className="flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-slate-50 cursor-pointer" title={opt.description}>
                         <input
                           type="checkbox"
-                          className="rounded"
+                          className="rounded shrink-0"
                           checked={contentOptions.has(opt.id)}
                           onChange={e => setContentOptions(prev => {
                             const next = new Set(prev);
@@ -467,14 +467,10 @@ export default function WebsiteBlogEditor() {
                             return next;
                           })}
                         />
-                        <span className="flex items-center gap-1.5 flex-1 min-w-0">
-                          {opt.icon}
-                          <span className="text-xs font-medium">{opt.label}</span>
-                        </span>
-                        <span className="text-xs text-muted-foreground hidden sm:block truncate">{opt.description}</span>
+                        {opt.icon}
+                        <span className="text-xs truncate">{opt.label}</span>
                       </label>
-                    ))}
-                  </div>
+                    ))}\n                  </div>
                 </div>
 
                 <div className="space-y-2">
