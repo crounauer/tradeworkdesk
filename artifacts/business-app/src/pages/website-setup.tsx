@@ -202,14 +202,27 @@ export default function WebsiteSetup() {
           </p>
         </div>
 
+        {/* Pages being created */}
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Pages included</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {["Home", "Services", "How It Works", "Projects", "Reviews", "Areas We Cover", "Contact"].map((page) => (
+              <div key={page} className="flex items-center gap-2 text-sm text-foreground">
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                {page}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">You can add, remove, or reorder pages at any time.</p>
+        </div>
+
+        {/* Features */}
         <div className="grid grid-cols-2 gap-2 mb-8 text-sm text-muted-foreground">
           {[
-            { icon: "📄", text: "7 ready-made pages" },
             { icon: "📞", text: "Contact form included" },
             { icon: "🔍", text: "SEO optimised" },
             { icon: "📱", text: "Mobile friendly" },
             { icon: "🌐", text: "Free web address" },
-            { icon: "✏️", text: "Fully editable" },
           ].map(({ icon, text }) => (
             <div key={text} className="flex items-center gap-2">
               <span>{icon}</span> {text}
@@ -229,17 +242,6 @@ export default function WebsiteSetup() {
             <><Zap className="w-4 h-4 mr-2" /> Build My Website</>
           )}
         </Button>
-
-        <div className="text-center mt-4">
-          <button
-            type="button"
-            className="text-sm text-muted-foreground hover:text-foreground underline"
-            onClick={() => createMutation.mutate()}
-            disabled={busy}
-          >
-            Start with a blank website instead
-          </button>
-        </div>
       </div>
     );
   }
