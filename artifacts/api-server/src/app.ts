@@ -6,39 +6,10 @@ import helmet from "helmet";
 import router from "./routes";
 import { startServiceReminderScheduler } from "./lib/service-reminders";
 
-// Initialize Sentry if DSN is configured
-let Sentry: any = null;
-if (process.env.SENTRY_DSN) {
-  try {
-    Sentry = require("@sentry/node");
-    Sentry.init({
-      dsn: process.env.SENTRY_DSN,
-      environment: process.env.SENTRY_ENV || "development",
-      tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || "0.1"),
-      integrations: [
-        new Sentry.Integrations.Http({ tracing: true }),
-        new Sentry.Integrations.Express({ request: true, serverName: true }),
-      ],
-    });
-  } catch (err) {
-    console.warn("Sentry not available, continuing without error tracking");
-  }
-}
-
 const app: Express = express();
 app.set("trust proxy", 1);
 
-// Attach Sentry request handler first
-if (Sentry) {
-  app.use(Sentry.Handlers.requestHandler());
-  app.use(Sentry.Handlers.tracingHandler());
-}
-
 app.use(helmet({
-  // API is consumed by a SPA on a separate domain; relax CSP and frame options
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-}));
 app.use(compression());
 // Broad CORS: allow the business app, all *.tradeworkdesk.co.uk subdomains,
 // and any custom tenant domain (public endpoints are rate-limited separately).
@@ -125,11 +96,6 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
   next();
 }, router);
 
-// Sentry error handler (must be after all routes)
-if (Sentry) {
-  app.use(Sentry.Handlers.errorHandler());
-}
-
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled error:", err.stack || err.message);
   if (err.name === "ZodError") {
@@ -145,6 +111,5 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 export default app;
-export { Sentry };
 
 startServiceReminderScheduler();
