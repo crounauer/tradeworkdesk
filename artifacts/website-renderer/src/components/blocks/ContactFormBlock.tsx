@@ -14,6 +14,7 @@ interface ContactInfo {
 interface Props {
   content: {
     form_id?: string;
+    form_kind?: string;
     heading?: string;
     label?: string;
     subheading?: string;
@@ -29,6 +30,7 @@ interface Props {
 export default function ContactFormBlock({ content }: Props) {
   const {
     form_id,
+    form_kind,
     heading = "Get in Touch",
     label,
     subheading,
@@ -83,7 +85,9 @@ export default function ContactFormBlock({ content }: Props) {
       }
     }
 
-    const payload = photoUrls.length > 0 ? { ...values, photos: photoUrls } : { ...values };
+    const payload = photoUrls.length > 0
+      ? { ...values, photos: photoUrls, form_kind: form_kind || "contact" }
+      : { ...values, form_kind: form_kind || "contact" };
     const result = await submitForm(form_id!, payload);
 
     setSubmitting(false);

@@ -796,6 +796,7 @@ function buildModernHomeBlocks(cs: CompanyData, formId: string): Array<{ block_t
         subheading: "Book Your Free Home Survey",
         body: "Tell us about your property and we'll arrange a free, no-obligation survey at a time that suits you. Our engineers will assess your home and provide a detailed, transparent quote.",
         submit_label: "Request Free Survey",
+        form_kind: "free_survey",
         accent_color: "#0d9488",
         form_id: formId,
         contact_info: {
@@ -886,6 +887,7 @@ function buildModernServicesBlocks(cs: CompanyData, formId: string): Array<{ blo
         subheading: "Tell Us About Your Property",
         body: "Fill in the form and we'll arrange a free, no-obligation survey at a time that suits you.",
         submit_label: "Request Free Survey",
+        form_kind: "free_survey",
         accent_color: "#0d9488",
         form_id: formId,
         contact_info: {
@@ -977,6 +979,7 @@ function buildModernHowItWorksBlocks(cs: CompanyData, formId: string): Array<{ b
         subheading: "No Obligation — We'll Come to You",
         body: "Fill in the form and one of our engineers will contact you to arrange a convenient time for your free home survey.",
         submit_label: "Request Free Survey",
+        form_kind: "free_survey",
         accent_color: "#0d9488",
         form_id: formId,
         contact_info: {
@@ -1086,6 +1089,7 @@ function buildModernProjectsBlocks(cs: CompanyData, formId: string): Array<{ blo
         subheading: "Free Survey — No Obligation",
         body: "Every project starts with a free home survey. Fill in the form and we'll be in touch to arrange a convenient time.",
         submit_label: "Request Free Survey",
+        form_kind: "free_survey",
         accent_color: "#0d9488",
         form_id: formId,
         contact_info: { phone: phone || undefined },
@@ -1159,6 +1163,7 @@ function buildModernReviewsBlocks(cs: CompanyData, formId: string): Array<{ bloc
         subheading: "Book a Free Survey Today",
         body: "Fill in the form and we'll arrange a no-obligation survey at a time that suits you.",
         submit_label: "Request Free Survey",
+        form_kind: "free_survey",
         accent_color: "#0d9488",
         form_id: formId,
         contact_info: { phone: phone || undefined },

@@ -26,6 +26,8 @@ const SOURCE_OPTIONS = [
   { value: "whatsapp", label: "WhatsApp", icon: MessageSquare, color: "bg-green-100 text-green-700" },
   { value: "messenger", label: "Messenger", icon: MessageSquare, color: "bg-blue-100 text-blue-700" },
   { value: "website", label: "Website", icon: Globe, color: "bg-cyan-100 text-cyan-700" },
+  { value: "website_contact_form", label: "Website Contact Form", icon: Globe, color: "bg-sky-100 text-sky-700" },
+  { value: "website_free_survey", label: "Website Free Survey", icon: Globe, color: "bg-teal-100 text-teal-700" },
   { value: "referral", label: "Referral", icon: Users, color: "bg-amber-100 text-amber-700" },
   { value: "other", label: "Other", icon: Hash, color: "bg-slate-100 text-slate-700" },
 ];

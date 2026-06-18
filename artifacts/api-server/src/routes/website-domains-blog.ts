@@ -1070,6 +1070,13 @@ async function createEnquiryFromFormSubmission(
   data: Record<string, unknown>,
 ): Promise<string | null> {
   try {
+    const formKind = String(data.form_kind || "contact").trim();
+    const source = formKind === "free_survey"
+      ? "website_free_survey"
+      : formKind === "contact"
+        ? "website_contact_form"
+        : "website";
+
     // Map common form field names to enquiry fields
     const contactName = String(
       data.name || data.full_name || data.contact_name || "Website enquiry"
@@ -1078,7 +1085,7 @@ async function createEnquiryFromFormSubmission(
     const phone = String(data.phone || data.mobile || data.contact_phone || "").trim() || null;
 
     // Build a rich description from all submitted fields
-    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone", "photos"]);
+    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone", "photos", "form_kind"]);
     const extraLines: string[] = [];
     for (const [key, val] of Object.entries(data)) {
       if (skip.has(key) || !val) continue;
@@ -1098,11 +1105,11 @@ async function createEnquiryFromFormSubmission(
         contact_name: contactName,
         contact_email: email,
         contact_phone: phone,
-        source: "website",
+        source,
         description,
         address: postcode,
         status: "new",
-        notes: `Submitted via website contact form (submission ID: ${submissionId})`,
+        notes: `Submitted via website ${formKind === "free_survey" ? "free survey" : "contact form"} (submission ID: ${submissionId})`,
       })
       .select("id")
       .single();

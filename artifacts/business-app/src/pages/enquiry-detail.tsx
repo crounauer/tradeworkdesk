@@ -23,6 +23,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const SOURCE_LABELS: Record<string, string> = {
   phone: "Phone", email: "Email", text: "Text/SMS", facebook: "Facebook",
   whatsapp: "WhatsApp", messenger: "Messenger", website: "Website",
+  website_contact_form: "Website Contact Form",
+  website_free_survey: "Website Free Survey",
   referral: "Referral", other: "Other",
 };
 
@@ -871,6 +873,8 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
     { value: "whatsapp", label: "WhatsApp" }, { value: "messenger", label: "Messenger" },
     { value: "website", label: "Website" }, { value: "referral", label: "Referral" },
     { value: "other", label: "Other" },
+    { value: "website_contact_form", label: "Website Contact Form" },
+    { value: "website_free_survey", label: "Website Free Survey" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

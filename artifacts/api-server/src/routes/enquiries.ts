@@ -35,7 +35,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     res.status(400).json({ error: "contact_name is required" }); return;
   }
 
-  const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "referral", "other"];
+  const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "website_contact_form", "website_free_survey", "referral", "other"];
   const validPriorities = ["low", "medium", "high", "urgent"];
 
   // Build combined legacy address from structured fields if provided
@@ -103,7 +103,7 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
   const priority = typeof body.priority === "string" ? body.priority : undefined;
 
   const validStatuses = ["new", "contacted", "quoted", "converted", "lost"];
-  const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "referral", "other"];
+  const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "website_contact_form", "website_free_survey", "referral", "other"];
   const validPriorities = ["low", "medium", "high", "urgent"];
 
   const updates: Record<string, unknown> = {};
