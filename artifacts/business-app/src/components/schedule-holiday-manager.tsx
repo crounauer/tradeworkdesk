@@ -61,12 +61,19 @@ export default function ScheduleHolidayManager() {
   });
 
   const { data: profiles = [] } = useListProfiles();
-  const technicians = useMemo(
-    () => (profiles as TeamProfile[] || []).filter(
-      (p) => p.is_active !== false && (p.role === "technician" || p.can_be_assigned_jobs === true),
-    ),
-    [profiles],
-  );
+  const technicians = useMemo(() => {
+    const activeProfiles = (profiles as TeamProfile[] || []).filter((p) => p.is_active !== false);
+    const assignable = activeProfiles.filter(
+      (p) => p.role === "technician" || p.can_be_assigned_jobs === true,
+    );
+
+    // Sole-trader fallback: if no explicit technician/assignable flag exists,
+    // allow the single active user to be selected for leave blocks.
+    if (assignable.length === 0 && activeProfiles.length === 1) {
+      return activeProfiles;
+    }
+    return assignable;
+  }, [profiles]);
 
   async function refreshAll() {
     await Promise.all([
