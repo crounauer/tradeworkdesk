@@ -106,6 +106,9 @@ const BRAND_LABEL: Record<string, string> = {
   discover: "Discover",
 };
 
+const PER_SEAT_PRICE = 10;
+const INCLUDED_SEATS = 2;
+
 function statusColor(status: string) {
   if (status === "active") return "bg-green-100 text-green-700 border-green-200";
   if (status === "trial") return "bg-amber-100 text-amber-700 border-amber-200";
