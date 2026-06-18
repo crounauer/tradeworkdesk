@@ -313,7 +313,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
           {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item))}
 
-          {!isSuperAdmin && renderSection("Customers", customerNavItems)}
+          {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems)}
 
           {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
 
@@ -429,7 +429,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
-            {!isSuperAdmin && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
