@@ -66,6 +66,11 @@ type BlockType =
   | "testimonials"
   | "gallery"
   | "accreditations"
+  | "features_bar"
+  | "faq"
+  | "process"
+  | "areas"
+  | "project_showcase"
   | "spacer";
 
 interface Block {
@@ -207,6 +212,84 @@ const BLOCK_PALETTE: { type: BlockType; label: string; icon: React.ComponentType
       alt_text: "",
       caption: "",
       width: "full",
+    },
+  },
+  {
+    type: "features_bar",
+    label: "Features Bar",
+    icon: Grid3X3,
+    description: "Horizontal strip of icon + title + description feature items",
+    defaultContent: {
+      background_color: "#0d9488",
+      text_color: "#ffffff",
+      items: [
+        { icon: "⚡", title: "Fast Response", description: "We aim to respond to all enquiries within one working day." },
+        { icon: "✅", title: "Fully Qualified", description: "All engineers are Gas Safe registered and fully insured." },
+        { icon: "🏆", title: "5-Star Rated", description: "Consistently rated 5 stars by our customers." },
+      ],
+    },
+  },
+  {
+    type: "faq",
+    label: "FAQ",
+    icon: MessageSquare,
+    description: "Accordion of frequently asked questions",
+    defaultContent: {
+      heading: "Frequently Asked Questions",
+      items: [
+        { question: "What areas do you cover?", answer: "We serve customers across the local area. Please get in touch to confirm availability at your address." },
+        { question: "How do I get a quote?", answer: "Simply fill in our contact form or call us and we'll arrange a free, no-obligation visit." },
+      ],
+    },
+  },
+  {
+    type: "process",
+    label: "How It Works",
+    icon: Layout,
+    description: "Numbered steps showing your process",
+    defaultContent: {
+      heading: "How It Works",
+      subheading: "Getting started is easy.",
+      cta_text: "Get a Free Quote",
+      cta_url: "/contact",
+      steps: [
+        { icon: "📞", title: "Get in Touch", description: "Call us or fill in the form. We'll discuss your needs and arrange a visit." },
+        { icon: "🔍", title: "Free Survey", description: "We assess your property and provide a detailed, transparent quote." },
+        { icon: "🔧", title: "Installation", description: "Our engineers carry out the work with minimal disruption." },
+        { icon: "✅", title: "Aftercare", description: "We commission the system and provide ongoing support." },
+      ],
+    },
+  },
+  {
+    type: "areas",
+    label: "Areas Covered",
+    icon: Globe,
+    description: "List of towns and areas you serve",
+    defaultContent: {
+      heading: "Areas We Cover",
+      subheading: "We serve customers across the local area. Contact us to check availability in your postcode.",
+      cta_text: "Check Availability",
+      cta_url: "/contact",
+      areas: [],
+    },
+  },
+  {
+    type: "project_showcase",
+    label: "Case Study",
+    icon: Image,
+    description: "Featured project or case study with image, stats and CTA",
+    defaultContent: {
+      heading: "Real Homes, Real Results",
+      projects: [
+        {
+          title: "Recent Project",
+          location: "",
+          image_url: "",
+          description: "Describe the project, the challenge, and the outcome.",
+          cta_text: "Start Your Project",
+          cta_url: "/contact",
+        },
+      ],
     },
   },
   {
@@ -462,6 +545,162 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           </Select>
         </FieldRow>
       );
+
+    case "features_bar": {
+      const items = Array.isArray(c.items) ? c.items as Array<{ icon: string; title: string; description: string }> : [];
+      return (
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <FieldRow label="Background Colour">
+              <div className="flex items-center gap-2">
+                <input type="color" value={String(c.background_color ?? "#0d9488")} onChange={(e) => set("background_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                <Input value={String(c.background_color ?? "")} onChange={(e) => set("background_color", e.target.value)} className="flex-1" />
+              </div>
+            </FieldRow>
+            <FieldRow label="Text Colour">
+              <div className="flex items-center gap-2">
+                <input type="color" value={String(c.text_color ?? "#ffffff")} onChange={(e) => set("text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                <Input value={String(c.text_color ?? "")} onChange={(e) => set("text_color", e.target.value)} className="flex-1" />
+              </div>
+            </FieldRow>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Feature Items</Label>
+            {items.map((item, i) => (
+              <Card key={i} className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; set("items", n); }} placeholder="⚡" className="w-16 text-center" />
+                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; set("items", n); }} placeholder="Feature title" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("items", items.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; set("items", n); }} placeholder="Short description..." rows={2} />
+              </Card>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => set("items", [...items, { icon: "✅", title: "", description: "" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Feature
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    case "faq": {
+      const faqs = Array.isArray(c.items) ? c.items as Array<{ question: string; answer: string }> : [];
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Subheading (optional)"><Input value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} /></FieldRow>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">FAQ Items</Label>
+            {faqs.map((item, i) => (
+              <Card key={i} className="p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Input value={item.question} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], question: e.target.value }; set("items", n); }} placeholder="Question..." className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive mt-0.5" onClick={() => set("items", faqs.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Textarea value={item.answer} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], answer: e.target.value }; set("items", n); }} placeholder="Answer..." rows={3} />
+              </Card>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => set("items", [...faqs, { question: "", answer: "" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add FAQ
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    case "process": {
+      const steps = Array.isArray(c.steps) ? c.steps as Array<{ icon: string; title: string; description: string }> : [];
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Subheading"><Textarea value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} rows={2} /></FieldRow>
+          <FieldRow label="CTA Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
+          <FieldRow label="CTA Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Steps</Label>
+            {steps.map((step, i) => (
+              <Card key={i} className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input value={step.icon} onChange={(e) => { const n = [...steps]; n[i] = { ...n[i], icon: e.target.value }; set("steps", n); }} placeholder="🔍" className="w-16 text-center" />
+                  <Input value={step.title} onChange={(e) => { const n = [...steps]; n[i] = { ...n[i], title: e.target.value }; set("steps", n); }} placeholder="Step title" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("steps", steps.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Textarea value={step.description} onChange={(e) => { const n = [...steps]; n[i] = { ...n[i], description: e.target.value }; set("steps", n); }} placeholder="Description..." rows={2} />
+              </Card>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => set("steps", [...steps, { icon: "✅", title: "", description: "" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Step
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    case "areas": {
+      const areaList = Array.isArray(c.areas) ? (c.areas as string[]) : [];
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Subheading"><Textarea value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} rows={2} /></FieldRow>
+          <FieldRow label="CTA Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
+          <FieldRow label="CTA Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Areas Covered</Label>
+            {areaList.map((area, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input value={area} onChange={(e) => { const n = [...areaList]; n[i] = e.target.value; set("areas", n); }} placeholder="Town or county" className="flex-1" />
+                <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("areas", areaList.filter((_, j) => j !== i))}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => set("areas", [...areaList, ""])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Area
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    case "project_showcase": {
+      type ProjectItem = { title: string; location: string; image_url: string; description: string; cta_text: string; cta_url: string };
+      const projects = Array.isArray(c.projects) ? c.projects as ProjectItem[] : [];
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Projects</Label>
+            {projects.map((proj, i) => (
+              <Card key={i} className="p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input value={proj.title} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], title: e.target.value }; set("projects", n); }} placeholder="Project title" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("projects", projects.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Input value={proj.location} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], location: e.target.value }; set("projects", n); }} placeholder="Location" />
+                <Input value={proj.image_url} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], image_url: e.target.value }; set("projects", n); }} placeholder="Image URL (https://...)" />
+                <Textarea value={proj.description} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], description: e.target.value }; set("projects", n); }} placeholder="Project description..." rows={3} />
+                <div className="flex gap-2">
+                  <Input value={proj.cta_text} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], cta_text: e.target.value }; set("projects", n); }} placeholder="Button text" className="flex-1" />
+                  <Input value={proj.cta_url} onChange={(e) => { const n = [...projects]; n[i] = { ...n[i], cta_url: e.target.value }; set("projects", n); }} placeholder="/contact" className="flex-1" />
+                </div>
+              </Card>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => set("projects", [...projects, { title: "", location: "", image_url: "", description: "", cta_text: "Get a Quote", cta_url: "/contact" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Project
+            </Button>
+          </div>
+        </div>
+      );
+    }
 
     default:
       return <p className="text-xs text-muted-foreground">No editor for this block type.</p>;
