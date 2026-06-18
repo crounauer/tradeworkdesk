@@ -297,6 +297,7 @@ export async function requireTenant(
     return;
   }
 
+  const isBillingPath = req.path.startsWith("/billing");
   const now = Date.now();
   let cached = tenantStatusCache.get(req.tenantId);
   if (!cached || cached.expiresAt <= now) {
@@ -317,18 +318,13 @@ export async function requireTenant(
       res.status(403).json({ error: "account_cancelled", message: "This account has been cancelled." });
       return;
     }
-    if (cached.status === "suspended") {
-      res.status(403).json({ error: "account_suspended", message: "This account has been suspended. Please contact support or update your payment method." });
-      return;
-    }
     if (cached.status === "trial" && cached.trial_ends_at) {
       const trialEnd = new Date(cached.trial_ends_at).getTime();
       if (trialEnd < now) {
-        const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
         await Promise.all([
           supabaseAdmin
             .from("tenants")
-            .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+            .update({ status: "suspended" })
             .eq("id", req.tenantId),
           supabaseAdmin
             .from("tenant_addons")
@@ -336,10 +332,25 @@ export async function requireTenant(
             .eq("tenant_id", req.tenantId!)
             .eq("is_active", true),
         ]);
-        cached.status = "active";
-        cached.trial_ends_at = null;
+        cached.status = "suspended";
         tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
       }
+    }
+    if (cached.status === "suspended") {
+      const trialExpired = !!cached.trial_ends_at && new Date(cached.trial_ends_at).getTime() < now;
+      if (isBillingPath) {
+        next();
+        return;
+      }
+      if (trialExpired) {
+        res.status(403).json({
+          error: "account_trial_expired",
+          message: "Your trial has ended. Please start a paid subscription to restore access.",
+        });
+        return;
+      }
+      res.status(403).json({ error: "account_suspended", message: "This account has been suspended. Please contact support or update your payment method." });
+      return;
     }
   }
 

@@ -20,7 +20,6 @@ import { useOffline } from "@/contexts/offline-context";
 import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const [location] = useLocation();
   const { profile, signOut } = useAuth();
   const queryClient = useQueryClient();
@@ -88,8 +87,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const homepageData = undefined; // const { data: homepageData } = useHomepageData();
 
   const isTrial = tenantInfo?.status === "trial";
-  const isFreePlan = tenantInfo?.plan_id === FREE_PLAN_ID;
-  const isOnFreeAfterTrial = tenantInfo?.status === "active" && isFreePlan;
+  const isTrialExpiredSuspended =
+    tenantInfo?.status === "suspended" &&
+    !!tenantInfo?.trial_ends_at &&
+    new Date(tenantInfo.trial_ends_at).getTime() < Date.now();
 
   const trialDaysLeft = tenantInfo?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(tenantInfo.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
@@ -482,7 +483,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 : <>Free trial has ended.</>}
             </span>
             <span className="text-xs opacity-90">
-              When the trial ends, your account moves to the free plan until you start a paid subscription.
+              When the trial ends, account access is locked until a paid plan is started.
             </span>
             {isAdmin && !isSuperAdmin && (
               <Link href="/billing">
@@ -495,11 +496,11 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {isOnFreeAfterTrial && !isTrial && !isSuperAdmin && (
+        {isTrialExpiredSuspended && !isTrial && !isSuperAdmin && (
           <div className="border-b border-amber-300 bg-amber-100/80 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 text-sm text-amber-900">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span className="font-medium">Your free trial has ended. You are now on the free plan.</span>
-            <span className="text-xs opacity-90">Upgrade to a paid plan to unlock full features and paid add-ons.</span>
+            <span className="font-medium">Your free trial has ended. Account access is now locked.</span>
+            <span className="text-xs opacity-90">Start a paid plan to restore full access.</span>
             {isAdmin && (
               <Link href="/billing">
                 <Button size="sm" className="h-7 text-xs">
@@ -515,7 +516,9 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="border-b border-red-200 bg-red-50 px-4 py-2.5 flex items-center justify-center gap-2 text-sm text-red-800">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>
-              {tenantInfo.status === "payment_overdue"
+              {isTrialExpiredSuspended
+                ? <><strong>Trial ended.</strong> Start a paid plan to restore access.</>
+                : tenantInfo.status === "payment_overdue"
                 ? <><strong>Payment overdue.</strong> Please update your payment method to avoid service interruption.</>
                 : <><strong>Account suspended.</strong> A payment may have failed. Please update your payment method to restore access.</>
               }
@@ -549,6 +552,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <LockedOutScreen
               accountSuspended={accountSuspended}
               accountCancelled={accountCancelled}
+              trialExpired={isTrialExpiredSuspended}
               isAdmin={isAdmin}
               signOut={signOut}
             />
@@ -559,9 +563,10 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-function LockedOutScreen({ accountSuspended, accountCancelled, isAdmin, signOut }: {
+function LockedOutScreen({ accountSuspended, accountCancelled, trialExpired, isAdmin, signOut }: {
   accountSuspended: boolean;
   accountCancelled: boolean;
+  trialExpired: boolean;
   isAdmin: boolean;
   signOut: () => void;
 }) {
@@ -572,18 +577,20 @@ function LockedOutScreen({ accountSuspended, accountCancelled, isAdmin, signOut 
           <Lock className="w-8 h-8 text-red-600" />
         </div>
         <h1 className="text-2xl font-bold text-foreground">
-          {accountSuspended && "Account suspended"}
+          {accountSuspended && (trialExpired ? "Trial ended" : "Account suspended")}
           {accountCancelled && "Account cancelled"}
         </h1>
         <p className="text-muted-foreground">
-          {accountSuspended && "Your account has been suspended due to a payment issue. Please update your payment method to restore access."}
+          {accountSuspended && (trialExpired
+            ? "Your trial period has ended. Start a paid plan to restore access to the app."
+            : "Your account has been suspended due to a payment issue. Please update your payment method to restore access.")}
           {accountCancelled && "This account has been cancelled. Please contact support if you believe this is an error."}
         </p>
         {isAdmin && accountSuspended && (
           <Link href="/billing">
             <Button size="lg" className="w-full">
               <CreditCard className="w-4 h-4 mr-2" />
-              Update Payment
+              {trialExpired ? "Start Paid Plan" : "Update Payment"}
             </Button>
           </Link>
         )}

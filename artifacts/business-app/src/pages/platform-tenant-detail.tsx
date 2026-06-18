@@ -92,7 +92,7 @@ export default function PlatformTenantDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
       queryClient.invalidateQueries({ queryKey: ["platform-tenant-addons", params.id] });
-      toast({ title: "Free access revoked", description: "Downgraded to Free Plan, all add-ons deactivated." });
+      toast({ title: "Free access revoked", description: "Trial access removed and add-ons deactivated." });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });

@@ -619,7 +619,7 @@ export default function PlatformAddons() {
                 <span className="text-muted-foreground">Add-ons:</span> <span className="font-medium">All included</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1">
-                New users get the Base Plan with all add-ons for {Number(trialDays) || 30} days. After expiry, they move to the Free Plan with add-ons deactivated.
+                New users get the Base Plan with all add-ons for {Number(trialDays) || 30} days. After expiry, account access is locked until a paid subscription is started.
               </p>
             </div>
           </CardContent>

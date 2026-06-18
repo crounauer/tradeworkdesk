@@ -125,7 +125,6 @@ function statusLabel(status: string) {
 }
 
 export default function Billing() {
-  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -351,7 +350,10 @@ export default function Billing() {
   const trialEndsOn = tenantInfo?.trial_ends_at
     ? new Date(tenantInfo.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : null;
-  const isOnFreePlan = tenantInfo?.status === "active" && tenantInfo?.plan_id === FREE_PLAN_ID;
+  const isTrialExpiredSuspended =
+    tenantInfo?.status === "suspended" &&
+    !!tenantInfo?.trial_ends_at &&
+    new Date(tenantInfo.trial_ends_at).getTime() < Date.now();
 
   if (tenantLoading) {
     return (
@@ -397,7 +399,7 @@ export default function Billing() {
                   </p>
                   <p className="text-xs text-slate-700">
                     {trialEndsOn ? `Trial end date: ${trialEndsOn}. ` : ""}
-                    After trial, your account moves to the free plan until you start paid billing.
+                    After trial, access is locked until you start paid billing.
                   </p>
                 </div>
               </div>
@@ -413,12 +415,12 @@ export default function Billing() {
         </Card>
       )}
 
-      {isOnFreePlan && (
+      {isTrialExpiredSuspended && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-semibold">You are on the free plan</p>
-            <p>To enable paid subscription features, start a paid plan now.</p>
+            <p className="font-semibold">Your trial has ended and access is locked</p>
+            <p>Start a paid plan to restore full site access.</p>
           </div>
           {isAdmin && (
             <Button size="sm" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending}>
@@ -447,8 +449,13 @@ export default function Billing() {
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold">Account suspended</p>
-            <p>Your account has been suspended. Please contact support to resolve this.</p>
+            <p className="font-semibold">{isTrialExpiredSuspended ? "Trial ended" : "Account suspended"}</p>
+            <p>{isTrialExpiredSuspended ? "Start a paid plan to restore access." : "Your account has been suspended. Please contact support to resolve this."}</p>
+            {isAdmin && isTrialExpiredSuspended && (
+              <Button size="sm" className="mt-2" onClick={() => checkoutMutation.mutate()} disabled={checkoutMutation.isPending}>
+                {checkoutMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Start Paid Plan"}
+              </Button>
+            )}
           </div>
         </div>
       )}

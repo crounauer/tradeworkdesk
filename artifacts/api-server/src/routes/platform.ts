@@ -915,16 +915,10 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
       if (tenantRes.data.status === "trial" && tenantRes.data.trial_ends_at) {
         const trialEnd = new Date(tenantRes.data.trial_ends_at as string).getTime();
         if (trialEnd < Date.now()) {
-          const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
-          const { data: freePlan } = await supabaseAdmin
-            .from("plans")
-            .select("name, monthly_price, max_users")
-            .eq("id", FREE_PLAN_ID)
-            .single();
           await Promise.all([
             supabaseAdmin
               .from("tenants")
-              .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+              .update({ status: "suspended" })
               .eq("id", req.tenantId!),
             supabaseAdmin
               .from("tenant_addons")
@@ -932,12 +926,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
               .eq("tenant_id", req.tenantId!)
               .eq("is_active", true),
           ]);
-          tenantRes.data.plan_id = FREE_PLAN_ID;
-          tenantRes.data.status = "active";
-          tenantRes.data.trial_ends_at = null;
-          if (freePlan) {
-            tenantRes.data.plans = freePlan as typeof tenantRes.data.plans;
-          }
+          tenantRes.data.status = "suspended";
           activeAddons = [];
         }
       }
