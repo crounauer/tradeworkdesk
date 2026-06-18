@@ -479,7 +479,37 @@ router.post(
   }
 );
 
-// ─── Form submissions (public endpoint — no auth required) ────────────────────
+router.patch(
+  "/website/forms/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+    const { auto_create_enquiry, notify_email, name, is_active } = req.body as Record<string, unknown>;
+
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const updates: Record<string, unknown> = {};
+    if (typeof auto_create_enquiry === "boolean") updates.auto_create_enquiry = auto_create_enquiry;
+    if (notify_email !== undefined) updates.notify_email = notify_email || null;
+    if (name !== undefined) updates.name = name;
+    if (typeof is_active === "boolean") updates.is_active = is_active;
+
+    const { data, error } = await db
+      .from("website_forms")
+      .update(updates)
+      .eq("id", id)
+      .eq("website_id", website.id)
+      .select("id, name, form_type, notify_email, auto_create_enquiry, is_active, created_at")
+      .single() as { data: Record<string, unknown> | null; error: unknown };
+
+    if (error || !data) { res.status(404).json({ error: "Form not found" }); return; }
+    res.json(data);
+  }
+);
 
 router.post(
   "/website/forms/:id/submissions",
@@ -801,31 +831,47 @@ async function createEnquiryFromFormSubmission(
   data: Record<string, unknown>,
 ): Promise<void> {
   try {
-    // All plans include job_management — create the enquiry unconditionally.
+    // Map common form field names to enquiry fields
+    const contactName = String(
+      data.name || data.full_name || data.contact_name || "Website enquiry"
+    ).trim();
+    const email = String(data.email || data.contact_email || "").trim() || null;
+    const phone = String(data.phone || data.mobile || data.contact_phone || "").trim() || null;
 
-    // Build enquiry from form data
-    const name = String(data.name || data.full_name || "Website enquiry");
-    const email = String(data.email || "");
-    const phone = String(data.phone || data.mobile || "");
-    const message = String(data.message || data.description || data.notes || "");
+    // Build a rich description from all submitted fields
+    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone"]);
+    const extraLines: string[] = [];
+    for (const [key, val] of Object.entries(data)) {
+      if (skip.has(key) || !val) continue;
+      const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      extraLines.push(`${label}: ${String(val)}`);
+    }
+    const description = extraLines.length > 0
+      ? `Website enquiry (${formType})\n\n${extraLines.join("\n")}`
+      : `Website enquiry (${formType})`;
+
+    const postcode = String(data.postcode || data.address || "").trim() || null;
 
     const { data: enquiry, error } = await (supabaseAdmin as any)
       .from("enquiries")
       .insert({
         tenant_id: tenantId,
-        name,
-        email: email || null,
-        phone: phone || null,
-        message,
-        source: "website_form",
+        contact_name: contactName,
+        contact_email: email,
+        contact_phone: phone,
+        source: "website",
+        description,
+        address: postcode,
         status: "new",
-        form_type: formType,
-        notes: `Submitted via website contact form (submission: ${submissionId})`,
+        notes: `Submitted via website contact form (submission ID: ${submissionId})`,
       })
       .select("id")
       .single();
 
-    if (error || !enquiry) return;
+    if (error || !enquiry) {
+      console.error("[website-form] Failed to create enquiry:", error?.message);
+      return;
+    }
 
     // Link submission to enquiry
     await (supabaseAdmin as any)

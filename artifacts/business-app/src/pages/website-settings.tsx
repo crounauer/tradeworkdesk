@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Inbox } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -38,6 +40,16 @@ interface Website {
   social_links: Record<string, string> | null;
 }
 
+interface WebsiteForm {
+  id: string;
+  name: string;
+  form_type: string;
+  notify_email: string | null;
+  auto_create_enquiry: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
 export default function WebsiteSettings() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -45,6 +57,26 @@ export default function WebsiteSettings() {
   const { data: website, isLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
     queryFn: () => apiFetch("/api/website").catch(() => null),
+  });
+
+  const { data: forms = [] } = useQuery<WebsiteForm[]>({
+    queryKey: ["/api/website/forms"],
+    queryFn: () => apiFetch("/api/website/forms").catch(() => []),
+    enabled: !!website,
+  });
+
+  const toggleEnquiryMutation = useMutation({
+    mutationFn: ({ formId, value }: { formId: string; value: boolean }) =>
+      apiFetch(`/api/website/forms/${formId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auto_create_enquiry: value }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website/forms"] });
+      toast({ title: "Form settings updated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const [form, setForm] = useState({
@@ -139,6 +171,7 @@ export default function WebsiteSettings() {
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
+          <TabsTrigger value="forms">Forms</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding" className="space-y-4 pt-4">
@@ -203,6 +236,52 @@ export default function WebsiteSettings() {
               </div>
             );
           })}
+        </TabsContent>
+
+        <TabsContent value="forms" className="space-y-4 pt-4">
+          <p className="text-sm text-muted-foreground">
+            When a visitor submits a contact form on your website, you can automatically create an
+            enquiry in your job management inbox — no manual copying required.
+          </p>
+          {forms.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No forms found. Build your website to create a contact form.</p>
+          ) : (
+            <div className="space-y-3">
+              {forms.map((form) => (
+                <Card key={form.id}>
+                  <CardContent className="flex items-center justify-between py-4 px-5">
+                    <div className="flex items-center gap-3">
+                      <Inbox className="w-4 h-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{form.name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{form.form_type.replace(/_/g, " ")} form</p>
+                      </div>
+                      {form.auto_create_enquiry && (
+                        <Badge variant="default" className="text-xs bg-green-600">Auto-enquiry on</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`form-${form.id}`} className="text-sm text-muted-foreground">
+                        Auto-create enquiry
+                      </Label>
+                      <Switch
+                        id={`form-${form.id}`}
+                        checked={form.auto_create_enquiry}
+                        onCheckedChange={(v) => toggleEnquiryMutation.mutate({ formId: form.id, value: v })}
+                        disabled={toggleEnquiryMutation.isPending}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            <strong>How it works:</strong> When a visitor fills in your website contact form, their
+            name, phone, email, and message are automatically added as a new enquiry in your{" "}
+            <Link href="/enquiries" className="underline font-medium">Enquiries</Link> inbox. You can
+            then convert it to a job with one click.
+          </div>
         </TabsContent>
 
       </Tabs>
