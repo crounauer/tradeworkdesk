@@ -255,6 +255,73 @@ export async function requireAuth(
   req.userEmail = user.email;
   req.tenantId = profile?.tenant_id || undefined;
 
+  if (req.userRole !== "super_admin" && req.tenantId) {
+    const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
+    const path = req.path || "";
+    const allowDuringLock =
+      path.startsWith("/billing") ||
+      path === "/me/init" ||
+      path === "/me/tenant" ||
+      path.startsWith("/auth/profile");
+
+    const nowTs = Date.now();
+    let tenantState = tenantStatusCache.get(req.tenantId);
+    if (!tenantState || tenantState.expiresAt <= nowTs) {
+      const { data: tenant } = await supabaseAdmin
+        .from("tenants")
+        .select("status, trial_ends_at, plan_id, stripe_subscription_id")
+        .eq("id", req.tenantId)
+        .single();
+
+      if (tenant) {
+        tenantState = {
+          status: tenant.status,
+          trial_ends_at: tenant.trial_ends_at,
+          plan_id: tenant.plan_id,
+          stripe_subscription_id: tenant.stripe_subscription_id,
+          expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS,
+        };
+        tenantStatusCache.set(req.tenantId, tenantState);
+      }
+    }
+
+    if (tenantState) {
+      const trialExpired = !!tenantState.trial_ends_at && new Date(tenantState.trial_ends_at).getTime() < nowTs;
+      const shouldSuspendNoPaid = tenantState.status === "active" && !tenantState.stripe_subscription_id;
+      const shouldSuspendExpiredTrial = tenantState.status === "trial" && trialExpired;
+
+      if (shouldSuspendNoPaid || shouldSuspendExpiredTrial) {
+        await Promise.all([
+          supabaseAdmin
+            .from("tenants")
+            .update({ status: "suspended" })
+            .eq("id", req.tenantId),
+          supabaseAdmin
+            .from("tenant_addons")
+            .update({ is_active: false })
+            .eq("tenant_id", req.tenantId)
+            .eq("is_active", true),
+        ]);
+        tenantState.status = "suspended";
+        tenantStatusCache.set(req.tenantId, { ...tenantState, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
+      }
+
+      const lockedTrialExpired =
+        (tenantState.status === "trial" && trialExpired) ||
+        (tenantState.status === "suspended" && trialExpired) ||
+        (tenantState.status === "suspended" && tenantState.plan_id === FREE_PLAN_ID && !tenantState.stripe_subscription_id) ||
+        (tenantState.status === "suspended" && !tenantState.stripe_subscription_id);
+
+      if (lockedTrialExpired && !allowDuringLock) {
+        res.status(403).json({
+          error: "account_trial_expired",
+          message: "Your trial has ended. Please start a paid subscription to restore access.",
+        });
+        return;
+      }
+    }
+  }
+
   const authMs = Date.now() - t0;
   if (authMs > 200) {
     console.log(`[perf] requireAuth ${req.path} ${authMs}ms (user:${user.id.slice(0,8)})`);
