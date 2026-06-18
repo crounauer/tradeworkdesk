@@ -32,11 +32,17 @@ const PLAN_CACHE_TTL_MS = 60_000;
 const tenantStatusCache = new Map<string, {
   status: string;
   trial_ends_at: string | null;
+  notes: string | null;
   plan_id: string | null;
   stripe_subscription_id: string | null;
   expiresAt: number;
 }>();
 const TENANT_STATUS_CACHE_TTL_MS = 60_000;
+
+const SUPERADMIN_OVERRIDE_MARKER = "superadmin_access_override=true";
+function hasSuperAdminAccessOverride(notes: unknown): boolean {
+  return typeof notes === "string" && notes.includes(SUPERADMIN_OVERRIDE_MARKER);
+}
 
 const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
 const PROFILE_CACHE_TTL_MS = 120_000;
@@ -269,7 +275,7 @@ export async function requireAuth(
     if (!tenantState || tenantState.expiresAt <= nowTs) {
       const { data: tenant } = await supabaseAdmin
         .from("tenants")
-        .select("status, trial_ends_at, plan_id, stripe_subscription_id")
+        .select("status, trial_ends_at, notes, plan_id, stripe_subscription_id")
         .eq("id", req.tenantId)
         .single();
 
@@ -277,6 +283,7 @@ export async function requireAuth(
         tenantState = {
           status: tenant.status,
           trial_ends_at: tenant.trial_ends_at,
+          notes: tenant.notes,
           plan_id: tenant.plan_id,
           stripe_subscription_id: tenant.stripe_subscription_id,
           expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS,
@@ -286,9 +293,10 @@ export async function requireAuth(
     }
 
     if (tenantState) {
+      const hasOverride = hasSuperAdminAccessOverride(tenantState.notes);
       const trialExpired = !!tenantState.trial_ends_at && new Date(tenantState.trial_ends_at).getTime() < nowTs;
-      const shouldSuspendNoPaid = tenantState.status === "active" && !tenantState.stripe_subscription_id;
-      const shouldSuspendExpiredTrial = tenantState.status === "trial" && trialExpired;
+      const shouldSuspendNoPaid = !hasOverride && tenantState.status === "active" && !tenantState.stripe_subscription_id;
+      const shouldSuspendExpiredTrial = !hasOverride && tenantState.status === "trial" && trialExpired;
 
       if (shouldSuspendNoPaid || shouldSuspendExpiredTrial) {
         await Promise.all([
@@ -307,10 +315,12 @@ export async function requireAuth(
       }
 
       const lockedTrialExpired =
-        (tenantState.status === "trial" && trialExpired) ||
-        (tenantState.status === "suspended" && trialExpired) ||
-        (tenantState.status === "suspended" && tenantState.plan_id === FREE_PLAN_ID && !tenantState.stripe_subscription_id) ||
-        (tenantState.status === "suspended" && !tenantState.stripe_subscription_id);
+        !hasOverride && (
+          (tenantState.status === "trial" && trialExpired) ||
+          (tenantState.status === "suspended" && trialExpired) ||
+          (tenantState.status === "suspended" && tenantState.plan_id === FREE_PLAN_ID && !tenantState.stripe_subscription_id) ||
+          (tenantState.status === "suspended" && !tenantState.stripe_subscription_id)
+        );
 
       if (lockedTrialExpired && !allowDuringLock) {
         res.status(403).json({
@@ -377,7 +387,7 @@ export async function requireTenant(
   if (!cached || cached.expiresAt <= now) {
     const { data: tenant } = await supabaseAdmin
       .from("tenants")
-      .select("status, trial_ends_at, plan_id, stripe_subscription_id")
+      .select("status, trial_ends_at, notes, plan_id, stripe_subscription_id")
       .eq("id", req.tenantId)
       .single();
 
@@ -385,6 +395,7 @@ export async function requireTenant(
       cached = {
         status: tenant.status,
         trial_ends_at: tenant.trial_ends_at,
+        notes: tenant.notes,
         plan_id: tenant.plan_id,
         stripe_subscription_id: tenant.stripe_subscription_id,
         expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS,
@@ -394,11 +405,12 @@ export async function requireTenant(
   }
 
   if (cached) {
+    const hasOverride = hasSuperAdminAccessOverride(cached.notes);
     if (cached.status === "cancelled") {
       res.status(403).json({ error: "account_cancelled", message: "This account has been cancelled." });
       return;
     }
-    if (cached.status === "trial" && cached.trial_ends_at) {
+    if (!hasOverride && cached.status === "trial" && cached.trial_ends_at) {
       const trialEnd = new Date(cached.trial_ends_at).getTime();
       if (trialEnd < now) {
         await Promise.all([
@@ -416,8 +428,8 @@ export async function requireTenant(
         tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
       }
     }
-    const legacyNoPlan = cached.status === "active" && cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id;
-    const activeWithoutPaidSubscription = cached.status === "active" && !cached.stripe_subscription_id;
+    const legacyNoPlan = !hasOverride && cached.status === "active" && cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id;
+    const activeWithoutPaidSubscription = !hasOverride && cached.status === "active" && !cached.stripe_subscription_id;
     if (legacyNoPlan) {
       await Promise.all([
         supabaseAdmin
@@ -450,9 +462,11 @@ export async function requireTenant(
     }
     if (cached.status === "suspended") {
       const trialExpired =
-        (!!cached.trial_ends_at && new Date(cached.trial_ends_at).getTime() < now) ||
-        (cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id) ||
-        !cached.stripe_subscription_id;
+        !hasOverride && (
+          (!!cached.trial_ends_at && new Date(cached.trial_ends_at).getTime() < now) ||
+          (cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id) ||
+          !cached.stripe_subscription_id
+        );
       if (isBillingPath) {
         next();
         return;

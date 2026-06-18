@@ -201,6 +201,12 @@ router.post("/platform/tenants/:id/switch-plan", requireAuth, requireSuperAdmin,
 
 router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
+  const { data: existingTenant } = await supabaseAdmin
+    .from("tenants")
+    .select("notes")
+    .eq("id", id)
+    .maybeSingle();
+
   let trialDays = 30;
   try {
     const { data: setting } = await supabaseAdmin
@@ -229,7 +235,13 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
 
   const { data: tenant, error: tErr } = await supabaseAdmin
     .from("tenants")
-    .update({ plan_id: basePlan.id, status: "trial", trial_ends_at: trialEnds, stripe_subscription_id: null })
+    .update({
+      plan_id: basePlan.id,
+      status: "active",
+      trial_ends_at: null,
+      stripe_subscription_id: null,
+      notes: addSuperAdminAccessOverride((existingTenant as { notes?: string | null } | null)?.notes),
+    })
     .eq("id", id)
     .select()
     .single();
@@ -264,7 +276,12 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
     event_type: "granted_free_access",
     entity_type: "tenant",
     entity_id: id,
-    detail: { plan_id: basePlan.id, plan_name: basePlan.name, trial_ends_at: trialEnds, addons_activated: allAddons?.length || 0 },
+    detail: {
+      plan_id: basePlan.id,
+      plan_name: basePlan.name,
+      override: true,
+      addons_activated: allAddons?.length || 0,
+    },
   });
 
   bustInitCache(id);
@@ -274,10 +291,20 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
 
 router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
+  const { data: existingTenant } = await supabaseAdmin
+    .from("tenants")
+    .select("notes")
+    .eq("id", id)
+    .maybeSingle();
 
   const { data: tenant, error: tErr } = await supabaseAdmin
     .from("tenants")
-    .update({ status: "suspended", trial_ends_at: null, stripe_subscription_id: null })
+    .update({
+      status: "suspended",
+      trial_ends_at: null,
+      stripe_subscription_id: null,
+      notes: removeSuperAdminAccessOverride((existingTenant as { notes?: string | null } | null)?.notes),
+    })
     .eq("id", id)
     .select()
     .single();
@@ -297,7 +324,7 @@ router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSupe
     event_type: "revoked_free_access",
     entity_type: "tenant",
     entity_id: id,
-    detail: { status: "suspended", addons_deactivated: count || 0 },
+    detail: { status: "suspended", override: false, addons_deactivated: count || 0 },
   });
 
   bustInitCache(id);
@@ -803,6 +830,31 @@ router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedReques
 const initCache = new Map<string, { data: unknown; ts: number }>();
 const INIT_CACHE_TTL_MS = 60_000;
 
+const SUPERADMIN_OVERRIDE_MARKER = "superadmin_access_override=true";
+
+function hasSuperAdminAccessOverride(notes: unknown): boolean {
+  return typeof notes === "string" && notes.includes(SUPERADMIN_OVERRIDE_MARKER);
+}
+
+function addSuperAdminAccessOverride(notes: unknown): string {
+  const current = typeof notes === "string" ? notes : "";
+  if (current.includes(SUPERADMIN_OVERRIDE_MARKER)) return current;
+  return current.trim().length > 0
+    ? `${current}\n${SUPERADMIN_OVERRIDE_MARKER}`
+    : SUPERADMIN_OVERRIDE_MARKER;
+}
+
+function removeSuperAdminAccessOverride(notes: unknown): string | null {
+  const current = typeof notes === "string" ? notes : "";
+  if (!current.includes(SUPERADMIN_OVERRIDE_MARKER)) return current || null;
+  const next = current
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && line !== SUPERADMIN_OVERRIDE_MARKER)
+    .join("\n");
+  return next.length > 0 ? next : null;
+}
+
 /** Call this from other routes after mutations that affect /me/init data (e.g. company_type change) */
 export function bustInitCache(tenantId: string): void {
   for (const key of initCache.keys()) {
@@ -867,7 +919,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     promises.push(
       supabaseAdmin
         .from("tenants")
-        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, stripe_subscription_id, plan_id, plans(name, monthly_price, max_users)")
+        .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, stripe_subscription_id, notes, plan_id, plans(name, monthly_price, max_users)")
         .eq("id", req.tenantId)
         .single(),
       supabaseAdmin
@@ -940,7 +992,8 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
 
     if (tenantRes?.data) {
       const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
-      if (tenantRes.data.status === "trial" && tenantRes.data.trial_ends_at) {
+      const hasOverride = hasSuperAdminAccessOverride(tenantRes.data.notes);
+      if (!hasOverride && tenantRes.data.status === "trial" && tenantRes.data.trial_ends_at) {
         const trialEnd = new Date(tenantRes.data.trial_ends_at as string).getTime();
         if (trialEnd < Date.now()) {
           await Promise.all([
@@ -958,7 +1011,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
           activeAddons = [];
         }
       }
-      if (tenantRes.data.status === "active" && tenantRes.data.plan_id === FREE_PLAN_ID && !tenantRes.data.stripe_subscription_id) {
+      if (!hasOverride && tenantRes.data.status === "active" && tenantRes.data.plan_id === FREE_PLAN_ID && !tenantRes.data.stripe_subscription_id) {
         await Promise.all([
           supabaseAdmin
             .from("tenants")
@@ -973,7 +1026,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         tenantRes.data.status = "suspended";
         activeAddons = [];
       }
-      else if (tenantRes.data.status === "active" && !tenantRes.data.stripe_subscription_id) {
+      else if (!hasOverride && tenantRes.data.status === "active" && !tenantRes.data.stripe_subscription_id) {
         await Promise.all([
           supabaseAdmin
             .from("tenants")
@@ -1149,7 +1202,7 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
   const [tenantRes, subscriptionRes] = await Promise.all([
     supabaseAdmin
       .from("tenants")
-      .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, plan_id, stripe_subscription_id, plans(name, monthly_price, max_users, max_jobs_per_month, is_legacy)")
+      .select("id, company_name, company_type, status, trial_ends_at, subscription_renewal_at, stripe_customer_id, notes, plan_id, stripe_subscription_id, plans(name, monthly_price, max_users, max_jobs_per_month, is_legacy)")
       .eq("id", req.tenantId)
       .single(),
     supabaseAdmin
@@ -1166,11 +1219,13 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
   const tenantData = tenantRes.data as {
     id: string;
     status: string;
+    notes: string | null;
     plan_id: string | null;
     stripe_subscription_id: string | null;
   };
+  const hasOverride = hasSuperAdminAccessOverride(tenantData.notes);
 
-  if (tenantData.status === "active" && tenantData.plan_id === FREE_PLAN_ID && !tenantData.stripe_subscription_id) {
+  if (!hasOverride && tenantData.status === "active" && tenantData.plan_id === FREE_PLAN_ID && !tenantData.stripe_subscription_id) {
     await Promise.all([
       supabaseAdmin
         .from("tenants")
@@ -1184,7 +1239,7 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
     ]);
     (tenantRes.data as { status: string }).status = "suspended";
   }
-  else if (tenantData.status === "active" && !tenantData.stripe_subscription_id) {
+  else if (!hasOverride && tenantData.status === "active" && !tenantData.stripe_subscription_id) {
     await Promise.all([
       supabaseAdmin
         .from("tenants")
