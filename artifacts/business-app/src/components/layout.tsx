@@ -260,14 +260,14 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
             </>
           ) : companySettings?.white_label_enabled && companySettings?.logo_url ? (
-            // Tenant has uploaded a logo and white-label is enabled — show it
+            // White-label enabled with logo — show company logo
             <img
               src={companySettings.logo_url}
               alt={companySettings.trading_name ?? companySettings.name ?? "Logo"}
               className="h-9 w-auto max-w-[168px] object-contain"
             />
-          ) : (
-            // No logo — show company name with a coloured initial badge
+          ) : companySettings?.white_label_enabled ? (
+            // White-label enabled but no logo — show company name with initial badge
             <>
               {(companySettings?.trading_name ?? companySettings?.name) ? (
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -279,6 +279,12 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-sm font-bold tracking-tight text-foreground truncate">
                 {companySettings?.trading_name ?? companySettings?.name ?? "TradeWorkDesk"}
               </span>
+            </>
+          ) : (
+            // White-label disabled — show TradeWorkDesk branding
+            <>
+              <Flame className="w-5 h-5 text-primary shrink-0" />
+              <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
             </>
           )}
           {!isOnline && (
@@ -374,7 +380,7 @@ export function Layout({ children }: { children: ReactNode }) {
               alt={companySettings.trading_name ?? companySettings.name ?? "Logo"}
               className="h-8 w-auto max-w-[140px] object-contain"
             />
-          ) : (
+          ) : companySettings?.white_label_enabled ? (
             <>
               {(companySettings?.trading_name ?? companySettings?.name) ? (
                 <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -386,6 +392,12 @@ export function Layout({ children }: { children: ReactNode }) {
               <span className="text-sm font-bold tracking-tight text-foreground truncate max-w-[160px]">
                 {companySettings?.trading_name ?? companySettings?.name ?? "TradeWorkDesk"}
               </span>
+            </>
+          ) : (
+            // White-label disabled — show TradeWorkDesk branding
+            <>
+              <Flame className="w-5 h-5 text-primary" />
+              <span className="text-lg font-bold tracking-tight text-foreground">TradeWorkDesk</span>
             </>
           )}
           {!isOnline && (
