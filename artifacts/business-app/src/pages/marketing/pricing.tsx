@@ -3,24 +3,37 @@ import { MarketingLayout } from "@/components/marketing-layout";
 import { SEOHead, SITE_URL } from "@/components/seo-head";
 import { breadcrumbSchema, faqSchema } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, ArrowRight } from "lucide-react";
+import { CheckCircle, ArrowRight, Briefcase, Globe } from "lucide-react";
 
-const FEATURES = [
+const JOB_FEATURES = [
   "Unlimited jobs & job types",
   "Gas, oil & heat pump service records",
   "Customer & property management",
   "Invoicing & payment tracking",
-  "Scheduling & calendar sync",
+  "Scheduling & Google Calendar sync",
   "Team management & job assignment",
   "Parts & service catalogue",
-  "Social media post scheduling",
-  "Digital signatures",
-  "Report export (PDF, CSV)",
+  "Digital signatures on mobile",
   "Compliance forms & combustion analysis",
   "UK address lookup & geo-mapping",
-  "Advanced analytics & dashboard",
-  "Website builder with custom domain",
-  "Priority support",
+  "Report export (PDF & CSV)",
+  "Social media post scheduling",
+  "Advanced analytics dashboard",
+];
+
+const WEBSITE_FEATURES = [
+  "Drag-and-drop website builder",
+  "Custom domain connection (e.g. yoursite.co.uk)",
+  "Free platform subdomain, instant setup",
+  "SEO-optimised pages & sitemap",
+  "Contact & quote forms",
+  "Auto-create job enquiry from every form submission",
+  "Blog with AI content assistance",
+  "Photo gallery & project showcase",
+  "Google reviews & testimonials",
+  "Services, FAQ & process pages",
+  "Google Analytics integration",
+  "Mobile-responsive on every device",
 ];
 
 const faqs = [
@@ -95,48 +108,74 @@ export default function PricingPage() {
 
       {/* Plan card */}
       <section className="bg-white py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-primary text-white p-8 md:p-12 shadow-xl flex flex-col md:flex-row gap-10 items-start">
-            <div className="flex-1">
-              <h2 className="font-display text-3xl font-bold">TradeWorkDesk</h2>
-              <p className="mt-2 text-blue-100">
-                Everything you need to run and grow your heating engineering business.
-              </p>
-
-              <div className="mt-8 flex items-end gap-2">
-                <span className="font-display text-6xl font-bold">£25</span>
-                <div className="pb-1">
-                  <div className="text-blue-100">/month</div>
-                  <div className="text-sm text-blue-200">includes 2 users</div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl bg-primary text-white p-8 md:p-12 shadow-xl">
+            {/* Price + CTA */}
+            <div className="flex flex-col md:flex-row gap-8 items-start mb-10">
+              <div className="flex-1">
+                <h2 className="font-display text-3xl font-bold">TradeWorkDesk</h2>
+                <p className="mt-2 text-blue-100">
+                  Job management <em>and</em> a professional website — both fully included, no extras.
+                </p>
+                <div className="mt-6 flex items-end gap-2">
+                  <span className="font-display text-6xl font-bold">£25</span>
+                  <div className="pb-1">
+                    <div className="text-blue-100">/month</div>
+                    <div className="text-sm text-blue-200">includes 2 users</div>
+                  </div>
                 </div>
+                <p className="mt-2 text-sm text-blue-200">
+                  + £10/month per additional user &nbsp;·&nbsp; billed monthly &nbsp;·&nbsp; cancel any time
+                </p>
+                <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                  <Link href="/register">
+                    <Button className="bg-white text-primary hover:bg-blue-50 font-semibold text-base px-8 py-5">
+                      Start 30-day free trial
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+                <p className="mt-3 text-xs text-blue-300">No credit card required for trial.</p>
               </div>
-              <p className="mt-2 text-sm text-blue-200">
-                + £10/month per additional user &nbsp;·&nbsp; billed monthly &nbsp;·&nbsp; cancel any time
-              </p>
-
-              <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                <Link href="/register">
-                  <Button className="bg-white text-primary hover:bg-blue-50 font-semibold text-base px-8 py-5">
-                    Start 30-day free trial
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-              <p className="mt-3 text-xs text-blue-300">No credit card required for trial.</p>
             </div>
 
-            <div className="flex-1">
-              <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide mb-4">
-                Everything included
-              </h3>
-              <ul className="space-y-2.5">
-                {FEATURES.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2.5 text-sm">
-                    <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+            {/* Two-column feature groups */}
+            <div className="grid md:grid-cols-2 gap-8 border-t border-blue-500/40 pt-8">
+              {/* Job Management */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Briefcase className="w-4 h-4 text-blue-300" />
+                  <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide">
+                    Job Management
+                  </h3>
+                </div>
+                <ul className="space-y-2.5">
+                  {JOB_FEATURES.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2.5 text-sm">
+                      <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Website Builder */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="w-4 h-4 text-blue-300" />
+                  <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide">
+                    Website Builder
+                  </h3>
+                </div>
+                <ul className="space-y-2.5">
+                  {WEBSITE_FEATURES.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2.5 text-sm">
+                      <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
 
