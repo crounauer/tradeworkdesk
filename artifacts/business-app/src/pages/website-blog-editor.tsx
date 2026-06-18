@@ -111,6 +111,7 @@ export default function WebsiteBlogEditor() {
   const [contentOptions, setContentOptions] = useState<Set<string>>(new Set(["cta"]));
   const [imageGenerationPrompt, setImageGenerationPrompt] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
+  const [autoGenerateFeaturedImage, setAutoGenerateFeaturedImage] = useState(false);
   const [inlineImageCount, setInlineImageCount] = useState(1);
   const [generatingInlineImages, setGeneratingInlineImages] = useState(false);
 
@@ -198,6 +199,62 @@ export default function WebsiteBlogEditor() {
     },
   });
 
+  function buildAutoFeaturedPrompt(postTitle: string, content: string): string {
+    const snippet = content.replace(/\s+/g, " ").trim().slice(0, 180);
+    if (!snippet) return `Featured image for blog post titled: ${postTitle}`;
+    return `Featured image for blog post titled: ${postTitle}. Context: ${snippet}`;
+  }
+
+  async function requestFeaturedImage(prompt: string, opts?: { showSuccessToast?: boolean }) {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      toast({ title: "Enter a prompt", description: "Describe the image you want to generate.", variant: "destructive" });
+      return false;
+    }
+
+    setGeneratingImage(true);
+    try {
+      const res = await fetch(`/api/website/blog/${params.id}/generate-featured-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: trimmedPrompt,
+        }),
+      });
+
+      const data = await res.json() as {
+        imageUrl?: string;
+        creditsUsed?: number;
+        costUsd?: number;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        toast({ title: "Image Generation Error", description: data.error ?? "Failed to generate image", variant: "destructive" });
+        return false;
+      }
+
+      setFeaturedImageUrl(data.imageUrl ?? null);
+      setImageGenerationPrompt("");
+      setDirty(true);
+      setAiCredits(prev => (prev == null ? prev : Math.max(0, prev - (data.creditsUsed ?? 1))));
+      qc.invalidateQueries({ queryKey: ["billing-credits"] });
+
+      if (opts?.showSuccessToast !== false) {
+        toast({
+          title: "Image generated",
+          description: `Used ${data.creditsUsed ?? 1} credit${(data.creditsUsed ?? 1) === 1 ? "" : "s"}`,
+        });
+      }
+      return true;
+    } catch (err) {
+      toast({ title: "Image Generation Error", description: (err as Error).message, variant: "destructive" });
+      return false;
+    } finally {
+      setGeneratingImage(false);
+    }
+  }
+
   async function runAi(operation: AiOperation) {
     if (!title.trim()) {
       toast({ title: "Enter a title first", description: "The AI needs a title to generate content.", variant: "destructive" });
@@ -245,7 +302,16 @@ export default function WebsiteBlogEditor() {
       qc.invalidateQueries({ queryKey: ["billing-credits"] });
 
       if (operation === "generate" || operation === "improve") {
-        setBodyText(data.content ?? "");
+        const nextContent = data.content ?? "";
+        setBodyText(nextContent);
+
+        if (autoGenerateFeaturedImage) {
+          const autoPrompt = buildAutoFeaturedPrompt(title.trim(), nextContent);
+          const imageOk = await requestFeaturedImage(autoPrompt, { showSuccessToast: false });
+          if (imageOk) {
+            toast({ title: "Featured image generated", description: "A featured image was auto-generated from your post content." });
+          }
+        }
       } else if (operation === "excerpt") {
         setExcerpt(data.content ?? "");
       } else if (operation === "meta_description") {
@@ -265,47 +331,7 @@ export default function WebsiteBlogEditor() {
   }
 
   async function generateFeaturedImage() {
-    if (!imageGenerationPrompt.trim()) {
-      toast({ title: "Enter a prompt", description: "Describe the image you want to generate.", variant: "destructive" });
-      return;
-    }
-
-    setGeneratingImage(true);
-    try {
-      const res = await fetch(`/api/website/blog/${params.id}/generate-featured-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: imageGenerationPrompt.trim(),
-        }),
-      });
-
-      const data = await res.json() as {
-        imageUrl?: string;
-        creditsUsed?: number;
-        costUsd?: number;
-        error?: string;
-      };
-
-      if (!res.ok) {
-        toast({ title: "Image Generation Error", description: data.error ?? "Failed to generate image", variant: "destructive" });
-        return;
-      }
-
-      setFeaturedImageUrl(data.imageUrl ?? null);
-      setImageGenerationPrompt("");
-      setDirty(true);
-      setAiCredits(prev => (prev == null ? prev : Math.max(0, prev - (data.creditsUsed ?? 1))));
-      qc.invalidateQueries({ queryKey: ["billing-credits"] });
-      toast({
-        title: "Image generated",
-        description: `Used ${data.creditsUsed ?? 1} credit${(data.creditsUsed ?? 1) === 1 ? "" : "s"}`,
-      });
-    } catch (err) {
-      toast({ title: "Image Generation Error", description: (err as Error).message, variant: "destructive" });
-    } finally {
-      setGeneratingImage(false);
-    }
+    await requestFeaturedImage(imageGenerationPrompt);
   }
 
   async function generateInlineImages() {
@@ -640,6 +666,16 @@ export default function WebsiteBlogEditor() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="flex items-start gap-2 rounded-md border bg-slate-50 px-2 py-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="rounded mt-0.5 shrink-0"
+                      checked={autoGenerateFeaturedImage}
+                      onChange={(e) => setAutoGenerateFeaturedImage(e.target.checked)}
+                    />
+                    <span className="text-xs text-slate-700">Auto-generate a featured image after AI Generate/Improve</span>
+                  </label>
+
                   <Button
                     variant="outline"
                     size="sm"
