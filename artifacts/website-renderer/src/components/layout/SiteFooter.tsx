@@ -119,7 +119,15 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
         {/* Bottom bar */}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "center", fontSize: "0.8125rem" }}>
           <span>&copy; {year} {displayName}. All rights reserved.</span>
-          <span style={{ opacity: 0.4 }}>Powered by TradeWorkDesk</span>
+          <a
+            href="https://www.tradeworkdesk.co.uk"
+            target="_blank"
+            rel="nofollow sponsored noopener noreferrer"
+            style={{ opacity: 0.4, color: "inherit", textDecoration: "none" }}
+            aria-label="Powered by TradeWorkDesk"
+          >
+            Powered by TradeWorkDesk
+          </a>
         </div>
       </div>
     </footer>
