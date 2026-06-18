@@ -15,14 +15,25 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
-app.use(cors({
-  origin: [
-    process.env.APP_URL || "http://localhost:3000",
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ],
+// Broad CORS: allow the business app, all *.tradeworkdesk.co.uk subdomains,
+// and any custom tenant domain (public endpoints are rate-limited separately).
+const corsOptions: cors.CorsOptions = {
+  origin(origin, callback) {
+    // Allow requests with no origin (server-to-server, curl, mobile apps)
+    if (!origin) return callback(null, true);
+    const allowed =
+      origin === (process.env.APP_URL || "http://localhost:3000") ||
+      origin === "http://localhost:3000" ||
+      origin === "http://localhost:5173" ||
+      /^https?:\/\/([a-z0-9-]+\.)*tradeworkdesk\.co\.uk$/.test(origin) ||
+      /^https?:\/\/([a-z0-9-]+\.)*vercel\.app$/.test(origin);
+    // Custom tenant domains: allow all https origins (public routes are rate-limited)
+    const isCustomDomain = origin.startsWith("https://");
+    callback(null, allowed || isCustomDomain);
+  },
   credentials: true,
-}));
+};
+app.use(cors(corsOptions));
 
 const registrationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
