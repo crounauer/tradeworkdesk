@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { initSentry } from "./lib/sentry";
 import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";
@@ -18,19 +19,24 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-  setTimeout(() => {
-    submitIndexNowOnStartup().catch((err) =>
-      console.error("[indexnow] Startup submission failed:", err)
-    );
-    startSocialScheduler();
-    startDailySuggestionsCron();
-    seedAllTenantsJobTypes().catch((err) =>
-      console.error("[job-types] Startup seeding failed:", err)
-    );
-    runStartupMigrations().catch((err) =>
-      console.error("[migrations] Startup check failed:", err)
-    );
-  }, 5000);
-});
+(async () => {
+  // Initialise Sentry before the server starts so all errors are captured
+  await initSentry();
+
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+    setTimeout(() => {
+      submitIndexNowOnStartup().catch((err) =>
+        console.error("[indexnow] Startup submission failed:", err)
+      );
+      startSocialScheduler();
+      startDailySuggestionsCron();
+      seedAllTenantsJobTypes().catch((err) =>
+        console.error("[job-types] Startup seeding failed:", err)
+      );
+      runStartupMigrations().catch((err) =>
+        console.error("[migrations] Startup check failed:", err)
+      );
+    }, 5000);
+  });
+})();

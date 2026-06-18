@@ -102,6 +102,8 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled error:", err.stack || err.message);
+  // Report to Sentry if available (lazy import to avoid circular deps)
+  import("./lib/sentry").then(({ captureException }) => captureException(err)).catch(() => {});
   if (err.name === "ZodError") {
     res.status(422).json({ error: "Response validation failed", details: err.message });
     return;
