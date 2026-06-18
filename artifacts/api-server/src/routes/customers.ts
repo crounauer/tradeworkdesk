@@ -308,7 +308,14 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
   const customerName = `${customer.first_name} ${customer.last_name}`;
 
   try {
-    await sendPortalInviteEmail(customer.email, customerName, companyName, registerUrl);
+    await sendPortalInviteEmail(customer.email, customerName, companyName, registerUrl, {
+      name: (cs as any)?.name,
+      trading_name: (cs as any)?.trading_name,
+      email: (cs as any)?.email,
+      logo_url: (cs as any)?.logo_url,
+      phone: (cs as any)?.phone,
+      website: (cs as any)?.website,
+    });
   } catch (e) {
     console.error("[portal] Failed to send invite email:", e);
   }

@@ -8,7 +8,17 @@ if (!resendApiKey) {
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-const FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
+const PLATFORM_FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
+const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
+
+/** Builds a per-tenant FROM address using the company name as the display name. */
+function buildTenantFrom(company?: EmailCompanyDetails): string {
+  const name = company?.trading_name || company?.name;
+  return name ? `${name} <${FROM_EMAIL}>` : PLATFORM_FROM;
+}
+
+// Keep backward-compat alias used by platform-level emails below
+const FROM = PLATFORM_FROM;
 
 export interface EmailCompanyDetails {
   name?: string | null;
@@ -429,7 +439,8 @@ export async function sendJobConfirmationEmail(
 
   const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
   const replyTo = companyDetails?.email ?? undefined;
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const from = buildTenantFrom(companyDetails);
+  const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
   if (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
     throw new Error(`Email send failed: ${error.message}`);
@@ -461,7 +472,7 @@ export async function sendNewRegistrationNotification(
   await send(to, `TradeWorkDesk — New registration: ${newCompanyName}`, html);
 }
 
-export async function sendPortalInviteEmail(to: string, customerName: string, companyName: string, registerUrl: string): Promise<void> {
+export async function sendPortalInviteEmail(to: string, customerName: string, companyName: string, registerUrl: string, companyDetails?: EmailCompanyDetails): Promise<void> {
   const html = baseHtml(`${companyName} — Customer Portal Invitation`, `
     <h2>You've been invited to the Customer Portal</h2>
     <p>Dear ${escHtml(customerName)},</p>
@@ -482,8 +493,12 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
     </p>
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
-  `);
-  await send(to, `${companyName} — You're invited to the Customer Portal`, html);
+  `, companyDetails);
+  if (!resend) { console.warn(`[email] Resend not configured — skipping portal invite to ${to}`); return; }
+  const from = buildTenantFrom(companyDetails);
+  const replyTo = companyDetails?.email ?? undefined;
+  const { error } = await resend.emails.send({ from, to, subject: `${companyName} — You're invited to the Customer Portal`, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  if (error) console.error(`[email] Failed to send portal invite to ${to}:`, error);
 }
 
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
@@ -540,7 +555,8 @@ export async function sendServiceDueReminderEmail(
   }
   const subject = `${escHtml(companyDisplay)} — Service Due Reminder for ${escHtml(applianceDescription)}`;
   const replyTo = companyDetails?.email ?? undefined;
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const from = buildTenantFrom(companyDetails);
+  const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
   if (error) {
     console.error(`[email] Failed to send service reminder to ${to}:`, error);
     throw new Error(`Email send failed: ${error.message}`);
