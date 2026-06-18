@@ -76,6 +76,11 @@ export default function ContactFormBlock({ content }: Props) {
     let photoUrls: string[] = [];
     if (allow_photos && photos.length > 0) {
       photoUrls = await uploadFormPhotos(form_id!, photos);
+      if (photoUrls.length === 0) {
+        setSubmitting(false);
+        setError("Photo upload failed. Please try again or submit without photos.");
+        return;
+      }
     }
 
     const payload = photoUrls.length > 0 ? { ...values, photos: photoUrls } : { ...values };

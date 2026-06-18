@@ -27,6 +27,12 @@ interface FileRow {
   created_at: string;
 }
 
+function bucketForAttachment(file: Pick<FileRow, "file_type" | "storage_path">): string {
+  // Website form uploads live in public-uploads under form-submissions/...
+  if (file.storage_path?.startsWith("form-submissions/")) return "public-uploads";
+  return file.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
+}
+
 async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string, entityId: string): Promise<{ allowed: boolean; error?: string }> {
   if (entityType === "job") {
     let q = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", entityId);
@@ -105,7 +111,7 @@ router.get("/files", requireAuth, requireTenant, async (req: AuthenticatedReques
 
   const filesWithUrls = await Promise.all(
     (data as FileRow[] || []).map(async (f) => {
-      const bucket = f.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
+      const bucket = bucketForAttachment(f);
       const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(f.storage_path, 3600);
 
       let thumbnail_signed_url: string | null = null;
@@ -375,11 +381,12 @@ router.delete("/files/:id", requireAuth, requireTenant, async (req: Authenticate
   }
 
   const bucket = fileRow.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
+  const resolvedBucket = bucketForAttachment(fileRow);
   const pathsToDelete = [fileRow.storage_path];
   if (fileRow.thumbnail_storage_path) {
     pathsToDelete.push(fileRow.thumbnail_storage_path);
   }
-  await supabaseAdmin.storage.from(bucket).remove(pathsToDelete);
+  await supabaseAdmin.storage.from(resolvedBucket).remove(pathsToDelete);
   await supabaseAdmin.from("file_attachments").delete().eq("id", params.data.id);
   res.sendStatus(204);
 });
@@ -398,7 +405,7 @@ router.get("/files/:id/url", requireAuth, requireTenant, async (req: Authenticat
   const access = await verifyEntityAccess(req, fileRow.entity_type, fileRow.entity_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const bucket = fileRow.file_type?.startsWith("image/") ? "service-photos" : "service-documents";
+  const bucket = bucketForAttachment(fileRow);
   const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(fileRow.storage_path, 3600);
   if (!urlData) { res.status(500).json({ error: "Failed to generate URL" }); return; }
 

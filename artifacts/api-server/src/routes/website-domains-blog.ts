@@ -124,6 +124,11 @@ router.post(
       if (urlData?.publicUrl) urls.push(urlData.publicUrl);
     }
 
+    if (files.length > 0 && urls.length === 0) {
+      res.status(500).json({ error: "Failed to upload photos" });
+      return;
+    }
+
     res.json({ urls });
   }
 );
@@ -1123,13 +1128,36 @@ async function attachSubmissionPhotosToEnquiry(
     try {
       const srcPath = publicUploadsPathFromUrl(photoUrl);
       if (srcPath) {
-        const { data: blob, error } = await supabaseAdmin.storage
-          .from("public-uploads")
-          .download(srcPath);
-        if (!error && blob) {
-          const arr = await blob.arrayBuffer();
-          buffer = Buffer.from(arr);
+        const urlFileName = srcPath.split("/").pop() || `website-photo-${i + 1}.jpg`;
+        const ext = (urlFileName.split(".").pop() || "").toLowerCase();
+        const inferredMime = ext === "png"
+          ? "image/png"
+          : ext === "webp"
+            ? "image/webp"
+            : ext === "gif"
+              ? "image/gif"
+              : "image/jpeg";
+
+        const { error: directInsertErr } = await (supabaseAdmin as any)
+          .from("file_attachments")
+          .insert({
+            tenant_id: tenantId,
+            file_name: urlFileName,
+            file_type: inferredMime,
+            file_size: null,
+            storage_path: srcPath,
+            entity_type: "enquiry",
+            entity_id: enquiryId,
+            uploaded_by: uploadedBy,
+            description: "Uploaded from website contact form",
+          });
+
+        if (!directInsertErr) {
+          // Attachment row created using original public-uploads object.
+          continue;
         }
+
+        console.error("[website-form] Direct attachment insert failed; falling back to copy:", directInsertErr.message);
       }
 
       if (!buffer) {
