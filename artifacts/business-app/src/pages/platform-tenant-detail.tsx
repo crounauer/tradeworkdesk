@@ -125,6 +125,8 @@ export default function PlatformTenantDetail() {
     enabled: !!params.id,
   });
 
+  const [reprovisioningSubdomain, setReprovisioningSubdomain] = useState(false);
+
   const syncDomainToVercel = async (domain: string) => {
     setSyncingDomain(domain);
     try {
@@ -140,6 +142,23 @@ export default function PlatformTenantDetail() {
       toast({ title: "Sync failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     } finally {
       setSyncingDomain(null);
+    }
+  };
+
+  const reprovisionSubdomain = async () => {
+    setReprovisioningSubdomain(true);
+    try {
+      const res = await fetch(`/api/platform/tenants/${params.id}/reprovision-subdomain`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Reprovision failed");
+      toast({ title: "Subdomain provisioned", description: `${data.domain} — ${data.action}` });
+      refetchDomains();
+    } catch (e) {
+      toast({ title: "Reprovision failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setReprovisioningSubdomain(false);
     }
   };
 
@@ -720,14 +739,29 @@ export default function PlatformTenantDetail() {
         </Card>
       )}
 
-      {websiteDomains && websiteDomains.length > 0 && (
-        <Card>
+      {/* Website Domains — always show so we can reprovision missing subdomains */}
+      <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-blue-500" /> Website Domains
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-blue-500" /> Website Domains
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reprovisioningSubdomain}
+                onClick={reprovisionSubdomain}
+                title="Create or re-activate the platform subdomain for this tenant"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${reprovisioningSubdomain ? "animate-spin" : ""}`} />
+                {reprovisioningSubdomain ? "Provisioning…" : "Reprovision subdomain"}
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {(!websiteDomains || websiteDomains.length === 0) ? (
+              <p className="text-sm text-muted-foreground">No domains found. Use "Reprovision subdomain" to create one.</p>
+            ) : (
             <div className="divide-y">
               {websiteDomains.map(d => (
                 <div key={d.id} className="py-3 flex items-center gap-3">
@@ -760,9 +794,9 @@ export default function PlatformTenantDetail() {
                 </div>
               ))}
             </div>
+            )}
           </CardContent>
         </Card>
-      )}
 
       {tenant.plan_id && (plans || []).some((p: { id: string; is_legacy?: boolean }) =>
         p.id === tenant.plan_id && p.is_legacy

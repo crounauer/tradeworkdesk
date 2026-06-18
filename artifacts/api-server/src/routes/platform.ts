@@ -1664,6 +1664,103 @@ router.delete("/platform/template-assets/:templateId/:filename", requireAuth, re
 });
 
 // POST /platform/domains/sync-vercel — force-add or remove a domain from Vercel renderer
+// POST /platform/tenants/:id/reprovision-subdomain
+// Creates (or re-activates) the platform subdomain record for a tenant whose
+// website was created before subdomain provisioning ran, or whose subdomain
+// record was never inserted.
+router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id: tenantId } = req.params;
+  const db = supabaseAdmin as any;
+  const PLATFORM_SUBDOMAIN_BASE = process.env.PLATFORM_SUBDOMAIN_BASE || "tradeworkdesk.co.uk";
+
+  // Look up the tenant's website
+  const { data: website } = await db
+    .from("websites")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .maybeSingle() as { data: { id: string } | null };
+
+  if (!website) {
+    res.status(404).json({ error: "No website found for this tenant" });
+    return;
+  }
+
+  // Check if a platform subdomain already exists (active or inactive)
+  const { data: existing } = await db
+    .from("website_domains")
+    .select("id, domain, is_active")
+    .eq("website_id", website.id)
+    .eq("is_platform_subdomain", true)
+    .maybeSingle() as { data: { id: string; domain: string; is_active: boolean } | null };
+
+  if (existing) {
+    // Re-activate if inactive and re-register with Vercel
+    if (!existing.is_active) {
+      await db.from("website_domains").update({ is_active: true, activated_at: new Date().toISOString() }).eq("id", existing.id);
+    }
+    await addDomainToVercel(existing.domain);
+    res.json({ ok: true, domain: existing.domain, action: existing.is_active ? "re-synced" : "reactivated" });
+    return;
+  }
+
+  // No platform subdomain exists — provision one from scratch
+  // Derive slug from company_settings or fallback to tenant id
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name")
+    .eq("tenant_id", tenantId)
+    .eq("singleton_id", "default")
+    .maybeSingle() as { data: { name?: string; trading_name?: string } | null };
+
+  const rawName = cs?.trading_name || cs?.name || tenantId;
+  const baseSlug = rawName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 40) || "site";
+
+  let slug = baseSlug;
+  for (let counter = 2; counter < 100; counter++) {
+    const { data: taken } = await db
+      .from("website_domains")
+      .select("id")
+      .eq("domain", `${slug}.${PLATFORM_SUBDOMAIN_BASE}`)
+      .maybeSingle() as { data: { id: string } | null };
+    if (!taken) break;
+    slug = `${baseSlug}-${counter}`;
+  }
+
+  const domain = `${slug}.${PLATFORM_SUBDOMAIN_BASE}`;
+  await db.from("website_domains").insert({
+    website_id: website.id,
+    tenant_id: tenantId,
+    domain,
+    is_platform_subdomain: true,
+    is_primary: false,
+    is_active: true,
+    verification_status: "verified",
+    ssl_status: "active",
+    cf_ownership_verified: false,
+    cf_ssl_verified: false,
+    activated_at: new Date().toISOString(),
+  });
+
+  await addDomainToVercel(domain);
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "subdomain_reprovisioned",
+    entity_type: "website_domain",
+    entity_id: null,
+    detail: { tenant_id: tenantId, domain, action: "created" },
+  });
+
+  res.json({ ok: true, domain, action: "created" });
+});
+
 router.post("/platform/domains/sync-vercel", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { domain, action = "add" } = req.body as { domain?: string; action?: "add" | "remove" };
   if (!domain) { res.status(400).json({ error: "domain is required" }); return; }
