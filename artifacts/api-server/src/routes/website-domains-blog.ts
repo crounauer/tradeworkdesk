@@ -40,6 +40,7 @@ import {
 import { resolveCname, resolve4 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
+import { sendSimpleNotification } from "../lib/email";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -570,6 +571,15 @@ router.post(
       );
     }
 
+    // Send notification email to the configured address (or fall back to company email)
+    void sendFormSubmissionNotification(
+      String(form.tenant_id),
+      String(form.notify_email || ""),
+      String(form.form_type || "contact"),
+      submissionData,
+      submission!.id,
+    );
+
     res.json({ ok: true, submission_id: submission?.id });
   }
 );
@@ -821,6 +831,55 @@ router.get(
     res.json({ ...page, blocks: blocks || [] });
   }
 );
+
+// ─── Helper: notify tenant of new form submission ────────────────────────────
+
+async function sendFormSubmissionNotification(
+  tenantId: string,
+  formNotifyEmail: string,
+  formType: string,
+  data: Record<string, unknown>,
+  submissionId: string,
+): Promise<void> {
+  try {
+    // Resolve notification email: form-level override → company_settings.email
+    let toEmail = formNotifyEmail.trim();
+    if (!toEmail) {
+      const { data: cs } = await (supabaseAdmin as any)
+        .from("company_settings")
+        .select("email, name, trading_name")
+        .eq("tenant_id", tenantId)
+        .eq("singleton_id", "default")
+        .maybeSingle() as { data: { email: string | null; name: string | null; trading_name: string | null } | null };
+      toEmail = cs?.email?.trim() || "";
+    }
+    if (!toEmail) return; // nowhere to send — skip silently
+
+    const subject = `New ${formType} form submission on your website`;
+
+    const lines: string[] = [];
+    for (const [key, val] of Object.entries(data)) {
+      if (!val) continue;
+      const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      lines.push(`${label}: ${String(val)}`);
+    }
+
+    const body = [
+      `You have received a new ${formType} enquiry from your website.`,
+      "",
+      lines.join("\n"),
+      "",
+      `Submission ID: ${submissionId}`,
+      "",
+      "Log in to TradeWorkDesk to view and manage this enquiry:",
+      "https://app.tradeworkdesk.co.uk/enquiries",
+    ].join("\n");
+
+    await sendSimpleNotification(toEmail, subject, body);
+  } catch (err) {
+    console.error("[website-form] Failed to send notification email:", (err as Error).message);
+  }
+}
 
 // ─── Helper: create enquiry from form submission ──────────────────────────────
 

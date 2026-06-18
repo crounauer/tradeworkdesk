@@ -79,6 +79,22 @@ export default function WebsiteSettings() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateNotifyEmailMutation = useMutation({
+    mutationFn: ({ formId, notify_email }: { formId: string; notify_email: string }) =>
+      apiFetch(`/api/website/forms/${formId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notify_email: notify_email || null }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website/forms"] });
+      toast({ title: "Notification email saved" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const [notifyEmailDraft, setNotifyEmailDraft] = useState<Record<string, string>>({});
+
   const [form, setForm] = useState({
     site_name: "",
     tagline: "",
@@ -247,29 +263,61 @@ export default function WebsiteSettings() {
             <p className="text-sm text-muted-foreground italic">No forms found. Build your website to create a contact form.</p>
           ) : (
             <div className="space-y-3">
-              {forms.map((form) => (
-                <Card key={form.id}>
-                  <CardContent className="flex items-center justify-between py-4 px-5">
-                    <div className="flex items-center gap-3">
-                      <Inbox className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">{form.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{form.form_type.replace(/_/g, " ")} form</p>
+              {forms.map((wf) => (
+                <Card key={wf.id}>
+                  <CardContent className="py-4 px-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Inbox className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium text-sm">{wf.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{wf.form_type.replace(/_/g, " ")} form</p>
+                        </div>
+                        {wf.auto_create_enquiry && (
+                          <Badge variant="default" className="text-xs bg-green-600">Auto-enquiry on</Badge>
+                        )}
                       </div>
-                      {form.auto_create_enquiry && (
-                        <Badge variant="default" className="text-xs bg-green-600">Auto-enquiry on</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`form-${wf.id}`} className="text-sm text-muted-foreground">
+                          Auto-create enquiry
+                        </Label>
+                        <Switch
+                          id={`form-${wf.id}`}
+                          checked={wf.auto_create_enquiry}
+                          onCheckedChange={(v) => toggleEnquiryMutation.mutate({ formId: wf.id, value: v })}
+                          disabled={toggleEnquiryMutation.isPending}
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`form-${form.id}`} className="text-sm text-muted-foreground">
-                        Auto-create enquiry
-                      </Label>
-                      <Switch
-                        id={`form-${form.id}`}
-                        checked={form.auto_create_enquiry}
-                        onCheckedChange={(v) => toggleEnquiryMutation.mutate({ formId: form.id, value: v })}
-                        disabled={toggleEnquiryMutation.isPending}
-                      />
+
+                    {/* Notification email */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Notification email</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Where to send an email alert when this form is submitted. Leave blank to use your company contact email.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="email"
+                          placeholder="e.g. office@yourcompany.co.uk"
+                          value={notifyEmailDraft[wf.id] ?? (wf.notify_email || "")}
+                          onChange={(e) => setNotifyEmailDraft((d) => ({ ...d, [wf.id]: e.target.value }))}
+                          className="max-w-sm"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={updateNotifyEmailMutation.isPending}
+                          onClick={() =>
+                            updateNotifyEmailMutation.mutate({
+                              formId: wf.id,
+                              notify_email: notifyEmailDraft[wf.id] ?? (wf.notify_email || ""),
+                            })
+                          }
+                        >
+                          Save
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
