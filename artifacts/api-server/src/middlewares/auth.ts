@@ -25,12 +25,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 const SUPABASE_TIMEOUT_MS = 8_000; // 8 s — adjust down if you want faster 401s
-const TRIAL_LOCK_DEBUG = process.env.TRIAL_LOCK_DEBUG !== "0";
-
-function logTrialLock(stage: string, details: Record<string, unknown>): void {
-  if (!TRIAL_LOCK_DEBUG) return;
-  console.log(`[trial-lock] ${stage}`, details);
-}
 
 const planFeaturesCache = new Map<string, { features: Record<string, unknown>; expiresAt: number }>();
 const PLAN_CACHE_TTL_MS = 60_000;
@@ -292,28 +286,11 @@ export async function requireAuth(
     }
 
     if (tenantState) {
-      logTrialLock("requireAuth:state", {
-        path,
-        userId: req.userId,
-        tenantId: req.tenantId,
-        status: tenantState.status,
-        trialEndsAt: tenantState.trial_ends_at,
-        planId: tenantState.plan_id,
-        hasStripeSubscription: !!tenantState.stripe_subscription_id,
-      });
-
       const trialExpired = !!tenantState.trial_ends_at && new Date(tenantState.trial_ends_at).getTime() < nowTs;
       const shouldSuspendNoPaid = tenantState.status === "active" && !tenantState.stripe_subscription_id;
       const shouldSuspendExpiredTrial = tenantState.status === "trial" && trialExpired;
 
       if (shouldSuspendNoPaid || shouldSuspendExpiredTrial) {
-        logTrialLock("requireAuth:suspend", {
-          path,
-          userId: req.userId,
-          tenantId: req.tenantId,
-          reason: shouldSuspendExpiredTrial ? "expired_trial" : "active_without_paid_subscription",
-          previousStatus: tenantState.status,
-        });
         await Promise.all([
           supabaseAdmin
             .from("tenants")
@@ -336,27 +313,11 @@ export async function requireAuth(
         (tenantState.status === "suspended" && !tenantState.stripe_subscription_id);
 
       if (lockedTrialExpired && !allowDuringLock) {
-        logTrialLock("requireAuth:block", {
-          path,
-          userId: req.userId,
-          tenantId: req.tenantId,
-          reason: "trial_expired_or_no_paid_subscription",
-          allowDuringLock,
-        });
         res.status(403).json({
           error: "account_trial_expired",
           message: "Your trial has ended. Please start a paid subscription to restore access.",
         });
         return;
-      }
-
-      if (lockedTrialExpired && allowDuringLock) {
-        logTrialLock("requireAuth:allow-during-lock", {
-          path,
-          userId: req.userId,
-          tenantId: req.tenantId,
-          reason: "billing_or_account_access_allowed",
-        });
       }
     }
   }
@@ -433,36 +394,13 @@ export async function requireTenant(
   }
 
   if (cached) {
-    logTrialLock("requireTenant:state", {
-      path: req.path,
-      userId: req.userId,
-      tenantId: req.tenantId,
-      status: cached.status,
-      trialEndsAt: cached.trial_ends_at,
-      planId: cached.plan_id,
-      hasStripeSubscription: !!cached.stripe_subscription_id,
-    });
-
     if (cached.status === "cancelled") {
-      logTrialLock("requireTenant:block", {
-        path: req.path,
-        userId: req.userId,
-        tenantId: req.tenantId,
-        reason: "account_cancelled",
-      });
       res.status(403).json({ error: "account_cancelled", message: "This account has been cancelled." });
       return;
     }
     if (cached.status === "trial" && cached.trial_ends_at) {
       const trialEnd = new Date(cached.trial_ends_at).getTime();
       if (trialEnd < now) {
-        logTrialLock("requireTenant:suspend", {
-          path: req.path,
-          userId: req.userId,
-          tenantId: req.tenantId,
-          reason: "expired_trial",
-          previousStatus: cached.status,
-        });
         await Promise.all([
           supabaseAdmin
             .from("tenants")
@@ -481,13 +419,6 @@ export async function requireTenant(
     const legacyNoPlan = cached.status === "active" && cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id;
     const activeWithoutPaidSubscription = cached.status === "active" && !cached.stripe_subscription_id;
     if (legacyNoPlan) {
-      logTrialLock("requireTenant:suspend", {
-        path: req.path,
-        userId: req.userId,
-        tenantId: req.tenantId,
-        reason: "legacy_free_plan_without_subscription",
-        previousStatus: cached.status,
-      });
       await Promise.all([
         supabaseAdmin
           .from("tenants")
@@ -503,13 +434,6 @@ export async function requireTenant(
       tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
     }
     else if (activeWithoutPaidSubscription) {
-      logTrialLock("requireTenant:suspend", {
-        path: req.path,
-        userId: req.userId,
-        tenantId: req.tenantId,
-        reason: "active_without_paid_subscription",
-        previousStatus: cached.status,
-      });
       await Promise.all([
         supabaseAdmin
           .from("tenants")
@@ -530,34 +454,16 @@ export async function requireTenant(
         (cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id) ||
         !cached.stripe_subscription_id;
       if (isBillingPath) {
-        logTrialLock("requireTenant:allow-during-lock", {
-          path: req.path,
-          userId: req.userId,
-          tenantId: req.tenantId,
-          reason: "billing_access_allowed",
-        });
         next();
         return;
       }
       if (trialExpired) {
-        logTrialLock("requireTenant:block", {
-          path: req.path,
-          userId: req.userId,
-          tenantId: req.tenantId,
-          reason: "trial_expired_or_no_paid_subscription",
-        });
         res.status(403).json({
           error: "account_trial_expired",
           message: "Your trial has ended. Please start a paid subscription to restore access.",
         });
         return;
       }
-      logTrialLock("requireTenant:block", {
-        path: req.path,
-        userId: req.userId,
-        tenantId: req.tenantId,
-        reason: "account_suspended",
-      });
       res.status(403).json({ error: "account_suspended", message: "This account has been suspended. Please contact support or update your payment method." });
       return;
     }
