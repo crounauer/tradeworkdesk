@@ -350,7 +350,23 @@ export async function requireTenant(
       }
     }
     const legacyNoPlan = cached.status === "active" && cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id;
+    const activeWithoutPaidSubscription = cached.status === "active" && !cached.stripe_subscription_id;
     if (legacyNoPlan) {
+      await Promise.all([
+        supabaseAdmin
+          .from("tenants")
+          .update({ status: "suspended" })
+          .eq("id", req.tenantId),
+        supabaseAdmin
+          .from("tenant_addons")
+          .update({ is_active: false })
+          .eq("tenant_id", req.tenantId!)
+          .eq("is_active", true),
+      ]);
+      cached.status = "suspended";
+      tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
+    }
+    else if (activeWithoutPaidSubscription) {
       await Promise.all([
         supabaseAdmin
           .from("tenants")
@@ -368,7 +384,8 @@ export async function requireTenant(
     if (cached.status === "suspended") {
       const trialExpired =
         (!!cached.trial_ends_at && new Date(cached.trial_ends_at).getTime() < now) ||
-        (cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id);
+        (cached.plan_id === FREE_PLAN_ID && !cached.stripe_subscription_id) ||
+        !cached.stripe_subscription_id;
       if (isBillingPath) {
         next();
         return;

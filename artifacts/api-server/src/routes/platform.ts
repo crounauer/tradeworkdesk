@@ -946,6 +946,21 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
         tenantRes.data.status = "suspended";
         activeAddons = [];
       }
+      else if (tenantRes.data.status === "active" && !tenantRes.data.stripe_subscription_id) {
+        await Promise.all([
+          supabaseAdmin
+            .from("tenants")
+            .update({ status: "suspended" })
+            .eq("id", req.tenantId!),
+          supabaseAdmin
+            .from("tenant_addons")
+            .update({ is_active: false })
+            .eq("tenant_id", req.tenantId!)
+            .eq("is_active", true),
+        ]);
+        tenantRes.data.status = "suspended";
+        activeAddons = [];
+      }
       const plan = tenantRes.data.plans;
       // All plans are flat-rate — every standard feature is included.
       const baseFeatures: Record<string, boolean> = {
@@ -1108,6 +1123,20 @@ router.get("/me/tenant", requireAuth, async (req: AuthenticatedRequest, res): Pr
   };
 
   if (tenantData.status === "active" && tenantData.plan_id === FREE_PLAN_ID && !tenantData.stripe_subscription_id) {
+    await Promise.all([
+      supabaseAdmin
+        .from("tenants")
+        .update({ status: "suspended" })
+        .eq("id", req.tenantId),
+      supabaseAdmin
+        .from("tenant_addons")
+        .update({ is_active: false })
+        .eq("tenant_id", req.tenantId)
+        .eq("is_active", true),
+    ]);
+    (tenantRes.data as { status: string }).status = "suspended";
+  }
+  else if (tenantData.status === "active" && !tenantData.stripe_subscription_id) {
     await Promise.all([
       supabaseAdmin
         .from("tenants")
