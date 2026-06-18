@@ -116,6 +116,10 @@ export default function WebsiteBlogEditor() {
   const [inlineImageCount, setInlineImageCount] = useState(1);
   const [generatingInlineImages, setGeneratingInlineImages] = useState(false);
 
+  function countImagePlaceholders(text: string): number {
+    return Array.from(text.matchAll(/\[IMAGE:\s*[^\]]+\]/gi)).length;
+  }
+
   // Load post
   const { data: post, isLoading } = useQuery<BlogPost>({
     queryKey: ["/api/website/blog", params.id],
@@ -270,11 +274,19 @@ export default function WebsiteBlogEditor() {
       const res = await fetch("/api/website/blog/ai-assist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // If auto inline image generation is enabled, enforce placeholder generation.
+        // This ensures Improve/Generate can immediately insert real images.
         body: JSON.stringify({
           operation,
           title: title.trim(),
           existingContent: bodyText.trim() || undefined,
-          contentOptions: Array.from(contentOptions),
+          contentOptions: (() => {
+            const selected = new Set(contentOptions);
+            if ((operation === "generate" || operation === "improve") && autoGenerateInlineImages) {
+              selected.add("images");
+            }
+            return Array.from(selected);
+          })(),
         }),
       });
 
@@ -343,7 +355,7 @@ export default function WebsiteBlogEditor() {
   }
 
   async function requestInlineImages(contentText: string, opts?: { showSuccessToast?: boolean }) {
-    const placeholderCount = (contentText.match(/^\[IMAGE:\s*.+\]$/gim) ?? []).length;
+    const placeholderCount = countImagePlaceholders(contentText);
     if (placeholderCount === 0) {
       toast({ title: "No image placeholders", description: "Add [IMAGE: description] lines in your content first.", variant: "destructive" });
       return false;
@@ -422,7 +434,7 @@ export default function WebsiteBlogEditor() {
   }
 
   const creditsInPounds = aiCredits != null ? `£${(aiCredits / 100).toFixed(2)}` : null;
-  const imagePlaceholderCount = (bodyText.match(/^\[IMAGE:\s*.+\]$/gim) ?? []).length;
+  const imagePlaceholderCount = countImagePlaceholders(bodyText);
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">

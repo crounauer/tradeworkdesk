@@ -418,10 +418,11 @@ function getContentText(content: unknown): string {
 
 function extractImagePlaceholders(content: string): Array<{ raw: string; description: string }> {
   const placeholders: Array<{ raw: string; description: string }> = [];
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    const match = trimmed.match(/^\[IMAGE:\s*(.+?)\]$/i);
-    if (match) placeholders.push({ raw: trimmed, description: match[1].trim() });
+  const regex = /\[IMAGE:\s*([^\]]+?)\]/gi;
+  for (const match of content.matchAll(regex)) {
+    const raw = match[0]?.trim();
+    const description = match[1]?.trim();
+    if (raw && description) placeholders.push({ raw, description });
   }
   return placeholders;
 }
@@ -802,7 +803,10 @@ router.post(
         return;
       }
 
-      updatedContent = updatedContent.replace(placeholder.raw, `![${placeholder.description}](${result.imageUrl})`);
+      updatedContent = updatedContent.replace(
+        placeholder.raw,
+        `\n![${placeholder.description}](${result.imageUrl})\n`,
+      );
       totalCreditsUsed += result.creditsUsed;
       totalCostUsd += result.costUsd;
       generatedImages.push({ description: placeholder.description, imageUrl: result.imageUrl });
