@@ -19,20 +19,17 @@ interface Plan {
   sort_order: number;
 }
 
-function fmt(pence: number): string {
-  const pounds = pence / 100;
-  return pounds % 1 === 0 ? `£${pounds}` : `£${pounds.toFixed(2)}`;
-}
-
 // Prices from the DB are stored as pence (integers) or pounds (floats) —
 // handle both: if > 500 treat as pence, otherwise treat as pounds.
 function normalisePounds(raw: number): number {
   return raw > 500 ? raw / 100 : raw;
 }
 
+const CURRENCY = "\u00A3";
+
 function fmtPounds(raw: number): string {
   const p = normalisePounds(raw);
-  return p % 1 === 0 ? `£${p}` : `£${p.toFixed(2)}`;
+  return CURRENCY + (p % 1 === 0 ? String(p) : p.toFixed(2));
 }
 
 const JOB_FEATURES = [
@@ -82,7 +79,7 @@ function buildFaqs(plan: Plan | undefined) {
     },
     {
       question: "How does per-user billing work?",
-      answer: `The ${base}/month plan includes ${maxUsers} users (e.g. an admin and one engineer). Each additional user is ${perUser}/month. So a team of ${exampleTeam} would be ${base} + 3×${perUser} = ${examplePrice}/month.`,
+      answer: "The " + base + "/month plan includes " + maxUsers + " users (e.g. an admin and one engineer). Each additional user is " + perUser + "/month. So a team of " + exampleTeam + " would be " + base + " + (3 x " + perUser + ") = " + examplePrice + "/month.",
     },
     {
       question: "Can I add engineers mid-month?",
@@ -129,8 +126,8 @@ function buildTeamExamples(plan: Plan | undefined) {
   const maxU = plan.max_users;
   const sizes = [maxU, maxU + 1, maxU + 3, maxU + 8];
   return sizes.map((n, i) => ({
-    label: i === 0 ? `1–${n} engineers` : `${n} engineers`,
-    price: `${fmtPounds(base + Math.max(0, n - maxU) * perUser)}/mo`,
+    label: i === 0 ? "1\u2013" + n + " engineers" : n + " engineers",
+    price: fmtPounds(base + Math.max(0, n - maxU) * perUser) + "/mo",
   }));
 }
 
@@ -154,7 +151,7 @@ export default function PricingPage() {
     <MarketingLayout>
       <SEOHead
         title="Pricing — One plan. Everything included."
-        description={`TradeWorkDesk is ${basePrice}/month for up to ${maxUsers} users, with every feature included. Add more engineers at ${perUserPrice}/month each. No contracts, no hidden fees.`}
+        description={"TradeWorkDesk is " + basePrice + "/month for up to " + maxUsers + " users, with every feature included. Add more engineers at " + perUserPrice + "/month each. No contracts, no hidden fees."}
         canonical={`${SITE_URL}/pricing`}
         schema={[
           breadcrumbSchema([
@@ -268,138 +265,6 @@ export default function PricingPage() {
                   {ex.label} &nbsp;→&nbsp; <strong>{ex.price}</strong>
                 </span>
               ))}
-            </div>
-            <p className="mt-4 text-xs text-slate-500">
-              All prices exclude VAT. Extra users are billed pro-rata if added mid-month.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="bg-slate-50 py-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="font-display text-3xl font-bold text-slate-900 text-center mb-12">
-            Frequently Asked Questions
-          </h2>
-          <div className="space-y-6">
-            {faqs.map((faq) => (
-              <div key={faq.question} className="bg-white rounded-xl p-6 border border-slate-200">
-                <h3 className="font-display font-semibold text-slate-900">{faq.question}</h3>
-                <p className="mt-2 text-sm text-slate-600 leading-relaxed">{faq.answer}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </MarketingLayout>
-  );
-}
-
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-slate-50 to-white py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="inline-block px-3 py-1 text-xs font-semibold bg-primary/10 text-primary rounded-full mb-4">
-            Simple pricing
-          </span>
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
-            One plan. Everything included.
-          </h1>
-          <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-            No tiers. No add-ons to figure out. Every feature is included from day one.
-          </p>
-        </div>
-      </section>
-
-      {/* Plan card */}
-      <section className="bg-white py-12">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-primary text-white p-8 md:p-12 shadow-xl">
-            {/* Price + CTA */}
-            <div className="flex flex-col md:flex-row gap-8 items-start mb-10">
-              <div className="flex-1">
-                <h2 className="font-display text-3xl font-bold">TradeWorkDesk</h2>
-                <p className="mt-2 text-blue-100">
-                  Job management <em>and</em> a professional website — both fully included, no extras.
-                </p>
-                <div className="mt-6 flex items-end gap-2">
-                  <span className="font-display text-6xl font-bold">£25</span>
-                  <div className="pb-1">
-                    <div className="text-blue-100">/month</div>
-                    <div className="text-sm text-blue-200">includes 2 users</div>
-                  </div>
-                </div>
-                <p className="mt-2 text-sm text-blue-200">
-                  + £10/month per additional user &nbsp;·&nbsp; billed monthly &nbsp;·&nbsp; cancel any time
-                </p>
-                <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                  <Link href="/register">
-                    <Button className="bg-white text-primary hover:bg-blue-50 font-semibold text-base px-8 py-5">
-                      Start 30-day free trial
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-                <p className="mt-3 text-xs text-blue-300">No credit card required for trial.</p>
-              </div>
-            </div>
-
-            {/* Two-column feature groups */}
-            <div className="grid md:grid-cols-2 gap-8 border-t border-blue-500/40 pt-8">
-              {/* Job Management */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Briefcase className="w-4 h-4 text-blue-300" />
-                  <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide">
-                    Job Management
-                  </h3>
-                </div>
-                <ul className="space-y-2.5">
-                  {JOB_FEATURES.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5 text-sm">
-                      <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Website Builder */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Globe className="w-4 h-4 text-blue-300" />
-                  <h3 className="font-semibold text-blue-100 uppercase text-xs tracking-wide">
-                    Website Builder
-                  </h3>
-                </div>
-                <ul className="space-y-2.5">
-                  {WEBSITE_FEATURES.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5 text-sm">
-                      <CheckCircle className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Per-seat explainer */}
-          <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-            <h3 className="font-semibold text-slate-900 mb-3">Growing team?</h3>
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-600">
-              <span className="rounded-lg bg-white border border-slate-200 px-4 py-2">
-                1–2 engineers &nbsp;→&nbsp; <strong>£25/mo</strong>
-              </span>
-              <span className="rounded-lg bg-white border border-slate-200 px-4 py-2">
-                3 engineers &nbsp;→&nbsp; <strong>£35/mo</strong>
-              </span>
-              <span className="rounded-lg bg-white border border-slate-200 px-4 py-2">
-                5 engineers &nbsp;→&nbsp; <strong>£55/mo</strong>
-              </span>
-              <span className="rounded-lg bg-white border border-slate-200 px-4 py-2">
-                10 engineers &nbsp;→&nbsp; <strong>£105/mo</strong>
-              </span>
             </div>
             <p className="mt-4 text-xs text-slate-500">
               All prices exclude VAT. Extra users are billed pro-rata if added mid-month.
