@@ -477,6 +477,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     postcode: (cs?.postcode as string | null) || null,
     phone: (cs?.phone as string | null) || null,
     email: (cs?.email as string | null) || null,
+    notification_emails: (cs?.notification_emails as string[] | null) || null,
     website: (cs?.website as string | null) || null,
     gas_safe_number: (cs?.gas_safe_number as string | null) || null,
     oftec_number: (cs?.oftec_number as string | null) || null,

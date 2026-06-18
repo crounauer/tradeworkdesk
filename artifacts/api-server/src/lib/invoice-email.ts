@@ -26,6 +26,21 @@ function formatCurrency(currency: string, amount: number): string {
   }).format(amount);
 }
 
+function normalizeAdditionalRecipients(
+  extra: string[] | null | undefined,
+  to: string,
+  replyTo?: string,
+): string[] {
+  const blacklist = new Set([to.toLowerCase(), (replyTo || "").toLowerCase()]);
+  return Array.from(
+    new Set(
+      (extra || [])
+        .map((email) => String(email).trim().toLowerCase())
+        .filter((email) => email && !blacklist.has(email)),
+    ),
+  );
+}
+
 export async function sendInvoiceDocumentEmail(opts: {
   to: string;
   type: "invoice" | "quote";
@@ -173,10 +188,12 @@ export async function sendInvoiceDocumentEmail(opts: {
 
   const filename = `${label.toLowerCase()}-${invoiceNumber}.pdf`;
   const replyTo = opts.company?.email ?? undefined;
+  const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, replyTo);
 
   const sendOpts: Parameters<typeof resend.emails.send>[0] = {
     from: FROM,
     to: [opts.to],
+    ...(cc.length > 0 ? { cc } : {}),
     subject,
     html,
     attachments: [{ filename, content: opts.pdfBuffer }],
@@ -270,6 +287,9 @@ export async function sendPaymentReceiptEmail(opts: {
   const sendOpts: Parameters<typeof resend.emails.send>[0] = {
     from: FROM,
     to: [opts.to],
+    ...(normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email ?? undefined).length > 0
+      ? { cc: normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email ?? undefined) }
+      : {}),
     subject,
     html,
     attachments: [{ filename: `invoice-${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer }],

@@ -13,6 +13,7 @@ export interface CompanySettings {
   country?: string | null;
   phone?: string | null;
   email?: string | null;
+  notification_emails?: string[] | null;
   website?: string | null;
   service_area?: string | null;
   coverage_radius_miles?: number | null;

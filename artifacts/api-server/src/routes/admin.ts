@@ -374,6 +374,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "name", "trading_name",
     "address_line1", "address_line2", "city", "county", "postcode", "country",
     "phone", "email", "website",
+    "notification_emails",
     "service_area", "coverage_radius_miles",
     "gas_safe_number", "oftec_number", "vat_number", "company_number",
     "default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days", "currency",
@@ -414,6 +415,26 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
         return;
       }
     }
+  }
+
+  if ("notification_emails" in updates) {
+    const raw = updates.notification_emails;
+    const normalized = (Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+      ? raw.split(/[\n,;]/)
+      : [])
+      .map((x) => String(x).trim().toLowerCase())
+      .filter(Boolean);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = normalized.find((email) => !emailRegex.test(email));
+    if (invalid) {
+      res.status(400).json({ error: `Invalid email address in notification_emails: ${invalid}` });
+      return;
+    }
+
+    updates.notification_emails = normalized.length > 0 ? Array.from(new Set(normalized)) : null;
   }
 
   // Validate hex colour format

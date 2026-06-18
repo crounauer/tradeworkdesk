@@ -124,6 +124,7 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
         name: s?.name || null,
         trading_name: s?.trading_name || null,
         email: s?.email || null,
+        notification_emails: s?.notification_emails || null,
         logo_url: s?.logo_url || null,
         rates_url: s?.rates_url || null,
         trading_terms_url: s?.trading_terms_url || null,

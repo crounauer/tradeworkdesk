@@ -79,6 +79,7 @@ export async function runServiceDueReminders(): Promise<{ sent: number; skipped:
         postcode: (cs?.postcode as string | null) || null,
         phone: (cs?.phone as string | null) || null,
         email: (cs?.email as string | null) || null,
+        notification_emails: (cs?.notification_emails as string[] | null) || null,
         website: (cs?.website as string | null) || null,
       };
 

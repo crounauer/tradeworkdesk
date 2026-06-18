@@ -294,7 +294,7 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
 
   const { data: cs } = await supabaseAdmin
     .from("company_settings")
-    .select("name, trading_name, phone, email, website, logo_url")
+    .select("name, trading_name, phone, email, notification_emails, website, logo_url")
     .eq("tenant_id", req.tenantId!)
     .eq("singleton_id", "default")
     .maybeSingle();
@@ -312,6 +312,7 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
       name: (cs as any)?.name,
       trading_name: (cs as any)?.trading_name,
       email: (cs as any)?.email,
+      notification_emails: (cs as any)?.notification_emails,
       logo_url: (cs as any)?.logo_url,
       phone: (cs as any)?.phone,
       website: (cs as any)?.website,

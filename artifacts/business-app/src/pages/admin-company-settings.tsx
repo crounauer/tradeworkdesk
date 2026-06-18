@@ -259,6 +259,7 @@ export default function AdminCompanySettings() {
       country: settings.country ?? "United Kingdom",
       phone: settings.phone ?? "",
       email: settings.email ?? "",
+      notification_emails: settings.notification_emails ?? [],
       website: settings.website ?? "",
       gas_safe_number: settings.gas_safe_number ?? "",
       oftec_number: settings.oftec_number ?? "",
@@ -293,6 +294,7 @@ export default function AdminCompanySettings() {
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
   const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
+  const arrayFields = new Set(["notification_emails"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -311,12 +313,16 @@ export default function AdminCompanySettings() {
     isSavingRef.current = true;
     if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
     const values = getValues();
-    const clean: Record<string, string | number | boolean | null> = {};
+    const clean: Record<string, string | number | boolean | string[] | null> = {};
     for (const [k, v] of Object.entries(values)) {
       if (booleanFields.has(k)) {
         clean[k] = Boolean(v);
       } else if (numericFields.has(k)) {
         clean[k] = v != null && v !== "" ? Number(v) : null;
+      } else if (arrayFields.has(k)) {
+        clean[k] = Array.isArray(v)
+          ? v.map((item) => String(item).trim()).filter(Boolean)
+          : [];
       } else {
         clean[k] = (v as string)?.trim() || null;
       }
@@ -743,6 +749,27 @@ export default function AdminCompanySettings() {
                 <Mail className="w-3.5 h-3.5" /> Email
               </Label>
               <Input id="email" type="email" placeholder="e.g. info@example.com" {...register("email")} />
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="notification_emails" className="flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5" /> Additional Notification Emails
+              </Label>
+              <Textarea
+                id="notification_emails"
+                rows={3}
+                placeholder={"e.g. office@example.com\naccounts@example.com"}
+                value={(watch("notification_emails") ?? []).join("\n")}
+                onChange={(e) => {
+                  const emails = e.target.value
+                    .split(/[\n,;]/)
+                    .map((x) => x.trim())
+                    .filter(Boolean);
+                  setValue("notification_emails", emails, { shouldDirty: true });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                One email per line. These addresses are CC'd on customer-facing emails (invoices, confirmations, portal invites, reminders).
+              </p>
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label htmlFor="website" className="flex items-center gap-1.5">

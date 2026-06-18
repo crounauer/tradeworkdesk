@@ -67,6 +67,12 @@ export async function runStartupMigrations() {
     .limit(1);
   if (e6) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS gocardless_payments_enabled BOOLEAN NOT NULL DEFAULT TRUE;");
 
+  const { error: e7 } = await supabaseAdmin
+    .from("company_settings")
+    .select("notification_emails")
+    .limit(1);
+  if (e7) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS notification_emails TEXT[] DEFAULT ARRAY[]::TEXT[];");
+
   if (needed.length > 0) {
     console.warn("[migrations] Run this SQL in the Supabase SQL Editor:");
     console.warn(needed.join("\n"));

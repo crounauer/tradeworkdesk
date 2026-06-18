@@ -31,12 +31,28 @@ export interface EmailCompanyDetails {
   postcode?: string | null;
   phone?: string | null;
   email?: string | null;
+  notification_emails?: string[] | null;
   website?: string | null;
   gas_safe_number?: string | null;
   oftec_number?: string | null;
   vat_number?: string | null;
   rates_url?: string | null;
   trading_terms_url?: string | null;
+}
+
+function normalizeAdditionalRecipients(
+  extra: string[] | null | undefined,
+  to: string,
+  replyTo?: string,
+): string[] {
+  const blacklist = new Set([to.toLowerCase(), (replyTo || "").toLowerCase()]);
+  return Array.from(
+    new Set(
+      (extra || [])
+        .map((email) => String(email).trim().toLowerCase())
+        .filter((email) => email && !blacklist.has(email)),
+    ),
+  );
 }
 
 function renderCompanyHeader(company?: EmailCompanyDetails): string {
@@ -440,7 +456,15 @@ export async function sendJobConfirmationEmail(
   const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
-  const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
+  const { error } = await resend.emails.send({
+    from,
+    to,
+    subject,
+    html,
+    ...(replyTo ? { replyTo } : {}),
+    ...(cc.length > 0 ? { cc } : {}),
+  } as Parameters<typeof resend.emails.send>[0]);
   if (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
     throw new Error(`Email send failed: ${error.message}`);
@@ -497,7 +521,15 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
   if (!resend) { console.warn(`[email] Resend not configured — skipping portal invite to ${to}`); return; }
   const from = buildTenantFrom(companyDetails);
   const replyTo = companyDetails?.email ?? undefined;
-  const { error } = await resend.emails.send({ from, to, subject: `${companyName} — You're invited to the Customer Portal`, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
+  const { error } = await resend.emails.send({
+    from,
+    to,
+    subject: `${companyName} — You're invited to the Customer Portal`,
+    html,
+    ...(replyTo ? { replyTo } : {}),
+    ...(cc.length > 0 ? { cc } : {}),
+  } as Parameters<typeof resend.emails.send>[0]);
   if (error) console.error(`[email] Failed to send portal invite to ${to}:`, error);
 }
 
@@ -556,7 +588,15 @@ export async function sendServiceDueReminderEmail(
   const subject = `${escHtml(companyDisplay)} — Service Due Reminder for ${escHtml(applianceDescription)}`;
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
-  const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) } as Parameters<typeof resend.emails.send>[0]);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
+  const { error } = await resend.emails.send({
+    from,
+    to,
+    subject,
+    html,
+    ...(replyTo ? { replyTo } : {}),
+    ...(cc.length > 0 ? { cc } : {}),
+  } as Parameters<typeof resend.emails.send>[0]);
   if (error) {
     console.error(`[email] Failed to send service reminder to ${to}:`, error);
     throw new Error(`Email send failed: ${error.message}`);
