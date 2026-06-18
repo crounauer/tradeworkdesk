@@ -10,6 +10,7 @@ import { QuickEnquiryDialog } from "@/components/quick-enquiry-dialog";
 const ScheduleCalendar = lazy(() => import("@/components/schedule-calendar"));
 const BookJobDialog = lazy(() => import("@/components/book-job-dialog").then(m => ({ default: m.BookJobDialog })));
 const QuickInvoiceDialog = lazy(() => import("@/components/quick-invoice-dialog").then(m => ({ default: m.QuickInvoiceDialog })));
+const ScheduleHolidayManager = lazy(() => import("@/components/schedule-holiday-manager"));
 
 export default function SchedulePage() {
   const { profile } = useAuth();
@@ -52,6 +53,7 @@ export default function SchedulePage() {
 
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
   const canCreateInvoices = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+  const canManageHolidays = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -89,6 +91,12 @@ export default function SchedulePage() {
           <div className="rounded-xl border border-border bg-card animate-pulse" style={{ height: 420 }} />
         }>
           <ScheduleCalendar onDayAction={canCreateJobs ? handleDayAction : undefined} />
+        </Suspense>
+      )}
+
+      {hasJobManagement && canManageHolidays && (
+        <Suspense fallback={<div className="rounded-xl border border-border bg-card animate-pulse" style={{ height: 280 }} />}>
+          <ScheduleHolidayManager />
         </Suspense>
       )}
 

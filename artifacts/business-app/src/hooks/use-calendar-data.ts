@@ -28,8 +28,22 @@ interface CalendarProfile {
   [k: string]: unknown;
 }
 
+interface CalendarHoliday {
+  id: string;
+  tenant_id: string;
+  technician_id: string | null;
+  technician_name?: string | null;
+  name: string;
+  start_date: string;
+  end_date: string;
+  holiday_type: "technician_leave" | "public_holiday" | "bank_holiday";
+  notes?: string | null;
+  source?: string;
+}
+
 interface CalendarData {
   jobs: CalendarJob[];
+  holidays: CalendarHoliday[];
   profiles: CalendarProfile[];
   date_range: { date_from: string; date_to: string };
 }

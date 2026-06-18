@@ -24,6 +24,18 @@ type CalendarJob = {
   scheduled_end_date?: string | null;
 };
 
+type CalendarHoliday = {
+  id: string;
+  tenant_id: string;
+  technician_id: string | null;
+  technician_name?: string | null;
+  name: string;
+  start_date: string;
+  end_date: string;
+  holiday_type: "technician_leave" | "public_holiday" | "bank_holiday";
+  notes?: string | null;
+};
+
 type ViewMode = "day" | "week" | "month";
 
 function toDateStr(d: Date): string {
@@ -109,6 +121,12 @@ const PRIORITY_DOT: Record<string, string> = {
   urgent: "bg-red-500",
 };
 
+const HOLIDAY_STYLES: Record<CalendarHoliday["holiday_type"], string> = {
+  technician_leave: "bg-rose-100 text-rose-700 border-rose-200",
+  public_holiday: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  bank_holiday: "bg-violet-100 text-violet-700 border-violet-200",
+};
+
 function getWorkloadColor(count: number): string {
   if (count <= 2) return "bg-emerald-500";
   if (count <= 4) return "bg-amber-500";
@@ -186,6 +204,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const { data: calendarData } = useCalendarData({ date_from: dateFromStr, date_to: dateToStr });
 
   const rawCalendarJobs = (calendarData?.jobs ?? []) as CalendarJob[];
+  const calendarHolidays = (calendarData?.holidays ?? []) as CalendarHoliday[];
   const calendarJobs = useMemo(
     () => rawCalendarJobs.map((j) => localOverrides[j.id] ? { ...j, ...localOverrides[j.id] } : j),
     [rawCalendarJobs, localOverrides]
@@ -242,6 +261,24 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
     }
     return map;
   }, [calendarJobs, days]);
+
+  const holidaysByDate = useMemo(() => {
+    const map: Record<string, CalendarHoliday[]> = {};
+    for (const day of days) {
+      map[toDateStr(day)] = [];
+    }
+    for (const holiday of calendarHolidays) {
+      const start = String(holiday.start_date).slice(0, 10);
+      const end = String(holiday.end_date).slice(0, 10);
+      for (const day of days) {
+        const ds = toDateStr(day);
+        if (ds >= start && ds <= end && map[ds]) {
+          map[ds].push(holiday);
+        }
+      }
+    }
+    return map;
+  }, [calendarHolidays, days]);
 
   const techWorkload = useMemo(() => {
     const map: Record<string, Record<string, number>> = {};
@@ -504,6 +541,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
       {viewMode === "day" && (() => {
         const ds = toDateStr(anchorDate);
         const dayJobs = jobsByDate[ds] || [];
+        const dayHolidays = holidaysByDate[ds] || [];
         const isToday = isSameDay(ds, todayStr);
         const jobsByHour: Record<number, CalendarJob[]> = {};
         const unscheduled: CalendarJob[] = [];
@@ -542,6 +580,16 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                 <button type="button" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors" onClick={() => onDayAction(ds, "job")}>
                   <Plus className="w-3.5 h-3.5 text-primary" /> Book Job
                 </button>
+              </div>
+            )}
+
+            {dayHolidays.length > 0 && (
+              <div className="px-4 py-2 border-b border-border bg-muted/20 flex flex-wrap gap-1.5">
+                {dayHolidays.map((h) => (
+                  <span key={h.id} className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full border ${HOLIDAY_STYLES[h.holiday_type]}`}>
+                    {h.name}{h.technician_name ? ` - ${h.technician_name}` : ""}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -686,6 +734,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           {days.map((day) => {
             const ds = toDateStr(day);
             const dayJobs = jobsByDate[ds] || [];
+            const dayHolidays = holidaysByDate[ds] || [];
             const isToday = isSameDay(ds, todayStr);
             const isCurrentMonth =
               viewMode === "month" &&
@@ -735,6 +784,16 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                 </div>
 
                 <div className="space-y-0.5 overflow-y-auto max-h-[110px]">
+                  {dayHolidays.slice(0, 2).map((holiday) => (
+                    <div
+                      key={holiday.id}
+                      className={`block text-[10px] leading-tight px-1.5 py-1 rounded border ${HOLIDAY_STYLES[holiday.holiday_type]}`}
+                      title={holiday.technician_name ? `${holiday.name} (${holiday.technician_name})` : holiday.name}
+                    >
+                      <span className="font-medium">{holiday.name}</span>
+                      {holiday.technician_name && <span className="opacity-80"> · {holiday.technician_name}</span>}
+                    </div>
+                  ))}
                   {dayJobs.slice(0, viewMode === "month" ? 3 : 6).map((job) => (
                     <div
                       key={job.id}
@@ -776,6 +835,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                   {dayJobs.length > (viewMode === "month" ? 3 : 6) && (
                     <span className="text-[10px] text-muted-foreground pl-1.5">
                       +{dayJobs.length - (viewMode === "month" ? 3 : 6)} more
+                    </span>
+                  )}
+                  {dayHolidays.length > 2 && (
+                    <span className="text-[10px] text-muted-foreground pl-1.5">
+                      +{dayHolidays.length - 2} holiday{dayHolidays.length - 2 > 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
