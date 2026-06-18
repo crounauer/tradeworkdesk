@@ -860,7 +860,7 @@ router.get(
     const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes] = await Promise.all([
       db.from("websites").select("*, website_templates(slug)").eq("id", domainRecord.website_id).single(),
       db.from("website_pages").select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at").eq("website_id", domainRecord.website_id).eq("status", "published").order("nav_order", { ascending: true }),
-      db.from("website_blog_posts").select("id, slug, title, excerpt, featured_image_url, published_at, meta_title, meta_description, website_blog_categories(name, slug)").eq("website_id", domainRecord.website_id).eq("status", "published").order("published_at", { ascending: false }).limit(20),
+      db.from("website_blog_posts").select("id, slug, title, excerpt, content, featured_image_url, published_at, meta_title, meta_description, website_blog_categories(name, slug)").eq("website_id", domainRecord.website_id).eq("status", "published").order("published_at", { ascending: false }).limit(20),
       db.from("website_testimonials").select("id, author_name, location, rating, body, sort_order").eq("website_id", domainRecord.website_id).eq("is_visible", true).order("sort_order", { ascending: true }),
       db.from("website_gallery_items").select("id, image_url, caption, alt_text, category, sort_order").eq("website_id", domainRecord.website_id).eq("is_visible", true).order("sort_order", { ascending: true }).limit(50),
     ]) as Array<{ data: unknown }>;

@@ -39,6 +39,7 @@ export interface BlogPost {
   slug: string;
   title: string;
   excerpt: string | null;
+  content: unknown;
   featured_image_url: string | null;
   published_at: string | null;
   meta_title: string | null;

@@ -2,10 +2,33 @@ import type { BlogPost } from "@/lib/api";
 import Link from "next/link";
 
 interface Props {
-  post: BlogPost & { content?: unknown[] };
+  post: BlogPost;
+}
+
+function getContentParts(content: unknown): string[] {
+  if (!content) return [];
+
+  if (typeof content === "string") {
+    return content
+      .split(/\n\n+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  if (!Array.isArray(content)) return [];
+
+  return content
+    .map((block) => {
+      if (typeof block === "string") return block.trim();
+      const value = block as Record<string, unknown>;
+      return String(value.text || value.body || value.content || "").trim();
+    })
+    .filter(Boolean);
 }
 
 export default function BlogPostContent({ post }: Props) {
+  const contentParts = getContentParts(post.content);
+
   return (
     <main style={{ maxWidth: 800, margin: "0 auto", padding: "48px 24px" }}>
       {post.website_blog_categories && (
@@ -42,18 +65,11 @@ export default function BlogPostContent({ post }: Props) {
         </p>
       )}
 
-      {/* Blog post content is stored as blocks — render as simple paragraphs for now */}
-      {Array.isArray(post.content) && post.content.map((block: unknown, i: number) => {
-        const b = block as Record<string, unknown>;
-        if (b.type === "paragraph" || !b.type) {
-          return (
-            <p key={i} style={{ lineHeight: 1.8, marginBottom: 20, color: "#374151" }}>
-              {String(b.text || b.content || "")}
-            </p>
-          );
-        }
-        return null;
-      })}
+      {contentParts.map((part, i) => (
+        <p key={i} style={{ lineHeight: 1.8, marginBottom: 20, color: "#374151" }}>
+          {part}
+        </p>
+      ))}
 
       <div style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid #e5e7eb" }}>
         <Link href="/blog" style={{ color: "#f97316", textDecoration: "none", fontWeight: 500 }}>
