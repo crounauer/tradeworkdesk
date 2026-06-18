@@ -943,7 +943,7 @@ async function sendFormSubmissionNotifications(
       const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
       lines.push(`${label}: ${String(val)}`);
     }
-    const photoUrls = Array.isArray(data.photos) ? (data.photos as string[]) : [];
+    const photoUrls = extractPhotoUrls(data);
     const enquiryUrl = enquiryId
       ? `https://www.tradeworkdesk.co.uk/enquiries/${enquiryId}`
       : "https://www.tradeworkdesk.co.uk/enquiries";
@@ -1105,12 +1105,12 @@ async function attachSubmissionPhotosToEnquiry(
   enquiryId: string,
   data: Record<string, unknown>,
 ): Promise<void> {
-  const photoUrls = Array.isArray(data.photos) ? (data.photos as unknown[]) : [];
+  const photoUrls = extractPhotoUrls(data);
   if (photoUrls.length === 0) return;
 
   for (let i = 0; i < photoUrls.length; i++) {
     const photo = photoUrls[i];
-    if (typeof photo !== "string" || !photo.trim()) continue;
+    if (!photo || !photo.trim()) continue;
 
     const photoUrl = photo.trim();
     let buffer: Buffer | null = null;
@@ -1169,6 +1169,28 @@ async function attachSubmissionPhotosToEnquiry(
       console.error("[website-form] Failed to attach submission photo:", (photoErr as Error).message);
     }
   }
+}
+
+function extractPhotoUrls(data: Record<string, unknown>): string[] {
+  const raw = data.photos;
+  if (!raw) return [];
+
+  // Current renderer sends string[]
+  if (Array.isArray(raw)) {
+    return raw
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter((v) => /^https?:\/\//i.test(v));
+  }
+
+  // Backward compatibility: older clients may send comma/newline-separated string
+  if (typeof raw === "string") {
+    return raw
+      .split(/[\n,]/g)
+      .map((v) => v.trim())
+      .filter((v) => /^https?:\/\//i.test(v));
+  }
+
+  return [];
 }
 
 export default router;
