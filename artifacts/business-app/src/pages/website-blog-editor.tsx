@@ -2,7 +2,7 @@
  * Blog Post Editor — edit blog post content with optional AI assistance.
  * Route: /website/blog/:id
  */
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Save, Globe, Loader2, Sparkles, ChevronDown, ChevronUp,
-  AlertTriangle, CreditCard, Wand2, FileText, RefreshCw, ZapOff,
+  AlertTriangle, CreditCard, Wand2, FileText, RefreshCw, ZapOff, Image, List, HelpCircle, GitCompare, BarChart2, Lightbulb, CheckSquare,
 } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
@@ -50,6 +50,24 @@ interface AiCredits {
 }
 
 type AiOperation = "generate" | "improve" | "excerpt" | "meta_description";
+
+interface ContentOption {
+  id: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  appliesTo: AiOperation[];
+}
+
+const CONTENT_OPTIONS: ContentOption[] = [
+  { id: "faq",         label: "FAQ section",       description: "Common questions and answers",        icon: <HelpCircle className="w-3.5 h-3.5 text-blue-500" />,    appliesTo: ["generate", "improve"] },
+  { id: "lists",       label: "Bullet lists",      description: "Key points as scannable lists",       icon: <List className="w-3.5 h-3.5 text-slate-500" />,        appliesTo: ["generate", "improve"] },
+  { id: "images",      label: "Image suggestions", description: "Placeholder cues for relevant images", icon: <Image className="w-3.5 h-3.5 text-purple-500" />,      appliesTo: ["generate", "improve"] },
+  { id: "comparisons", label: "Comparison table",  description: "Side-by-side options or products",    icon: <GitCompare className="w-3.5 h-3.5 text-emerald-500" />, appliesTo: ["generate", "improve"] },
+  { id: "stats",       label: "Stats & facts",     description: "Relevant data points and statistics",  icon: <BarChart2 className="w-3.5 h-3.5 text-amber-500" />,   appliesTo: ["generate", "improve"] },
+  { id: "tips",        label: "Tips / advice",     description: "Practical tips numbered or bulleted",  icon: <Lightbulb className="w-3.5 h-3.5 text-yellow-500" />,  appliesTo: ["generate", "improve"] },
+  { id: "cta",         label: "Call to action",    description: "Encourage enquiry or booking",        icon: <CheckSquare className="w-3.5 h-3.5 text-rose-500" />,  appliesTo: ["generate", "improve"] },
+];
 
 function getBodyText(content: string | string[] | Record<string, unknown>[] | null): string {
   if (!content) return "";
@@ -88,6 +106,7 @@ export default function WebsiteBlogEditor() {
   const [aiRunning, setAiRunning] = useState<AiOperation | null>(null);
   const [aiCredits, setAiCredits] = useState<number | null>(null);
   const [addonActive, setAddonActive] = useState<boolean | null>(null);
+  const [contentOptions, setContentOptions] = useState<Set<string>>(new Set(["cta"]));
 
   // Load post
   const { data: post, isLoading } = useQuery<BlogPost>({
@@ -180,6 +199,7 @@ export default function WebsiteBlogEditor() {
           operation,
           title: title.trim(),
           existingContent: bodyText.trim() || undefined,
+          contentOptions: Array.from(contentOptions),
         }),
       });
 
@@ -430,6 +450,32 @@ export default function WebsiteBlogEditor() {
                     <span className="text-sm font-semibold text-slate-700">{creditsInPounds}</span>
                   </div>
                 )}
+
+                {/* Content options */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Include in post:</p>
+                  <div className="grid grid-cols-1 gap-1">
+                    {CONTENT_OPTIONS.map(opt => (
+                      <label key={opt.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={contentOptions.has(opt.id)}
+                          onChange={e => setContentOptions(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(opt.id); else next.delete(opt.id);
+                            return next;
+                          })}
+                        />
+                        <span className="flex items-center gap-1.5 flex-1 min-w-0">
+                          {opt.icon}
+                          <span className="text-xs font-medium">{opt.label}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground hidden sm:block truncate">{opt.description}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   <Button

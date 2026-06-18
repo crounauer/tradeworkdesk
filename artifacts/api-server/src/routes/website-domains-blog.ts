@@ -406,10 +406,11 @@ router.post(
   requireRole("admin", "office_staff"),
   requireWebsiteBuilder(),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { operation, title, existingContent } = req.body as {
+    const { operation, title, existingContent, contentOptions } = req.body as {
       operation?: string;
       title?: string;
       existingContent?: string;
+      contentOptions?: string[];
     };
 
     if (!operation || !["generate", "improve", "excerpt", "meta_description"].includes(operation)) {
@@ -467,6 +468,7 @@ router.post(
         existingContent: existingContent?.trim(),
         companyName,
         tradeType,
+        contentOptions: Array.isArray(contentOptions) ? contentOptions : [],
         tenantId: req.tenantId!,
         userId: req.userId,
       });

@@ -16,6 +16,7 @@ interface BlogAiOptions {
   existingContent?: string;
   companyName?: string;
   tradeType?: string;  // e.g. "Gas Engineer", "Boiler Service"
+  contentOptions?: string[];  // e.g. ["faq", "lists", "images", "comparisons", "stats", "tips", "cta"]
   tenantId: string;
   userId?: string;
 }
@@ -68,6 +69,21 @@ async function callOpenAi(messages: { role: "system" | "user"; content: string }
 export async function runBlogAi(opts: BlogAiOptions): Promise<BlogAiResult> {
   const systemPrompt = SYSTEM_PROMPT_BASE(opts.companyName, opts.tradeType);
 
+  const opts_map: Record<string, string> = {
+    faq:         "Include a clearly labelled FAQ section with at least 3 relevant questions and answers.",
+    lists:       "Use bullet lists or numbered lists to present key points for easy scanning.",
+    images:      "Add [IMAGE: description] placeholders at natural points to indicate where relevant images should be inserted.",
+    comparisons: "Include a comparison section or table contrasting options, products, or approaches.",
+    stats:       "Include relevant statistics, industry figures, or factual data points to add credibility.",
+    tips:        "Include a dedicated tips or advice section with practical, actionable recommendations.",
+    cta:         "End with a clear, compelling call to action encouraging the reader to get in touch or book a service.",
+  };
+
+  const selectedExtras = (opts.contentOptions ?? []).map(id => opts_map[id]).filter(Boolean);
+  const extrasInstruction = selectedExtras.length > 0
+    ? `\n\nAdditional requirements:\n${selectedExtras.map(e => `- ${e}`).join("\n")}`
+    : "";
+
   let userPrompt: string;
 
   switch (opts.operation) {
@@ -75,14 +91,14 @@ export async function runBlogAi(opts: BlogAiOptions): Promise<BlogAiResult> {
       userPrompt = `Write a detailed, SEO-optimised blog post with the title: "${opts.title}".
 
 Structure: an engaging introduction, 3–5 informative sections with H2-style headings, and a brief conclusion with a call to action.
-Aim for 450–700 words. Write in British English.`;
+Aim for 500–800 words. Write in British English.${extrasInstruction}`;
       break;
 
     case "improve":
       if (!opts.existingContent?.trim()) throw new Error("Existing content is required for the improve operation");
       userPrompt = `Improve the following blog post titled "${opts.title}". 
 Make it more engaging, clearer, better structured, and more SEO-friendly.
-Keep the same general topics but improve the writing quality. Return only the improved content.
+Keep the same general topics but improve the writing quality. Return only the improved content.${extrasInstruction}
 
 Original content:
 ${opts.existingContent}`;
