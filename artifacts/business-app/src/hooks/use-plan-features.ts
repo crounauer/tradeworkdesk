@@ -25,10 +25,9 @@ export function usePlanFeatures() {
   const pf = data?.planFeatures;
   const features = pf?.features ?? {};
 
-  const hasFeature = (key: string): boolean => {
-    // While loading or if auth failed (stale data preserved), assume access
-    if (isLoading || isError) return true;
-    return !!features[key];
+  const hasFeature = (_key: string): boolean => {
+    // All features are included for all tenants — no feature gating.
+    return true;
   };
 
   const addons = data?.activeAddons ?? [];

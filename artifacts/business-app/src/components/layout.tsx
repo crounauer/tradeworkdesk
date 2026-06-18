@@ -78,8 +78,6 @@ export function Layout({ children }: { children: ReactNode }) {
     if (link) link.href = companySettings.favicon_url;
   }, [companySettings?.favicon_url, companySettings?.white_label_enabled]);
 
-  const hasJobManagement = hasFeature("job_management");
-
   const enquiryCountData = { count: initData?.enquiriesCount ?? 0 };
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
   const activeFollowUpsCount = initData?.activeFollowUpsCount ?? 0;
@@ -106,20 +104,16 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    ...(hasFeature("job_management") ? [{ href: "/schedule", label: "Schedule", icon: CalendarDays }] : []),
+    { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
-    ...(hasFeature("job_management") ? [{ href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus }] : []),
+    { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
     { href: "/jobs", label: "Jobs", icon: Briefcase },
-    ...(hasFeature("invoicing") && companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
-    ...(hasFeature("job_management") ? [{ href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList }] : []),
+    ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
+    { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
     { href: "/search", label: "Search", icon: Search },
-    ...(hasFeature("reports") ? [
-      { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
-    ] : []),
-    ...(hasFeature("todo_list") ? [
-      { href: "/todos", label: "To-Do List", icon: CheckSquare },
-    ] : []),
+    { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
+    { href: "/todos", label: "To-Do List", icon: CheckSquare },
     { href: "/tools", label: "Tools", icon: Wrench },
     { href: "/help", label: "Help & Guide", icon: HelpCircle },
   ];
@@ -130,7 +124,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/billing", label: "Billing", icon: CreditCard, roles: ["admin"] },
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
     { href: "/admin/branding", label: "Branding", icon: Palette },
-    ...(hasFeature("team_management") && isCompanyType ? [
+    ...(isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
       { href: "/admin/invite-codes", label: "Invite Codes", icon: UserPlus },
       { href: "/admin/reassign-jobs", label: "Reassign Jobs", icon: Briefcase },
@@ -138,9 +132,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/admin/job-types", label: "Job Types", icon: ListTree },
     { href: "/admin/invoice-log", label: "Invoice Log", icon: FileText },
     { href: "/admin/lookup-options", label: "Lookup Options", icon: Settings2 },
-    ...(hasFeature("social_media") ? [
-      { href: "/admin/social", label: "Social Media", icon: Share2 },
-    ] : []),
+    { href: "/admin/social", label: "Social Media", icon: Share2 },
     ...(hasAddon("sms_messaging") ? [{ href: "/admin/sms-templates", label: "SMS", icon: MessageSquare }] : []),
   ];
 
@@ -156,22 +148,22 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];
 
-  const websiteNavItems = hasFeature("website_builder") ? [
+  const websiteNavItems = [
     { href: "/website", label: "My Website", icon: Globe2 },
     { href: "/website/preview", label: "Preview", icon: Eye },
     { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
     { href: "/website/blog", label: "Blog", icon: FileText },
     { href: "/website/domain", label: "Domain", icon: Globe },
     { href: "/website/settings", label: "Site Settings", icon: Settings2 },
-  ] : [];
+  ];
 
-  const automationNavItems = hasFeature("website_builder") ? [
+  const automationNavItems = [
     { href: "/booking", label: "Online Booking", icon: CalendarCheck },
     { href: "/review-requests", label: "Review Requests", icon: Star },
     { href: "/maintenance", label: "Maintenance Plans", icon: ShieldPlus },
     { href: "/campaigns", label: "Email Campaigns", icon: MailOpen },
     { href: "/missed-call", label: "Missed Call Text-Back", icon: PhoneCall },
-  ] : [];
+  ];
 
   const visibleNavItems = navItems.filter(item => 
     !item.roles || (profile && item.roles.includes(profile.role))

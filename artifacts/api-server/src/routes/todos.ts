@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireAuth, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 
 interface TodoRow {
   id: string;
@@ -15,7 +15,7 @@ interface TodoRow {
 const router: IRouter = Router();
 
 // GET /todos — fetch the calling user's todos, newest first
-router.get("/todos", requireAuth, requireTenant, requirePlanFeature("todo_list"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/todos", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("user_todos")
     .select("*")
@@ -27,7 +27,7 @@ router.get("/todos", requireAuth, requireTenant, requirePlanFeature("todo_list")
 });
 
 // POST /todos — create a new todo
-router.post("/todos", requireAuth, requireTenant, requirePlanFeature("todo_list"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/todos", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { title } = req.body as { title?: unknown };
 
   if (!title || typeof title !== "string" || title.trim().length === 0) {
@@ -51,7 +51,7 @@ router.post("/todos", requireAuth, requireTenant, requirePlanFeature("todo_list"
 });
 
 // PATCH /todos/:id — update title and/or completed; user must own the item
-router.patch("/todos/:id", requireAuth, requireTenant, requirePlanFeature("todo_list"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/todos/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   if (!id) { res.status(400).json({ error: "Missing todo id" }); return; }
 
@@ -91,7 +91,7 @@ router.patch("/todos/:id", requireAuth, requireTenant, requirePlanFeature("todo_
 });
 
 // DELETE /todos/:id — delete; user must own the item
-router.delete("/todos/:id", requireAuth, requireTenant, requirePlanFeature("todo_list"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/todos/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   if (!id) { res.status(400).json({ error: "Missing todo id" }); return; }
 
