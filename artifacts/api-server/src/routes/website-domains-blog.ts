@@ -84,52 +84,88 @@ router.post(
   photoUploadLimiter,
   photoUpload.array("photos", 5),
   async (req, res): Promise<void> => {
-    const { formId } = req.params;
+    try {
+      const { formId } = req.params;
 
-    // Verify the form exists and is active
-    const { data: form } = await db
-      .from("website_forms")
-      .select("id, is_active, tenant_id, websites(status)")
-      .eq("id", formId)
-      .single() as { data: Record<string, unknown> | null };
+      // Verify the form exists and is active
+      const { data: form } = await db
+        .from("website_forms")
+        .select("id, is_active, tenant_id, websites(status)")
+        .eq("id", formId)
+        .single() as { data: Record<string, unknown> | null };
 
-    if (!form?.is_active) {
-      res.status(404).json({ error: "Form not found" });
-      return;
-    }
-
-    const files = (req.files as Express.Multer.File[]) ?? [];
-    if (files.length === 0) {
-      res.json({ urls: [] });
-      return;
-    }
-
-    const urls: string[] = [];
-    for (const file of files) {
-      const ext = file.originalname.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `form-submissions/${form.tenant_id}/${formId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabaseAdmin.storage
-        .from("public-uploads")
-        .upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
-
-      if (error) {
-        console.error("[form-upload] storage error:", error.message);
-        continue;
+      if (!form?.is_active) {
+        res.status(404).json({ error: "Form not found" });
+        return;
       }
 
-      const { data: urlData } = supabaseAdmin.storage
-        .from("public-uploads")
-        .getPublicUrl(path);
+      const files = (req.files as Express.Multer.File[]) ?? [];
+      if (files.length === 0) {
+        res.json({ urls: [] });
+        return;
+      }
 
-      if (urlData?.publicUrl) urls.push(urlData.publicUrl);
-    }
+      const urls: string[] = [];
+      const uploadErrors: string[] = [];
+      let ensuredPublicUploadsBucket = false;
 
-    if (files.length > 0 && urls.length === 0) {
+      for (const file of files) {
+        const ext = file.originalname.split(".").pop()?.toLowerCase() || "jpg";
+        const path = `form-submissions/${form.tenant_id}/${formId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const uploadToPublicUploads = async () =>
+          supabaseAdmin.storage
+            .from("public-uploads")
+            .upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
+
+        let { error } = await uploadToPublicUploads();
+
+        if (
+          error &&
+          /bucket/i.test(error.message || "") &&
+          /(not found|does not exist)/i.test(error.message || "")
+        ) {
+          if (!ensuredPublicUploadsBucket) {
+            const { error: createBucketError } = await supabaseAdmin.storage.createBucket("public-uploads", {
+              public: true,
+              fileSizeLimit: "5242880",
+            });
+            if (createBucketError && !/already exists/i.test(createBucketError.message || "")) {
+              console.error("[form-upload] create bucket error:", createBucketError.message);
+            }
+            ensuredPublicUploadsBucket = true;
+          }
+
+          const retry = await uploadToPublicUploads();
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error("[form-upload] storage error:", error.message);
+          uploadErrors.push(`${file.originalname}: ${error.message}`);
+          continue;
+        }
+
+        const { data: urlData } = supabaseAdmin.storage
+          .from("public-uploads")
+          .getPublicUrl(path);
+
+        if (urlData?.publicUrl) urls.push(urlData.publicUrl);
+      }
+
+      if (files.length > 0 && urls.length === 0) {
+        res.status(500).json({
+          error: "Failed to upload photos",
+          details: uploadErrors.length > 0 ? uploadErrors : undefined,
+        });
+        return;
+      }
+
+      res.json({ urls });
+    } catch (error) {
+      console.error("[form-upload] unexpected error:", error);
       res.status(500).json({ error: "Failed to upload photos" });
-      return;
     }
-
-    res.json({ urls });
   }
 );
 
