@@ -43,7 +43,12 @@ const SYSTEM_PROMPT_BASE = (companyName?: string, tradeType?: string) =>
   `You are an expert copywriter specialising in trade and home services businesses${tradeType ? `, particularly ${tradeType}` : ""}.
 You write clear, SEO-friendly, professional blog content for ${companyName ?? "a trade business"}.
 Write in British English. Be informative, practical, and engaging.
-Do not use excessive markdown — use plain paragraphs with clear headings where appropriate.`;
+Use simple, consistent markdown formatting that renders well on the website:
+- Use ## for section headings and ### for subsections.
+- Put bullet and numbered list items on separate lines.
+- If a comparison is requested, use a simple markdown table with | separators.
+- If image suggestions are requested, put each one on its own line as [IMAGE: short description].
+- Keep spacing clean and avoid decorative characters or unusual formatting.`;
 
 async function callOpenAi(messages: { role: "system" | "user"; content: string }[]): Promise<{
   text: string;
