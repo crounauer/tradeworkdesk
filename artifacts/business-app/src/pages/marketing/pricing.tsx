@@ -64,13 +64,14 @@ const WEBSITE_FEATURES = [
 ];
 
 function buildFaqs(plan: Plan | undefined) {
-  const base = plan ? fmtPounds(plan.monthly_price) : "£25";
-  const perUser = plan?.per_user_price ? fmtPounds(plan.per_user_price) : "£10";
+  const base = plan ? fmtPounds(plan.monthly_price) : CURRENCY + "25";
+  // Use actual per_user_price from DB; fall back to 10 only when null
+  const perUserRaw = plan?.per_user_price != null ? normalisePounds(plan.per_user_price) : 10;
+  const perUser = CURRENCY + perUserRaw;
   const maxUsers = plan?.max_users ?? 2;
   const exampleTeam = maxUsers + 3;
-  const examplePrice = plan
-    ? fmtPounds(normalisePounds(plan.monthly_price) + 3 * normalisePounds(plan.per_user_price ?? 0))
-    : "£55";
+  const baseRaw = plan ? normalisePounds(plan.monthly_price) : 25;
+  const examplePrice = CURRENCY + (baseRaw + 3 * perUserRaw);
 
   return [
     {
@@ -115,19 +116,20 @@ function buildFaqs(plan: Plan | undefined) {
 function buildTeamExamples(plan: Plan | undefined) {
   if (!plan) {
     return [
-      { label: "1–2 engineers", price: "£25/mo" },
-      { label: "3 engineers", price: "£35/mo" },
-      { label: "5 engineers", price: "£55/mo" },
-      { label: "10 engineers", price: "£105/mo" },
+      { label: "1\u20132 engineers", price: CURRENCY + "25/mo" },
+      { label: "3 engineers",       price: CURRENCY + "35/mo" },
+      { label: "5 engineers",       price: CURRENCY + "55/mo" },
+      { label: "10 engineers",      price: CURRENCY + "105/mo" },
     ];
   }
   const base = normalisePounds(plan.monthly_price);
-  const perUser = normalisePounds(plan.per_user_price ?? 0);
-  const maxU = plan.max_users;
+  // Use actual per_user_price from DB; fall back to 10 only when null
+  const perUser = plan.per_user_price != null ? normalisePounds(plan.per_user_price) : 10;
+  const maxU = plan.max_users ?? 2;
   const sizes = [maxU, maxU + 1, maxU + 3, maxU + 8];
   return sizes.map((n, i) => ({
     label: i === 0 ? "1\u2013" + n + " engineers" : n + " engineers",
-    price: fmtPounds(base + Math.max(0, n - maxU) * perUser) + "/mo",
+    price: CURRENCY + (base + Math.max(0, n - maxU) * perUser) + "/mo",
   }));
 }
 
