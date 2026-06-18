@@ -341,11 +341,27 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     case "hero":
       return (
         <div className="space-y-3">
+          <FieldRow label="Layout">
+            <Select value={String(c.layout ?? "full")} onValueChange={(v) => set("layout", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="full">Full-width (dark background)</SelectItem>
+                <SelectItem value="centered">Centered (dark background)</SelectItem>
+                <SelectItem value="split">Split (image + content, light)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
           <FieldRow label="Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Heading Accent Word">
+            <Input value={String(c.heading_accent ?? "")} onChange={(e) => set("heading_accent", e.target.value)} placeholder="One word from the heading to highlight in colour" />
+          </FieldRow>
           <FieldRow label="Subheading"><Textarea value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} rows={2} /></FieldRow>
-          <FieldRow label="Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
-          <FieldRow label="Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
-          <FieldRow label="Background Image URL"><Input value={String(c.background_image_url ?? "")} onChange={(e) => set("background_image_url", e.target.value)} placeholder="https://..." /></FieldRow>
+          <FieldRow label="Primary Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
+          <FieldRow label="Primary Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <FieldRow label="Secondary Button Text (optional)"><Input value={String(c.secondary_cta_text ?? "")} onChange={(e) => set("secondary_cta_text", e.target.value)} /></FieldRow>
+          <FieldRow label="Secondary Button URL"><Input value={String(c.secondary_cta_url ?? "")} onChange={(e) => set("secondary_cta_url", e.target.value)} placeholder="/services" /></FieldRow>
+          <FieldRow label="Background Image URL (full/centered layouts)"><Input value={String(c.background_image_url ?? "")} onChange={(e) => set("background_image_url", e.target.value)} placeholder="https://..." /></FieldRow>
+          <FieldRow label="Hero Image URL (split layout only)"><Input value={String(c.hero_image_url ?? "")} onChange={(e) => set("hero_image_url", e.target.value)} placeholder="https://..." /></FieldRow>
           <div className="flex gap-3">
             <FieldRow label="Background Colour">
               <div className="flex items-center gap-2">
