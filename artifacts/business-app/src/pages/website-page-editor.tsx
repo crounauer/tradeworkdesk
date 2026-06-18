@@ -954,7 +954,8 @@ export default function WebsitePageEditor() {
     };
     setBlocks((prev) => [...prev, newBlock]);
     setIsDirty(true);
-  }, [blocks.length]);
+    toast({ title: `${palette.label} added`, duration: 1500 });
+  }, [blocks.length, toast]);
 
   const moveBlock = useCallback((from: number, to: number) => {
     setBlocks((prev) => {
