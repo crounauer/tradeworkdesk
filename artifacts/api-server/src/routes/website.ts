@@ -814,6 +814,478 @@ function buildModernHomeBlocks(cs: CompanyData, formId: string): Array<{ block_t
   ];
 }
 
+function buildModernServicesBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, phone, locationText, phoneUrl } = cs;
+  return [
+    {
+      block_type: "hero",
+      content: {
+        layout: "centered",
+        heading: "Our Heating Services",
+        heading_accent: "Services",
+        subheading: `From air source heat pumps to boiler upgrades, ${tradeName} provides the full range of low-carbon and conventional heating solutions for homes across ${locationText}.`,
+        cta_text: "Get a Free Quote",
+        cta_url: "#contact",
+        badges: [{ label: "MCS Certified" }, { label: "Free Surveys" }],
+        accent_color: "#0d9488",
+      },
+    },
+    {
+      block_type: "services",
+      content: {
+        label: "What We Do",
+        heading: "Heating Solutions for Every Home",
+        subheading: `Whatever your heating needs, ${tradeName} has the expertise and accreditations to deliver.`,
+        columns: 3,
+        accent_color: "#0d9488",
+        services: [
+          { icon: "💧", title: "Heat Pumps", description: "Air source and ground source heat pumps designed to replace your boiler and cut running costs by up to 60%. We handle the full project from survey to MCS certification.", badge: "Most Popular", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "🔥", title: "Underfloor Heating", description: "Wet and electric underfloor heating systems for new builds and retrofits. Pairs perfectly with heat pumps for maximum efficiency and whole-home comfort.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "☀️", title: "Solar Thermal", description: "Solar hot water systems that use free energy from the sun to heat your water, reducing your hot water bills by up to 70% throughout the year.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "🔧", title: "Gas Boiler Upgrades", description: "High-efficiency condensing gas boiler installations and replacements. Same-day or next-day fitting available with a full 10-year parts and labour guarantee.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "⛽", title: "Oil Boiler Upgrades", description: "OFTEC-registered oil boiler replacements and full system upgrades. We also advise on transitioning from oil to low-carbon alternatives.", cta_text: "Get a quote", cta_url: "#contact" },
+          { icon: "🌱", title: "Low-Carbon Systems", description: "Hybrid heating systems, heat pump-ready radiators, and whole-home energy assessments to future-proof your property and reduce your carbon footprint.", badge: "New", cta_text: "Get a quote", cta_url: "#contact" },
+        ],
+      },
+    },
+    {
+      block_type: "features_bar",
+      content: {
+        background_color: "#0d9488",
+        text_color: "#ffffff",
+        items: [
+          { icon: "✅", title: "MCS Certified", description: "All our heat pump and solar installations are MCS certified, qualifying you for government grants." },
+          { icon: "🏅", title: "Fully Accredited", description: "Gas Safe registered and OFTEC certified engineers for all conventional heating work." },
+          { icon: "🛡️", title: "10-Year Warranty", description: "Comprehensive parts and labour warranty on selected systems for complete peace of mind." },
+          { icon: "📞", title: "Free Surveys", description: "No-obligation home surveys to assess the best system for your property and budget." },
+        ],
+      },
+    },
+    {
+      block_type: "faq",
+      content: {
+        label: "Service FAQs",
+        heading: "Questions About Our Services",
+        accent_color: "#0d9488",
+        background_color: "#f9fafb",
+        items: [
+          { question: "What's the difference between air source and ground source heat pumps?", answer: "Air source heat pumps extract heat from outdoor air and are easier and cheaper to install. Ground source heat pumps use pipes buried in the ground and are typically more efficient, but require more space and installation work. We survey your property and recommend the best option." },
+          { question: "Can I keep my existing radiators with a heat pump?", answer: "In many cases, yes — especially if your radiators are oversized. Our heat loss assessment will identify any radiators that need upgrading. We often recommend low-temperature radiators for optimal efficiency." },
+          { question: "How much does heat pump installation cost?", answer: "Costs vary depending on the system size and property type, but typically range from £10,000–£20,000 before grant funding. The £7,500 Boiler Upgrade Scheme grant significantly reduces this cost. We provide a detailed, fixed-price quote after your free survey." },
+          { question: "Do you offer a warranty on boiler installations?", answer: "Yes — we provide up to 10 years manufacturer warranty on selected boiler brands, plus our own labour warranty. Full details are provided before any work begins." },
+        ],
+      },
+    },
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Get a Quote",
+        heading: "Request a Free Survey",
+        subheading: "Tell Us About Your Property",
+        body: "Fill in the form and we'll arrange a free, no-obligation survey at a time that suits you.",
+        submit_label: "Request Free Survey",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: {
+          phone: phone || undefined,
+          service_area: locationText ? `Serving ${locationText}` : undefined,
+        },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "email", label: "Email Address", type: "email", required: true },
+          { name: "postcode", label: "Property Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Additional Information", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
+function buildModernHowItWorksBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, phone, locationText } = cs;
+  return [
+    {
+      block_type: "hero",
+      content: {
+        layout: "centered",
+        heading: "How It Works",
+        heading_accent: "Works",
+        subheading: `Getting a new heating system fitted by ${tradeName} is straightforward from start to finish. Here's exactly what to expect.`,
+        cta_text: "Book a Free Survey",
+        cta_url: "#contact",
+        badges: [{ label: "No Obligation" }, { label: "Free Survey" }],
+        accent_color: "#0d9488",
+      },
+    },
+    {
+      block_type: "process",
+      content: {
+        label: "Our Process",
+        heading: "Simple from Start to Finish",
+        subheading: `We manage every step so you don't have to — from your first call to commissioning and aftercare.`,
+        background_color: "#ffffff",
+        accent_color: "#0d9488",
+        cta_text: "Start with a Free Survey",
+        cta_url: "#contact",
+        steps: [
+          { icon: "📞", title: "Initial Enquiry", description: `Call us or fill in the form below. We'll discuss your property, your current heating system, and your goals. We'll suggest the most suitable options and arrange a free home survey.` },
+          { icon: "🔍", title: "Free Home Survey", description: "One of our MCS-certified engineers visits your property to carry out a full heat loss assessment. We measure your insulation, windows, and radiators to design the ideal system — at no charge." },
+          { icon: "📋", title: "Detailed Quotation", description: "You receive a transparent, fixed-price quotation showing exactly what's included, expected running costs, and any available grant funding. No hidden extras." },
+          { icon: "📅", title: "Scheduled Installation", description: "We book an installation date that suits you. Most air source heat pump installs take 2–3 days; boiler replacements are usually done same or next day." },
+          { icon: "🔧", title: "Professional Installation", description: `Our fully qualified engineers carry out the installation with care and tidiness. All work is signed off to manufacturer and MCS standards.` },
+          { icon: "✅", title: "Commissioning & Handover", description: "We commission your system, walk you through operating it, register all warranties, and handle your grant application if applicable. You're left with full documentation." },
+        ],
+      },
+    },
+    {
+      block_type: "features_bar",
+      content: {
+        background_color: "#0d9488",
+        text_color: "#ffffff",
+        items: [
+          { icon: "🏠", title: "Minimal Disruption", description: "We work efficiently and clean up fully each day. Most installations are completed in under three days." },
+          { icon: "📄", title: "Full Documentation", description: "You receive all warranties, certificates, and MCS documentation on completion." },
+          { icon: "💷", title: "Grant Support", description: "We handle your Boiler Upgrade Scheme application from start to finish." },
+          { icon: "🔧", title: "Ongoing Aftercare", description: "Annual servicing and support available to keep your system running at peak efficiency." },
+        ],
+      },
+    },
+    {
+      block_type: "faq",
+      content: {
+        label: "FAQs",
+        heading: "Common Questions",
+        accent_color: "#0d9488",
+        background_color: "#f9fafb",
+        items: [
+          { question: "How long does the whole process take from first contact to installation?", answer: "For most heat pump projects, the survey-to-install timeline is 2–4 weeks. Boiler replacements can often be done within days. We'll give you a realistic timeline at your survey." },
+          { question: "Do I need to be home during the installation?", answer: "We ask that an adult is present at the start and end of each installation day, but you don't need to be home throughout. We'll coordinate access arrangements with you in advance." },
+          { question: "What disruption should I expect?", answer: "For heat pumps, we need access to the outside of your property for the unit, plus internal pipe runs and cylinder installation. We protect your floors and clean up thoroughly each day." },
+          { question: "How do I claim the Boiler Upgrade Scheme grant?", answer: "We handle the BUS grant application entirely — you simply sign the form and we submit it on your behalf. The £7,500 is deducted from your installation invoice." },
+        ],
+      },
+    },
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Get Started",
+        heading: "Book Your Free Survey",
+        subheading: "No Obligation — We'll Come to You",
+        body: "Fill in the form and one of our engineers will contact you to arrange a convenient time for your free home survey.",
+        submit_label: "Request Free Survey",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: {
+          phone: phone || undefined,
+          service_area: locationText ? `Serving ${locationText}` : undefined,
+        },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "email", label: "Email Address", type: "email", required: true },
+          { name: "postcode", label: "Property Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Additional Information", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
+function buildModernProjectsBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, county, phone, locationText } = cs;
+  return [
+    {
+      block_type: "hero",
+      content: {
+        layout: "centered",
+        heading: "Our Projects",
+        heading_accent: "Projects",
+        subheading: `Real installations by ${tradeName}. Browse completed projects across ${locationText} and see the results for yourself.`,
+        cta_text: "Start Your Project",
+        cta_url: "#contact",
+        badges: [{ label: "MCS Certified" }, { label: "BUS Grant Eligible" }],
+        accent_color: "#0d9488",
+      },
+    },
+    {
+      block_type: "project_showcase",
+      content: {
+        label: "Case Studies",
+        heading: "Real Homes, Real Results",
+        background_color: "#f9fafb",
+        accent_color: "#0d9488",
+        projects: [
+          {
+            title: "Victorian Semi — Oil to Air Source Heat Pump",
+            location: locationText,
+            image_url: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format",
+            description: `A period property in ${locationText} was converted from an ageing oil system to a Mitsubishi Ecodan heat pump with a new cylinder and upgraded radiators. The project qualified for the full BUS grant and was completed in three days.`,
+            stats: [
+              { value: "8kW Air Source HP", label: "System Installed" },
+              { value: "£820/yr", label: "Running Cost Saving" },
+              { value: "3.2 tonnes CO₂/yr", label: "Carbon Reduction" },
+              { value: "£7,500", label: "BUS Grant Secured" },
+            ],
+            cta_text: "Start your project",
+            cta_url: "#contact",
+          },
+          {
+            title: "New Build — Ground Source Heat Pump + UFH",
+            location: county || city,
+            image_url: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop&auto=format",
+            description: `A four-bedroom new build in ${county || city} was fitted with a ground source heat pump paired with fully embedded underfloor heating on both floors. Designed for A-rated EPC performance from day one.`,
+            stats: [
+              { value: "12kW Ground Source", label: "System Installed" },
+              { value: "A Rated", label: "EPC Rating" },
+              { value: "£0", label: "Running Cost (solar)" },
+              { value: "Zero", label: "Carbon Emissions" },
+            ],
+            cta_text: "Discuss your project",
+            cta_url: "#contact",
+          },
+          {
+            title: "Detached Home — High-Efficiency Gas Boiler",
+            location: city,
+            image_url: "https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?w=800&h=600&fit=crop&auto=format",
+            description: `A detached property in ${city} had an ageing combi boiler replaced with a Worcester Bosch 8000 series. Work was completed in one day with zero disruption, and the homeowner immediately noticed reduced energy bills.`,
+            stats: [
+              { value: "30kW Combi", label: "Boiler Installed" },
+              { value: "94%", label: "Efficiency Rating" },
+              { value: "1 Day", label: "Installation Time" },
+              { value: "10yr", label: "Manufacturer Warranty" },
+            ],
+            cta_text: "Get a quote",
+            cta_url: "#contact",
+          },
+        ],
+      },
+    },
+    {
+      block_type: "testimonials",
+      content: {
+        label: "What Clients Say",
+        heading: "Straight from Our Customers",
+        accent_color: "#0d9488",
+        testimonials: [
+          { author: "Sarah M.", location: city, rating: 5, text: `${tradeName} installed a 10kW air source heat pump. The process was seamless from survey to commissioning. Our heating bills have dropped by nearly half.` },
+          { author: "James & Claire T.", location: county || city, rating: 5, text: "We had underfloor heating installed throughout our ground floor alongside a new heat pump. The team were tidy, professional and explained everything clearly. Couldn't recommend them more highly." },
+          { author: "David R.", location: city, rating: 5, text: "Switched from an ageing oil boiler to a ground source heat pump. The whole project was managed brilliantly. Our grant application was handled for us too." },
+        ],
+      },
+    },
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Start Your Project",
+        heading: "Tell Us About Your Home",
+        subheading: "Free Survey — No Obligation",
+        body: "Every project starts with a free home survey. Fill in the form and we'll be in touch to arrange a convenient time.",
+        submit_label: "Request Free Survey",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: { phone: phone || undefined },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "email", label: "Email Address", type: "email", required: true },
+          { name: "postcode", label: "Property Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Project Details", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
+function buildModernReviewsBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, county, phone, gasSafeNo, oftecNo, locationText } = cs;
+  const accredBadges = [
+    ...(gasSafeNo ? [{ name: "Gas Safe Registered", number: gasSafeNo }] : []),
+    ...(oftecNo ? [{ name: "OFTEC Registered", number: oftecNo }] : []),
+    { name: "MCS Certified" },
+    { name: "Which? Trusted Trader" },
+    { name: "TrustMark" },
+  ];
+  return [
+    {
+      block_type: "hero",
+      content: {
+        layout: "centered",
+        heading: "Customer Reviews",
+        heading_accent: "Reviews",
+        subheading: `Don't just take our word for it. See what homeowners across ${locationText} say about ${tradeName}.`,
+        cta_text: "Get a Free Quote",
+        cta_url: "#contact",
+        badges: [{ label: "5-Star Rated" }, { label: "MCS Certified" }],
+        accent_color: "#0d9488",
+      },
+    },
+    {
+      block_type: "testimonials",
+      content: {
+        label: "Customer Reviews",
+        heading: `Trusted by Homeowners Across ${locationText}`,
+        accent_color: "#0d9488",
+        testimonials: [
+          { author: "Sarah M.", location: city, rating: 5, text: `${tradeName} installed a 10kW air source heat pump. The process was seamless from survey to commissioning. Our heating bills have dropped by nearly half. The team were professional throughout and left the house immaculate.` },
+          { author: "James & Claire T.", location: county || city, rating: 5, text: "We had underfloor heating installed throughout our ground floor alongside a new heat pump. The team were tidy, professional and explained everything clearly. They handled our BUS grant application and we had the money deducted from the invoice. Couldn't recommend more highly." },
+          { author: "David R.", location: city, rating: 5, text: "Switched from an ageing oil boiler to a ground source heat pump. The whole project was managed brilliantly from start to finish. Our grant application was handled, and the system was commissioned and handed over perfectly." },
+          { author: "Angela & Phil W.", location: county || city, rating: 5, text: "Had a high-efficiency boiler installed to replace a 20-year-old system. Same-day installation, spotlessly clean, and our bills are already noticeably lower. The 10-year warranty gives us real peace of mind." },
+          { author: "Tom H.", location: city, rating: 5, text: `Used ${tradeName} for solar thermal panels on our extension. The quote was clear and competitive, the work was excellent, and the system has been running perfectly for two years.` },
+          { author: "Fiona B.", location: locationText, rating: 5, text: "From initial survey to final commissioning, the service was outstanding. Our heat pump system has transformed our home — warmer and quieter than the old boiler, and our electricity bill includes the heating now. Highly recommended." },
+        ],
+      },
+    },
+    {
+      block_type: "accreditations",
+      content: {
+        heading: "Our Accreditations & Memberships",
+        background_color: "#1f2937",
+        text_color: "#9ca3af",
+        show_heading: true,
+        badges: accredBadges,
+      },
+    },
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Join Our Happy Customers",
+        heading: "Get Your Free Quote",
+        subheading: "Book a Free Survey Today",
+        body: "Fill in the form and we'll arrange a no-obligation survey at a time that suits you.",
+        submit_label: "Request Free Survey",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: { phone: phone || undefined },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "email", label: "Email Address", type: "email", required: true },
+          { name: "postcode", label: "Property Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Additional Information", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
+function buildModernAreasBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, county, phone, locationText } = cs;
+  const areaList = [city, ...(county && county !== city ? [county] : [])];
+  return [
+    {
+      block_type: "hero",
+      content: {
+        layout: "centered",
+        heading: "Areas We Cover",
+        heading_accent: "Cover",
+        subheading: `${tradeName} serves homeowners across ${locationText} and the surrounding region. Find out if we operate in your area.`,
+        cta_text: "Check Your Postcode",
+        cta_url: "#contact",
+        badges: [{ label: `Based in ${city}` }, { label: "Free Surveys" }],
+        accent_color: "#0d9488",
+      },
+    },
+    {
+      block_type: "areas",
+      content: {
+        label: "Coverage",
+        heading: "Serving Your Area",
+        subheading: `We cover ${locationText} and surrounding areas. Contact us to confirm we cover your postcode — we're often able to travel further for larger projects.`,
+        background_color: "#0d9488",
+        outer_background: "#f0fdfb",
+        accent_color: "#0d9488",
+        areas: areaList,
+        cta_text: "Check Your Postcode",
+        cta_url: "#contact",
+      },
+    },
+    {
+      block_type: "faq",
+      content: {
+        label: "Coverage FAQs",
+        heading: "Questions About Our Coverage",
+        accent_color: "#0d9488",
+        background_color: "#ffffff",
+        items: [
+          { question: `Do you cover all of ${county || city}?`, answer: `Yes — we cover ${locationText} comprehensively, including surrounding towns and villages. If you're unsure whether we cover your postcode, just give us a call or fill in the form below.` },
+          { question: "Do you travel outside your main area?", answer: "For larger projects — such as ground source heat pump installations or commercial work — we're often able to travel beyond our core coverage area. Please contact us to discuss." },
+          { question: "How quickly can you visit for a survey?", answer: "In most cases we can arrange a free home survey within 5–10 working days. Emergency boiler work can often be accommodated sooner." },
+          { question: "Do you charge a call-out fee for surveys?", answer: "No. All home surveys are completely free and carry no obligation whatsoever. We visit, assess your property, and provide a detailed quote at no cost to you." },
+        ],
+      },
+    },
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Check Your Postcode",
+        heading: "Find Out If We Cover You",
+        subheading: "Enter Your Postcode Below",
+        body: "Fill in the form with your postcode and we'll confirm whether we cover your area and arrange a free survey.",
+        submit_label: "Check Availability",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: { phone: phone || undefined, service_area: `Serving ${locationText}` },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "postcode", label: "Your Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Additional Information", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
+function buildModernContactBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
+  const { tradeName, city, phone, email, locationText, phoneUrl } = cs;
+  return [
+    {
+      block_type: "hero",
+      content: {
+        layout: "centered",
+        heading: "Contact Us",
+        heading_accent: "Contact",
+        subheading: `Get in touch with ${tradeName}. We'd love to hear from you — whether you have a question or you're ready to book your free survey.`,
+        cta_text: phone ? `Call ${phone}` : "Send a Message",
+        cta_url: phoneUrl,
+        badges: [{ label: "Free Surveys" }, { label: "No Obligation" }],
+        accent_color: "#0d9488",
+      },
+    },
+    {
+      block_type: "contact_form",
+      content: {
+        label: "Get In Touch",
+        heading: "Send Us a Message",
+        subheading: "Book Your Free Home Survey",
+        body: "Tell us about your property and heating requirements and we'll arrange a free, no-obligation survey at a time that suits you.",
+        submit_label: "Send Message",
+        accent_color: "#0d9488",
+        form_id: formId,
+        contact_info: {
+          phone: phone || undefined,
+          email: email || undefined,
+          service_area: locationText ? `Serving ${locationText}` : undefined,
+        },
+        fields: [
+          { name: "name", label: "Full Name", type: "text", required: true },
+          { name: "phone", label: "Phone Number", type: "tel", required: true },
+          { name: "email", label: "Email Address", type: "email", required: true },
+          { name: "postcode", label: "Property Postcode", type: "text", required: true },
+          { name: "service", label: "Service Required", type: "select", options: ["Heat Pumps", "Underfloor Heating", "Solar Thermal", "Gas Boilers", "Oil Boilers", "Low-Carbon Systems"] },
+          { name: "message", label: "Your Message", type: "textarea" },
+        ],
+      },
+    },
+  ];
+}
+
 router.post(
   "/website/apply-template",
   requireAuth,
@@ -926,34 +1398,42 @@ router.post(
       formId = newForm?.id || "";
     }
 
-    // ── 5. Seed blocks for home page based on template slug ─────────────────
-    const homePageId = pages?.find((p) => p.page_type === "home" || p.slug === "" || p.slug === "/")?.id;
+    // ── 5. Seed blocks for all pages based on template slug ─────────────────
+    const templateSlug = String(template.slug || "");
 
-    if (homePageId) {
-      const templateSlug = String(template.slug || "");
-      let homeBlocks: Array<{ block_type: string; content: Record<string, unknown> }> = [];
+    if (templateSlug === "modern") {
+      // Map slug → builder function
+      const pageBlockBuilders: Record<string, () => Array<{ block_type: string; content: Record<string, unknown> }>> = {
+        home:          () => buildModernHomeBlocks(cs, formId),
+        "how-it-works": () => buildModernHowItWorksBlocks(cs, formId),
+        services:      () => buildModernServicesBlocks(cs, formId),
+        projects:      () => buildModernProjectsBlocks(cs, formId),
+        reviews:       () => buildModernReviewsBlocks(cs, formId),
+        areas:         () => buildModernAreasBlocks(cs, formId),
+        contact:       () => buildModernContactBlocks(cs, formId),
+      };
 
-      if (templateSlug === "modern") {
-        homeBlocks = buildModernHomeBlocks(cs, formId);
+      // Also match page_type=home in case slug differs
+      const allBlockRows: Array<{ page_id: string; tenant_id: string; block_type: string; content: Record<string, unknown>; sort_order: number; is_visible: boolean }> = [];
+
+      for (const page of pages) {
+        const builderKey = page.page_type === "home" ? "home" : page.slug;
+        const builder = pageBlockBuilders[builderKey];
+        if (!builder) continue;
+        const blocks = builder();
+        blocks.forEach((b, i) => {
+          allBlockRows.push({ page_id: page.id, tenant_id: req.tenantId!, block_type: b.block_type, content: b.content, sort_order: i, is_visible: true });
+        });
       }
-      // Other template slugs can be added here in future
 
-      if (homeBlocks.length > 0) {
-        const { error: blocksError } = await db.from("website_blocks").insert(
-          homeBlocks.map((b, i) => ({
-            page_id: homePageId,
-            tenant_id: req.tenantId,
-            block_type: b.block_type,
-            content: b.content,
-            sort_order: i,
-            is_visible: true,
-          }))
-        );
+      if (allBlockRows.length > 0) {
+        const { error: blocksError } = await db.from("website_blocks").insert(allBlockRows);
         if (blocksError) {
           console.error("[apply-template] block insert failed:", blocksError);
         }
       }
     }
+    // Other template slugs can be added here in future
 
     // ── 6. Publish all pages and the website ────────────────────────────────
     await db
