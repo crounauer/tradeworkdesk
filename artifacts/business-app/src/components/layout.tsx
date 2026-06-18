@@ -106,6 +106,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const workNavItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
+    ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
+      ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
+      : []),
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),

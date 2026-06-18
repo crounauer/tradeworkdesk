@@ -18,6 +18,14 @@ interface HolidayItem {
   source?: string;
 }
 
+interface TeamProfile {
+  id: string;
+  full_name: string;
+  role: string;
+  is_active?: boolean | null;
+  can_be_assigned_jobs?: boolean | null;
+}
+
 async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, opts);
   if (!res.ok) {
@@ -54,7 +62,9 @@ export default function ScheduleHolidayManager() {
 
   const { data: profiles = [] } = useListProfiles();
   const technicians = useMemo(
-    () => (profiles || []).filter((p) => p.role === "technician" && p.is_active !== false),
+    () => (profiles as TeamProfile[] || []).filter(
+      (p) => p.is_active !== false && (p.role === "technician" || p.can_be_assigned_jobs === true),
+    ),
     [profiles],
   );
 

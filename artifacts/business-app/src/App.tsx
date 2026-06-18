@@ -122,6 +122,7 @@ const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
 const FollowUps = lazyRetry(() => import("@/pages/follow-ups"));
 const SchedulePage = lazyRetry(() => import("@/pages/schedule"));
+const LeaveHolidaysPage = lazyRetry(() => import("@/pages/leave-holidays"));
 const Billing = lazyRetry(() => import("@/pages/billing"));
 const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
 const NotFound = lazyRetry(() => import("@/pages/not-found"));
@@ -367,6 +368,7 @@ const HeatPumpCommissioningRoute = protect(HeatPumpCommissioningForm);
 const JobFilesRoute = protect(JobFiles);
 const JobSignaturesRoute = protect(JobSignatures);
 const ScheduleRoute = protect(SchedulePage);
+const LeaveHolidaysRoute = protect(LeaveHolidaysPage);
 const FollowUpsRoute = protect(FollowUps);
 const EnquiriesRoute = protect(Enquiries);
 const EnquiryDetailRoute = protect(EnquiryDetail);
@@ -510,6 +512,7 @@ function AppRouter() {
         <Route path="/jobs/:jobId/signatures" component={JobSignaturesRoute} />
 
         <Route path="/schedule" component={ScheduleRoute} />
+        <Route path="/leave-holidays" component={LeaveHolidaysRoute} />
         <Route path="/follow-ups" component={FollowUpsRoute} />
         <Route path="/enquiries" component={EnquiriesRoute} />
         <Route path="/enquiries/:id" component={EnquiryDetailRoute} />
