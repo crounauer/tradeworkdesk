@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { submitForm } from "@/lib/api";
+import { useState, useRef, type FormEvent } from "react";
+import { submitForm, uploadFormPhotos } from "@/lib/api";
 
 interface ContactInfo {
   phone?: string;
@@ -21,6 +21,7 @@ interface Props {
     success_message?: string;
     accent_color?: string;
     contact_info?: ContactInfo;
+    allow_photos?: boolean;
     fields?: Array<{ name: string; label: string; type: string; required?: boolean; options?: string[] }>;
   } & Record<string, unknown>;
 }
@@ -35,6 +36,7 @@ export default function ContactFormBlock({ content }: Props) {
     success_message = "Thank you! We'll be in touch soon.",
     accent_color = "#0d9488",
     contact_info,
+    allow_photos = false,
     fields = [
       { name: "name", label: "Full Name", type: "text", required: true },
       { name: "phone", label: "Phone Number", type: "tel", required: true },
@@ -44,18 +46,40 @@ export default function ContactFormBlock({ content }: Props) {
   } = content;
 
   const [values, setValues] = useState<Record<string, string>>({});
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   if (!form_id) return null;
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).slice(0, 5);
+    setPhotos(files);
+    setPhotoPreviews(files.map((f) => URL.createObjectURL(f)));
+  }
+
+  function removePhoto(i: number) {
+    const next = photos.filter((_, idx) => idx !== i);
+    setPhotos(next);
+    setPhotoPreviews(next.map((f) => URL.createObjectURL(f)));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
 
-    const result = await submitForm(form_id!, values);
+    // Upload photos first (if any)
+    let photoUrls: string[] = [];
+    if (allow_photos && photos.length > 0) {
+      photoUrls = await uploadFormPhotos(form_id!, photos);
+    }
+
+    const payload = photoUrls.length > 0 ? { ...values, photos: photoUrls } : { ...values };
+    const result = await submitForm(form_id!, payload);
 
     setSubmitting(false);
     if (result.ok) {
@@ -170,6 +194,45 @@ export default function ContactFormBlock({ content }: Props) {
                   )}
                 </div>
               ))}
+
+              {/* Photo upload (optional, controlled by allow_photos prop) */}
+              {allow_photos && (
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: "#374151" }}>
+                    Photos <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional, up to 5)</span>
+                  </label>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoChange}
+                    style={{ display: "none" }}
+                  />
+                  {photoPreviews.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                      {photoPreviews.map((src, i) => (
+                        <div key={i} style={{ position: "relative" }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt={`Photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb" }} />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(i)}
+                            style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: "#ef4444", color: "#fff", border: "none", cursor: "pointer", fontSize: "0.75rem", lineHeight: "20px", textAlign: "center", padding: 0 }}
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    style={{ padding: "8px 16px", border: `1px dashed ${accent_color}`, borderRadius: 6, background: "transparent", color: accent_color, cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}
+                  >
+                    📷 {photos.length === 0 ? "Add photos" : "Change photos"}
+                  </button>
+                </div>
+              )}
 
               {error && <p style={{ color: "#ef4444", marginBottom: 16 }}>{error}</p>}
               <button

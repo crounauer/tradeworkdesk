@@ -53,6 +53,9 @@ export interface CompanySettings {
   favicon_url?: string | null;
   email_from_name?: string | null;
   email_reply_to?: string | null;
+  // Website enquiry notifications
+  website_enquiry_email_notify?: boolean | null;
+  website_enquiry_sms_notify?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }

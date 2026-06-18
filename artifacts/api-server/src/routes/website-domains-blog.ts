@@ -30,6 +30,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
 import {
   requireAuth,
   requireTenant,
@@ -56,6 +57,76 @@ const formSubmitLimiter = rateLimit({
 function requireWebsiteBuilder() {
   return requirePlanFeature("website_builder");
 }
+
+// Multer: store uploaded photos in memory, 5 MB per file, max 5 files
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 5 },
+  fileFilter(_req, file, cb) {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
+
+const photoUploadLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many uploads. Please try again later." },
+});
+
+// ─── Public: upload form photos ───────────────────────────────────────────────
+// Called client-side from ContactFormBlock before submitting.
+// Returns an array of public URLs stored in Supabase storage.
+router.post(
+  "/public/website/forms/:formId/upload-photos",
+  photoUploadLimiter,
+  photoUpload.array("photos", 5),
+  async (req, res): Promise<void> => {
+    const { formId } = req.params;
+
+    // Verify the form exists and is active
+    const { data: form } = await db
+      .from("website_forms")
+      .select("id, is_active, tenant_id, websites(status)")
+      .eq("id", formId)
+      .single() as { data: Record<string, unknown> | null };
+
+    if (!form?.is_active) {
+      res.status(404).json({ error: "Form not found" });
+      return;
+    }
+
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    if (files.length === 0) {
+      res.json({ urls: [] });
+      return;
+    }
+
+    const urls: string[] = [];
+    for (const file of files) {
+      const ext = file.originalname.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `form-submissions/${form.tenant_id}/${formId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabaseAdmin.storage
+        .from("public-uploads")
+        .upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
+
+      if (error) {
+        console.error("[form-upload] storage error:", error.message);
+        continue;
+      }
+
+      const { data: urlData } = supabaseAdmin.storage
+        .from("public-uploads")
+        .getPublicUrl(path);
+
+      if (urlData?.publicUrl) urls.push(urlData.publicUrl);
+    }
+
+    res.json({ urls });
+  }
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -571,8 +642,8 @@ router.post(
       );
     }
 
-    // Send notification email to the configured address (or fall back to company email)
-    void sendFormSubmissionNotification(
+    // Send notifications (email + optional SMS) based on company settings
+    void sendFormSubmissionNotifications(
       String(form.tenant_id),
       String(form.notify_email || ""),
       String(form.form_type || "contact"),
@@ -832,9 +903,9 @@ router.get(
   }
 );
 
-// ─── Helper: notify tenant of new form submission ────────────────────────────
+// ─── Helper: notify tenant of new form submission (email + optional SMS) ─────
 
-async function sendFormSubmissionNotification(
+async function sendFormSubmissionNotifications(
   tenantId: string,
   formNotifyEmail: string,
   formType: string,
@@ -842,42 +913,102 @@ async function sendFormSubmissionNotification(
   submissionId: string,
 ): Promise<void> {
   try {
-    // Resolve notification email: form-level override → company_settings.email
-    let toEmail = formNotifyEmail.trim();
-    if (!toEmail) {
-      const { data: cs } = await (supabaseAdmin as any)
-        .from("company_settings")
-        .select("email, name, trading_name")
-        .eq("tenant_id", tenantId)
-        .eq("singleton_id", "default")
-        .maybeSingle() as { data: { email: string | null; name: string | null; trading_name: string | null } | null };
-      toEmail = cs?.email?.trim() || "";
-    }
-    if (!toEmail) return; // nowhere to send — skip silently
+    // Fetch company settings for notification prefs + contact info
+    const { data: cs } = await (supabaseAdmin as any)
+      .from("company_settings")
+      .select("email, name, trading_name, phone, website_enquiry_email_notify, website_enquiry_sms_notify, sms_sender_name")
+      .eq("tenant_id", tenantId)
+      .eq("singleton_id", "default")
+      .maybeSingle() as { data: {
+        email: string | null;
+        name: string | null;
+        trading_name: string | null;
+        phone: string | null;
+        website_enquiry_email_notify: boolean | null;
+        website_enquiry_sms_notify: boolean | null;
+        sms_sender_name: string | null;
+      } | null };
 
-    const subject = `New ${formType} form submission on your website`;
+    const emailEnabled = cs?.website_enquiry_email_notify !== false; // default true
+    const smsEnabled   = cs?.website_enquiry_sms_notify === true;
 
+    // Build notification body lines
     const lines: string[] = [];
     for (const [key, val] of Object.entries(data)) {
-      if (!val) continue;
+      if (!val || key === "photos") continue;
       const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
       lines.push(`${label}: ${String(val)}`);
     }
+    const photoUrls = Array.isArray(data.photos) ? (data.photos as string[]) : [];
 
-    const body = [
-      `You have received a new ${formType} enquiry from your website.`,
-      "",
-      lines.join("\n"),
-      "",
-      `Submission ID: ${submissionId}`,
-      "",
-      "Log in to TradeWorkDesk to view and manage this enquiry:",
-      "https://app.tradeworkdesk.co.uk/enquiries",
-    ].join("\n");
+    // ── Email ─────────────────────────────────────────────────────────────────
+    if (emailEnabled) {
+      let toEmail = (formNotifyEmail || "").trim();
+      if (!toEmail) toEmail = cs?.email?.trim() || "";
+      if (toEmail) {
+        const subject = `New ${formType} form submission on your website`;
+        const photoSection = photoUrls.length > 0
+          ? [`\nAttached photos (${photoUrls.length}):`, ...photoUrls.map((u, i) => `  Photo ${i + 1}: ${u}`)]
+          : [];
+        const body = [
+          `You have received a new ${formType} enquiry from your website.`,
+          "",
+          lines.join("\n"),
+          ...photoSection,
+          "",
+          `Submission ID: ${submissionId}`,
+          "",
+          "Log in to TradeWorkDesk to view and manage this enquiry:",
+          "https://app.tradeworkdesk.co.uk/enquiries",
+        ].join("\n");
+        await sendSimpleNotification(toEmail, subject, body).catch((e) =>
+          console.error("[website-form] Failed to send notification email:", (e as Error).message)
+        );
+      }
+    }
 
-    await sendSimpleNotification(toEmail, subject, body);
+    // ── SMS ───────────────────────────────────────────────────────────────────
+    if (smsEnabled && cs?.phone) {
+      try {
+        const { data: platformSettings } = await (supabaseAdmin as any)
+          .from("platform_settings")
+          .select("key, value")
+          .in("key", ["sms_works_api_key", "sms_works_secret"]);
+
+        const creds: Record<string, string> = {};
+        for (const s of (platformSettings ?? []) as { key: string; value: string }[]) creds[s.key] = s.value;
+
+        if (creds["sms_works_api_key"] && creds["sms_works_secret"]) {
+          const submitterName = String(data.name || data.full_name || "Someone").trim();
+          const submitterPhone = String(data.phone || data.mobile || "").trim();
+          const smsBody = `New ${formType} enquiry from ${submitterName}${submitterPhone ? " (" + submitterPhone + ")" : ""}. Log in to app.tradeworkdesk.co.uk to view.`;
+          const senderName = cs.sms_sender_name || cs.trading_name || cs.name || "TradeWork";
+
+          // Authenticate with SMS Works
+          const authRes = await fetch("https://api.thesmsworks.co.uk/v1/auth/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: creds["sms_works_api_key"], secret: creds["sms_works_secret"] }),
+          });
+          if (authRes.ok) {
+            const { token } = await authRes.json() as { token: string };
+            await fetch("https://api.thesmsworks.co.uk/v1/message/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: token },
+              body: JSON.stringify({
+                sender: senderName.slice(0, 11),
+                destination: cs.phone.replace(/\s/g, ""),
+                content: smsBody,
+              }),
+            });
+          }
+        }
+      } catch (smsErr) {
+        console.error("[website-form] SMS notification failed:", (smsErr as Error).message);
+      }
+    }
   } catch (err) {
-    console.error("[website-form] Failed to send notification email:", (err as Error).message);
+    console.error("[website-form] Failed to send notifications:", (err as Error).message);
   }
 }
 

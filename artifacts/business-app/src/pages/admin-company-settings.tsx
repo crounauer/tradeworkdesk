@@ -17,7 +17,7 @@ import {
   Upload, Trash2, Loader2, MapPin, BadgeCheck, PoundSterling,
   ArrowUpCircle, ArrowDownCircle, Users, AlertTriangle, CreditCard,
   Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench,
-  Search, Save, Zap, Banknote, CheckCircle2, XCircle, Link as LinkIcon,
+  Search, Save, Zap, Banknote, CheckCircle2, XCircle, Link as LinkIcon, Bell,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -161,6 +161,7 @@ export default function AdminCompanySettings() {
   const upgradeToCompany = useUpgradeToCompany();
   const downgradeToSoleTrader = useDowngradeToSoleTrader();
   const isAdmin = profile?.role === "admin";
+  const { hasAddon } = usePlanFeatures();
 
   const searchString = useSearch();
   const updateSettings = useUpdateCompanySettings();
@@ -232,7 +233,7 @@ export default function AdminCompanySettings() {
     }
   };
 
-  const { register, reset, getValues, watch, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
+  const { register, reset, getValues, watch, setValue, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -283,12 +284,15 @@ export default function AdminCompanySettings() {
       invoice_bank_details: settings.invoice_bank_details ?? "",
       payment_link_url: settings.payment_link_url ?? "",
       invoicing_provider: (settings.invoicing_provider as "native" | "external" | "both") ?? "native",
+      // Notifications
+      website_enquiry_email_notify: settings.website_enquiry_email_notify ?? true,
+      website_enquiry_sms_notify: settings.website_enquiry_sms_notify ?? false,
     });
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
-  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled"]);
+  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -433,13 +437,14 @@ export default function AdminCompanySettings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-6">
+          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-7">
             <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
             <TabsTrigger value="team" className="flex-1">Team</TabsTrigger>
             <TabsTrigger value="billing" className="flex-1">Billing</TabsTrigger>
             <TabsTrigger value="catalogue" className="flex-1">Catalogue</TabsTrigger>
             <TabsTrigger value="invoicing" className="flex-1">Invoicing</TabsTrigger>
             <TabsTrigger value="payments" className="flex-1">Payments</TabsTrigger>
+            <TabsTrigger value="notifications" className="flex-1">Notifications</TabsTrigger>
           </TabsList>
         </div>
 
@@ -1082,6 +1087,44 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-6 pt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  Website Enquiry Notifications
+                </CardTitle>
+                <CardDescription>
+                  Choose how you want to be alerted when a new enquiry arrives from your website contact form.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Email notification</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Send an email to your company address when a new enquiry is submitted</p>
+                  </div>
+                  <Switch
+                    checked={watch("website_enquiry_email_notify") ?? true}
+                    onCheckedChange={(v) => setValue("website_enquiry_email_notify", v, { shouldDirty: true })}
+                  />
+                </div>
+                {hasAddon("sms_messaging") && (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>SMS notification</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">Send a text message to your company phone number for each new enquiry</p>
+                    </div>
+                    <Switch
+                      checked={watch("website_enquiry_sms_notify") ?? false}
+                      onCheckedChange={(v) => setValue("website_enquiry_sms_notify", v, { shouldDirty: true })}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
 

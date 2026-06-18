@@ -238,3 +238,26 @@ export async function submitForm(
     return { ok: false, error: "Network error. Please try again." };
   }
 }
+
+/**
+ * Upload photos for a form submission.
+ * Returns an array of public URLs, or an empty array on failure.
+ */
+export async function uploadFormPhotos(
+  formId: string,
+  files: File[],
+): Promise<string[]> {
+  try {
+    const body = new FormData();
+    for (const file of files) body.append("photos", file);
+    const res = await fetch(`${API_BASE}/api/public/website/forms/${formId}/upload-photos`, {
+      method: "POST",
+      body,
+    });
+    if (!res.ok) return [];
+    const json = await res.json() as { urls?: string[] };
+    return json.urls ?? [];
+  } catch {
+    return [];
+  }
+}
