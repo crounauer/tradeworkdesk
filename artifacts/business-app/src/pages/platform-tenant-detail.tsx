@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw, Eye } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
