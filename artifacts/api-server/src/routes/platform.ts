@@ -201,16 +201,40 @@ router.post("/platform/tenants/:id/switch-plan", requireAuth, requireSuperAdmin,
 
 router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const BASE_PLAN_ID = "37421994-c20d-49f8-aee1-a896e030a5f5";
+  let trialDays = 30;
+  try {
+    const { data: setting } = await supabaseAdmin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "trial_duration_days")
+      .single();
+    if (setting?.value && Number(setting.value) > 0) trialDays = Number(setting.value);
+  } catch {}
+  const trialEnds = new Date(Date.now() + trialDays * 86400000).toISOString();
+
+  const { data: basePlan } = await supabaseAdmin
+    .from("plans")
+    .select("id, name")
+    .eq("is_active", true)
+    .eq("is_legacy", false)
+    .gt("monthly_price", 0)
+    .order("monthly_price", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!basePlan?.id) {
+    res.status(400).json({ error: "No active paid plan is configured." });
+    return;
+  }
 
   const { data: tenant, error: tErr } = await supabaseAdmin
     .from("tenants")
-    .update({ plan_id: BASE_PLAN_ID, status: "active", trial_ends_at: null })
+    .update({ plan_id: basePlan.id, status: "trial", trial_ends_at: trialEnds, stripe_subscription_id: null })
     .eq("id", id)
     .select()
     .single();
 
-  if (tErr || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (tErr || !tenant) { res.status(404).json({ error: tErr?.message || "Tenant not found" }); return; }
 
   const { data: allAddons } = await supabaseAdmin
     .from("addons")
@@ -240,24 +264,25 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
     event_type: "granted_free_access",
     entity_type: "tenant",
     entity_id: id,
-    detail: { plan_id: BASE_PLAN_ID, addons_activated: allAddons?.length || 0 },
+    detail: { plan_id: basePlan.id, plan_name: basePlan.name, trial_ends_at: trialEnds, addons_activated: allAddons?.length || 0 },
   });
+
+  bustInitCache(id);
 
   res.json({ success: true, tenant });
 });
 
 router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const FREE_PLAN_ID = "00000000-0000-0000-0000-000000000000";
 
   const { data: tenant, error: tErr } = await supabaseAdmin
     .from("tenants")
-    .update({ plan_id: FREE_PLAN_ID, status: "active", trial_ends_at: null })
+    .update({ status: "suspended", trial_ends_at: null, stripe_subscription_id: null })
     .eq("id", id)
     .select()
     .single();
 
-  if (tErr || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+  if (tErr || !tenant) { res.status(404).json({ error: tErr?.message || "Tenant not found" }); return; }
 
   const { count } = await supabaseAdmin
     .from("tenant_addons")
@@ -272,8 +297,10 @@ router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSupe
     event_type: "revoked_free_access",
     entity_type: "tenant",
     entity_id: id,
-    detail: { plan_id: FREE_PLAN_ID, addons_deactivated: count || 0 },
+    detail: { status: "suspended", addons_deactivated: count || 0 },
   });
+
+  bustInitCache(id);
 
   res.json({ success: true, tenant });
 });

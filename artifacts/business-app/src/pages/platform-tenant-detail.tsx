@@ -72,13 +72,16 @@ export default function PlatformTenantDetail() {
   const grantFreeAccessMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/platform/tenants/${params.id}/grant-free-access`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to grant free access");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to grant free access");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
       queryClient.invalidateQueries({ queryKey: ["platform-tenant-addons", params.id] });
-      toast({ title: "Free access granted", description: "Base Plan + all add-ons activated at no cost." });
+      toast({ title: "Trial access granted", description: "Tenant reactivated on trial with add-ons enabled." });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -86,13 +89,16 @@ export default function PlatformTenantDetail() {
   const revokeFreeAccessMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/platform/tenants/${params.id}/revoke-free-access`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to revoke free access");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to revoke free access");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["platform-tenant", params.id] });
       queryClient.invalidateQueries({ queryKey: ["platform-tenant-addons", params.id] });
-      toast({ title: "Free access revoked", description: "Trial access removed and add-ons deactivated." });
+      toast({ title: "Access revoked", description: "Tenant suspended and add-ons deactivated." });
     },
     onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
