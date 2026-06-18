@@ -23,7 +23,10 @@ async function clearSwAndReload() {
   } catch (_) {
     // Ignore — still reload even if SW unregister fails
   }
-  window.location.reload();
+
+  const cacheBustedUrl = new URL(window.location.href);
+  cacheBustedUrl.searchParams.set("__reload", Date.now().toString());
+  window.location.replace(cacheBustedUrl.toString());
 }
 
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
