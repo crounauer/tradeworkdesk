@@ -58,6 +58,15 @@ type AnalyticsResponse = {
     email: string;
     phone: string;
   }>;
+  health?: {
+    score: number;
+    label: "Strong" | "Needs Attention" | "At Risk";
+  };
+  health_history?: Array<{
+    week_start: string;
+    score: number;
+    label: "Strong" | "Needs Attention" | "At Risk";
+  }>;
 };
 
 type BenchmarkStatus = "green" | "amber" | "red";
@@ -142,6 +151,7 @@ export default function WebsiteAnalytics() {
   const trafficChannels = Array.isArray(data.traffic_channels) ? data.traffic_channels : [];
   const sourceBreakdown = Array.isArray(data.source_breakdown) ? data.source_breakdown : [];
   const recentSubmissions = Array.isArray(data.recent_submissions) ? data.recent_submissions : [];
+  const healthHistory = Array.isArray(data.health_history) ? data.health_history : [];
 
   const pct = (numerator: number, denominator: number, precision = 1) => {
     if (denominator <= 0) return 0;
@@ -245,7 +255,11 @@ export default function WebsiteAnalytics() {
     benchmarkRows.reduce((sum, row) => sum + (statusPoints(row.status) * row.weight) / 100, 0)
   );
 
-  const healthLabel = healthScore >= 80 ? "Strong" : healthScore >= 60 ? "Needs Attention" : "At Risk";
+  const effectiveHealthScore = Number(data.health?.score ?? healthScore);
+  const healthLabel = (data.health?.label || (effectiveHealthScore >= 80 ? "Strong" : effectiveHealthScore >= 60 ? "Needs Attention" : "At Risk")) as "Strong" | "Needs Attention" | "At Risk";
+  const historyDelta = healthHistory.length >= 2
+    ? effectiveHealthScore - Number(healthHistory[0]?.score || effectiveHealthScore)
+    : 0;
 
   const benchmarkBadge = (status: BenchmarkStatus) => {
     if (status === "green") return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">On Track</Badge>;
@@ -405,15 +419,41 @@ export default function WebsiteAnalytics() {
         <CardContent>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <p className="text-4xl font-bold">{healthScore}<span className="text-base text-muted-foreground">/100</span></p>
+              <p className="text-4xl font-bold">{effectiveHealthScore}<span className="text-base text-muted-foreground">/100</span></p>
               <p className="text-sm text-muted-foreground mt-1">Weighted score across traffic, conversion, engagement and lead handling.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {historyDelta >= 0 ? "+" : ""}{historyDelta} vs first point in history
+              </p>
             </div>
-            <Badge className={healthScore >= 80 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : healthScore >= 60 ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}>
+            <Badge className={effectiveHealthScore >= 80 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : effectiveHealthScore >= 60 ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}>
               {healthLabel}
             </Badge>
           </div>
         </CardContent>
       </Card>
+
+      {healthHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Website Health Trend (Weekly)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-40 flex items-end gap-1">
+              {healthHistory.map((point) => (
+                <div key={point.week_start} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1">
+                  <div
+                    className={`w-full rounded-t ${point.score >= 80 ? "bg-emerald-500/80" : point.score >= 60 ? "bg-amber-500/80" : "bg-red-500/80"}`}
+                    style={{ height: `${Math.max(4, Math.round((Math.max(0, Math.min(100, point.score)) / 100) * 128))}px` }}
+                    title={`${point.week_start}: ${point.score}/100`}
+                  />
+                  <span className="text-[10px] text-muted-foreground">{point.week_start.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">Stored weekly snapshots. Colors reflect benchmark status bands.</div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         <Card>

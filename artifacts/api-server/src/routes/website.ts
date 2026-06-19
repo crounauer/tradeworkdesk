@@ -37,6 +37,18 @@ const KNOWN_TEMPLATE_SLUGS = ["classic", "modern", "bold", "professional", "mini
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
 const WEBSITE_ANALYTICS_CACHE_TTL_MS = 60_000;
 
+function pct1(numerator: number, denominator: number): number {
+  if (denominator <= 0) return 0;
+  return Math.round((numerator / denominator) * 1000) / 10;
+}
+
+function weekStartDateIso(d: Date): string {
+  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = (utc.getUTCDay() + 6) % 7;
+  utc.setUTCDate(utc.getUTCDate() - day);
+  return utc.toISOString().slice(0, 10);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unknown> | null> {
@@ -968,6 +980,76 @@ router.get(
 
     const dailyTraffic = Array.from(trafficDailyMap.entries()).map(([date, count]) => ({ date, count }));
 
+    const trafficToSubmissionRate = pct1(Number(submissionsLast30Count || 0), pageViews);
+    const visitorToLeadRate = pct1(leadsLast30, uniqueVisitors.size);
+    const readOrConverted = Number(funnel.read || 0) + Number(funnel.converted || 0);
+    const followUpProgressRate = pct1(readOrConverted, totalSubmissions);
+    const publishedCoverageRate = pct1(publishedPages, Math.max(1, totalPages));
+
+    const benchmarkStatus = (value: number, good: number, ok: number, inverse = false): "green" | "amber" | "red" => {
+      if (!inverse) {
+        if (value >= good) return "green";
+        if (value >= ok) return "amber";
+        return "red";
+      }
+      if (value <= good) return "green";
+      if (value <= ok) return "amber";
+      return "red";
+    };
+
+    const statusPoints = (status: "green" | "amber" | "red"): number => {
+      if (status === "green") return 100;
+      if (status === "amber") return 65;
+      return 30;
+    };
+
+    const benchmarkRows = [
+      { key: "visitors", status: benchmarkStatus(uniqueVisitors.size, 300, 120), weight: 15 },
+      { key: "traffic_to_submission", status: benchmarkStatus(trafficToSubmissionRate, 1.5, 0.8), weight: 20 },
+      { key: "visitor_to_lead", status: benchmarkStatus(visitorToLeadRate, 2.0, 1.0), weight: 15 },
+      { key: "bounce", status: benchmarkStatus(bounceRatePercent, 50, 65, true), weight: 15 },
+      { key: "pages_per_session", status: benchmarkStatus(pagesPerSession, 1.8, 1.4), weight: 10 },
+      { key: "follow_up", status: benchmarkStatus(followUpProgressRate, 75, 50), weight: 15 },
+      { key: "published_coverage", status: benchmarkStatus(publishedCoverageRate, 80, 50), weight: 10 },
+    ];
+
+    const healthScore = Math.round(
+      benchmarkRows.reduce((sum, row) => sum + (statusPoints(row.status) * row.weight) / 100, 0)
+    );
+    const healthLabel = healthScore >= 80 ? "Strong" : healthScore >= 60 ? "Needs Attention" : "At Risk";
+
+    const weekStart = weekStartDateIso(now);
+    await db
+      .from("website_health_snapshots")
+      .upsert({
+        website_id: website.id,
+        tenant_id: req.tenantId,
+        week_start: weekStart,
+        health_score: healthScore,
+        health_label: healthLabel,
+        metrics: {
+          traffic_to_submission_rate: trafficToSubmissionRate,
+          visitor_to_lead_rate: visitorToLeadRate,
+          follow_up_progress_rate: followUpProgressRate,
+          published_coverage_rate: publishedCoverageRate,
+          page_views_last_30_days: pageViews,
+          unique_visitors_last_30_days: uniqueVisitors.size,
+          bounce_rate_percent: bounceRatePercent,
+          pages_per_session: pagesPerSession,
+        },
+      }, { onConflict: "website_id,week_start" });
+
+    const twelveWeeksAgo = new Date(now);
+    twelveWeeksAgo.setDate(twelveWeeksAgo.getDate() - 7 * 12);
+    const { data: healthHistoryRows } = await db
+      .from("website_health_snapshots")
+      .select("week_start, health_score, health_label")
+      .eq("website_id", website.id)
+      .gte("week_start", twelveWeeksAgo.toISOString().slice(0, 10))
+      .order("week_start", { ascending: true }) as {
+        data: Array<{ week_start: string; health_score: number; health_label: string }> | null;
+      };
+
     const responseBody = {
       summary: {
         total_pages: totalPages,
@@ -994,6 +1076,15 @@ router.get(
       traffic_channels: trafficChannels,
       source_breakdown: sourceBreakdown,
       recent_submissions: recentSubmissions,
+      health: {
+        score: healthScore,
+        label: healthLabel,
+      },
+      health_history: (healthHistoryRows || []).map((r) => ({
+        week_start: r.week_start,
+        score: Number(r.health_score || 0),
+        label: String(r.health_label || "Needs Attention"),
+      })),
     };
 
     websiteAnalyticsCache.set(cacheKey, { data: responseBody, ts: Date.now() });
