@@ -199,7 +199,13 @@ router.post(
         .from("website_templates")
         .select("default_pages, default_theme")
         .eq("id", template_id)
+        .eq("is_active", true)
         .single() as { data: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null };
+
+      if (!template) {
+        res.status(400).json({ error: "Selected template is not live." });
+        return;
+      }
 
       if (template?.default_pages?.length) {
         const pageInserts = template.default_pages.map((p: Record<string, unknown>, i: number) => ({
@@ -1318,9 +1324,10 @@ router.post(
       .from("website_templates")
       .select("*")
       .eq("id", template_id)
+      .eq("is_active", true)
       .single() as { data: Record<string, unknown> | null };
 
-    if (!template) { res.status(404).json({ error: "Template not found" }); return; }
+    if (!template) { res.status(404).json({ error: "Template not live or not found" }); return; }
 
     // Load company settings to personalise content
     const { data: rawCs } = await supabaseAdmin

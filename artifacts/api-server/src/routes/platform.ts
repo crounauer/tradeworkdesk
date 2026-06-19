@@ -1797,6 +1797,46 @@ router.get("/platform/stats/ai-usage", requireAuth, requireSuperAdmin, async (_r
 
 // ─── Template Asset Management (superadmin) ──────────────────────────────────
 
+router.get("/platform/website-templates", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const KNOWN_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
+  const { data, error } = await supabaseAdmin
+    .from("website_templates")
+    .select("id, name, slug, description, is_active, sort_order, updated_at")
+    .in("slug", KNOWN_SLUGS)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json(data || []);
+});
+
+router.patch("/platform/website-templates/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { is_active } = req.body as { is_active?: boolean };
+
+  if (typeof is_active !== "boolean") {
+    res.status(400).json({ error: "is_active must be a boolean" });
+    return;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("website_templates")
+    .update({ is_active })
+    .eq("id", id)
+    .select("id, name, slug, description, is_active, sort_order, updated_at")
+    .single();
+
+  if (error || !data) {
+    res.status(500).json({ error: error?.message || "Failed to update template" });
+    return;
+  }
+
+  res.json(data);
+});
+
 const TEMPLATE_ASSET_BUCKET = "website-template-assets";
 
 const templateAssetUpload = multer({

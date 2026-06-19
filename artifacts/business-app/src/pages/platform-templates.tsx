@@ -1,17 +1,27 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Trash2, Copy, ImageIcon, FolderOpen } from "lucide-react";
 
-const TEMPLATES = [
-  { id: "classic",      label: "Classic" },
-  { id: "modern",       label: "Modern" },
-  { id: "bold",         label: "Bold" },
-  { id: "professional", label: "Professional" },
-  { id: "minimal",      label: "Minimal" },
+const TEMPLATE_FALLBACKS = [
+  { slug: "classic",      name: "Classic" },
+  { slug: "modern",       name: "Modern" },
+  { slug: "bold",         name: "Bold" },
+  { slug: "professional", name: "Professional" },
+  { slug: "minimal",      name: "Minimal" },
 ];
+
+interface WebsiteTemplate {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  sort_order: number;
+}
 
 interface Asset {
   name: string;
@@ -173,33 +183,133 @@ function TemplateAssets({ templateId }: { templateId: string }) {
 }
 
 export default function PlatformTemplates() {
-  const [activeTemplate, setActiveTemplate] = useState(TEMPLATES[0].id);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [activeTemplate, setActiveTemplate] = useState(TEMPLATE_FALLBACKS[0].slug);
+
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<WebsiteTemplate[]>({
+    queryKey: ["/api/platform/website-templates"],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/platform/website-templates`, {
+        credentials: "include",
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to load templates");
+        return r.json();
+      }),
+  });
+
+  const templateItems = templates.length
+    ? templates
+    : TEMPLATE_FALLBACKS.map((t, idx) => ({
+        id: t.slug,
+        slug: t.slug,
+        name: t.name,
+        is_active: true,
+        sort_order: idx,
+      }));
+
+  useEffect(() => {
+    if (!templateItems.length) return;
+    const selectedStillExists = templateItems.some((t) => t.slug === activeTemplate);
+    if (!selectedStillExists) {
+      setActiveTemplate(templateItems[0].slug);
+    }
+  }, [templateItems, activeTemplate]);
+
+  const toggleTemplateMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/website-templates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ is_active }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to update template" }));
+        throw new Error(err.error || "Failed to update template");
+      }
+      return res.json();
+    },
+    onSuccess: (updated: WebsiteTemplate) => {
+      qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] });
+      toast({ title: updated.is_active ? "Template set live" : "Template taken offline" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const selectedTemplate = templateItems.find((t) => t.slug === activeTemplate);
 
   return (
     <div className="p-6 space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold">Website Templates</h1>
         <p className="text-muted-foreground mt-1">
-          Upload Figma design assets for each template. Assets are stored in Supabase Storage and referenced by template component code.
+          Upload Figma design assets for each template and control when each template is live.
         </p>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Template Live Controls</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {templatesLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading templates...
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templateItems.map((template) => (
+                <div key={template.slug} className="flex items-center justify-between border rounded-lg p-3">
+                  <div>
+                    <p className="font-medium text-sm">{template.name}</p>
+                    <p className="text-xs text-muted-foreground">{template.slug}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={template.is_active ? "default" : "secondary"}>
+                      {template.is_active ? "Live" : "Offline"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant={template.is_active ? "outline" : "default"}
+                      disabled={!templates.length || toggleTemplateMutation.isPending}
+                      onClick={() => toggleTemplateMutation.mutate({ id: template.id, is_active: !template.is_active })}
+                    >
+                      {template.is_active ? "Take Offline" : "Make Live"}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex gap-2 flex-wrap">
-        {TEMPLATES.map((t) => (
+        {templateItems.map((t) => (
           <Button
-            key={t.id}
-            variant={activeTemplate === t.id ? "default" : "outline"}
+            key={t.slug}
+            variant={activeTemplate === t.slug ? "default" : "outline"}
             size="sm"
-            onClick={() => setActiveTemplate(t.id)}
+            onClick={() => setActiveTemplate(t.slug)}
           >
-            {t.label}
+            {t.name}
           </Button>
         ))}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="capitalize">{activeTemplate} Template Assets</CardTitle>
+          <CardTitle className="capitalize flex items-center gap-2">
+            {activeTemplate} Template Assets
+            {selectedTemplate && (
+              <Badge variant={selectedTemplate.is_active ? "default" : "secondary"}>
+                {selectedTemplate.is_active ? "Live" : "Offline"}
+              </Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <TemplateAssets key={activeTemplate} templateId={activeTemplate} />
