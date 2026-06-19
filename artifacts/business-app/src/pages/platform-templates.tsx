@@ -30,6 +30,8 @@ interface Asset {
   created_at?: string;
 }
 
+const templateLiveSettingKey = (slug: string) => `website_template_live_${slug}`;
+
 function formatBytes(bytes?: number) {
   if (!bytes) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -196,6 +198,29 @@ export default function PlatformTemplates() {
         if (!r.ok) throw new Error("Failed to load templates");
         return r.json();
       }),
+    retry: false,
+  });
+
+  const { data: fallbackLiveMap = {} } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/platform/settings/template-live-fallback"],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        TEMPLATE_FALLBACKS.map(async (template) => {
+          const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/${templateLiveSettingKey(template.slug)}`, {
+            credentials: "include",
+          });
+
+          if (!res.ok) return [template.slug, true] as const;
+          const data = await res.json().catch(() => ({ value: "true" }));
+          const value = String(data?.value ?? "true").trim().toLowerCase();
+          const isActive = !(value === "false" || value === "0" || value === "off");
+          return [template.slug, isActive] as const;
+        }),
+      );
+
+      return Object.fromEntries(entries);
+    },
+    retry: false,
   });
 
   const { data: defaultTemplateSlug, isLoading: defaultTemplateLoading } = useQuery<string | null>({
@@ -216,7 +241,7 @@ export default function PlatformTemplates() {
         id: t.slug,
         slug: t.slug,
         name: t.name,
-        is_active: true,
+        is_active: fallbackLiveMap[t.slug] ?? true,
         sort_order: idx,
       }));
 
@@ -229,7 +254,22 @@ export default function PlatformTemplates() {
   }, [templateItems, activeTemplate]);
 
   const toggleTemplateMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+    mutationFn: async ({ id, slug, is_active }: { id: string; slug: string; is_active: boolean }) => {
+      // If the website-templates API route is unavailable, use platform settings fallback.
+      if (!templates.length) {
+        const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/${templateLiveSettingKey(slug)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ value: is_active ? "true" : "false" }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Failed to update template" }));
+          throw new Error(err.error || "Failed to update template");
+        }
+        return { id, slug, is_active } as WebsiteTemplate;
+      }
+
       const endpoints = [
         { url: `${import.meta.env.BASE_URL}api/platform/website-templates/${id}/status`, method: "POST" },
         { url: `${import.meta.env.BASE_URL}api/platform/website-templates/${id}`, method: "POST" },
@@ -255,6 +295,7 @@ export default function PlatformTemplates() {
     },
     onSuccess: (updated: WebsiteTemplate) => {
       qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] });
+      qc.invalidateQueries({ queryKey: ["/api/platform/settings/template-live-fallback"] });
       toast({ title: updated.is_active ? "Template set live" : "Template taken offline" });
     },
     onError: (error: Error) => {
@@ -331,7 +372,7 @@ export default function PlatformTemplates() {
                       size="sm"
                       variant={template.is_active ? "outline" : "default"}
                       disabled={toggleTemplateMutation.isPending}
-                      onClick={() => toggleTemplateMutation.mutate({ id: template.id, is_active: !template.is_active })}
+                      onClick={() => toggleTemplateMutation.mutate({ id: template.id, slug: template.slug, is_active: !template.is_active })}
                     >
                       {template.is_active ? "Take Offline" : "Make Live"}
                     </Button>
