@@ -231,6 +231,7 @@ export default function AdminCompanySettings() {
 
   const { register, reset, getValues, watch, setValue, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const settingsLoadedRef = useRef(false);
@@ -328,6 +329,7 @@ export default function AdminCompanySettings() {
       await saveToServer(clean);
       if (!isMountedRef.current) return;
       setAutoSaveStatus("saved");
+      setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       if (showToast) {
         toast({ title: "Settings saved", description: "Company information has been updated." });
       }
@@ -1083,6 +1085,24 @@ export default function AdminCompanySettings() {
       </Tabs>
 
     </div>
+
+      {autoSaveStatus !== "idle" && (
+        <div className="fixed bottom-4 right-4 z-40 pointer-events-none">
+          <div className="rounded-full border border-border/70 bg-background/90 backdrop-blur px-3 py-1.5 text-xs text-muted-foreground shadow-sm flex items-center gap-1.5">
+            {autoSaveStatus === "saving" ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Saving changes
+              </>
+            ) : (
+              <>
+                <Check className="w-3 h-3 text-emerald-600" />
+                Saved{lastSavedAt ? ` at ${lastSavedAt}` : ""}
+              </>
+            )}
+          </div>
+        </div>
+      )}
   );
 }
 
