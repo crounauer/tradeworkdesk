@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, ImagePlus, MessageSquare, PlusCircle, Send } from "lucide-react";
+import { AlertCircle, ImagePlus, MessageSquare, PlusCircle, Send, X } from "lucide-react";
 
 type TicketListRow = {
   id: string;
@@ -48,6 +48,7 @@ export default function SupportTicketsPage() {
   const [priority, setPriority] = useState("normal");
   const [body, setBody] = useState("");
   const [images, setImages] = useState<File[]>([]);
+  const [selectedForms, setSelectedForms] = useState<string[]>([]);
   const [replyBody, setReplyBody] = useState("");
   const [replyImages, setReplyImages] = useState<File[]>([]);
 
@@ -79,7 +80,10 @@ export default function SupportTicketsPage() {
       formData.append("subject", subject);
       formData.append("category", category);
       formData.append("priority", priority);
-      formData.append("body", body);
+      const bodyWithForms = selectedForms.length > 0
+        ? `${body}\n\n---\nRelated forms: ${selectedForms.join(", ")}`
+        : body;
+      formData.append("body", bodyWithForms);
       for (const image of images) formData.append("images", image);
       const res = await fetch("/api/support/tickets", { method: "POST", body: formData });
       const data = await res.json();
@@ -95,6 +99,7 @@ export default function SupportTicketsPage() {
       setPriority("normal");
       setBody("");
       setImages([]);
+      setSelectedForms([]);
       toast({ title: "Ticket submitted", description: "Support has been notified." });
     },
     onError: (error: Error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
@@ -165,6 +170,43 @@ export default function SupportTicketsPage() {
               <div className="space-y-1.5">
                 <Label>Details</Label>
                 <textarea className="flex min-h-[140px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Describe the issue, expected behaviour, and any steps to reproduce it." />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Related Forms (optional)</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && !selectedForms.includes(val)) {
+                      setSelectedForms((prev) => [...prev, val]);
+                    }
+                  }}
+                >
+                  <option value="">Add a form type…</option>
+                  <option value="Oil Boiler Service">Oil Boiler Service</option>
+                  <option value="Gas Boiler Service">Gas Boiler Service</option>
+                  <option value="Heat Pump Service">Heat Pump Service</option>
+                  <option value="Heat Pump Commissioning">Heat Pump Commissioning</option>
+                  <option value="Combustion Analysis">Combustion Analysis</option>
+                  <option value="Oil Tank Inspection">Oil Tank Inspection</option>
+                  <option value="Oil Tank Risk Assessment">Oil Tank Risk Assessment</option>
+                  <option value="Oil Line Vacuum Test">Oil Line Vacuum Test</option>
+                  <option value="Fire Valve Test">Fire Valve Test</option>
+                  <option value="Other Form">Other Form</option>
+                </select>
+                {selectedForms.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {selectedForms.map((form) => (
+                      <span key={form} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2.5 py-1">
+                        {form}
+                        <button type="button" onClick={() => setSelectedForms((prev) => prev.filter((f) => f !== form))}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-2"><ImagePlus className="w-4 h-4" />Screenshots</Label>

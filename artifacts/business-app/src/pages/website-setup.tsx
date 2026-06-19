@@ -248,9 +248,9 @@ export default function WebsiteSetup() {
   }
 
   // Website exists — show overview
-  const platformDomain = website.domains.find((d) => d.is_platform_subdomain && d.is_active);
-  const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && d.is_active);
-  const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && !d.is_active);
+  const platformDomain = website.domains.find((d) => d.is_platform_subdomain);
+  const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && (d.verification_status === "verified" || d.is_active));
+  const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && d.verification_status !== "verified" && !d.is_active);
   // Show custom domain URL once active, otherwise fall back to the free platform subdomain
   const liveUrl = activeCustomDomain
     ? `https://${activeCustomDomain.domain}`
