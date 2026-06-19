@@ -23,6 +23,7 @@
 
 import { Router, type IRouter, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { ReviewRequestError, sendReviewRequestNow, triggerReviewRequestAutomation } from "../lib/review-request-service";
 import {
   requireAuth,
   requireTenant,
@@ -112,20 +113,14 @@ router.post("/review-requests", requireAuth, requireTenant, async (req: Authenti
 // ─── Force-send now ───────────────────────────────────────────────────────────
 
 router.post("/review-requests/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
-  // Fetch the request
-  const { data: rr, error: fetchErr } = await db.from("review_requests")
-    .select("*").eq("id", req.params.id).eq("tenant_id", req.tenantId).maybeSingle();
-  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
-  if (!rr) return res.status(404).json({ error: "Not found" });
-  if (rr.status === "sent") return res.status(409).json({ error: "Already sent" });
-
-  // Mark as sent (actual email delivery would be triggered by a queue worker)
-  const { data, error } = await db.from("review_requests")
-    .update({ status: "sent", sent_at: new Date().toISOString() })
-    .eq("id", req.params.id).eq("tenant_id", req.tenantId)
-    .select().single();
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  try {
+    const data = await sendReviewRequestNow(req.params.id, req.tenantId!);
+    res.json(data);
+  } catch (err) {
+    const status = err instanceof ReviewRequestError ? err.status : 500;
+    const message = err instanceof Error ? err.message : "Failed to send review request";
+    res.status(status).json({ error: message });
+  }
 });
 
 router.delete("/review-requests/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
@@ -151,52 +146,12 @@ router.post("/automation/trigger", requireAuth, requireTenant, async (req: Authe
     return res.status(400).json({ error: "event and entity_id are required" });
   }
 
-  const logs: unknown[] = [];
-
-  // Handle review request automation
-  if (event === "job.completed" || event === "invoice.paid") {
-    const { data: settings } = await db.from("review_request_settings")
-      .select("*").eq("tenant_id", req.tenantId).maybeSingle();
-
-    if (settings?.is_enabled) {
-      const triggerOn = settings.trigger_on;
-      const matches =
-        (triggerOn === "job_completed" && event === "job.completed") ||
-        (triggerOn === "invoice_paid" && event === "invoice.paid");
-
-      if (matches && metadata?.customer_email) {
-        const scheduledFor = new Date();
-        scheduledFor.setHours(scheduledFor.getHours() + (settings.delay_hours || 24));
-
-        const { data: rr, error: rrErr } = await db.from("review_requests").insert({
-          tenant_id: req.tenantId,
-          customer_name: metadata.customer_name || "Customer",
-          customer_email: metadata.customer_email,
-          customer_phone: metadata.customer_phone || null,
-          job_id: entity_type === "job" ? entity_id : null,
-          invoice_id: entity_type === "invoice" ? entity_id : null,
-          trigger_type: triggerOn,
-          channel: settings.sms_enabled && metadata.customer_phone ? "sms" : "email",
-          status: "pending",
-          scheduled_for: scheduledFor.toISOString(),
-        }).select().maybeSingle();
-
-        if (!rrErr) {
-          logs.push({ action: "review_request_scheduled", review_request_id: rr?.id });
-        }
-      }
-    }
-  }
-
-  // Log the automation event
-  await db.from("automation_logs").insert({
-    tenant_id: req.tenantId,
-    trigger_event: event,
-    entity_type,
-    entity_id,
-    status: "success",
-    action_type: "automation_trigger",
-    message: `Processed ${event} for ${entity_type} ${entity_id}`,
+  const logs = await triggerReviewRequestAutomation({
+    tenantId: req.tenantId!,
+    event,
+    entityId: entity_id,
+    entityType: entity_type,
+    metadata,
   });
 
   res.json({ ok: true, processed: logs });
