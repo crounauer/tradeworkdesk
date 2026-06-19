@@ -16,7 +16,7 @@ import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
   Upload, Trash2, Loader2, MapPin, BadgeCheck, PoundSterling,
   Users, AlertTriangle, CreditCard,
-  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench,
+  Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench, Palette,
   Search, Save, Zap, Banknote, CheckCircle2, XCircle, Link as LinkIcon, Bell,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
