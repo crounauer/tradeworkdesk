@@ -20,9 +20,23 @@ interface AnnouncementForm {
   severity: string;
   starts_at: string;
   ends_at: string;
+  target_scope: "all_tenants" | "specific_tenants";
+  target_tenant_ids: string[];
+  target_admin_dashboard: boolean;
+  target_websites: boolean;
 }
 
-const EMPTY_FORM: AnnouncementForm = { title: "", body: "", severity: "info", starts_at: "", ends_at: "" };
+const EMPTY_FORM: AnnouncementForm = {
+  title: "",
+  body: "",
+  severity: "info",
+  starts_at: "",
+  ends_at: "",
+  target_scope: "all_tenants",
+  target_tenant_ids: [],
+  target_admin_dashboard: true,
+  target_websites: false,
+};
 
 export default function PlatformAnnouncements() {
   const { toast } = useToast();
@@ -30,6 +44,20 @@ export default function PlatformAnnouncements() {
   const [showNew, setShowNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AnnouncementForm>(EMPTY_FORM);
+  const [tenantSearch, setTenantSearch] = useState("");
+
+  const { data: tenants } = useQuery({
+    queryKey: ["platform-tenants-for-announcements"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/tenants");
+      if (!res.ok) throw new Error("Failed to load tenants");
+      const data = await res.json() as Array<{ id: string; company_name?: string; contact_email?: string }>;
+      return (data || []).map((tenant) => ({
+        id: String(tenant.id),
+        label: String(tenant.company_name || tenant.contact_email || tenant.id),
+      }));
+    },
+  });
 
   const { data: announcements, isLoading } = useQuery({
     queryKey: ["platform-announcements"],
@@ -49,6 +77,7 @@ export default function PlatformAnnouncements() {
           ...form,
           starts_at: form.starts_at || null,
           ends_at: form.ends_at || null,
+          target_tenant_ids: form.target_scope === "specific_tenants" ? form.target_tenant_ids : null,
         }),
       });
       if (!res.ok) throw new Error("Failed to create");
@@ -74,6 +103,9 @@ export default function PlatformAnnouncements() {
           severity: form.severity,
           starts_at: form.starts_at || null,
           ends_at: form.ends_at || null,
+          target_tenant_ids: form.target_scope === "specific_tenants" ? form.target_tenant_ids : null,
+          target_admin_dashboard: form.target_admin_dashboard,
+          target_websites: form.target_websites,
         }),
       });
       if (!res.ok) throw new Error("Failed to update");
@@ -112,16 +144,51 @@ export default function PlatformAnnouncements() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["platform-announcements"] }),
   });
 
-  const startEdit = (a: { id: string; title: string; body: string; severity: string; starts_at: string; ends_at: string | null }) => {
+  const startEdit = (a: { id: string; title: string; body: string; severity: string; starts_at: string; ends_at: string | null; target_tenant_ids?: string[] | null; target_admin_dashboard?: boolean; target_websites?: boolean }) => {
+    const targetTenantIds = Array.isArray(a.target_tenant_ids) ? a.target_tenant_ids : [];
     setForm({
       title: a.title,
       body: a.body,
       severity: a.severity,
       starts_at: a.starts_at ? a.starts_at.substring(0, 16) : "",
       ends_at: a.ends_at ? a.ends_at.substring(0, 16) : "",
+      target_scope: targetTenantIds.length > 0 ? "specific_tenants" : "all_tenants",
+      target_tenant_ids: targetTenantIds,
+      target_admin_dashboard: a.target_admin_dashboard ?? true,
+      target_websites: a.target_websites ?? false,
     });
     setEditingId(a.id);
     setShowNew(false);
+  };
+
+  const toggleTargetTenant = (tenantId: string) => {
+    setForm((prev) => {
+      const isSelected = prev.target_tenant_ids.includes(tenantId);
+      return {
+        ...prev,
+        target_tenant_ids: isSelected
+          ? prev.target_tenant_ids.filter((id) => id !== tenantId)
+          : [...prev.target_tenant_ids, tenantId],
+      };
+    });
+  };
+
+  const handleSubmit = (isNew: boolean) => {
+    if (!form.target_admin_dashboard && !form.target_websites) {
+      toast({ title: "Select at least one channel", description: "Choose dashboard, website, or both.", variant: "destructive" });
+      return;
+    }
+
+    if (form.target_scope === "specific_tenants" && form.target_tenant_ids.length === 0) {
+      toast({ title: "Select at least one tenant", description: "Choose one or more tenants for targeted broadcast.", variant: "destructive" });
+      return;
+    }
+
+    if (isNew) {
+      createMutation.mutate();
+      return;
+    }
+    updateMutation.mutate();
   };
 
   const renderAnnouncementForm = (isNew: boolean) => (
@@ -163,9 +230,67 @@ export default function PlatformAnnouncements() {
             <Input type="datetime-local" value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} />
           </div>
         </div>
+        <div className="space-y-2">
+          <Label>Broadcast Channels</Label>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.target_admin_dashboard}
+                onChange={(e) => setForm({ ...form, target_admin_dashboard: e.target.checked })}
+              />
+              Tenant admin dashboard
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.target_websites}
+                onChange={(e) => setForm({ ...form, target_websites: e.target.checked })}
+              />
+              Tenant website
+            </label>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Tenants</Label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={form.target_scope}
+            onChange={(e) => setForm({ ...form, target_scope: e.target.value as "all_tenants" | "specific_tenants" })}
+          >
+            <option value="all_tenants">All tenants</option>
+            <option value="specific_tenants">Specific tenant(s)</option>
+          </select>
+
+          {form.target_scope === "specific_tenants" && (
+            <div className="space-y-2 rounded-md border border-input p-3">
+              <Input
+                value={tenantSearch}
+                onChange={(e) => setTenantSearch(e.target.value)}
+                placeholder="Search tenant name..."
+              />
+              <div className="max-h-40 overflow-auto space-y-2">
+                {(tenants || [])
+                  .filter((tenant) => tenant.label.toLowerCase().includes(tenantSearch.toLowerCase()))
+                  .map((tenant) => (
+                    <label key={tenant.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={form.target_tenant_ids.includes(tenant.id)}
+                        onChange={() => toggleTargetTenant(tenant.id)}
+                      />
+                      {tenant.label}
+                    </label>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2">
           <Button
-            onClick={() => isNew ? createMutation.mutate() : updateMutation.mutate()}
+            onClick={() => handleSubmit(isNew)}
             disabled={createMutation.isPending || updateMutation.isPending || !form.title || !form.body}
           >
             <Save className="w-3 h-3 mr-1" />{isNew ? "Publish" : "Save Changes"}
@@ -201,7 +326,7 @@ export default function PlatformAnnouncements() {
         </CardContent></Card>
       ) : (
         <div className="space-y-3">
-          {announcements.map((a: { id: string; title: string; body: string; severity: string; is_active: boolean; starts_at: string; ends_at: string | null; created_at: string }) => (
+          {announcements.map((a: { id: string; title: string; body: string; severity: string; is_active: boolean; starts_at: string; ends_at: string | null; created_at: string; target_tenant_ids?: string[] | null; target_admin_dashboard?: boolean; target_websites?: boolean }) => (
             editingId === a.id ? (
               <div key={a.id}>{renderAnnouncementForm(false)}</div>
             ) : (
@@ -212,6 +337,11 @@ export default function PlatformAnnouncements() {
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant="secondary" className={SEVERITY_COLORS[a.severity]}>{a.severity}</Badge>
                         {!a.is_active && <Badge variant="outline">Disabled</Badge>}
+                        {a.target_admin_dashboard && <Badge variant="outline">Dashboard</Badge>}
+                        {a.target_websites && <Badge variant="outline">Website</Badge>}
+                        {Array.isArray(a.target_tenant_ids) && a.target_tenant_ids.length > 0
+                          ? <Badge variant="outline">{a.target_tenant_ids.length} tenant(s)</Badge>
+                          : <Badge variant="outline">All tenants</Badge>}
                       </div>
                       <h3 className="font-medium">{a.title}</h3>
                       <p className="text-sm text-muted-foreground mt-1">{a.body}</p>

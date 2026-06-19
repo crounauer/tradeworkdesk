@@ -1526,13 +1526,24 @@ router.get(
       return;
     }
 
+    const nowIso = new Date().toISOString();
+
     // Fetch full site data
-    const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes] = await Promise.all([
+    const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes, platformAnnouncementsRes] = await Promise.all([
       db.from("websites").select("*, website_templates(slug)").eq("id", domainRecord.website_id).single(),
       db.from("website_pages").select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at").eq("website_id", domainRecord.website_id).eq("status", "published").order("nav_order", { ascending: true }),
       db.from("website_blog_posts").select("id, slug, title, excerpt, content, featured_image_url, published_at, meta_title, meta_description, website_blog_categories(name, slug)").eq("website_id", domainRecord.website_id).eq("status", "published").order("published_at", { ascending: false }).limit(20),
       db.from("website_testimonials").select("id, author_name, location, rating, body, sort_order").eq("website_id", domainRecord.website_id).eq("is_visible", true).order("sort_order", { ascending: true }),
       db.from("website_gallery_items").select("id, image_url, caption, alt_text, category, sort_order").eq("website_id", domainRecord.website_id).eq("is_visible", true).order("sort_order", { ascending: true }).limit(50),
+      supabaseAdmin
+        .from("platform_announcements")
+        .select("id, title, body, severity, starts_at, ends_at, target_tenant_ids")
+        .eq("is_active", true)
+        .eq("target_websites", true)
+        .lte("starts_at", nowIso)
+        .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+        .order("severity", { ascending: false })
+        .limit(20),
     ]) as Array<{ data: unknown }>;
 
     // Fetch company settings for contact info
@@ -1567,6 +1578,24 @@ router.get(
     const templateSlug = (websiteData?.website_templates as { slug?: string } | null)?.slug ?? null;
     const websiteOut = websiteData ? { ...websiteData, template_slug: templateSlug, website_templates: undefined } : null;
 
+    const websiteAnnouncements = ((platformAnnouncementsRes.data as Array<{ target_tenant_ids?: unknown }> | null) || [])
+      .filter((announcement) => {
+        const targeted = announcement.target_tenant_ids;
+        if (!Array.isArray(targeted) || targeted.length === 0) return true;
+        return targeted.some((id) => String(id) === domainRecord.tenant_id);
+      })
+      .map((announcement) => {
+        const typed = announcement as { id: string; title: string; body: string; severity: string; starts_at: string; ends_at: string | null };
+        return {
+          id: typed.id,
+          title: typed.title,
+          body: typed.body,
+          severity: typed.severity,
+          starts_at: typed.starts_at,
+          ends_at: typed.ends_at,
+        };
+      });
+
     res.json({
       website: websiteOut,
       pages: pagesRes.data || [],
@@ -1574,6 +1603,7 @@ router.get(
       testimonials: testimonialsRes.data || [],
       gallery: galleryRes.data || [],
       company: companyOut,
+      platform_announcements: websiteAnnouncements,
     });
   }
 );
@@ -1669,7 +1699,9 @@ router.get(
       return;
     }
 
-    const [pagesRes, testimonialsRes, galleryRes] = await Promise.all([
+    const nowIso = new Date().toISOString();
+
+    const [pagesRes, testimonialsRes, galleryRes, platformAnnouncementsRes] = await Promise.all([
       // Include draft pages — this is a preview
       db.from("website_pages")
         .select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at")
@@ -1686,6 +1718,15 @@ router.get(
         .eq("is_visible", true)
         .order("sort_order", { ascending: true })
         .limit(50),
+      supabaseAdmin
+        .from("platform_announcements")
+        .select("id, title, body, severity, starts_at, ends_at, target_tenant_ids")
+        .eq("is_active", true)
+        .eq("target_websites", true)
+        .lte("starts_at", nowIso)
+        .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+        .order("severity", { ascending: false })
+        .limit(20),
     ]) as Array<{ data: unknown }>;
 
     const { data: companySettings } = await supabaseAdmin
@@ -1715,6 +1756,24 @@ router.get(
     const templateSlug2 = (website?.website_templates as { slug?: string } | null)?.slug ?? null;
     const websiteOut2 = { ...website, template_slug: templateSlug2, website_templates: undefined };
 
+    const websiteAnnouncements = ((platformAnnouncementsRes.data as Array<{ target_tenant_ids?: unknown }> | null) || [])
+      .filter((announcement) => {
+        const targeted = announcement.target_tenant_ids;
+        if (!Array.isArray(targeted) || targeted.length === 0) return true;
+        return targeted.some((id) => String(id) === String(website.tenant_id));
+      })
+      .map((announcement) => {
+        const typed = announcement as { id: string; title: string; body: string; severity: string; starts_at: string; ends_at: string | null };
+        return {
+          id: typed.id,
+          title: typed.title,
+          body: typed.body,
+          severity: typed.severity,
+          starts_at: typed.starts_at,
+          ends_at: typed.ends_at,
+        };
+      });
+
     res.json({
       website: websiteOut2,
       pages: (pagesRes.data as unknown[]) || [],
@@ -1722,6 +1781,7 @@ router.get(
       testimonials: (testimonialsRes.data as unknown[]) || [],
       gallery: (galleryRes.data as unknown[]) || [],
       company: companyOut,
+      platform_announcements: websiteAnnouncements,
     });
   }
 );

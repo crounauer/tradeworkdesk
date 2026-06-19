@@ -5,6 +5,7 @@ import { getSiteByDomain } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogPostContent from "@/components/blog/BlogPostContent";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
+import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
 
 export const revalidate = 60;
 
@@ -66,6 +67,7 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
   return (
     <TemplateLayout site={site}>
       <WebsiteClosureNotice company={site.company} />
+      <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}

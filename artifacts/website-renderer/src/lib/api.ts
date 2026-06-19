@@ -102,6 +102,15 @@ export interface CompanySettings {
   website_closure_notice_end_date?: string | null;
 }
 
+export interface PlatformAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  severity: string;
+  starts_at: string;
+  ends_at: string | null;
+}
+
 export interface SiteData {
   website: Website;
   pages: SitePage[];
@@ -109,6 +118,7 @@ export interface SiteData {
   testimonials: Testimonial[];
   gallery: GalleryItem[];
   company: CompanySettings | null;
+  platform_announcements?: PlatformAnnouncement[];
 }
 
 function apiHeaders(): HeadersInit {

@@ -8,6 +8,9 @@ export interface Announcement {
   severity: string;
   starts_at: string;
   ends_at: string | null;
+  target_tenant_ids?: string[] | null;
+  target_admin_dashboard?: boolean;
+  target_websites?: boolean;
 }
 
 export interface ActiveAddon {

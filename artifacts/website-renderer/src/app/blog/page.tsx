@@ -5,6 +5,7 @@ import { getSiteByDomain, getPageBySlug } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogList from "@/components/blog/BlogList";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
+import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
 
 export const revalidate = 60;
 
@@ -27,6 +28,7 @@ export default async function BlogIndexPage() {
   return (
     <TemplateLayout site={site}>
       <WebsiteClosureNotice company={site.company} />
+      <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
       <BlogList posts={site.blog_posts} siteName={site.website.site_name} />
     </TemplateLayout>
   );

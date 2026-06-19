@@ -110,9 +110,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const allowedLockedPaths = ["/billing", "/account"];
   const isOnAllowedPath = allowedLockedPaths.some(p => location === p || location.startsWith(p + "/"));
 
-  const visibleAnnouncements = (announcements || []).filter(
-    (a: { id: string }) => !dismissedAnnouncements.has(a.id)
-  );
+  const canSeeDashboardAnnouncements = profile?.role === "admin" || profile?.role === "office_staff";
+  const visibleAnnouncements = canSeeDashboardAnnouncements
+    ? (announcements || []).filter((a: { id: string }) => !dismissedAnnouncements.has(a.id))
+    : [];
 
   const hasJobManagement = hasFeature("job_management");
   const hasWebsiteBuilder = hasFeature("website_builder");

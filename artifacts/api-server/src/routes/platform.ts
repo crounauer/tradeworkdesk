@@ -89,6 +89,33 @@ function classifyChannel(referrer: string | null): string {
   return "referral";
 }
 
+const TENANT_ADMIN_ROLES = new Set(["admin", "office_staff", "super_admin"]);
+
+function parseBooleanFlag(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return fallback;
+}
+
+function normalizeTargetTenantIds(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids = value
+    .map((entry) => String(entry || "").trim())
+    .filter((entry) => entry.length > 0);
+  return ids.length > 0 ? ids : null;
+}
+
+function isAnnouncementTargetedToTenant(announcement: { target_tenant_ids?: unknown }, tenantId: string | null | undefined): boolean {
+  const targeted = announcement.target_tenant_ids;
+  if (!Array.isArray(targeted) || targeted.length === 0) return true;
+  if (!tenantId) return false;
+  return targeted.some((id) => String(id) === tenantId);
+}
+
 router.post("/public/marketing-site/analytics/track", async (req, res): Promise<void> => {
   const body = req.body as {
     path?: string;
@@ -813,21 +840,39 @@ router.get("/platform/announcements", requireAuth, requireSuperAdmin, async (_re
 
 router.get("/platform/announcements/active", requireAuth, async (_req, res): Promise<void> => {
   const now = new Date().toISOString();
+  const req = _req as AuthenticatedRequest;
+
+  if (!TENANT_ADMIN_ROLES.has(req.userRole || "")) {
+    res.json([]);
+    return;
+  }
+
   const { data, error } = await supabaseAdmin
     .from("platform_announcements")
-    .select("*")
+    .select("id, title, body, severity, starts_at, ends_at, target_tenant_ids, target_admin_dashboard")
     .eq("is_active", true)
+    .eq("target_admin_dashboard", true)
     .lte("starts_at", now)
     .or(`ends_at.is.null,ends_at.gte.${now}`)
     .order("severity", { ascending: false });
 
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || []);
+  const filtered = (data || []).filter((announcement) =>
+    isAnnouncementTargetedToTenant(announcement, req.tenantId)
+  );
+  res.json(filtered);
 });
 
 router.post("/platform/announcements", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { title, body, severity, starts_at, ends_at } = req.body;
+  const targetTenantIds = normalizeTargetTenantIds(req.body?.target_tenant_ids);
+  const targetAdminDashboard = parseBooleanFlag(req.body?.target_admin_dashboard, true);
+  const targetWebsites = parseBooleanFlag(req.body?.target_websites, false);
   if (!title || !body) { res.status(400).json({ error: "Title and body are required" }); return; }
+  if (!targetAdminDashboard && !targetWebsites) {
+    res.status(400).json({ error: "Select at least one target channel" });
+    return;
+  }
 
   const { data, error } = await supabaseAdmin.from("platform_announcements").insert({
     title,
@@ -835,6 +880,9 @@ router.post("/platform/announcements", requireAuth, requireSuperAdmin, async (re
     severity: severity || "info",
     starts_at: starts_at || new Date().toISOString(),
     ends_at: ends_at || null,
+    target_tenant_ids: targetTenantIds,
+    target_admin_dashboard: targetAdminDashboard,
+    target_websites: targetWebsites,
     created_by: req.userId,
   }).select().single();
 
@@ -844,10 +892,28 @@ router.post("/platform/announcements", requireAuth, requireSuperAdmin, async (re
 
 router.patch("/platform/announcements/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const allowed = ["title", "body", "severity", "starts_at", "ends_at", "is_active"];
+  const allowed = ["title", "body", "severity", "starts_at", "ends_at", "is_active", "target_admin_dashboard", "target_websites"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in req.body) updates[key] = req.body[key];
+  }
+  if ("target_tenant_ids" in req.body) {
+    updates.target_tenant_ids = normalizeTargetTenantIds(req.body.target_tenant_ids);
+  }
+
+  const nextTargetAdmin = "target_admin_dashboard" in updates
+    ? parseBooleanFlag(updates.target_admin_dashboard, true)
+    : undefined;
+  const nextTargetWebsites = "target_websites" in updates
+    ? parseBooleanFlag(updates.target_websites, false)
+    : undefined;
+
+  if (nextTargetAdmin !== undefined) updates.target_admin_dashboard = nextTargetAdmin;
+  if (nextTargetWebsites !== undefined) updates.target_websites = nextTargetWebsites;
+
+  if (nextTargetAdmin === false && nextTargetWebsites === false) {
+    res.status(400).json({ error: "Select at least one target channel" });
+    return;
   }
 
   const { data, error } = await supabaseAdmin
@@ -960,7 +1026,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
       profilePromise,
       supabaseAdmin
         .from("platform_announcements")
-        .select("id, title, body, severity, starts_at, ends_at")
+        .select("id, title, body, severity, starts_at, ends_at, target_tenant_ids, target_admin_dashboard, target_websites")
         .eq("is_active", true)
         .lte("starts_at", saNow.toISOString())
         .or(`ends_at.is.null,ends_at.gt.${saNow.toISOString()}`)
@@ -1027,16 +1093,21 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
   }
 
   const now2 = new Date();
-  promises.push(
-    supabaseAdmin
-      .from("platform_announcements")
-      .select("id, title, body, severity, starts_at, ends_at")
-      .eq("is_active", true)
-      .lte("starts_at", now2.toISOString())
-      .or(`ends_at.is.null,ends_at.gt.${now2.toISOString()}`)
-      .order("severity", { ascending: false })
-      .limit(10)
-  );
+  if (TENANT_ADMIN_ROLES.has(req.userRole || "")) {
+    promises.push(
+      supabaseAdmin
+        .from("platform_announcements")
+        .select("id, title, body, severity, starts_at, ends_at, target_tenant_ids, target_admin_dashboard")
+        .eq("is_active", true)
+        .eq("target_admin_dashboard", true)
+        .lte("starts_at", now2.toISOString())
+        .or(`ends_at.is.null,ends_at.gt.${now2.toISOString()}`)
+        .order("severity", { ascending: false })
+        .limit(20)
+    );
+  } else {
+    promises.push(Promise.resolve({ data: [] as unknown[] }));
+  }
 
   const results = await Promise.all(promises);
 
@@ -1147,8 +1218,10 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
   }
 
   const announcementsIdx = req.tenantId ? 8 : 1;
-  const announcementsRes = results[announcementsIdx] as { data: unknown[] | null };
-  const announcements = announcementsRes?.data || [];
+  const announcementsRes = results[announcementsIdx] as { data: Array<{ target_tenant_ids?: unknown }> | null };
+  const announcements = (announcementsRes?.data || []).filter((announcement) =>
+    isAnnouncementTargetedToTenant(announcement, req.tenantId)
+  );
 
   const addonsList = activeAddons.map(a => ({
     addon_id: a.addon_id,

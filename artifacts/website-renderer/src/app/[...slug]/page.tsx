@@ -6,6 +6,7 @@ import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
+import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
 
 export const revalidate = 60;
 
@@ -59,6 +60,7 @@ export default async function DynamicPage({ params }: PageProps) {
   return (
     <TemplateLayout site={site}>
       <WebsiteClosureNotice company={site.company} />
+      <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
       <SchemaMarkup
         site={site}
         domain={domain}
