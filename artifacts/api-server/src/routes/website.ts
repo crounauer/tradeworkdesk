@@ -673,6 +673,150 @@ router.get(
   }
 );
 
+router.get(
+  "/website/analytics",
+  requireAuth,
+  requireTenant,
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) {
+      res.status(404).json({ error: "Website not found" });
+      return;
+    }
+
+    const now = new Date();
+    const start30 = new Date(now);
+    start30.setDate(start30.getDate() - 29);
+
+    const [{ data: pages }, { data: forms }, { data: submissions }, { data: websiteEnquiries }] = await Promise.all([
+      db
+        .from("website_pages")
+        .select("id, status")
+        .eq("website_id", website.id) as Promise<{ data: Array<{ id: string; status: string }> | null }>,
+      db
+        .from("website_forms")
+        .select("id, name, is_active")
+        .eq("website_id", website.id) as Promise<{ data: Array<{ id: string; name: string; is_active: boolean }> | null }>,
+      db
+        .from("website_form_submissions")
+        .select("id, form_id, status, created_at, data")
+        .eq("website_id", website.id)
+        .order("created_at", { ascending: false })
+        .limit(2000) as Promise<{ data: Array<{ id: string; form_id: string; status: string; created_at: string; data: Record<string, unknown> }> | null }>,
+      db
+        .from("enquiries")
+        .select("id, source, created_at")
+        .eq("tenant_id", req.tenantId)
+        .in("source", ["website", "website_contact_form", "website_free_survey"])
+        .order("created_at", { ascending: false })
+        .limit(2000) as Promise<{ data: Array<{ id: string; source: string; created_at: string }> | null }>,
+    ]);
+
+    const pagesList = pages || [];
+    const formsList = forms || [];
+    const submissionList = submissions || [];
+    const websiteLeadList = websiteEnquiries || [];
+
+    const totalPages = pagesList.length;
+    const publishedPages = pagesList.filter((p) => p.status === "published").length;
+    const activeForms = formsList.filter((f) => f.is_active).length;
+
+    const funnel = {
+      new: submissionList.filter((s) => s.status === "new").length,
+      read: submissionList.filter((s) => s.status === "read").length,
+      converted: submissionList.filter((s) => s.status === "converted").length,
+      spam: submissionList.filter((s) => s.status === "spam").length,
+    };
+
+    const totalSubmissions = submissionList.length;
+    const conversionRate = totalSubmissions > 0 ? Math.round((funnel.converted / totalSubmissions) * 1000) / 10 : 0;
+
+    const start30Ts = start30.getTime();
+    const submissionsLast30 = submissionList.filter((s) => {
+      const ts = new Date(s.created_at).getTime();
+      return Number.isFinite(ts) && ts >= start30Ts;
+    });
+
+    const leadsLast30 = websiteLeadList.filter((e) => {
+      const ts = new Date(e.created_at).getTime();
+      return Number.isFinite(ts) && ts >= start30Ts;
+    }).length;
+
+    const dailyMap = new Map<string, number>();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(start30);
+      d.setDate(start30.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      dailyMap.set(key, 0);
+    }
+    for (const s of submissionsLast30) {
+      const key = new Date(s.created_at).toISOString().slice(0, 10);
+      if (dailyMap.has(key)) dailyMap.set(key, (dailyMap.get(key) || 0) + 1);
+    }
+    const daily = Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count }));
+
+    const formsById = new Map(formsList.map((f) => [f.id, f]));
+    const formAgg = new Map<string, { form_id: string; form_name: string; submissions: number; converted: number }>();
+    for (const s of submissionList) {
+      const existing = formAgg.get(s.form_id) || {
+        form_id: s.form_id,
+        form_name: formsById.get(s.form_id)?.name || "Untitled form",
+        submissions: 0,
+        converted: 0,
+      };
+      existing.submissions += 1;
+      if (s.status === "converted") existing.converted += 1;
+      formAgg.set(s.form_id, existing);
+    }
+    const topForms = Array.from(formAgg.values())
+      .sort((a, b) => b.submissions - a.submissions)
+      .slice(0, 5)
+      .map((f) => ({
+        ...f,
+        conversion_rate: f.submissions > 0 ? Math.round((f.converted / f.submissions) * 1000) / 10 : 0,
+      }));
+
+    const sourceCounts = new Map<string, number>();
+    for (const e of websiteLeadList) {
+      sourceCounts.set(e.source, (sourceCounts.get(e.source) || 0) + 1);
+    }
+    const sourceBreakdown = Array.from(sourceCounts.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const recentSubmissions = submissionList.slice(0, 10).map((s) => {
+      const payload = (s.data || {}) as Record<string, unknown>;
+      return {
+        id: s.id,
+        created_at: s.created_at,
+        status: s.status,
+        form_name: formsById.get(s.form_id)?.name || "Untitled form",
+        name: String(payload.name || payload.full_name || ""),
+        email: String(payload.email || ""),
+        phone: String(payload.phone || payload.telephone || ""),
+      };
+    });
+
+    res.json({
+      summary: {
+        total_pages: totalPages,
+        published_pages: publishedPages,
+        active_forms: activeForms,
+        total_submissions: totalSubmissions,
+        submissions_last_30_days: submissionsLast30.length,
+        website_leads_last_30_days: leadsLast30,
+        conversion_rate_percent: conversionRate,
+      },
+      funnel,
+      daily,
+      top_forms: topForms,
+      source_breakdown: sourceBreakdown,
+      recent_submissions: recentSubmissions,
+    });
+  }
+);
+
 // ─── Template block seeder ────────────────────────────────────────────────────
 // Builds the block content for the home page of each template, personalised
 // from company settings.  Every field here corresponds 1-to-1 with the

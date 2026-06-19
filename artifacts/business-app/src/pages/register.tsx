@@ -476,16 +476,16 @@ export default function Register() {
   );
 
   return (
-    <div className="relative min-h-screen bg-slate-50">
+    <div className="relative min-h-screen overflow-y-auto bg-slate-50">
       <img
         src={`${import.meta.env.BASE_URL}images/login-bg.png`}
         alt=""
         className="fixed inset-0 w-full h-full object-cover opacity-60 mix-blend-multiply"
       />
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-6 sm:py-8">
-        <div className="w-full max-w-md max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-y-auto p-8 glass-panel rounded-3xl">
-        <div className="flex flex-col items-center mb-5">
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-4 sm:py-6">
+        <div className="w-full max-w-4xl p-5 sm:p-6 glass-panel rounded-3xl">
+        <div className="flex flex-col items-center mb-4">
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25 mb-4">
             <Flame className="w-8 h-8 text-white" />
           </div>
@@ -493,7 +493,7 @@ export default function Register() {
         </div>
 
         {mode === "company" && (
-          <div className="space-y-2 mb-5">
+          <div className="space-y-2 mb-4">
             <Label className="flex items-center gap-1.5">
               <Ticket className="w-4 h-4" />
               Beta Invite Code
@@ -528,7 +528,7 @@ export default function Register() {
           </div>
         )}
 
-        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4">
           <button
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === "company" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
             onClick={() => { setMode("company"); setStep(1); }}
@@ -550,7 +550,7 @@ export default function Register() {
         )}
 
         {mode === "invite" ? (
-          <form onSubmit={handleInviteSubmit} className="space-y-4">
+          <form onSubmit={handleInviteSubmit} className="space-y-3.5">
             <div className="space-y-2">
               <Label>Invite Code</Label>
               <div className="relative">
@@ -574,25 +574,29 @@ export default function Register() {
               {fieldErrors.inviteCode && <p className="text-xs text-destructive">{fieldErrors.inviteCode}</p>}
               {codeError && <p className="text-xs text-destructive">{codeError}</p>}
             </div>
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input placeholder="Jane Smith" value={fullName} onChange={e => { setFullName(e.target.value); clearFieldError("fullName"); }} className={fieldErrors.fullName ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
-              {fieldErrors.fullName && <p className="text-xs text-destructive">{fieldErrors.fullName}</p>}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input placeholder="Jane Smith" value={fullName} onChange={e => { setFullName(e.target.value); clearFieldError("fullName"); }} className={fieldErrors.fullName ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                {fieldErrors.fullName && <p className="text-xs text-destructive">{fieldErrors.fullName}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Email Address</Label>
+                <Input type="email" placeholder="jane@example.com" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Email Address</Label>
-              <Input type="email" placeholder="jane@example.com" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
-              {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => { setPassword(e.target.value); clearFieldError("password"); }} className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
-              {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Confirm Password</Label>
-              <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }} className={fieldErrors.confirmPassword ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
-              {fieldErrors.confirmPassword && <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => { setPassword(e.target.value); clearFieldError("password"); }} className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm Password</Label>
+                <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }} className={fieldErrors.confirmPassword ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                {fieldErrors.confirmPassword && <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>}
+              </div>
             </div>
             <Button type="submit" className="w-full h-12 text-base mt-2" disabled={loading || !codeResult?.valid}>
               {loading ? "Creating account..." : "Create Account"}
@@ -605,20 +609,20 @@ export default function Register() {
             {step === 1 && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center font-medium">What would you like to sign up for?</p>
-                <div className="space-y-2">
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                   {PRODUCTS.map((p) => (
                     <button
                       key={p.key}
                       type="button"
                       onClick={() => setProduct(p.key)}
-                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                      className={`w-full p-3 rounded-xl border-2 text-left transition-all ${
                         product === p.key
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/30 hover:bg-slate-50"
                       }`}
                     >
-                      <div className="flex items-center gap-3 mb-1.5">
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${product === p.key ? "bg-primary text-white" : "bg-slate-100 text-slate-500"}`}>
+                      <div className="flex items-center gap-2.5 mb-1.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${product === p.key ? "bg-primary text-white" : "bg-slate-100 text-slate-500"}`}>
                           {p.icon}
                         </div>
                         <div className="flex-1">
@@ -629,7 +633,7 @@ export default function Register() {
                           <p className="text-xs text-muted-foreground">{p.tagline}</p>
                         </div>
                       </div>
-                      <ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 pl-12">
+                      <ul className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 pl-10">
                         {p.features.map((f) => (
                           <li key={f} className="text-xs text-muted-foreground flex items-center gap-1">
                             <Check className="w-3 h-3 text-emerald-500 shrink-0" />{f}
