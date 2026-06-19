@@ -458,6 +458,55 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  const closureFields = [
+    "website_closure_notice_enabled",
+    "website_closure_notice_message",
+    "website_closure_notice_start_date",
+    "website_closure_notice_end_date",
+    "website_closure_notice_auto_from_holidays",
+  ] as const;
+  const closureUpdates: Record<string, unknown> = {};
+  for (const field of closureFields) {
+    if (field in req.body) {
+      closureUpdates[field] = req.body[field] ?? null;
+    }
+  }
+
+  if (Object.keys(closureUpdates).length > 0) {
+    let closureSave = await supabaseAdmin
+      .from("company_settings")
+      .update(closureUpdates)
+      .eq("tenant_id", req.tenantId)
+      .eq("singleton_id", SINGLETON_ID)
+      .select()
+      .single();
+
+    if (
+      closureSave.error &&
+      typeof closureSave.error.message === "string" &&
+      closureSave.error.message.includes("website_closure_notice_auto_from_holidays") &&
+      "website_closure_notice_auto_from_holidays" in closureUpdates
+    ) {
+      const closureFallback = { ...closureUpdates };
+      delete closureFallback.website_closure_notice_auto_from_holidays;
+
+      closureSave = await supabaseAdmin
+        .from("company_settings")
+        .update(closureFallback)
+        .eq("tenant_id", req.tenantId)
+        .eq("singleton_id", SINGLETON_ID)
+        .select()
+        .single();
+    }
+
+    if (closureSave.error) {
+      res.status(500).json({ error: closureSave.error.message });
+      return;
+    }
+
+    data = closureSave.data;
+  }
+
   // Bust invoicing-enabled cache if the toggle was changed
   if ("invoices_enabled" in updates && req.tenantId) {
     bustInvoicingCache(req.tenantId);
