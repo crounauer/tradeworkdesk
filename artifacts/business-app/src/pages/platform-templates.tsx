@@ -230,8 +230,8 @@ export default function PlatformTemplates() {
 
   const toggleTemplateMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/website-templates/${id}`, {
-        method: "PATCH",
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/website-templates/${id}/status`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ is_active }),
