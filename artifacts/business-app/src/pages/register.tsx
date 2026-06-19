@@ -536,9 +536,15 @@ export default function Register() {
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === "invite" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
             onClick={() => setMode("invite")}
           >
-            Join with Invite
+            Join Existing Company
           </button>
         </div>
+
+        {mode === "invite" && (
+          <p className="text-xs text-muted-foreground text-center mb-4">
+            Use this if your employer has invited you to join their existing company workspace.
+          </p>
+        )}
 
         {mode === "invite" ? (
           <form onSubmit={handleInviteSubmit} className="space-y-4">
