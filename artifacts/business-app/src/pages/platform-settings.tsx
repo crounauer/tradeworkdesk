@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Download } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -105,6 +105,32 @@ function PlatformSettingField({ settingKey, label, description, placeholder, hel
 }
 
 export default function PlatformSettings() {
+  const { toast } = useToast();
+  const [indexNowSubmitting, setIndexNowSubmitting] = useState(false);
+  const [indexNowSubmitted, setIndexNowSubmitted] = useState(false);
+
+  const submitIndexNow = async () => {
+    setIndexNowSubmitting(true);
+    setIndexNowSubmitted(false);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/indexnow/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || "Failed to submit IndexNow");
+      toast({ title: "IndexNow submitted", description: `${(data as { submitted?: number }).submitted ?? 0} URLs submitted` });
+      setIndexNowSubmitted(true);
+      setTimeout(() => setIndexNowSubmitted(false), 5000);
+    } catch (e) {
+      toast({ title: "IndexNow failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setIndexNowSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -132,6 +158,10 @@ export default function PlatformSettings() {
           <TabsTrigger value="sms" className="gap-2">
             <MessageSquare className="w-4 h-4" />
             SMS
+          </TabsTrigger>
+          <TabsTrigger value="seo" className="gap-2">
+            <Globe className="w-4 h-4" />
+            SEO
           </TabsTrigger>
         </TabsList>
 
@@ -348,6 +378,32 @@ export default function PlatformSettings() {
             placeholder="fe3aed49..."
             icon={<MessageSquare className="w-4 h-4" />}
           />
+        </TabsContent>
+
+        <TabsContent value="seo" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                IndexNow - Search Engine Indexing
+              </CardTitle>
+              <CardDescription>
+                Submit all TradeWorkDesk marketing and blog URLs for faster indexing when content changes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button onClick={submitIndexNow} disabled={indexNowSubmitting || indexNowSubmitted}>
+                {indexNowSubmitting ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
+                ) : indexNowSubmitted ? (
+                  <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
+                ) : (
+                  <><Globe className="w-4 h-4 mr-2" />Submit Marketing URLs</>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">Uses the platform IndexNow key and submits URLs for www.tradeworkdesk.co.uk.</p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -354,6 +354,7 @@ export default function WebsiteSetup() {
           <QuickCard href="/maintenance" icon={<ShieldPlus className="w-5 h-5" />} title="Maintenance Plans" description="Manage plan tiers and subscriptions" />
           <QuickCard href="/campaigns" icon={<MailOpen className="w-5 h-5" />} title="Email Campaigns" description="Create and send email campaigns" />
           <QuickCard href="/missed-call" icon={<PhoneCall className="w-5 h-5" />} title="Missed Call Text-Back" description="Configure automatic missed-call replies" />
+          <QuickCard href="/website/indexnow" icon={<Globe className="w-5 h-5" />} title="IndexNow" description="Submit pages to search engines" />
         </div>
       </div>
 

@@ -1,7 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import { requireAuth, requireSuperAdmin } from "../middlewares/auth";
+import { supabaseAdmin } from "../lib/supabase";
+import { requireAuth, requireRole, requireSuperAdmin, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 
 const router = Router();
+const db = supabaseAdmin as any;
 
 const DEFAULT_SITEMAP_URLS = [
   "https://www.tradeworkdesk.co.uk/",
@@ -30,7 +32,36 @@ const DEFAULT_SITEMAP_URLS = [
   "https://www.tradeworkdesk.co.uk/terms-of-service",
 ];
 
-const HOST = "www.tradeworkdesk.co.uk";
+const MARKETING_HOST = "www.tradeworkdesk.co.uk";
+
+async function submitToIndexNow(host: string, key: string, urlList: string[]) {
+  const response = await fetch("https://api.indexnow.org/indexnow", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      host,
+      key,
+      keyLocation: `https://${host}/${key}.txt`,
+      urlList,
+    }),
+  });
+
+  return {
+    upstreamStatus: response.status,
+    upstreamBody: (await response.text()) || null,
+  };
+}
+
+function normalizePath(path: string): string {
+  if (!path || path === "/") return "/";
+  const withLeadingSlash = path.startsWith("/") ? path : `/${path}`;
+  const normalized = withLeadingSlash.replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+function dedupe<T>(items: T[]): T[] {
+  return [...new Set(items)];
+}
 
 router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const key = process.env.INDEXNOW_KEY;
@@ -44,46 +75,143 @@ router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Requ
     ? requestedUrls
     : DEFAULT_SITEMAP_URLS;
 
-  const allowedPrefix = `https://${HOST}/`;
-  const invalidUrls = urlList.filter((u) => !u.startsWith(allowedPrefix) && u !== `https://${HOST}`);
+  const allowedPrefix = `https://${MARKETING_HOST}/`;
+  const invalidUrls = urlList.filter((u) => !u.startsWith(allowedPrefix) && u !== `https://${MARKETING_HOST}`);
   if (invalidUrls.length > 0) {
-    res.status(400).json({ error: "All URLs must belong to " + HOST, invalid: invalidUrls });
+    res.status(400).json({ error: "All URLs must belong to " + MARKETING_HOST, invalid: invalidUrls });
     return;
   }
 
   try {
-    const response = await fetch("https://api.indexnow.org/indexnow", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        host: HOST,
-        key,
-        keyLocation: `https://${HOST}/${key}.txt`,
-        urlList,
-      }),
-    });
-
-    const responseBody = await response.text();
-    const upstreamStatus = response.status;
+    const { upstreamStatus, upstreamBody } = await submitToIndexNow(MARKETING_HOST, key, urlList);
 
     if (upstreamStatus === 200 || upstreamStatus === 202) {
       res.json({
         success: true,
         submitted: urlList.length,
         upstreamStatus,
-        upstreamBody: responseBody || null,
+        upstreamBody,
       });
     } else {
       res.status(upstreamStatus).json({
         success: false,
         error: "IndexNow API error",
         upstreamStatus,
-        upstreamBody: responseBody || null,
+        upstreamBody,
       });
     }
   } catch (err) {
     res.status(500).json({ success: false, error: "Failed to contact IndexNow API", detail: String(err) });
   }
+});
+
+router.post("/indexnow/submit-tenant", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res: Response) => {
+  const key = process.env.INDEXNOW_KEY;
+  if (!key) {
+    res.status(500).json({ error: "INDEXNOW_KEY not configured" });
+    return;
+  }
+
+  if (!req.tenantId) {
+    res.status(403).json({ error: "No tenant associated with this account" });
+    return;
+  }
+
+  const { data: website } = await db
+    .from("websites")
+    .select("id")
+    .eq("tenant_id", req.tenantId)
+    .maybeSingle() as { data: { id: string } | null };
+
+  if (!website) {
+    res.status(404).json({ error: "No website found for this tenant" });
+    return;
+  }
+
+  const [domainsRes, pagesRes, postsRes] = await Promise.all([
+    db.from("website_domains").select("domain, is_active").eq("website_id", website.id).eq("is_active", true),
+    db
+      .from("website_pages")
+      .select("slug, page_type, no_index")
+      .eq("website_id", website.id)
+      .eq("status", "published"),
+    db
+      .from("website_blog_posts")
+      .select("slug")
+      .eq("website_id", website.id)
+      .eq("status", "published"),
+  ]) as Array<{ data: unknown[] | null }>;
+
+  const domains = ((domainsRes.data ?? []) as Array<{ domain: string; is_active: boolean }>).map((d) => d.domain).filter(Boolean);
+  if (domains.length === 0) {
+    res.status(400).json({ error: "No active website domains found. Publish your site and activate a domain first." });
+    return;
+  }
+
+  const pagePaths = ((pagesRes.data ?? []) as Array<{ slug: string; page_type: string; no_index: boolean | null }>)
+    .filter((p) => !p.no_index)
+    .map((p) => {
+      if (p.page_type === "home") return "/";
+      return normalizePath(p.slug || "/");
+    });
+
+  const blogPaths = ((postsRes.data ?? []) as Array<{ slug: string }>)
+    .filter((p) => !!p.slug)
+    .map((p) => normalizePath(`/blog/${p.slug}`));
+
+  const uniquePaths = dedupe(["/", ...pagePaths, ...blogPaths]);
+  if (uniquePaths.length === 0) {
+    res.status(400).json({ error: "No published website URLs found to submit" });
+    return;
+  }
+
+  const results: Array<{ host: string; submitted: number; upstreamStatus: number; success: boolean; upstreamBody: string | null }> = [];
+
+  for (const host of domains) {
+    const urlList = uniquePaths.map((path) => (path === "/" ? `https://${host}` : `https://${host}${path}`));
+    try {
+      const { upstreamStatus, upstreamBody } = await submitToIndexNow(host, key, urlList);
+      results.push({
+        host,
+        submitted: urlList.length,
+        upstreamStatus,
+        success: upstreamStatus === 200 || upstreamStatus === 202,
+        upstreamBody,
+      });
+    } catch (err) {
+      results.push({
+        host,
+        submitted: urlList.length,
+        upstreamStatus: 500,
+        success: false,
+        upstreamBody: String(err),
+      });
+    }
+  }
+
+  const submitted = results.reduce((sum, item) => sum + item.submitted, 0);
+  const hostsSucceeded = results.filter((item) => item.success).length;
+  const hostsFailed = results.length - hostsSucceeded;
+
+  if (hostsSucceeded === 0) {
+    res.status(502).json({
+      success: false,
+      error: "All tenant IndexNow submissions failed",
+      submitted,
+      hostsSucceeded,
+      hostsFailed,
+      results,
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    submitted,
+    hostsSucceeded,
+    hostsFailed,
+    results,
+  });
 });
 
 export default router;

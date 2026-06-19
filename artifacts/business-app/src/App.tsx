@@ -157,6 +157,7 @@ const WebsiteBlog = lazyRetry(() => import("@/pages/website-blog"));
 const WebsiteBlogEditor = lazyRetry(() => import("@/pages/website-blog-editor"));
 const WebsitePreview = lazyRetry(() => import("@/pages/website-preview"));
 const WebsiteAnalytics = lazyRetry(() => import("@/pages/website-analytics"));
+const WebsiteIndexNow = lazyRetry(() => import("@/pages/website-indexnow"));
 
 const Bookings = lazyRetry(() => import("@/pages/bookings"));
 const BookingSetup = lazyRetry(() => import("@/pages/booking-setup"));
@@ -441,6 +442,7 @@ const WebsiteBlogRoute = protectFeature(WebsiteBlog, "website_builder");
 const WebsiteBlogEditorRoute = protectFeature(WebsiteBlogEditor, "website_builder");
 const WebsitePreviewRoute = protectFeature(WebsitePreview, "website_builder");
 const WebsiteAnalyticsRoute = protectFeature(WebsiteAnalytics, "website_builder");
+const WebsiteIndexNowRoute = protectFeature(WebsiteIndexNow, "website_builder");
 const BookingsRoute = protectFeature(Bookings, "website_builder");
 const BookingSetupRoute = protectFeature(BookingSetup, "website_builder");
 const ReviewRequestsRoute = protectFeature(ReviewRequests, "website_builder");
@@ -601,6 +603,7 @@ function AppRouter() {
         <Route path="/website/forms">{() => { window.location.replace("/website/settings?tab=forms"); return null; }}</Route>
         <Route path="/website/blog" component={WebsiteBlogRoute} />
         <Route path="/website/blog/:id" component={WebsiteBlogEditorRoute} />
+        <Route path="/website/indexnow" component={WebsiteIndexNowRoute} />
 
         <Route path="/booking" component={BookingsRoute} />
         <Route path="/booking/setup" component={BookingSetupRoute} />
