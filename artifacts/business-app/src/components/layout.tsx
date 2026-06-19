@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useState, useEffect, useCallback } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -21,11 +21,10 @@ import { useOffline } from "@/contexts/offline-context";
 import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const { profile, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [headerSearch, setHeaderSearch] = useState("");
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem("dismissed_announcements");
@@ -179,14 +178,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const showHeaderBar = !isSuperAdmin;
 
   const openEnquiryCount = enquiryCountData?.count || 0;
-
-  const handleHeaderSearchSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = headerSearch.trim();
-    const params = new URLSearchParams();
-    if (query) params.set("q", query);
-    navigate(`/search${params.toString() ? `?${params.toString()}` : ""}`);
-  }, [headerSearch, navigate]);
 
   const renderNavLink = (item: { href: string; label: string; icon: React.ElementType }, onClick?: () => void, mobile?: boolean) => {
     const isActive = item.href === "/" 
@@ -443,6 +434,14 @@ export function Layout({ children }: { children: ReactNode }) {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
+            {hasJobManagement && (
+              <Link href="/search" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant="outline" className="w-full justify-start">
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
+                </Button>
+              </Link>
+            )}
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
@@ -493,18 +492,14 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Tenant header bar ───────────────────────────────────────────── */}
         {showHeaderBar && (
-          <div className="hidden md:flex items-center gap-3 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
+          <div className="hidden md:flex items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
             {hasJobManagement && (
-              <form onSubmit={handleHeaderSearchSubmit} className="relative w-full max-w-md mr-2">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="search"
-                  value={headerSearch}
-                  onChange={(e) => setHeaderSearch(e.target.value)}
-                  placeholder="Search customers, properties, appliances, jobs..."
-                  className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                />
-              </form>
+              <Link href="/search">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                  <Search className="w-3.5 h-3.5" />
+                  Search
+                </button>
+              </Link>
             )}
             {hasWebsiteBuilder && (
               <Link href="/website">
