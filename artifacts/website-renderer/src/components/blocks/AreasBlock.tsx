@@ -113,17 +113,6 @@ export default function AreasBlock({ content }: Props) {
             </a>
           )}
 
-          {cta_text && (
-            <div style={{ marginTop: areas.length ? 0 : 16 }}>
-              <a
-                href={cta_url || "#contact"}
-                style={{ display: "inline-block", padding: "12px 32px", backgroundColor: ctaBg, color: ctaColor, borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem" }}
-              >
-                {cta_text}
-              </a>
-            </div>
-          )}
-
           <div style={{ marginTop: 28, paddingTop: 24, borderTop: isTealCard ? "1px solid rgba(255,255,255,0.14)" : "1px solid #e5e7eb" }}>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <input

@@ -109,7 +109,7 @@ export default function ContactFormBlock({ content }: Props) {
   const hasSplit = !!(contact_info && (contact_info.phone || contact_info.email || contact_info.address));
 
   return (
-    <section style={{ padding: "72px 24px", backgroundColor: "#f9fafb" }}>
+    <section id="contact" style={{ padding: "72px 24px", backgroundColor: "#f9fafb" }}>
       <style>{`
         .cf-layout { display: grid; grid-template-columns: 1fr; gap: 48px; }
         @media (min-width: 800px) { .cf-layout.split { grid-template-columns: 1fr 1.6fr; } }
