@@ -23,6 +23,14 @@ type AnalyticsResponse = {
     website_leads_last_30_days: number;
     conversion_rate_percent: number;
   };
+  traffic_summary: {
+    page_views_last_30_days: number;
+    unique_visitors_last_30_days: number;
+    sessions_last_30_days: number;
+    avg_session_duration_seconds: number;
+    bounce_rate_percent: number;
+    pages_per_session: number;
+  };
   funnel: {
     new: number;
     read: number;
@@ -30,6 +38,7 @@ type AnalyticsResponse = {
     spam: number;
   };
   daily: Array<{ date: string; count: number }>;
+  daily_traffic: Array<{ date: string; count: number }>;
   top_forms: Array<{
     form_id: string;
     form_name: string;
@@ -37,6 +46,8 @@ type AnalyticsResponse = {
     converted: number;
     conversion_rate: number;
   }>;
+  top_pages: Array<{ path: string; views: number }>;
+  traffic_channels: Array<{ channel: string; count: number }>;
   source_breakdown: Array<{ source: string; count: number }>;
   recent_submissions: Array<{
     id: string;
@@ -60,6 +71,18 @@ export default function WebsiteAnalytics() {
     const points = data?.daily || [];
     return Math.max(1, ...points.map((p) => p.count));
   }, [data?.daily]);
+
+  const maxDailyTraffic = useMemo(() => {
+    const points = data?.daily_traffic || [];
+    return Math.max(1, ...points.map((p) => p.count));
+  }, [data?.daily_traffic]);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins <= 0) return `${secs}s`;
+    return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+  };
 
   if (isLoading) {
     return (
@@ -88,6 +111,15 @@ export default function WebsiteAnalytics() {
     { label: "Conversion Rate", value: `${data.summary.conversion_rate_percent}%`, icon: Funnel },
   ];
 
+  const trafficStats = [
+    { label: "Hits (30d)", value: data.traffic_summary.page_views_last_30_days, icon: BarChart3 },
+    { label: "Users (30d)", value: data.traffic_summary.unique_visitors_last_30_days, icon: Globe2 },
+    { label: "Sessions (30d)", value: data.traffic_summary.sessions_last_30_days, icon: LineChart },
+    { label: "Avg Time on Site", value: formatDuration(data.traffic_summary.avg_session_duration_seconds), icon: LineChart },
+    { label: "Bounce Rate", value: `${data.traffic_summary.bounce_rate_percent}%`, icon: Funnel },
+    { label: "Pages / Session", value: data.traffic_summary.pages_per_session, icon: BarChart3 },
+  ];
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -103,6 +135,20 @@ export default function WebsiteAnalytics() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((s) => (
+          <Card key={s.label}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                <s.icon className="w-4 h-4 text-primary" />
+              </div>
+              <p className="text-2xl font-bold">{s.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {trafficStats.map((s) => (
           <Card key={s.label}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
@@ -168,6 +214,26 @@ export default function WebsiteAnalytics() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><LineChart className="w-4 h-4" /> Daily Traffic (Last 30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48 flex items-end gap-1">
+              {data.daily_traffic.map((point) => (
+                <div key={point.date} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1">
+                  <div
+                    className="w-full rounded-t bg-emerald-500/80"
+                    style={{ height: `${Math.max(4, Math.round((point.count / maxDailyTraffic) * 160))}px` }}
+                    title={`${point.date}: ${point.count}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">Tracks real page hits from your website visitors.</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Top Forms</CardTitle>
           </CardHeader>
           <CardContent>
@@ -197,6 +263,42 @@ export default function WebsiteAnalytics() {
                 <div key={src.source} className="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
                   <span className="capitalize">{src.source.replaceAll("_", " ")}</span>
                   <span className="font-semibold">{src.count}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Traffic Channels</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {data.traffic_channels.length === 0 && <p className="text-sm text-muted-foreground">No traffic source data yet.</p>}
+              {data.traffic_channels.map((src) => (
+                <div key={src.channel} className="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
+                  <span className="capitalize">{src.channel}</span>
+                  <span className="font-semibold">{src.count}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Top Pages by Hits</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {data.top_pages.length === 0 && <p className="text-sm text-muted-foreground">No page hit data yet.</p>}
+              {data.top_pages.map((page) => (
+                <div key={page.path} className="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
+                  <span className="truncate pr-3">{page.path}</span>
+                  <span className="font-semibold shrink-0">{page.views}</span>
                 </div>
               ))}
             </div>

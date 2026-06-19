@@ -84,6 +84,14 @@ const photoUploadLimiter = rateLimit({
   message: { error: "Too many uploads. Please try again later." },
 });
 
+const trafficTrackLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 1500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many tracking events. Please try again later." },
+});
+
 // ─── Public: upload form photos ───────────────────────────────────────────────
 // Called client-side from ContactFormBlock before submitting.
 // Returns an array of public URLs stored in Supabase storage.
@@ -1567,6 +1575,72 @@ router.get(
       gallery: galleryRes.data || [],
       company: companyOut,
     });
+  }
+);
+
+router.post(
+  "/public/website/analytics/track/:websiteId",
+  trafficTrackLimiter,
+  async (req, res): Promise<void> => {
+    if (RENDERER_SECRET) {
+      const secret = req.headers["x-renderer-secret"];
+      if (secret !== RENDERER_SECRET) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+    }
+
+    const websiteId = String(req.params.websiteId || "").trim();
+    const eventType = String(req.body?.event_type || "").trim();
+    const sessionId = String(req.body?.session_id || "").trim();
+    const visitorId = String(req.body?.visitor_id || "").trim();
+
+    if (!websiteId || !eventType || !sessionId || !visitorId) {
+      res.status(400).json({ error: "websiteId, event_type, session_id and visitor_id are required" });
+      return;
+    }
+
+    if (eventType !== "page_view" && eventType !== "session_end") {
+      res.status(400).json({ error: "Invalid event_type" });
+      return;
+    }
+
+    const { data: website } = await db
+      .from("websites")
+      .select("id, tenant_id")
+      .eq("id", websiteId)
+      .maybeSingle() as { data: { id: string; tenant_id: string } | null };
+
+    if (!website) {
+      res.status(404).json({ error: "Website not found" });
+      return;
+    }
+
+    const path = String(req.body?.path || "").slice(0, 512) || null;
+    const referrer = String(req.body?.referrer || "").slice(0, 1024) || null;
+    const elapsed = Number(req.body?.session_elapsed_seconds || 0);
+    const pageIndex = Number(req.body?.session_page_index || 0);
+
+    await db
+      .from("website_traffic_events")
+      .insert({
+        website_id: website.id,
+        tenant_id: website.tenant_id,
+        event_type: eventType,
+        session_id: sessionId.slice(0, 128),
+        visitor_id: visitorId.slice(0, 128),
+        path,
+        referrer,
+        user_agent: String(req.headers["user-agent"] || "").slice(0, 512) || null,
+        session_elapsed_seconds: Number.isFinite(elapsed) ? Math.max(0, Math.round(elapsed)) : 0,
+        session_page_index: Number.isFinite(pageIndex) ? Math.max(0, Math.round(pageIndex)) : 0,
+      })
+      .then(() => undefined)
+      .catch((e: unknown) => {
+        console.error("[website-analytics] Failed to ingest traffic event:", (e as Error).message);
+      });
+
+    res.json({ ok: true });
   }
 );
 

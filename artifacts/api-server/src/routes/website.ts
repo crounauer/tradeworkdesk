@@ -689,7 +689,7 @@ router.get(
     const start30 = new Date(now);
     start30.setDate(start30.getDate() - 29);
 
-    const [{ data: pages }, { data: forms }, { data: submissions }, { data: websiteEnquiries }] = await Promise.all([
+    const [{ data: pages }, { data: forms }, { data: submissions }, { data: websiteEnquiries }, { data: trafficEvents }] = await Promise.all([
       db
         .from("website_pages")
         .select("id, status")
@@ -711,12 +711,31 @@ router.get(
         .in("source", ["website", "website_contact_form", "website_free_survey"])
         .order("created_at", { ascending: false })
         .limit(2000) as Promise<{ data: Array<{ id: string; source: string; created_at: string }> | null }>,
+      db
+        .from("website_traffic_events")
+        .select("event_type, session_id, visitor_id, path, referrer, session_elapsed_seconds, session_page_index, created_at")
+        .eq("website_id", website.id)
+        .gte("created_at", start30.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(50000) as Promise<{
+          data: Array<{
+            event_type: string;
+            session_id: string | null;
+            visitor_id: string | null;
+            path: string | null;
+            referrer: string | null;
+            session_elapsed_seconds: number | null;
+            session_page_index: number | null;
+            created_at: string;
+          }> | null;
+        }>,
     ]);
 
     const pagesList = pages || [];
     const formsList = forms || [];
     const submissionList = submissions || [];
     const websiteLeadList = websiteEnquiries || [];
+    const trafficList = trafficEvents || [];
 
     const totalPages = pagesList.length;
     const publishedPages = pagesList.filter((p) => p.status === "published").length;
@@ -798,6 +817,74 @@ router.get(
       };
     });
 
+    const trafficDailyMap = new Map<string, number>();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(start30);
+      d.setDate(start30.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      trafficDailyMap.set(key, 0);
+    }
+
+    const topPagesMap = new Map<string, number>();
+    const channelMap = new Map<string, number>();
+    const uniqueVisitors = new Set<string>();
+    const sessionAgg = new Map<string, { elapsed_seconds: number; page_count: number }>();
+    let pageViews = 0;
+
+    const classifyChannel = (referrer: string | null): string => {
+      if (!referrer) return "direct";
+      const ref = referrer.toLowerCase();
+      if (ref.includes("google.") || ref.includes("bing.") || ref.includes("duckduckgo.") || ref.includes("yahoo.")) return "search";
+      if (ref.includes("facebook.") || ref.includes("instagram.") || ref.includes("t.co") || ref.includes("twitter.") || ref.includes("linkedin.") || ref.includes("youtube.")) return "social";
+      return "referral";
+    };
+
+    for (const ev of trafficList) {
+      const sessionId = (ev.session_id || "").trim();
+      if (sessionId) {
+        const existing = sessionAgg.get(sessionId) || { elapsed_seconds: 0, page_count: 0 };
+        const elapsed = Math.max(0, Number(ev.session_elapsed_seconds || 0));
+        const pageCount = Math.max(0, Number(ev.session_page_index || 0));
+        existing.elapsed_seconds = Math.max(existing.elapsed_seconds, elapsed);
+        existing.page_count = Math.max(existing.page_count, pageCount);
+        sessionAgg.set(sessionId, existing);
+      }
+
+      if (ev.event_type !== "page_view") continue;
+
+      pageViews += 1;
+
+      const visitorId = (ev.visitor_id || "").trim();
+      if (visitorId) uniqueVisitors.add(visitorId);
+
+      const path = (ev.path || "/").trim() || "/";
+      topPagesMap.set(path, (topPagesMap.get(path) || 0) + 1);
+
+      const channel = classifyChannel(ev.referrer || null);
+      channelMap.set(channel, (channelMap.get(channel) || 0) + 1);
+
+      const key = new Date(ev.created_at).toISOString().slice(0, 10);
+      if (trafficDailyMap.has(key)) trafficDailyMap.set(key, (trafficDailyMap.get(key) || 0) + 1);
+    }
+
+    const sessions = sessionAgg.size;
+    const totalElapsedSeconds = Array.from(sessionAgg.values()).reduce((sum, s) => sum + s.elapsed_seconds, 0);
+    const avgSessionDurationSeconds = sessions > 0 ? Math.round(totalElapsedSeconds / sessions) : 0;
+    const bouncedSessions = Array.from(sessionAgg.values()).filter((s) => s.page_count <= 1).length;
+    const bounceRatePercent = sessions > 0 ? Math.round((bouncedSessions / sessions) * 1000) / 10 : 0;
+    const pagesPerSession = sessions > 0 ? Math.round((pageViews / sessions) * 100) / 100 : 0;
+
+    const topPages = Array.from(topPagesMap.entries())
+      .map(([path, views]) => ({ path, views }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 8);
+
+    const trafficChannels = Array.from(channelMap.entries())
+      .map(([channel, count]) => ({ channel, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const dailyTraffic = Array.from(trafficDailyMap.entries()).map(([date, count]) => ({ date, count }));
+
     res.json({
       summary: {
         total_pages: totalPages,
@@ -808,9 +895,20 @@ router.get(
         website_leads_last_30_days: leadsLast30,
         conversion_rate_percent: conversionRate,
       },
+      traffic_summary: {
+        page_views_last_30_days: pageViews,
+        unique_visitors_last_30_days: uniqueVisitors.size,
+        sessions_last_30_days: sessions,
+        avg_session_duration_seconds: avgSessionDurationSeconds,
+        bounce_rate_percent: bounceRatePercent,
+        pages_per_session: pagesPerSession,
+      },
       funnel,
       daily,
+      daily_traffic: dailyTraffic,
       top_forms: topForms,
+      top_pages: topPages,
+      traffic_channels: trafficChannels,
       source_breakdown: sourceBreakdown,
       recent_submissions: recentSubmissions,
     });

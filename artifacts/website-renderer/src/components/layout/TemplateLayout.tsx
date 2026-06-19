@@ -11,6 +11,7 @@ import ModernTemplate from "./templates/ModernTemplate";
 import BoldTemplate from "./templates/BoldTemplate";
 import ProfessionalTemplate from "./templates/ProfessionalTemplate";
 import MinimalTemplate from "./templates/MinimalTemplate";
+import WebsiteTrafficTracker from "@/components/WebsiteTrafficTracker";
 
 const TEMPLATE_MAP: Record<string, ComponentType<TemplateLayoutProps>> = {
   classic: ClassicTemplate,
@@ -23,5 +24,12 @@ const TEMPLATE_MAP: Record<string, ComponentType<TemplateLayoutProps>> = {
 export default function TemplateLayout(props: TemplateLayoutProps) {
   const templateId = props.site.website.template_slug ?? props.site.website.template_id ?? "classic";
   const Layout = TEMPLATE_MAP[templateId] ?? ClassicTemplate;
-  return <Layout {...props} />;
+  const isPreview = (props.basePath || "").startsWith("/preview/");
+
+  return (
+    <>
+      <WebsiteTrafficTracker websiteId={props.site.website.id} enabled={!isPreview} />
+      <Layout {...props} />
+    </>
+  );
 }
