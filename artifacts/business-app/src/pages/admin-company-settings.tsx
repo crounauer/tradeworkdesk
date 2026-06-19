@@ -166,7 +166,17 @@ export default function AdminCompanySettings() {
 
   const [activeTab, setActiveTab] = useState(() => {
     const p = new URLSearchParams(searchString);
-    return p.get("tab") ?? "profile";
+    const tab = p.get("tab") ?? "profile";
+    if (["billing", "invoicing", "payments"].includes(tab)) return "finance";
+    return tab;
+  });
+  const [financeTab, setFinanceTab] = useState<"billing" | "invoicing" | "payments">(() => {
+    const p = new URLSearchParams(searchString);
+    const legacy = p.get("tab");
+    const sub = p.get("financeTab");
+    if (sub === "billing" || sub === "invoicing" || sub === "payments") return sub;
+    if (legacy === "billing" || legacy === "invoicing" || legacy === "payments") return legacy;
+    return "billing";
   });
 
   // Handle GoCardless OAuth callbacks redirected back here
@@ -174,11 +184,14 @@ export default function AdminCompanySettings() {
     const params = new URLSearchParams(searchString);
     if (params.get("gc_success") === "1") {
       toast({ title: "GoCardless connected", description: "Direct debit payment links will be created automatically on future invoices." });
-      setActiveTab("payments");
-      window.history.replaceState({}, "", "/admin/company-settings?tab=payments");
+      setActiveTab("finance");
+      setFinanceTab("payments");
+      window.history.replaceState({}, "", "/admin/company-settings?tab=finance&financeTab=payments");
     } else if (params.get("error") && params.get("tab") === "payments") {
       toast({ title: "Connection failed", description: params.get("error") || "Unknown error", variant: "destructive" });
-      window.history.replaceState({}, "", "/admin/company-settings?tab=payments");
+      setActiveTab("finance");
+      setFinanceTab("payments");
+      window.history.replaceState({}, "", "/admin/company-settings?tab=finance&financeTab=payments");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -456,13 +469,11 @@ export default function AdminCompanySettings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-7">
+          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-5">
             <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
             <TabsTrigger value="team" className="flex-1">Team</TabsTrigger>
-            <TabsTrigger value="billing" className="flex-1">Billing</TabsTrigger>
+            <TabsTrigger value="finance" className="flex-1">Finance</TabsTrigger>
             <TabsTrigger value="catalogue" className="flex-1">Catalogue</TabsTrigger>
-            <TabsTrigger value="invoicing" className="flex-1">Invoicing</TabsTrigger>
-            <TabsTrigger value="payments" className="flex-1">Payments</TabsTrigger>
             <TabsTrigger value="notifications" className="flex-1">Notifications</TabsTrigger>
           </TabsList>
         </div>
@@ -779,69 +790,70 @@ export default function AdminCompanySettings() {
 
           </TabsContent>
 
-          <TabsContent value="billing" className="space-y-6 pt-4">
+          <TabsContent value="finance" className="space-y-6 pt-4">
+            <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "billing" | "invoicing" | "payments")}>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="billing">Billing</TabsTrigger>
+                  <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
+                  <TabsTrigger value="payments">Payments</TabsTrigger>
+                </TabsList>
+              </div>
 
-        {/* Accounting Integrations */}
-        <AccountingIntegrations />
+              <TabsContent value="billing" className="space-y-6 pt-4">
+                {/* Accounting Integrations */}
+                <AccountingIntegrations />
 
-        {/* Pricing & Invoicing */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <PoundSterling className="w-4 h-4" />
-              Pricing & Invoicing
-            </CardTitle>
-            <CardDescription>
-              Default rates used for invoice calculations. These can be overridden per job.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>
-              <Input id="default_vat_rate" type="number" step="0.01" min="0" max="100" placeholder="e.g. 20.00" {...register("default_vat_rate")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="default_payment_terms_days">Payment Terms (days)</Label>
-              <Input id="default_payment_terms_days" type="number" step="1" min="0" placeholder="e.g. 30" {...register("default_payment_terms_days")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="currency">Currency</Label>
-              <select id="currency" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("currency")}>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="USD">USD - US Dollar</option>
-              </select>
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="job_number_prefix">Job Number Prefix</Label>
-              <Input
-                id="job_number_prefix"
-                placeholder="e.g. NNE"
-                maxLength={10}
-                className="uppercase"
-                {...register("job_number_prefix")}
-              />
-              <p className="text-xs text-muted-foreground">
-                Set a prefix for your job numbers. For example, entering <span className="font-mono font-medium">NNE</span> will number jobs as <span className="font-mono font-medium">NNE0001</span>, <span className="font-mono font-medium">NNE0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                {/* Pricing & Invoicing */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <PoundSterling className="w-4 h-4" />
+                      Pricing & Invoicing
+                    </CardTitle>
+                    <CardDescription>
+                      Default rates used for invoice calculations. These can be overridden per job.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="default_vat_rate">Default VAT Rate (%)</Label>
+                      <Input id="default_vat_rate" type="number" step="0.01" min="0" max="100" placeholder="e.g. 20.00" {...register("default_vat_rate")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="default_payment_terms_days">Payment Terms (days)</Label>
+                      <Input id="default_payment_terms_days" type="number" step="1" min="0" placeholder="e.g. 30" {...register("default_payment_terms_days")} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="currency">Currency</Label>
+                      <select id="currency" className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("currency")}>
+                        <option value="GBP">GBP - British Pound</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="USD">USD - US Dollar</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="job_number_prefix">Job Number Prefix</Label>
+                      <Input
+                        id="job_number_prefix"
+                        placeholder="e.g. NNE"
+                        maxLength={10}
+                        className="uppercase"
+                        {...register("job_number_prefix")}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Set a prefix for your job numbers. For example, entering <span className="font-mono font-medium">NNE</span> will number jobs as <span className="font-mono font-medium">NNE0001</span>, <span className="font-mono font-medium">NNE0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
 
-        <CalloutRatesSection />
+                <CalloutRatesSection />
 
-        {renderSectionSaveButton("Save billing changes")}
+                {renderSectionSaveButton("Save billing changes")}
+              </TabsContent>
 
-          </TabsContent>
-
-          <TabsContent value="catalogue" className="space-y-6 pt-4">
-
-        <ProductCatalogueSection />
-        <ServiceCatalogueSection />
-
-          </TabsContent>
-
-          <TabsContent value="invoicing" className="space-y-6 pt-4">
+              <TabsContent value="invoicing" className="space-y-6 pt-4">
 
         <Card>
           <CardHeader>
@@ -1004,11 +1016,11 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
-        {renderSectionSaveButton("Save invoicing changes")}
+                {renderSectionSaveButton("Save invoicing changes")}
 
-          </TabsContent>
+              </TabsContent>
 
-          <TabsContent value="payments" className="space-y-6 pt-4">
+              <TabsContent value="payments" className="space-y-6 pt-4">
 
         {/* Stripe */}
         <Card>
@@ -1047,20 +1059,29 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
-        {/* GoCardless */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Banknote className="w-4 h-4 text-teal-600" /> GoCardless
-            </CardTitle>
-            <CardDescription>
-              Direct debit &amp; instant bank pay. Popular with UK tradespeople — ideal for regular customers and larger invoices.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <GoCardlessSection enabled={gcEnabled} onToggle={handleGcToggle} />
-          </CardContent>
-        </Card>
+                {/* GoCardless */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Banknote className="w-4 h-4 text-teal-600" /> GoCardless
+                    </CardTitle>
+                    <CardDescription>
+                      Direct debit &amp; instant bank pay. Popular with UK tradespeople — ideal for regular customers and larger invoices.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <GoCardlessSection enabled={gcEnabled} onToggle={handleGcToggle} />
+                  </CardContent>
+                </Card>
+
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="catalogue" className="space-y-6 pt-4">
+
+        <ProductCatalogueSection />
+        <ServiceCatalogueSection />
 
           </TabsContent>
 
