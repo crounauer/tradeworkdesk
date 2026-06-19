@@ -121,9 +121,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const workNavItems = hasJobManagement ? [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
-    ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
-      ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
-      : []),
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
@@ -503,6 +500,14 @@ export function Layout({ children }: { children: ReactNode }) {
                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
                   <FileBarChart className="w-3.5 h-3.5" />
                   Reports
+                </button>
+              </Link>
+            )}
+            {(profile?.role === 'admin' || profile?.role === 'office_staff' || profile?.role === 'super_admin') && hasJobManagement && (
+              <Link href="/leave-holidays">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                  <CalendarCheck className="w-3.5 h-3.5" />
+                  Leave & Holidays
                 </button>
               </Link>
             )}
