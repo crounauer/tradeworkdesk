@@ -30,6 +30,10 @@ export default function LeaveHolidaysPage() {
   const hasJobManagement = hasFeature("job_management");
   const canManageHolidays = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
   const canManageWebsiteNotice = profile?.role === "admin" || profile?.role === "super_admin";
+  const supportsAutoFromHolidays = Object.prototype.hasOwnProperty.call(
+    companySettings || {},
+    "website_closure_notice_auto_from_holidays",
+  );
 
   useEffect(() => {
     if (noticeHydratedRef.current || !companySettings) return;
@@ -44,13 +48,17 @@ export default function LeaveHolidaysPage() {
   const handleSaveNotice = async () => {
     if (!canManageWebsiteNotice) return;
     try {
-      const updated = await updateSettings.mutateAsync({
+      const payload: Record<string, unknown> = {
         website_closure_notice_enabled: noticeEnabled,
         website_closure_notice_message: noticeMessage.trim() || null,
         website_closure_notice_start_date: noticeStartDate || null,
         website_closure_notice_end_date: noticeEndDate || null,
-        website_closure_notice_auto_from_holidays: noticeAutoFromHolidays,
-      });
+      };
+      if (supportsAutoFromHolidays) {
+        payload.website_closure_notice_auto_from_holidays = noticeAutoFromHolidays;
+      }
+
+      const updated = await updateSettings.mutateAsync(payload);
 
       // Keep local state aligned with the authoritative API response after save.
       setNoticeEnabled(Boolean(updated.website_closure_notice_enabled));
@@ -125,17 +133,19 @@ export default function LeaveHolidaysPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Auto-publish from public/bank holidays</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">If enabled, adding a public holiday or importing bank holidays will automatically update this website notice.</p>
+          {supportsAutoFromHolidays ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Auto-publish from public/bank holidays</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">If enabled, adding a public holiday or importing bank holidays will automatically update this website notice.</p>
+              </div>
+              <Switch
+                checked={noticeAutoFromHolidays}
+                onCheckedChange={setNoticeAutoFromHolidays}
+                disabled={!canManageWebsiteNotice || updateSettings.isPending}
+              />
             </div>
-            <Switch
-              checked={noticeAutoFromHolidays}
-              onCheckedChange={setNoticeAutoFromHolidays}
-              disabled={!canManageWebsiteNotice || updateSettings.isPending}
-            />
-          </div>
+          ) : null}
 
           <div className="space-y-1.5">
             <Label htmlFor="closure-message">Announcement message</Label>

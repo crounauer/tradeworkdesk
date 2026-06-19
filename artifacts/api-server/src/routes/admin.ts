@@ -430,11 +430,31 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     }
   }
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("company_settings")
     .upsert(updates, { onConflict: "singleton_id,tenant_id" })
     .select()
     .single();
+
+  // Backward-compatibility: allow saves to succeed even if the latest DB patch
+  // (auto holiday notice toggle column) has not been applied yet.
+  if (
+    error &&
+    typeof error.message === "string" &&
+    error.message.includes("website_closure_notice_auto_from_holidays") &&
+    "website_closure_notice_auto_from_holidays" in updates
+  ) {
+    const fallbackUpdates = { ...updates };
+    delete fallbackUpdates.website_closure_notice_auto_from_holidays;
+
+    const retry = await supabaseAdmin
+      .from("company_settings")
+      .upsert(fallbackUpdates, { onConflict: "singleton_id,tenant_id" })
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
