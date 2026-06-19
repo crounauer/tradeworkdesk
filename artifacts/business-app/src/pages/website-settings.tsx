@@ -208,6 +208,7 @@ export default function WebsiteSettings() {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="forms">Forms</TabsTrigger>
+          <TabsTrigger value="contact-form-services">Contact Form Services</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding" className="space-y-4 pt-4">
@@ -399,63 +400,6 @@ export default function WebsiteSettings() {
                         </Button>
                       </div>
                     </div>
-
-                    {/* Contact form service dropdown options */}
-                    {wf.form_type === "contact" && (
-                      <div className="space-y-1.5">
-                        <Label className="text-sm">Service dropdown options</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Configure the "Service required" options shown on your website contact form.
-                          This is separate from your job sheet service catalogue.
-                        </p>
-                        <Textarea
-                          rows={6}
-                          placeholder={"One option per line\nBoiler servicing\nEmergency repair\nHeat pump installation"}
-                          value={serviceOptionsDraft[wf.id] ?? ""}
-                          onChange={(e) => setServiceOptionsDraft((d) => ({ ...d, [wf.id]: e.target.value }))}
-                          className="max-w-xl"
-                        />
-                        <div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={updateNotifyEmailMutation.isPending}
-                            onClick={() => {
-                              const parsedOptions = (serviceOptionsDraft[wf.id] || "")
-                                .split("\n")
-                                .map((line) => line.trim())
-                                .filter(Boolean);
-
-                              const baseFields = Array.isArray(wf.fields)
-                                ? wf.fields.filter((field) => !(field?.name === "service" && field?.type === "select"))
-                                : [];
-
-                              const nextFields = parsedOptions.length > 0
-                                ? [
-                                    ...baseFields,
-                                    { name: "service", label: "Service required", type: "select", required: true, options: parsedOptions },
-                                  ]
-                                : baseFields;
-
-                              apiFetch(`/api/website/forms/${wf.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ fields: nextFields }),
-                              })
-                                .then(() => {
-                                  qc.invalidateQueries({ queryKey: ["/api/website/forms"] });
-                                  toast({ title: "Service dropdown options saved" });
-                                })
-                                .catch((e: Error) => {
-                                  toast({ title: "Error", description: e.message, variant: "destructive" });
-                                });
-                            }}
-                          >
-                            Save service options
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -467,6 +411,84 @@ export default function WebsiteSettings() {
             <Link href="/enquiries" className="underline font-medium">Enquiries</Link> inbox. You can
             then convert it to a job with one click.
           </div>
+        </TabsContent>
+
+        <TabsContent value="contact-form-services" className="space-y-4 pt-4">
+          <p className="text-sm text-muted-foreground">
+            Configure the website contact form "Service required" dropdown options.
+            This is separate from your job sheet service catalogue.
+          </p>
+
+          {forms.filter((wf) => wf.form_type === "contact").length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No contact form found yet. Build or publish your website to create one.</p>
+          ) : (
+            <div className="space-y-3">
+              {forms
+                .filter((wf) => wf.form_type === "contact")
+                .map((wf) => (
+                  <Card key={wf.id}>
+                    <CardHeader>
+                      <CardTitle className="text-base">{wf.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Service dropdown options</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Enter one option per line. These values appear in the public contact form dropdown.
+                        </p>
+                        <Textarea
+                          rows={6}
+                          placeholder={"One option per line\nBoiler servicing\nEmergency repair\nHeat pump installation"}
+                          value={serviceOptionsDraft[wf.id] ?? ""}
+                          onChange={(e) => setServiceOptionsDraft((d) => ({ ...d, [wf.id]: e.target.value }))}
+                          className="max-w-xl"
+                        />
+                      </div>
+
+                      <div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={updateNotifyEmailMutation.isPending}
+                          onClick={() => {
+                            const parsedOptions = (serviceOptionsDraft[wf.id] || "")
+                              .split("\n")
+                              .map((line) => line.trim())
+                              .filter(Boolean);
+
+                            const baseFields = Array.isArray(wf.fields)
+                              ? wf.fields.filter((field) => !(field?.name === "service" && field?.type === "select"))
+                              : [];
+
+                            const nextFields = parsedOptions.length > 0
+                              ? [
+                                  ...baseFields,
+                                  { name: "service", label: "Service required", type: "select", required: true, options: parsedOptions },
+                                ]
+                              : baseFields;
+
+                            apiFetch(`/api/website/forms/${wf.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ fields: nextFields }),
+                            })
+                              .then(() => {
+                                qc.invalidateQueries({ queryKey: ["/api/website/forms"] });
+                                toast({ title: "Service dropdown options saved" });
+                              })
+                              .catch((e: Error) => {
+                                toast({ title: "Error", description: e.message, variant: "destructive" });
+                              });
+                          }}
+                        >
+                          Save service options
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+          )}
         </TabsContent>
 
       </Tabs>
