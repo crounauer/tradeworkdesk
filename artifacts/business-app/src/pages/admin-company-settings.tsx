@@ -252,6 +252,8 @@ export default function AdminCompanySettings() {
       city: settings.city ?? "",
       county: settings.county ?? "",
       postcode: settings.postcode ?? "",
+      service_area: settings.service_area ?? "",
+      coverage_radius_miles: settings.coverage_radius_miles != null ? String(settings.coverage_radius_miles) : "",
       country: settings.country ?? "United Kingdom",
       phone: settings.phone ?? "",
       email: settings.email ?? "",
@@ -288,7 +290,7 @@ export default function AdminCompanySettings() {
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
-  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
+  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days", "coverage_radius_miles"]);
   const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
   const arrayFields = new Set(["notification_emails"]);
 
@@ -700,6 +702,42 @@ export default function AdminCompanySettings() {
                 <Globe className="w-3.5 h-3.5" /> Website
               </Label>
               <Input id="website" type="url" placeholder="e.g. https://www.example.com" {...register("website")} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Website coverage checker */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Website Postcode Checker
+            </CardTitle>
+            <CardDescription>
+              Configure the area messaging and radius used by the public website postcode checker.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="service_area">Service area text</Label>
+              <Input
+                id="service_area"
+                placeholder="e.g. Aberdeen and surrounding areas"
+                {...register("service_area")}
+              />
+              <p className="text-xs text-muted-foreground">Shown on your website when postcode checks are unavailable or as supporting coverage text.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="coverage_radius_miles">Postcode checker radius (miles)</Label>
+              <Input
+                id="coverage_radius_miles"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 20"
+                {...register("coverage_radius_miles")}
+              />
+              <p className="text-xs text-muted-foreground">Set to 0 or leave blank to use platform default radius.</p>
             </div>
           </CardContent>
         </Card>
