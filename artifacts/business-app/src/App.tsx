@@ -12,7 +12,6 @@ import { ToolsPublicLayout } from "@/components/tools-public-layout";
 import { OfflineProvider } from "@/contexts/offline-context";
 
 const CHUNK_RELOAD_ATTEMPTS_KEY = "chunk_reload_attempts";
-const MAX_CHUNK_RELOAD_ATTEMPTS = 3;
 
 function getChunkReloadAttempts(): number {
   const raw = Number(sessionStorage.getItem(CHUNK_RELOAD_ATTEMPTS_KEY) || "0");
@@ -49,16 +48,9 @@ async function clearSwAndReload() {
 
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
   return lazy(() =>
-    importFn().catch(async () => {
-      const attempts = getChunkReloadAttempts();
-      if (attempts < MAX_CHUNK_RELOAD_ATTEMPTS) {
-        incrementChunkReloadAttempts();
-        await clearSwAndReload();
-        // clearSwAndReload navigates away, so this line is a fallback
-        return importFn();
-      }
+    importFn().catch(async (err) => {
       resetChunkReloadAttempts();
-      return importFn();
+      throw err;
     })
   );
 }
@@ -68,13 +60,7 @@ class ChunkErrorBoundary extends ReactComponent<{ children: ReactNode }, { hasEr
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error: Error, _info: ErrorInfo) {
     if (error.message?.includes("Loading chunk") || error.message?.includes("Failed to fetch") || error.message?.includes("dynamically imported module") || error.message?.includes("MIME type")) {
-      const attempts = getChunkReloadAttempts();
-      if (attempts < MAX_CHUNK_RELOAD_ATTEMPTS) {
-        incrementChunkReloadAttempts();
-        clearSwAndReload();
-      } else {
-        resetChunkReloadAttempts();
-      }
+      resetChunkReloadAttempts();
     }
   }
   render() {
