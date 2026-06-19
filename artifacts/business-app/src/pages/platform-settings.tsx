@@ -388,7 +388,7 @@ export default function PlatformSettings() {
                 IndexNow - Search Engine Indexing
               </CardTitle>
               <CardDescription>
-                Submit all TradeWorkDesk marketing and blog URLs for faster indexing when content changes.
+                Auto-submit runs on production startup/deploy. Use this for a manual re-submit of marketing and blog URLs.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -398,7 +398,7 @@ export default function PlatformSettings() {
                 ) : indexNowSubmitted ? (
                   <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
                 ) : (
-                  <><Globe className="w-4 h-4 mr-2" />Submit Marketing URLs</>
+                  <><Globe className="w-4 h-4 mr-2" />Manual Re-submit Marketing URLs</>
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">Uses the platform IndexNow key and submits URLs for www.tradeworkdesk.co.uk.</p>

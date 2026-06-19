@@ -511,7 +511,7 @@ export default function PlatformDashboard() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            Submit all marketing and blog URLs to search engines (Google, Bing, Yandex) for fast indexing via the IndexNow protocol. This notifies search engines that your content has been updated.
+            Auto-submit runs on production startup/deploy for marketing updates. Use this button to manually re-submit all marketing and blog URLs to search engines via IndexNow.
           </p>
           <div className="flex items-center gap-4">
             <Button
@@ -523,7 +523,7 @@ export default function PlatformDashboard() {
               ) : indexNowSubmitted ? (
                 <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
               ) : (
-                <><Globe className="w-4 h-4 mr-2" />Submit All Pages</>
+                <><Globe className="w-4 h-4 mr-2" />Manual Re-submit All Pages</>
               )}
             </Button>
             <span className="text-xs text-muted-foreground">All marketing and blog URLs will be submitted</span>
