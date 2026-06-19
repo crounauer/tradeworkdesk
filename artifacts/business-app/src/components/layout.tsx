@@ -495,7 +495,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Tenant header bar ───────────────────────────────────────────── */}
         {showHeaderBar && (
-          <div className="hidden md:flex items-center justify-end gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
+          <div className="hidden md:flex items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
             {hasWebsiteBuilder && tenantWebsiteUrl && (
               <a
                 href={tenantWebsiteUrl}
