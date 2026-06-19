@@ -124,6 +124,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
+    { href: "/customers", label: "Customers", icon: Users },
+    { href: "/properties", label: "Properties", icon: Home },
     { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
     { href: "/todos", label: "To-Do List", icon: CheckSquare },
   ] : [];
@@ -329,8 +331,6 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
           {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item))}
 
-          {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems)}
-
           {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
 
           {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems)}
@@ -447,7 +447,6 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
-            {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
