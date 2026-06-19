@@ -188,16 +188,23 @@ async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unk
   return data;
 }
 
-async function getTenantServiceOptions(tenantId: string): Promise<string[]> {
-  const { data } = await supabaseAdmin
-    .from("service_catalogue")
-    .select("name")
-    .eq("tenant_id", tenantId)
+async function getContactFormServiceOptions(websiteId: string): Promise<string[]> {
+  const { data: form } = await db
+    .from("website_forms")
+    .select("fields")
+    .eq("website_id", websiteId)
+    .eq("form_type", "contact")
     .eq("is_active", true)
-    .order("name") as { data: Array<{ name: string | null }> | null };
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle() as { data: { fields: unknown } | null };
 
-  return (data || [])
-    .map((row) => (row.name || "").trim())
+  const fields = Array.isArray(form?.fields) ? (form!.fields as Array<Record<string, unknown>>) : [];
+  const serviceField = fields.find((field) => field?.name === "service" && field?.type === "select");
+  const options = Array.isArray(serviceField?.options) ? (serviceField!.options as unknown[]) : [];
+
+  return options
+    .map((option) => String(option || "").trim())
     .filter(Boolean);
 }
 
@@ -1235,7 +1242,7 @@ router.get(
 
     const { data } = await db
       .from("website_forms")
-      .select("id, name, form_type, notify_email, auto_create_enquiry, is_active, created_at")
+      .select("id, name, form_type, fields, notify_email, auto_create_enquiry, is_active, created_at")
       .eq("website_id", website.id) as { data: Record<string, unknown>[] | null };
 
     res.json(data || []);
@@ -1283,7 +1290,7 @@ router.patch(
   requireWebsiteBuilder(),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
-    const { auto_create_enquiry, notify_email, name, is_active } = req.body as Record<string, unknown>;
+    const { auto_create_enquiry, notify_email, name, is_active, fields } = req.body as Record<string, unknown>;
 
     const website = await getWebsiteForTenant(req.tenantId!);
     if (!website) { res.status(404).json({ error: "Website not found" }); return; }
@@ -1293,13 +1300,14 @@ router.patch(
     if (notify_email !== undefined) updates.notify_email = notify_email || null;
     if (name !== undefined) updates.name = name;
     if (typeof is_active === "boolean") updates.is_active = is_active;
+    if (fields !== undefined && Array.isArray(fields)) updates.fields = fields;
 
     const { data, error } = await db
       .from("website_forms")
       .update(updates)
       .eq("id", id)
       .eq("website_id", website.id)
-      .select("id, name, form_type, notify_email, auto_create_enquiry, is_active, created_at")
+      .select("id, name, form_type, fields, notify_email, auto_create_enquiry, is_active, created_at")
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (error || !data) { res.status(404).json({ error: "Form not found" }); return; }
@@ -1680,16 +1688,8 @@ router.get(
       .eq("id", pageId)
       .maybeSingle() as { data: { website_id: string } | null };
 
-    const { data: website } = page
-      ? await db
-          .from("websites")
-          .select("tenant_id")
-          .eq("id", page.website_id)
-          .maybeSingle() as { data: { tenant_id: string } | null }
-      : { data: null as { tenant_id: string } | null };
-
-    const serviceOptions = website?.tenant_id
-      ? await getTenantServiceOptions(website.tenant_id)
+    const serviceOptions = page?.website_id
+      ? await getContactFormServiceOptions(page.website_id)
       : [];
 
     const { data: blocks } = await db
@@ -1723,14 +1723,8 @@ router.get(
 
     if (!page) { res.status(404).json({ error: "Page not found" }); return; }
 
-    const { data: website } = await db
-      .from("websites")
-      .select("tenant_id")
-      .eq("id", websiteId)
-      .maybeSingle() as { data: { tenant_id: string } | null };
-
-    const serviceOptions = website?.tenant_id
-      ? await getTenantServiceOptions(website.tenant_id)
+    const serviceOptions = websiteId
+      ? await getContactFormServiceOptions(websiteId)
       : [];
 
     const { data: blocks } = await db

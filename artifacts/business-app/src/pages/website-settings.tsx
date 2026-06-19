@@ -44,6 +44,7 @@ interface WebsiteForm {
   id: string;
   name: string;
   form_type: string;
+  fields?: Array<{ name?: string; label?: string; type?: string; required?: boolean; options?: string[] }>;
   notify_email: string | null;
   auto_create_enquiry: boolean;
   is_active: boolean;
@@ -96,6 +97,7 @@ export default function WebsiteSettings() {
   });
 
   const [notifyEmailDraft, setNotifyEmailDraft] = useState<Record<string, string>>({});
+  const [serviceOptionsDraft, setServiceOptionsDraft] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
     site_name: "",
@@ -109,6 +111,22 @@ export default function WebsiteSettings() {
     social_links: { facebook: "", instagram: "", twitter: "", linkedin: "", youtube: "" } as Record<string, string>,
     theme: { nav_background: "#1f2937", nav_text: "#ffffff", footer_background: "#111827", footer_text: "#9ca3af" } as Record<string, string>,
   });
+
+  useEffect(() => {
+    setServiceOptionsDraft((current) => {
+      const next = { ...current };
+      for (const wf of forms) {
+        const serviceField = Array.isArray(wf.fields)
+          ? wf.fields.find((field) => field?.name === "service" && field?.type === "select")
+          : undefined;
+        const options = Array.isArray(serviceField?.options) ? serviceField!.options : [];
+        if (next[wf.id] === undefined) {
+          next[wf.id] = options.join("\n");
+        }
+      }
+      return next;
+    });
+  }, [forms]);
 
   useEffect(() => {
     if (website) {
@@ -381,6 +399,63 @@ export default function WebsiteSettings() {
                         </Button>
                       </div>
                     </div>
+
+                    {/* Contact form service dropdown options */}
+                    {wf.form_type === "contact" && (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Service dropdown options</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Configure the "Service required" options shown on your website contact form.
+                          This is separate from your job sheet service catalogue.
+                        </p>
+                        <Textarea
+                          rows={6}
+                          placeholder={"One option per line\nBoiler servicing\nEmergency repair\nHeat pump installation"}
+                          value={serviceOptionsDraft[wf.id] ?? ""}
+                          onChange={(e) => setServiceOptionsDraft((d) => ({ ...d, [wf.id]: e.target.value }))}
+                          className="max-w-xl"
+                        />
+                        <div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updateNotifyEmailMutation.isPending}
+                            onClick={() => {
+                              const parsedOptions = (serviceOptionsDraft[wf.id] || "")
+                                .split("\n")
+                                .map((line) => line.trim())
+                                .filter(Boolean);
+
+                              const baseFields = Array.isArray(wf.fields)
+                                ? wf.fields.filter((field) => !(field?.name === "service" && field?.type === "select"))
+                                : [];
+
+                              const nextFields = parsedOptions.length > 0
+                                ? [
+                                    ...baseFields,
+                                    { name: "service", label: "Service required", type: "select", required: true, options: parsedOptions },
+                                  ]
+                                : baseFields;
+
+                              apiFetch(`/api/website/forms/${wf.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ fields: nextFields }),
+                              })
+                                .then(() => {
+                                  qc.invalidateQueries({ queryKey: ["/api/website/forms"] });
+                                  toast({ title: "Service dropdown options saved" });
+                                })
+                                .catch((e: Error) => {
+                                  toast({ title: "Error", description: e.message, variant: "destructive" });
+                                });
+                            }}
+                          >
+                            Save service options
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
