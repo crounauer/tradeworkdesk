@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, Plus, Send, Star } from "lucide-react";
+import { Save, Loader2, Plus, Send, Star, Mail, MessageSquare, Clock, CheckCheck, MousePointerClick, AlertCircle, Ban, Trash2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 async function apiFetch(url: string, opts?: RequestInit) {
@@ -58,6 +58,7 @@ interface ReviewRequest {
   opened_at: string | null;
   clicked_at: string | null;
   created_at: string;
+  error_message: string | null;
 }
 
 interface CustomerOption {
@@ -179,6 +180,15 @@ export default function ReviewRequests() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/review-requests/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/review-requests"] });
+      toast({ title: "Deleted" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (settingsLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -203,7 +213,7 @@ export default function ReviewRequests() {
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="platforms">Review Platforms</TabsTrigger>
           <TabsTrigger value="template">Email Template</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="history">Audit Log</TabsTrigger>
         </TabsList>
 
         {/* ── Settings ── */}
@@ -311,38 +321,82 @@ export default function ReviewRequests() {
           </Button>
         </TabsContent>
 
-        {/* ── History ── */}
+        {/* ── Audit Log ── */}
         <TabsContent value="history" className="space-y-3 mt-4">
           {requestsLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
           ) : requests.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No review requests sent yet.</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No review requests yet.</CardContent></Card>
           ) : (
-            requests.map((rr) => (
-              <Card key={rr.id}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{rr.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">{rr.customer_email}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Scheduled {format(new Date(rr.scheduled_for), "d MMM yyyy HH:mm")}
-                      {rr.sent_at && ` · Sent ${format(new Date(rr.sent_at), "d MMM HH:mm")}`}
-                      {rr.clicked_at && " · Clicked ✓"}
-                    </p>
-                  </div>
-                  <Badge variant={STATUS_BADGE[rr.status] as "default" | "secondary" | "destructive" | "outline"}>
-                    {rr.status}
-                  </Badge>
-                  {rr.status === "pending" && (
-                    <Button size="sm" variant="outline"
-                      onClick={() => sendNowMutation.mutate(rr.id)}
-                      disabled={sendNowMutation.isPending}>
-                      <Send className="w-3 h-3 mr-1" /> Send Now
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))
+            requests.map((rr) => {
+              const ChannelIcon = rr.channel === "sms" ? MessageSquare : Mail;
+              const timeline: { icon: React.ReactNode; label: string; ts: string }[] = [];
+
+              timeline.push({
+                icon: <Clock className="w-3.5 h-3.5" />,
+                label: rr.trigger_type === "manual" ? "Created manually" : `Auto-triggered by ${rr.trigger_type.replace(/_/g, " ")}`,
+                ts: rr.created_at,
+              });
+
+              if (rr.sent_at) timeline.push({ icon: <Send className="w-3.5 h-3.5" />, label: "Sent", ts: rr.sent_at });
+              if (rr.opened_at) timeline.push({ icon: <CheckCheck className="w-3.5 h-3.5" />, label: "Opened", ts: rr.opened_at });
+              if (rr.clicked_at) timeline.push({ icon: <MousePointerClick className="w-3.5 h-3.5" />, label: "Clicked review link", ts: rr.clicked_at });
+              if (rr.status === "failed") timeline.push({ icon: <AlertCircle className="w-3.5 h-3.5 text-destructive" />, label: `Failed${rr.error_message ? `: ${rr.error_message}` : ""}`, ts: rr.sent_at || rr.created_at });
+              if (rr.status === "suppressed") timeline.push({ icon: <Ban className="w-3.5 h-3.5" />, label: "Suppressed (sent too recently)", ts: rr.created_at });
+
+              return (
+                <Card key={rr.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm">{rr.customer_name}</p>
+                          <ChannelIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs text-muted-foreground">{rr.customer_email}</span>
+                        </div>
+                        <div className="mt-2 space-y-1 pl-1 border-l-2 border-border ml-1">
+                          {timeline.map((entry, i) => (
+                            <div key={i} className="flex items-start gap-2 pl-2">
+                              <span className="text-muted-foreground mt-0.5 shrink-0">{entry.icon}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {entry.label}
+                                <span className="ml-1 opacity-60">— {format(new Date(entry.ts), "d MMM yyyy HH:mm")}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                        <Badge variant={STATUS_BADGE[rr.status] as "default" | "secondary" | "destructive" | "outline"}>
+                          {rr.status}
+                        </Badge>
+                        {rr.status === "pending" && (
+                          <>
+                            <Button size="sm" variant="outline"
+                              onClick={() => sendNowMutation.mutate(rr.id)}
+                              disabled={sendNowMutation.isPending}>
+                              <Send className="w-3 h-3 mr-1" /> Send Now
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive"
+                              onClick={() => deleteMutation.mutate(rr.id)}
+                              disabled={deleteMutation.isPending}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
+                        {rr.status === "failed" && (
+                          <Button size="sm" variant="outline"
+                            onClick={() => sendNowMutation.mutate(rr.id)}
+                            disabled={sendNowMutation.isPending}>
+                            <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </TabsContent>
       </Tabs>
