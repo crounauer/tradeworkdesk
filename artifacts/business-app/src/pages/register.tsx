@@ -476,14 +476,15 @@ export default function Register() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-slate-50">
+    <div className="relative min-h-screen overflow-y-auto bg-slate-50">
       <img
         src={`${import.meta.env.BASE_URL}images/login-bg.png`}
         alt=""
-        className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-multiply"
+        className="fixed inset-0 w-full h-full object-cover opacity-60 mix-blend-multiply"
       />
 
-      <div className="w-full max-w-md p-8 glass-panel rounded-3xl relative z-10 m-4">
+      <div className="relative z-10 flex min-h-screen items-start justify-center px-4 py-6 sm:items-center sm:py-8">
+        <div className="w-full max-w-md p-8 glass-panel rounded-3xl">
         <div className="flex flex-col items-center mb-5">
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25 mb-4">
             <Flame className="w-8 h-8 text-white" />
@@ -780,12 +781,13 @@ export default function Register() {
           </>
         )}
 
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Already have an account?{" "}
-          <button type="button" onClick={() => navigate("/login")} className="text-primary font-medium hover:underline">
-            Sign in
-          </button>
-        </p>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Already have an account?{" "}
+            <button type="button" onClick={() => navigate("/login")} className="text-primary font-medium hover:underline">
+              Sign in
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );
