@@ -41,6 +41,20 @@ Configure alerting in your monitoring system with these starting thresholds:
 - Machine count at max for 10+ minutes
 - Health endpoint failures from 2+ regions
 
+## Alert Channels and Escalation
+
+Set email notifications for each threshold and follow this escalation:
+
+- P1 (outage): health endpoint failing or critical user flow down
+  - Email immediately
+  - Escalate after 10 minutes if unresolved
+- P2 (degradation): p95 > 700ms for 10 minutes or 5xx > 1% for 5 minutes
+  - Email immediately
+  - Escalate after 20 minutes if unresolved
+- P3 (capacity warning): machine count pinned at max for 10+ minutes
+  - Email immediately
+  - Escalate after 60 minutes if unresolved
+
 ## Weekly Change / No-Change Checklist
 
 1. Capacity
@@ -58,6 +72,14 @@ Decision:
 - If two or more capacity/reliability checks are "yes": move toward peak profile or raise capacity.
 - If reliability is stable and extra machines are rarely used: keep normal profile.
 - If cost pressure is high and p95 is consistently low: consider higher concurrency or lower max cap.
+
+## Weekly Alert Hygiene Checklist
+
+- [ ] Confirm all email recipients are still valid (primary + backup)
+- [ ] Confirm Better Stack monitors are green and not muted incorrectly
+- [ ] Confirm Sentry production alert rules are enabled
+- [ ] Review top 5 incidents and record follow-up actions
+- [ ] Remove or update noisy alert rules after root-cause fixes
 
 ## Safe Change Order
 

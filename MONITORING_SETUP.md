@@ -42,6 +42,79 @@
 
 3. **Set up status page** at https://status.tradeworkdesk.co.uk
 
+### 3. Email Alerts (Better Stack + Sentry)
+
+Use this baseline alert profile to detect customer-impact risk early.
+
+#### Better Stack Alerts (email)
+
+Create these monitors and notifications:
+
+1. **API health monitor**
+   - URL: `https://tradeworkdesk-api.fly.dev/health`
+   - Method: `GET`
+   - Frequency: `60s`
+   - Regions: at least `2`
+   - Alert when down for `2` consecutive checks
+   - Send recovery emails: enabled
+
+2. **Homepage synthetic monitor**
+   - URL: your production frontend homepage
+   - Method: `GET`
+   - Frequency: `60s`
+   - Alert if status is non-2xx for `2` checks
+
+3. **Lead-submit synthetic monitor**
+   - Endpoint: key lead capture path (or safe synthetic route)
+   - Frequency: `60s`
+   - Alert if status non-2xx/3xx for `2` checks
+
+4. **Email recipients**
+   - Add your main email as primary recipient
+   - Add at least one backup email recipient
+   - Enable both incident and recovery notifications
+
+#### Sentry Alerts (email)
+
+Create Sentry alert rules with email actions:
+
+1. **New high-severity issue**
+   - Condition: new issue with level `error` or `fatal`
+   - Environment: `production`
+   - Action: email immediately
+
+2. **Error rate spike**
+   - Condition: error events above normal baseline (or above your fixed threshold)
+   - Window: `5m`
+   - Action: email immediately
+
+3. **Regression rule**
+   - Condition: issue regressed in `production`
+   - Action: email immediately
+
+4. **Ownership and noise control**
+   - Route alerts to owner/team inbox
+   - Mute noisy known issues after triage
+
+### 4. Escalation Timing
+
+Use this escalation timing to avoid delayed response:
+
+1. **P1 (customer-facing outage)**
+   - Trigger examples: health check down, login/lead flow failing
+   - First alert: immediate email
+   - Escalate if unresolved after `10 minutes`
+
+2. **P2 (degraded performance)**
+   - Trigger examples: p95 latency > 700ms for 10 minutes, 5xx > 1% for 5 minutes
+   - First alert: immediate email
+   - Escalate if unresolved after `20 minutes`
+
+3. **P3 (warning trend)**
+   - Trigger examples: machine count pinned at max, rising slow requests
+   - First alert: immediate email
+   - Escalate if unresolved after `60 minutes`
+
 ## Testing Locally
 
 ### Trigger Test Errors (Frontend)
@@ -90,4 +163,17 @@ git push origin master
 - [ ] Trigger test error on frontend (check Sentry dashboard)
 - [ ] Trigger test error on backend (check Sentry dashboard)
 - [ ] Better Stack monitors added
+- [ ] Better Stack email recipients configured (primary + backup)
+- [ ] Sentry alert rules configured for new issue, error spike, and regression
 - [ ] Alert notification configured
+
+## Weekly Alert Review Checklist
+
+Run this once per week:
+
+- [ ] Review Better Stack incidents and confirm root causes are documented
+- [ ] Review Sentry top production issues and remove stale mute rules
+- [ ] Check if p95 latency breached 700ms more than once
+- [ ] Check if 5xx rate breached 1% more than once
+- [ ] Check whether machine count was pinned at max during business hours
+- [ ] Decide: keep settings or switch to peak profile for upcoming traffic windows
