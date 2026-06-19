@@ -33,6 +33,7 @@ import {
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any; // new tables not yet in generated types
+const KNOWN_TEMPLATE_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,23 @@ async function provisionPlatformSubdomain(websiteId: string, tenantId: string, c
 
 function requireWebsiteBuilder() {
   return requirePlanFeature("website_builder");
+}
+
+async function getTemplateLiveOverrides(): Promise<Record<string, boolean>> {
+  const keys = KNOWN_TEMPLATE_SLUGS.map((slug) => `website_template_live_${slug}`);
+  const { data } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", keys);
+
+  const map: Record<string, boolean> = {};
+  for (const row of data || []) {
+    const key = String((row as { key?: string }).key || "");
+    const slug = key.replace("website_template_live_", "");
+    const raw = String((row as { value?: string | null }).value ?? "true").trim().toLowerCase();
+    map[slug] = !(raw === "false" || raw === "0" || raw === "off");
+  }
+  return map;
 }
 
 // ─── Website (root settings) ──────────────────────────────────────────────────
@@ -612,17 +630,23 @@ router.get(
   requireTenant,
   requireWebsiteBuilder(),
   async (_req: AuthenticatedRequest, res): Promise<void> => {
-    const KNOWN_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
-
     const { data, error } = await db
       .from("website_templates")
       .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, default_theme")
       .eq("is_active", true)
-      .in("slug", KNOWN_SLUGS)
+      .in("slug", KNOWN_TEMPLATE_SLUGS)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to load templates" }); return; }
-    res.json(data || []);
+
+    const liveOverrides = await getTemplateLiveOverrides();
+    const filtered = (data || []).filter((t) => {
+      const slug = String(t.slug || "");
+      if (slug in liveOverrides) return liveOverrides[slug];
+      return true;
+    });
+
+    res.json(filtered);
   }
 );
 
@@ -1357,6 +1381,13 @@ router.post(
       .single() as { data: Record<string, unknown> | null };
 
     if (!template) { res.status(404).json({ error: "Template not live or not found" }); return; }
+
+    const liveOverrides = await getTemplateLiveOverrides();
+    const selectedTemplateSlug = String(template.slug || "");
+    if (selectedTemplateSlug in liveOverrides && !liveOverrides[selectedTemplateSlug]) {
+      res.status(404).json({ error: "Template not live or not found" });
+      return;
+    }
 
     // Load company settings to personalise content
     const { data: rawCs } = await supabaseAdmin
