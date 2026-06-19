@@ -162,14 +162,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];
 
-  const websiteNavItems: Array<{ href: string; label: string; icon: React.ElementType }> = hasWebsiteBuilder ? [
-    { href: "/website", label: "Overview", icon: Globe2 },
-    { href: "/website/pages", label: "Pages", icon: LayoutTemplate },
-    { href: "/website/blog", label: "Blog", icon: FileText },
-    { href: "/website/analytics", label: "Analytics", icon: FileBarChart },
-    { href: "/website/domain", label: "Domain", icon: Globe },
-    { href: "/website/settings", label: "Settings", icon: Settings2 },
-  ] : [];
+  const websiteNavItems: Array<{ href: string; label: string; icon: React.ElementType }> = [];
 
   const blocksNavItems: typeof websiteNavItems = [];
 
