@@ -252,8 +252,6 @@ export default function AdminCompanySettings() {
       city: settings.city ?? "",
       county: settings.county ?? "",
       postcode: settings.postcode ?? "",
-      service_area: settings.service_area ?? "",
-      coverage_radius_miles: settings.coverage_radius_miles != null ? String(settings.coverage_radius_miles) : "",
       country: settings.country ?? "United Kingdom",
       phone: settings.phone ?? "",
       email: settings.email ?? "",
@@ -290,7 +288,7 @@ export default function AdminCompanySettings() {
     if (settings.logo_url) setLogoPreview(settings.logo_url);
   }, [settings, reset]);
 
-  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days", "coverage_radius_miles"]);
+  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
   const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
   const arrayFields = new Set(["notification_emails"]);
 
@@ -702,42 +700,6 @@ export default function AdminCompanySettings() {
                 <Globe className="w-3.5 h-3.5" /> Website
               </Label>
               <Input id="website" type="url" placeholder="e.g. https://www.example.com" {...register("website")} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Website coverage checker */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Website Postcode Checker
-            </CardTitle>
-            <CardDescription>
-              Configure the area messaging and radius used by the public website postcode checker.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="service_area">Service area text</Label>
-              <Input
-                id="service_area"
-                placeholder="e.g. Aberdeen and surrounding areas"
-                {...register("service_area")}
-              />
-              <p className="text-xs text-muted-foreground">Shown on your website when postcode checks are unavailable or as supporting coverage text.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="coverage_radius_miles">Postcode checker radius (miles)</Label>
-              <Input
-                id="coverage_radius_miles"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="e.g. 20"
-                {...register("coverage_radius_miles")}
-              />
-              <p className="text-xs text-muted-foreground">Set to 0 or leave blank to use platform default radius.</p>
             </div>
           </CardContent>
         </Card>
@@ -1686,6 +1648,7 @@ function PublicDirectoryCard() {
   const [tradeTypes, setTradeTypes] = useState("");
   const [serviceArea, setServiceArea] = useState("");
   const [coverageRadius, setCoverageRadius] = useState("");
+  const [coverageRadiusSupported, setCoverageRadiusSupported] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
   const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1699,6 +1662,7 @@ function PublicDirectoryCard() {
         setTradeTypes((data.trade_types as string) ?? "");
         setServiceArea((data.service_area as string) ?? "");
         setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
+        setCoverageRadiusSupported(data.coverage_radius_supported !== false);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -1824,8 +1788,13 @@ function PublicDirectoryCard() {
             placeholder="e.g. 20"
             value={coverageRadius}
             onChange={e => setCoverageRadius(e.target.value)}
+            disabled={!coverageRadiusSupported}
           />
-          <p className="text-xs text-muted-foreground">Used by the website postcode checker. Leave blank to keep the checker text-only.</p>
+          {coverageRadiusSupported ? (
+            <p className="text-xs text-muted-foreground">Used by the website postcode checker. Leave blank to keep the checker text-only.</p>
+          ) : (
+            <p className="text-xs text-amber-700">Postcode radius is not available on this database yet. Run patch-052-website-coverage.sql to enable it.</p>
+          )}
         </div>
 
         <div className="flex justify-end pt-1">

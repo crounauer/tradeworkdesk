@@ -133,8 +133,28 @@ router.get("/admin/directory-listing", requireAuth, requireTenant, requireRole("
     .eq("singleton_id", "default");
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.maybeSingle();
+
+  if (error && /coverage_radius_miles/i.test(error.message || "")) {
+    let fallbackQ = supabaseAdmin
+      .from("company_settings")
+      .select("is_publicly_listed, listing_slug, public_description, trade_types, service_area")
+      .eq("singleton_id", "default");
+    if (req.tenantId) fallbackQ = fallbackQ.eq("tenant_id", req.tenantId);
+    const { data: fallbackData, error: fallbackError } = await fallbackQ.maybeSingle();
+    if (fallbackError) { res.status(500).json({ error: fallbackError.message }); return; }
+    res.json({
+      ...(fallbackData || { is_publicly_listed: false, listing_slug: null, public_description: null, trade_types: null, service_area: null }),
+      coverage_radius_miles: null,
+      coverage_radius_supported: false,
+    });
+    return;
+  }
+
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || { is_publicly_listed: false, listing_slug: null, public_description: null, trade_types: null, service_area: null, coverage_radius_miles: null });
+  res.json({
+    ...(data || { is_publicly_listed: false, listing_slug: null, public_description: null, trade_types: null, service_area: null, coverage_radius_miles: null }),
+    coverage_radius_supported: true,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -184,6 +204,12 @@ router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole
   if (req.tenantId) upsertQ = upsertQ.eq("tenant_id", req.tenantId);
 
   const { data, error } = await upsertQ.select().single();
+  if (error && /coverage_radius_miles/i.test(error.message || "")) {
+    res.status(409).json({
+      error: "Postcode radius setting is not available yet on this database. Run patch-052-website-coverage.sql to enable it.",
+    });
+    return;
+  }
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data);
 });
