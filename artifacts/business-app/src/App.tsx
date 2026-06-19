@@ -118,6 +118,7 @@ const AdminStripeConnect = lazyRetry(() => import("@/pages/admin-stripe-connect"
 const AdminPaymentProviders = lazyRetry(() => import("@/pages/admin-payment-providers"));
 const Register = lazyRetry(() => import("@/pages/register"));
 const PlatformDashboard = lazyRetry(() => import("@/pages/platform-dashboard"));
+const PlatformAnalytics = lazyRetry(() => import("@/pages/platform-analytics"));
 const PlatformMarketingAnalytics = lazyRetry(() => import("@/pages/platform-marketing-analytics"));
 const PlatformWebsiteAnalytics = lazyRetry(() => import("@/pages/platform-website-analytics"));
 const PlatformTenants = lazyRetry(() => import("@/pages/platform-tenants"));
@@ -452,6 +453,7 @@ const CondensatePipeRoute = tool(CondensatePipe);
 const ExpansionVesselRoute = tool(ExpansionVessel);
 const PumpHeadRoute = tool(PumpHead);
 const PlatformDashboardRoute = protect(PlatformDashboard, ["super_admin"]);
+const PlatformAnalyticsRoute = protect(PlatformAnalytics, ["super_admin"]);
 const PlatformMarketingAnalyticsRoute = protect(PlatformMarketingAnalytics, ["super_admin"]);
 const PlatformWebsiteAnalyticsRoute = protect(PlatformWebsiteAnalytics, ["super_admin"]);
 const PlatformTenantDetailRoute = protect(PlatformTenantDetail, ["super_admin"]);
@@ -612,8 +614,9 @@ function AppRouter() {
         <Route path="/tools/expansion-vessel" component={ExpansionVesselRoute} />
         <Route path="/tools/pump-head" component={PumpHeadRoute} />
 
-        <Route path="/platform/marketing-analytics" component={PlatformMarketingAnalyticsRoute} />
-        <Route path="/platform/website-analytics" component={PlatformWebsiteAnalyticsRoute} />
+        <Route path="/platform/analytics" component={PlatformAnalyticsRoute} />
+        <Route path="/platform/marketing-analytics">{() => <Redirect to="/platform/analytics?tab=marketing" />}</Route>
+        <Route path="/platform/website-analytics">{() => <Redirect to="/platform/analytics?tab=websites" />}</Route>
         <Route path="/platform" component={PlatformDashboardRoute} />
         <Route path="/platform/tenants/:id" component={PlatformTenantDetailRoute} />
         <Route path="/platform/tenants" component={PlatformTenantsRoute} />

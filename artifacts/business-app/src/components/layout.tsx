@@ -149,8 +149,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const platformNavItems = [
     { href: "/platform", label: "Overview", icon: Globe },
-    { href: "/platform/marketing-analytics", label: "Marketing Analytics", icon: BarChart3 },
-    { href: "/platform/website-analytics", label: "Website Analytics", icon: FileBarChart },
+    { href: "/platform/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
     { href: "/platform/support-tickets", label: "Support Tickets", icon: MessageSquare },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
