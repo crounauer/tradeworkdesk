@@ -181,7 +181,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const visibleUtilityItems = utilityNavItems;
 
   // Header bar: website link + reports/support/help for non-superadmin tenant users
-  const tenantWebsiteUrl = companySettings?.website || null;
   const showHeaderBar = !isSuperAdmin;
 
   const openEnquiryCount = enquiryCountData?.count || 0;
@@ -492,16 +491,13 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* ── Tenant header bar ───────────────────────────────────────────── */}
         {showHeaderBar && (
           <div className="hidden md:flex items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
-            {hasWebsiteBuilder && tenantWebsiteUrl && (
-              <a
-                href={tenantWebsiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <Globe2 className="w-3.5 h-3.5" />
-                My Website
-              </a>
+            {hasWebsiteBuilder && (
+              <Link href="/website">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                  <Globe2 className="w-3.5 h-3.5" />
+                  My Website
+                </button>
+              </Link>
             )}
             {(profile?.role === 'admin' || profile?.role === 'office_staff') && (
               <Link href="/reports">
