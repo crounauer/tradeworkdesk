@@ -174,6 +174,8 @@ router.post(
       tagline?: string;
     };
 
+    const liveOverrides = await getTemplateLiveOverrides();
+
     let resolvedTemplateId: string | null = template_id || null;
     let resolvedTemplate: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null = null;
 
@@ -185,7 +187,7 @@ router.post(
         .maybeSingle() as { data: { value?: string | null } | null };
 
       const defaultTemplateSlug = String(defaultTemplateSetting?.value || "").trim();
-      if (defaultTemplateSlug) {
+      if (defaultTemplateSlug && (liveOverrides[defaultTemplateSlug] ?? true)) {
         const { data: defaultTemplate } = await db
           .from("website_templates")
           .select("id")
@@ -202,12 +204,18 @@ router.post(
     if (resolvedTemplateId) {
       const { data: template } = await db
         .from("website_templates")
-        .select("default_pages, default_theme")
+        .select("slug, default_pages, default_theme")
         .eq("id", resolvedTemplateId)
         .eq("is_active", true)
-        .maybeSingle() as { data: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null };
+        .maybeSingle() as { data: { slug?: string; default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null };
 
       if (!template) {
+        res.status(400).json({ error: "Selected template is not live." });
+        return;
+      }
+
+      const selectedTemplateSlug = String(template.slug || "");
+      if (selectedTemplateSlug && (selectedTemplateSlug in liveOverrides) && !liveOverrides[selectedTemplateSlug]) {
         res.status(400).json({ error: "Selected template is not live." });
         return;
       }
