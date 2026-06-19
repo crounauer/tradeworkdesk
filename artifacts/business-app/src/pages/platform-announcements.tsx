@@ -124,7 +124,7 @@ export default function PlatformAnnouncements() {
     setShowNew(false);
   };
 
-  const AnnouncementFormUI = ({ isNew }: { isNew: boolean }) => (
+  const renderAnnouncementForm = (isNew: boolean) => (
     <Card className="border-primary/30">
       <CardContent className="p-4 space-y-3">
         <p className="text-sm font-bold">{isNew ? "New Announcement" : "Edit Announcement"}</p>
@@ -190,7 +190,7 @@ export default function PlatformAnnouncements() {
         </Button>
       </div>
 
-      {showNew && <AnnouncementFormUI isNew />}
+      {showNew && renderAnnouncementForm(true)}
 
       {isLoading ? (
         <div className="space-y-3">{[...Array(2)].map((_, i) => <Card key={i}><CardContent className="p-4"><div className="h-16 bg-slate-100 rounded animate-pulse" /></CardContent></Card>)}</div>
@@ -203,7 +203,7 @@ export default function PlatformAnnouncements() {
         <div className="space-y-3">
           {announcements.map((a: { id: string; title: string; body: string; severity: string; is_active: boolean; starts_at: string; ends_at: string | null; created_at: string }) => (
             editingId === a.id ? (
-              <AnnouncementFormUI key={a.id} isNew={false} />
+              <div key={a.id}>{renderAnnouncementForm(false)}</div>
             ) : (
               <Card key={a.id} className={!a.is_active ? "opacity-60" : ""}>
                 <CardContent className="p-4">
