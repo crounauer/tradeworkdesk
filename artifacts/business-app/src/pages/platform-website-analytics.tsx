@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Globe2, BarChart3, Target, CheckCircle2, TrendingUp } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, Globe2, BarChart3, Target, CheckCircle2, TrendingUp, Info } from "lucide-react";
 
 type PlatformWebsiteAnalyticsResponse = {
   summary?: {
@@ -39,6 +40,25 @@ async function apiFetch(url: string) {
     throw new Error((err as { error?: string }).error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+function SectionInfo({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+          aria-label="Section information"
+        >
+          <Info className="w-3.5 h-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export default function PlatformWebsiteAnalytics() {
@@ -96,16 +116,16 @@ export default function PlatformWebsiteAnalytics() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><Globe2 className="w-4 h-4" />Websites</div><p className="text-2xl font-bold">{summary.websites_total}</p><p className="text-xs text-muted-foreground mt-1">{summary.websites_published} published</p></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4" />Page Views (30d)</div><p className="text-2xl font-bold">{Number(summary.page_views_last_30_days).toLocaleString()}</p></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><TrendingUp className="w-4 h-4" />Visitors (30d)</div><p className="text-2xl font-bold">{Number(summary.unique_visitors_last_30_days).toLocaleString()}</p></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><Target className="w-4 h-4" />Traffic to Submission</div><p className="text-2xl font-bold">{Number(summary.traffic_to_submission_rate_percent)}%</p><p className="text-xs text-muted-foreground mt-1">{summary.submissions_last_30_days} submissions</p></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />Submission to Converted</div><p className="text-2xl font-bold">{Number(summary.submission_to_converted_rate_percent)}%</p><p className="text-xs text-muted-foreground mt-1">{summary.converted_last_30_days} converted</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><Globe2 className="w-4 h-4" />Websites <SectionInfo text="Total tenant websites tracked in this workspace, with how many are currently published." /></div><p className="text-2xl font-bold">{summary.websites_total}</p><p className="text-xs text-muted-foreground mt-1">{summary.websites_published} published</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4" />Page Views (30d) <SectionInfo text="Total page view events across all tenant websites in the last 30 days." /></div><p className="text-2xl font-bold">{Number(summary.page_views_last_30_days).toLocaleString()}</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><TrendingUp className="w-4 h-4" />Visitors (30d) <SectionInfo text="Unique visitors seen across tenant websites over the last 30 days." /></div><p className="text-2xl font-bold">{Number(summary.unique_visitors_last_30_days).toLocaleString()}</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><Target className="w-4 h-4" />Traffic to Submission <SectionInfo text="Conversion from website page views into form submissions. Higher means better visitor-to-lead performance." /></div><p className="text-2xl font-bold">{Number(summary.traffic_to_submission_rate_percent)}%</p><p className="text-xs text-muted-foreground mt-1">{summary.submissions_last_30_days} submissions</p></CardContent></Card>
+        <Card><CardContent className="p-5"><div className="text-xs text-muted-foreground mb-2 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />Submission to Converted <SectionInfo text="Rate of submitted enquiries that are marked converted. Reflects follow-up quality and sales effectiveness." /></div><p className="text-2xl font-bold">{Number(summary.submission_to_converted_rate_percent)}%</p><p className="text-xs text-muted-foreground mt-1">{summary.converted_last_30_days} converted</p></CardContent></Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><CardTitle className="text-base">Traffic Trend (30 Days)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2">Traffic Trend (30 Days) <SectionInfo text="Daily page-view volume trend across all tenant websites for the last 30 days." /></CardTitle></CardHeader>
           <CardContent>
             {dailyTraffic.length === 0 ? (
               <p className="text-sm text-muted-foreground">No data available</p>
@@ -123,7 +143,7 @@ export default function PlatformWebsiteAnalytics() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Traffic Channels</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2">Traffic Channels <SectionInfo text="How visitors found tenant websites (direct, search, social, referral) based on referrer data." /></CardTitle></CardHeader>
           <CardContent>
             {channelBreakdown.length === 0 ? (
               <p className="text-sm text-muted-foreground">No channel data available</p>
@@ -147,7 +167,7 @@ export default function PlatformWebsiteAnalytics() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Top Websites (By Traffic)</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2">Top Websites (By Traffic) <SectionInfo text="Website-level leaderboard showing traffic and conversion metrics so you can spot best and worst performers quickly." /></CardTitle></CardHeader>
         <CardContent>
           {topWebsites.length === 0 ? (
             <p className="text-sm text-muted-foreground">No website activity found</p>
