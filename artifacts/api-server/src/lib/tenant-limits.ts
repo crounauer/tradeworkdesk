@@ -319,6 +319,90 @@ export async function topUpAddonCredits(tenantId: string, addonId: string, bundl
   }
 }
 
+export const TRIAL_USAGE_CREDIT_ALLOCATION: Record<string, number> = {
+  sms_messaging: 150,
+  uk_address_lookup: 300,
+  ai_blog_writing: 120,
+};
+
+export async function grantTrialUsageCredits(tenantId: string): Promise<void> {
+  const features = Object.keys(TRIAL_USAGE_CREDIT_ALLOCATION);
+  const { data: addons } = await supabaseAdmin
+    .from("addons")
+    .select("id, feature_keys")
+    .eq("billing_model", "usage")
+    .eq("is_active", true);
+
+  const usageAddons = (addons ?? []) as Array<{ id: string; feature_keys: string[] | null }>;
+
+  for (const feature of features) {
+    const amount = TRIAL_USAGE_CREDIT_ALLOCATION[feature] || 0;
+    if (amount <= 0) continue;
+
+    const addon = usageAddons.find((a) => Array.isArray(a.feature_keys) && a.feature_keys.includes(feature));
+    if (!addon) continue;
+
+    const { data: existing } = await supabaseAdmin
+      .from("tenant_addon_credits")
+      .select("id, credits_remaining")
+      .eq("tenant_id", tenantId)
+      .eq("addon_id", addon.id)
+      .maybeSingle();
+
+    const row = existing as { id: string; credits_remaining: number } | null;
+
+    if (row) {
+      await supabaseAdmin
+        .from("tenant_addon_credits")
+        .update({ credits_remaining: row.credits_remaining + amount, updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .eq("id", row.id);
+    } else {
+      await supabaseAdmin
+        .from("tenant_addon_credits")
+        .insert({
+          tenant_id: tenantId,
+          addon_id: addon.id,
+          credits_remaining: amount,
+          total_purchased: 0,
+        } as Record<string, unknown>);
+    }
+  }
+}
+
+export async function resetTrialUsageCredits(tenantId: string): Promise<void> {
+  const features = Object.keys(TRIAL_USAGE_CREDIT_ALLOCATION);
+  const { data: addons } = await supabaseAdmin
+    .from("addons")
+    .select("id, feature_keys")
+    .eq("billing_model", "usage")
+    .eq("is_active", true);
+
+  const addonIds = ((addons ?? []) as Array<{ id: string; feature_keys: string[] | null }>)
+    .filter((a) => Array.isArray(a.feature_keys) && a.feature_keys.some((key) => features.includes(key)))
+    .map((a) => a.id);
+
+  if (addonIds.length === 0) return;
+
+  const { data: creditRows } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("id, credits_remaining, total_purchased")
+    .eq("tenant_id", tenantId)
+    .in("addon_id", addonIds);
+
+  for (const row of (creditRows ?? []) as Array<{ id: string; credits_remaining: number; total_purchased: number }>) {
+    const remaining = Number(row.credits_remaining || 0);
+    const paidPurchased = Number(row.total_purchased || 0);
+    const newRemaining = Math.min(remaining, paidPurchased);
+
+    if (newRemaining !== remaining) {
+      await supabaseAdmin
+        .from("tenant_addon_credits")
+        .update({ credits_remaining: newRemaining, updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .eq("id", row.id);
+    }
+  }
+}
+
 // ─── Photo storage limits ────────────────────────────────────────────────────
 
 export const BASE_STORAGE_LIMIT_BYTES = 500 * 1024 * 1024 * 1024; // 500 GB (base plan)

@@ -8,6 +8,7 @@ import {
 } from "../lib/email";
 import { sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
+import { topUpAddonCredits } from "../lib/tenant-limits";
 import { syncSeats } from "./billing";
 import { bustInitCache } from "./platform";
 import { getPlatformSetting } from "../lib/geocode";
@@ -168,10 +169,57 @@ router.post(
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object as {
-            metadata?: { tenant_id?: string; plan_id?: string; billing_cycle?: string };
+            id?: string;
+            metadata?: {
+              tenant_id?: string;
+              plan_id?: string;
+              billing_cycle?: string;
+              type?: string;
+              addon_id?: string;
+              bundles?: string;
+              bundle_size?: string;
+            };
             customer?: string;
             subscription?: string;
+            payment_status?: string;
           };
+
+          if (session.metadata?.type === "credit_topup") {
+            const tenantId = session.metadata.tenant_id;
+            const addonId = session.metadata.addon_id;
+            const bundles = Math.max(1, Math.floor(Number(session.metadata.bundles || "1") || 1));
+            const bundleSize = Math.max(1, Math.floor(Number(session.metadata.bundle_size || "0") || 0));
+
+            if (tenantId && addonId && session.payment_status === "paid") {
+              const { data: alreadyProcessed } = await supabaseAdmin
+                .from("platform_audit_log")
+                .select("id")
+                .eq("event_type", "credit_topup_completed")
+                .eq("entity_type", "tenant")
+                .eq("entity_id", tenantId)
+                .contains("detail", { session_id: session.id })
+                .maybeSingle();
+
+              if (!alreadyProcessed) {
+                await topUpAddonCredits(tenantId, addonId, bundles, bundleSize > 0 ? bundleSize : undefined);
+                await supabaseAdmin.from("platform_audit_log").insert({
+                  actor_email: "stripe",
+                  event_type: "credit_topup_completed",
+                  entity_type: "tenant",
+                  entity_id: tenantId,
+                  detail: {
+                    session_id: session.id,
+                    addon_id: addonId,
+                    bundles,
+                    bundle_size: bundleSize,
+                  },
+                });
+              }
+            }
+
+            break;
+          }
+
           const tenantId = session.metadata?.tenant_id;
           if (!tenantId) break;
 

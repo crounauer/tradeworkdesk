@@ -324,21 +324,27 @@ router.post("/me/switch-to-free", requireAuth, requireTenant, requireRole("admin
  */
 router.get("/billing/credits", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   // Show credits for addons the tenant is subscribed to, PLUS always include
-  // extra_photo_storage and ai_blog_writing so tenants can buy credits without subscribing first.
-  const [subscriptionsResult, extraStorageAddonResult, aiBlogAddonResult] = await Promise.all([
+  // key usage addons so tenants can buy credits without subscribing first.
+  const [subscriptionsResult, extraStorageAddonResult, aiBlogAddonResult, smsAddonResult, addressLookupAddonResult] = await Promise.all([
     supabaseAdmin.from("tenant_addons").select("addon_id").eq("tenant_id", req.tenantId!).eq("is_active", true),
     supabaseAdmin.from("addons").select("id").eq("billing_model", "usage").eq("is_active", true).contains("feature_keys", ["extra_photo_storage"]).maybeSingle(),
     supabaseAdmin.from("addons").select("id").eq("billing_model", "usage").eq("is_active", true).contains("feature_keys", ["ai_blog_writing"]).maybeSingle(),
+    supabaseAdmin.from("addons").select("id").eq("billing_model", "usage").eq("is_active", true).contains("feature_keys", ["sms_messaging"]).maybeSingle(),
+    supabaseAdmin.from("addons").select("id").eq("billing_model", "usage").eq("is_active", true).contains("feature_keys", ["uk_address_lookup"]).maybeSingle(),
   ]);
 
   const subscribedAddonIds = ((subscriptionsResult.data ?? []) as { addon_id: string }[]).map(a => a.addon_id);
   const extraStorageAddonId = (extraStorageAddonResult.data as { id: string } | null)?.id ?? null;
   const aiBlogAddonId = (aiBlogAddonResult.data as { id: string } | null)?.id ?? null;
+  const smsAddonId = (smsAddonResult.data as { id: string } | null)?.id ?? null;
+  const addressLookupAddonId = (addressLookupAddonResult.data as { id: string } | null)?.id ?? null;
 
   // Always include these addons so tenants can purchase without requiring a prior subscription toggle
   const addonIdSet = new Set(subscribedAddonIds);
   if (extraStorageAddonId) addonIdSet.add(extraStorageAddonId);
   if (aiBlogAddonId) addonIdSet.add(aiBlogAddonId);
+  if (smsAddonId) addonIdSet.add(smsAddonId);
+  if (addressLookupAddonId) addonIdSet.add(addressLookupAddonId);
 
   if (addonIdSet.size === 0) { res.json([]); return; }
 
@@ -401,28 +407,44 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
   const bundlePrice = useSmall ? addon.small_bundle_price! : (addon.usage_bundle_price ?? 10);
   const totalCharge = bundlePrice * bundles;
 
-  // Stripe: charge if tenant has active subscription and addon has a price ID
+  // Stripe: charge now if tenant has active subscription; otherwise start a one-off checkout.
   const stripeClient = requireStripe(false);
   if (stripeClient && addon.stripe_price_id && totalCharge > 0) {
     const { data: tenantRaw } = await supabaseAdmin
       .from("tenants")
-      .select("stripe_customer_id, stripe_subscription_id")
+      .select("stripe_customer_id, stripe_subscription_id, contact_email, company_name")
       .eq("id", req.tenantId!)
       .single();
-    const tenant = tenantRaw as { stripe_customer_id: string | null; stripe_subscription_id: string | null } | null;
+    const tenant = tenantRaw as {
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      contact_email: string | null;
+      company_name: string | null;
+    } | null;
 
-    if (tenant?.stripe_customer_id && tenant?.stripe_subscription_id) {
+    let customerId = tenant?.stripe_customer_id ?? null;
+    if (!customerId) {
+      const customer = await stripeClient.customers.create({
+        email: tenant?.contact_email || req.userEmail,
+        name: tenant?.company_name || undefined,
+        metadata: { tenant_id: req.tenantId! },
+      });
+      customerId = customer.id;
+      await supabaseAdmin.from("tenants").update({ stripe_customer_id: customerId } as Record<string, unknown>).eq("id", req.tenantId!);
+    }
+
+    if (customerId && tenant?.stripe_subscription_id) {
       try {
         // Create an invoice item so the charge appears on their next invoice
         await stripeClient.invoiceItems.create({
-          customer: tenant.stripe_customer_id,
+          customer: customerId,
           amount: Math.round(totalCharge * 100), // pence
           currency: "gbp",
           description: `${addon.name} — ${bundles} × ${effectiveBundleSize.toLocaleString()} credits`,
         });
         // Immediately finalise via a one-off invoice
         const invoice = await stripeClient.invoices.create({
-          customer: tenant.stripe_customer_id,
+          customer: customerId,
           auto_advance: true,
         });
         await stripeClient.invoices.finalizeInvoice(invoice.id);
@@ -432,6 +454,36 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
         res.status(402).json({ error: "Payment failed. Please check your payment method." });
         return;
       }
+    } else if (customerId) {
+      const lineItem = addon.stripe_price_id
+        ? { price: addon.stripe_price_id, quantity: bundles }
+        : {
+            price_data: {
+              currency: "gbp",
+              product_data: { name: `${addon.name} credits` },
+              unit_amount: Math.round(bundlePrice * 100),
+            },
+            quantity: bundles,
+          };
+
+      const session = await stripeClient.checkout.sessions.create({
+        mode: "payment",
+        customer: customerId,
+        line_items: [lineItem as any],
+        success_url: `${APP_URL}/billing?credits_success=1`,
+        cancel_url: `${APP_URL}/billing?credits_cancelled=1`,
+        metadata: {
+          type: "credit_topup",
+          tenant_id: req.tenantId!,
+          addon_id: addonId,
+          bundles: String(bundles),
+          bundle_size: String(effectiveBundleSize),
+          bundle_type: bundleType,
+        },
+      });
+
+      res.json({ ok: true, pending_payment: true, checkout_url: session.url });
+      return;
     }
   }
 

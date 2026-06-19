@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { resetTrialUsageCredits } from "../lib/tenant-limits";
 
 // ---------------------------------------------------------------------------
 // PATCH: withTimeout
@@ -345,6 +346,11 @@ export async function requireAuth(
             .eq("tenant_id", req.tenantId)
             .eq("is_active", true),
         ]);
+        if (shouldSuspendExpiredTrial) {
+          await resetTrialUsageCredits(req.tenantId).catch((e) => {
+            console.error("[trial-credits] Failed to reset trial credits on expiry", req.tenantId, e);
+          });
+        }
         tenantState.status = "suspended";
         tenantStatusCache.set(req.tenantId, { ...tenantState, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
       }
@@ -459,6 +465,9 @@ export async function requireTenant(
             .eq("tenant_id", req.tenantId!)
             .eq("is_active", true),
         ]);
+        await resetTrialUsageCredits(req.tenantId!).catch((e) => {
+          console.error("[trial-credits] Failed to reset trial credits on expiry", req.tenantId, e);
+        });
         cached.status = "suspended";
         tenantStatusCache.set(req.tenantId!, { ...cached, expiresAt: Date.now() + TENANT_STATUS_CACHE_TTL_MS });
       }

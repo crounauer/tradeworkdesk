@@ -10,7 +10,7 @@ import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { syncSeats } from "./billing";
 import { runServiceDueReminders, previewServiceDueReminders } from "../lib/service-reminders";
 import { supabaseAdmin } from "../lib/supabase";
-import { syncUserAddonSeats } from "../lib/tenant-limits";
+import { grantTrialUsageCredits, syncUserAddonSeats } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
@@ -811,6 +811,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   seedDefaultJobTypesForTenant(tenant.id).catch((e) =>
     console.error("[seed] Default job types failed for tenant", tenant.id, e)
+  );
+
+  await grantTrialUsageCredits(tenant.id).catch((e) =>
+    console.error("[trial-credits] Failed to grant initial trial credits", tenant.id, e)
   );
 
   await supabaseAdmin.from("platform_audit_log").insert({

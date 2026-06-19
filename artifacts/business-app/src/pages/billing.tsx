@@ -235,10 +235,15 @@ export default function Billing({ view = "all" }: { view?: "all" | "plans" | "ad
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Purchase failed"); }
       return res.json();
     },
-    onSuccess: (data: { credits_remaining: number; bundles_purchased: number; total_charged: number }) => {
+    onSuccess: (data: { credits_remaining?: number; bundles_purchased?: number; total_charged?: number; pending_payment?: boolean; checkout_url?: string | null }) => {
+      if (data.pending_payment && data.checkout_url) {
+        setBuyingAddonId(null);
+        window.location.assign(data.checkout_url);
+        return;
+      }
       setBuyingAddonId(null);
       queryClient.invalidateQueries({ queryKey: ["billing-credits"] });
-      toast({ title: `Credits purchased — ${data.credits_remaining.toLocaleString()} remaining` });
+      toast({ title: `Credits purchased — ${(data.credits_remaining ?? 0).toLocaleString()} remaining` });
     },
     onError: (e: Error) => {
       setBuyingAddonId(null);
@@ -743,6 +748,12 @@ export default function Billing({ view = "all" }: { view?: "all" | "plans" | "ad
                 const smallBundlePrice = credit.small_bundle_price ?? 0;
                 const unitLabel = credit.usage_unit_label || "units";
                 const isLow = !isStorage && credit.credits_remaining < bundleSize * 0.1;
+                const usageBarBase = !isStorage
+                  ? Math.max(1, credit.total_purchased || 0, credit.credits_remaining || 0)
+                  : 1;
+                const usageBarPct = !isStorage
+                  ? Math.max(0, Math.min(100, (credit.credits_remaining / usageBarBase) * 100))
+                  : 0;
                 // For storage: compute effective limit in bytes for the bar
                 const storageExtraBytes = isStorage ? credit.credits_remaining * 1024 * 1024 * 1024 : 0;
                 const storageTotalBytes = isStorage ? 500 * 1024 * 1024 * 1024 + storageExtraBytes : 0;
@@ -779,6 +790,9 @@ export default function Billing({ view = "all" }: { view?: "all" | "plans" | "ad
                             {credit.credits_remaining.toLocaleString()}
                           </span>
                           <p className="text-xs text-muted-foreground">{unitLabel} remaining</p>
+                          <div className="w-28 h-1.5 rounded-full bg-slate-200 overflow-hidden mt-1 ml-auto">
+                            <div className={`h-full rounded-full transition-all ${isLow ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${usageBarPct}%` }} />
+                          </div>
                           {isLow && credit.credits_remaining > 0 && (
                             <p className="text-xs text-orange-600 font-medium mt-0.5">Running low</p>
                           )}

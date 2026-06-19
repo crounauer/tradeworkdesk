@@ -643,7 +643,7 @@ export default function Register() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-center text-muted-foreground">All plans include a {trialDays}-day free trial. No credit card required.</p>
+                <p className="text-xs text-center text-muted-foreground">All plans include a {trialDays}-day free trial with starter credits: 150 SMS, 300 address lookups, and 120 AI writing credits.</p>
                 <Button
                   className="w-full h-12 text-base mt-2"
                   onClick={() => {
@@ -780,7 +780,7 @@ export default function Register() {
                   </Button>
                 </div>
                 <p className="text-xs text-center text-muted-foreground">
-                  No credit card required. Full access during your trial.
+                  No credit card required. Full access during your trial, including starter usage credits for SMS, address lookup, and AI writing.
                 </p>
               </form>
             )}
