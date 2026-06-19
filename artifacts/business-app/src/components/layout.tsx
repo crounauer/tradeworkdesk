@@ -177,15 +177,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
     const automationNavItems: typeof websiteNavItems = [];
 
-  // Bottom utility links — Tools only; Reports/Support/Help moved to header bar
-  const utilityNavItems = [
-    { href: "/tools", label: "Tools", icon: Wrench },
-  ];
+  // All utility links moved to header bar
+  const utilityNavItems: typeof workNavItems = [];
 
   const visibleNavItems = workNavItems; // kept for any remaining references
-  const visibleUtilityItems = utilityNavItems.filter(item =>
-    !item.roles || (profile && item.roles.includes(profile.role))
-  );
+  const visibleUtilityItems = utilityNavItems;
 
   // Header bar: website link + reports/support/help for non-superadmin tenant users
   const tenantWebsiteUrl = companySettings?.website || null;
@@ -519,6 +515,12 @@ export function Layout({ children }: { children: ReactNode }) {
               <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
                 <MessageSquare className="w-3.5 h-3.5" />
                 Support
+              </button>
+            </Link>
+            <Link href="/tools">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                <Wrench className="w-3.5 h-3.5" />
+                Tools
               </button>
             </Link>
             <Link href="/help">
