@@ -60,6 +60,14 @@ interface ReviewRequest {
   created_at: string;
 }
 
+interface CustomerOption {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+}
+
 const DEFAULT_SETTINGS: ReviewSettings = {
   is_enabled: false,
   trigger_on: "job_completed",
@@ -92,6 +100,8 @@ export default function ReviewRequests() {
 
   const [settings, setSettings] = useState<ReviewSettings>(DEFAULT_SETTINGS);
   const [showSendDialog, setShowSendDialog] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("manual");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [manual, setManual] = useState({ customer_name: "", customer_email: "", customer_phone: "" });
 
   const { data: fetchedSettings, isLoading: settingsLoading } = useQuery<ReviewSettings>({
@@ -102,6 +112,21 @@ export default function ReviewRequests() {
   const { data: requests = [], isLoading: requestsLoading } = useQuery<ReviewRequest[]>({
     queryKey: ["/api/review-requests"],
     queryFn: () => apiFetch("/api/review-requests"),
+  });
+
+  const { data: customers = [] } = useQuery<CustomerOption[]>({
+    queryKey: ["/api/customers", "review-request-picker"],
+    queryFn: () => apiFetch("/api/customers"),
+  });
+
+  const filteredCustomers = customers.filter((customer) => {
+    const query = customerSearch.trim().toLowerCase();
+    if (!query) return true;
+
+    const fullName = `${customer.first_name} ${customer.last_name}`.trim().toLowerCase();
+    return fullName.includes(query)
+      || (customer.email || "").toLowerCase().includes(query)
+      || (customer.phone || "").toLowerCase().includes(query);
   });
 
   useEffect(() => {
@@ -132,6 +157,8 @@ export default function ReviewRequests() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/review-requests"] });
       setShowSendDialog(false);
+      setSelectedCustomerId("manual");
+      setCustomerSearch("");
       setManual({ customer_name: "", customer_email: "", customer_phone: "" });
       toast({ title: "Review request scheduled" });
     },
@@ -320,6 +347,47 @@ export default function ReviewRequests() {
         <DialogContent>
           <DialogHeader><DialogTitle>Send Review Request</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label>Select Customer</Label>
+              <Input
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                placeholder="Search by name, email or phone"
+              />
+              <Select
+                value={selectedCustomerId}
+                onValueChange={(value) => {
+                  setSelectedCustomerId(value);
+                  if (value === "manual") {
+                    return;
+                  }
+
+                  const customer = customers.find((item) => item.id === value);
+                  if (!customer) {
+                    return;
+                  }
+
+                  setManual({
+                    customer_name: `${customer.first_name} ${customer.last_name}`.trim(),
+                    customer_email: customer.email || "",
+                    customer_phone: customer.phone || "",
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose an existing customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual entry</SelectItem>
+                  {filteredCustomers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {`${customer.first_name} ${customer.last_name}`.trim()}
+                      {customer.email ? ` · ${customer.email}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1">
               <Label>Customer Name</Label>
               <Input value={manual.customer_name} onChange={(e) => setManual((m) => ({ ...m, customer_name: e.target.value }))} autoFocus />
