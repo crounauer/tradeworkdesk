@@ -83,6 +83,14 @@ export default function WebsiteSetup() {
     enabled: !featuresLoading && hasFeature("website_builder"),
   });
 
+  const { data: templateVisibility } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/website/template-visibility"],
+    queryFn: () => apiFetch("/api/website/template-visibility"),
+    enabled: !featuresLoading && hasFeature("website_builder"),
+  });
+
+  const visibleTemplates = (templates || []).filter((t) => (templateVisibility?.[t.slug] ?? true));
+
   const createMutation = useMutation({
     mutationFn: () =>
       apiFetch("/api/website", {
@@ -188,7 +196,7 @@ export default function WebsiteSetup() {
   }
 
   if (!website) {
-    const modernTemplate = templates?.find((t) => t.slug === "modern");
+    const modernTemplate = visibleTemplates.find((t) => t.slug === "modern");
     const busy = buildMutation.isPending || createMutation.isPending;
 
     return (
@@ -349,11 +357,11 @@ export default function WebsiteSetup() {
       </div>
 
       {/* Template selector */}
-      {templates && templates.length > 0 && (
+      {visibleTemplates.length > 0 && (
         <div>
           <h2 className="text-base font-semibold mb-3">Design Template</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {templates.map((t) => {
+            {visibleTemplates.map((t) => {
               const isActive = website.template_id === t.id;
               const isApplying = applyTemplateMutation.isPending && applyTemplateMutation.variables === t.id;
               return (

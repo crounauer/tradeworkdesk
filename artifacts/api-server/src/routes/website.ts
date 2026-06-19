@@ -658,6 +658,21 @@ router.get(
   }
 );
 
+router.get(
+  "/website/template-visibility",
+  requireAuth,
+  requireTenant,
+  requireWebsiteBuilder(),
+  async (_req: AuthenticatedRequest, res): Promise<void> => {
+    const liveOverrides = await getTemplateLiveOverrides();
+    const visibility: Record<string, boolean> = {};
+    for (const slug of KNOWN_TEMPLATE_SLUGS) {
+      visibility[slug] = liveOverrides[slug] ?? true;
+    }
+    res.json(visibility);
+  }
+);
+
 // ─── Template block seeder ────────────────────────────────────────────────────
 // Builds the block content for the home page of each template, personalised
 // from company settings.  Every field here corresponds 1-to-1 with the
