@@ -186,7 +186,7 @@ export default function WebsiteDomain() {
           </CardHeader>
           <CardContent className="pt-0">
             <a
-              href={`https://${platformDomain.domain}`}
+              href={`https://${platformDomain.domain}?twd_edit=1`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-green-700 underline"
@@ -258,7 +258,7 @@ export default function WebsiteDomain() {
                 <CardContent>
                   <p className="text-sm text-green-700 flex items-center gap-1">
                     <CheckCircle className="w-4 h-4" />
-                    Your site is live at <a href={`https://${d.domain}`} target="_blank" rel="noopener noreferrer" className="underline ml-1">{d.domain}</a>
+                    Your site is live at <a href={`https://${d.domain}?twd_edit=1`} target="_blank" rel="noopener noreferrer" className="underline ml-1">{d.domain}</a>
                   </p>
                 </CardContent>
               )}

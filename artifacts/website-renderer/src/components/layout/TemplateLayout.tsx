@@ -12,6 +12,7 @@ import BoldTemplate from "./templates/BoldTemplate";
 import ProfessionalTemplate from "./templates/ProfessionalTemplate";
 import MinimalTemplate from "./templates/MinimalTemplate";
 import WebsiteTrafficTracker from "@/components/WebsiteTrafficTracker";
+import AdminEditPageButton from "@/components/AdminEditPageButton";
 
 const TEMPLATE_MAP: Record<string, ComponentType<TemplateLayoutProps>> = {
   classic: ClassicTemplate,
@@ -25,11 +26,13 @@ export default function TemplateLayout(props: TemplateLayoutProps) {
   const templateId = props.site.website.template_slug ?? props.site.website.template_id ?? "classic";
   const Layout = TEMPLATE_MAP[templateId] ?? ClassicTemplate;
   const isPreview = (props.basePath || "").startsWith("/preview/");
+  const appBaseUrl = process.env.BUSINESS_APP_URL || "https://tradeworkdesk.co.uk";
 
   return (
     <>
       <WebsiteTrafficTracker websiteId={props.site.website.id} enabled={!isPreview} />
       <Layout {...props} />
+      {!isPreview && <AdminEditPageButton pages={props.site.pages} appBaseUrl={appBaseUrl} />}
     </>
   );
 }

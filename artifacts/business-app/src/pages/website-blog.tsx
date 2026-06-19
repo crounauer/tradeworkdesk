@@ -149,7 +149,7 @@ export default function WebsiteBlog() {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   {post.status === "published" && liveDomain && (
                     <Button variant="outline" size="icon" asChild>
-                      <a href={`https://${liveDomain}/blog/${post.slug}`} target="_blank" rel="noopener noreferrer">
+                      <a href={`https://${liveDomain}/blog/${post.slug}?twd_edit=1`} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="w-4 h-4" />
                       </a>
                     </Button>

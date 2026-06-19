@@ -262,9 +262,9 @@ export default function WebsiteSetup() {
   const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && d.verification_status !== "verified" && !d.is_active);
   // Show custom domain URL once active, otherwise fall back to the free platform subdomain
   const liveUrl = activeCustomDomain
-    ? `https://${activeCustomDomain.domain}`
+    ? `https://${activeCustomDomain.domain}?twd_edit=1`
     : platformDomain
-    ? `https://${platformDomain.domain}`
+    ? `https://${platformDomain.domain}?twd_edit=1`
     : undefined;
 
   return (
@@ -330,7 +330,7 @@ export default function WebsiteSetup() {
           <Globe className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
           <div>
             Your site is live at{" "}
-            <a href={`https://${platformDomain.domain}`} target="_blank" rel="noopener noreferrer" className="font-mono underline">{platformDomain.domain}</a>.
+            <a href={`https://${platformDomain.domain}?twd_edit=1`} target="_blank" rel="noopener noreferrer" className="font-mono underline">{platformDomain.domain}</a>.
             {" "}Want your own address?{" "}
             <Link href="/website/domain" className="underline hover:text-blue-900">Connect a custom domain</Link>.
           </div>

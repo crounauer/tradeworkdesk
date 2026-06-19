@@ -465,7 +465,7 @@ export default function WebsiteBlogEditor() {
           )}
                     {post.status === "published" && liveDomain && (
                       <Button variant="outline" asChild>
-                        <a href={`https://${liveDomain}/blog/${post.slug}`} target="_blank" rel="noopener noreferrer">
+                        <a href={`https://${liveDomain}/blog/${post.slug}?twd_edit=1`} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="w-4 h-4 mr-1.5" />
                           View post
                         </a>
