@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { initSentry } from "./lib/sentry";
+import { startReviewRequestScheduler } from "./lib/review-request-service";
 import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";
@@ -31,6 +32,7 @@ if (Number.isNaN(port) || port <= 0) {
       );
       startSocialScheduler();
       startDailySuggestionsCron();
+      startReviewRequestScheduler();
       seedAllTenantsJobTypes().catch((err) =>
         console.error("[job-types] Startup seeding failed:", err)
       );

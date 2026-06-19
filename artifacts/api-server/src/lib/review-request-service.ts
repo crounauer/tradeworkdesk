@@ -52,6 +52,9 @@ type TriggerReviewRequestInput = {
 
 type TriggerReviewRequestResult = Array<{ action: string; review_request_id?: string }>;
 
+const REVIEW_REQUEST_POLL_MS = 60_000;
+let reviewRequestTimer: NodeJS.Timeout | null = null;
+
 export class ReviewRequestError extends Error {
   status: number;
 
@@ -349,4 +352,48 @@ export async function triggerReviewRequestAutomation(input: TriggerReviewRequest
   });
 
   return logs;
+}
+
+export async function processDueReviewRequests(limit = 25): Promise<{ sent: number; failed: number }> {
+  const results = { sent: 0, failed: 0 };
+  const { data: due, error } = await supabaseAdmin
+    .from("review_requests")
+    .select("id, tenant_id")
+    .eq("status", "pending")
+    .lte("scheduled_for", new Date().toISOString())
+    .order("scheduled_for", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error("[review-requests] Failed to query due requests:", error.message);
+    return results;
+  }
+
+  for (const rr of (due as Array<{ id: string; tenant_id: string }> | null) || []) {
+    try {
+      await sendReviewRequestNow(rr.id, rr.tenant_id);
+      results.sent++;
+    } catch (err) {
+      console.error(`[review-requests] Failed to send ${rr.id}:`, err);
+      results.failed++;
+    }
+  }
+
+  return results;
+}
+
+export function startReviewRequestScheduler(): void {
+  if (reviewRequestTimer) return;
+  console.log(`[review-requests] Starting scheduler (${Math.round(REVIEW_REQUEST_POLL_MS / 1000)}s interval)`);
+
+  const run = async () => {
+    await processDueReviewRequests().catch((err) => {
+      console.error("[review-requests] Scheduler run failed:", err);
+    });
+  };
+
+  void run();
+  reviewRequestTimer = setInterval(() => {
+    void run();
+  }, REVIEW_REQUEST_POLL_MS);
 }
