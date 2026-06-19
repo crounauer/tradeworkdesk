@@ -63,6 +63,27 @@ export default function AreasBlock({ content }: Props) {
   const ctaColor = isTealCard ? accent_color : "#ffffff";
 
   const hasChecker = useMemo(() => Boolean(website_id), [website_id]);
+    const originLat = typeof (coverage as Record<string, unknown> | null)?.origin_latitude === "number"
+      ? ((coverage as Record<string, unknown>).origin_latitude as number)
+      : null;
+    const originLng = typeof (coverage as Record<string, unknown> | null)?.origin_longitude === "number"
+      ? ((coverage as Record<string, unknown>).origin_longitude as number)
+      : null;
+
+    const mapSrc = useMemo(() => {
+      if (originLat == null || originLng == null || typeof coverage?.radius_miles !== "number") return null;
+
+      const radius = Math.max(1, coverage.radius_miles);
+      const latDelta = Math.max(radius / 69, 0.02);
+      const lonDelta = Math.max(radius / (69 * Math.max(Math.cos((originLat * Math.PI) / 180), 0.2)), 0.02);
+      const minLon = originLng - lonDelta;
+      const minLat = originLat - latDelta;
+      const maxLon = originLng + lonDelta;
+      const maxLat = originLat + latDelta;
+
+      return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(`${minLon},${minLat},${maxLon},${maxLat}`)}&layer=mapnik&marker=${originLat},${originLng}`;
+    }, [originLat, originLng, coverage?.radius_miles]);
+
   const canShowCoveredActions = Boolean(coverage?.covered);
   const contactHref = contact_url || cta_url || "#contact";
   const bookingHref = booking_url || "/booking";
@@ -288,6 +309,38 @@ export default function AreasBlock({ content }: Props) {
 
             {coverage && coverage.covered === null && coverage.reason && (
               <p style={{ marginTop: 12, color: cardSubText, fontSize: "0.9375rem" }}>{coverage.reason}</p>
+            )}
+
+            {mapSrc && typeof coverage?.radius_miles === "number" && (
+              <div style={{ marginTop: 14, textAlign: "left" }}>
+                <p style={{ margin: "0 0 8px", color: cardSubText, fontSize: "0.875rem", textAlign: "center" }}>
+                  Coverage map: approximately {coverage.radius_miles} mile radius from base location.
+                </p>
+                <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: isTealCard ? "1px solid rgba(255,255,255,0.18)" : "1px solid #d1d5db" }}>
+                  <iframe
+                    title="Coverage radius map"
+                    src={mapSrc}
+                    style={{ width: "100%", height: 220, border: 0, display: "block" }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      width: "48%",
+                      aspectRatio: "1 / 1",
+                      transform: "translate(-50%, -50%)",
+                      borderRadius: "50%",
+                      background: "rgba(16,185,129,0.18)",
+                      border: "2px solid rgba(16,185,129,0.8)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+              </div>
             )}
 
             {!hasChecker && !coverage && (

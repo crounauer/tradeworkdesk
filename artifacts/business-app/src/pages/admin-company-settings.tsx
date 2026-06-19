@@ -394,6 +394,24 @@ export default function AdminCompanySettings() {
     }
   };
 
+  const renderSectionSaveButton = (label = "Save changes") => (
+    <div className="flex justify-end">
+      <Button
+        type="button"
+        size="sm"
+        disabled={autoSaveStatus === "saving"}
+        onClick={() => doSave(true)}
+      >
+        {autoSaveStatus === "saving" ? (
+          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+        ) : (
+          <Save className="w-4 h-4 mr-1.5" />
+        )}
+        {label}
+      </Button>
+    </div>
+  );
+
 
   if (isLoading) {
     return (
@@ -423,19 +441,6 @@ export default function AdminCompanySettings() {
               <Check className="w-3.5 h-3.5" /> Saved
             </span>
           )}
-          <Button
-            type="button"
-            size="sm"
-            disabled={autoSaveStatus === "saving"}
-            onClick={() => doSave(true)}
-          >
-            {autoSaveStatus === "saving" ? (
-              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-1.5" />
-            )}
-            Save
-          </Button>
         </div>
       </div>
 
@@ -759,6 +764,8 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
+        {renderSectionSaveButton("Save profile changes")}
+
           </TabsContent>
 
           <TabsContent value="billing" className="space-y-6 pt-4">
@@ -811,6 +818,8 @@ export default function AdminCompanySettings() {
         </Card>
 
         <CalloutRatesSection />
+
+        {renderSectionSaveButton("Save billing changes")}
 
           </TabsContent>
 
@@ -984,6 +993,8 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
+        {renderSectionSaveButton("Save invoicing changes")}
+
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-6 pt-4">
@@ -1078,6 +1089,8 @@ export default function AdminCompanySettings() {
                 )}
               </CardContent>
             </Card>
+
+            {renderSectionSaveButton("Save notification changes")}
           </TabsContent>
 
 
