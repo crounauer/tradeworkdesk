@@ -68,6 +68,19 @@ function signR2Headers(opts: {
 
 const router: IRouter = Router();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayKey(dateLike: string | Date): string | null {
+  const d = new Date(dateLike);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function percent1(numerator: number, denominator: number): number {
+  if (denominator <= 0) return 0;
+  return Math.round((numerator / denominator) * 1000) / 10;
+}
+
 router.get("/platform/stats", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   const [tenantsRes, usersRes, activeTenantsRes, trialTenantsRes, plansRes] = await Promise.all([
     supabaseAdmin.from("tenants").select("id", { count: "exact", head: true }),
@@ -1327,6 +1340,163 @@ router.get("/platform/stats/signups", requireAuth, requireSuperAdmin, async (_re
   });
 
   res.json(Object.entries(months).map(([month, count]) => ({ month, count })));
+});
+
+router.get("/platform/stats/marketing", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const now = new Date();
+  const start30 = new Date(now.getTime() - (29 * DAY_MS));
+  const start7 = new Date(now.getTime() - (6 * DAY_MS));
+
+  const tenantsRes = await supabaseAdmin
+    .from("tenants")
+    .select("id, company_name, contact_email, source, status, created_at, subscription_started_at, stripe_subscription_id");
+
+  if (tenantsRes.error) {
+    res.status(500).json({ error: tenantsRes.error.message });
+    return;
+  }
+
+  const betaRes = await supabaseAdmin
+    .from("beta_invites")
+    .select("id, used_count, max_uses, is_active, created_at, expires_at");
+
+  const tenants = (tenantsRes.data || []) as Array<{
+    id: string;
+    company_name: string | null;
+    contact_email: string | null;
+    source: string | null;
+    status: string | null;
+    created_at: string;
+    subscription_started_at: string | null;
+    stripe_subscription_id: string | null;
+  }>;
+
+  const betaInvites = (betaRes.data || []) as Array<{
+    id: string;
+    used_count: number | null;
+    max_uses: number | null;
+    is_active: boolean | null;
+    created_at: string;
+    expires_at: string | null;
+  }>;
+
+  const dailyKeys: string[] = [];
+  for (let i = 0; i < 30; i++) {
+    dailyKeys.push(new Date(start30.getTime() + (i * DAY_MS)).toISOString().slice(0, 10));
+  }
+
+  const signupDaily = new Map<string, number>(dailyKeys.map((k) => [k, 0]));
+  const conversionDaily = new Map<string, number>(dailyKeys.map((k) => [k, 0]));
+
+  let signupsLast30 = 0;
+  let signupsLast7 = 0;
+  let paidConversionsLast30 = 0;
+  let paidConversionsLast7 = 0;
+
+  const sourceCounts = new Map<string, number>();
+  const sourceCountsLast30 = new Map<string, number>();
+  const statusCounts = new Map<string, number>();
+
+  for (const t of tenants) {
+    const source = String(t.source || "unknown").toLowerCase();
+    const status = String(t.status || "unknown").toLowerCase();
+
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
+
+    const createdTs = new Date(t.created_at).getTime();
+    if (Number.isFinite(createdTs)) {
+      if (createdTs >= start30.getTime()) {
+        signupsLast30 += 1;
+        sourceCountsLast30.set(source, (sourceCountsLast30.get(source) || 0) + 1);
+      }
+      if (createdTs >= start7.getTime()) signupsLast7 += 1;
+
+      const key = dayKey(t.created_at);
+      if (key && signupDaily.has(key)) signupDaily.set(key, (signupDaily.get(key) || 0) + 1);
+    }
+
+    const converted = !!t.stripe_subscription_id && !!t.subscription_started_at;
+    if (converted) {
+      const convertedTs = new Date(String(t.subscription_started_at)).getTime();
+      if (Number.isFinite(convertedTs)) {
+        if (convertedTs >= start30.getTime()) paidConversionsLast30 += 1;
+        if (convertedTs >= start7.getTime()) paidConversionsLast7 += 1;
+
+        const key = dayKey(String(t.subscription_started_at));
+        if (key && conversionDaily.has(key)) conversionDaily.set(key, (conversionDaily.get(key) || 0) + 1);
+      }
+    }
+  }
+
+  const sourceBreakdown = Array.from(sourceCounts.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const sourceBreakdownLast30 = Array.from(sourceCountsLast30.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const statusBreakdown = Array.from(statusCounts.entries())
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const daily = dailyKeys.map((date) => ({
+    date,
+    signups: signupDaily.get(date) || 0,
+    paid_conversions: conversionDaily.get(date) || 0,
+  }));
+
+  const totalCodes = betaInvites.length;
+  const activeCodes = betaInvites.filter((b) => {
+    if (!b.is_active) return false;
+    if (!b.expires_at) return true;
+    const exp = new Date(b.expires_at).getTime();
+    return Number.isFinite(exp) && exp > now.getTime();
+  }).length;
+  const totalInviteCapacity = betaInvites.reduce((sum, b) => sum + Math.max(0, Number(b.max_uses || 0)), 0);
+  const totalInviteUses = betaInvites.reduce((sum, b) => sum + Math.max(0, Number(b.used_count || 0)), 0);
+  const invitesCreatedLast30 = betaInvites.filter((b) => {
+    const ts = new Date(b.created_at).getTime();
+    return Number.isFinite(ts) && ts >= start30.getTime();
+  }).length;
+
+  const recentSignups = [...tenants]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 10)
+    .map((t) => ({
+      id: t.id,
+      company_name: t.company_name,
+      contact_email: t.contact_email,
+      source: t.source || "unknown",
+      status: t.status || "unknown",
+      created_at: t.created_at,
+      converted: !!t.stripe_subscription_id,
+    }));
+
+  res.json({
+    summary: {
+      signups_last_7_days: signupsLast7,
+      signups_last_30_days: signupsLast30,
+      paid_conversions_last_7_days: paidConversionsLast7,
+      paid_conversions_last_30_days: paidConversionsLast30,
+      signup_to_paid_rate_last_30_days_percent: percent1(paidConversionsLast30, signupsLast30),
+      active_codes: activeCodes,
+      total_codes: totalCodes,
+      beta_invite_acceptance_rate_percent: percent1(totalInviteUses, totalInviteCapacity),
+    },
+    daily,
+    source_breakdown: sourceBreakdown,
+    source_breakdown_last_30_days: sourceBreakdownLast30,
+    status_breakdown: statusBreakdown,
+    beta_invites: {
+      created_last_30_days: invitesCreatedLast30,
+      total_uses: totalInviteUses,
+      total_capacity: totalInviteCapacity,
+    },
+    recent_signups: recentSignups,
+    beta_invites_error: betaRes.error ? betaRes.error.message : null,
+  });
 });
 
 router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {

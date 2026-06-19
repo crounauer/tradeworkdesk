@@ -291,7 +291,7 @@ function JobTypeCard({ jobType, onUpdated }: { jobType: JobType; onUpdated: () =
   );
 }
 
-export default function AdminJobTypes() {
+export function JobTypesManagement() {
   const queryClient = useQueryClient();
 
   const { data: jobTypes = [], isLoading } = useQuery<JobType[]>({
@@ -381,4 +381,8 @@ export default function AdminJobTypes() {
       )}
     </div>
   );
+}
+
+export default function AdminJobTypes() {
+  return <JobTypesManagement />;
 }

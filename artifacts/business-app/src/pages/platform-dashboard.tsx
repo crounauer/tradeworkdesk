@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2, Globe } from "lucide-react";
+import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2, Globe, BarChart3, Target, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 
 const EMAIL_TEMPLATES = [
@@ -59,6 +59,15 @@ export default function PlatformDashboard() {
     },
   });
 
+  const { data: marketingData } = useQuery({
+    queryKey: ["platform-marketing-analytics"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/stats/marketing");
+      if (!res.ok) throw new Error("Failed to load marketing analytics");
+      return res.json();
+    },
+  });
+
   const indexNowMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/indexnow/submit", {
@@ -103,6 +112,10 @@ export default function PlatformDashboard() {
   });
 
   const maxSignups = Math.max(1, ...(signupData || []).map((d: { count: number }) => d.count));
+  const marketingDaily = (marketingData?.daily || []) as Array<{ date: string; signups: number; paid_conversions: number }>;
+  const marketingSource = (marketingData?.source_breakdown_last_30_days || []) as Array<{ source: string; count: number }>;
+  const maxMarketingDaily = Math.max(1, ...marketingDaily.map((d) => Math.max(d.signups || 0, d.paid_conversions || 0)));
+  const maxMarketingSource = Math.max(1, ...marketingSource.map((d) => d.count || 0));
 
   return (
     <div className="space-y-6">
@@ -299,6 +312,161 @@ export default function PlatformDashboard() {
             <p className="text-xs text-muted-foreground">
               Sends a sample email using the selected template. Uses placeholder data.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <UserPlus className="w-4 h-4" />
+              Sign-ups (30d)
+            </div>
+            <p className="text-2xl font-bold">{marketingData?.summary?.signups_last_30_days ?? 0}</p>
+            <p className="text-xs text-muted-foreground mt-1">{marketingData?.summary?.signups_last_7_days ?? 0} in last 7 days</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <Target className="w-4 h-4" />
+              Paid Conversions (30d)
+            </div>
+            <p className="text-2xl font-bold">{marketingData?.summary?.paid_conversions_last_30_days ?? 0}</p>
+            <p className="text-xs text-muted-foreground mt-1">{marketingData?.summary?.paid_conversions_last_7_days ?? 0} in last 7 days</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <BarChart3 className="w-4 h-4" />
+              Signup to Paid Rate
+            </div>
+            <p className="text-2xl font-bold">{marketingData?.summary?.signup_to_paid_rate_last_30_days_percent ?? 0}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Trailing 30 day conversion rate</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Beta Invite Use Rate
+            </div>
+            <p className="text-2xl font-bold">{marketingData?.summary?.beta_invite_acceptance_rate_percent ?? 0}%</p>
+            <p className="text-xs text-muted-foreground mt-1">{marketingData?.summary?.active_codes ?? 0} active of {marketingData?.summary?.total_codes ?? 0} codes</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Marketing Funnel Trend (30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {marketingDaily.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No data available</p>
+            ) : (
+              <div className="flex items-end gap-1 h-44">
+                {marketingDaily.map((d) => {
+                  const signupsH = Math.max(2, (d.signups / maxMarketingDaily) * 128);
+                  const convertedH = Math.max(0, (d.paid_conversions / maxMarketingDaily) * 128);
+                  return (
+                    <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="w-full flex flex-col justify-end rounded-t-sm overflow-hidden border border-slate-100 bg-slate-50" style={{ height: "132px" }}>
+                        <div className="w-full bg-blue-500/85" style={{ height: `${signupsH}px` }} />
+                        <div className="w-full bg-emerald-500/90" style={{ height: `${convertedH}px` }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{d.date.slice(5)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Sign-ups</span>
+              <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Paid conversions</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Acquisition Sources (Last 30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {marketingSource.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No source data available</p>
+            ) : (
+              <div className="space-y-3">
+                {marketingSource.map((row) => (
+                  <div key={row.source}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="capitalize">{row.source.replace(/_/g, " ")}</span>
+                      <span className="text-muted-foreground">{row.count}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-full bg-primary" style={{ width: `${Math.max(4, (row.count / maxMarketingSource) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent Marketing Sign-ups</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!marketingData?.recent_signups || marketingData.recent_signups.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recent sign-ups</p>
+            ) : (
+              <div className="space-y-3">
+                {(marketingData.recent_signups as Array<{ id: string; company_name: string; source: string; status: string; created_at: string; converted: boolean }>).map((signup) => (
+                  <div key={signup.id} className="flex items-center justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{signup.company_name || "Untitled company"}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{String(signup.source || "unknown").replace(/_/g, " ")} · {new Date(signup.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${signup.converted ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {signup.converted ? "Paid" : String(signup.status || "trial")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Beta Invite Performance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Created (30 days)</span>
+              <span className="font-semibold">{marketingData?.beta_invites?.created_last_30_days ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Used</span>
+              <span className="font-semibold">{marketingData?.beta_invites?.total_uses ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Capacity</span>
+              <span className="font-semibold">{marketingData?.beta_invites?.total_capacity ?? 0}</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${Math.min(100, Math.max(0, Number(marketingData?.summary?.beta_invite_acceptance_rate_percent || 0)))}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Utilization of issued beta capacity</p>
           </CardContent>
         </Card>
       </div>
