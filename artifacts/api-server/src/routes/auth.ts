@@ -44,6 +44,19 @@ router.patch("/auth/profile", requireAuth, async (req: AuthenticatedRequest, res
     return;
   }
 
+  if (req.tenantId) {
+    await supabaseAdmin.from("tenant_audit_log").insert({
+      tenant_id: req.tenantId,
+      actor_id: req.userId,
+      actor_email: req.userEmail,
+      actor_role: req.userRole,
+      event_type: "profile_updated_self",
+      entity_type: "profile",
+      entity_id: req.userId,
+      detail: parsed.data,
+    });
+  }
+
   res.json(UpdateProfileResponse.parse(data));
 });
 

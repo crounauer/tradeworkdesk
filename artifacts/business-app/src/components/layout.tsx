@@ -145,6 +145,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const adminNavItems = [
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
+    { href: "/admin/audit-log", label: "Audit Trail", icon: ScrollText },
   ];
 
   const platformNavItems = [

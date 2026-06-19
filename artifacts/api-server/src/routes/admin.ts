@@ -14,6 +14,29 @@ import { grantTrialUsageCredits, syncUserAddonSeats } from "../lib/tenant-limits
 
 const router: IRouter = Router();
 
+async function insertTenantAuditLog(opts: {
+  tenantId?: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  eventType: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  detail?: Record<string, unknown>;
+}) {
+  if (!opts.tenantId) return;
+  await supabaseAdmin.from("tenant_audit_log").insert({
+    tenant_id: opts.tenantId,
+    actor_id: opts.actorId || null,
+    actor_email: opts.actorEmail || null,
+    actor_role: opts.actorRole || null,
+    event_type: opts.eventType,
+    entity_type: opts.entityType || null,
+    entity_id: opts.entityId || null,
+    detail: opts.detail || {},
+  });
+}
+
 router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let q = supabaseAdmin
     .from("profiles")
@@ -30,6 +53,13 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const { role, full_name, phone, can_be_assigned_jobs } = req.body;
+
+  const { data: before } = await supabaseAdmin
+    .from("profiles")
+    .select("id, role, full_name, phone, can_be_assigned_jobs")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId)
+    .maybeSingle();
 
   if (id === req.userId && role && role !== "admin") {
     res.status(400).json({ error: "You cannot change your own role." });
@@ -51,6 +81,22 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
   const { data, error } = await q.select().single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "user_updated",
+    entityType: "profile",
+    entityId: id,
+    detail: {
+      before,
+      after: data,
+      updated_fields: Object.keys(updates),
+    },
+  });
+
   res.json(data);
 });
 
@@ -62,12 +108,14 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
     return;
   }
 
+  let targetProfile: Record<string, unknown> | null = null;
   if (req.tenantId) {
-    const { data: profile } = await supabaseAdmin.from("profiles").select("tenant_id").eq("id", id).single();
+    const { data: profile } = await supabaseAdmin.from("profiles").select("id, tenant_id, role, email, full_name").eq("id", id).single();
     if (!profile || profile.tenant_id !== req.tenantId) {
       res.status(404).json({ error: "User not found" });
       return;
     }
+    targetProfile = profile as Record<string, unknown>;
   }
 
   const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
@@ -78,7 +126,37 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
     syncSeats(req.tenantId).catch((e) => console.error("[syncSeats] delete user:", e));
   }
 
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "user_deleted",
+    entityType: "profile",
+    entityId: id,
+    detail: { deleted_user: targetProfile },
+  });
+
   res.status(204).send();
+});
+
+router.get("/admin/audit-log", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { event_type, limit: limitStr, offset: offsetStr } = req.query as { event_type?: string; limit?: string; offset?: string };
+  const lim = Math.min(parseInt(limitStr || "50", 10) || 50, 200);
+  const offset = Math.max(parseInt(offsetStr || "0", 10) || 0, 0);
+
+  let q = supabaseAdmin
+    .from("tenant_audit_log")
+    .select("*")
+    .eq("tenant_id", req.tenantId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + lim - 1);
+
+  if (event_type) q = q.eq("event_type", event_type);
+
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
 });
 
 router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -126,6 +204,22 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
     .single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "invite_code_created",
+    entityType: "invite_code",
+    entityId: String((data as { id?: string })?.id || ""),
+    detail: {
+      role,
+      expires_at: expires_at || null,
+      note: note || null,
+    },
+  });
+
   res.status(201).json(data);
 });
 
@@ -137,6 +231,17 @@ router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole
   const { error } = await q;
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "invite_code_revoked",
+    entityType: "invite_code",
+    entityId: id,
+  });
+
   res.status(204).send();
 });
 
@@ -195,6 +300,19 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
   if (inv.tenant_id) {
     syncSeats(inv.tenant_id).catch((e) => console.error("[syncSeats] invite accept:", e));
   }
+
+  await insertTenantAuditLog({
+    tenantId: inv.tenant_id || undefined,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    eventType: "user_joined_via_invite",
+    entityType: "profile",
+    entityId: req.userId || null,
+    detail: {
+      role: inv.role,
+      invite_id: inv.id,
+    },
+  });
 
   res.json({ success: true, role: inv.role });
 });
