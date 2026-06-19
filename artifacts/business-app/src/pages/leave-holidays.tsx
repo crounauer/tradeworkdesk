@@ -16,7 +16,7 @@ const ScheduleHolidayManager = lazy(() => import("@/components/schedule-holiday-
 export default function LeaveHolidaysPage() {
   const { profile } = useAuth();
   const { hasFeature } = usePlanFeatures();
-  const { data: companySettings } = useCompanySettings();
+  const { data: companySettings, isLoading: isCompanySettingsLoading } = useCompanySettings();
   const updateSettings = useUpdateCompanySettings();
   const { toast } = useToast();
 
@@ -26,6 +26,7 @@ export default function LeaveHolidaysPage() {
   const [noticeEndDate, setNoticeEndDate] = useState("");
   const [noticeAutoFromHolidays, setNoticeAutoFromHolidays] = useState(false);
   const noticeHydratedRef = useRef(false);
+  const [noticeFormDirty, setNoticeFormDirty] = useState(false);
 
   const hasJobManagement = hasFeature("job_management");
   const canManageHolidays = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
@@ -44,6 +45,16 @@ export default function LeaveHolidaysPage() {
     setNoticeEndDate(companySettings?.website_closure_notice_end_date || "");
     setNoticeAutoFromHolidays(Boolean(companySettings?.website_closure_notice_auto_from_holidays));
   }, [companySettings]);
+
+  useEffect(() => {
+    // Keep local state in sync with server updates, but do not overwrite in-progress edits.
+    if (!companySettings || noticeFormDirty) return;
+    setNoticeEnabled(Boolean(companySettings?.website_closure_notice_enabled));
+    setNoticeMessage(companySettings?.website_closure_notice_message || "");
+    setNoticeStartDate(companySettings?.website_closure_notice_start_date || "");
+    setNoticeEndDate(companySettings?.website_closure_notice_end_date || "");
+    setNoticeAutoFromHolidays(Boolean(companySettings?.website_closure_notice_auto_from_holidays));
+  }, [companySettings, noticeFormDirty]);
 
   const handleSaveNotice = async () => {
     if (!canManageWebsiteNotice) return;
@@ -66,6 +77,7 @@ export default function LeaveHolidaysPage() {
       setNoticeStartDate(updated.website_closure_notice_start_date || "");
       setNoticeEndDate(updated.website_closure_notice_end_date || "");
       setNoticeAutoFromHolidays(Boolean(updated.website_closure_notice_auto_from_holidays));
+      setNoticeFormDirty(false);
 
       toast({ title: "Website closure notice saved" });
     } catch (error) {
@@ -128,8 +140,11 @@ export default function LeaveHolidaysPage() {
             </div>
             <Switch
               checked={noticeEnabled}
-              onCheckedChange={setNoticeEnabled}
-              disabled={!canManageWebsiteNotice || updateSettings.isPending}
+              onCheckedChange={(next) => {
+                setNoticeEnabled(next);
+                setNoticeFormDirty(true);
+              }}
+              disabled={!canManageWebsiteNotice || updateSettings.isPending || isCompanySettingsLoading}
             />
           </div>
 
@@ -141,8 +156,11 @@ export default function LeaveHolidaysPage() {
               </div>
               <Switch
                 checked={noticeAutoFromHolidays}
-                onCheckedChange={setNoticeAutoFromHolidays}
-                disabled={!canManageWebsiteNotice || updateSettings.isPending}
+                onCheckedChange={(next) => {
+                  setNoticeAutoFromHolidays(next);
+                  setNoticeFormDirty(true);
+                }}
+                disabled={!canManageWebsiteNotice || updateSettings.isPending || isCompanySettingsLoading}
               />
             </div>
           ) : null}
@@ -153,9 +171,12 @@ export default function LeaveHolidaysPage() {
               id="closure-message"
               rows={3}
               value={noticeMessage}
-              onChange={(e) => setNoticeMessage(e.target.value)}
+              onChange={(e) => {
+                setNoticeMessage(e.target.value);
+                setNoticeFormDirty(true);
+              }}
               placeholder="We are closed for the bank holiday and will reopen on Tuesday at 8:00 AM."
-              disabled={!canManageWebsiteNotice || updateSettings.isPending}
+              disabled={!canManageWebsiteNotice || updateSettings.isPending || isCompanySettingsLoading}
             />
           </div>
 
@@ -166,8 +187,11 @@ export default function LeaveHolidaysPage() {
                 id="closure-start"
                 type="date"
                 value={noticeStartDate}
-                onChange={(e) => setNoticeStartDate(e.target.value)}
-                disabled={!canManageWebsiteNotice || updateSettings.isPending}
+                onChange={(e) => {
+                  setNoticeStartDate(e.target.value);
+                  setNoticeFormDirty(true);
+                }}
+                disabled={!canManageWebsiteNotice || updateSettings.isPending || isCompanySettingsLoading}
               />
             </div>
             <div className="space-y-1.5">
@@ -176,15 +200,18 @@ export default function LeaveHolidaysPage() {
                 id="closure-end"
                 type="date"
                 value={noticeEndDate}
-                onChange={(e) => setNoticeEndDate(e.target.value)}
-                disabled={!canManageWebsiteNotice || updateSettings.isPending}
+                onChange={(e) => {
+                  setNoticeEndDate(e.target.value);
+                  setNoticeFormDirty(true);
+                }}
+                disabled={!canManageWebsiteNotice || updateSettings.isPending || isCompanySettingsLoading}
               />
             </div>
           </div>
 
           {canManageWebsiteNotice ? (
             <div className="flex justify-end">
-              <Button type="button" onClick={handleSaveNotice} disabled={updateSettings.isPending}>
+              <Button type="button" onClick={handleSaveNotice} disabled={updateSettings.isPending || isCompanySettingsLoading}>
                 Save Website Notice
               </Button>
             </div>
