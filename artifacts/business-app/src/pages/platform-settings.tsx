@@ -119,8 +119,12 @@ export default function PlatformSettings() {
         credentials: "include",
         body: JSON.stringify({}),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as { error?: string }).error || "Failed to submit IndexNow");
+      const data = await res.json().catch(() => ({})) as { error?: string; upstreamStatus?: number; upstreamBody?: string | null; submitted?: number };
+      if (!res.ok) {
+        const statusPart = data.upstreamStatus ? ` (upstream ${data.upstreamStatus})` : "";
+        const bodyPart = data.upstreamBody ? `: ${String(data.upstreamBody).slice(0, 160)}` : "";
+        throw new Error(`${data.error || "Failed to submit IndexNow"}${statusPart}${bodyPart}`);
+      }
       toast({ title: "IndexNow submitted", description: `${(data as { submitted?: number }).submitted ?? 0} URLs submitted` });
       setIndexNowSubmitted(true);
       setTimeout(() => setIndexNowSubmitted(false), 5000);

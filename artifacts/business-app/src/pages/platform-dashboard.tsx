@@ -75,11 +75,13 @@ export default function PlatformDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
+      const data = await res.json().catch(() => ({})) as { error?: string; upstreamStatus?: number; upstreamBody?: string | null; submitted?: number };
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to submit");
+        const statusPart = data.upstreamStatus ? ` (upstream ${data.upstreamStatus})` : "";
+        const bodyPart = data.upstreamBody ? `: ${String(data.upstreamBody).slice(0, 160)}` : "";
+        throw new Error(`${data.error || "Failed to submit"}${statusPart}${bodyPart}`);
       }
-      return res.json();
+      return data;
     },
     onSuccess: (data) => {
       setIndexNowSubmitted(true);

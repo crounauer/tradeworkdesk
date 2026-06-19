@@ -52,6 +52,7 @@ function areMarketingUrlsValid(urls: string[]) {
 export async function submitMarketingIndexNow(urls?: string[]): Promise<MarketingIndexNowResponse> {
   const key = process.env.INDEXNOW_KEY;
   if (!key) {
+    console.error("[indexnow:marketing] INDEXNOW_KEY not configured");
     return {
       success: false,
       submitted: 0,
@@ -64,6 +65,7 @@ export async function submitMarketingIndexNow(urls?: string[]): Promise<Marketin
   const urlList = Array.isArray(urls) && urls.length > 0 ? urls : getDefaultMarketingIndexNowUrls();
   const { valid, invalidUrls } = areMarketingUrlsValid(urlList);
   if (!valid) {
+    console.error(`[indexnow:marketing] invalid URL list; count=${invalidUrls.length}`);
     return {
       success: false,
       submitted: 0,
@@ -88,6 +90,11 @@ export async function submitMarketingIndexNow(urls?: string[]): Promise<Marketin
     const upstreamBody = (await response.text()) || null;
     const upstreamStatus = response.status;
     const success = upstreamStatus === 200 || upstreamStatus === 202;
+
+    if (!success) {
+      const bodySnippet = upstreamBody ? upstreamBody.slice(0, 300) : "<empty>";
+      console.error(`[indexnow:marketing] upstream rejected submission; status=${upstreamStatus} body=${bodySnippet}`);
+    }
 
     return {
       success,
