@@ -320,7 +320,7 @@ export default function PlatformTemplates() {
                     <Button
                       size="sm"
                       variant={template.is_active ? "outline" : "default"}
-                      disabled={!templates.length || toggleTemplateMutation.isPending}
+                      disabled={toggleTemplateMutation.isPending}
                       onClick={() => toggleTemplateMutation.mutate({ id: template.id, is_active: !template.is_active })}
                     >
                       {template.is_active ? "Take Offline" : "Make Live"}

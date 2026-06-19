@@ -1833,27 +1833,40 @@ router.patch("/platform/website-templates/:id", requireAuth, requireSuperAdmin, 
     return;
   }
 
-  let result = await supabaseAdmin
-    .from("website_templates")
-    .update({ is_active })
-    .eq("id", id)
-    .select("id, name, slug, description, is_active, sort_order, updated_at")
-    .single();
+  const updateBy = async (column: "id" | "slug", value: string, includeUpdatedAt: boolean) => {
+    const selectCols = includeUpdatedAt
+      ? "id, name, slug, description, is_active, sort_order, updated_at"
+      : "id, name, slug, description, is_active, sort_order";
+    return supabaseAdmin
+      .from("website_templates")
+      .update({ is_active })
+      .eq(column, value)
+      .select(selectCols)
+      .maybeSingle();
+  };
+
+  let includeUpdatedAt = true;
+  let result = await updateBy("id", id, includeUpdatedAt);
 
   // Backward compatibility for environments where updated_at is missing.
   if (result.error?.code === "42703") {
-    result = await supabaseAdmin
-      .from("website_templates")
-      .update({ is_active })
-      .eq("id", id)
-      .select("id, name, slug, description, is_active, sort_order")
-      .single();
+    includeUpdatedAt = false;
+    result = await updateBy("id", id, includeUpdatedAt);
+  }
+
+  // Fallback for slug identifiers (used by UI fallback rows).
+  if ((result.error?.code === "22P02" || result.data == null) && id) {
+    result = await updateBy("slug", id, includeUpdatedAt);
+    if (result.error?.code === "42703") {
+      includeUpdatedAt = false;
+      result = await updateBy("slug", id, includeUpdatedAt);
+    }
   }
 
   const { data, error } = result;
 
   if (error || !data) {
-    res.status(500).json({ error: error?.message || "Failed to update template" });
+    res.status(404).json({ error: error?.message || "Template not found" });
     return;
   }
 
