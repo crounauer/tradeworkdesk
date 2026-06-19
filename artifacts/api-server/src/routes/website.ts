@@ -23,6 +23,7 @@ import multer from "multer";
 import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
 import { addDomainToVercel } from "../lib/vercel";
+import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
 import {
   requireAuth,
   requireTenant,
@@ -639,6 +640,8 @@ router.post(
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to publish website" }); return; }
+
+    triggerTenantIndexNowAutoSubmit(req.tenantId!, "website_publish");
 
     res.json(data);
   }
@@ -1972,6 +1975,8 @@ router.post(
       .update({ status: "published", published_at: new Date().toISOString() })
       .eq("id", website.id);
 
+    triggerTenantIndexNowAutoSubmit(req.tenantId!, "template_apply_publish");
+
     res.json({ ok: true, pages_created: pages?.length ?? 0 });
   }
 );
@@ -2094,6 +2099,11 @@ router.patch(
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (error || !data) { res.status(404).json({ error: "Page not found" }); return; }
+
+    if ("slug" in updates || "no_index" in updates) {
+      triggerTenantIndexNowAutoSubmit(req.tenantId!, "page_url_or_indexing_change");
+    }
+
     res.json(data);
   }
 );
@@ -2179,6 +2189,8 @@ router.post(
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to publish page" }); return; }
+
+    triggerTenantIndexNowAutoSubmit(req.tenantId!, "page_publish");
 
     res.json({ ...data, version: nextVersion });
   }

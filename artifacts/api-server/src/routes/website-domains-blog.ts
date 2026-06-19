@@ -50,6 +50,7 @@ import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 import { sendSimpleNotification } from "../lib/email";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
+import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -1046,6 +1047,11 @@ router.patch(
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (error || !data) { res.status(404).json({ error: "Post not found" }); return; }
+
+    if ("slug" in updates) {
+      triggerTenantIndexNowAutoSubmit(req.tenantId!, "blog_slug_change");
+    }
+
     res.json(data);
   }
 );
@@ -1066,6 +1072,9 @@ router.post(
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (error || !data) { res.status(404).json({ error: "Post not found" }); return; }
+
+    triggerTenantIndexNowAutoSubmit(req.tenantId!, "blog_publish");
+
     res.json(data);
   }
 );

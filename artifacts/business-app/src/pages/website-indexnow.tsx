@@ -73,7 +73,7 @@ export default function WebsiteIndexNow() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">IndexNow</h1>
-          <p className="text-sm text-muted-foreground">Manual submission only. This does not auto-submit when pages are added or changed.</p>
+          <p className="text-sm text-muted-foreground">Auto-submit is enabled for publish and URL changes. Use the button for a manual re-submit anytime.</p>
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export default function WebsiteIndexNow() {
             {submitMutation.isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
             ) : (
-              <><Globe className="w-4 h-4 mr-2" />Manual Submit Website URLs</>
+              <><Globe className="w-4 h-4 mr-2" />Manual Re-submit Website URLs</>
             )}
           </Button>
           {!website && (
