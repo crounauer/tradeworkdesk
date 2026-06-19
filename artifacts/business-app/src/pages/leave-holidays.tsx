@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { CalendarCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -24,12 +24,15 @@ export default function LeaveHolidaysPage() {
   const [noticeMessage, setNoticeMessage] = useState("");
   const [noticeStartDate, setNoticeStartDate] = useState("");
   const [noticeEndDate, setNoticeEndDate] = useState("");
+  const noticeHydratedRef = useRef(false);
 
   const hasJobManagement = hasFeature("job_management");
   const canManageHolidays = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
   const canManageWebsiteNotice = profile?.role === "admin" || profile?.role === "super_admin";
 
   useEffect(() => {
+    if (noticeHydratedRef.current || !companySettings) return;
+    noticeHydratedRef.current = true;
     setNoticeEnabled(Boolean(companySettings?.website_closure_notice_enabled));
     setNoticeMessage(companySettings?.website_closure_notice_message || "");
     setNoticeStartDate(companySettings?.website_closure_notice_start_date || "");
@@ -39,12 +42,19 @@ export default function LeaveHolidaysPage() {
   const handleSaveNotice = async () => {
     if (!canManageWebsiteNotice) return;
     try {
-      await updateSettings.mutateAsync({
+      const updated = await updateSettings.mutateAsync({
         website_closure_notice_enabled: noticeEnabled,
         website_closure_notice_message: noticeMessage.trim() || null,
         website_closure_notice_start_date: noticeStartDate || null,
         website_closure_notice_end_date: noticeEndDate || null,
       });
+
+      // Keep local state aligned with the authoritative API response after save.
+      setNoticeEnabled(Boolean(updated.website_closure_notice_enabled));
+      setNoticeMessage(updated.website_closure_notice_message || "");
+      setNoticeStartDate(updated.website_closure_notice_start_date || "");
+      setNoticeEndDate(updated.website_closure_notice_end_date || "");
+
       toast({ title: "Website closure notice saved" });
     } catch (error) {
       toast({
