@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 import BillingPage from "@/pages/billing";
 import { JobTypesManagement } from "@/pages/admin-job-types";
+import AdminUsers from "@/pages/admin-users";
 
 // ─── GoCardless section (embedded in Payments tab) ───────────────────────────
 
@@ -712,11 +713,6 @@ export default function AdminCompanySettings() {
                           <div className="text-sm">
                             <p className="font-medium text-amber-800">Need multi-user assignment?</p>
                             <p className="text-amber-700 mt-1">Invite at least one more user to enable technician assignment across multiple users.</p>
-                            <Link href="/admin/users">
-                              <Button size="sm" variant="outline" className="mt-2 gap-1.5">
-                                <Users className="w-3.5 h-3.5" /> Manage Team
-                              </Button>
-                            </Link>
                           </div>
                         </div>
                       )}
@@ -735,6 +731,8 @@ export default function AdminCompanySettings() {
                     </CardContent>
                   </Card>
                 )}
+
+                <AdminUsers />
               </TabsContent>
 
               <TabsContent value="job-types" className="pt-4">

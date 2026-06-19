@@ -144,9 +144,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const adminNavItems = [
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
-    ...(isCompanyType ? [
-      { href: "/admin/users", label: "Team", icon: ShieldCheck },
-    ] : []),
   ];
 
   const platformNavItems = [

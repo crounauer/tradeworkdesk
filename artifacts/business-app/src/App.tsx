@@ -557,7 +557,7 @@ function AppRouter() {
 
         <Route path="/admin/company-settings" component={AdminCompanySettingsRoute} />
         <Route path="/admin/branding" component={AdminBrandingRoute} />
-        <Route path="/admin/users" component={AdminUsersRoute} />
+        <Route path="/admin/users">{() => <Redirect to="/admin/company-settings?tab=team&teamTab=team" />}</Route>
         <Route path="/admin/invite-codes" component={AdminInviteCodesRoute} />
         <Route path="/admin/lookup-options" component={AdminLookupOptionsRoute} />
         <Route path="/admin/social" component={AdminSocialRoute} />
