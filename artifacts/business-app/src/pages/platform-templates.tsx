@@ -312,7 +312,7 @@ export default function PlatformTemplates() {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={!templates.length || !template.is_active || setDefaultTemplateMutation.isPending || defaultTemplateLoading}
+                      disabled={!template.is_active || setDefaultTemplateMutation.isPending || defaultTemplateLoading}
                       onClick={() => setDefaultTemplateMutation.mutate(template.slug)}
                     >
                       Set Default

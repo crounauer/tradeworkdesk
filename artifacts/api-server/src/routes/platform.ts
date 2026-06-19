@@ -1799,11 +1799,22 @@ router.get("/platform/stats/ai-usage", requireAuth, requireSuperAdmin, async (_r
 
 router.get("/platform/website-templates", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   const KNOWN_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
-  const { data, error } = await supabaseAdmin
+  let result = await supabaseAdmin
     .from("website_templates")
     .select("id, name, slug, description, is_active, sort_order, updated_at")
     .in("slug", KNOWN_SLUGS)
     .order("sort_order", { ascending: true });
+
+  // Backward compatibility for environments where updated_at is missing.
+  if (result.error?.code === "42703") {
+    result = await supabaseAdmin
+      .from("website_templates")
+      .select("id, name, slug, description, is_active, sort_order")
+      .in("slug", KNOWN_SLUGS)
+      .order("sort_order", { ascending: true });
+  }
+
+  const { data, error } = result;
 
   if (error) {
     res.status(500).json({ error: error.message });
@@ -1822,12 +1833,24 @@ router.patch("/platform/website-templates/:id", requireAuth, requireSuperAdmin, 
     return;
   }
 
-  const { data, error } = await supabaseAdmin
+  let result = await supabaseAdmin
     .from("website_templates")
     .update({ is_active })
     .eq("id", id)
     .select("id, name, slug, description, is_active, sort_order, updated_at")
     .single();
+
+  // Backward compatibility for environments where updated_at is missing.
+  if (result.error?.code === "42703") {
+    result = await supabaseAdmin
+      .from("website_templates")
+      .update({ is_active })
+      .eq("id", id)
+      .select("id, name, slug, description, is_active, sort_order")
+      .single();
+  }
+
+  const { data, error } = result;
 
   if (error || !data) {
     res.status(500).json({ error: error?.message || "Failed to update template" });
