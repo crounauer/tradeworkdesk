@@ -156,6 +156,47 @@ router.post(
       tagline?: string;
     };
 
+    let resolvedTemplateId: string | null = template_id || null;
+    let resolvedTemplate: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null = null;
+
+    if (!resolvedTemplateId) {
+      const { data: defaultTemplateSetting } = await supabaseAdmin
+        .from("platform_settings")
+        .select("value")
+        .eq("key", "default_signup_template_slug")
+        .maybeSingle() as { data: { value?: string | null } | null };
+
+      const defaultTemplateSlug = String(defaultTemplateSetting?.value || "").trim();
+      if (defaultTemplateSlug) {
+        const { data: defaultTemplate } = await db
+          .from("website_templates")
+          .select("id")
+          .eq("slug", defaultTemplateSlug)
+          .eq("is_active", true)
+          .maybeSingle() as { data: { id: string } | null };
+
+        if (defaultTemplate?.id) {
+          resolvedTemplateId = defaultTemplate.id;
+        }
+      }
+    }
+
+    if (resolvedTemplateId) {
+      const { data: template } = await db
+        .from("website_templates")
+        .select("default_pages, default_theme")
+        .eq("id", resolvedTemplateId)
+        .eq("is_active", true)
+        .maybeSingle() as { data: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null };
+
+      if (!template) {
+        res.status(400).json({ error: "Selected template is not live." });
+        return;
+      }
+
+      resolvedTemplate = template;
+    }
+
     // Pull company name from company_settings as default site_name
     const { data: cs } = await supabaseAdmin
       .from("company_settings")
@@ -173,7 +214,7 @@ router.post(
       .from("websites")
       .insert({
         tenant_id: req.tenantId,
-        template_id: template_id || null,
+        template_id: resolvedTemplateId,
         site_name: defaultName,
         tagline: tagline || null,
         status: "draft",
@@ -193,22 +234,10 @@ router.post(
       console.error("[website] subdomain provision failed:", e)
     );
 
-    // If a template is chosen, seed default pages from it
-    if (template_id) {
-      const { data: template } = await db
-        .from("website_templates")
-        .select("default_pages, default_theme")
-        .eq("id", template_id)
-        .eq("is_active", true)
-        .single() as { data: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null };
-
-      if (!template) {
-        res.status(400).json({ error: "Selected template is not live." });
-        return;
-      }
-
-      if (template?.default_pages?.length) {
-        const pageInserts = template.default_pages.map((p: Record<string, unknown>, i: number) => ({
+    // If a template is chosen (or defaulted), seed default pages from it
+    if (resolvedTemplate) {
+      if (resolvedTemplate.default_pages?.length) {
+        const pageInserts = resolvedTemplate.default_pages.map((p: Record<string, unknown>, i: number) => ({
           website_id: website.id,
           tenant_id: req.tenantId,
           slug: String(p.slug || ""),
@@ -224,10 +253,10 @@ router.post(
       }
 
       // Apply default theme
-      if (template?.default_theme) {
+      if (resolvedTemplate.default_theme) {
         await db
           .from("websites")
-          .update({ theme: template.default_theme })
+          .update({ theme: resolvedTemplate.default_theme })
           .eq("id", website.id);
       }
     }

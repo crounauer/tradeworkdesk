@@ -1834,6 +1834,21 @@ router.patch("/platform/website-templates/:id", requireAuth, requireSuperAdmin, 
     return;
   }
 
+  if (!is_active) {
+    const { data: defaultTemplateSetting } = await supabaseAdmin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "default_signup_template_slug")
+      .maybeSingle() as { data: { value?: string | null } | null };
+
+    const currentDefaultSlug = String(defaultTemplateSetting?.value || "").trim();
+    if (currentDefaultSlug && currentDefaultSlug === data.slug) {
+      await supabaseAdmin
+        .from("platform_settings")
+        .upsert({ key: "default_signup_template_slug", value: null, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    }
+  }
+
   res.json(data);
 });
 

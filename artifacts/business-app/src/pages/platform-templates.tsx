@@ -198,6 +198,18 @@ export default function PlatformTemplates() {
       }),
   });
 
+  const { data: defaultTemplateSlug, isLoading: defaultTemplateLoading } = useQuery<string | null>({
+    queryKey: ["/api/platform/settings/default_signup_template_slug"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/default_signup_template_slug`, {
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data?.value === "string" && data.value.trim().length > 0 ? data.value : null;
+    },
+  });
+
   const templateItems = templates.length
     ? templates
     : TEMPLATE_FALLBACKS.map((t, idx) => ({
@@ -239,6 +251,29 @@ export default function PlatformTemplates() {
     },
   });
 
+  const setDefaultTemplateMutation = useMutation({
+    mutationFn: async (slug: string) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/default_signup_template_slug`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ value: slug }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to save default template" }));
+        throw new Error(err.error || "Failed to save default template");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/platform/settings/default_signup_template_slug"] });
+      toast({ title: "Default template updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const selectedTemplate = templateItems.find((t) => t.slug === activeTemplate);
 
   return (
@@ -264,13 +299,24 @@ export default function PlatformTemplates() {
               {templateItems.map((template) => (
                 <div key={template.slug} className="flex items-center justify-between border rounded-lg p-3">
                   <div>
-                    <p className="font-medium text-sm">{template.name}</p>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      {template.name}
+                      {defaultTemplateSlug === template.slug && <Badge variant="outline">Default for New Signups</Badge>}
+                    </p>
                     <p className="text-xs text-muted-foreground">{template.slug}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={template.is_active ? "default" : "secondary"}>
                       {template.is_active ? "Live" : "Offline"}
                     </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!templates.length || !template.is_active || setDefaultTemplateMutation.isPending || defaultTemplateLoading}
+                      onClick={() => setDefaultTemplateMutation.mutate(template.slug)}
+                    >
+                      Set Default
+                    </Button>
                     <Button
                       size="sm"
                       variant={template.is_active ? "outline" : "default"}
