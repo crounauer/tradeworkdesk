@@ -6,8 +6,6 @@
 const API_BASE = process.env.API_BASE_URL || "https://tradeworkdesk-api.fly.dev";
 const RENDERER_SECRET = process.env.RENDERER_SECRET || "";
 
-// Revalidation TTL: 60 seconds for published sites, 0 for drafts
-const REVALIDATE_SECONDS = 60;
 
 export interface SiteBlock {
   id: string;
@@ -159,7 +157,8 @@ export async function getSiteByDomain(domain: string): Promise<SiteData | null> 
       `${API_BASE}/api/public/website/by-domain/${encodeURIComponent(domain)}`,
       {
         headers: apiHeaders(),
-        next: { revalidate: REVALIDATE_SECONDS },
+        // Keep website closure notices and contact changes instantly visible.
+        cache: "no-store",
       },
     );
 
@@ -209,7 +208,8 @@ export async function getPageBySlug(
       `${API_BASE}/api/public/website/pages/${encodeURIComponent(websiteId)}/${encodeURIComponent(slug)}`,
       {
         headers: apiHeaders(),
-        next: { revalidate: REVALIDATE_SECONDS },
+        // Keep page content in sync with immediate admin edits.
+        cache: "no-store",
       },
     );
 
