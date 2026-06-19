@@ -149,18 +149,23 @@ export default function ReviewRequests() {
   });
 
   const sendManualMutation = useMutation({
-    mutationFn: () => apiFetch("/api/review-requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...manual, scheduled_for: new Date().toISOString() }),
-    }),
+    mutationFn: async () => {
+      const created = await apiFetch("/api/review-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...manual, scheduled_for: new Date().toISOString() }),
+      }) as ReviewRequest;
+
+      await apiFetch(`/api/review-requests/${created.id}/send`, { method: "POST" });
+      return created;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/review-requests"] });
       setShowSendDialog(false);
       setSelectedCustomerId("manual");
       setCustomerSearch("");
       setManual({ customer_name: "", customer_email: "", customer_phone: "" });
-      toast({ title: "Review request scheduled" });
+      toast({ title: "Review request sent" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -406,7 +411,7 @@ export default function ReviewRequests() {
             <Button onClick={() => sendManualMutation.mutate()}
               disabled={!manual.customer_name || !manual.customer_email || sendManualMutation.isPending}>
               {sendManualMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              Schedule Request
+              Send Request
             </Button>
           </DialogFooter>
         </DialogContent>
