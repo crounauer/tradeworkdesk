@@ -446,7 +446,6 @@ export function Layout({ children }: { children: ReactNode }) {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
-            {!isSuperAdmin && topMenuItems.length > 0 && renderSection("Top Menu", topMenuItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
@@ -454,6 +453,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && utilityNavItems.length > 0 && renderSection("More", utilityNavItems, () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && topMenuItems.length > 0 && renderSection("Top Menu", topMenuItems, () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 px-4">
