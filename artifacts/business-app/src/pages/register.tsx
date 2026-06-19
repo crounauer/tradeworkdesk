@@ -353,6 +353,15 @@ export default function Register() {
     return true;
   };
 
+  const validateCompanyProductStep = () => {
+    if (!betaCode.trim()) {
+      setFieldError("betaCode", "Beta invite code is required.");
+      showMissingFieldsToast(["Beta Invite Code"]);
+      return false;
+    }
+    return true;
+  };
+
   const PRODUCT_META: Record<Product, { icon: React.ReactNode; defaultLabel: string; tagline: string; features: string[] }> = {
     tradeworkdesk: {
       icon: <Wrench className="w-6 h-6" />,
@@ -622,7 +631,13 @@ export default function Register() {
                   ))}
                 </div>
                 <p className="text-xs text-center text-muted-foreground">All plans include a {trialDays}-day free trial. No credit card required.</p>
-                <Button className="w-full h-12 text-base mt-2" onClick={() => setStep(2)}>
+                <Button
+                  className="w-full h-12 text-base mt-2"
+                  onClick={() => {
+                    if (!validateCompanyProductStep()) return;
+                    setStep(2);
+                  }}
+                >
                   Next: Your Details <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
