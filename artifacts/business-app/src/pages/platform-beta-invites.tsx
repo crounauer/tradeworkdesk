@@ -15,6 +15,7 @@ import {
   Loader2,
   Check,
   Clock,
+  Mail,
   Users,
   AlertCircle,
 } from "lucide-react";
@@ -110,6 +111,27 @@ export default function PlatformBetaInvites() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["beta-invites"] });
       toast({ title: "Invite deleted" });
+    },
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: async ({ id, to }: { id: string; to?: string }) => {
+      const res = await fetch(`/api/platform/beta-invites/${id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send invite email");
+      }
+      return res.json() as Promise<{ ok: boolean; to: string }>;
+    },
+    onSuccess: (data) => {
+      toast({ title: "Invite emailed", description: `Sent to ${data.to}` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -339,6 +361,26 @@ export default function PlatformBetaInvites() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const promptEmail = window.prompt(
+                            "Send invite to email",
+                            invite.email || "",
+                          )?.trim();
+                          if (!promptEmail) return;
+                          emailMutation.mutate({ id: invite.id, to: promptEmail });
+                        }}
+                        disabled={emailMutation.isPending}
+                        title="Email invite"
+                      >
+                        {emailMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4" />
+                        )}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

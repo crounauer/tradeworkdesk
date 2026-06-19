@@ -192,6 +192,45 @@ export async function sendWelcomeEmail(to: string, companyName: string, trialEnd
   await send(to, "Welcome to TradeWorkDesk — your trial has started", html);
 }
 
+export async function sendBetaInviteCodeEmail(
+  to: string,
+  code: string,
+  inviteUrl: string,
+  opts?: {
+    expiresAt?: string | null;
+    maxUses?: number | null;
+    notes?: string | null;
+  },
+): Promise<void> {
+  const expiry = opts?.expiresAt
+    ? new Date(opts.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const usageText = opts?.maxUses && opts.maxUses > 1
+    ? `This code can be used up to ${opts.maxUses} times.`
+    : "This code can be used once.";
+  const notesHtml = opts?.notes
+    ? `<p><strong>Notes:</strong> ${escHtml(opts.notes)}</p>`
+    : "";
+
+  const html = baseHtml("Your TradeWorkDesk beta invite", `
+    <h2>You are invited to TradeWorkDesk beta</h2>
+    <p>Use the invite code below during sign-up:</p>
+    <div class="info-box">
+      <p><strong>Invite code:</strong> <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 16px;">${escHtml(code)}</span></p>
+      <p>${usageText}</p>
+      ${expiry ? `<p><strong>Expires:</strong> ${expiry}</p>` : ""}
+      ${notesHtml}
+    </div>
+    <p style="margin-top:24px;">
+      <a href="${escHtml(inviteUrl)}" class="btn">Register with Invite</a>
+    </p>
+    <hr class="divider"/>
+    <p style="font-size:13px; color:#64748b;">If the button does not work, use this link: <br/><a href="${escHtml(inviteUrl)}">${escHtml(inviteUrl)}</a></p>
+  `);
+
+  await send(to, "TradeWorkDesk Beta Invite", html);
+}
+
 export async function sendInvoiceEmail(to: string, companyName: string, amount: number, currency: string, periodEnd: string, invoiceUrl: string): Promise<void> {
   const date = new Date(periodEnd).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);

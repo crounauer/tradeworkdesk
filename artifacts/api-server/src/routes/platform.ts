@@ -3,7 +3,7 @@ import crypto from "crypto";
 import multer from "multer";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
-import { sendWelcomeEmail } from "../lib/email";
+import { sendBetaInviteCodeEmail, sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth } from "../lib/tenant-limits";
@@ -1378,6 +1378,8 @@ function generateBetaCode(): string {
   return "BETA-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
+const APP_URL = (process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "");
+
 router.get("/platform/beta-invites", requireAuth, requireSuperAdmin, async (_req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("beta_invites")
@@ -1451,6 +1453,60 @@ router.delete("/platform/beta-invites/:id", requireAuth, requireSuperAdmin, asyn
 
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ ok: true });
+});
+
+router.post("/platform/beta-invites/:id/send-email", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const toRaw = typeof req.body?.to === "string" ? req.body.to.trim().toLowerCase() : "";
+
+  const { data: invite, error } = await supabaseAdmin
+    .from("beta_invites")
+    .select("id, code, email, max_uses, used_count, expires_at, is_active, notes")
+    .eq("id", id)
+    .single();
+
+  if (error || !invite) {
+    res.status(404).json({ error: "Invite not found" });
+    return;
+  }
+
+  if (!invite.is_active) {
+    res.status(400).json({ error: "Invite is disabled" });
+    return;
+  }
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    res.status(400).json({ error: "Invite has expired" });
+    return;
+  }
+  if ((invite.used_count || 0) >= (invite.max_uses || 1)) {
+    res.status(400).json({ error: "Invite has reached its usage limit" });
+    return;
+  }
+
+  const recipient = toRaw || invite.email || "";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!recipient || !emailRegex.test(recipient)) {
+    res.status(400).json({ error: "A valid recipient email is required" });
+    return;
+  }
+
+  const inviteUrl = `${APP_URL}/register?beta=${encodeURIComponent(invite.code)}`;
+  await sendBetaInviteCodeEmail(recipient, invite.code, inviteUrl, {
+    expiresAt: invite.expires_at,
+    maxUses: invite.max_uses,
+    notes: invite.notes,
+  });
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail || "super_admin",
+    event_type: "beta_invite_emailed",
+    entity_type: "beta_invite",
+    entity_id: id,
+    detail: { to: recipient },
+  });
+
+  res.json({ ok: true, to: recipient });
 });
 
 router.post("/auth/validate-beta", async (req, res): Promise<void> => {
