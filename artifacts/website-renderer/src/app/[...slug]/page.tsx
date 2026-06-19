@@ -5,6 +5,7 @@ import { getSiteByDomain } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
+import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 
 export const revalidate = 60;
 
@@ -57,6 +58,7 @@ export default async function DynamicPage({ params }: PageProps) {
 
   return (
     <TemplateLayout site={site}>
+      <WebsiteClosureNotice company={site.company} />
       <SchemaMarkup
         site={site}
         domain={domain}

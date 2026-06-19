@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogPostContent from "@/components/blog/BlogPostContent";
+import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 
 export const revalidate = 60;
 
@@ -64,6 +65,7 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
 
   return (
     <TemplateLayout site={site}>
+      <WebsiteClosureNotice company={site.company} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}

@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { getSiteByWebsiteId, getPreviewBlocksByPageId } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
+import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 
 // Always fresh — never cache preview renders
 export const revalidate = 0;
@@ -61,6 +62,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
 
   return (
     <TemplateLayout site={site} basePath={`/preview/${websiteId}`} previewToken={token}>
+      <WebsiteClosureNotice company={site.company} />
       <main>
         {blocks.map((block) => (
           <BlockRenderer key={block.id} block={block} websiteId={websiteId} />

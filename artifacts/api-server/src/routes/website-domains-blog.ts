@@ -1456,7 +1456,7 @@ router.get(
     // Fetch company settings for contact info
     const { data: companySettings } = await supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url, website_closure_notice_enabled, website_closure_notice_message, website_closure_notice_start_date, website_closure_notice_end_date")
       .eq("tenant_id", domainRecord.tenant_id)
       .eq("singleton_id", "default")
       .maybeSingle();
@@ -1523,7 +1523,7 @@ router.get(
 
     const { data: companySettings } = await supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url, website_closure_notice_enabled, website_closure_notice_message, website_closure_notice_start_date, website_closure_notice_end_date")
       .eq("tenant_id", String(website.tenant_id))
       .eq("singleton_id", "default")
       .maybeSingle();

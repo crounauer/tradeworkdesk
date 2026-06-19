@@ -5,6 +5,7 @@ import { getSiteByDomain } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
+import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 
 // ISR — re-validate every 60 seconds
 export const revalidate = 60;
@@ -50,6 +51,7 @@ export default async function HomePage() {
     const displayName = company?.trading_name || company?.name || website.site_name;
     return (
       <TemplateLayout site={site}>
+        <WebsiteClosureNotice company={site.company} />
         <div style={{ minHeight: "70vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "64px 24px", textAlign: "center" }}>
           <div style={{ maxWidth: 520 }}>
             <div style={{ width: 64, height: 64, backgroundColor: accent, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 28px" }}>🔧</div>
@@ -75,6 +77,7 @@ export default async function HomePage() {
 
   return (
     <TemplateLayout site={site}>
+      <WebsiteClosureNotice company={site.company} />
       <SchemaMarkup site={site} domain={domain} pageType="home" />
       <PageRenderer
         websiteId={site.website.id}

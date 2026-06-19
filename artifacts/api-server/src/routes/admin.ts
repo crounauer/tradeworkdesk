@@ -374,6 +374,9 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "favicon_url", "email_from_name", "email_reply_to",
     // Website enquiry notifications
     "website_enquiry_email_notify", "website_enquiry_sms_notify",
+    // Website closure notice banner
+    "website_closure_notice_enabled", "website_closure_notice_message",
+    "website_closure_notice_start_date", "website_closure_notice_end_date",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };

@@ -1,16 +1,59 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { CalendarCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const ScheduleHolidayManager = lazy(() => import("@/components/schedule-holiday-manager"));
 
 export default function LeaveHolidaysPage() {
   const { profile } = useAuth();
   const { hasFeature } = usePlanFeatures();
+  const { data: companySettings } = useCompanySettings();
+  const updateSettings = useUpdateCompanySettings();
+  const { toast } = useToast();
+
+  const [noticeEnabled, setNoticeEnabled] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState("");
+  const [noticeStartDate, setNoticeStartDate] = useState("");
+  const [noticeEndDate, setNoticeEndDate] = useState("");
 
   const hasJobManagement = hasFeature("job_management");
   const canManageHolidays = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+  const canManageWebsiteNotice = profile?.role === "admin" || profile?.role === "super_admin";
+
+  useEffect(() => {
+    setNoticeEnabled(Boolean(companySettings?.website_closure_notice_enabled));
+    setNoticeMessage(companySettings?.website_closure_notice_message || "");
+    setNoticeStartDate(companySettings?.website_closure_notice_start_date || "");
+    setNoticeEndDate(companySettings?.website_closure_notice_end_date || "");
+  }, [companySettings]);
+
+  const handleSaveNotice = async () => {
+    if (!canManageWebsiteNotice) return;
+    try {
+      await updateSettings.mutateAsync({
+        website_closure_notice_enabled: noticeEnabled,
+        website_closure_notice_message: noticeMessage.trim() || null,
+        website_closure_notice_start_date: noticeStartDate || null,
+        website_closure_notice_end_date: noticeEndDate || null,
+      });
+      toast({ title: "Website closure notice saved" });
+    } catch (error) {
+      toast({
+        title: "Failed to save",
+        description: error instanceof Error ? error.message : "Could not update website closure notice",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!hasJobManagement) {
     return (
@@ -47,6 +90,73 @@ export default function LeaveHolidaysPage() {
       <Suspense fallback={<div className="rounded-xl border border-border bg-card animate-pulse" style={{ height: 360 }} />}>
         <ScheduleHolidayManager />
       </Suspense>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Website Closure Announcement</CardTitle>
+          <CardDescription>
+            Show a visible announcement banner on your public website when you are closed for holidays or any other reason.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Enable public closure notice</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">When enabled, visitors will see this message at the top of your website.</p>
+            </div>
+            <Switch
+              checked={noticeEnabled}
+              onCheckedChange={setNoticeEnabled}
+              disabled={!canManageWebsiteNotice || updateSettings.isPending}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="closure-message">Announcement message</Label>
+            <Textarea
+              id="closure-message"
+              rows={3}
+              value={noticeMessage}
+              onChange={(e) => setNoticeMessage(e.target.value)}
+              placeholder="We are closed for the bank holiday and will reopen on Tuesday at 8:00 AM."
+              disabled={!canManageWebsiteNotice || updateSettings.isPending}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="closure-start">Start date (optional)</Label>
+              <Input
+                id="closure-start"
+                type="date"
+                value={noticeStartDate}
+                onChange={(e) => setNoticeStartDate(e.target.value)}
+                disabled={!canManageWebsiteNotice || updateSettings.isPending}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="closure-end">End date (optional)</Label>
+              <Input
+                id="closure-end"
+                type="date"
+                value={noticeEndDate}
+                onChange={(e) => setNoticeEndDate(e.target.value)}
+                disabled={!canManageWebsiteNotice || updateSettings.isPending}
+              />
+            </div>
+          </div>
+
+          {canManageWebsiteNotice ? (
+            <div className="flex justify-end">
+              <Button type="button" onClick={handleSaveNotice} disabled={updateSettings.isPending}>
+                Save Website Notice
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Admin access is required to publish website announcements.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

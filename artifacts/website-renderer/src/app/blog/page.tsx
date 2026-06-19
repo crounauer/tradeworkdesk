@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getSiteByDomain, getPageBySlug } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogList from "@/components/blog/BlogList";
+import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 
 export const revalidate = 60;
 
@@ -25,6 +26,7 @@ export default async function BlogIndexPage() {
 
   return (
     <TemplateLayout site={site}>
+      <WebsiteClosureNotice company={site.company} />
       <BlogList posts={site.blog_posts} siteName={site.website.site_name} />
     </TemplateLayout>
   );
