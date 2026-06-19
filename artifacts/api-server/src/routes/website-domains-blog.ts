@@ -188,6 +188,38 @@ async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unk
   return data;
 }
 
+async function getTenantServiceOptions(tenantId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from("service_catalogue")
+    .select("name")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("name") as { data: Array<{ name: string | null }> | null };
+
+  return (data || [])
+    .map((row) => (row.name || "").trim())
+    .filter(Boolean);
+}
+
+function applyServiceOptionsToBlocks(blocks: Record<string, unknown>[], serviceOptions: string[]): Record<string, unknown>[] {
+  if (!serviceOptions.length) return blocks;
+
+  return blocks.map((block) => {
+    if (block.block_type !== "contact_form") return block;
+
+    const content = (block.content || {}) as Record<string, unknown>;
+    const fields = Array.isArray(content.fields) ? (content.fields as Record<string, unknown>[]) : null;
+    if (!fields) return block;
+
+    const nextFields = fields.map((field) => {
+      if (field.name !== "service" || field.type !== "select") return field;
+      return { ...field, options: serviceOptions };
+    });
+
+    return { ...block, content: { ...content, fields: nextFields } };
+  });
+}
+
 function normalizeDomainInput(domain: string): string {
   return domain
     .toLowerCase()
@@ -1642,6 +1674,24 @@ router.get(
 
     const { pageId } = req.params;
 
+    const { data: page } = await db
+      .from("website_pages")
+      .select("website_id")
+      .eq("id", pageId)
+      .maybeSingle() as { data: { website_id: string } | null };
+
+    const { data: website } = page
+      ? await db
+          .from("websites")
+          .select("tenant_id")
+          .eq("id", page.website_id)
+          .maybeSingle() as { data: { tenant_id: string } | null }
+      : { data: null as { tenant_id: string } | null };
+
+    const serviceOptions = website?.tenant_id
+      ? await getTenantServiceOptions(website.tenant_id)
+      : [];
+
     const { data: blocks } = await db
       .from("website_blocks")
       .select("id, block_type, content, sort_order")
@@ -1649,7 +1699,7 @@ router.get(
       .eq("is_visible", true)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json(blocks || []);
+    res.json(applyServiceOptionsToBlocks(blocks || [], serviceOptions));
   }
 );
 
@@ -1673,6 +1723,16 @@ router.get(
 
     if (!page) { res.status(404).json({ error: "Page not found" }); return; }
 
+    const { data: website } = await db
+      .from("websites")
+      .select("tenant_id")
+      .eq("id", websiteId)
+      .maybeSingle() as { data: { tenant_id: string } | null };
+
+    const serviceOptions = website?.tenant_id
+      ? await getTenantServiceOptions(website.tenant_id)
+      : [];
+
     const { data: blocks } = await db
       .from("website_blocks")
       .select("id, block_type, content, sort_order")
@@ -1680,7 +1740,7 @@ router.get(
       .eq("is_visible", true)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json({ ...page, blocks: blocks || [] });
+    res.json({ ...page, blocks: applyServiceOptionsToBlocks(blocks || [], serviceOptions) });
   }
 );
 
