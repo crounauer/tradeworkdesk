@@ -476,15 +476,15 @@ export default function Register() {
   );
 
   return (
-    <div className="relative min-h-screen overflow-y-auto bg-slate-50">
+    <div className="relative min-h-screen bg-slate-50">
       <img
         src={`${import.meta.env.BASE_URL}images/login-bg.png`}
         alt=""
         className="fixed inset-0 w-full h-full object-cover opacity-60 mix-blend-multiply"
       />
 
-      <div className="relative z-10 flex min-h-screen items-start justify-center px-4 py-6 sm:items-center sm:py-8">
-        <div className="w-full max-w-md p-8 glass-panel rounded-3xl">
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-6 sm:py-8">
+        <div className="w-full max-w-md max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-y-auto p-8 glass-panel rounded-3xl">
         <div className="flex flex-col items-center mb-5">
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25 mb-4">
             <Flame className="w-8 h-8 text-white" />
@@ -492,39 +492,41 @@ export default function Register() {
           <h1 className="text-2xl font-display font-bold text-foreground">Join TradeWorkDesk</h1>
         </div>
 
-        <div className="space-y-2 mb-5">
-          <Label className="flex items-center gap-1.5">
-            <Ticket className="w-4 h-4" />
-            Beta Invite Code
-          </Label>
-          <div className="relative">
-            <Input
-              value={betaCode}
-              onChange={(e) => { setBetaCode(e.target.value); setBetaValid(null); setBetaError(""); clearFieldError("betaCode"); }}
-              onBlur={() => validateBetaCode(betaCode)}
-              placeholder="e.g. BETA-A1B2C3D4"
-              className={`font-mono uppercase pr-10 ${(betaValid === true ? "border-emerald-400 focus-visible:ring-emerald-300" : betaError ? "border-destructive focus-visible:ring-destructive/30" : "")} ${fieldErrors.betaCode ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
-              required
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              {betaValidating && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-              {betaValid === true && !betaValidating && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-              {betaError && !betaValidating && <AlertCircle className="w-4 h-4 text-destructive" />}
+        {mode === "company" && (
+          <div className="space-y-2 mb-5">
+            <Label className="flex items-center gap-1.5">
+              <Ticket className="w-4 h-4" />
+              Beta Invite Code
+            </Label>
+            <div className="relative">
+              <Input
+                value={betaCode}
+                onChange={(e) => { setBetaCode(e.target.value); setBetaValid(null); setBetaError(""); clearFieldError("betaCode"); }}
+                onBlur={() => validateBetaCode(betaCode)}
+                placeholder="e.g. BETA-A1B2C3D4"
+                className={`font-mono uppercase pr-10 ${(betaValid === true ? "border-emerald-400 focus-visible:ring-emerald-300" : betaError ? "border-destructive focus-visible:ring-destructive/30" : "")} ${fieldErrors.betaCode ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
+                required
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {betaValidating && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                {betaValid === true && !betaValidating && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                {betaError && !betaValidating && <AlertCircle className="w-4 h-4 text-destructive" />}
+              </div>
             </div>
+            {betaValid === true && (
+              <p className="text-xs text-emerald-600 font-medium">
+                Valid beta code{betaLockedEmail ? ` — locked to ${betaLockedEmail}` : ""}
+              </p>
+            )}
+            {fieldErrors.betaCode && <p className="text-xs text-destructive">{fieldErrors.betaCode}</p>}
+            {betaError && <p className="text-xs text-destructive">{betaError}</p>}
+            {betaValid === null && !betaError && !betaValidating && (
+              <p className="text-xs text-muted-foreground">
+                TradeWorkDesk is in private beta. Enter your invite code to continue.
+              </p>
+            )}
           </div>
-          {betaValid === true && (
-            <p className="text-xs text-emerald-600 font-medium">
-              Valid beta code{betaLockedEmail ? ` — locked to ${betaLockedEmail}` : ""}
-            </p>
-          )}
-          {fieldErrors.betaCode && <p className="text-xs text-destructive">{fieldErrors.betaCode}</p>}
-          {betaError && <p className="text-xs text-destructive">{betaError}</p>}
-          {betaValid === null && !betaError && !betaValidating && (
-            <p className="text-xs text-muted-foreground">
-              TradeWorkDesk is in private beta. Enter your invite code to continue.
-            </p>
-          )}
-        </div>
+        )}
 
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
           <button
