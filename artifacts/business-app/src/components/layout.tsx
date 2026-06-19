@@ -162,9 +162,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];
 
-  const websiteNavItems = hasWebsiteBuilder ? [
-    { href: "/website", label: "My Website", icon: Globe2 },
-  ] : [];
+  // Website link is shown in the top header bar, not the left sidebar.
+  const websiteNavItems: Array<{ href: string; label: string; icon: React.ElementType }> = [];
 
   const blocksNavItems: typeof websiteNavItems = [];
 
