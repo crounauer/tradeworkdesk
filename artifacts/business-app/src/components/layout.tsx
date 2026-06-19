@@ -9,8 +9,9 @@ import {
   LayoutDashboard, Users, Home, Flame, CalendarDays,
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
-  Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2, ListTree,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye
+  Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2,
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -146,11 +147,11 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(isCompanyType ? [
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
     ] : []),
-    ...(hasJobManagement ? [{ href: "/admin/job-types", label: "Job Types", icon: ListTree }] : []),
   ];
 
   const platformNavItems = [
     { href: "/platform", label: "Overview", icon: Globe },
+    { href: "/platform/marketing-analytics", label: "Marketing Analytics", icon: BarChart3 },
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
     { href: "/platform/support-tickets", label: "Support Tickets", icon: MessageSquare },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
@@ -330,7 +331,6 @@ export function Layout({ children }: { children: ReactNode }) {
         
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
           {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item))}
-
           {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
 
           {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems)}

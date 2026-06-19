@@ -17,7 +17,7 @@ import {
   Upload, Trash2, Loader2, MapPin, BadgeCheck, PoundSterling,
   Users, AlertTriangle, CreditCard,
   Plus, X, Check, Clock, Star, Package, Pencil, CalendarSync, Wrench, Palette,
-  Search, Save, Zap, Banknote, CheckCircle2, XCircle, Link as LinkIcon, Bell,
+  Search, Save, Zap, Banknote, CheckCircle2, XCircle, Link as LinkIcon, Bell, ListTree,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 import BillingPage from "@/pages/billing";
+import { JobTypesManagement } from "@/pages/admin-job-types";
 
 // ─── GoCardless section (embedded in Payments tab) ───────────────────────────
 
@@ -168,8 +169,16 @@ export default function AdminCompanySettings() {
   const [activeTab, setActiveTab] = useState(() => {
     const p = new URLSearchParams(searchString);
     const tab = p.get("tab") ?? "profile";
+    if (tab === "job-types") return "team";
     if (["plans", "billing", "invoicing", "payments"].includes(tab)) return "finance";
     return tab;
+  });
+  const [teamTab, setTeamTab] = useState<"team" | "job-types">(() => {
+    const p = new URLSearchParams(searchString);
+    const tab = p.get("tab");
+    const sub = p.get("teamTab");
+    if (sub === "job-types" || tab === "job-types") return "job-types";
+    return "team";
   });
   const [financeTab, setFinanceTab] = useState<"plans" | "billing" | "invoicing" | "payments">(() => {
     const p = new URLSearchParams(searchString);
@@ -659,63 +668,79 @@ export default function AdminCompanySettings() {
           </TabsContent>
 
           <TabsContent value="team" className="space-y-6 pt-4">
+            <Tabs value={teamTab} onValueChange={(value) => setTeamTab(value as "team" | "job-types") }>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-2">
+                  <TabsTrigger value="team" className="flex-1">Team</TabsTrigger>
+                  <TabsTrigger value="job-types" className="flex-1 gap-2">
+                    <ListTree className="w-4 h-4" />
+                    Job Types
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-          {isAdmin && !companyTypeLoading && !companyTypeError && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Team Settings
-                </CardTitle>
-                <CardDescription>
-                  Team behavior is based on active users and your plan. With one active user, jobs auto-assign to you. With multiple active users, assignment can be shared.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeUserCount <= 1 ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm">{activeUserCount <= 1 ? "Single User Mode" : "Team Mode"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {activeUserCount <= 1
-                        ? "Jobs auto-assign to your user by default"
-                        : `${activeUserCount} active users can be assigned to jobs`}
-                    </p>
-                  </div>
-                </div>
+              <TabsContent value="team" className="space-y-6 pt-4">
+                {isAdmin && !companyTypeLoading && !companyTypeError && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        Team Settings
+                      </CardTitle>
+                      <CardDescription>
+                        Team behavior is based on active users and your plan. With one active user, jobs auto-assign to you. With multiple active users, assignment can be shared.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeUserCount <= 1 ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
+                          <Users className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{activeUserCount <= 1 ? "Single User Mode" : "Team Mode"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {activeUserCount <= 1
+                              ? "Jobs auto-assign to your user by default"
+                              : `${activeUserCount} active users can be assigned to jobs`}
+                          </p>
+                        </div>
+                      </div>
 
-                {activeUserCount <= 1 && (
-                  <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-amber-800">Need multi-user assignment?</p>
-                      <p className="text-amber-700 mt-1">Invite at least one more user to enable technician assignment across multiple users.</p>
-                      <Link href="/admin/users">
-                        <Button size="sm" variant="outline" className="mt-2 gap-1.5">
-                          <Users className="w-3.5 h-3.5" /> Manage Team
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+                      {activeUserCount <= 1 && (
+                        <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="text-sm">
+                            <p className="font-medium text-amber-800">Need multi-user assignment?</p>
+                            <p className="text-amber-700 mt-1">Invite at least one more user to enable technician assignment across multiple users.</p>
+                            <Link href="/admin/users">
+                              <Button size="sm" variant="outline" className="mt-2 gap-1.5">
+                                <Users className="w-3.5 h-3.5" /> Manage Team
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium">I also do field work</p>
+                          <p className="text-xs text-muted-foreground">Show your name in the job assignment list.</p>
+                        </div>
+                        <Switch
+                          checked={doFieldWork ?? false}
+                          onCheckedChange={handleFieldWorkToggle}
+                          disabled={savingFieldWork || doFieldWork === null}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
+              </TabsContent>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">I also do field work</p>
-                    <p className="text-xs text-muted-foreground">Show your name in the job assignment list.</p>
-                  </div>
-                  <Switch
-                    checked={doFieldWork ?? false}
-                    onCheckedChange={handleFieldWorkToggle}
-                    disabled={savingFieldWork || doFieldWork === null}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
+              <TabsContent value="job-types" className="pt-4">
+                <JobTypesManagement />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="profile" className="space-y-6 pt-0">

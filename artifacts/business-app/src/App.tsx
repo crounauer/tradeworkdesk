@@ -111,7 +111,6 @@ const AdminLookupOptions = lazyRetry(() => import("@/pages/admin-lookup-options"
 const AdminCompanySettings = lazyRetry(() => import("@/pages/admin-company-settings"));
 const AdminBranding = lazyRetry(() => import("@/pages/admin-branding"));
 const AdminSocial = lazyRetry(() => import("@/pages/admin-social"));
-const AdminJobTypes = lazyRetry(() => import("@/pages/admin-job-types"));
 const AdminSmsTemplates = lazyRetry(() => import("@/pages/admin-sms-templates"));
 const AdminReassignJobs = lazyRetry(() => import("@/pages/admin-reassign-jobs"));
 const AdminInvoiceLog = lazyRetry(() => import("@/pages/admin-invoice-log"));
@@ -415,7 +414,6 @@ const AdminLookupOptionsRoute = protect(AdminLookupOptions);
 const AdminSocialRoute = protect(AdminSocial, ["admin", "super_admin"]);
 const AdminSmsTemplatesRoute = protect(AdminSmsTemplates, ["admin", "super_admin"]);
 const AdminReassignJobsRoute = protect(AdminReassignJobs, ["admin"]);
-const AdminJobTypesRoute = protectFeature(AdminJobTypes, "job_management", ["admin"]);
 const AdminInvoiceLogRoute = protect(AdminInvoiceLog, ["admin", "office_staff"]);
 const AdminStripeConnectRoute = protect(AdminStripeConnect, ["admin"]);
 const AdminPaymentProvidersRoute = protect(AdminPaymentProviders, ["admin"]);
@@ -565,7 +563,7 @@ function AppRouter() {
         <Route path="/admin/social" component={AdminSocialRoute} />
         <Route path="/admin/sms-templates" component={AdminSmsTemplatesRoute} />
         <Route path="/admin/reassign-jobs" component={AdminReassignJobsRoute} />
-        <Route path="/admin/job-types" component={AdminJobTypesRoute} />
+        <Route path="/admin/job-types">{() => <Redirect to="/admin/company-settings?tab=team&teamTab=job-types" />}</Route>
         <Route path="/admin/invoice-log" component={AdminInvoiceLogRoute} />
         <Route path="/admin/stripe-connect" component={AdminStripeConnectRoute} />
         <Route path="/admin/payment-providers" component={AdminPaymentProvidersRoute} />
@@ -607,6 +605,7 @@ function AppRouter() {
         <Route path="/tools/expansion-vessel" component={ExpansionVesselRoute} />
         <Route path="/tools/pump-head" component={PumpHeadRoute} />
 
+        <Route path="/platform/marketing-analytics" component={PlatformDashboardRoute} />
         <Route path="/platform" component={PlatformDashboardRoute} />
         <Route path="/platform/tenants/:id" component={PlatformTenantDetailRoute} />
         <Route path="/platform/tenants" component={PlatformTenantsRoute} />
