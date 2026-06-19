@@ -302,9 +302,10 @@ export default function WebsiteSetup() {
             href={liveUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-primary underline font-mono"
+            className="inline-flex items-center gap-1 text-sm text-primary underline font-mono"
           >
             {liveUrl.replace("https://", "")}
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
           </a>
         )}
         {pendingDomains.length > 0 && (
