@@ -34,6 +34,8 @@ import {
 const router: IRouter = Router();
 const db = supabaseAdmin as any; // new tables not yet in generated types
 const KNOWN_TEMPLATE_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
+const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
+const WEBSITE_ANALYTICS_CACHE_TTL_MS = 60_000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -685,11 +687,36 @@ router.get(
       return;
     }
 
+    const cacheKey = `${req.tenantId}:${website.id}`;
+    const cached = websiteAnalyticsCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < WEBSITE_ANALYTICS_CACHE_TTL_MS) {
+      res.set("Cache-Control", "private, max-age=60");
+      res.set("X-Cache", "HIT");
+      res.json(cached.data);
+      return;
+    }
+
     const now = new Date();
     const start30 = new Date(now);
     start30.setDate(start30.getDate() - 29);
+    const start30Iso = start30.toISOString();
 
-    const [{ data: pages }, { data: forms }, { data: submissions }, { data: websiteEnquiries }, { data: trafficEvents }] = await Promise.all([
+    const [
+      { data: pages },
+      { data: forms },
+      { data: submissions },
+      { data: submissionsLast30 },
+      { data: websiteEnquiries },
+      { count: totalSubmissionsCount },
+      { count: submissionsLast30Count },
+      { count: newCount },
+      { count: readCount },
+      { count: convertedCount },
+      { count: spamCount },
+      { count: leadsLast30Count },
+      { data: pageViewEvents },
+      { data: sessionEndEvents },
+    ] = await Promise.all([
       db
         .from("website_pages")
         .select("id, status")
@@ -705,6 +732,13 @@ router.get(
         .order("created_at", { ascending: false })
         .limit(2000) as Promise<{ data: Array<{ id: string; form_id: string; status: string; created_at: string; data: Record<string, unknown> }> | null }>,
       db
+        .from("website_form_submissions")
+        .select("created_at")
+        .eq("website_id", website.id)
+        .gte("created_at", start30Iso)
+        .order("created_at", { ascending: false })
+        .limit(5000) as Promise<{ data: Array<{ created_at: string }> | null }>,
+      db
         .from("enquiries")
         .select("id, source, created_at")
         .eq("tenant_id", req.tenantId)
@@ -712,21 +746,68 @@ router.get(
         .order("created_at", { ascending: false })
         .limit(2000) as Promise<{ data: Array<{ id: string; source: string; created_at: string }> | null }>,
       db
-        .from("website_traffic_events")
-        .select("event_type, session_id, visitor_id, path, referrer, session_elapsed_seconds, session_page_index, created_at")
+        .from("website_form_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("website_id", website.id),
+      db
+        .from("website_form_submissions")
+        .select("id", { count: "exact", head: true })
         .eq("website_id", website.id)
-        .gte("created_at", start30.toISOString())
+        .gte("created_at", start30Iso),
+      db
+        .from("website_form_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("website_id", website.id)
+        .eq("status", "new"),
+      db
+        .from("website_form_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("website_id", website.id)
+        .eq("status", "read"),
+      db
+        .from("website_form_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("website_id", website.id)
+        .eq("status", "converted"),
+      db
+        .from("website_form_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("website_id", website.id)
+        .eq("status", "spam"),
+      db
+        .from("enquiries")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", req.tenantId)
+        .in("source", ["website", "website_contact_form", "website_free_survey"])
+        .gte("created_at", start30Iso),
+      db
+        .from("website_traffic_events")
+        .select("session_id, visitor_id, path, referrer, created_at")
+        .eq("website_id", website.id)
+        .eq("event_type", "page_view")
+        .gte("created_at", start30Iso)
         .order("created_at", { ascending: false })
         .limit(50000) as Promise<{
           data: Array<{
-            event_type: string;
             session_id: string | null;
             visitor_id: string | null;
             path: string | null;
             referrer: string | null;
+            created_at: string;
+          }> | null;
+        }>,
+      db
+        .from("website_traffic_events")
+        .select("session_id, session_elapsed_seconds, session_page_index")
+        .eq("website_id", website.id)
+        .eq("event_type", "session_end")
+        .gte("created_at", start30Iso)
+        .order("created_at", { ascending: false })
+        .limit(20000) as Promise<{
+          data: Array<{
+            session_id: string | null;
             session_elapsed_seconds: number | null;
             session_page_index: number | null;
-            created_at: string;
           }> | null;
         }>,
     ]);
@@ -734,33 +815,25 @@ router.get(
     const pagesList = pages || [];
     const formsList = forms || [];
     const submissionList = submissions || [];
+    const submissionsLast30List = submissionsLast30 || [];
     const websiteLeadList = websiteEnquiries || [];
-    const trafficList = trafficEvents || [];
+    const pageViewList = pageViewEvents || [];
+    const sessionEndList = sessionEndEvents || [];
 
     const totalPages = pagesList.length;
     const publishedPages = pagesList.filter((p) => p.status === "published").length;
     const activeForms = formsList.filter((f) => f.is_active).length;
 
     const funnel = {
-      new: submissionList.filter((s) => s.status === "new").length,
-      read: submissionList.filter((s) => s.status === "read").length,
-      converted: submissionList.filter((s) => s.status === "converted").length,
-      spam: submissionList.filter((s) => s.status === "spam").length,
+      new: Number(newCount || 0),
+      read: Number(readCount || 0),
+      converted: Number(convertedCount || 0),
+      spam: Number(spamCount || 0),
     };
 
-    const totalSubmissions = submissionList.length;
+    const totalSubmissions = Number(totalSubmissionsCount || 0);
     const conversionRate = totalSubmissions > 0 ? Math.round((funnel.converted / totalSubmissions) * 1000) / 10 : 0;
-
-    const start30Ts = start30.getTime();
-    const submissionsLast30 = submissionList.filter((s) => {
-      const ts = new Date(s.created_at).getTime();
-      return Number.isFinite(ts) && ts >= start30Ts;
-    });
-
-    const leadsLast30 = websiteLeadList.filter((e) => {
-      const ts = new Date(e.created_at).getTime();
-      return Number.isFinite(ts) && ts >= start30Ts;
-    }).length;
+    const leadsLast30 = Number(leadsLast30Count || 0);
 
     const dailyMap = new Map<string, number>();
     for (let i = 0; i < 30; i++) {
@@ -769,7 +842,7 @@ router.get(
       const key = d.toISOString().slice(0, 10);
       dailyMap.set(key, 0);
     }
-    for (const s of submissionsLast30) {
+    for (const s of submissionsLast30List) {
       const key = new Date(s.created_at).toISOString().slice(0, 10);
       if (dailyMap.has(key)) dailyMap.set(key, (dailyMap.get(key) || 0) + 1);
     }
@@ -839,7 +912,7 @@ router.get(
       return "referral";
     };
 
-    for (const ev of trafficList) {
+    for (const ev of sessionEndList) {
       const sessionId = (ev.session_id || "").trim();
       if (sessionId) {
         const existing = sessionAgg.get(sessionId) || { elapsed_seconds: 0, page_count: 0 };
@@ -849,8 +922,18 @@ router.get(
         existing.page_count = Math.max(existing.page_count, pageCount);
         sessionAgg.set(sessionId, existing);
       }
+    }
 
-      if (ev.event_type !== "page_view") continue;
+    for (const ev of pageViewList) {
+      const sessionId = (ev.session_id || "").trim();
+      if (sessionId && !sessionAgg.has(sessionId)) {
+        sessionAgg.set(sessionId, { elapsed_seconds: 0, page_count: 0 });
+      }
+      if (sessionId) {
+        const existing = sessionAgg.get(sessionId) || { elapsed_seconds: 0, page_count: 0 };
+        existing.page_count += 1;
+        sessionAgg.set(sessionId, existing);
+      }
 
       pageViews += 1;
 
@@ -863,7 +946,7 @@ router.get(
       const channel = classifyChannel(ev.referrer || null);
       channelMap.set(channel, (channelMap.get(channel) || 0) + 1);
 
-      const key = new Date(ev.created_at).toISOString().slice(0, 10);
+      const key = new Date(String(ev.created_at)).toISOString().slice(0, 10);
       if (trafficDailyMap.has(key)) trafficDailyMap.set(key, (trafficDailyMap.get(key) || 0) + 1);
     }
 
@@ -885,13 +968,13 @@ router.get(
 
     const dailyTraffic = Array.from(trafficDailyMap.entries()).map(([date, count]) => ({ date, count }));
 
-    res.json({
+    const responseBody = {
       summary: {
         total_pages: totalPages,
         published_pages: publishedPages,
         active_forms: activeForms,
         total_submissions: totalSubmissions,
-        submissions_last_30_days: submissionsLast30.length,
+        submissions_last_30_days: Number(submissionsLast30Count || 0),
         website_leads_last_30_days: leadsLast30,
         conversion_rate_percent: conversionRate,
       },
@@ -911,7 +994,12 @@ router.get(
       traffic_channels: trafficChannels,
       source_breakdown: sourceBreakdown,
       recent_submissions: recentSubmissions,
-    });
+    };
+
+    websiteAnalyticsCache.set(cacheKey, { data: responseBody, ts: Date.now() });
+    res.set("Cache-Control", "private, max-age=60");
+    res.set("X-Cache", "MISS");
+    res.json(responseBody);
   }
 );
 
