@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, BarChart3, LineChart, Funnel, MessageSquare, Globe2, Target, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, BarChart3, LineChart, Funnel, MessageSquare, Globe2, Target, TrendingUp, CheckCircle2, Info } from "lucide-react";
 
 async function apiFetch(url: string) {
   const res = await fetch(url);
@@ -70,6 +71,25 @@ type AnalyticsResponse = {
 };
 
 type BenchmarkStatus = "green" | "amber" | "red";
+
+function SectionInfo({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+          aria-label="Section information"
+        >
+          <Info className="w-3.5 h-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function WebsiteAnalytics() {
   const { data, isLoading, isError, error } = useQuery<AnalyticsResponse>({
@@ -196,6 +216,7 @@ export default function WebsiteAnalytics() {
     {
       key: "visitors",
       label: "Unique Visitors (30d)",
+      description: "Distinct people who visited your website in the last 30 days. This is your top-of-funnel audience size.",
       valueLabel: `${trafficSummary.unique_visitors_last_30_days}`,
       status: benchmarkStatus(trafficSummary.unique_visitors_last_30_days, 300, 120),
       weight: 15,
@@ -204,6 +225,7 @@ export default function WebsiteAnalytics() {
     {
       key: "traffic_to_submission",
       label: "Traffic to Submission",
+      description: "Percentage of page views that turned into a form submission. This reflects how well traffic converts into enquiries.",
       valueLabel: `${trafficToSubmissionRate}%`,
       status: benchmarkStatus(trafficToSubmissionRate, 1.5, 0.8),
       weight: 20,
@@ -212,6 +234,7 @@ export default function WebsiteAnalytics() {
     {
       key: "visitor_to_lead",
       label: "Visitor to Lead",
+      description: "Percentage of unique visitors that became website leads. This helps judge visitor quality as well as conversion strength.",
       valueLabel: `${visitorToLeadRate}%`,
       status: benchmarkStatus(visitorToLeadRate, 2.0, 1.0),
       weight: 15,
@@ -220,6 +243,7 @@ export default function WebsiteAnalytics() {
     {
       key: "bounce",
       label: "Bounce Rate",
+      description: "Share of sessions where visitors left without meaningful further interaction. Lower is generally better.",
       valueLabel: `${trafficSummary.bounce_rate_percent}%`,
       status: benchmarkStatus(trafficSummary.bounce_rate_percent, 50, 65, true),
       weight: 15,
@@ -228,6 +252,7 @@ export default function WebsiteAnalytics() {
     {
       key: "pages_per_session",
       label: "Pages / Session",
+      description: "Average number of pages viewed in each session. Higher values suggest stronger exploration and engagement.",
       valueLabel: `${trafficSummary.pages_per_session}`,
       status: benchmarkStatus(trafficSummary.pages_per_session, 1.8, 1.4),
       weight: 10,
@@ -236,6 +261,7 @@ export default function WebsiteAnalytics() {
     {
       key: "follow_up",
       label: "Follow-up Progress",
+      description: "Percentage of submissions that moved beyond new into read or converted. This measures lead handling discipline.",
       valueLabel: `${followUpProgressRate}%`,
       status: benchmarkStatus(followUpProgressRate, 75, 50),
       weight: 15,
@@ -244,6 +270,7 @@ export default function WebsiteAnalytics() {
     {
       key: "published_coverage",
       label: "Published Page Coverage",
+      description: "Percentage of your total website pages that are live. Unpublished pages cannot attract traffic or leads.",
       valueLabel: `${publishedCoverageRate}%`,
       status: benchmarkStatus(publishedCoverageRate, 80, 50),
       weight: 10,
@@ -370,19 +397,19 @@ export default function WebsiteAnalytics() {
   };
 
   const stats = [
-    { label: "Submissions (30d)", value: summary.submissions_last_30_days, icon: MessageSquare },
-    { label: "Website Leads (30d)", value: summary.website_leads_last_30_days, icon: Globe2 },
-    { label: "Total Submissions", value: summary.total_submissions, icon: BarChart3 },
-    { label: "Conversion Rate", value: `${summary.conversion_rate_percent}%`, icon: Funnel },
+    { label: "Submissions (30d)", value: summary.submissions_last_30_days, icon: MessageSquare, description: "All form submissions received from your website in the last 30 days." },
+    { label: "Website Leads (30d)", value: summary.website_leads_last_30_days, icon: Globe2, description: "Leads attributed specifically to your website over the last 30 days." },
+    { label: "Total Submissions", value: summary.total_submissions, icon: BarChart3, description: "Lifetime submission volume recorded across your website forms." },
+    { label: "Conversion Rate", value: `${summary.conversion_rate_percent}%`, icon: Funnel, description: "Percentage of submissions that have been marked converted." },
   ];
 
   const trafficStats = [
-    { label: "Hits (30d)", value: trafficSummary.page_views_last_30_days, icon: BarChart3 },
-    { label: "Users (30d)", value: trafficSummary.unique_visitors_last_30_days, icon: Globe2 },
-    { label: "Sessions (30d)", value: trafficSummary.sessions_last_30_days, icon: LineChart },
-    { label: "Avg Time on Site", value: formatDuration(trafficSummary.avg_session_duration_seconds), icon: LineChart },
-    { label: "Bounce Rate", value: `${trafficSummary.bounce_rate_percent}%`, icon: Funnel },
-    { label: "Pages / Session", value: trafficSummary.pages_per_session, icon: BarChart3 },
+    { label: "Hits (30d)", value: trafficSummary.page_views_last_30_days, icon: BarChart3, description: "Total page-view events across the last 30 days." },
+    { label: "Users (30d)", value: trafficSummary.unique_visitors_last_30_days, icon: Globe2, description: "Distinct visitors who reached your site in the last 30 days." },
+    { label: "Sessions (30d)", value: trafficSummary.sessions_last_30_days, icon: LineChart, description: "Visits grouped into browsing sessions rather than individual page hits." },
+    { label: "Avg Time on Site", value: formatDuration(trafficSummary.avg_session_duration_seconds), icon: LineChart, description: "Average time visitors spend on your site before leaving." },
+    { label: "Bounce Rate", value: `${trafficSummary.bounce_rate_percent}%`, icon: Funnel, description: "Share of sessions where visitors leave quickly without deeper engagement." },
+    { label: "Pages / Session", value: trafficSummary.pages_per_session, icon: BarChart3, description: "Average number of pages viewed per visit." },
   ];
 
   return (
@@ -403,7 +430,7 @@ export default function WebsiteAnalytics() {
           <Card key={s.label}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-2">{s.label} <SectionInfo text={s.description} /></p>
                 <s.icon className="w-4 h-4 text-primary" />
               </div>
               <p className="text-2xl font-bold">{s.value}</p>
@@ -414,7 +441,7 @@ export default function WebsiteAnalytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Website Health Score</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Website Health Score <SectionInfo text="A blended score based on traffic, conversion, engagement and lead handling benchmarks so you can gauge overall website effectiveness quickly." /></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -435,7 +462,7 @@ export default function WebsiteAnalytics() {
       {healthHistory.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Website Health Trend (Weekly)</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Website Health Trend (Weekly) <SectionInfo text="Weekly snapshots of your website health score so you can see whether performance is improving or slipping over time." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-40 flex items-end gap-1">
@@ -458,7 +485,7 @@ export default function WebsiteAnalytics() {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Traffic to Submission</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">Traffic to Submission <SectionInfo text="Percentage of page views that became form submissions. This shows how well your site turns visits into enquiries." /></p>
             <p className="text-2xl font-bold">{trafficToSubmissionRate}%</p>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">Target: 1.5%+</p>
@@ -468,7 +495,7 @@ export default function WebsiteAnalytics() {
         </Card>
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Visitor to Lead</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">Visitor to Lead <SectionInfo text="Percentage of unique visitors who became leads. This is a stricter conversion measure than raw page views." /></p>
             <p className="text-2xl font-bold">{visitorToLeadRate}%</p>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">Target: 2.0%+</p>
@@ -478,7 +505,7 @@ export default function WebsiteAnalytics() {
         </Card>
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Submission Trend (7d)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">Submission Trend (7d) <SectionInfo text="Change in submission volume over the last 7 days compared with the previous 7-day period." /></p>
             <p className="text-2xl font-bold flex items-center gap-1">
               <TrendingUp className={`w-4 h-4 ${submissionTrend7d >= 0 ? "text-emerald-600" : "text-red-600"}`} />
               {submissionTrend7d >= 0 ? "+" : ""}{submissionTrend7d}%
@@ -488,7 +515,7 @@ export default function WebsiteAnalytics() {
         </Card>
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Follow-up Progress</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-2">Follow-up Progress <SectionInfo text="Share of total submissions that have moved beyond new into read or converted status." /></p>
             <p className="text-2xl font-bold">{followUpProgressRate}%</p>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">Read or converted submissions</p>
@@ -500,14 +527,14 @@ export default function WebsiteAnalytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Benchmark Overview</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">Benchmark Overview <SectionInfo text="Benchmark status for the main drivers of website performance, using target ranges to flag what is on track and what needs attention." /></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {benchmarkRows.map((row) => (
               <div key={row.key} className="border rounded-lg p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium">{row.label}</p>
+                  <p className="text-sm font-medium flex items-center gap-2">{row.label} <SectionInfo text={row.description} /></p>
                   {benchmarkBadge(row.status)}
                 </div>
                 <p className="text-lg font-bold mt-2">{row.valueLabel}</p>
@@ -520,7 +547,7 @@ export default function WebsiteAnalytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Target className="w-4 h-4" /> Focus Areas (What to Improve Next)</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Target className="w-4 h-4" /> Focus Areas (What to Improve Next) <SectionInfo text="The highest-priority improvement opportunities detected from your traffic, conversion, engagement and follow-up data." /></CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {topFocusAreas.length === 0 && (
@@ -548,7 +575,7 @@ export default function WebsiteAnalytics() {
       {positiveSignals.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Positive Signals</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Positive Signals <SectionInfo text="Areas where your website is already performing well, so you know what to preserve and build on." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -567,7 +594,7 @@ export default function WebsiteAnalytics() {
           <Card key={s.label}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-2">{s.label} <SectionInfo text={s.description} /></p>
                 <s.icon className="w-4 h-4 text-primary" />
               </div>
               <p className="text-2xl font-bold">{s.value}</p>
@@ -579,7 +606,7 @@ export default function WebsiteAnalytics() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><LineChart className="w-4 h-4" /> Daily Submissions (Last 30 Days)</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><LineChart className="w-4 h-4" /> Daily Submissions (Last 30 Days) <SectionInfo text="Day-by-day submission volume for the last 30 days so you can spot spikes, dips and patterns." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-48 flex items-end gap-1">
@@ -599,7 +626,7 @@ export default function WebsiteAnalytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Submission Funnel</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Submission Funnel <SectionInfo text="How submissions are distributed across statuses such as new, read, converted and spam." /></CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {[
@@ -629,7 +656,7 @@ export default function WebsiteAnalytics() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><LineChart className="w-4 h-4" /> Daily Traffic (Last 30 Days)</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><LineChart className="w-4 h-4" /> Daily Traffic (Last 30 Days) <SectionInfo text="Day-by-day website traffic over the last 30 days, based on recorded page hits." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-48 flex items-end gap-1">
@@ -649,7 +676,7 @@ export default function WebsiteAnalytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top Forms</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Top Forms <SectionInfo text="Forms ranked by submission activity so you can see which lead capture points are performing best." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -669,7 +696,7 @@ export default function WebsiteAnalytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Lead Sources</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Lead Sources <SectionInfo text="Where website leads are coming from, based on the captured source attribution on submissions." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -688,7 +715,7 @@ export default function WebsiteAnalytics() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Traffic Channels</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Traffic Channels <SectionInfo text="How visitors are finding your website, such as direct, search, social or referrals." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -705,7 +732,7 @@ export default function WebsiteAnalytics() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top Pages by Hits</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Top Pages by Hits <SectionInfo text="Your most-visited pages, helping identify which content attracts the most traffic." /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -723,7 +750,7 @@ export default function WebsiteAnalytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recent Submissions</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">Recent Submissions <SectionInfo text="Most recent website enquiries, including their status and contact details when captured." /></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
