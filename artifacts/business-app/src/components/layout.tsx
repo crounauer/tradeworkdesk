@@ -177,18 +177,19 @@ export function Layout({ children }: { children: ReactNode }) {
 
     const automationNavItems: typeof websiteNavItems = [];
 
-  // Bottom utility links (reports, tools, help)
+  // Bottom utility links — Tools only; Reports/Support/Help moved to header bar
   const utilityNavItems = [
-    { href: "/reports", label: "Reports", icon: FileBarChart, roles: ['admin', 'office_staff', 'super_admin'] as string[] },
-    { href: supportHref, label: "Support", icon: MessageSquare },
     { href: "/tools", label: "Tools", icon: Wrench },
-    { href: "/help", label: "Help & Guide", icon: HelpCircle },
   ];
 
   const visibleNavItems = workNavItems; // kept for any remaining references
   const visibleUtilityItems = utilityNavItems.filter(item =>
     !item.roles || (profile && item.roles.includes(profile.role))
   );
+
+  // Header bar: website link + reports/support/help for non-superadmin tenant users
+  const tenantWebsiteUrl = companySettings?.website || null;
+  const showHeaderBar = !isSuperAdmin;
 
   const openEnquiryCount = enquiryCountData?.count || 0;
 
@@ -491,6 +492,43 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
+
+        {/* ── Tenant header bar ───────────────────────────────────────────── */}
+        {showHeaderBar && (
+          <div className="hidden md:flex items-center justify-end gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
+            {hasWebsiteBuilder && tenantWebsiteUrl && (
+              <a
+                href={tenantWebsiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <Globe2 className="w-3.5 h-3.5" />
+                My Website
+              </a>
+            )}
+            {(profile?.role === 'admin' || profile?.role === 'office_staff') && (
+              <Link href="/reports">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                  <FileBarChart className="w-3.5 h-3.5" />
+                  Reports
+                </button>
+              </Link>
+            )}
+            <Link href={supportHref}>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                <MessageSquare className="w-3.5 h-3.5" />
+                Support
+              </button>
+            </Link>
+            <Link href="/help">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                <HelpCircle className="w-3.5 h-3.5" />
+                User Guide
+              </button>
+            </Link>
+          </div>
+        )}
 
         {isReadOnlySupportMode && (
           <div className="border-b-4 border-red-600 bg-red-50 px-4 py-3.5 flex flex-col gap-3 text-sm text-red-900">
