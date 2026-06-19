@@ -1357,7 +1357,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
 }
 
 export default function EnquiryDetail() {
-  const { hasFeature, loading } = usePlanFeatures();
+  const { hasFeature, isLoading: loading } = usePlanFeatures();
   if (loading) return <div className="p-8">Loading...</div>;
   if (!hasFeature("job_management")) return <UpgradePrompt feature="Enquiry Tracking" />;
   return <EnquiryDetailContent />;

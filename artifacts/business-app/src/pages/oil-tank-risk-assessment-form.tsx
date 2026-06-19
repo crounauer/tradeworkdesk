@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ShieldAlert, TriangleAlert, Scale, FileDown } from "lucide-react";
+import { ArrowLeft, ShieldAlert, TriangleAlert, Scale, FileDown, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -30,13 +30,16 @@ interface RiskAssessmentFormData {
 export default function OilTankRiskAssessmentForm() {
   const { jobId } = useParams<{ jobId: string }>();
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
 
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetOilTankRiskAssessmentByJob(jobId!);
   const queryClient = useQueryClient();
   const createMutation = useCreateOilTankRiskAssessment();
   const updateMutation = useUpdateOilTankRiskAssessment();
+  const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { register, handleSubmit, reset } = useForm<RiskAssessmentFormData>();
   const populatedAt = useRef(0);

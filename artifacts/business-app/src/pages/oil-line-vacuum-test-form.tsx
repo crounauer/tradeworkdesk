@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Pipette, Timer, CheckCircle, FileDown } from "lucide-react";
+import { ArrowLeft, Pipette, Timer, CheckCircle, FileDown, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 

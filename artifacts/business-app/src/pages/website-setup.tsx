@@ -65,6 +65,7 @@ export default function WebsiteSetup() {
   const qc = useQueryClient();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const { data: website, isLoading: websiteLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],

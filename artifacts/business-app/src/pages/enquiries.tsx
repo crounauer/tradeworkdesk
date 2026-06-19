@@ -500,8 +500,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
 }
 
 export default function Enquiries() {
-  const { hasFeature, loading } = usePlanFeatures();
-  if (loading) return <div className="p-8">Loading...</div>;
+  const { hasFeature, isLoading } = usePlanFeatures();
+  if (isLoading) return <div className="p-8">Loading...</div>;
   if (!hasFeature("job_management")) return <UpgradePrompt feature="Enquiry Tracking" />;
   return <EnquiriesContent />;
 }

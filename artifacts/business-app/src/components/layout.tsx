@@ -227,8 +227,8 @@ export function Layout({ children }: { children: ReactNode }) {
     return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
   };
 
-  const renderStorageIndicator = (mobile?: boolean) => {
-    const storage = homepageData?.storage;
+  const renderStorageIndicator = (_mobile?: boolean) => {
+    const storage = (homepageData as any)?.storage;
     if (!storage || !isAdmin || isSuperAdmin) return null;
     return (
       <div className={cn(mobile ? "pt-3 mt-2" : "pt-4 mt-3", "border-t border-border/50")}>
@@ -447,7 +447,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && renderSection("More", utilityNavItems.filter(item => !item.roles || (profile && item.roles.includes(profile.role))), () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && utilityNavItems.length > 0 && renderSection("More", utilityNavItems, () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 px-4">
