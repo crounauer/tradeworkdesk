@@ -168,11 +168,14 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const websiteNavItems = hasWebsiteBuilder ? [
     { href: "/website", label: "My Website", icon: Globe2 },
-      { href: "/booking", label: "Online Booking", icon: CalendarCheck },
-      { href: "/review-requests", label: "Review Requests", icon: Star },
-      { href: "/maintenance", label: "Maintenance Plans", icon: ShieldPlus },
-      { href: "/campaigns", label: "Email Campaigns", icon: MailOpen },
-      { href: "/missed-call", label: "Missed Call Text-Back", icon: PhoneCall },
+  ] : [];
+
+  const blocksNavItems = hasWebsiteBuilder ? [
+    { href: "/booking", label: "Online Booking", icon: CalendarCheck },
+    { href: "/review-requests", label: "Review Requests", icon: Star },
+    { href: "/maintenance", label: "Maintenance Plans", icon: ShieldPlus },
+    { href: "/campaigns", label: "Email Campaigns", icon: MailOpen },
+    { href: "/missed-call", label: "Missed Call Text-Back", icon: PhoneCall },
   ] : [];
 
     const automationNavItems: typeof websiteNavItems = [];
@@ -231,8 +234,8 @@ export function Layout({ children }: { children: ReactNode }) {
     const storage = (homepageData as any)?.storage;
     if (!storage || !isAdmin || isSuperAdmin) return null;
     return (
-      <div className={cn(mobile ? "pt-3 mt-2" : "pt-4 mt-3", "border-t border-border/50")}>
-        <div className={cn("flex items-center gap-2.5 rounded-xl text-sm", mobile ? "px-4 py-2" : "px-3 py-2")}>
+      <div className={cn(_mobile ? "pt-3 mt-2" : "pt-4 mt-3", "border-t border-border/50")}>
+        <div className={cn("flex items-center gap-2.5 rounded-xl text-sm", _mobile ? "px-4 py-2" : "px-3 py-2")}> 
           <HardDrive className="w-4 h-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground">Storage</p>
@@ -330,6 +333,8 @@ export function Layout({ children }: { children: ReactNode }) {
           {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems)}
 
           {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
+
+          {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems)}
 
           {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems)}
 
@@ -445,6 +450,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
+            {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
             {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && utilityNavItems.length > 0 && renderSection("More", utilityNavItems, () => setIsMobileMenuOpen(false), true)}

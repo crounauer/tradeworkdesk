@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
   ExternalLink, ChevronRight, Loader2, Eye, Zap, Trash2, LayoutTemplate, CheckCircle2,
+  CalendarCheck, Star, ShieldPlus, MailOpen, PhoneCall,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -334,6 +335,17 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/blog" icon={<FileText className="w-5 h-5" />} title="Blog" description="Write and publish blog posts" />
         <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your custom domain" />
         <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
+      </div>
+
+      <div>
+        <h2 className="text-base font-semibold mb-3">Blocks</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <QuickCard href="/booking" icon={<CalendarCheck className="w-5 h-5" />} title="Online Booking" description="Set up appointment booking" />
+          <QuickCard href="/review-requests" icon={<Star className="w-5 h-5" />} title="Review Requests" description="Request and manage reviews" />
+          <QuickCard href="/maintenance" icon={<ShieldPlus className="w-5 h-5" />} title="Maintenance Plans" description="Manage plan tiers and subscriptions" />
+          <QuickCard href="/campaigns" icon={<MailOpen className="w-5 h-5" />} title="Email Campaigns" description="Create and send email campaigns" />
+          <QuickCard href="/missed-call" icon={<PhoneCall className="w-5 h-5" />} title="Missed Call Text-Back" description="Configure automatic missed-call replies" />
+        </div>
       </div>
 
       {/* Template selector */}
