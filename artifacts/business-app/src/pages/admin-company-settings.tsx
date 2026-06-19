@@ -286,8 +286,15 @@ export default function AdminCompanySettings() {
       website_enquiry_email_notify: settings.website_enquiry_email_notify ?? true,
       website_enquiry_sms_notify: settings.website_enquiry_sms_notify ?? false,
     });
-    if (settings.logo_url) setLogoPreview(settings.logo_url);
+    setLogoPreview(settings.logo_url ?? null);
   }, [settings, reset]);
+
+  // Keep preview in sync with persisted settings after refetches.
+  useEffect(() => {
+    if (!uploadLogo.isPending) {
+      setLogoPreview(settings?.logo_url ?? null);
+    }
+  }, [settings?.logo_url, uploadLogo.isPending]);
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
   const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
@@ -421,6 +428,8 @@ export default function AdminCompanySettings() {
     );
   }
 
+  const displayedLogo = logoPreview || settings?.logo_url || null;
+
   return (
     <>
     <div className="space-y-6 max-w-3xl">
@@ -486,10 +495,10 @@ export default function AdminCompanySettings() {
             }}
             onClick={() => fileInputRef.current?.click()}
           >
-            {logoPreview ? (
+            {displayedLogo ? (
               <div className="flex flex-col items-center gap-3">
                 <img
-                  src={logoPreview}
+                  src={displayedLogo}
                   alt="Company logo"
                   className="max-h-24 max-w-xs object-contain rounded"
                 />
@@ -514,8 +523,9 @@ export default function AdminCompanySettings() {
               e.target.value = "";
             }}
           />
-          {logoPreview && (
+          {displayedLogo && (
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className="text-destructive hover:text-destructive"
