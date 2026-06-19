@@ -34,6 +34,8 @@ interface PublicPlan {
 }
 
 export default function Register() {
+  type FieldKey = "betaCode" | "inviteCode" | "fullName" | "email" | "password" | "confirmPassword";
+
   const [mode, setMode] = useState<RegisterMode>(() => getCodeFromUrl() ? "invite" : "company");
   const [step, setStep] = useState(1);
 
@@ -61,9 +63,31 @@ export default function Register() {
   const [betaError, setBetaError] = useState("");
   const [betaValidating, setBetaValidating] = useState(false);
   const [betaLockedEmail, setBetaLockedEmail] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
 
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  const setFieldError = (field: FieldKey, message: string) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field: FieldKey) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const showMissingFieldsToast = (fields: string[]) => {
+    toast({
+      title: "Please complete required fields",
+      description: fields.join(", "),
+      variant: "destructive",
+    });
+  };
 
   const { data: trialInfo } = useQuery({
     queryKey: ["trial-info"],
@@ -166,6 +190,32 @@ export default function Register() {
 
   async function handleInviteSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const missing: string[] = [];
+    if (!code.trim()) {
+      missing.push("Invite Code");
+      setFieldError("inviteCode", "Invite code is required.");
+    }
+    if (!fullName.trim()) {
+      missing.push("Full Name");
+      setFieldError("fullName", "Full name is required.");
+    }
+    if (!email.trim()) {
+      missing.push("Email Address");
+      setFieldError("email", "Email address is required.");
+    }
+    if (!password) {
+      missing.push("Password");
+      setFieldError("password", "Password is required.");
+    }
+    if (!confirmPassword) {
+      missing.push("Confirm Password");
+      setFieldError("confirmPassword", "Please confirm your password.");
+    }
+    if (missing.length > 0) {
+      showMissingFieldsToast(missing);
+      return;
+    }
+
     if (!codeResult?.valid) { toast({ title: "Valid invite code required", variant: "destructive" }); return; }
     if (password !== confirmPassword) { toast({ title: "Passwords do not match", variant: "destructive" }); return; }
     if (password.length < 8) { toast({ title: "Password must be at least 8 characters", variant: "destructive" }); return; }
@@ -210,7 +260,33 @@ export default function Register() {
 
   async function handleCompanySubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!betaValid) { toast({ title: "A valid beta invite code is required", variant: "destructive" }); return; }
+    const missing: string[] = [];
+    if (!betaCode.trim()) {
+      missing.push("Beta Invite Code");
+      setFieldError("betaCode", "Beta invite code is required.");
+    }
+    if (!fullName.trim()) {
+      missing.push("Your Full Name");
+      setFieldError("fullName", "Full name is required.");
+    }
+    if (!email.trim()) {
+      missing.push("Email Address");
+      setFieldError("email", "Email address is required.");
+    }
+    if (!password) {
+      missing.push("Password");
+      setFieldError("password", "Password is required.");
+    }
+    if (!confirmPassword) {
+      missing.push("Confirm Password");
+      setFieldError("confirmPassword", "Please confirm your password.");
+    }
+    if (missing.length > 0) {
+      showMissingFieldsToast(missing);
+      return;
+    }
+
+    if (!betaValid) { toast({ title: "Beta Invite Code is invalid", variant: "destructive" }); return; }
     const effectiveCompanyName = companyName || fullName;
     if (!effectiveCompanyName) { toast({ title: "Company name is required", variant: "destructive" }); return; }
     if (password !== confirmPassword) { toast({ title: "Passwords do not match", variant: "destructive" }); return; }
@@ -252,7 +328,30 @@ export default function Register() {
     technician: "Technician",
   };
 
-  const canAdvanceStep1 = betaValid === true && (companyName.trim().length > 0 || fullName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
+  const validateCompanyDetailsStep = () => {
+    const missing: string[] = [];
+    if (!betaCode.trim()) {
+      missing.push("Beta Invite Code");
+      setFieldError("betaCode", "Beta invite code is required.");
+    }
+    if (!fullName.trim()) {
+      missing.push("Your Full Name");
+      setFieldError("fullName", "Full name is required.");
+    }
+    if (!email.trim()) {
+      missing.push("Email Address");
+      setFieldError("email", "Email address is required.");
+    }
+    if (missing.length > 0) {
+      showMissingFieldsToast(missing);
+      return false;
+    }
+    if (!betaValid) {
+      toast({ title: "Beta Invite Code is invalid", variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
 
   const PRODUCT_META: Record<Product, { icon: React.ReactNode; defaultLabel: string; tagline: string; features: string[] }> = {
     tradeworkdesk: {
@@ -391,10 +490,10 @@ export default function Register() {
           <div className="relative">
             <Input
               value={betaCode}
-              onChange={(e) => { setBetaCode(e.target.value); setBetaValid(null); setBetaError(""); }}
+              onChange={(e) => { setBetaCode(e.target.value); setBetaValid(null); setBetaError(""); clearFieldError("betaCode"); }}
               onBlur={() => validateBetaCode(betaCode)}
               placeholder="e.g. BETA-A1B2C3D4"
-              className={`font-mono uppercase pr-10 ${betaValid === true ? "border-emerald-400 focus-visible:ring-emerald-300" : betaError ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
+              className={`font-mono uppercase pr-10 ${(betaValid === true ? "border-emerald-400 focus-visible:ring-emerald-300" : betaError ? "border-destructive focus-visible:ring-destructive/30" : "")} ${fieldErrors.betaCode ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
               required
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -408,6 +507,7 @@ export default function Register() {
               Valid beta code{betaLockedEmail ? ` — locked to ${betaLockedEmail}` : ""}
             </p>
           )}
+          {fieldErrors.betaCode && <p className="text-xs text-destructive">{fieldErrors.betaCode}</p>}
           {betaError && <p className="text-xs text-destructive">{betaError}</p>}
           {betaValid === null && !betaError && !betaValidating && (
             <p className="text-xs text-muted-foreground">
@@ -438,10 +538,10 @@ export default function Register() {
               <div className="relative">
                 <Input
                   value={code}
-                  onChange={e => { setCode(e.target.value); setCodeResult(null); setCodeError(""); }}
+                  onChange={e => { setCode(e.target.value); setCodeResult(null); setCodeError(""); clearFieldError("inviteCode"); }}
                   onBlur={() => validateCode(code)}
                   placeholder="e.g. A1B2C3D4E5"
-                  className={`font-mono uppercase pr-10 ${codeResult?.valid ? "border-emerald-400 focus-visible:ring-emerald-300" : codeError ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
+                  className={`font-mono uppercase pr-10 ${(codeResult?.valid ? "border-emerald-400 focus-visible:ring-emerald-300" : codeError ? "border-destructive focus-visible:ring-destructive/30" : "")} ${fieldErrors.inviteCode ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
                   required
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -453,23 +553,28 @@ export default function Register() {
               {codeResult?.valid && (
                 <p className="text-xs text-emerald-600 font-medium">Valid — you'll be registered as <strong>{ROLE_LABELS[codeResult.role] ?? codeResult.role}</strong></p>
               )}
+              {fieldErrors.inviteCode && <p className="text-xs text-destructive">{fieldErrors.inviteCode}</p>}
               {codeError && <p className="text-xs text-destructive">{codeError}</p>}
             </div>
             <div className="space-y-2">
               <Label>Full Name</Label>
-              <Input placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required />
+              <Input placeholder="Jane Smith" value={fullName} onChange={e => { setFullName(e.target.value); clearFieldError("fullName"); }} className={fieldErrors.fullName ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+              {fieldErrors.fullName && <p className="text-xs text-destructive">{fieldErrors.fullName}</p>}
             </div>
             <div className="space-y-2">
               <Label>Email Address</Label>
-              <Input type="email" placeholder="jane@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+              <Input type="email" placeholder="jane@example.com" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+              {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required />
+              <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => { setPassword(e.target.value); clearFieldError("password"); }} className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+              {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
             </div>
             <div className="space-y-2">
               <Label>Confirm Password</Label>
-              <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+              <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }} className={fieldErrors.confirmPassword ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+              {fieldErrors.confirmPassword && <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>}
             </div>
             <Button type="submit" className="w-full h-12 text-base mt-2" disabled={loading || !codeResult?.valid}>
               {loading ? "Creating account..." : "Create Account"}
@@ -530,7 +635,8 @@ export default function Register() {
                 </p>
                 <div className="space-y-2">
                   <Label>Your Full Name</Label>
-                  <Input placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                  <Input placeholder="Jane Smith" value={fullName} onChange={e => { setFullName(e.target.value); clearFieldError("fullName"); }} className={fieldErrors.fullName ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                  {fieldErrors.fullName && <p className="text-xs text-destructive">{fieldErrors.fullName}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Business / Trading Name <span className="text-xs text-muted-foreground">(defaults to your name if left blank)</span></Label>
@@ -539,7 +645,8 @@ export default function Register() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Email Address</Label>
-                    <Input type="email" placeholder="jane@company.com" value={email} onChange={e => setEmail(e.target.value)} required readOnly={!!betaLockedEmail} />
+                    <Input type="email" placeholder="jane@company.com" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive/30" : ""} required readOnly={!!betaLockedEmail} />
+                    {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Phone (optional)</Label>
@@ -550,7 +657,10 @@ export default function Register() {
                   <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(1)}>
                     <ArrowLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
-                  <Button className="flex-1 h-12 text-base" disabled={!canAdvanceStep1} onClick={() => setStep(signupPath === "subscribe" ? 3 : 3)}>
+                  <Button className="flex-1 h-12 text-base" onClick={() => {
+                    if (!validateCompanyDetailsStep()) return;
+                    setStep(signupPath === "subscribe" ? 3 : 3);
+                  }}>
                     Next: Credentials <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -625,11 +735,13 @@ export default function Register() {
                 </div>
                 <div className="space-y-2">
                   <Label>Password</Label>
-                  <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required />
+                  <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => { setPassword(e.target.value); clearFieldError("password"); }} className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                  {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Confirm Password</Label>
-                  <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                  <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }} className={fieldErrors.confirmPassword ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                  {fieldErrors.confirmPassword && <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>}
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" className="flex-1 h-12" type="button" onClick={() => setStep(signupPath === "trial" ? 2 : 3)}>
