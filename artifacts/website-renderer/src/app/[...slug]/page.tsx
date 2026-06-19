@@ -68,6 +68,10 @@ export default async function DynamicPage({ params }: PageProps) {
         page={page}
         theme={siteTheme}
         tenantId={site.website.tenant_id}
+        companyContact={{
+          phone: site.company?.phone || null,
+          email: site.company?.email || null,
+        }}
       />
     </TemplateLayout>
   );

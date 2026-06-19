@@ -82,6 +82,10 @@ export default async function HomePage() {
         page={homePage}
         theme={siteTheme}
         tenantId={site.website.tenant_id}
+        companyContact={{
+          phone: site.company?.phone || null,
+          email: site.company?.email || null,
+        }}
       />
     </TemplateLayout>
   );

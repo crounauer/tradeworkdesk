@@ -50,16 +50,22 @@ interface Props {
   theme?: Record<string, string>;
   /** Tenant ID — injected into blocks that need it (e.g. online_booking) */
   tenantId?: string;
+  /** Company contact fallback values */
+  companyContact?: { phone?: string | null; email?: string | null };
 }
 
-export default function BlockRenderer({ block, websiteId, theme, tenantId }: Props) {
+export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact }: Props) {
   // Merge site theme as low-priority defaults so per-block overrides still win.
   const siteAccent = theme?.accent_color;
   const base = siteAccent ? { accent_color: siteAccent } : {};
+  const companyBase = {
+    phone: companyContact?.phone ?? undefined,
+    email: companyContact?.email ?? undefined,
+  };
   // Inject tenantId for blocks that need to call public APIs
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
   const websiteOverride = websiteId ? { website_id: websiteId } : {};
-  const content = { ...base, ...tenantOverride, ...websiteOverride, ...(block.content as Record<string, unknown>) };
+  const content = { ...base, ...companyBase, ...tenantOverride, ...websiteOverride, ...(block.content as Record<string, unknown>) };
 
   switch (block.block_type) {
     case "hero":

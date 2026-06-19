@@ -763,6 +763,10 @@ function buildModernHomeBlocks(cs: CompanyData, formId: string): Array<{ block_t
         outer_background: "#f0fdfb",
         accent_color: "#0d9488",
         areas: [city, ...(county && county !== city ? [county] : [])],
+        phone: phone || undefined,
+        email: email || undefined,
+        contact_url: "#contact",
+        booking_url: "/booking",
         cta_text: "Check Your Postcode",
         cta_url: "#contact",
       },
@@ -1181,7 +1185,7 @@ function buildModernReviewsBlocks(cs: CompanyData, formId: string): Array<{ bloc
 }
 
 function buildModernAreasBlocks(cs: CompanyData, formId: string): Array<{ block_type: string; content: Record<string, unknown> }> {
-  const { tradeName, city, county, phone, locationText } = cs;
+  const { tradeName, city, county, phone, email, locationText } = cs;
   const areaList = [city, ...(county && county !== city ? [county] : [])];
   return [
     {
@@ -1207,6 +1211,10 @@ function buildModernAreasBlocks(cs: CompanyData, formId: string): Array<{ block_
         outer_background: "#f0fdfb",
         accent_color: "#0d9488",
         areas: areaList,
+        phone: phone || undefined,
+        email: email || undefined,
+        contact_url: "#contact",
+        booking_url: "/booking",
         cta_text: "Check Your Postcode",
         cta_url: "#contact",
       },

@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const API_BASE =
+  typeof process !== "undefined"
+    ? process.env.NEXT_PUBLIC_API_BASE_URL || "https://tradeworkdesk-api.fly.dev"
+    : "https://tradeworkdesk-api.fly.dev";
 
 interface Props {
   content: {
@@ -10,6 +15,10 @@ interface Props {
     areas?: string[];
     body_text?: string;
     phone?: string;
+    email?: string;
+    tenant_id?: string;
+    booking_url?: string;
+    contact_url?: string;
     cta_text?: string;
     cta_url?: string;
     website_id?: string;
@@ -27,6 +36,10 @@ export default function AreasBlock({ content }: Props) {
     areas = [],
     body_text,
     phone,
+    email,
+    tenant_id,
+    booking_url,
+    contact_url,
     cta_text,
     cta_url,
     website_id,
@@ -39,6 +52,7 @@ export default function AreasBlock({ content }: Props) {
   const [checking, setChecking] = useState(false);
   const [coverage, setCoverage] = useState<{ covered: boolean | null; reason?: string | null; distance_miles?: number; radius_miles?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [bookingAvailable, setBookingAvailable] = useState(false);
 
   const isTealCard = background_color.startsWith("#0") || background_color.startsWith("#1") || background_color === "#0d9488";
   const cardText = isTealCard ? "#ffffff" : "#111827";
@@ -49,6 +63,33 @@ export default function AreasBlock({ content }: Props) {
   const ctaColor = isTealCard ? accent_color : "#ffffff";
 
   const hasChecker = useMemo(() => Boolean(website_id), [website_id]);
+  const canShowCoveredActions = Boolean(coverage?.covered);
+  const contactHref = contact_url || cta_url || "#contact";
+  const bookingHref = booking_url || "/booking";
+
+  useEffect(() => {
+    if (!canShowCoveredActions || !tenant_id) {
+      setBookingAvailable(false);
+      return;
+    }
+
+    let active = true;
+    fetch(`${API_BASE}/api/public/booking/${tenant_id}/services`)
+      .then(async (r) => {
+        if (!r.ok) return [] as Array<Record<string, unknown>>;
+        return (await r.json()) as Array<Record<string, unknown>>;
+      })
+      .then((services) => {
+        if (active) setBookingAvailable(Array.isArray(services) && services.length > 0);
+      })
+      .catch(() => {
+        if (active) setBookingAvailable(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canShowCoveredActions, tenant_id]);
 
   const checkPostcode = async () => {
     const cleaned = postcode.trim().toUpperCase().replace(/\s+/g, "");
@@ -159,6 +200,90 @@ export default function AreasBlock({ content }: Props) {
                   <span> {coverage.distance_miles} miles away from the centre, with a {coverage.radius_miles} mile radius.</span>
                 )}
               </p>
+            )}
+
+            {canShowCoveredActions && (
+              <div
+                style={{
+                  marginTop: 14,
+                  borderRadius: 10,
+                  padding: "14px 16px",
+                  background: isTealCard ? "rgba(16,185,129,0.18)" : "#ecfdf5",
+                  border: isTealCard ? "1px solid rgba(16,185,129,0.35)" : "1px solid #86efac",
+                }}
+              >
+                <p style={{ margin: 0, fontWeight: 700, color: cardText, fontSize: "0.95rem" }}>
+                  Great news, we can help in your area.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 10 }}>
+                  {phone && (
+                    <a
+                      href={`tel:${phone.replace(/\s/g, "")}`}
+                      style={{
+                        display: "inline-block",
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                        fontWeight: 700,
+                        fontSize: "0.86rem",
+                        background: ctaBg,
+                        color: ctaColor,
+                      }}
+                    >
+                      Call {phone}
+                    </a>
+                  )}
+                  {email && (
+                    <a
+                      href={`mailto:${email}`}
+                      style={{
+                        display: "inline-block",
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                        fontWeight: 700,
+                        fontSize: "0.86rem",
+                        background: ctaBg,
+                        color: ctaColor,
+                      }}
+                    >
+                      Email us
+                    </a>
+                  )}
+                  <a
+                    href={contactHref}
+                    style={{
+                      display: "inline-block",
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      textDecoration: "none",
+                      fontWeight: 700,
+                      fontSize: "0.86rem",
+                      background: ctaBg,
+                      color: ctaColor,
+                    }}
+                  >
+                    Contact form
+                  </a>
+                  {bookingAvailable && (
+                    <a
+                      href={bookingHref}
+                      style={{
+                        display: "inline-block",
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                        fontWeight: 700,
+                        fontSize: "0.86rem",
+                        background: ctaBg,
+                        color: ctaColor,
+                      }}
+                    >
+                      Book online
+                    </a>
+                  )}
+                </div>
+              </div>
             )}
 
             {coverage && coverage.covered === null && coverage.reason && (
