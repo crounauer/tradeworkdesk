@@ -111,9 +111,40 @@ export default function PlatformDashboard() {
     onError: (e) => toast({ title: "Failed to send", description: e.message, variant: "destructive" }),
   });
 
-  const maxSignups = Math.max(1, ...(signupData || []).map((d: { count: number }) => d.count));
-  const marketingDaily = (marketingData?.daily || []) as Array<{ date: string; signups: number; paid_conversions: number }>;
-  const marketingSource = (marketingData?.source_breakdown_last_30_days || []) as Array<{ source: string; count: number }>;
+  const safeSignupData = Array.isArray(signupData)
+    ? signupData.filter((d): d is { month: string; count: number } => !!d && typeof d.month === "string" && typeof d.count === "number")
+    : [];
+
+  const safeRecentAudit = Array.isArray(recentAudit)
+    ? recentAudit.filter((entry): entry is { id: string; event_type: string; actor_email: string; created_at: string; detail?: Record<string, unknown> } => {
+      return !!entry && typeof entry.id === "string" && typeof entry.event_type === "string" && typeof entry.actor_email === "string" && typeof entry.created_at === "string";
+    })
+    : [];
+
+  const safeMarketingData = marketingData && typeof marketingData === "object" ? marketingData as Record<string, unknown> : {};
+  const safeMarketingSummary = (safeMarketingData.summary && typeof safeMarketingData.summary === "object")
+    ? safeMarketingData.summary as Record<string, unknown>
+    : {};
+  const safeMarketingDaily = Array.isArray(safeMarketingData.daily)
+    ? safeMarketingData.daily.filter((d): d is { date: string; signups: number; paid_conversions: number } => {
+      return !!d && typeof d.date === "string" && typeof d.signups === "number" && typeof d.paid_conversions === "number";
+    })
+    : [];
+  const safeMarketingSource = Array.isArray(safeMarketingData.source_breakdown_last_30_days)
+    ? safeMarketingData.source_breakdown_last_30_days.filter((d): d is { source: string; count: number } => !!d && typeof d.source === "string" && typeof d.count === "number")
+    : [];
+  const safeMarketingRecentSignups = Array.isArray(safeMarketingData.recent_signups)
+    ? safeMarketingData.recent_signups.filter((s): s is { id: string; company_name: string; source: string; status: string; created_at: string; converted: boolean } => {
+      return !!s && typeof s.id === "string" && typeof s.source === "string" && typeof s.status === "string" && typeof s.created_at === "string";
+    })
+    : [];
+  const safeMarketingBetaInvites = (safeMarketingData.beta_invites && typeof safeMarketingData.beta_invites === "object")
+    ? safeMarketingData.beta_invites as Record<string, unknown>
+    : {};
+
+  const maxSignups = Math.max(1, ...safeSignupData.map((d) => d.count));
+  const marketingDaily = safeMarketingDaily;
+  const marketingSource = safeMarketingSource;
   const maxMarketingDaily = Math.max(1, ...marketingDaily.map((d) => Math.max(d.signups || 0, d.paid_conversions || 0)));
   const maxMarketingSource = Math.max(1, ...marketingSource.map((d) => d.count || 0));
 
@@ -199,11 +230,11 @@ export default function PlatformDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!signupData || signupData.length === 0 ? (
+            {safeSignupData.length === 0 ? (
               <p className="text-sm text-muted-foreground">No data available</p>
             ) : (
               <div className="flex items-end gap-1 h-40">
-                {signupData.map((d: { month: string; count: number }) => (
+                {safeSignupData.map((d) => (
                   <div key={d.month} className="flex-1 flex flex-col items-center gap-1">
                     <span className="text-xs font-medium text-muted-foreground">{d.count > 0 ? d.count : ""}</span>
                     <div
@@ -247,11 +278,11 @@ export default function PlatformDashboard() {
             <CardTitle className="text-base">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            {!recentAudit || recentAudit.length === 0 ? (
+            {safeRecentAudit.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent activity</p>
             ) : (
               <div className="space-y-3">
-                {recentAudit.slice(0, 8).map((entry: { id: string; event_type: string; actor_email: string; created_at: string; detail?: Record<string, unknown> }) => (
+                {safeRecentAudit.slice(0, 8).map((entry) => (
                   <div key={entry.id} className="flex items-start gap-3 text-sm">
                     <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -323,8 +354,8 @@ export default function PlatformDashboard() {
               <UserPlus className="w-4 h-4" />
               Sign-ups (30d)
             </div>
-            <p className="text-2xl font-bold">{marketingData?.summary?.signups_last_30_days ?? 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">{marketingData?.summary?.signups_last_7_days ?? 0} in last 7 days</p>
+            <p className="text-2xl font-bold">{Number(safeMarketingSummary.signups_last_30_days ?? 0)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{Number(safeMarketingSummary.signups_last_7_days ?? 0)} in last 7 days</p>
           </CardContent>
         </Card>
         <Card>
@@ -333,8 +364,8 @@ export default function PlatformDashboard() {
               <Target className="w-4 h-4" />
               Paid Conversions (30d)
             </div>
-            <p className="text-2xl font-bold">{marketingData?.summary?.paid_conversions_last_30_days ?? 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">{marketingData?.summary?.paid_conversions_last_7_days ?? 0} in last 7 days</p>
+            <p className="text-2xl font-bold">{Number(safeMarketingSummary.paid_conversions_last_30_days ?? 0)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{Number(safeMarketingSummary.paid_conversions_last_7_days ?? 0)} in last 7 days</p>
           </CardContent>
         </Card>
         <Card>
@@ -343,7 +374,7 @@ export default function PlatformDashboard() {
               <BarChart3 className="w-4 h-4" />
               Signup to Paid Rate
             </div>
-            <p className="text-2xl font-bold">{marketingData?.summary?.signup_to_paid_rate_last_30_days_percent ?? 0}%</p>
+            <p className="text-2xl font-bold">{Number(safeMarketingSummary.signup_to_paid_rate_last_30_days_percent ?? 0)}%</p>
             <p className="text-xs text-muted-foreground mt-1">Trailing 30 day conversion rate</p>
           </CardContent>
         </Card>
@@ -353,8 +384,8 @@ export default function PlatformDashboard() {
               <CheckCircle2 className="w-4 h-4" />
               Beta Invite Use Rate
             </div>
-            <p className="text-2xl font-bold">{marketingData?.summary?.beta_invite_acceptance_rate_percent ?? 0}%</p>
-            <p className="text-xs text-muted-foreground mt-1">{marketingData?.summary?.active_codes ?? 0} active of {marketingData?.summary?.total_codes ?? 0} codes</p>
+            <p className="text-2xl font-bold">{Number(safeMarketingSummary.beta_invite_acceptance_rate_percent ?? 0)}%</p>
+            <p className="text-xs text-muted-foreground mt-1">{Number(safeMarketingSummary.active_codes ?? 0)} active of {Number(safeMarketingSummary.total_codes ?? 0)} codes</p>
           </CardContent>
         </Card>
       </div>
@@ -423,11 +454,11 @@ export default function PlatformDashboard() {
             <CardTitle className="text-base">Recent Marketing Sign-ups</CardTitle>
           </CardHeader>
           <CardContent>
-            {!marketingData?.recent_signups || marketingData.recent_signups.length === 0 ? (
+            {safeMarketingRecentSignups.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent sign-ups</p>
             ) : (
               <div className="space-y-3">
-                {(marketingData.recent_signups as Array<{ id: string; company_name: string; source: string; status: string; created_at: string; converted: boolean }>).map((signup) => (
+                {safeMarketingRecentSignups.map((signup) => (
                   <div key={signup.id} className="flex items-center justify-between gap-3 text-sm">
                     <div className="min-w-0">
                       <p className="font-medium truncate">{signup.company_name || "Untitled company"}</p>
@@ -450,20 +481,20 @@ export default function PlatformDashboard() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Created (30 days)</span>
-              <span className="font-semibold">{marketingData?.beta_invites?.created_last_30_days ?? 0}</span>
+              <span className="font-semibold">{Number(safeMarketingBetaInvites.created_last_30_days ?? 0)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Used</span>
-              <span className="font-semibold">{marketingData?.beta_invites?.total_uses ?? 0}</span>
+              <span className="font-semibold">{Number(safeMarketingBetaInvites.total_uses ?? 0)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Capacity</span>
-              <span className="font-semibold">{marketingData?.beta_invites?.total_capacity ?? 0}</span>
+              <span className="font-semibold">{Number(safeMarketingBetaInvites.total_capacity ?? 0)}</span>
             </div>
             <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full bg-emerald-500"
-                style={{ width: `${Math.min(100, Math.max(0, Number(marketingData?.summary?.beta_invite_acceptance_rate_percent || 0)))}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, Number(safeMarketingSummary.beta_invite_acceptance_rate_percent || 0)))}%` }}
               />
             </div>
             <p className="text-xs text-muted-foreground">Utilization of issued beta capacity</p>
