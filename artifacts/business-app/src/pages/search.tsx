@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGlobalSearch } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
-import { Search as SearchIcon, Users, Home, Flame, Briefcase } from "lucide-react";
+import { Search as SearchIcon, Users, Home, Briefcase, Wrench } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 function SearchContent() {
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialQuery = params.get("q") || "";
+    setQuery(initialQuery);
+  }, []);
+
   const { data, isLoading } = useGlobalSearch(
     { q: query || "  " },
   );
@@ -16,13 +23,14 @@ function SearchContent() {
   const totalResults =
     (data?.customers?.length || 0) +
     (data?.properties?.length || 0) +
+    (data?.appliances?.length || 0) +
     (data?.jobs?.length || 0);
 
   return (
     <div className="space-y-6 animate-in fade-in">
       <div>
         <h1 className="text-3xl font-display font-bold">Search</h1>
-        <p className="text-muted-foreground mt-1">Find customers, properties, and jobs</p>
+        <p className="text-muted-foreground mt-1">Find customers, properties, appliances, and jobs</p>
       </div>
 
       <div className="flex items-center relative max-w-xl">
@@ -102,6 +110,25 @@ function SearchContent() {
                               {j.status?.replace("_", " ")}
                             </span>
                           </div>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {data?.appliances && data.appliances.length > 0 && (
+                <div>
+                  <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-amber-500" /> Appliances ({data.appliances.length})
+                  </h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {data.appliances.map((a) => (
+                      <Link key={a.id} href={`/properties/${a.property_id}`}>
+                        <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+                          <p className="font-bold">{a.manufacturer || "Appliance"} {a.model || ""}</p>
+                          <p className="text-sm text-muted-foreground">{a.serial_number || "No serial number"}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{a.property_address || ""}</p>
                         </Card>
                       </Link>
                     ))}

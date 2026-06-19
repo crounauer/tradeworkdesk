@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useCallback } from "react";
+import { FormEvent, ReactNode, useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -21,10 +21,11 @@ import { useOffline } from "@/contexts/offline-context";
 import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { profile, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState("");
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem("dismissed_announcements");
@@ -132,7 +133,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const customerNavItems = hasJobManagement ? [
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
-    { href: "/search", label: "Search", icon: Search },
   ] : [];
 
   // Legacy alias used in some render paths
@@ -179,6 +179,14 @@ export function Layout({ children }: { children: ReactNode }) {
   const showHeaderBar = !isSuperAdmin;
 
   const openEnquiryCount = enquiryCountData?.count || 0;
+
+  const handleHeaderSearchSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = headerSearch.trim();
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    navigate(`/search${params.toString() ? `?${params.toString()}` : ""}`);
+  }, [headerSearch, navigate]);
 
   const renderNavLink = (item: { href: string; label: string; icon: React.ElementType }, onClick?: () => void, mobile?: boolean) => {
     const isActive = item.href === "/" 
@@ -485,7 +493,19 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* ── Tenant header bar ───────────────────────────────────────────── */}
         {showHeaderBar && (
-          <div className="hidden md:flex items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
+          <div className="hidden md:flex items-center gap-3 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
+            {hasJobManagement && (
+              <form onSubmit={handleHeaderSearchSubmit} className="relative w-full max-w-md mr-2">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="search"
+                  value={headerSearch}
+                  onChange={(e) => setHeaderSearch(e.target.value)}
+                  placeholder="Search customers, properties, appliances, jobs..."
+                  className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </form>
+            )}
             {hasWebsiteBuilder && (
               <Link href="/website">
                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
