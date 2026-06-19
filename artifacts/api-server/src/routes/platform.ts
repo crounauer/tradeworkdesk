@@ -1904,6 +1904,32 @@ router.post("/platform/website-templates/:id/status", requireAuth, requireSuperA
   await updateWebsiteTemplateStatus(id, is_active, res);
 });
 
+// Compatibility endpoint for clients posting directly to /:id.
+router.post("/platform/website-templates/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { is_active } = req.body as { is_active?: boolean };
+
+  if (typeof is_active !== "boolean") {
+    res.status(400).json({ error: "is_active must be a boolean" });
+    return;
+  }
+
+  await updateWebsiteTemplateStatus(id, is_active, res);
+});
+
+// Compatibility endpoint for clients patching /:id/status.
+router.patch("/platform/website-templates/:id/status", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { is_active } = req.body as { is_active?: boolean };
+
+  if (typeof is_active !== "boolean") {
+    res.status(400).json({ error: "is_active must be a boolean" });
+    return;
+  }
+
+  await updateWebsiteTemplateStatus(id, is_active, res);
+});
+
 const TEMPLATE_ASSET_BUCKET = "website-template-assets";
 
 const templateAssetUpload = multer({

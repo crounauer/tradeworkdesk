@@ -230,17 +230,28 @@ export default function PlatformTemplates() {
 
   const toggleTemplateMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/website-templates/${id}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ is_active }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to update template" }));
-        throw new Error(err.error || "Failed to update template");
+      const endpoints = [
+        { url: `${import.meta.env.BASE_URL}api/platform/website-templates/${id}/status`, method: "POST" },
+        { url: `${import.meta.env.BASE_URL}api/platform/website-templates/${id}`, method: "POST" },
+        { url: `${import.meta.env.BASE_URL}api/platform/website-templates/${id}`, method: "PATCH" },
+        { url: `${import.meta.env.BASE_URL}api/platform/website-templates/${id}/status`, method: "PATCH" },
+      ] as const;
+
+      let lastError = "Failed to update template";
+      for (const ep of endpoints) {
+        const res = await fetch(ep.url, {
+          method: ep.method,
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ is_active }),
+        });
+
+        if (res.ok) return res.json();
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        lastError = err.error || `HTTP ${res.status}`;
       }
-      return res.json();
+
+      throw new Error(lastError);
     },
     onSuccess: (updated: WebsiteTemplate) => {
       qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] });
