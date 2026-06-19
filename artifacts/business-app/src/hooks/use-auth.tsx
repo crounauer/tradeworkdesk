@@ -25,6 +25,20 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function setAdminSessionCookie(active: boolean) {
+  if (typeof document === "undefined") return;
+
+  const isProdDomain = window.location.hostname.endsWith("tradeworkdesk.co.uk");
+  const domainPart = isProdDomain ? "; domain=.tradeworkdesk.co.uk" : "";
+  const securePart = window.location.protocol === "https:" ? "; secure" : "";
+
+  if (active) {
+    document.cookie = `twd_admin_session=1; path=/; max-age=28800; samesite=lax${securePart}${domainPart}`;
+  } else {
+    document.cookie = `twd_admin_session=; path=/; max-age=0; samesite=lax${securePart}${domainPart}`;
+  }
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
     promise,
@@ -101,6 +115,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(sessionTimeout);
         setSession(session);
         setUser(session?.user ?? null);
+        setAdminSessionCookie(!!session);
         if (session && !hasPrefetched.current) {
           hasPrefetched.current = true;
           prefetchCriticalData(queryClient);
@@ -122,6 +137,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (event === "SIGNED_OUT") {
+        setAdminSessionCookie(false);
         hasPrefetched.current = false;
         // queryClient.clear(); // disabled - causing refetch loop
         setMfaPending(false);
@@ -129,6 +145,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (event === "SIGNED_IN") {
+        setAdminSessionCookie(true);
         // queryClient.removeQueries({ queryKey: ["me-init"] }); // disabled
         hasPrefetched.current = false;
         prefetchCriticalData(queryClient);
@@ -169,6 +186,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = () => {
     supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    setAdminSessionCookie(false);
 
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith("sb-")) {

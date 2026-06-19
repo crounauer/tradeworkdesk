@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { SitePage } from "@/lib/api";
 
-const EDIT_MODE_STORAGE_KEY = "twd_admin_edit_mode";
+const ADMIN_SESSION_COOKIE = "twd_admin_session=1";
 
 function normalizeSlug(value: string): string {
   if (!value || value === "/") return "/";
@@ -28,17 +28,8 @@ export default function AdminEditPageButton({ pages, appBaseUrl }: { pages: Site
 
   useEffect(() => {
     const mode = searchParams.get("twd_edit");
-    if (mode === "1") {
-      localStorage.setItem(EDIT_MODE_STORAGE_KEY, "1");
-      setEditModeEnabled(true);
-      return;
-    }
-    if (mode === "0") {
-      localStorage.removeItem(EDIT_MODE_STORAGE_KEY);
-      setEditModeEnabled(false);
-      return;
-    }
-    setEditModeEnabled(localStorage.getItem(EDIT_MODE_STORAGE_KEY) === "1");
+    const hasAdminSession = document.cookie.includes(ADMIN_SESSION_COOKIE);
+    setEditModeEnabled(mode === "1" && hasAdminSession);
   }, [searchParams]);
 
   const page = useMemo(() => resolvePageForPath(pathname || "/", pages), [pathname, pages]);
