@@ -223,6 +223,17 @@ function applyServiceOptionsToBlocks(blocks: Record<string, unknown>[], serviceO
       return { ...field, options: serviceOptions };
     });
 
+    const hasServiceField = nextFields.some((field) => field.name === "service" && field.type === "select");
+    if (!hasServiceField) {
+      nextFields.push({
+        name: "service",
+        label: "Service required",
+        type: "select",
+        required: true,
+        options: serviceOptions,
+      });
+    }
+
     return { ...block, content: { ...content, fields: nextFields } };
   });
 }
@@ -1292,6 +1303,37 @@ router.patch(
     const { id } = req.params;
     const { auto_create_enquiry, notify_email, name, is_active, fields } = req.body as Record<string, unknown>;
 
+    const { data: existingForm } = await db
+      .from("website_forms")
+      .select("id, tenant_id, website_id")
+      .eq("id", id)
+      .maybeSingle() as { data: { id: string; tenant_id: string | null; website_id: string | null } | null };
+
+    if (!existingForm) {
+      res.status(404).json({ error: "Form not found" });
+      return;
+    }
+
+    const isOwnedByTenant = existingForm.tenant_id
+      ? existingForm.tenant_id === req.tenantId
+      : false;
+
+    let isOwnedByTenantWebsite = false;
+    if (!isOwnedByTenant && existingForm.website_id) {
+      const { data: ownedWebsite } = await db
+        .from("websites")
+        .select("id")
+        .eq("id", existingForm.website_id)
+        .eq("tenant_id", req.tenantId)
+        .maybeSingle() as { data: { id: string } | null };
+      isOwnedByTenantWebsite = Boolean(ownedWebsite);
+    }
+
+    if (!isOwnedByTenant && !isOwnedByTenantWebsite) {
+      res.status(404).json({ error: "Form not found" });
+      return;
+    }
+
     const updates: Record<string, unknown> = {};
     if (typeof auto_create_enquiry === "boolean") updates.auto_create_enquiry = auto_create_enquiry;
     if (notify_email !== undefined) updates.notify_email = notify_email || null;
@@ -1303,7 +1345,6 @@ router.patch(
       .from("website_forms")
       .update(updates)
       .eq("id", id)
-      .eq("tenant_id", req.tenantId)
       .select("id, name, form_type, fields, notify_email, auto_create_enquiry, is_active, created_at")
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
