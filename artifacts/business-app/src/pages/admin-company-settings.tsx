@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
+import BillingPage from "@/pages/billing";
 
 // ─── GoCardless section (embedded in Payments tab) ───────────────────────────
 
@@ -167,16 +168,16 @@ export default function AdminCompanySettings() {
   const [activeTab, setActiveTab] = useState(() => {
     const p = new URLSearchParams(searchString);
     const tab = p.get("tab") ?? "profile";
-    if (["billing", "invoicing", "payments"].includes(tab)) return "finance";
+    if (["plans", "billing", "invoicing", "payments"].includes(tab)) return "finance";
     return tab;
   });
-  const [financeTab, setFinanceTab] = useState<"billing" | "invoicing" | "payments">(() => {
+  const [financeTab, setFinanceTab] = useState<"plans" | "billing" | "invoicing" | "payments">(() => {
     const p = new URLSearchParams(searchString);
     const legacy = p.get("tab");
     const sub = p.get("financeTab");
-    if (sub === "billing" || sub === "invoicing" || sub === "payments") return sub;
-    if (legacy === "billing" || legacy === "invoicing" || legacy === "payments") return legacy;
-    return "billing";
+    if (sub === "plans" || sub === "billing" || sub === "invoicing" || sub === "payments") return sub;
+    if (legacy === "plans" || legacy === "billing" || legacy === "invoicing" || legacy === "payments") return legacy;
+    return "plans";
   });
 
   // Handle GoCardless OAuth callbacks redirected back here
@@ -891,14 +892,19 @@ export default function AdminCompanySettings() {
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-6 pt-4">
-            <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "billing" | "invoicing" | "payments")}>
+            <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "plans" | "billing" | "invoicing" | "payments")}>
               <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="plans">Plans</TabsTrigger>
                   <TabsTrigger value="billing">Billing</TabsTrigger>
                   <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
                   <TabsTrigger value="payments">Payments</TabsTrigger>
                 </TabsList>
               </div>
+
+              <TabsContent value="plans" className="space-y-6 pt-4">
+                <BillingPage />
+              </TabsContent>
 
               <TabsContent value="billing" className="space-y-6 pt-4">
                 {/* Accounting Integrations */}

@@ -127,7 +127,6 @@ const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
 const FollowUps = lazyRetry(() => import("@/pages/follow-ups"));
 const SchedulePage = lazyRetry(() => import("@/pages/schedule"));
 const LeaveHolidaysPage = lazyRetry(() => import("@/pages/leave-holidays"));
-const Billing = lazyRetry(() => import("@/pages/billing"));
 const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
 const NotFound = lazyRetry(() => import("@/pages/not-found"));
 const Todos = lazyRetry(() => import("@/pages/todos"));
@@ -412,7 +411,6 @@ const AdminJobTypesRoute = protectFeature(AdminJobTypes, "job_management", ["adm
 const AdminInvoiceLogRoute = protect(AdminInvoiceLog, ["admin", "office_staff"]);
 const AdminStripeConnectRoute = protect(AdminStripeConnect, ["admin"]);
 const AdminPaymentProvidersRoute = protect(AdminPaymentProviders, ["admin"]);
-const BillingRoute = protect(Billing);
 const AccountRoute = protect(AccountSettings);
 const TodosRoute = protect(Todos);
 const InvoicesRoute = protectFeature(Invoices, "job_management");
@@ -563,7 +561,7 @@ function AppRouter() {
         <Route path="/admin/stripe-connect" component={AdminStripeConnectRoute} />
         <Route path="/admin/payment-providers" component={AdminPaymentProvidersRoute} />
 
-        <Route path="/billing" component={BillingRoute} />
+        <Route path="/billing">{() => <Redirect to="/admin/company-settings?tab=finance&financeTab=plans" />}</Route>
         <Route path="/account" component={AccountRoute} />
         <Route path="/todos" component={TodosRoute} />
         <Route path="/invoices" component={InvoicesRoute} />

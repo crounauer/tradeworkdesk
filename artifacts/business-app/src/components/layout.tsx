@@ -145,7 +145,7 @@ export function Layout({ children }: { children: ReactNode }) {
       { href: "/admin/users", label: "Team", icon: ShieldCheck },
     ] : []),
     ...(hasJobManagement ? [{ href: "/admin/job-types", label: "Job Types", icon: ListTree }] : []),
-    { href: "/admin/company-settings?tab=finance&financeTab=billing", label: "Finance", icon: CreditCard },
+    { href: "/admin/company-settings?tab=finance&financeTab=plans", label: "Finance", icon: CreditCard },
   ];
 
   const platformNavItems = [
