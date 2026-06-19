@@ -17,6 +17,7 @@ type TenantIndexNowResult = {
 type TenantIndexNowResponse = {
   success: boolean;
   submitted: number;
+  urls: string[];
   hostsSucceeded: number;
   hostsFailed: number;
   results: TenantIndexNowResult[];
@@ -114,7 +115,7 @@ export default function WebsiteIndexNow() {
               {lastResult.submitted} URLs submitted. {lastResult.hostsSucceeded} domain(s) succeeded, {lastResult.hostsFailed} failed.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {lastResult.results.map((item) => (
               <div key={item.host} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                 <div className="min-w-0">
@@ -128,6 +129,21 @@ export default function WebsiteIndexNow() {
                 )}
               </div>
             ))}
+
+            {lastResult.urls.length > 0 && (
+              <div className="rounded-md border bg-slate-50 p-3">
+                <p className="text-xs font-medium text-slate-700 mb-2">Last submitted URLs ({lastResult.urls.length})</p>
+                <ul className="max-h-56 overflow-y-auto space-y-1 text-xs">
+                  {lastResult.urls.map((url) => (
+                    <li key={url}>
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline break-all">
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

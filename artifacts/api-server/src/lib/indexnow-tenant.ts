@@ -13,6 +13,7 @@ type TenantIndexNowResult = {
 type TenantIndexNowResponse = {
   success: boolean;
   submitted: number;
+  urls: string[];
   hostsSucceeded: number;
   hostsFailed: number;
   results: TenantIndexNowResult[];
@@ -51,7 +52,7 @@ function dedupe<T>(items: T[]): T[] {
 export async function submitTenantIndexNow(tenantId: string): Promise<TenantIndexNowResponse> {
   const key = process.env.INDEXNOW_KEY;
   if (!key) {
-    return { success: false, submitted: 0, hostsSucceeded: 0, hostsFailed: 1, results: [], error: "INDEXNOW_KEY not configured" };
+    return { success: false, submitted: 0, urls: [], hostsSucceeded: 0, hostsFailed: 1, results: [], error: "INDEXNOW_KEY not configured" };
   }
 
   const { data: website } = await db
@@ -61,7 +62,7 @@ export async function submitTenantIndexNow(tenantId: string): Promise<TenantInde
     .maybeSingle() as { data: { id: string } | null };
 
   if (!website) {
-    return { success: false, submitted: 0, hostsSucceeded: 0, hostsFailed: 1, results: [], error: "No website found for this tenant" };
+    return { success: false, submitted: 0, urls: [], hostsSucceeded: 0, hostsFailed: 1, results: [], error: "No website found for this tenant" };
   }
 
   const [domainsRes, pagesRes, postsRes] = await Promise.all([
@@ -89,6 +90,7 @@ export async function submitTenantIndexNow(tenantId: string): Promise<TenantInde
     return {
       success: false,
       submitted: 0,
+      urls: [],
       hostsSucceeded: 0,
       hostsFailed: 1,
       results: [],
@@ -104,7 +106,7 @@ export async function submitTenantIndexNow(tenantId: string): Promise<TenantInde
     || activeDomains[0]?.domain;
 
   if (!selectedHost) {
-    return { success: false, submitted: 0, hostsSucceeded: 0, hostsFailed: 1, results: [], error: "No active website domain found to submit" };
+    return { success: false, submitted: 0, urls: [], hostsSucceeded: 0, hostsFailed: 1, results: [], error: "No active website domain found to submit" };
   }
 
   const pagePaths = ((pagesRes.data ?? []) as Array<{ slug: string; page_type: string; no_index: boolean | null }>)
@@ -120,7 +122,7 @@ export async function submitTenantIndexNow(tenantId: string): Promise<TenantInde
 
   const uniquePaths = dedupe(["/", ...pagePaths, ...blogPaths]);
   if (uniquePaths.length === 0) {
-    return { success: false, submitted: 0, hostsSucceeded: 0, hostsFailed: 1, results: [], error: "No published website URLs found to submit" };
+    return { success: false, submitted: 0, urls: [], hostsSucceeded: 0, hostsFailed: 1, results: [], error: "No published website URLs found to submit" };
   }
 
   const urlList = uniquePaths.map((path) => (path === "/" ? `https://${selectedHost}` : `https://${selectedHost}${path}`));
@@ -138,6 +140,7 @@ export async function submitTenantIndexNow(tenantId: string): Promise<TenantInde
     return {
       success: result.success,
       submitted: result.submitted,
+      urls: urlList,
       hostsSucceeded: result.success ? 1 : 0,
       hostsFailed: result.success ? 0 : 1,
       results: [result],
@@ -147,6 +150,7 @@ export async function submitTenantIndexNow(tenantId: string): Promise<TenantInde
     return {
       success: false,
       submitted: urlList.length,
+      urls: urlList,
       hostsSucceeded: 0,
       hostsFailed: 1,
       results: [{ host: selectedHost, submitted: urlList.length, upstreamStatus: 500, success: false, upstreamBody: String(err) }],
