@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import {
   ChevronDown, ChevronRight, BookOpen, Rocket, Users,
   Briefcase, CalendarDays, Receipt, CreditCard, ShieldCheck,
-  UserCog, HelpCircle, CheckCircle2, Wrench, Settings2, Share2,
+  UserCog, HelpCircle, CheckCircle2, Wrench, Settings2, Share2, Globe2, Megaphone,
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ const sections: HelpSection[] = [
         q: "What should I do first?",
         a: (
           <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+            <li>Open <strong>Getting Started</strong> (left sidebar, above Dashboard) and work through each phase</li>
             <li>Go to <strong>Admin → Company Settings</strong> and fill in your business details</li>
             <li>Add your first <strong>Customer</strong> (Customers menu)</li>
             <li>Add a <strong>Property</strong> for that customer</li>
@@ -40,8 +41,12 @@ const sections: HelpSection[] = [
         ),
       },
       {
+        q: "Where is the full onboarding checklist?",
+        a: "Use Getting Started in the left sidebar. It is a launch plan covering setup, operations, payments, website launch, analytics and optimisation with direct links to each page.",
+      },
+      {
         q: "How do I invite my team?",
-        a: "Go to Admin → Invite Codes. Generate an invite code and share the link with your engineers or office staff. They sign up using that code and are automatically linked to your company.",
+        a: "Go to Admin → Invite Codes. Generate an invite code and share the link with your engineers or office staff. They sign up using that code and are automatically linked to your company. Team membership and assignability are managed in Admin → Company Settings → Team.",
       },
       {
         q: "What is the difference between Admin, Office Staff, and Technician roles?",
@@ -49,7 +54,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "How do I set up my company logo and details?",
-        a: "Go to Admin → Company Settings. You can upload a logo, set your company name, address, phone and email. These appear on invoices sent to your customers.",
+        a: "Go to Admin → Company Settings → Profile. You can upload a logo, set company/contact details, registrations, website links, notification emails, and invoicing defaults.",
       },
     ],
   },
@@ -142,6 +147,10 @@ const sections: HelpSection[] = [
         q: "What service record forms are available?",
         a: "Boiler Service Record, Breakdown Report, Commissioning Record, Oil Tank Inspection, Oil Tank Risk Assessment, Combustion Analysis, Burner Setup, Fire Valve Test, Oil Line Vacuum Test, Job Completion Report, Heat Pump Service, Heat Pump Commissioning.",
       },
+      {
+        q: "Where do files and signatures sit?",
+        a: "Each job includes dedicated Files and Signatures tabs. Upload compliance photos/documents and capture customer sign-off in the same record.",
+      },
     ],
   },
   {
@@ -161,6 +170,10 @@ const sections: HelpSection[] = [
       {
         q: "How does online payment work?",
         a: "Once you have connected Stripe (card payments) or GoCardless (direct debit) in Admin → Payment Providers, a Pay Now button appears on the invoice email and in the customer portal. When the customer pays, the invoice is automatically marked as paid.",
+      },
+      {
+        q: "Where are plans, add-ons and credits managed now?",
+        a: "Go to Admin → Company Settings → Finance. Plans and Add-ons are split into dedicated tabs, and usage credits show remaining balances from day one with top-up options.",
       },
       {
         q: "Where can I see all unpaid invoices?",
@@ -216,6 +229,60 @@ const sections: HelpSection[] = [
         q: "How do I remove a team member?",
         a: "Go to Admin → Team. Find the user and deactivate their account. Their historical jobs and records are kept.",
       },
+      {
+        q: "Where is assignment control handled?",
+        a: "Per-user assignment is controlled in Admin → Company Settings → Team using the Can be assigned jobs toggle in the team member table.",
+      },
+    ],
+  },
+  {
+    id: "website-growth",
+    title: "Website, Leads & Analytics",
+    icon: Globe2,
+    color: "text-cyan-700 bg-cyan-50",
+    roles: ["admin", "office_staff", "super_admin"],
+    items: [
+      {
+        q: "Which website pages should I use first?",
+        a: "Use Website Setup, Website Pages, Page Editor, Domain, and Website Settings. Publish once your pages/forms/branding are complete.",
+      },
+      {
+        q: "What does Analytics now include?",
+        a: "Analytics includes lead/form metrics plus real website traffic: hits, unique users, sessions, average time on site, bounce rate, pages per session, top pages, traffic channels, and daily traffic trend.",
+      },
+      {
+        q: "Where do website leads appear in operations?",
+        a: "Website form submissions feed into Enquiries (source-tagged), so office workflows and website lead follow-up are connected.",
+      },
+      {
+        q: "How do I manage website blog and AI writing?",
+        a: "Use Website → Blog for post management and AI writing helpers. Track related usage credits in Finance → Add-ons / Credits.",
+      },
+    ],
+  },
+  {
+    id: "growth-automation",
+    title: "Growth & Automation",
+    icon: Megaphone,
+    color: "text-fuchsia-700 bg-fuchsia-50",
+    roles: ["admin", "office_staff", "super_admin"],
+    items: [
+      {
+        q: "What growth modules are available?",
+        a: "Review Requests, Email Campaigns, Missed Call settings, Booking setup, and Social Media publishing are all available from the main navigation / admin area.",
+      },
+      {
+        q: "How do social media connections work?",
+        a: "Use Admin → Social Media to connect platform APIs (X, Facebook, Instagram, Google Business), then create and schedule posts from the Social page.",
+      },
+      {
+        q: "How do bookings connect into job workflow?",
+        a: "Configure services/slots in Booking Setup. Incoming bookings flow into your operational pipeline so office staff can confirm and schedule jobs.",
+      },
+      {
+        q: "What about maintenance plans?",
+        a: "Maintenance Plans helps track recurring service obligations and drives proactive customer follow-up.",
+      },
     ],
   },
   {
@@ -230,7 +297,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "How do I manage my subscription?",
-        a: "Go to Billing in the sidebar. You can see your current plan, usage, and upgrade or change your plan.",
+        a: "Go to Admin → Company Settings → Finance. You can manage plan, add-ons, usage credits and payment setup from one place.",
       },
       {
         q: "The app seems outdated or not showing new features. What should I do?",
@@ -488,10 +555,16 @@ export default function HelpPage() {
             <Rocket className="w-4 h-4" /> Quick Start Checklist
           </h2>
           <div className="space-y-2">
+            <Link href="/getting-started" className="flex items-center gap-2.5 text-sm text-primary hover:underline">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              Open comprehensive Getting Started guide
+            </Link>
             {[
               { label: "Set up company profile", href: "/admin/company-settings" },
               { label: "Add your first customer", href: "/customers" },
               { label: "Book your first job", href: "/jobs" },
+              { label: "Launch website basics", href: "/website" },
+              { label: "Check traffic and lead analytics", href: "/website/analytics" },
               { label: "Set up payment provider (optional)", href: "/admin/payment-providers" },
               { label: "Invite your team (optional)", href: "/admin/invite-codes" },
             ].map((item) => (

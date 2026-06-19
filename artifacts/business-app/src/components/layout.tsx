@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye,
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye, Rocket,
   BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -120,6 +120,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   // ── Work: core day-to-day items ──────────────────────────────────────────
   const workNavItems = hasJobManagement ? [
+    { href: "/getting-started", label: "Getting Started", icon: Rocket },
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },

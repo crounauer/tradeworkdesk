@@ -139,6 +139,7 @@ const Todos = lazyRetry(() => import("@/pages/todos"));
 const Invoices = lazyRetry(() => import("@/pages/invoices"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
 const HelpPage = lazyRetry(() => import("@/pages/help"));
+const GettingStartedPage = lazyRetry(() => import("@/pages/getting-started"));
 const SupportTicketsPage = lazyRetry(() => import("@/pages/support-tickets"));
 const PlatformSupportTicketsPage = lazyRetry(() => import("@/pages/platform-support-tickets"));
 
@@ -422,6 +423,7 @@ const TodosRoute = protect(Todos);
 const InvoicesRoute = protectFeature(Invoices, "job_management");
 const InvoiceDetailRoute = protectFeature(InvoiceDetail, "job_management");
 const HelpRoute = protect(HelpPage);
+const GettingStartedRoute = protect(GettingStartedPage);
 const SupportTicketsRoute = protect(SupportTicketsPage);
 const WebsiteSetupRoute = protectFeature(WebsiteSetup, "website_builder");
 const WebsitePagesRoute = protectFeature(WebsitePages, "website_builder");
@@ -573,6 +575,7 @@ function AppRouter() {
         <Route path="/todos" component={TodosRoute} />
         <Route path="/invoices" component={InvoicesRoute} />
         <Route path="/invoices/:id" component={InvoiceDetailRoute} />
+          <Route path="/getting-started" component={GettingStartedRoute} />
         <Route path="/help" component={HelpRoute} />
   <Route path="/support" component={SupportTicketsRoute} />
 
