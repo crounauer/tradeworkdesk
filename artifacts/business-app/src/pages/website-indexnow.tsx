@@ -73,7 +73,7 @@ export default function WebsiteIndexNow() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">IndexNow</h1>
-          <p className="text-sm text-muted-foreground">Submit your published website URLs to search engines for faster indexing.</p>
+          <p className="text-sm text-muted-foreground">Manual submission only. This does not auto-submit when pages are added or changed.</p>
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export default function WebsiteIndexNow() {
             {submitMutation.isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
             ) : (
-              <><Globe className="w-4 h-4 mr-2" />Submit Website URLs</>
+              <><Globe className="w-4 h-4 mr-2" />Manual Submit Website URLs</>
             )}
           </Button>
           {!website && (
