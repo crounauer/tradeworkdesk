@@ -84,7 +84,7 @@ export default function WebsiteIndexNow() {
             Tenant Website Indexing
           </CardTitle>
           <CardDescription>
-            Sends all published pages and published blog posts for each active website domain to the IndexNow API.
+            Sends all published pages and published blog posts for one domain: active custom domain (preferred), otherwise platform subdomain.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

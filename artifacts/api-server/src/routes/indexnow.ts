@@ -129,7 +129,7 @@ router.post("/indexnow/submit-tenant", requireAuth, requireTenant, requireRole("
   }
 
   const [domainsRes, pagesRes, postsRes] = await Promise.all([
-    db.from("website_domains").select("domain, is_active").eq("website_id", website.id).eq("is_active", true),
+    db.from("website_domains").select("domain, is_active, is_platform_subdomain, is_primary").eq("website_id", website.id).eq("is_active", true),
     db
       .from("website_pages")
       .select("slug, page_type, no_index")
@@ -142,9 +142,29 @@ router.post("/indexnow/submit-tenant", requireAuth, requireTenant, requireRole("
       .eq("status", "published"),
   ]) as Array<{ data: unknown[] | null }>;
 
-  const domains = ((domainsRes.data ?? []) as Array<{ domain: string; is_active: boolean }>).map((d) => d.domain).filter(Boolean);
-  if (domains.length === 0) {
+  const activeDomains = ((domainsRes.data ?? []) as Array<{
+    domain: string;
+    is_active: boolean;
+    is_platform_subdomain: boolean;
+    is_primary: boolean | null;
+  }>).filter((d) => !!d.domain);
+
+  if (activeDomains.length === 0) {
     res.status(400).json({ error: "No active website domains found. Publish your site and activate a domain first." });
+    return;
+  }
+
+  // Submit only one hostname: prefer active custom primary domain, then any active custom domain,
+  // and only fall back to the platform subdomain when no custom domain is active.
+  const activeCustomDomains = activeDomains.filter((d) => !d.is_platform_subdomain);
+  const selectedHost =
+    activeCustomDomains.find((d) => d.is_primary)?.domain
+    || activeCustomDomains[0]?.domain
+    || activeDomains.find((d) => d.is_platform_subdomain)?.domain
+    || activeDomains[0]?.domain;
+
+  if (!selectedHost) {
+    res.status(400).json({ error: "No active website domain found to submit" });
     return;
   }
 
@@ -167,26 +187,24 @@ router.post("/indexnow/submit-tenant", requireAuth, requireTenant, requireRole("
 
   const results: Array<{ host: string; submitted: number; upstreamStatus: number; success: boolean; upstreamBody: string | null }> = [];
 
-  for (const host of domains) {
-    const urlList = uniquePaths.map((path) => (path === "/" ? `https://${host}` : `https://${host}${path}`));
-    try {
-      const { upstreamStatus, upstreamBody } = await submitToIndexNow(host, key, urlList);
-      results.push({
-        host,
-        submitted: urlList.length,
-        upstreamStatus,
-        success: upstreamStatus === 200 || upstreamStatus === 202,
-        upstreamBody,
-      });
-    } catch (err) {
-      results.push({
-        host,
-        submitted: urlList.length,
-        upstreamStatus: 500,
-        success: false,
-        upstreamBody: String(err),
-      });
-    }
+  const urlList = uniquePaths.map((path) => (path === "/" ? `https://${selectedHost}` : `https://${selectedHost}${path}`));
+  try {
+    const { upstreamStatus, upstreamBody } = await submitToIndexNow(selectedHost, key, urlList);
+    results.push({
+      host: selectedHost,
+      submitted: urlList.length,
+      upstreamStatus,
+      success: upstreamStatus === 200 || upstreamStatus === 202,
+      upstreamBody,
+    });
+  } catch (err) {
+    results.push({
+      host: selectedHost,
+      submitted: urlList.length,
+      upstreamStatus: 500,
+      success: false,
+      upstreamBody: String(err),
+    });
   }
 
   const submitted = results.reduce((sum, item) => sum + item.submitted, 0);
