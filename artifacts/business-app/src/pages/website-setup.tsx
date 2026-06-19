@@ -307,11 +307,6 @@ export default function WebsiteSetup() {
             {liveUrl.replace("https://", "")}
           </a>
         )}
-        {activeCustomDomain && platformDomain && (
-          <Badge variant="outline" className="text-xs text-muted-foreground">
-            Free address also redirects here
-          </Badge>
-        )}
         {pendingDomains.length > 0 && (
           <Badge variant="outline" className="text-amber-600 border-amber-300">
             {pendingDomains.length} custom domain{pendingDomains.length > 1 ? "s" : ""} pending
