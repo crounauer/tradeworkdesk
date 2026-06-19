@@ -101,7 +101,10 @@ export function useUpdateCompanySettings() {
       return res.json() as Promise<CompanySettings>;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(QUERY_KEY, data);
+      queryClient.setQueryData(QUERY_KEY, (prev: CompanySettings | undefined) => ({
+        ...(prev || {}),
+        ...(data || {}),
+      }));
     },
   });
 }

@@ -49,11 +49,21 @@ export default function LeaveHolidaysPage() {
   useEffect(() => {
     // Keep local state in sync with server updates, but do not overwrite in-progress edits.
     if (!companySettings || noticeFormDirty) return;
-    setNoticeEnabled(Boolean(companySettings?.website_closure_notice_enabled));
-    setNoticeMessage(companySettings?.website_closure_notice_message || "");
-    setNoticeStartDate(companySettings?.website_closure_notice_start_date || "");
-    setNoticeEndDate(companySettings?.website_closure_notice_end_date || "");
-    setNoticeAutoFromHolidays(Boolean(companySettings?.website_closure_notice_auto_from_holidays));
+    if (typeof companySettings.website_closure_notice_enabled === "boolean") {
+      setNoticeEnabled(companySettings.website_closure_notice_enabled);
+    }
+    if (typeof companySettings.website_closure_notice_message === "string" || companySettings.website_closure_notice_message === null) {
+      setNoticeMessage(companySettings.website_closure_notice_message || "");
+    }
+    if (typeof companySettings.website_closure_notice_start_date === "string" || companySettings.website_closure_notice_start_date === null) {
+      setNoticeStartDate(companySettings.website_closure_notice_start_date || "");
+    }
+    if (typeof companySettings.website_closure_notice_end_date === "string" || companySettings.website_closure_notice_end_date === null) {
+      setNoticeEndDate(companySettings.website_closure_notice_end_date || "");
+    }
+    if (typeof companySettings.website_closure_notice_auto_from_holidays === "boolean") {
+      setNoticeAutoFromHolidays(companySettings.website_closure_notice_auto_from_holidays);
+    }
   }, [companySettings, noticeFormDirty]);
 
   const handleSaveNotice = async () => {
@@ -72,11 +82,21 @@ export default function LeaveHolidaysPage() {
       const updated = await updateSettings.mutateAsync(payload);
 
       // Keep local state aligned with the authoritative API response after save.
-      setNoticeEnabled(Boolean(updated.website_closure_notice_enabled));
-      setNoticeMessage(updated.website_closure_notice_message || "");
-      setNoticeStartDate(updated.website_closure_notice_start_date || "");
-      setNoticeEndDate(updated.website_closure_notice_end_date || "");
-      setNoticeAutoFromHolidays(Boolean(updated.website_closure_notice_auto_from_holidays));
+      if (typeof updated.website_closure_notice_enabled === "boolean") {
+        setNoticeEnabled(updated.website_closure_notice_enabled);
+      }
+      if (typeof updated.website_closure_notice_message === "string" || updated.website_closure_notice_message === null) {
+        setNoticeMessage(updated.website_closure_notice_message || "");
+      }
+      if (typeof updated.website_closure_notice_start_date === "string" || updated.website_closure_notice_start_date === null) {
+        setNoticeStartDate(updated.website_closure_notice_start_date || "");
+      }
+      if (typeof updated.website_closure_notice_end_date === "string" || updated.website_closure_notice_end_date === null) {
+        setNoticeEndDate(updated.website_closure_notice_end_date || "");
+      }
+      if (typeof updated.website_closure_notice_auto_from_holidays === "boolean") {
+        setNoticeAutoFromHolidays(updated.website_closure_notice_auto_from_holidays);
+      }
       setNoticeFormDirty(false);
 
       toast({ title: "Website closure notice saved" });
