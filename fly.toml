@@ -18,6 +18,14 @@ primary_region = "lhr"
   auto_start_machines = true
   # Keep at least 1 machine running so setInterval schedulers stay alive
   min_machines_running = 1
+  # Cap horizontal scale to keep spend predictable; increase if sustained load grows
+  max_machines_running = 4
+
+  [http_service.concurrency]
+    type = "requests"
+    # Start spreading traffic before saturation on a 1x shared-cpu 512mb VM
+    soft_limit = 40
+    hard_limit = 60
 
 [[vm]]
   memory = "512mb"
