@@ -26,7 +26,7 @@ export default function PlatformAnalytics() {
       <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="marketing">Marketing Analytics</TabsTrigger>
-          <TabsTrigger value="websites">Website Analytics</TabsTrigger>
+          <TabsTrigger value="websites">Tenant Website Analytics</TabsTrigger>
           <TabsTrigger value="marketing-site">Marketing Site</TabsTrigger>
         </TabsList>
 

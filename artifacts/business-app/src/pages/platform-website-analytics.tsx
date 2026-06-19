@@ -91,7 +91,7 @@ export default function PlatformWebsiteAnalytics() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold">Website Analytics</h1>
+        <h1 className="text-2xl font-display font-bold">Tenant Website Analytics</h1>
         <p className="text-muted-foreground">Platform-wide website traffic, conversion and channel performance.</p>
       </div>
 
