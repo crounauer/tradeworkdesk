@@ -14,7 +14,7 @@ async function apiFetch(url: string) {
 }
 
 type AnalyticsResponse = {
-  summary: {
+  summary?: {
     total_pages: number;
     published_pages: number;
     active_forms: number;
@@ -23,7 +23,7 @@ type AnalyticsResponse = {
     website_leads_last_30_days: number;
     conversion_rate_percent: number;
   };
-  traffic_summary: {
+  traffic_summary?: {
     page_views_last_30_days: number;
     unique_visitors_last_30_days: number;
     sessions_last_30_days: number;
@@ -31,25 +31,25 @@ type AnalyticsResponse = {
     bounce_rate_percent: number;
     pages_per_session: number;
   };
-  funnel: {
+  funnel?: {
     new: number;
     read: number;
     converted: number;
     spam: number;
   };
-  daily: Array<{ date: string; count: number }>;
-  daily_traffic: Array<{ date: string; count: number }>;
-  top_forms: Array<{
+  daily?: Array<{ date: string; count: number }>;
+  daily_traffic?: Array<{ date: string; count: number }>;
+  top_forms?: Array<{
     form_id: string;
     form_name: string;
     submissions: number;
     converted: number;
     conversion_rate: number;
   }>;
-  top_pages: Array<{ path: string; views: number }>;
-  traffic_channels: Array<{ channel: string; count: number }>;
-  source_breakdown: Array<{ source: string; count: number }>;
-  recent_submissions: Array<{
+  top_pages?: Array<{ path: string; views: number }>;
+  traffic_channels?: Array<{ channel: string; count: number }>;
+  source_breakdown?: Array<{ source: string; count: number }>;
+  recent_submissions?: Array<{
     id: string;
     created_at: string;
     status: string;
@@ -104,20 +104,57 @@ export default function WebsiteAnalytics() {
     );
   }
 
+  const summary = {
+    total_pages: 0,
+    published_pages: 0,
+    active_forms: 0,
+    total_submissions: 0,
+    submissions_last_30_days: 0,
+    website_leads_last_30_days: 0,
+    conversion_rate_percent: 0,
+    ...(data.summary || {}),
+  };
+
+  const trafficSummary = {
+    page_views_last_30_days: 0,
+    unique_visitors_last_30_days: 0,
+    sessions_last_30_days: 0,
+    avg_session_duration_seconds: 0,
+    bounce_rate_percent: 0,
+    pages_per_session: 0,
+    ...(data.traffic_summary || {}),
+  };
+
+  const funnel = {
+    new: 0,
+    read: 0,
+    converted: 0,
+    spam: 0,
+    ...(data.funnel || {}),
+  };
+
+  const daily = Array.isArray(data.daily) ? data.daily : [];
+  const dailyTraffic = Array.isArray(data.daily_traffic) ? data.daily_traffic : [];
+  const topForms = Array.isArray(data.top_forms) ? data.top_forms : [];
+  const topPages = Array.isArray(data.top_pages) ? data.top_pages : [];
+  const trafficChannels = Array.isArray(data.traffic_channels) ? data.traffic_channels : [];
+  const sourceBreakdown = Array.isArray(data.source_breakdown) ? data.source_breakdown : [];
+  const recentSubmissions = Array.isArray(data.recent_submissions) ? data.recent_submissions : [];
+
   const stats = [
-    { label: "Submissions (30d)", value: data.summary.submissions_last_30_days, icon: MessageSquare },
-    { label: "Website Leads (30d)", value: data.summary.website_leads_last_30_days, icon: Globe2 },
-    { label: "Total Submissions", value: data.summary.total_submissions, icon: BarChart3 },
-    { label: "Conversion Rate", value: `${data.summary.conversion_rate_percent}%`, icon: Funnel },
+    { label: "Submissions (30d)", value: summary.submissions_last_30_days, icon: MessageSquare },
+    { label: "Website Leads (30d)", value: summary.website_leads_last_30_days, icon: Globe2 },
+    { label: "Total Submissions", value: summary.total_submissions, icon: BarChart3 },
+    { label: "Conversion Rate", value: `${summary.conversion_rate_percent}%`, icon: Funnel },
   ];
 
   const trafficStats = [
-    { label: "Hits (30d)", value: data.traffic_summary.page_views_last_30_days, icon: BarChart3 },
-    { label: "Users (30d)", value: data.traffic_summary.unique_visitors_last_30_days, icon: Globe2 },
-    { label: "Sessions (30d)", value: data.traffic_summary.sessions_last_30_days, icon: LineChart },
-    { label: "Avg Time on Site", value: formatDuration(data.traffic_summary.avg_session_duration_seconds), icon: LineChart },
-    { label: "Bounce Rate", value: `${data.traffic_summary.bounce_rate_percent}%`, icon: Funnel },
-    { label: "Pages / Session", value: data.traffic_summary.pages_per_session, icon: BarChart3 },
+    { label: "Hits (30d)", value: trafficSummary.page_views_last_30_days, icon: BarChart3 },
+    { label: "Users (30d)", value: trafficSummary.unique_visitors_last_30_days, icon: Globe2 },
+    { label: "Sessions (30d)", value: trafficSummary.sessions_last_30_days, icon: LineChart },
+    { label: "Avg Time on Site", value: formatDuration(trafficSummary.avg_session_duration_seconds), icon: LineChart },
+    { label: "Bounce Rate", value: `${trafficSummary.bounce_rate_percent}%`, icon: Funnel },
+    { label: "Pages / Session", value: trafficSummary.pages_per_session, icon: BarChart3 },
   ];
 
   return (
@@ -128,8 +165,8 @@ export default function WebsiteAnalytics() {
           <p className="text-sm text-muted-foreground mt-1">Track leads, form performance, and submission trends for your site.</p>
         </div>
         <div className="flex gap-2">
-          <Badge variant="secondary">Pages: {data.summary.published_pages}/{data.summary.total_pages} published</Badge>
-          <Badge variant="outline">Active Forms: {data.summary.active_forms}</Badge>
+          <Badge variant="secondary">Pages: {summary.published_pages}/{summary.total_pages} published</Badge>
+          <Badge variant="outline">Active Forms: {summary.active_forms}</Badge>
         </div>
       </div>
 
@@ -168,7 +205,7 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="h-48 flex items-end gap-1">
-              {data.daily.map((point) => (
+              {daily.map((point) => (
                 <div key={point.date} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1">
                   <div
                     className="w-full rounded-t bg-primary/80"
@@ -188,12 +225,12 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              ["New", data.funnel.new, "bg-sky-500"],
-              ["Read", data.funnel.read, "bg-indigo-500"],
-              ["Converted", data.funnel.converted, "bg-emerald-500"],
-              ["Spam", data.funnel.spam, "bg-slate-400"],
+              ["New", funnel.new, "bg-sky-500"],
+              ["Read", funnel.read, "bg-indigo-500"],
+              ["Converted", funnel.converted, "bg-emerald-500"],
+              ["Spam", funnel.spam, "bg-slate-400"],
             ].map(([label, value, color]) => {
-              const total = Math.max(1, data.summary.total_submissions);
+              const total = Math.max(1, summary.total_submissions);
               const pct = Math.round((Number(value) / total) * 100);
               return (
                 <div key={String(label)}>
@@ -218,7 +255,7 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="h-48 flex items-end gap-1">
-              {data.daily_traffic.map((point) => (
+              {dailyTraffic.map((point) => (
                 <div key={point.date} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1">
                   <div
                     className="w-full rounded-t bg-emerald-500/80"
@@ -238,8 +275,8 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.top_forms.length === 0 && <p className="text-sm text-muted-foreground">No form submissions yet.</p>}
-              {data.top_forms.map((form) => (
+              {topForms.length === 0 && <p className="text-sm text-muted-foreground">No form submissions yet.</p>}
+              {topForms.map((form) => (
                 <div key={form.form_id} className="flex items-center justify-between gap-2 border rounded-lg px-3 py-2">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{form.form_name}</p>
@@ -258,8 +295,8 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {data.source_breakdown.length === 0 && <p className="text-sm text-muted-foreground">No website lead sources captured yet.</p>}
-              {data.source_breakdown.map((src) => (
+              {sourceBreakdown.length === 0 && <p className="text-sm text-muted-foreground">No website lead sources captured yet.</p>}
+              {sourceBreakdown.map((src) => (
                 <div key={src.source} className="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
                   <span className="capitalize">{src.source.replaceAll("_", " ")}</span>
                   <span className="font-semibold">{src.count}</span>
@@ -277,8 +314,8 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {data.traffic_channels.length === 0 && <p className="text-sm text-muted-foreground">No traffic source data yet.</p>}
-              {data.traffic_channels.map((src) => (
+              {trafficChannels.length === 0 && <p className="text-sm text-muted-foreground">No traffic source data yet.</p>}
+              {trafficChannels.map((src) => (
                 <div key={src.channel} className="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
                   <span className="capitalize">{src.channel}</span>
                   <span className="font-semibold">{src.count}</span>
@@ -294,8 +331,8 @@ export default function WebsiteAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {data.top_pages.length === 0 && <p className="text-sm text-muted-foreground">No page hit data yet.</p>}
-              {data.top_pages.map((page) => (
+              {topPages.length === 0 && <p className="text-sm text-muted-foreground">No page hit data yet.</p>}
+              {topPages.map((page) => (
                 <div key={page.path} className="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
                   <span className="truncate pr-3">{page.path}</span>
                   <span className="font-semibold shrink-0">{page.views}</span>
@@ -312,8 +349,8 @@ export default function WebsiteAnalytics() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {data.recent_submissions.length === 0 && <p className="text-sm text-muted-foreground">No submissions yet.</p>}
-            {data.recent_submissions.map((s) => (
+            {recentSubmissions.length === 0 && <p className="text-sm text-muted-foreground">No submissions yet.</p>}
+            {recentSubmissions.map((s) => (
               <div key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border rounded-lg px-3 py-2 text-sm">
                 <div>
                   <p className="font-medium">{s.form_name}</p>
