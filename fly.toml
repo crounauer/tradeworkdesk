@@ -18,8 +18,8 @@ primary_region = "lhr"
   auto_start_machines = true
   # Keep at least 1 machine running so setInterval schedulers stay alive
   min_machines_running = 1
-  # Lower-cost cap: keep spend predictable by limiting horizontal scale-out
-  max_machines_running = 2
+  # Balanced cap: allow extra burst headroom while keeping spend bounded
+  max_machines_running = 4
 
   [http_service.concurrency]
     type = "requests"
