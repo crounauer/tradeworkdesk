@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, BarChart3, LineChart, Funnel, MessageSquare, Globe2, AlertTriangle, Target, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Loader2, BarChart3, LineChart, Funnel, MessageSquare, Globe2, Target, TrendingUp, CheckCircle2 } from "lucide-react";
 
 async function apiFetch(url: string) {
   const res = await fetch(url);
@@ -59,6 +59,8 @@ type AnalyticsResponse = {
     phone: string;
   }>;
 };
+
+type BenchmarkStatus = "green" | "amber" | "red";
 
 export default function WebsiteAnalytics() {
   const { data, isLoading, isError, error } = useQuery<AnalyticsResponse>({
@@ -154,6 +156,7 @@ export default function WebsiteAnalytics() {
   const visitorToLeadRate = pct(summary.website_leads_last_30_days, trafficSummary.unique_visitors_last_30_days);
   const readOrConverted = safeNum(funnel.read) + safeNum(funnel.converted);
   const followUpProgressRate = pct(readOrConverted, safeNum(summary.total_submissions));
+  const publishedCoverageRate = pct(summary.published_pages, Math.max(1, summary.total_pages));
 
   const last7 = daily.slice(-7).reduce((sum, d) => sum + safeNum(d.count), 0);
   const prev7 = daily.slice(-14, -7).reduce((sum, d) => sum + safeNum(d.count), 0);
@@ -161,6 +164,94 @@ export default function WebsiteAnalytics() {
   const trafficPrev7 = dailyTraffic.slice(-14, -7).reduce((sum, d) => sum + safeNum(d.count), 0);
   const submissionTrend7d = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : (last7 > 0 ? 100 : 0);
   const trafficTrend7d = trafficPrev7 > 0 ? Math.round(((trafficLast7 - trafficPrev7) / trafficPrev7) * 100) : (trafficLast7 > 0 ? 100 : 0);
+
+  const benchmarkStatus = (value: number, good: number, ok: number, inverse = false): BenchmarkStatus => {
+    if (!inverse) {
+      if (value >= good) return "green";
+      if (value >= ok) return "amber";
+      return "red";
+    }
+    if (value <= good) return "green";
+    if (value <= ok) return "amber";
+    return "red";
+  };
+
+  const statusPoints = (status: BenchmarkStatus) => {
+    if (status === "green") return 100;
+    if (status === "amber") return 65;
+    return 30;
+  };
+
+  const benchmarkRows = [
+    {
+      key: "visitors",
+      label: "Unique Visitors (30d)",
+      valueLabel: `${trafficSummary.unique_visitors_last_30_days}`,
+      status: benchmarkStatus(trafficSummary.unique_visitors_last_30_days, 300, 120),
+      weight: 15,
+      targetLabel: "Target: 300+",
+    },
+    {
+      key: "traffic_to_submission",
+      label: "Traffic to Submission",
+      valueLabel: `${trafficToSubmissionRate}%`,
+      status: benchmarkStatus(trafficToSubmissionRate, 1.5, 0.8),
+      weight: 20,
+      targetLabel: "Target: 1.5%+",
+    },
+    {
+      key: "visitor_to_lead",
+      label: "Visitor to Lead",
+      valueLabel: `${visitorToLeadRate}%`,
+      status: benchmarkStatus(visitorToLeadRate, 2.0, 1.0),
+      weight: 15,
+      targetLabel: "Target: 2.0%+",
+    },
+    {
+      key: "bounce",
+      label: "Bounce Rate",
+      valueLabel: `${trafficSummary.bounce_rate_percent}%`,
+      status: benchmarkStatus(trafficSummary.bounce_rate_percent, 50, 65, true),
+      weight: 15,
+      targetLabel: "Target: <= 50%",
+    },
+    {
+      key: "pages_per_session",
+      label: "Pages / Session",
+      valueLabel: `${trafficSummary.pages_per_session}`,
+      status: benchmarkStatus(trafficSummary.pages_per_session, 1.8, 1.4),
+      weight: 10,
+      targetLabel: "Target: 1.8+",
+    },
+    {
+      key: "follow_up",
+      label: "Follow-up Progress",
+      valueLabel: `${followUpProgressRate}%`,
+      status: benchmarkStatus(followUpProgressRate, 75, 50),
+      weight: 15,
+      targetLabel: "Target: 75%+",
+    },
+    {
+      key: "published_coverage",
+      label: "Published Page Coverage",
+      valueLabel: `${publishedCoverageRate}%`,
+      status: benchmarkStatus(publishedCoverageRate, 80, 50),
+      weight: 10,
+      targetLabel: "Target: 80%+",
+    },
+  ];
+
+  const healthScore = Math.round(
+    benchmarkRows.reduce((sum, row) => sum + (statusPoints(row.status) * row.weight) / 100, 0)
+  );
+
+  const healthLabel = healthScore >= 80 ? "Strong" : healthScore >= 60 ? "Needs Attention" : "At Risk";
+
+  const benchmarkBadge = (status: BenchmarkStatus) => {
+    if (status === "green") return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">On Track</Badge>;
+    if (status === "amber") return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Watch</Badge>;
+    return <Badge className="bg-red-100 text-red-700 border-red-200">Critical</Badge>;
+  };
 
   type FocusArea = {
     level: "high" | "medium" | "low";
@@ -307,19 +398,42 @@ export default function WebsiteAnalytics() {
         ))}
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Website Health Score</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-4xl font-bold">{healthScore}<span className="text-base text-muted-foreground">/100</span></p>
+              <p className="text-sm text-muted-foreground mt-1">Weighted score across traffic, conversion, engagement and lead handling.</p>
+            </div>
+            <Badge className={healthScore >= 80 ? "bg-emerald-100 text-emerald-700 border-emerald-200" : healthScore >= 60 ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}>
+              {healthLabel}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Traffic to Submission</p>
             <p className="text-2xl font-bold">{trafficToSubmissionRate}%</p>
-            <p className="text-xs text-muted-foreground mt-1">Target: 1.5%+</p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">Target: 1.5%+</p>
+              {benchmarkBadge(benchmarkStatus(trafficToSubmissionRate, 1.5, 0.8))}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Visitor to Lead</p>
             <p className="text-2xl font-bold">{visitorToLeadRate}%</p>
-            <p className="text-xs text-muted-foreground mt-1">Target: 2.0%+</p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">Target: 2.0%+</p>
+              {benchmarkBadge(benchmarkStatus(visitorToLeadRate, 2.0, 1.0))}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -336,10 +450,33 @@ export default function WebsiteAnalytics() {
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Follow-up Progress</p>
             <p className="text-2xl font-bold">{followUpProgressRate}%</p>
-            <p className="text-xs text-muted-foreground mt-1">Read or converted submissions</p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">Read or converted submissions</p>
+              {benchmarkBadge(benchmarkStatus(followUpProgressRate, 75, 50))}
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Benchmark Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {benchmarkRows.map((row) => (
+              <div key={row.key} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{row.label}</p>
+                  {benchmarkBadge(row.status)}
+                </div>
+                <p className="text-lg font-bold mt-2">{row.valueLabel}</p>
+                <p className="text-xs text-muted-foreground mt-1">{row.targetLabel}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
