@@ -679,11 +679,11 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   } catch {}
   const trialEnds = new Date(Date.now() + trialDays * 86400000).toISOString();
 
-  // Map product name → plan name
-  const PRODUCT_PLAN_MAP: Record<string, string> = {
-    tradeworkdesk: "TradeWorkDesk",
-    tradesite: "TradeSite",
-    bundle: "Bundle",
+  // Map product key to one or more name fragments so renamed plan labels still resolve.
+  const PRODUCT_PLAN_CANDIDATES: Record<string, string[]> = {
+    tradeworkdesk: ["tradeworkdesk", "job", "job management"],
+    tradesite: ["tradesite", "website", "website builder"],
+    bundle: ["bundle", "both"],
   };
 
   let resolvedPlanId = plan_id;
@@ -691,17 +691,21 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     resolvedPlanId = FREE_PLAN_ID;
   } else if (!resolvedPlanId) {
     const productKey = (typeof product === "string" ? product : "").toLowerCase();
-    const planName = PRODUCT_PLAN_MAP[productKey];
-    if (planName) {
-      const { data: productPlan } = await supabaseAdmin
+    const fragments = PRODUCT_PLAN_CANDIDATES[productKey] || [];
+    if (fragments.length > 0) {
+      const { data: productPlans } = await supabaseAdmin
         .from("plans")
-        .select("id")
+        .select("id, name, monthly_price")
         .eq("is_active", true)
-        .eq("is_legacy", false)
-        .ilike("name", planName)
-        .limit(1)
-        .maybeSingle();
-      resolvedPlanId = productPlan?.id;
+        .eq("is_legacy", false);
+
+      const matching = (productPlans || []).filter((plan) => {
+        const name = String(plan.name || "").toLowerCase();
+        return fragments.some((fragment) => name.includes(fragment));
+      });
+
+      matching.sort((a, b) => Number(a.monthly_price || 0) - Number(b.monthly_price || 0));
+      resolvedPlanId = matching[0]?.id;
     }
     if (!resolvedPlanId) {
       // Fallback: cheapest active non-legacy plan

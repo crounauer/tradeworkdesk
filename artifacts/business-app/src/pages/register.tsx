@@ -22,6 +22,17 @@ type ValidateResult = { valid: boolean; role: string } | null;
 type RegisterMode = "invite" | "company";
 type Product = "tradeworkdesk" | "tradesite" | "bundle";
 
+interface PublicPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  monthly_price: number;
+  annual_price: number;
+  max_users?: number;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 export default function Register() {
   const [mode, setMode] = useState<RegisterMode>(() => getCodeFromUrl() ? "invite" : "company");
   const [step, setStep] = useState(1);
@@ -63,6 +74,17 @@ export default function Register() {
     },
   });
   const trialDays = trialInfo?.trial_duration_days || 30;
+
+  const { data: publicPlans = [] } = useQuery<PublicPlan[]>({
+    queryKey: ["public-plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/plans/public");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: mode === "company",
+    staleTime: 60_000,
+  });
 
   const { data: addons } = useQuery({
     queryKey: ["public-addons"],
@@ -232,32 +254,85 @@ export default function Register() {
 
   const canAdvanceStep1 = betaValid === true && (companyName.trim().length > 0 || fullName.trim().length > 0) && fullName.trim().length > 0 && email.trim().length > 0;
 
-  const PRODUCTS: { key: Product; label: string; tagline: string; price: string; icon: React.ReactNode; features: string[] }[] = [
-    {
-      key: "tradeworkdesk",
-      label: "TradeWorkDesk",
-      tagline: "Job management software",
-      price: "£25/mo",
+  const PRODUCT_META: Record<Product, { icon: React.ReactNode; defaultLabel: string; tagline: string; features: string[] }> = {
+    tradeworkdesk: {
       icon: <Wrench className="w-6 h-6" />,
+      defaultLabel: "TradeWorkDesk",
+      tagline: "Job management software",
       features: ["Jobs & scheduling", "Invoicing", "Compliance forms", "Customer records"],
     },
-    {
-      key: "tradesite",
-      label: "TradeSite",
-      tagline: "Website builder",
-      price: "£15/mo",
+    tradesite: {
       icon: <Globe className="w-6 h-6" />,
+      defaultLabel: "Website Builder",
+      tagline: "Website builder",
       features: ["Custom domain", "Blog & gallery", "Contact forms", "SEO tools"],
     },
-    {
-      key: "bundle",
-      label: "Bundle",
-      tagline: "Both products — best value",
-      price: "£35/mo",
+    bundle: {
       icon: <Layers className="w-6 h-6" />,
-      features: ["Everything in TradeWorkDesk", "Everything in TradeSite", "Discounted price", "Single login"],
+      defaultLabel: "Bundle",
+      tagline: "Both products — best value",
+      features: ["Everything in TradeWorkDesk", "Everything in Website Builder", "Discounted price", "Single login"],
     },
-  ];
+  };
+
+  const resolveProductFromPlan = (name: string): Product => {
+    const n = name.toLowerCase();
+    if (n.includes("bundle") || n.includes("both")) return "bundle";
+    if (n.includes("website") || n.includes("site")) return "tradesite";
+    return "tradeworkdesk";
+  };
+
+  const formatMonthlyPrice = (price: number) => `£${Number(price || 0).toFixed(0)}/mo`;
+
+  const productsByKey = new Map<Product, { key: Product; label: string; tagline: string; price: string; icon: React.ReactNode; features: string[] }>();
+  for (const plan of publicPlans) {
+    if (!(plan.is_active ?? true)) continue;
+    if (Number(plan.monthly_price || 0) <= 0) continue;
+
+    const key = resolveProductFromPlan(plan.name || "");
+    if (productsByKey.has(key)) continue;
+    const meta = PRODUCT_META[key];
+    productsByKey.set(key, {
+      key,
+      label: plan.name || meta.defaultLabel,
+      tagline: meta.tagline,
+      price: formatMonthlyPrice(Number(plan.monthly_price || 0)),
+      icon: meta.icon,
+      features: meta.features,
+    });
+  }
+
+  const PRODUCTS: { key: Product; label: string; tagline: string; price: string; icon: React.ReactNode; features: string[] }[] =
+    productsByKey.size > 0
+      ? (["tradeworkdesk", "tradesite", "bundle"] as Product[])
+          .map((key) => productsByKey.get(key))
+          .filter((value): value is { key: Product; label: string; tagline: string; price: string; icon: React.ReactNode; features: string[] } => Boolean(value))
+      : [
+          {
+            key: "tradeworkdesk",
+            label: PRODUCT_META.tradeworkdesk.defaultLabel,
+            tagline: PRODUCT_META.tradeworkdesk.tagline,
+            price: "£25/mo",
+            icon: PRODUCT_META.tradeworkdesk.icon,
+            features: PRODUCT_META.tradeworkdesk.features,
+          },
+          {
+            key: "tradesite",
+            label: PRODUCT_META.tradesite.defaultLabel,
+            tagline: PRODUCT_META.tradesite.tagline,
+            price: "£20/mo",
+            icon: PRODUCT_META.tradesite.icon,
+            features: PRODUCT_META.tradesite.features,
+          },
+          {
+            key: "bundle",
+            label: PRODUCT_META.bundle.defaultLabel,
+            tagline: PRODUCT_META.bundle.tagline,
+            price: "£40/mo",
+            icon: PRODUCT_META.bundle.icon,
+            features: PRODUCT_META.bundle.features,
+          },
+        ];
 
   if (done) {
     return (
