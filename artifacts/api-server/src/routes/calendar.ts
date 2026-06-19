@@ -134,6 +134,59 @@ function ukBankHolidaysForYear(year: number): Array<{ name: string; date: string
   ];
 }
 
+async function maybeAutoPublishWebsiteClosureNotice(args: {
+  tenantId: string;
+  holidayType: "public_holiday" | "bank_holiday";
+  holidays: Array<{ name: string; start_date: string; end_date: string }>;
+}) {
+  const { tenantId, holidayType, holidays } = args;
+  if (holidays.length === 0) return;
+
+  const { data: settings, error: settingsError } = await supabaseAdmin
+    .from("company_settings")
+    .select("tenant_id, website_closure_notice_auto_from_holidays")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (settingsError) {
+    console.error("Failed to load company settings for auto holiday notice", settingsError);
+    return;
+  }
+
+  if (!settings?.website_closure_notice_auto_from_holidays) return;
+
+  const startDate = holidays.reduce((min, h) => (h.start_date < min ? h.start_date : min), holidays[0].start_date);
+  const endDate = holidays.reduce((max, h) => (h.end_date > max ? h.end_date : max), holidays[0].end_date);
+
+  let message = "We are currently closed and will reopen as soon as possible.";
+  if (holidayType === "public_holiday") {
+    const holidayName = holidays[0]?.name?.trim();
+    if (holidayName) {
+      message = `We are closed for ${holidayName} and will reopen shortly.`;
+    }
+  }
+  if (holidayType === "bank_holiday") {
+    message = "We are closed for the bank holiday period and will reopen shortly.";
+  }
+
+  const { error: upsertError } = await supabaseAdmin
+    .from("company_settings")
+    .upsert(
+      {
+        tenant_id: tenantId,
+        website_closure_notice_enabled: true,
+        website_closure_notice_message: message,
+        website_closure_notice_start_date: startDate,
+        website_closure_notice_end_date: endDate,
+      },
+      { onConflict: "tenant_id" },
+    );
+
+  if (upsertError) {
+    console.error("Failed to auto-publish website closure notice", upsertError);
+  }
+}
+
 export function invalidateCalendarCache(tenantId?: string | null) {
   if (!tenantId) { calendarCache.clear(); return; }
   for (const key of calendarCache.keys()) {
@@ -339,6 +392,14 @@ router.post(
       return;
     }
 
+    if (type === "public_holiday" || type === "bank_holiday") {
+      await maybeAutoPublishWebsiteClosureNotice({
+        tenantId: req.tenantId,
+        holidayType: type,
+        holidays: [{ name: data.name, start_date: data.start_date, end_date: data.end_date }],
+      });
+    }
+
     invalidateCalendarCache(req.tenantId);
     res.status(201).json(data);
   },
@@ -378,6 +439,17 @@ router.post(
       res.status(500).json({ error: "Failed to import bank holidays" });
       return;
     }
+
+    const importedHolidays = (data || []).map((h) => ({
+      name: h.name,
+      start_date: h.start_date,
+      end_date: h.end_date,
+    }));
+    await maybeAutoPublishWebsiteClosureNotice({
+      tenantId: req.tenantId,
+      holidayType: "bank_holiday",
+      holidays: importedHolidays,
+    });
 
     invalidateCalendarCache(req.tenantId);
     res.json({ imported: data?.length ?? 0, holidays: data || [] });

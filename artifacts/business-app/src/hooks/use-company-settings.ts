@@ -63,6 +63,7 @@ export interface CompanySettings {
   website_closure_notice_message?: string | null;
   website_closure_notice_start_date?: string | null;
   website_closure_notice_end_date?: string | null;
+  website_closure_notice_auto_from_holidays?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }

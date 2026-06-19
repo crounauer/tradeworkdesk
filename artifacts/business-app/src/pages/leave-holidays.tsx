@@ -24,6 +24,7 @@ export default function LeaveHolidaysPage() {
   const [noticeMessage, setNoticeMessage] = useState("");
   const [noticeStartDate, setNoticeStartDate] = useState("");
   const [noticeEndDate, setNoticeEndDate] = useState("");
+  const [noticeAutoFromHolidays, setNoticeAutoFromHolidays] = useState(false);
   const noticeHydratedRef = useRef(false);
 
   const hasJobManagement = hasFeature("job_management");
@@ -37,6 +38,7 @@ export default function LeaveHolidaysPage() {
     setNoticeMessage(companySettings?.website_closure_notice_message || "");
     setNoticeStartDate(companySettings?.website_closure_notice_start_date || "");
     setNoticeEndDate(companySettings?.website_closure_notice_end_date || "");
+    setNoticeAutoFromHolidays(Boolean(companySettings?.website_closure_notice_auto_from_holidays));
   }, [companySettings]);
 
   const handleSaveNotice = async () => {
@@ -47,6 +49,7 @@ export default function LeaveHolidaysPage() {
         website_closure_notice_message: noticeMessage.trim() || null,
         website_closure_notice_start_date: noticeStartDate || null,
         website_closure_notice_end_date: noticeEndDate || null,
+        website_closure_notice_auto_from_holidays: noticeAutoFromHolidays,
       });
 
       // Keep local state aligned with the authoritative API response after save.
@@ -54,6 +57,7 @@ export default function LeaveHolidaysPage() {
       setNoticeMessage(updated.website_closure_notice_message || "");
       setNoticeStartDate(updated.website_closure_notice_start_date || "");
       setNoticeEndDate(updated.website_closure_notice_end_date || "");
+      setNoticeAutoFromHolidays(Boolean(updated.website_closure_notice_auto_from_holidays));
 
       toast({ title: "Website closure notice saved" });
     } catch (error) {
@@ -117,6 +121,18 @@ export default function LeaveHolidaysPage() {
             <Switch
               checked={noticeEnabled}
               onCheckedChange={setNoticeEnabled}
+              disabled={!canManageWebsiteNotice || updateSettings.isPending}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Auto-publish from public/bank holidays</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">If enabled, adding a public holiday or importing bank holidays will automatically update this website notice.</p>
+            </div>
+            <Switch
+              checked={noticeAutoFromHolidays}
+              onCheckedChange={setNoticeAutoFromHolidays}
               disabled={!canManageWebsiteNotice || updateSettings.isPending}
             />
           </div>
