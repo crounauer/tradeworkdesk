@@ -1309,17 +1309,12 @@ router.patch(
       .eq("id", id)
       .maybeSingle() as { data: { id: string; tenant_id: string | null; website_id: string | null } | null };
 
-    if (!existingForm) {
-      res.status(404).json({ error: "Form not found" });
-      return;
-    }
-
-    const isOwnedByTenant = existingForm.tenant_id
+    const isOwnedByTenant = existingForm?.tenant_id
       ? existingForm.tenant_id === req.tenantId
       : false;
 
     let isOwnedByTenantWebsite = false;
-    if (!isOwnedByTenant && existingForm.website_id) {
+    if (existingForm?.website_id && !isOwnedByTenant) {
       const { data: ownedWebsite } = await db
         .from("websites")
         .select("id")
@@ -1329,9 +1324,50 @@ router.patch(
       isOwnedByTenantWebsite = Boolean(ownedWebsite);
     }
 
-    if (!isOwnedByTenant && !isOwnedByTenantWebsite) {
-      res.status(404).json({ error: "Form not found" });
-      return;
+    // If the provided id is stale or belongs elsewhere, fall back to this tenant's
+    // active contact form so saves from cached/stale UI state still succeed.
+    let targetFormId: string | null = (existingForm && (isOwnedByTenant || isOwnedByTenantWebsite))
+      ? existingForm.id
+      : null;
+
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    if (!targetFormId) {
+      const { data: fallbackForm } = await db
+        .from("website_forms")
+        .select("id")
+        .eq("website_id", website.id)
+        .eq("tenant_id", req.tenantId)
+        .eq("form_type", "contact")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle() as { data: { id: string } | null };
+
+      targetFormId = fallbackForm?.id || null;
+    }
+
+    if (!targetFormId) {
+      const { data: createdForm, error: createError } = await db
+        .from("website_forms")
+        .insert({
+          website_id: website.id,
+          tenant_id: req.tenantId,
+          name: typeof name === "string" && name.trim() ? name : "Contact Form",
+          form_type: "contact",
+          fields: Array.isArray(fields) ? fields : [],
+          notify_email: typeof notify_email === "string" ? notify_email : null,
+          auto_create_enquiry: typeof auto_create_enquiry === "boolean" ? auto_create_enquiry : true,
+          is_active: typeof is_active === "boolean" ? is_active : true,
+        })
+        .select("id")
+        .single() as { data: { id: string } | null; error: unknown };
+
+      if (createError || !createdForm) {
+        res.status(404).json({ error: "Form not found" });
+        return;
+      }
+      targetFormId = createdForm.id;
     }
 
     const updates: Record<string, unknown> = {};
@@ -1344,7 +1380,7 @@ router.patch(
     const { data, error } = await db
       .from("website_forms")
       .update(updates)
-      .eq("id", id)
+      .eq("id", targetFormId)
       .select("id, name, form_type, fields, notify_email, auto_create_enquiry, is_active, created_at")
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
