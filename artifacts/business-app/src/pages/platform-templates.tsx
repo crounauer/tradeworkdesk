@@ -303,7 +303,6 @@ export default function PlatformTemplates() {
                       {template.name}
                       {defaultTemplateSlug === template.slug && <Badge variant="outline">Default for New Signups</Badge>}
                     </p>
-                    <p className="text-xs text-muted-foreground">{template.slug}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={template.is_active ? "default" : "secondary"}>
