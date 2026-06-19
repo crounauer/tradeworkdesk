@@ -25,9 +25,9 @@ export default function PlatformAnalytics() {
 
       <Tabs defaultValue={defaultTab}>
         <TabsList>
-          <TabsTrigger value="marketing">Marketing Analytics</TabsTrigger>
+          <TabsTrigger value="marketing">Sign-up Funnel Analytics</TabsTrigger>
           <TabsTrigger value="websites">Tenant Website Analytics</TabsTrigger>
-          <TabsTrigger value="marketing-site">Marketing Site</TabsTrigger>
+          <TabsTrigger value="marketing-site">TradeWorkDesk Marketing Site Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="marketing" className="mt-4">
