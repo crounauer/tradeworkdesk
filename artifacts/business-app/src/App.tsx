@@ -1,6 +1,6 @@
-import { lazy, Suspense, Component as ReactComponent } from "react";
+import { lazy, Suspense, Component as ReactComponent, useEffect, useRef } from "react";
 import type { ReactNode, ErrorInfo } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -635,6 +635,51 @@ function AppRouter() {
   );
 }
 
+function isMarketingSitePath(path: string): boolean {
+  if (path === "/") return true;
+  if (/^\/(features|pricing|about|contact|blog|privacy-policy|terms-of-service|customers|industries|alternatives|find)(\/.*)?$/.test(path)) return true;
+  if (/^\/(gas-engineer-software|boiler-service-management-software|job-management-software-heating-engineers|oil-engineer-software|heat-pump-engineer-software|plumber-software|landlord-gas-safety-software|sole-trader-software|heating-company-software)$/.test(path)) return true;
+  return false;
+}
+
+function getOrCreateTrackingId(key: string): string {
+  const existing = localStorage.getItem(key);
+  if (existing) return existing;
+  const next = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  localStorage.setItem(key, next);
+  return next;
+}
+
+function MarketingSiteTracker() {
+  const [location] = useLocation();
+  const { session } = useAuth();
+  const lastTrackedPath = useRef<string>("");
+
+  useEffect(() => {
+    if (session) return;
+    if (!isMarketingSitePath(location)) return;
+    if (lastTrackedPath.current === location) return;
+    lastTrackedPath.current = location;
+
+    const payload = {
+      event_type: "page_view",
+      path: location,
+      referrer: document.referrer || null,
+      session_id: getOrCreateTrackingId("marketing_site_session_id"),
+      visitor_id: getOrCreateTrackingId("marketing_site_visitor_id"),
+    };
+
+    fetch("/api/public/marketing-site/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  }, [location, session]);
+
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -643,6 +688,7 @@ function App() {
           <TooltipProvider>
             <ChunkErrorBoundary>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <MarketingSiteTracker />
                 <AppRouter />
               </WouterRouter>
             </ChunkErrorBoundary>

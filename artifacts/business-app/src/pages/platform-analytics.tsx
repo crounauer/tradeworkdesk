@@ -2,12 +2,15 @@ import { useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlatformMarketingAnalytics from "@/pages/platform-marketing-analytics";
 import PlatformWebsiteAnalytics from "@/pages/platform-website-analytics";
+import PlatformMarketingSiteAnalytics from "@/pages/platform-marketing-site-analytics";
 
 export default function PlatformAnalytics() {
   const defaultTab = useMemo(() => {
     try {
       const tab = new URLSearchParams(window.location.search).get("tab");
-      return tab === "websites" ? "websites" : "marketing";
+      if (tab === "websites") return "websites";
+      if (tab === "marketing-site") return "marketing-site";
+      return "marketing";
     } catch {
       return "marketing";
     }
@@ -24,6 +27,7 @@ export default function PlatformAnalytics() {
         <TabsList>
           <TabsTrigger value="marketing">Marketing Analytics</TabsTrigger>
           <TabsTrigger value="websites">Website Analytics</TabsTrigger>
+          <TabsTrigger value="marketing-site">Marketing Site</TabsTrigger>
         </TabsList>
 
         <TabsContent value="marketing" className="mt-4">
@@ -32,6 +36,10 @@ export default function PlatformAnalytics() {
 
         <TabsContent value="websites" className="mt-4">
           <PlatformWebsiteAnalytics />
+        </TabsContent>
+
+        <TabsContent value="marketing-site" className="mt-4">
+          <PlatformMarketingSiteAnalytics />
         </TabsContent>
       </Tabs>
     </div>

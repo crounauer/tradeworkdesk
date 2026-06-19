@@ -81,6 +81,56 @@ function percent1(numerator: number, denominator: number): number {
   return Math.round((numerator / denominator) * 1000) / 10;
 }
 
+function classifyChannel(referrer: string | null): string {
+  if (!referrer) return "direct";
+  const ref = referrer.toLowerCase();
+  if (ref.includes("google.") || ref.includes("bing.") || ref.includes("duckduckgo.") || ref.includes("yahoo.")) return "search";
+  if (ref.includes("facebook.") || ref.includes("instagram.") || ref.includes("t.co") || ref.includes("twitter.") || ref.includes("linkedin.") || ref.includes("youtube.")) return "social";
+  return "referral";
+}
+
+router.post("/public/marketing-site/analytics/track", async (req, res): Promise<void> => {
+  const body = req.body as {
+    path?: string;
+    referrer?: string | null;
+    session_id?: string;
+    visitor_id?: string;
+    event_type?: string;
+  };
+
+  const path = String(body.path || "").trim();
+  const sessionId = String(body.session_id || "").trim();
+  const visitorId = String(body.visitor_id || "").trim();
+  const eventType = String(body.event_type || "page_view");
+
+  if (!path || !sessionId || !visitorId || eventType !== "page_view") {
+    res.status(400).json({ error: "Invalid tracking payload" });
+    return;
+  }
+
+  const safePath = path.slice(0, 512);
+  const safeReferrer = body.referrer ? String(body.referrer).slice(0, 1024) : null;
+  const safeUa = String(req.headers["user-agent"] || "").slice(0, 1024);
+
+  const { error } = await supabaseAdmin
+    .from("marketing_site_traffic_events")
+    .insert({
+      event_type: "page_view",
+      session_id: sessionId,
+      visitor_id: visitorId,
+      path: safePath,
+      referrer: safeReferrer,
+      user_agent: safeUa,
+    });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
 router.get("/platform/stats", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   const [tenantsRes, usersRes, activeTenantsRes, trialTenantsRes, plansRes] = await Promise.all([
     supabaseAdmin.from("tenants").select("id", { count: "exact", head: true }),
@@ -1665,6 +1715,82 @@ router.get("/platform/stats/websites", requireAuth, requireSuperAdmin, async (_r
     channel_breakdown: channelBreakdown,
     daily_traffic: dailyTraffic,
     top_websites: topWebsites,
+  });
+});
+
+router.get("/platform/stats/marketing-site", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const now = new Date();
+  const start30 = new Date(now.getTime() - (29 * DAY_MS));
+  const start30Iso = start30.toISOString();
+
+  const eventsRes = await supabaseAdmin
+    .from("marketing_site_traffic_events")
+    .select("path, referrer, visitor_id, created_at")
+    .eq("event_type", "page_view")
+    .gte("created_at", start30Iso)
+    .order("created_at", { ascending: false })
+    .limit(100000);
+
+  if (eventsRes.error) {
+    res.status(500).json({ error: eventsRes.error.message });
+    return;
+  }
+
+  const events = (eventsRes.data || []) as Array<{
+    path: string | null;
+    referrer: string | null;
+    visitor_id: string | null;
+    created_at: string;
+  }>;
+
+  const uniqueVisitors = new Set<string>();
+  const channelCounts = new Map<string, number>();
+  const pageCounts = new Map<string, number>();
+  const dailyMap = new Map<string, number>();
+
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(start30.getTime() + i * DAY_MS);
+    dailyMap.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  for (const ev of events) {
+    const visitor = String(ev.visitor_id || "").trim();
+    if (visitor) uniqueVisitors.add(visitor);
+
+    const channel = classifyChannel(ev.referrer || null);
+    channelCounts.set(channel, (channelCounts.get(channel) || 0) + 1);
+
+    const path = String(ev.path || "/").trim() || "/";
+    pageCounts.set(path, (pageCounts.get(path) || 0) + 1);
+
+    const key = dayKey(ev.created_at);
+    if (key && dailyMap.has(key)) dailyMap.set(key, (dailyMap.get(key) || 0) + 1);
+  }
+
+  const daily = Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count }));
+  const channelBreakdown = Array.from(channelCounts.entries())
+    .map(([channel, count]) => ({ channel, count }))
+    .sort((a, b) => b.count - a.count);
+  const topPages = Array.from(pageCounts.entries())
+    .map(([path, views]) => ({ path, views }))
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 12);
+
+  const trafficLast7 = daily.slice(-7).reduce((sum, d) => sum + d.count, 0);
+  const trafficPrev7 = daily.slice(-14, -7).reduce((sum, d) => sum + d.count, 0);
+  const growth7d = trafficPrev7 > 0 ? Math.round(((trafficLast7 - trafficPrev7) / trafficPrev7) * 100) : (trafficLast7 > 0 ? 100 : 0);
+
+  res.json({
+    summary: {
+      page_views_last_30_days: events.length,
+      unique_visitors_last_30_days: uniqueVisitors.size,
+      traffic_last_7_days: trafficLast7,
+      traffic_prev_7_days: trafficPrev7,
+      growth_7d_percent: growth7d,
+    },
+    daily,
+    channel_breakdown: channelBreakdown,
+    top_pages: topPages,
   });
 });
 
