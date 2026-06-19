@@ -79,7 +79,10 @@ export default function HeroBlock({ content }: Props) {
     ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${background_image_url}) center/cover no-repeat` }
     : { backgroundColor: bgColor };
 
-  const primaryHref = cta_phone ? `tel:${cta_phone.replace(/\s/g, "")}` : (cta_url || "#contact");
+  const isPostcodeCta = (cta_text || "").toLowerCase().includes("postcode");
+  const primaryHref = cta_phone
+    ? `tel:${cta_phone.replace(/\s/g, "")}`
+    : (isPostcodeCta ? "#postcode-checker" : (cta_url || "#contact"));
   const primaryLabel = cta_text || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
   const textAlign = align === "center" ? "center" : "left";
   const isDark = !isSplit;
