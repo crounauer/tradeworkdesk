@@ -36,7 +36,7 @@
 
 1. **Create a Better Stack account** at https://betterstack.com
 2. **Add a monitor for each endpoint:**
-   - `https://tradeworkdesk-api.fly.dev/api/health` (GET)
+   - `https://tradeworkdesk-api.fly.dev/health` (GET)
    - Check every 60 seconds
    - Alert on downtime > 5 minutes
 

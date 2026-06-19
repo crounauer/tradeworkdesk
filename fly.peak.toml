@@ -1,0 +1,32 @@
+# Fly.io config for tradeworkdesk api-server (peak profile)
+# Deploy peak profile from monorepo root: fly deploy -c fly.peak.toml
+app = "tradeworkdesk-api"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "artifacts/api-server/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # Peak profile: keep extra warm capacity to reduce latency spikes
+  min_machines_running = 2
+  # Allow wider burst headroom during promotions or busy seasonal windows
+  max_machines_running = 6
+
+  [http_service.concurrency]
+    type = "requests"
+    # Scale out sooner in peak mode to prioritise response time over cost
+    soft_limit = 40
+    hard_limit = 60
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

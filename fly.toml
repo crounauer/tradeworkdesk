@@ -16,6 +16,7 @@ primary_region = "lhr"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
+  # Normal profile (cost-balanced)
   # Keep at least 1 machine running so setInterval schedulers stay alive
   min_machines_running = 1
   # Balanced cap: allow extra burst headroom while keeping spend bounded
