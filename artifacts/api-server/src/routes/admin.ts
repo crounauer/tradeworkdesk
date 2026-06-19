@@ -733,7 +733,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       plan_id: resolvedPlanId,
       trial_ends_at: start_on_free ? null : trialEnds,
       company_type: resolvedCompanyType,
-      source: (PRODUCT_PLAN_MAP[(typeof product === "string" ? product : "").toLowerCase()] ? (product as string).toLowerCase() : "tradeworkdesk") as "tradeworkdesk" | "tradesite" | "bundle",
+      source: (["tradeworkdesk", "tradesite", "bundle"].includes((typeof product === "string" ? product : "").toLowerCase()) ? (product as string).toLowerCase() : "tradeworkdesk") as "tradeworkdesk" | "tradesite" | "bundle",
     })
     .select()
     .single();
