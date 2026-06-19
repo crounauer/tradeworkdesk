@@ -1292,9 +1292,6 @@ router.patch(
     const { id } = req.params;
     const { auto_create_enquiry, notify_email, name, is_active, fields } = req.body as Record<string, unknown>;
 
-    const website = await getWebsiteForTenant(req.tenantId!);
-    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
-
     const updates: Record<string, unknown> = {};
     if (typeof auto_create_enquiry === "boolean") updates.auto_create_enquiry = auto_create_enquiry;
     if (notify_email !== undefined) updates.notify_email = notify_email || null;
@@ -1306,7 +1303,7 @@ router.patch(
       .from("website_forms")
       .update(updates)
       .eq("id", id)
-      .eq("website_id", website.id)
+      .eq("tenant_id", req.tenantId)
       .select("id, name, form_type, fields, notify_email, auto_create_enquiry, is_active, created_at")
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
