@@ -119,11 +119,6 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
 
           {/* Phone + CTA */}
           <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
-            {company?.phone && (
-              <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: navText, textDecoration: "none", fontWeight: 700, fontSize: "1.0625rem", whiteSpace: "nowrap" }}>
-                📞 {company.phone}
-              </a>
-            )}
             <a href={ctaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
               Request a Quote
             </a>
