@@ -1535,6 +1535,25 @@ router.get(
       .eq("singleton_id", "default")
       .maybeSingle();
 
+    // Some tenants store primary contact details on the tenant row.
+    // Use these as fallback so header/footer contact info remains visible.
+    const { data: tenantContact } = await supabaseAdmin
+      .from("tenants")
+      .select("contact_phone, contact_email")
+      .eq("id", domainRecord.tenant_id)
+      .maybeSingle();
+
+    const companyOut = companySettings
+      ? {
+          ...(companySettings as Record<string, unknown>),
+          phone: (companySettings as { phone?: string | null }).phone || (tenantContact as { contact_phone?: string | null } | null)?.contact_phone || null,
+          email: (companySettings as { email?: string | null }).email || (tenantContact as { contact_email?: string | null } | null)?.contact_email || null,
+        }
+      : {
+          phone: (tenantContact as { contact_phone?: string | null } | null)?.contact_phone || null,
+          email: (tenantContact as { contact_email?: string | null } | null)?.contact_email || null,
+        };
+
     // Flatten template slug onto website object
     const websiteData = websiteRes.data as Record<string, unknown> | null;
     const templateSlug = (websiteData?.website_templates as { slug?: string } | null)?.slug ?? null;
@@ -1546,7 +1565,7 @@ router.get(
       blog_posts: blogsRes.data || [],
       testimonials: testimonialsRes.data || [],
       gallery: galleryRes.data || [],
-      company: companySettings,
+      company: companyOut,
     });
   }
 );
@@ -1602,6 +1621,23 @@ router.get(
       .eq("singleton_id", "default")
       .maybeSingle();
 
+    const { data: tenantContact } = await supabaseAdmin
+      .from("tenants")
+      .select("contact_phone, contact_email")
+      .eq("id", String(website.tenant_id))
+      .maybeSingle();
+
+    const companyOut = companySettings
+      ? {
+          ...(companySettings as Record<string, unknown>),
+          phone: (companySettings as { phone?: string | null }).phone || (tenantContact as { contact_phone?: string | null } | null)?.contact_phone || null,
+          email: (companySettings as { email?: string | null }).email || (tenantContact as { contact_email?: string | null } | null)?.contact_email || null,
+        }
+      : {
+          phone: (tenantContact as { contact_phone?: string | null } | null)?.contact_phone || null,
+          email: (tenantContact as { contact_email?: string | null } | null)?.contact_email || null,
+        };
+
     const templateSlug2 = (website?.website_templates as { slug?: string } | null)?.slug ?? null;
     const websiteOut2 = { ...website, template_slug: templateSlug2, website_templates: undefined };
 
@@ -1611,7 +1647,7 @@ router.get(
       blog_posts: [],
       testimonials: (testimonialsRes.data as unknown[]) || [],
       gallery: (galleryRes.data as unknown[]) || [],
-      company: companySettings,
+      company: companyOut,
     });
   }
 );
