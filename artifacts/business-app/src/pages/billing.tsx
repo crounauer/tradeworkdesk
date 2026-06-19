@@ -124,12 +124,14 @@ function statusLabel(status: string) {
   return status.replace("_", " ");
 }
 
-export default function Billing() {
+export default function Billing({ view = "all" }: { view?: "all" | "plans" | "addons" }) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
+  const showPlansContent = view !== "addons";
+  const showAddonsContent = view !== "plans";
   const { data: initData } = useInitData();
   const usageLimits = initData?.usageLimits;
   const currentUsers = usageLimits?.currentUsers ?? 1;
@@ -368,25 +370,25 @@ export default function Billing() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-display font-bold">Billing &amp; Subscription</h1>
-        <p className="text-muted-foreground">Manage your subscription and payment details</p>
+        <h1 className="text-2xl font-display font-bold">{view === "addons" ? "Add Ons" : "Billing &amp; Subscription"}</h1>
+        <p className="text-muted-foreground">{view === "addons" ? "Manage add-on packages and usage credits" : "Manage your subscription and payment details"}</p>
       </div>
 
-      {justSucceeded && (
+      {showPlansContent && justSucceeded && (
         <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm">
           <Check className="w-4 h-4 shrink-0" />
           <span>Subscription activated successfully. Welcome to TradeWorkDesk!</span>
         </div>
       )}
 
-      {wasCancelled && (
+      {showPlansContent && wasCancelled && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>Checkout was cancelled. Your plan hasn't changed.</span>
         </div>
       )}
 
-      {tenantInfo?.status === "trial" && trialDaysLeft !== null && (
+      {showPlansContent && tenantInfo?.status === "trial" && trialDaysLeft !== null && (
         <Card className={trialDaysLeft <= 7 ? "border-amber-300 bg-amber-50" : "border-blue-200 bg-blue-50"}>
           <CardContent className="p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -416,7 +418,7 @@ export default function Billing() {
         </Card>
       )}
 
-      {(isTrialExpiredSuspended || isNoPaidPlanSuspended) && (
+      {showPlansContent && (isTrialExpiredSuspended || isNoPaidPlanSuspended) && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -431,7 +433,7 @@ export default function Billing() {
         </div>
       )}
 
-      {tenantInfo?.status === "payment_overdue" && (
+      {showPlansContent && tenantInfo?.status === "payment_overdue" && (
         <div className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-orange-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
@@ -446,7 +448,7 @@ export default function Billing() {
         </div>
       )}
 
-      {tenantInfo?.status === "suspended" && (
+      {showPlansContent && tenantInfo?.status === "suspended" && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
@@ -462,7 +464,7 @@ export default function Billing() {
       )}
 
       {/* Plan selector */}
-      {availablePlans && availablePlans.length > 0 && isAdmin && (
+      {showPlansContent && availablePlans && availablePlans.length > 0 && isAdmin && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Choose Your Plan</CardTitle>
@@ -547,7 +549,7 @@ export default function Billing() {
       )}
 
       {/* Slim status / billing bar — replaces the old Subscription Status card */}
-      {tenantInfo && (
+      {showPlansContent && tenantInfo && (
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center gap-3">
             <Badge className={`capitalize text-xs border ${statusColor(tenantInfo.status)}`}>
@@ -583,7 +585,7 @@ export default function Billing() {
       )}
 
       {/* Payment method */}
-      {(tenantInfo?.status === "active" || tenantInfo?.status === "payment_overdue") && (
+      {showPlansContent && (tenantInfo?.status === "active" || tenantInfo?.status === "payment_overdue") && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -622,7 +624,7 @@ export default function Billing() {
       )}
 
       {/* Add-on packages */}
-      {isAdmin && addons && addons.length > 0 && (
+      {showAddonsContent && isAdmin && addons && addons.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -718,7 +720,7 @@ export default function Billing() {
         </Card>
       )}
       {/* Usage credits */}
-      {isAdmin && creditsData && creditsData.length > 0 && (
+      {showAddonsContent && isAdmin && creditsData && creditsData.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">

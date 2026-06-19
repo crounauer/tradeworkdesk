@@ -171,7 +171,7 @@ export default function AdminCompanySettings() {
     const p = new URLSearchParams(searchString);
     const tab = p.get("tab") ?? "profile";
     if (tab === "job-types") return "team";
-    if (["plans", "billing", "invoicing", "payments"].includes(tab)) return "finance";
+    if (["plans", "addons", "billing", "invoicing", "payments"].includes(tab)) return "finance";
     return tab;
   });
   const [teamTab, setTeamTab] = useState<"team" | "job-types">(() => {
@@ -181,12 +181,12 @@ export default function AdminCompanySettings() {
     if (sub === "job-types" || tab === "job-types") return "job-types";
     return "team";
   });
-  const [financeTab, setFinanceTab] = useState<"plans" | "billing" | "invoicing" | "payments">(() => {
+  const [financeTab, setFinanceTab] = useState<"plans" | "addons" | "billing" | "invoicing" | "payments">(() => {
     const p = new URLSearchParams(searchString);
     const legacy = p.get("tab");
     const sub = p.get("financeTab");
-    if (sub === "plans" || sub === "billing" || sub === "invoicing" || sub === "payments") return sub;
-    if (legacy === "plans" || legacy === "billing" || legacy === "invoicing" || legacy === "payments") return legacy;
+    if (sub === "plans" || sub === "addons" || sub === "billing" || sub === "invoicing" || sub === "payments") return sub;
+    if (legacy === "plans" || legacy === "addons" || legacy === "billing" || legacy === "invoicing" || legacy === "payments") return legacy;
     return "plans";
   });
 
@@ -915,10 +915,11 @@ export default function AdminCompanySettings() {
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-6 pt-4">
-            <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "plans" | "billing" | "invoicing" | "payments")}>
+            <Tabs value={financeTab} onValueChange={(v) => setFinanceTab(v as "plans" | "addons" | "billing" | "invoicing" | "payments")}>
               <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="plans">Plans</TabsTrigger>
+                  <TabsTrigger value="addons">Add Ons</TabsTrigger>
                   <TabsTrigger value="billing">Billing</TabsTrigger>
                   <TabsTrigger value="invoicing">Invoicing</TabsTrigger>
                   <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -926,7 +927,11 @@ export default function AdminCompanySettings() {
               </div>
 
               <TabsContent value="plans" className="space-y-6 pt-4">
-                <BillingPage />
+                <BillingPage view="plans" />
+              </TabsContent>
+
+              <TabsContent value="addons" className="space-y-6 pt-4">
+                <BillingPage view="addons" />
               </TabsContent>
 
               <TabsContent value="billing" className="space-y-6 pt-4">
