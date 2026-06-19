@@ -45,6 +45,8 @@ export default function PlatformMarketingSiteAnalytics() {
   const topPages = Array.isArray(data?.top_pages) ? data.top_pages : [];
   const maxDaily = Math.max(1, ...daily.map((d) => d.count || 0));
   const maxChannel = Math.max(1, ...channels.map((c) => c.count || 0));
+  const hasDailyTraffic = daily.some((d) => d.count > 0);
+  const tickStep = daily.length > 0 ? Math.max(1, Math.ceil(daily.length / 8)) : 1;
 
   if (isLoading) {
     return (
@@ -76,14 +78,16 @@ export default function PlatformMarketingSiteAnalytics() {
         <Card>
           <CardHeader><CardTitle className="text-base">Traffic Trend (30 Days)</CardTitle></CardHeader>
           <CardContent>
-            {daily.length === 0 ? (
+            {daily.length === 0 || !hasDailyTraffic ? (
               <p className="text-sm text-muted-foreground">No data available</p>
             ) : (
               <div className="flex items-end gap-1 h-44">
-                {daily.map((d) => (
+                {daily.map((d, idx) => (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
                     <div className="w-full bg-blue-500/80 rounded-t-sm" style={{ height: `${Math.max(2, (d.count / maxDaily) * 132)}px` }} />
-                    <span className="text-[10px] text-muted-foreground">{d.date.slice(5)}</span>
+                    <span className="text-[10px] text-muted-foreground h-3 leading-none whitespace-nowrap">
+                      {idx % tickStep === 0 || idx === daily.length - 1 ? d.date.slice(5) : ""}
+                    </span>
                   </div>
                 ))}
               </div>

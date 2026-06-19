@@ -35,6 +35,8 @@ export default function PlatformMarketingAnalytics() {
 
   const maxDaily = Math.max(1, ...safeDaily.map((d) => Math.max(d.signups, d.paid_conversions)));
   const maxSource = Math.max(1, ...safeSources.map((d) => d.count));
+  const hasDailyValues = safeDaily.some((d) => d.signups > 0 || d.paid_conversions > 0);
+  const tickStep = safeDaily.length > 0 ? Math.max(1, Math.ceil(safeDaily.length / 8)) : 1;
 
   if (isLoading) {
     return (
@@ -75,20 +77,23 @@ export default function PlatformMarketingAnalytics() {
         <Card>
           <CardHeader><CardTitle className="text-base">Funnel Trend (30 Days)</CardTitle></CardHeader>
           <CardContent>
-            {safeDaily.length === 0 ? (
+            {safeDaily.length === 0 || !hasDailyValues ? (
               <p className="text-sm text-muted-foreground">No data available</p>
             ) : (
               <div className="flex items-end gap-1 h-44">
-                {safeDaily.map((d) => {
+                {safeDaily.map((d, idx) => {
                   const signupsH = Math.max(2, (d.signups / maxDaily) * 128);
-                  const convertedH = Math.max(0, (d.paid_conversions / maxDaily) * 128);
+                  const convertedH = Math.max(2, (d.paid_conversions / maxDaily) * 128);
+                  const showTick = idx % tickStep === 0 || idx === safeDaily.length - 1;
                   return (
                     <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                      <div className="w-full flex flex-col justify-end rounded-t-sm overflow-hidden border border-slate-100 bg-slate-50" style={{ height: "132px" }}>
-                        <div className="w-full bg-blue-500/85" style={{ height: `${signupsH}px` }} />
-                        <div className="w-full bg-emerald-500/90" style={{ height: `${convertedH}px` }} />
+                      <div className="w-full h-[132px] flex items-end justify-center gap-[2px]">
+                        <div className="w-[45%] bg-blue-500/85 rounded-t-sm" style={{ height: `${signupsH}px` }} />
+                        <div className="w-[45%] bg-emerald-500/90 rounded-t-sm" style={{ height: `${convertedH}px` }} />
                       </div>
-                      <span className="text-[10px] text-muted-foreground">{d.date.slice(5)}</span>
+                      <span className="text-[10px] text-muted-foreground h-3 leading-none whitespace-nowrap">
+                        {showTick ? d.date.slice(5) : ""}
+                      </span>
                     </div>
                   );
                 })}

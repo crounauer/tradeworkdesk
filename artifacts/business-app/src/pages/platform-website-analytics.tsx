@@ -86,6 +86,8 @@ export default function PlatformWebsiteAnalytics() {
   const topWebsites = Array.isArray(data?.top_websites) ? data.top_websites : [];
   const maxDailyTraffic = Math.max(1, ...dailyTraffic.map((d) => d.count || 0));
   const maxChannel = Math.max(1, ...channelBreakdown.map((c) => c.count || 0));
+  const hasDailyTraffic = dailyTraffic.some((d) => d.count > 0);
+  const trafficTickStep = dailyTraffic.length > 0 ? Math.max(1, Math.ceil(dailyTraffic.length / 8)) : 1;
 
   if (isLoading) {
     return (
@@ -127,14 +129,16 @@ export default function PlatformWebsiteAnalytics() {
         <Card>
           <CardHeader><CardTitle className="text-base flex items-center gap-2">Traffic Trend (30 Days) <SectionInfo text="Daily page-view volume trend across all tenant websites for the last 30 days." /></CardTitle></CardHeader>
           <CardContent>
-            {dailyTraffic.length === 0 ? (
+            {dailyTraffic.length === 0 || !hasDailyTraffic ? (
               <p className="text-sm text-muted-foreground">No data available</p>
             ) : (
               <div className="flex items-end gap-1 h-44">
-                {dailyTraffic.map((d) => (
+                {dailyTraffic.map((d, idx) => (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
                     <div className="w-full bg-blue-500/80 rounded-t-sm" style={{ height: `${Math.max(2, (d.count / maxDailyTraffic) * 132)}px` }} />
-                    <span className="text-[10px] text-muted-foreground">{d.date.slice(5)}</span>
+                    <span className="text-[10px] text-muted-foreground h-3 leading-none whitespace-nowrap">
+                      {idx % trafficTickStep === 0 || idx === dailyTraffic.length - 1 ? d.date.slice(5) : ""}
+                    </span>
                   </div>
                 ))}
               </div>
