@@ -1503,6 +1503,171 @@ router.get("/platform/stats/marketing", requireAuth, requireSuperAdmin, async (_
   });
 });
 
+router.get("/platform/stats/websites", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+  const now = new Date();
+  const start30 = new Date(now.getTime() - (29 * DAY_MS));
+  const start30Iso = start30.toISOString();
+
+  const [websitesRes, tenantsRes, formsCountRes, submissionsRes, trafficRes] = await Promise.all([
+    supabaseAdmin
+      .from("websites")
+      .select("id, tenant_id, site_name, status, updated_at"),
+    supabaseAdmin
+      .from("tenants")
+      .select("id, company_name"),
+    supabaseAdmin
+      .from("website_forms")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true),
+    supabaseAdmin
+      .from("website_form_submissions")
+      .select("website_id, status, created_at")
+      .gte("created_at", start30Iso)
+      .order("created_at", { ascending: false })
+      .limit(50000),
+    supabaseAdmin
+      .from("website_traffic_events")
+      .select("website_id, visitor_id, referrer, created_at")
+      .eq("event_type", "page_view")
+      .gte("created_at", start30Iso)
+      .order("created_at", { ascending: false })
+      .limit(100000),
+  ]);
+
+  if (websitesRes.error) {
+    res.status(500).json({ error: websitesRes.error.message });
+    return;
+  }
+
+  const websites = (websitesRes.data || []) as Array<{
+    id: string;
+    tenant_id: string;
+    site_name: string | null;
+    status: string | null;
+    updated_at: string | null;
+  }>;
+  const tenants = (tenantsRes.data || []) as Array<{ id: string; company_name: string | null }>;
+  const submissions = (submissionsRes.data || []) as Array<{ website_id: string; status: string; created_at: string }>;
+  const traffic = (trafficRes.data || []) as Array<{ website_id: string; visitor_id: string | null; referrer: string | null; created_at: string }>;
+
+  const tenantNameById = new Map(tenants.map((t) => [t.id, t.company_name || "Untitled tenant"]));
+
+  const websiteAgg = new Map<string, {
+    website_id: string;
+    website_name: string;
+    tenant_id: string;
+    tenant_name: string;
+    status: string;
+    page_views_30d: number;
+    submissions_30d: number;
+    converted_30d: number;
+    unique_visitors: Set<string>;
+  }>();
+
+  for (const w of websites) {
+    websiteAgg.set(w.id, {
+      website_id: w.id,
+      website_name: w.site_name || "Untitled website",
+      tenant_id: w.tenant_id,
+      tenant_name: tenantNameById.get(w.tenant_id) || "Untitled tenant",
+      status: String(w.status || "draft"),
+      page_views_30d: 0,
+      submissions_30d: 0,
+      converted_30d: 0,
+      unique_visitors: new Set<string>(),
+    });
+  }
+
+  const trafficDailyMap = new Map<string, number>();
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(start30.getTime() + i * DAY_MS);
+    trafficDailyMap.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  const classifyChannel = (referrer: string | null): string => {
+    if (!referrer) return "direct";
+    const ref = referrer.toLowerCase();
+    if (ref.includes("google.") || ref.includes("bing.") || ref.includes("duckduckgo.") || ref.includes("yahoo.")) return "search";
+    if (ref.includes("facebook.") || ref.includes("instagram.") || ref.includes("t.co") || ref.includes("twitter.") || ref.includes("linkedin.") || ref.includes("youtube.")) return "social";
+    return "referral";
+  };
+
+  const channelCounts = new Map<string, number>();
+
+  for (const ev of traffic) {
+    const agg = websiteAgg.get(ev.website_id);
+    if (!agg) continue;
+    agg.page_views_30d += 1;
+    const visitor = String(ev.visitor_id || "").trim();
+    if (visitor) agg.unique_visitors.add(visitor);
+
+    const channel = classifyChannel(ev.referrer || null);
+    channelCounts.set(channel, (channelCounts.get(channel) || 0) + 1);
+
+    const key = dayKey(ev.created_at);
+    if (key && trafficDailyMap.has(key)) trafficDailyMap.set(key, (trafficDailyMap.get(key) || 0) + 1);
+  }
+
+  for (const s of submissions) {
+    const agg = websiteAgg.get(s.website_id);
+    if (!agg) continue;
+    agg.submissions_30d += 1;
+    if (s.status === "converted") agg.converted_30d += 1;
+  }
+
+  const websitesList = Array.from(websiteAgg.values()).map((w) => {
+    const visitors = w.unique_visitors.size;
+    const conversion_rate = percent1(w.submissions_30d, Math.max(1, w.page_views_30d));
+    const submission_to_converted_rate = percent1(w.converted_30d, Math.max(1, w.submissions_30d));
+    return {
+      website_id: w.website_id,
+      website_name: w.website_name,
+      tenant_id: w.tenant_id,
+      tenant_name: w.tenant_name,
+      status: w.status,
+      page_views_30d: w.page_views_30d,
+      unique_visitors_30d: visitors,
+      submissions_30d: w.submissions_30d,
+      converted_30d: w.converted_30d,
+      conversion_rate_percent: conversion_rate,
+      submission_to_converted_rate_percent: submission_to_converted_rate,
+    };
+  });
+
+  const totalViews = websitesList.reduce((sum, w) => sum + w.page_views_30d, 0);
+  const totalVisitors = websitesList.reduce((sum, w) => sum + w.unique_visitors_30d, 0);
+  const totalSubmissions = websitesList.reduce((sum, w) => sum + w.submissions_30d, 0);
+  const totalConverted = websitesList.reduce((sum, w) => sum + w.converted_30d, 0);
+  const publishedWebsites = websitesList.filter((w) => w.status === "published").length;
+
+  const topWebsites = [...websitesList]
+    .sort((a, b) => b.page_views_30d - a.page_views_30d)
+    .slice(0, 12);
+
+  const channelBreakdown = Array.from(channelCounts.entries())
+    .map(([channel, count]) => ({ channel, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const dailyTraffic = Array.from(trafficDailyMap.entries()).map(([date, count]) => ({ date, count }));
+
+  res.json({
+    summary: {
+      websites_total: websitesList.length,
+      websites_published: publishedWebsites,
+      active_forms: Number(formsCountRes.count || 0),
+      page_views_last_30_days: totalViews,
+      unique_visitors_last_30_days: totalVisitors,
+      submissions_last_30_days: totalSubmissions,
+      converted_last_30_days: totalConverted,
+      traffic_to_submission_rate_percent: percent1(totalSubmissions, Math.max(1, totalViews)),
+      submission_to_converted_rate_percent: percent1(totalConverted, Math.max(1, totalSubmissions)),
+    },
+    channel_breakdown: channelBreakdown,
+    daily_traffic: dailyTraffic,
+    top_websites: topWebsites,
+  });
+});
+
 router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { template, to } = req.body;
   if (!template || !to) { res.status(400).json({ error: "template and to are required" }); return; }
