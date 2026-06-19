@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, BarChart3, LineChart, Funnel, MessageSquare, Globe2 } from "lucide-react";
+import { Loader2, BarChart3, LineChart, Funnel, MessageSquare, Globe2, AlertTriangle, Target, TrendingUp, CheckCircle2 } from "lucide-react";
 
 async function apiFetch(url: string) {
   const res = await fetch(url);
@@ -141,6 +141,129 @@ export default function WebsiteAnalytics() {
   const sourceBreakdown = Array.isArray(data.source_breakdown) ? data.source_breakdown : [];
   const recentSubmissions = Array.isArray(data.recent_submissions) ? data.recent_submissions : [];
 
+  const pct = (numerator: number, denominator: number, precision = 1) => {
+    if (denominator <= 0) return 0;
+    const raw = (numerator / denominator) * 100;
+    const factor = Math.pow(10, precision);
+    return Math.round(raw * factor) / factor;
+  };
+
+  const safeNum = (n: number) => Number.isFinite(Number(n)) ? Number(n) : 0;
+
+  const trafficToSubmissionRate = pct(summary.submissions_last_30_days, trafficSummary.page_views_last_30_days);
+  const visitorToLeadRate = pct(summary.website_leads_last_30_days, trafficSummary.unique_visitors_last_30_days);
+  const readOrConverted = safeNum(funnel.read) + safeNum(funnel.converted);
+  const followUpProgressRate = pct(readOrConverted, safeNum(summary.total_submissions));
+
+  const last7 = daily.slice(-7).reduce((sum, d) => sum + safeNum(d.count), 0);
+  const prev7 = daily.slice(-14, -7).reduce((sum, d) => sum + safeNum(d.count), 0);
+  const trafficLast7 = dailyTraffic.slice(-7).reduce((sum, d) => sum + safeNum(d.count), 0);
+  const trafficPrev7 = dailyTraffic.slice(-14, -7).reduce((sum, d) => sum + safeNum(d.count), 0);
+  const submissionTrend7d = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : (last7 > 0 ? 100 : 0);
+  const trafficTrend7d = trafficPrev7 > 0 ? Math.round(((trafficLast7 - trafficPrev7) / trafficPrev7) * 100) : (trafficLast7 > 0 ? 100 : 0);
+
+  type FocusArea = {
+    level: "high" | "medium" | "low";
+    title: string;
+    why: string;
+    action: string;
+    metric: string;
+  };
+
+  const focusAreas: FocusArea[] = [];
+
+  if (summary.published_pages === 0) {
+    focusAreas.push({
+      level: "high",
+      title: "Publish your core pages",
+      why: "No pages are currently published, so search traffic and conversions are blocked.",
+      action: "Publish Home, Services, About, and Contact pages first.",
+      metric: `Published pages: ${summary.published_pages}/${summary.total_pages}`,
+    });
+  }
+
+  if (summary.active_forms === 0) {
+    focusAreas.push({
+      level: "high",
+      title: "No active lead capture forms",
+      why: "Visitors cannot reliably convert without active forms.",
+      action: "Enable at least one contact/quote form on high-traffic pages.",
+      metric: `Active forms: ${summary.active_forms}`,
+    });
+  }
+
+  if (trafficSummary.page_views_last_30_days >= 200 && trafficToSubmissionRate < 1.2) {
+    focusAreas.push({
+      level: "high",
+      title: "Traffic is not converting",
+      why: "You have meaningful visits but low submission volume.",
+      action: "Improve CTA placement above the fold and shorten form fields.",
+      metric: `Traffic→Submission: ${trafficToSubmissionRate}%`,
+    });
+  }
+
+  if (trafficSummary.bounce_rate_percent >= 70) {
+    focusAreas.push({
+      level: "high",
+      title: "High bounce rate",
+      why: "Most visitors are leaving after minimal interaction.",
+      action: "Tighten above-the-fold messaging and improve page load speed on top pages.",
+      metric: `Bounce rate: ${trafficSummary.bounce_rate_percent}%`,
+    });
+  }
+
+  if (trafficSummary.unique_visitors_last_30_days < 100) {
+    focusAreas.push({
+      level: "medium",
+      title: "Top-of-funnel traffic is low",
+      why: "Limited unique visitors caps lead volume regardless of conversion quality.",
+      action: "Invest in local SEO pages, Google Business posts, and referral links.",
+      metric: `Unique visitors (30d): ${trafficSummary.unique_visitors_last_30_days}`,
+    });
+  }
+
+  if (safeNum(funnel.new) > 0 && safeNum(funnel.converted) === 0) {
+    focusAreas.push({
+      level: "medium",
+      title: "Leads are not moving to converted",
+      why: "New enquiries exist but none are marked converted.",
+      action: "Set a same-day follow-up SLA and track read/converted status daily.",
+      metric: `New: ${funnel.new} · Converted: ${funnel.converted}`,
+    });
+  }
+
+  if (trafficSummary.pages_per_session < 1.4 && trafficSummary.sessions_last_30_days > 0) {
+    focusAreas.push({
+      level: "low",
+      title: "Low page depth",
+      why: "Visitors are not navigating deeper into service or trust pages.",
+      action: "Add stronger internal links from top landing pages to service pages.",
+      metric: `Pages/session: ${trafficSummary.pages_per_session}`,
+    });
+  }
+
+  const topFocusAreas = focusAreas
+    .sort((a, b) => {
+      const score = { high: 3, medium: 2, low: 1 } as const;
+      return score[b.level] - score[a.level];
+    })
+    .slice(0, 4);
+
+  const positiveSignals = [
+    summary.conversion_rate_percent >= 8 ? `Strong submission conversion (${summary.conversion_rate_percent}%)` : null,
+    trafficTrend7d > 0 ? `Traffic up ${trafficTrend7d}% in the last 7 days` : null,
+    submissionTrend7d > 0 ? `Submissions up ${submissionTrend7d}% in the last 7 days` : null,
+    trafficSummary.bounce_rate_percent > 0 && trafficSummary.bounce_rate_percent < 50
+      ? `Healthy bounce rate (${trafficSummary.bounce_rate_percent}%)`
+      : null,
+  ].filter((x): x is string => Boolean(x));
+
+  const levelBadge = (level: FocusArea["level"]) => {
+    if (level === "high") return <Badge className="bg-red-100 text-red-700 border-red-200">High Priority</Badge>;
+    if (level === "medium") return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Medium Priority</Badge>;
+    return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Low Priority</Badge>;
+  };
+
   const stats = [
     { label: "Submissions (30d)", value: summary.submissions_last_30_days, icon: MessageSquare },
     { label: "Website Leads (30d)", value: summary.website_leads_last_30_days, icon: Globe2 },
@@ -183,6 +306,84 @@ export default function WebsiteAnalytics() {
           </Card>
         ))}
       </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Traffic to Submission</p>
+            <p className="text-2xl font-bold">{trafficToSubmissionRate}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Target: 1.5%+</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Visitor to Lead</p>
+            <p className="text-2xl font-bold">{visitorToLeadRate}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Target: 2.0%+</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Submission Trend (7d)</p>
+            <p className="text-2xl font-bold flex items-center gap-1">
+              <TrendingUp className={`w-4 h-4 ${submissionTrend7d >= 0 ? "text-emerald-600" : "text-red-600"}`} />
+              {submissionTrend7d >= 0 ? "+" : ""}{submissionTrend7d}%
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">vs previous 7 days</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Follow-up Progress</p>
+            <p className="text-2xl font-bold">{followUpProgressRate}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Read or converted submissions</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Target className="w-4 h-4" /> Focus Areas (What to Improve Next)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {topFocusAreas.length === 0 && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 mt-0.5" />
+              <div>
+                Core indicators look healthy right now. Keep iterating on top pages and forms to maintain momentum.
+              </div>
+            </div>
+          )}
+          {topFocusAreas.map((item) => (
+            <div key={item.title} className="border rounded-lg p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="font-semibold text-sm">{item.title}</p>
+                {levelBadge(item.level)}
+              </div>
+              <p className="text-sm text-muted-foreground">{item.why}</p>
+              <p className="text-sm"><span className="font-medium">Recommended action:</span> {item.action}</p>
+              <p className="text-xs text-muted-foreground">{item.metric}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {positiveSignals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Positive Signals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {positiveSignals.map((signal) => (
+                <div key={signal} className="text-sm rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">
+                  {signal}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {trafficStats.map((s) => (
