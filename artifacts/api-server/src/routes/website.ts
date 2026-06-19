@@ -118,7 +118,7 @@ router.get(
     // Include domain info
     const { data: domains } = await db
       .from("website_domains")
-      .select("id, domain, verification_status, ssl_status, is_primary, is_active, www_redirect, cf_hostname_id, verification_token")
+      .select("id, domain, verification_status, ssl_status, is_primary, is_active, is_platform_subdomain, www_redirect, cf_hostname_id, verification_token")
       .eq("website_id", website.id)
       .order("created_at", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
