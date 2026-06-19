@@ -295,6 +295,14 @@ export default function AdminCompanySettings() {
       invoice_bank_details: settings.invoice_bank_details ?? "",
       payment_link_url: settings.payment_link_url ?? "",
       invoicing_provider: (settings.invoicing_provider as "native" | "external" | "both") ?? "native",
+      // Branding
+      white_label_enabled: settings.white_label_enabled ?? false,
+      brand_name: settings.brand_name ?? "",
+      primary_color: settings.primary_color ?? "#6366f1",
+      accent_color: settings.accent_color ?? "",
+      favicon_url: settings.favicon_url ?? "",
+      email_from_name: settings.email_from_name ?? "",
+      email_reply_to: settings.email_reply_to ?? "",
       // Notifications
       website_enquiry_email_notify: settings.website_enquiry_email_notify ?? true,
       website_enquiry_sms_notify: settings.website_enquiry_sms_notify ?? false,
@@ -310,7 +318,7 @@ export default function AdminCompanySettings() {
   }, [settings?.logo_url, uploadLogo.isPending]);
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
-  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
+  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "white_label_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
   const arrayFields = new Set(["notification_emails"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
@@ -553,6 +561,98 @@ export default function AdminCompanySettings() {
             </p>
           )}
         </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              Branding & White Label
+            </CardTitle>
+            <CardDescription>
+              Configure your app brand identity, colours, favicon and outbound email branding.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
+              <div>
+                <Label>Enable white-label mode</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Show your branding instead of TradeWorkDesk defaults.</p>
+              </div>
+              <Switch
+                checked={watch("white_label_enabled") ?? false}
+                onCheckedChange={(v) => setValue("white_label_enabled", v, { shouldDirty: true })}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="brand_name">Brand Name</Label>
+              <Input id="brand_name" placeholder="e.g. North East Ecoheat" {...register("brand_name")} />
+              <p className="text-xs text-muted-foreground">Shown in sidebar when no logo is set and white-label mode is enabled.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="primary_color">Primary Colour</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={String(watch("primary_color") || "#6366f1")}
+                    onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
+                    className="w-10 h-10 rounded border"
+                  />
+                  <Input id="primary_color" className="font-mono" placeholder="#6366f1" {...register("primary_color")} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="accent_color">Accent Colour (optional)</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={String(watch("accent_color") || "#10b981")}
+                    onChange={(e) => setValue("accent_color", e.target.value, { shouldDirty: true })}
+                    className="w-10 h-10 rounded border"
+                  />
+                  <Input id="accent_color" className="font-mono" placeholder="#10b981" {...register("accent_color")} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="favicon_url">Favicon URL (optional)</Label>
+              <Input id="favicon_url" type="url" placeholder="https://example.com/favicon.ico" {...register("favicon_url")} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email_from_name">Email From Name</Label>
+                <Input id="email_from_name" placeholder="e.g. North East Ecoheat" {...register("email_from_name")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email_reply_to">Reply-To Email</Label>
+                <Input id="email_reply_to" type="email" placeholder="info@example.co.uk" {...register("email_reply_to")} />
+              </div>
+            </div>
+
+            {(watch("white_label_enabled") ?? false) && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <p className="text-xs font-medium mb-2">Brand preview</p>
+                <div className="flex items-center gap-3 p-2 bg-card rounded border w-fit">
+                  {displayedLogo ? (
+                    <img src={displayedLogo} alt="Brand preview" className="h-7 w-auto max-w-[140px] object-contain" />
+                  ) : (
+                    <>
+                      <div
+                        className="w-5 h-5 rounded-full"
+                        style={{ backgroundColor: String(watch("primary_color") || "#6366f1") }}
+                      />
+                      <span className="font-semibold">{String(watch("brand_name") || "Your Brand")}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
           </TabsContent>
