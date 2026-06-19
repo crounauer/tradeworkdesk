@@ -169,12 +169,6 @@ export default function AreasBlock({ content }: Props) {
             </div>
           )}
 
-          {phone && (
-            <a href={`tel:${phone.replace(/\s/g, "")}`} style={{ display: "inline-block", color: cardText, fontWeight: 700, textDecoration: "none", fontSize: "1rem", marginBottom: 20 }}>
-              📞 {phone}
-            </a>
-          )}
-
           <div id="postcode-checker" style={{ marginTop: 28, paddingTop: 24, borderTop: isTealCard ? "1px solid rgba(255,255,255,0.14)" : "1px solid #e5e7eb" }}>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <input
