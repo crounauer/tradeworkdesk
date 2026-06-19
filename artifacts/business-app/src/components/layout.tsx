@@ -177,6 +177,18 @@ export function Layout({ children }: { children: ReactNode }) {
   // Header bar: website link + reports/support/help for non-superadmin tenant users
   const showHeaderBar = !isSuperAdmin;
 
+  const topMenuItems = [
+    ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
+    ...(hasWebsiteBuilder ? [{ href: "/website", label: "My Website", icon: Globe2 }] : []),
+    ...((profile?.role === "admin" || profile?.role === "office_staff") ? [{ href: "/reports", label: "Reports", icon: FileBarChart }] : []),
+    ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin") && hasJobManagement
+      ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
+      : []),
+    { href: supportHref, label: "Support", icon: MessageSquare },
+    { href: "/tools", label: "Tools", icon: Wrench },
+    { href: "/help", label: "User Guide", icon: HelpCircle },
+  ];
+
   const openEnquiryCount = enquiryCountData?.count || 0;
 
   const renderNavLink = (item: { href: string; label: string; icon: React.ElementType }, onClick?: () => void, mobile?: boolean) => {
@@ -434,14 +446,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
-            {hasJobManagement && (
-              <Link href="/search" onClick={() => setIsMobileMenuOpen(false)}>
-                <Button variant="outline" className="w-full justify-start">
-                  <Search className="w-4 h-4 mr-2" />
-                  Search
-                </Button>
-              </Link>
-            )}
+            {!isSuperAdmin && topMenuItems.length > 0 && renderSection("Top Menu", topMenuItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {!isSuperAdmin && customerNavItems.length > 0 && renderSection("Customers", customerNavItems, () => setIsMobileMenuOpen(false), true)}
             {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
@@ -493,56 +498,14 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* ── Tenant header bar ───────────────────────────────────────────── */}
         {showHeaderBar && (
           <div className="hidden md:flex items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
-            {hasJobManagement && (
-              <Link href="/search">
+            {topMenuItems.map((item) => (
+              <Link key={item.href} href={item.href}>
                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  <Search className="w-3.5 h-3.5" />
-                  Search
+                  <item.icon className="w-3.5 h-3.5" />
+                  {item.label}
                 </button>
               </Link>
-            )}
-            {hasWebsiteBuilder && (
-              <Link href="/website">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  <Globe2 className="w-3.5 h-3.5" />
-                  My Website
-                </button>
-              </Link>
-            )}
-            {(profile?.role === 'admin' || profile?.role === 'office_staff') && (
-              <Link href="/reports">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  <FileBarChart className="w-3.5 h-3.5" />
-                  Reports
-                </button>
-              </Link>
-            )}
-            {(profile?.role === 'admin' || profile?.role === 'office_staff' || profile?.role === 'super_admin') && hasJobManagement && (
-              <Link href="/leave-holidays">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                  Leave & Holidays
-                </button>
-              </Link>
-            )}
-            <Link href={supportHref}>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                <MessageSquare className="w-3.5 h-3.5" />
-                Support
-              </button>
-            </Link>
-            <Link href="/tools">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                <Wrench className="w-3.5 h-3.5" />
-                Tools
-              </button>
-            </Link>
-            <Link href="/help">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                <HelpCircle className="w-3.5 h-3.5" />
-                User Guide
-              </button>
-            </Link>
+            ))}
           </div>
         )}
 
