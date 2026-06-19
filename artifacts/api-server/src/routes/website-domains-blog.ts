@@ -1538,15 +1538,18 @@ router.post(
       .eq("singleton_id", "default")
       .maybeSingle() as { data: { postcode: string | null; service_area: string | null; coverage_radius_miles: number | null } | null };
 
-    const radius = Number(company?.coverage_radius_miles ?? 0);
-    if (!radius || radius <= 0) {
-      res.json({ covered: null, mode: "text-only", reason: company?.service_area || "Postcode coverage has not been configured yet." });
-      return;
-    }
-
     const originPostcode = (company?.postcode || "").trim();
     if (!originPostcode) {
       res.json({ covered: null, mode: "radius", reason: "Add your business postcode in admin to enable postcode checks." });
+      return;
+    }
+
+    const configuredRadius = Number(company?.coverage_radius_miles ?? 0);
+    const fallbackRadius = Number(process.env.DEFAULT_POSTCODE_COVERAGE_RADIUS_MILES ?? 20);
+    const radius = configuredRadius > 0 ? configuredRadius : fallbackRadius;
+
+    if (!radius || radius <= 0) {
+      res.json({ covered: null, mode: "text-only", reason: company?.service_area || "Postcode coverage has not been configured yet." });
       return;
     }
 
@@ -1573,6 +1576,7 @@ router.post(
     res.json({
       covered,
       mode: "radius",
+      default_radius_applied: configuredRadius <= 0,
       distance_miles: Number(distanceMiles.toFixed(1)),
       radius_miles: radius,
       reason: covered ? "This postcode is within your service area." : "This postcode is outside your service area.",
