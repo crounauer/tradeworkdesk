@@ -179,7 +179,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const topMenuItems = [
     ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
     ...(hasWebsiteBuilder ? [{ href: "/website", label: "My Website", icon: Globe2 }] : []),
-    ...(hasWebsiteBuilder ? [{ href: "/website/analytics", label: "Website Analytics", icon: FileBarChart }] : []),
+    ...(hasWebsiteBuilder ? [{ href: "/website/analytics", label: "Analytics", icon: FileBarChart }] : []),
     ...((profile?.role === "admin" || profile?.role === "office_staff") ? [{ href: "/reports", label: "Reports", icon: FileBarChart }] : []),
     ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin") && hasJobManagement
       ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
