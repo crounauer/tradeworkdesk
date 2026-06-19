@@ -4,8 +4,11 @@
  * Domains:
  *   GET    /api/website/domains              — list domains
  *   POST   /api/website/domains              — add custom domain
+ *   POST   /api/website/domains/onboard      — one-click onboarding (add + verify + activate)
  *   DELETE /api/website/domains/:id          — remove domain
+ *   POST   /api/website/domains/:id/offboard — one-click safe offboarding (fallback + deactivate)
  *   POST   /api/website/domains/:id/verify   — trigger verification check
+ *   POST   /api/website/domains/jobs/reconcile — process pending domain onboarding tasks
  *
  * Blog:
  *   GET    /api/website/blog                 — list blog posts
@@ -185,6 +188,112 @@ async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unk
   return data;
 }
 
+function normalizeDomainInput(domain: string): string {
+  return domain
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .trim();
+}
+
+function isValidDomainFormat(domain: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/.test(domain);
+}
+
+async function checkDomainPointsToPlatform(domain: string): Promise<boolean> {
+  const PLATFORM_TARGET = (process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk").toLowerCase();
+  const VERCEL_APEX_IP = process.env.VERCEL_APEX_IP || "76.76.21.21";
+
+  let dnsOk = false;
+  try {
+    const cnameAddresses = await resolveCname(domain).catch(() => [] as string[]);
+    dnsOk = cnameAddresses.some((a) => a.toLowerCase() === PLATFORM_TARGET || a.toLowerCase().endsWith(`.${PLATFORM_TARGET}`));
+  } catch {
+    // ignore CNAME lookup failures
+  }
+
+  if (!dnsOk) {
+    try {
+      const aRecords = await resolve4(domain).catch(() => [] as string[]);
+      dnsOk = aRecords.includes(VERCEL_APEX_IP);
+    } catch {
+      // ignore A record lookup failures
+    }
+  }
+
+  return dnsOk;
+}
+
+async function ensurePlatformFallbackDomain(websiteId: string, tenantId: string): Promise<{ domain: string; created: boolean }> {
+  const { data: existingPlatform } = await db
+    .from("website_domains")
+    .select("id, domain")
+    .eq("website_id", websiteId)
+    .eq("tenant_id", tenantId)
+    .eq("is_platform_subdomain", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle() as { data: { id: string; domain: string } | null };
+
+  if (existingPlatform?.domain) {
+    return { domain: existingPlatform.domain, created: false };
+  }
+
+  const base = process.env.PLATFORM_SUBDOMAIN_BASE || "tradeworkdesk.co.uk";
+  const idSlug = websiteId.replace(/-/g, "").slice(0, 10) || tenantId.replace(/-/g, "").slice(0, 10) || "site";
+  const baseSlug = `site-${idSlug}`;
+  let slug = baseSlug;
+
+  for (let counter = 2; counter < 100; counter++) {
+    const { data: used } = await db
+      .from("website_domains")
+      .select("id")
+      .eq("domain", `${slug}.${base}`)
+      .maybeSingle() as { data: { id: string } | null };
+    if (!used) break;
+    slug = `${baseSlug}-${counter}`;
+  }
+
+  const fallbackDomain = `${slug}.${base}`;
+  await db.from("website_domains").insert({
+    website_id: websiteId,
+    tenant_id: tenantId,
+    domain: fallbackDomain,
+    is_platform_subdomain: true,
+    is_primary: false,
+    is_active: true,
+    verification_status: "verified",
+    ssl_status: "active",
+    activated_at: new Date().toISOString(),
+  });
+
+  await addDomainToVercel(fallbackDomain);
+  return { domain: fallbackDomain, created: true };
+}
+
+async function activateCustomDomain(opts: { domainId: string; websiteId: string; domain: string; setPrimary: boolean }): Promise<void> {
+  const now = new Date().toISOString();
+  await db.from("website_domains").update({
+    verification_status: "verified",
+    ssl_status: "active",
+    is_active: true,
+    is_primary: opts.setPrimary,
+    dns_checked_at: now,
+    activated_at: now,
+  }).eq("id", opts.domainId);
+
+  if (opts.setPrimary) {
+    await db
+      .from("website_domains")
+      .update({ is_primary: false })
+      .eq("website_id", opts.websiteId)
+      .eq("is_platform_subdomain", false)
+      .neq("id", opts.domainId);
+  }
+
+  await addDomainToVercel(opts.domain);
+}
+
 // ─── Domains ──────────────────────────────────────────────────────────────────
 
 router.get(
@@ -284,6 +393,117 @@ router.post(
   }
 );
 
+router.post(
+  "/website/domains/onboard",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { domain, verify_now = true, set_primary = true } = req.body as {
+      domain?: string;
+      verify_now?: boolean;
+      set_primary?: boolean;
+    };
+
+    if (!domain) { res.status(400).json({ error: "domain is required" }); return; }
+
+    const normDomain = normalizeDomainInput(domain);
+    if (!isValidDomainFormat(normDomain)) {
+      res.status(400).json({ error: "Invalid domain format" });
+      return;
+    }
+
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const { data: existing } = await db
+      .from("website_domains")
+      .select("id, tenant_id, website_id, domain, is_platform_subdomain")
+      .eq("domain", normDomain)
+      .maybeSingle() as { data: { id: string; tenant_id: string; website_id: string; domain: string; is_platform_subdomain: boolean } | null };
+
+    if (existing && existing.tenant_id !== req.tenantId) {
+      res.status(409).json({ error: "This domain is already in use by another account" });
+      return;
+    }
+
+    if (existing?.is_platform_subdomain) {
+      res.status(400).json({ error: "Platform subdomains are managed automatically and cannot be onboarded as custom domains" });
+      return;
+    }
+
+    let domainId = existing?.id;
+    if (!domainId) {
+      const { data: inserted, error } = await db
+        .from("website_domains")
+        .insert({
+          website_id: website.id,
+          tenant_id: req.tenantId,
+          domain: normDomain,
+          verification_status: "pending",
+          ssl_status: "pending",
+          is_primary: false,
+          is_active: false,
+        })
+        .select("id")
+        .single() as { data: { id: string } | null; error: unknown };
+
+      if (error || !inserted?.id) {
+        res.status(500).json({ error: "Failed to create domain onboarding record" });
+        return;
+      }
+      domainId = inserted.id;
+    }
+
+    if (!verify_now) {
+      const instructions = getDnsInstructions(normDomain);
+      res.status(202).json({
+        ok: true,
+        status: "pending_dns",
+        domain_id: domainId,
+        domain: normDomain,
+        dns_instructions: instructions,
+      });
+      return;
+    }
+
+    const dnsOk = await checkDomainPointsToPlatform(normDomain);
+    if (dnsOk) {
+      await activateCustomDomain({
+        domainId,
+        websiteId: String(website.id),
+        domain: normDomain,
+        setPrimary: Boolean(set_primary),
+      });
+    } else {
+      await db
+        .from("website_domains")
+        .update({
+          verification_status: "pending",
+          ssl_status: "pending",
+          is_active: false,
+          dns_checked_at: new Date().toISOString(),
+        })
+        .eq("id", domainId);
+    }
+
+    const { data: updated } = await db
+      .from("website_domains")
+      .select("id, domain, verification_status, ssl_status, is_active, is_primary")
+      .eq("id", domainId)
+      .single() as { data: Record<string, unknown> | null };
+
+    res.status(dnsOk ? 200 : 202).json({
+      ok: true,
+      status: dnsOk ? "active" : "pending_dns",
+      dns_ok: dnsOk,
+      domain: updated,
+      dns_instructions: dnsOk ? null : getDnsInstructions(normDomain),
+    });
+  }
+);
+
 router.delete(
   "/website/domains/:id",
   requireAuth,
@@ -309,6 +529,63 @@ router.delete(
 
     await db.from("website_domains").delete().eq("id", id);
     res.sendStatus(204);
+  }
+);
+
+router.post(
+  "/website/domains/:id/offboard",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+    const { delete_record = false } = req.body as { delete_record?: boolean };
+
+    const { data: domain } = await db
+      .from("website_domains")
+      .select("id, website_id, domain, is_platform_subdomain")
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId)
+      .single() as { data: { id: string; website_id: string; domain: string; is_platform_subdomain: boolean } | null };
+
+    if (!domain) {
+      res.status(404).json({ error: "Domain not found" });
+      return;
+    }
+
+    if (domain.is_platform_subdomain) {
+      res.status(400).json({ error: "Platform subdomains cannot be offboarded" });
+      return;
+    }
+
+    const fallback = await ensurePlatformFallbackDomain(domain.website_id, req.tenantId!);
+
+    if (delete_record) {
+      await db.from("website_domains").delete().eq("id", domain.id);
+    } else {
+      await db
+        .from("website_domains")
+        .update({
+          is_active: false,
+          is_primary: false,
+          verification_status: "pending",
+          ssl_status: "pending",
+          activated_at: null,
+        })
+        .eq("id", domain.id);
+    }
+
+    const vercelResult = await removeDomainFromVercel(domain.domain);
+
+    res.json({
+      ok: true,
+      offboarded_domain: domain.domain,
+      deleted_record: Boolean(delete_record),
+      fallback_domain: fallback.domain,
+      fallback_created: fallback.created,
+      vercel: vercelResult,
+    });
   }
 );
 
@@ -374,6 +651,83 @@ router.post(
       .single() as { data: Record<string, unknown> | null };
 
     res.json(updated);
+  }
+);
+
+router.post(
+  "/website/domains/jobs/reconcile",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const fallback = await ensurePlatformFallbackDomain(String(website.id), req.tenantId!);
+
+    const { data: customDomains } = await db
+      .from("website_domains")
+      .select("id, domain, verification_status, is_active, is_primary")
+      .eq("website_id", website.id)
+      .eq("is_platform_subdomain", false)
+      .order("created_at", { ascending: true }) as {
+        data: Array<{ id: string; domain: string; verification_status: string; is_active: boolean; is_primary: boolean }> | null;
+      };
+
+    let activated = 0;
+    let pending = 0;
+    let alreadyActive = 0;
+
+    const activeCustomDomains: Array<{ id: string; domain: string; is_primary: boolean }> = [];
+
+    for (const d of customDomains || []) {
+      if (d.is_active) {
+        alreadyActive += 1;
+        activeCustomDomains.push({ id: d.id, domain: d.domain, is_primary: d.is_primary });
+        continue;
+      }
+
+      const dnsOk = await checkDomainPointsToPlatform(d.domain);
+      if (!dnsOk) {
+        pending += 1;
+        await db
+          .from("website_domains")
+          .update({
+            verification_status: "pending",
+            ssl_status: "pending",
+            dns_checked_at: new Date().toISOString(),
+          })
+          .eq("id", d.id);
+        continue;
+      }
+
+      const hasPrimary = activeCustomDomains.some((x) => x.is_primary);
+      await activateCustomDomain({
+        domainId: d.id,
+        websiteId: String(website.id),
+        domain: d.domain,
+        setPrimary: !hasPrimary,
+      });
+      activated += 1;
+      activeCustomDomains.push({ id: d.id, domain: d.domain, is_primary: !hasPrimary });
+    }
+
+    const selectedPrimary = activeCustomDomains.find((d) => d.is_primary)?.domain || null;
+
+    res.json({
+      ok: true,
+      website_id: website.id,
+      fallback_domain: fallback.domain,
+      fallback_created: fallback.created,
+      summary: {
+        activated,
+        already_active: alreadyActive,
+        pending_dns: pending,
+        active_custom_domains: activeCustomDomains.length,
+        primary_custom_domain: selectedPrimary,
+      },
+    });
   }
 );
 
