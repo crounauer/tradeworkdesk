@@ -30,6 +30,7 @@ const DEFAULT_MARKETING_URLS = [
 export type MarketingIndexNowResponse = {
   success: boolean;
   submitted: number;
+  urls: string[];
   upstreamStatus: number;
   upstreamBody: string | null;
   error?: string;
@@ -56,6 +57,7 @@ export async function submitMarketingIndexNow(urls?: string[]): Promise<Marketin
     return {
       success: false,
       submitted: 0,
+      urls: [],
       upstreamStatus: 500,
       upstreamBody: null,
       error: "INDEXNOW_KEY not configured",
@@ -69,6 +71,7 @@ export async function submitMarketingIndexNow(urls?: string[]): Promise<Marketin
     return {
       success: false,
       submitted: 0,
+      urls: urlList,
       upstreamStatus: 400,
       upstreamBody: null,
       error: `All URLs must belong to ${MARKETING_HOST}. Invalid: ${invalidUrls.join(", ")}`,
@@ -99,6 +102,7 @@ export async function submitMarketingIndexNow(urls?: string[]): Promise<Marketin
     return {
       success,
       submitted: urlList.length,
+      urls: urlList,
       upstreamStatus,
       upstreamBody,
       ...(success ? {} : { error: "IndexNow API error" }),
@@ -107,6 +111,7 @@ export async function submitMarketingIndexNow(urls?: string[]): Promise<Marketin
     return {
       success: false,
       submitted: urlList.length,
+      urls: urlList,
       upstreamStatus: 500,
       upstreamBody: String(err),
       error: "Failed to contact IndexNow API",

@@ -108,6 +108,7 @@ export default function PlatformSettings() {
   const { toast } = useToast();
   const [indexNowSubmitting, setIndexNowSubmitting] = useState(false);
   const [indexNowSubmitted, setIndexNowSubmitted] = useState(false);
+  const [lastSubmittedUrls, setLastSubmittedUrls] = useState<string[]>([]);
 
   const submitIndexNow = async () => {
     setIndexNowSubmitting(true);
@@ -119,13 +120,15 @@ export default function PlatformSettings() {
         credentials: "include",
         body: JSON.stringify({}),
       });
-      const data = await res.json().catch(() => ({})) as { error?: string; upstreamStatus?: number; upstreamBody?: string | null; submitted?: number };
+      const data = await res.json().catch(() => ({})) as { error?: string; upstreamStatus?: number; upstreamBody?: string | null; submitted?: number; urls?: string[] };
       if (!res.ok) {
         const statusPart = data.upstreamStatus ? ` (upstream ${data.upstreamStatus})` : "";
         const bodyPart = data.upstreamBody ? `: ${String(data.upstreamBody).slice(0, 160)}` : "";
         throw new Error(`${data.error || "Failed to submit IndexNow"}${statusPart}${bodyPart}`);
       }
-      toast({ title: "IndexNow submitted", description: `${(data as { submitted?: number }).submitted ?? 0} URLs submitted` });
+      const submittedUrls = Array.isArray(data.urls) ? data.urls : [];
+      setLastSubmittedUrls(submittedUrls);
+      toast({ title: "IndexNow submitted", description: `${data.submitted ?? submittedUrls.length} URLs submitted` });
       setIndexNowSubmitted(true);
       setTimeout(() => setIndexNowSubmitted(false), 5000);
     } catch (e) {
@@ -406,6 +409,21 @@ export default function PlatformSettings() {
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">Uses the platform IndexNow key and submits URLs for www.tradeworkdesk.co.uk.</p>
+
+              {lastSubmittedUrls.length > 0 && (
+                <div className="rounded-md border bg-slate-50 p-3">
+                  <p className="text-xs font-medium text-slate-700 mb-2">Last submitted URLs ({lastSubmittedUrls.length})</p>
+                  <ul className="max-h-56 overflow-y-auto space-y-1 text-xs">
+                    {lastSubmittedUrls.map((url) => (
+                      <li key={url}>
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline break-all">
+                          {url}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
