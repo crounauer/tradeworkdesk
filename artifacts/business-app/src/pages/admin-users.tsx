@@ -61,7 +61,7 @@ const ROLE_ICON: Record<string, React.ReactNode> = {
   technician: <Wrench className="w-3.5 h-3.5" />,
 };
 
-function AdminUsersContent() {
+function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const { profile: me } = useAuth();
   const queryClient = useQueryClient();
@@ -202,11 +202,13 @@ function AdminUsersContent() {
   return (
     <div className="space-y-6 animate-in fade-in">
       <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Team Members</h1>
-          <p className="text-muted-foreground mt-1">Manage user accounts and roles</p>
-        </div>
-        <div className="flex items-center gap-3">
+        {!embedded && (
+          <div>
+            <h1 className="text-3xl font-display font-bold">Team Members</h1>
+            <p className="text-muted-foreground mt-1">Manage user accounts and roles</p>
+          </div>
+        )}
+        <div className={`flex items-center gap-3 ${embedded ? "ml-auto" : ""}`}>
           <Badge variant="outline" className="text-sm">
             <Users className="w-4 h-4 mr-1.5" />
             {usageLimits
@@ -452,12 +454,12 @@ function AdminUsersContent() {
   );
 }
 
-export default function AdminUsers() {
+export default function AdminUsers({ embedded = false }: { embedded?: boolean }) {
   const { hasFeature } = usePlanFeatures();
 
   if (!hasFeature("team_management")) {
     return <UpgradePrompt feature="team_management" />;
   }
 
-  return <AdminUsersContent />;
+  return <AdminUsersContent embedded={embedded} />;
 }

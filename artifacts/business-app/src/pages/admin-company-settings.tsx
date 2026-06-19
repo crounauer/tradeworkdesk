@@ -732,7 +732,7 @@ export default function AdminCompanySettings() {
                   </Card>
                 )}
 
-                <AdminUsers />
+                <AdminUsers embedded />
               </TabsContent>
 
               <TabsContent value="job-types" className="pt-4">
