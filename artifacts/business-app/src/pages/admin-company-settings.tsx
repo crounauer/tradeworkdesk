@@ -156,8 +156,6 @@ export default function AdminCompanySettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [doFieldWork, setDoFieldWork] = useState<boolean | null>(null);
-  const [savingFieldWork, setSavingFieldWork] = useState(false);
   const { activeUserCount, isLoading: companyTypeLoading, isError: companyTypeError } = useCompanyType();
   const isAdmin = profile?.role === "admin";
   const { hasAddon } = usePlanFeatures();
@@ -222,36 +220,6 @@ export default function AdminCompanySettings() {
         onError: (e) => toast({ title: "Failed to save", description: (e as Error).message, variant: "destructive" }) },
     );
   }
-
-  // Load admin's own can_be_assigned_jobs flag for Team settings.
-  useEffect(() => {
-    if (!isAdmin || !profile?.id || doFieldWork !== null) return;
-    customFetch(`${import.meta.env.BASE_URL}api/admin/users`)
-      .then((data) => {
-        const users = data as { id: string; can_be_assigned_jobs: boolean }[];
-        const me = users.find(u => u.id === profile.id);
-        if (me) setDoFieldWork(me.can_be_assigned_jobs);
-      })
-      .catch(() => {});
-  }, [isAdmin, profile?.id, doFieldWork]);
-
-  const handleFieldWorkToggle = async (checked: boolean) => {
-    if (!profile?.id) return;
-    setSavingFieldWork(true);
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/admin/users/${profile.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ can_be_assigned_jobs: checked }),
-      });
-      setDoFieldWork(checked);
-      toast({ title: checked ? "Field work enabled" : "Field work disabled", description: checked ? "You will now appear in the job assignment list." : "You will no longer appear in the job assignment list." });
-    } catch (e: unknown) {
-      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to update", variant: "destructive" });
-    } finally {
-      setSavingFieldWork(false);
-    }
-  };
 
   const { register, reset, getValues, watch, setValue, formState: { isDirty, dirtyFields } } = useForm<FormValues>();
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -717,17 +685,6 @@ export default function AdminCompanySettings() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
-                        <div className="space-y-0.5">
-                          <p className="text-sm font-medium">I also do field work</p>
-                          <p className="text-xs text-muted-foreground">Show your name in the job assignment list.</p>
-                        </div>
-                        <Switch
-                          checked={doFieldWork ?? false}
-                          onCheckedChange={handleFieldWorkToggle}
-                          disabled={savingFieldWork || doFieldWork === null}
-                        />
-                      </div>
                     </CardContent>
                   </Card>
                 )}
