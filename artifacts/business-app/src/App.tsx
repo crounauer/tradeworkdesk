@@ -118,6 +118,7 @@ const AdminStripeConnect = lazyRetry(() => import("@/pages/admin-stripe-connect"
 const AdminPaymentProviders = lazyRetry(() => import("@/pages/admin-payment-providers"));
 const Register = lazyRetry(() => import("@/pages/register"));
 const PlatformDashboard = lazyRetry(() => import("@/pages/platform-dashboard"));
+const PlatformMarketingAnalytics = lazyRetry(() => import("@/pages/platform-marketing-analytics"));
 const PlatformTenants = lazyRetry(() => import("@/pages/platform-tenants"));
 const PlatformTenantDetail = lazyRetry(() => import("@/pages/platform-tenant-detail"));
 const PlatformAnnouncements = lazyRetry(() => import("@/pages/platform-announcements"));
@@ -450,6 +451,7 @@ const CondensatePipeRoute = tool(CondensatePipe);
 const ExpansionVesselRoute = tool(ExpansionVessel);
 const PumpHeadRoute = tool(PumpHead);
 const PlatformDashboardRoute = protect(PlatformDashboard, ["super_admin"]);
+const PlatformMarketingAnalyticsRoute = protect(PlatformMarketingAnalytics, ["super_admin"]);
 const PlatformTenantDetailRoute = protect(PlatformTenantDetail, ["super_admin"]);
 const PlatformTenantsRoute = protect(PlatformTenants, ["super_admin"]);
 const PlatformAddonsRoute = protect(PlatformAddons, ["super_admin"]);
@@ -608,7 +610,7 @@ function AppRouter() {
         <Route path="/tools/expansion-vessel" component={ExpansionVesselRoute} />
         <Route path="/tools/pump-head" component={PumpHeadRoute} />
 
-        <Route path="/platform/marketing-analytics" component={PlatformDashboardRoute} />
+        <Route path="/platform/marketing-analytics" component={PlatformMarketingAnalyticsRoute} />
         <Route path="/platform" component={PlatformDashboardRoute} />
         <Route path="/platform/tenants/:id" component={PlatformTenantDetailRoute} />
         <Route path="/platform/tenants" component={PlatformTenantsRoute} />
