@@ -165,52 +165,12 @@ router.post(
       return;
     }
 
-    const { template_id, site_name, tagline } = req.body as {
-      template_id?: string;
+    const { site_name, tagline } = req.body as {
       site_name?: string;
       tagline?: string;
     };
-    let resolvedTemplateId: string | null = template_id || null;
-    let resolvedTemplate: { default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null = null;
-
-    if (!resolvedTemplateId) {
-      const { data: defaultTemplateSetting } = await supabaseAdmin
-        .from("platform_settings")
-        .select("value")
-        .eq("key", "default_signup_template_slug")
-        .maybeSingle() as { data: { value?: string | null } | null };
-
-      const defaultTemplateSlug = String(defaultTemplateSetting?.value || "").trim();
-      if (defaultTemplateSlug && (true)) {
-        const { data: defaultTemplate } = await db
-          .from("website_templates")
-          .select("id")
-          .eq("slug", defaultTemplateSlug)
-          .eq("is_active", true)
-          .maybeSingle() as { data: { id: string } | null };
-
-        if (defaultTemplate?.id) {
-          resolvedTemplateId = defaultTemplate.id;
-        }
-      }
-    }
-
-    if (resolvedTemplateId) {
-      const { data: template } = await db
-        .from("website_templates")
-        .select("slug, default_pages, default_theme")
-        .eq("id", resolvedTemplateId)
-        .eq("is_active", true)
-        .maybeSingle() as { data: { slug?: string; default_pages: Array<Record<string, unknown>>; default_theme: Record<string, unknown> } | null };
-
-      if (!template) {
-        res.status(400).json({ error: "Selected template is not live." });
-        return;
-      }
-
-      const selectedTemplateSlug = String(template.slug || "");
-      resolvedTemplate = template;
-    }
+    // Start with no template — superadmin must upload and configure one via the template management UI
+    const resolvedTemplateId: string | null = null;
 
     // Pull company name from company_settings as default site_name
     const { data: cs } = await supabaseAdmin
@@ -249,32 +209,8 @@ router.post(
       console.error("[website] subdomain provision failed:", e)
     );
 
-    // If a template is chosen (or defaulted), seed default pages from it
-    if (resolvedTemplate) {
-      if (resolvedTemplate.default_pages?.length) {
-        const pageInserts = resolvedTemplate.default_pages.map((p: Record<string, unknown>, i: number) => ({
-          website_id: website.id,
-          tenant_id: req.tenantId,
-          slug: String(p.slug || ""),
-          title: String(p.title || "Page"),
-          page_type: String(p.page_type || "custom"),
-          status: "draft",
-          show_in_nav: Boolean(p.show_in_nav),
-          nav_label: p.nav_label ? String(p.nav_label) : null,
-          nav_order: typeof p.nav_order === "number" ? p.nav_order : i + 1,
-        }));
-
-        await db.from("website_pages").insert(pageInserts);
-      }
-
-      // Apply default theme
-      if (resolvedTemplate.default_theme) {
-        await db
-          .from("websites")
-          .update({ theme: resolvedTemplate.default_theme })
-          .eq("id", website.id);
-      }
-    }
+    // No automatic page seeding — website starts blank
+    // Superadmin can seed pages and theme after uploading a template
 
     res.status(201).json(website);
   }
