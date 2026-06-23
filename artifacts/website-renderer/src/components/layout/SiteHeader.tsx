@@ -22,9 +22,10 @@ interface Props {
   company?: CompanyInfo | null;
   basePath?: string;
   previewToken?: string;
+  showTopBar?: boolean;
 }
 
-export default function SiteHeader({ siteName, logoUrl, pages, theme, company, basePath, previewToken }: Props) {
+export default function SiteHeader({ siteName, logoUrl, pages, theme, company, basePath, previewToken, showTopBar = true }: Props) {
   const navBg = theme?.nav_background || "#1c2942";
   const navText = theme?.nav_text || "#ffffff";
   const accent = theme?.accent_color || "#f97316";
@@ -47,7 +48,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
   // Slightly darker shade for top bar
   const topBarBg = navBg + "dd";
 
-  const hasTopBar = !!(company?.phone || company?.email || company?.gas_safe_number || company?.oftec_number);
+  const hasTopBar = showTopBar && !!(company?.phone || company?.email || company?.gas_safe_number || company?.oftec_number);
 
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 50 }}>
@@ -119,6 +120,11 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
 
           {/* Phone + CTA */}
           <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
+            {company?.phone && (
+              <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: navText, textDecoration: "none", fontWeight: 600, fontSize: "0.875rem", whiteSpace: "nowrap", opacity: 0.9 }}>
+                {company.phone}
+              </a>
+            )}
             <a href={ctaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
               Request a Quote
             </a>

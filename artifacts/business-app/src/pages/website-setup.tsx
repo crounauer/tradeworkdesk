@@ -14,7 +14,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
-  ExternalLink, ChevronRight, Loader2, Eye, Zap, Trash2, LayoutTemplate, CheckCircle2,
+  ExternalLink, ChevronRight, Loader2, Eye, Zap, Trash2, CheckCircle2,
   CalendarCheck, Star, ShieldPlus, MailOpen, PhoneCall,
 } from "lucide-react";
 import {
@@ -66,7 +66,6 @@ export default function WebsiteSetup() {
   const qc = useQueryClient();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const { data: website, isLoading: websiteLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -77,26 +76,18 @@ export default function WebsiteSetup() {
     enabled: !featuresLoading && hasFeature("website_builder"),
   });
 
-  const { data: templates } = useQuery<Template[]>({
+  const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
     queryKey: ["/api/website/templates"],
     queryFn: () => apiFetch("/api/website/templates"),
     enabled: !featuresLoading && hasFeature("website_builder"),
   });
-
-  const { data: templateVisibility } = useQuery<Record<string, boolean>>({
-    queryKey: ["/api/website/template-visibility"],
-    queryFn: () => apiFetch("/api/website/template-visibility"),
-    enabled: !featuresLoading && hasFeature("website_builder"),
-  });
-
-  const visibleTemplates = (templates || []).filter((t) => (templateVisibility?.[t.slug] ?? true));
 
   const createMutation = useMutation({
     mutationFn: () =>
       apiFetch("/api/website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: selectedTemplate || undefined }),
+        body: JSON.stringify({}),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
@@ -108,16 +99,11 @@ export default function WebsiteSetup() {
   });
 
   const buildMutation = useMutation({
-    mutationFn: async (templateId: string) => {
+    mutationFn: async () => {
       await apiFetch("/api/website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
-      });
-      await apiFetch("/api/website/apply-template", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: templateId }),
       });
     },
     onSuccess: () => {
@@ -161,19 +147,7 @@ export default function WebsiteSetup() {
     },
   });
 
-  const applyTemplateMutation = useMutation({
-    mutationFn: (templateId: string) =>
-      apiFetch("/api/website/apply-template", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: templateId }),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/website"] });
-      toast({ title: "Template applied", description: "Your site design has been updated." });
-    },
-    onError: (e: Error) => toast({ title: "Failed to apply template", description: e.message, variant: "destructive" }),
-  });
+
 
   if (featuresLoading || websiteLoading) {
     return (
@@ -196,7 +170,6 @@ export default function WebsiteSetup() {
   }
 
   if (!website) {
-    const modernTemplate = visibleTemplates.find((t) => t.slug === "modern");
     const busy = buildMutation.isPending || createMutation.isPending;
 
     return (
@@ -243,8 +216,8 @@ export default function WebsiteSetup() {
         <Button
           size="lg"
           className="w-full"
-          onClick={() => buildMutation.mutate(modernTemplate?.id ?? "")}
-          disabled={busy || !modernTemplate}
+          onClick={() => buildMutation.mutate()}
+          disabled={busy}
         >
           {buildMutation.isPending ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building your website…</>
@@ -358,69 +331,7 @@ export default function WebsiteSetup() {
         </div>
       </div>
 
-      {/* Template selector */}
-      {visibleTemplates.length > 0 && (
-        <div>
-          <h2 className="text-base font-semibold mb-3">Design Template</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {visibleTemplates.map((t) => {
-              const isActive = website.template_id === t.id;
-              const isApplying = applyTemplateMutation.isPending && applyTemplateMutation.variables === t.id;
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => !isActive && !applyTemplateMutation.isPending && applyTemplateMutation.mutate(t.id)}
-                  className={`relative rounded-xl overflow-hidden transition-all ${
-                    isActive
-                      ? "ring-2 ring-primary shadow-md cursor-default"
-                      : "border border-border hover:border-primary/60 hover:shadow-sm cursor-pointer"
-                  }`}
-                >
-                  {/* Thumbnail */}
-                  {t.thumbnail_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={t.thumbnail_url} alt={t.name} className="w-full h-20 object-cover" />
-                  ) : (
-                    <div className={`w-full h-20 flex items-center justify-center ${
-                      isActive ? "bg-primary/10" : "bg-muted"
-                    }`}>
-                      <LayoutTemplate className={`w-6 h-6 ${
-                        isActive ? "text-primary/60" : "text-muted-foreground/30"
-                      }`} />
-                    </div>
-                  )}
 
-                  {/* Active banner */}
-                  {isActive && (
-                    <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-xs font-semibold py-1 text-center">
-                      ✓ Active
-                    </div>
-                  )}
-
-                  <div className={`px-2.5 py-2 ${
-                    isActive ? "bg-primary/5 border-t-2 border-primary" : "bg-background"
-                  }`}>
-                    <p className={`text-xs font-semibold truncate ${
-                      isActive ? "text-primary" : ""
-                    }`}>{t.name}</p>
-                    {!isActive && (
-                      <p className="text-xs text-muted-foreground">
-                        {isApplying ? "Applying…" : "Click to apply"}
-                      </p>
-                    )}
-                  </div>
-
-                  {isApplying && (
-                    <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl">
-                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={(o) => !deleteMutation.isPending && setShowDeleteConfirm(o)}>

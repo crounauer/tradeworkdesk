@@ -3,6 +3,8 @@ import compression from "compression";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import path from "path";
+import { existsSync } from "fs";
 import router from "./routes";
 import { startServiceReminderScheduler } from "./lib/service-reminders";
 import { getSentry } from "./lib/sentry";

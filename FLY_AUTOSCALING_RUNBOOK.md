@@ -9,8 +9,8 @@ This runbook defines when to keep settings unchanged and when to switch between 
   - max_machines_running = 4
   - concurrency soft/hard = 60/90
 - Peak: fly.peak.toml
-  - min_machines_running = 2
-  - max_machines_running = 6
+  - min_machines_running = 1
+  - max_machines_running = 4
   - concurrency soft/hard = 40/60
 
 ## How to Switch Profiles
@@ -25,7 +25,7 @@ This runbook defines when to keep settings unchanged and when to switch between 
 - 24-48h before expected peak:
   - Deploy peak mode.
   - Confirm app health: curl -sS https://tradeworkdesk-api.fly.dev/health
-  - Confirm at least 2 machines started: flyctl machine list -a tradeworkdesk-api
+  - Confirm at least 1 machine started: flyctl machine list -a tradeworkdesk-api
 - During peak:
   - Watch Fly dashboard latency and machine count.
   - Watch Sentry issue volume and error rate.

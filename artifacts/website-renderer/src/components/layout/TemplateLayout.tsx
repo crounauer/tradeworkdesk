@@ -1,38 +1,24 @@
 /**
- * TemplateLayout — picks the correct layout component based on website.template_id.
+ * TemplateLayout — renders the website wrapper based on the template configured in the database.
  *
- * Template IDs match the `id` column in the `website_templates` Supabase table.
- * Add new template_id mappings here as you create them.
+ * If no template is configured, returns blank (no layout).
+ * Superadmin must upload and set a template via the admin panel for the site to render.
  */
-import type { ComponentType } from "react";
 import type { TemplateLayoutProps } from "./templates/types";
-import ClassicTemplate from "./templates/ClassicTemplate";
-import ModernTemplate from "./templates/ModernTemplate";
-import BoldTemplate from "./templates/BoldTemplate";
-import ProfessionalTemplate from "./templates/ProfessionalTemplate";
-import MinimalTemplate from "./templates/MinimalTemplate";
-import WebsiteTrafficTracker from "@/components/WebsiteTrafficTracker";
-import AdminEditPageButton from "@/components/AdminEditPageButton";
-
-const TEMPLATE_MAP: Record<string, ComponentType<TemplateLayoutProps>> = {
-  classic: ClassicTemplate,
-  modern: ModernTemplate,
-  bold: BoldTemplate,
-  professional: ProfessionalTemplate,
-  minimal: MinimalTemplate,
-};
 
 export default function TemplateLayout(props: TemplateLayoutProps) {
-  const templateId = props.site.website.template_slug ?? props.site.website.template_id ?? "classic";
-  const Layout = TEMPLATE_MAP[templateId] ?? ClassicTemplate;
-  const isPreview = (props.basePath || "").startsWith("/preview/");
-  const appBaseUrl = process.env.BUSINESS_APP_URL || "https://tradeworkdesk.co.uk";
+  const templateSlug = props.site.website.template_slug;
+  
+  console.log("[TemplateLayout] template_slug:", templateSlug);
+  console.log("[TemplateLayout] website:", props.site.website);
 
-  return (
-    <>
-      <WebsiteTrafficTracker websiteId={props.site.website.id} enabled={!isPreview} />
-      <Layout {...props} />
-      {!isPreview && <AdminEditPageButton pages={props.site.pages} appBaseUrl={appBaseUrl} />}
-    </>
-  );
+  // No template available — superadmin must upload and configure one
+  if (!templateSlug) {
+    console.log("[TemplateLayout] No template configured - returning null");
+    return null;
+  }
+
+  // Template exists but no component mapped to it
+  console.log("[TemplateLayout] Template exists but no component:", templateSlug);
+  return null;
 }

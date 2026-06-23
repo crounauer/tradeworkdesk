@@ -33,9 +33,18 @@ async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
   return data as T;
 }
 
+const LS_KEY = "indexnow_last_result";
+
 export default function WebsiteIndexNow() {
   const { toast } = useToast();
-  const [lastResult, setLastResult] = useState<TenantIndexNowResponse | null>(null);
+  const [lastResult, setLastResult] = useState<TenantIndexNowResponse | null>(() => {
+    try {
+      const stored = localStorage.getItem(LS_KEY);
+      return stored ? JSON.parse(stored) as TenantIndexNowResponse : null;
+    } catch {
+      return null;
+    }
+  });
 
   const { data: website } = useQuery<{ id: string } | null>({
     queryKey: ["/api/website", "indexnow-check"],
@@ -56,6 +65,7 @@ export default function WebsiteIndexNow() {
     }),
     onSuccess: (data) => {
       setLastResult(data);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch { /* ignore */ }
       toast({
         title: "IndexNow submitted",
         description: `${data.submitted} URLs submitted across ${data.results.length} domain(s)`,

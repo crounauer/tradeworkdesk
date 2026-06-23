@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import multer from "multer";
+import { promises as fs } from "fs";
+import path from "path";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendBetaInviteCodeEmail, sendWelcomeEmail } from "../lib/email";
@@ -2336,11 +2338,10 @@ router.get("/platform/stats/ai-usage", requireAuth, requireSuperAdmin, async (_r
 // ─── Template Asset Management (superadmin) ──────────────────────────────────
 
 router.get("/platform/website-templates", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
-  const KNOWN_SLUGS = ["classic", "modern", "bold", "professional", "minimal"];
   let result = await supabaseAdmin
     .from("website_templates")
-    .select("id, name, slug, description, is_active, sort_order, updated_at")
-    .in("slug", KNOWN_SLUGS)
+    .select("id, name, slug, description, is_active, sort_order, updated_at, template_path")
+    .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
   // Backward compatibility for environments where updated_at is missing.
@@ -2348,7 +2349,7 @@ router.get("/platform/website-templates", requireAuth, requireSuperAdmin, async 
     result = await supabaseAdmin
       .from("website_templates")
       .select("id, name, slug, description, is_active, sort_order")
-      .in("slug", KNOWN_SLUGS)
+      .eq("is_active", true)
       .order("sort_order", { ascending: true });
   }
 
@@ -2359,7 +2360,23 @@ router.get("/platform/website-templates", requireAuth, requireSuperAdmin, async 
     return;
   }
 
-  res.json(data || []);
+  const uploadedTemplates = await Promise.all((data || []).map(async (template: Record<string, any>) => {
+    const templatePath = typeof template.template_path === "string"
+      ? template.template_path
+      : `templates/${String(template.slug || template.name || "")}`;
+
+    const normalizedPath = templatePath.startsWith("templates/") ? templatePath : `templates/${templatePath}`;
+    const markerPath = path.join(process.cwd(), normalizedPath, ".twd-uploaded.json");
+
+    try {
+      await fs.access(markerPath);
+      return { ...template, template_path: normalizedPath };
+    } catch {
+      return null;
+    }
+  }));
+
+  res.json(uploadedTemplates.filter(Boolean));
 });
 
 const updateWebsiteTemplateStatus = async (id: string, is_active: boolean, res: any): Promise<void> => {

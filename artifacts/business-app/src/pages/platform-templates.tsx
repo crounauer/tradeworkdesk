@@ -3,16 +3,20 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Trash2, Copy, ImageIcon, FolderOpen } from "lucide-react";
-
-const TEMPLATE_FALLBACKS = [
-  { slug: "classic",      name: "Classic" },
-  { slug: "modern",       name: "Modern" },
-  { slug: "bold",         name: "Bold" },
-  { slug: "professional", name: "Professional" },
-  { slug: "minimal",      name: "Minimal" },
-];
+import { Loader2, Upload, Archive, AlertCircle, ChevronRight, File, FolderOpen, Eye, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface WebsiteTemplate {
   id: string;
@@ -23,14 +27,61 @@ interface WebsiteTemplate {
   sort_order: number;
 }
 
-interface Asset {
+interface TemplateFile {
   name: string;
-  url: string;
+  type: "file" | "directory";
+  path: string;
   size?: number;
-  created_at?: string;
+  modified?: string;
+  children?: TemplateFile[];
+}
+
+interface TemplateFilesResponse {
+  templateId: string;
+  templateName: string;
+  files: TemplateFile[];
+}
+
+interface BuildStatus {
+  status: 'idle' | 'building' | 'success' | 'failed';
+  error?: string;
+  completedAt?: string;
 }
 
 const templateLiveSettingKey = (slug: string) => `website_template_live_${slug}`;
+
+function FileTreeItem({ file, level = 0 }: { file: TemplateFile; level?: number }) {
+  const [expanded, setExpanded] = useState(level < 2);
+  const hasChildren = file.type === "directory" && file.children && file.children.length > 0;
+
+  return (
+    <div>
+      <div className={`flex items-center gap-1 py-1 px-2 ml-${level * 2} hover:bg-muted/50 rounded`}
+        style={{ marginLeft: `${level * 0.75}rem` }}>
+        {hasChildren && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="p-0 h-5 w-5 flex items-center justify-center"
+          >
+            <ChevronRight className={`w-4 h-4 transition-transform ${expanded ? "rotate-90" : ""}`} />
+          </button>
+        )}
+        {!hasChildren && file.type === "directory" && <div className="w-5" />}
+        {!hasChildren && file.type === "file" && <File className="w-4 h-4 text-muted-foreground" />}
+        {hasChildren && <FolderOpen className="w-4 h-4 text-blue-500" />}
+        <span className="text-sm font-medium flex-1 truncate">{file.name}</span>
+        {file.size && <span className="text-xs text-muted-foreground ml-auto">{formatBytes(file.size)}</span>}
+      </div>
+      {expanded && hasChildren && (
+        <div>
+          {file.children!.map((child) => (
+            <FileTreeItem key={child.path} file={child} level={level + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatBytes(bytes?: number) {
   if (!bytes) return "";
@@ -39,155 +90,285 @@ function formatBytes(bytes?: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function TemplateAssets({ templateId }: { templateId: string }) {
+function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void }) {
   const { toast } = useToast();
-  const qc = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [description, setDescription] = useState("");
 
-  const { data: assets = [], isLoading } = useQuery<Asset[]>({
-    queryKey: [`/api/platform/template-assets/${templateId}`],
-    queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/platform/template-assets/${templateId}`, {
-        credentials: "include",
-      }).then((r) => r.json()),
-  });
+  const deriveTemplateName = (fileName: string): string =>
+    fileName
+      .replace(/\.zip$/i, "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
 
-  const deleteMutation = useMutation({
-    mutationFn: (filename: string) =>
-      fetch(
-        `${import.meta.env.BASE_URL}api/platform/template-assets/${templateId}/${encodeURIComponent(filename)}`,
-        { method: "DELETE", credentials: "include" }
-      ).then((r) => { if (!r.ok) throw new Error("Delete failed"); }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [`/api/platform/template-assets/${templateId}`] });
-      toast({ title: "Deleted" });
-    },
-    onError: () => toast({ title: "Delete failed", variant: "destructive" }),
-  });
+  const deriveDisplayName = (slug: string): string =>
+    slug
+      .split("-")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    setUploading(true);
-
-    try {
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch(
-          `${import.meta.env.BASE_URL}api/platform/template-assets/${templateId}`,
-          { method: "POST", body: formData, credentials: "include" }
-        );
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Upload failed");
-        }
+  const uploadZipMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const templateName = deriveTemplateName(file.name);
+      if (!templateName) {
+        throw new Error("Unable to derive a template name from the zip file");
       }
-      qc.invalidateQueries({ queryKey: [`/api/platform/template-assets/${templateId}`] });
-      toast({ title: `${files.length} file${files.length > 1 ? "s" : ""} uploaded` });
-    } catch (err) {
-      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+
+      const formData = new FormData();
+      formData.append("zip", file);
+      formData.append("name", templateName.trim());
+      formData.append("displayName", deriveDisplayName(templateName));
+      if (description.trim()) {
+        formData.append("description", description.trim());
+      }
+      formData.append("version", "1.0.0");
+
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/admin/templates/upload`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Failed to upload template");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Template uploaded!", description: "Your template has been successfully uploaded." });
+      setDescription("");
+      if (zipInputRef.current) zipInputRef.current.value = "";
+      onUploadSuccess();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleZipSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".zip")) {
+      toast({ title: "Invalid file", description: "Please select a .zip file", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadZipMutation.mutateAsync(file);
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const copyUrl = (url: string) => {
-    navigator.clipboard.writeText(url);
-    toast({ title: "URL copied" });
-  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Archive className="w-5 h-5" /> Upload Template Package
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Upload a zip file containing your complete template. The zip must have a folder matching the template name.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="description">Description (optional)</Label>
+            <Input
+              id="description"
+              placeholder="e.g., Clean, modern design with dark mode"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={uploading}
+            />
+          </div>
+
+          <div>
+            <input
+              ref={zipInputRef}
+              type="file"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              className="hidden"
+              onChange={handleZipSelect}
+              disabled={uploading}
+            />
+            <Button
+              onClick={() => zipInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full"
+            >
+              {uploading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading Template…</>
+              ) : (
+                <><Archive className="w-4 h-4 mr-2" /> Select ZIP File</>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Maximum 50MB</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TemplateFiles({ templateId }: { templateId: string }) {
+  const { data: response, isLoading, error } = useQuery<TemplateFilesResponse>({
+    queryKey: [`/api/templates/${templateId}/files`],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/templates/${templateId}/files`).then((r) => {
+        if (!r.ok) throw new Error("Failed to load template files");
+        return r.json();
+      }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !response?.files) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>No template files found or error loading files.</AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {assets.length} asset{assets.length !== 1 ? "s" : ""}
-        </p>
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,.svg"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <Button
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading…</>
-            ) : (
-              <><Upload className="w-4 h-4 mr-2" /> Upload Assets</>
-            )}
-          </Button>
-        </div>
+    <div className="border rounded-lg overflow-hidden">
+      <div className="bg-muted/30 px-4 py-2 text-sm font-medium flex items-center gap-2">
+        <Archive className="w-4 h-4" />
+        Extracted Template Files
       </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-      ) : assets.length === 0 ? (
-        <div
-          className="border-2 border-dashed rounded-lg p-10 text-center text-muted-foreground cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <FolderOpen className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          <p className="text-sm">No assets yet — click to upload</p>
-          <p className="text-xs mt-1">JPG, PNG, WebP, SVG, GIF up to 10MB</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {assets.map((asset) => (
-            <div key={asset.name} className="group relative border rounded-lg overflow-hidden bg-muted/30">
-              {asset.url.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={asset.url}
-                  alt={asset.name}
-                  className="w-full h-28 object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-full h-28 flex items-center justify-center bg-muted">
-                  <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                </div>
-              )}
-              <div className="p-2">
-                <p className="text-xs font-medium truncate" title={asset.name}>{asset.name}</p>
-                {asset.size && <p className="text-xs text-muted-foreground">{formatBytes(asset.size)}</p>}
-              </div>
-              <div className="absolute top-1 right-1 hidden group-hover:flex gap-1">
-                <button
-                  className="bg-white/90 rounded p-1 shadow hover:bg-white"
-                  onClick={() => copyUrl(asset.url)}
-                  title="Copy URL"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  className="bg-white/90 rounded p-1 shadow hover:bg-destructive hover:text-white"
-                  onClick={() => deleteMutation.mutate(asset.name)}
-                  title="Delete"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="max-h-96 overflow-y-auto divide-y">
+        {response.files.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground text-center">No files extracted</div>
+        ) : (
+          <div className="p-2">
+            {response.files.map((file) => (
+              <FileTreeItem key={file.path} file={file} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function TemplateBuildStatus({ templateSlug }: { templateSlug: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: buildStatus, refetch } = useQuery<BuildStatus>({
+    queryKey: [`/api/admin/template-builds/${templateSlug}/status`],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/admin/template-builds/${templateSlug}/status`, {
+        credentials: "include",
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to load build status");
+        return r.json();
+      }),
+    refetchInterval: (query) => query.state.data?.status === 'building' ? 2000 : false,
+  });
+
+  const triggerBuild = useMutation({
+    mutationFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/admin/template-builds/${templateSlug}`, {
+        method: "POST",
+        credentials: "include",
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      toast({ title: "Build started", description: "Template is being built…" });
+      qc.invalidateQueries({ queryKey: [`/api/admin/template-builds/${templateSlug}/status`] });
+      // poll until done
+      const poll = setInterval(() => {
+        refetch().then((r) => {
+          if (r.data?.status !== 'building') clearInterval(poll);
+        });
+      }, 2000);
+    },
+    onError: () => {
+      toast({ title: "Failed to start build", variant: "destructive" });
+    },
+  });
+
+  const previewUrl = `${import.meta.env.BASE_URL}api/preview/templates/${templateSlug}/`;
+
+  if (!buildStatus || buildStatus.status === 'idle') {
+    return (
+      <Button size="sm" variant="outline" onClick={() => triggerBuild.mutate()} disabled={triggerBuild.isPending}>
+        {triggerBuild.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Eye className="w-4 h-4 mr-1" />}
+        Build Preview
+      </Button>
+    );
+  }
+
+  if (buildStatus.status === 'building') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-amber-600">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Building preview…
+      </div>
+    );
+  }
+
+  if (buildStatus.status === 'success') {
+    return (
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="default" onClick={() => window.open(previewUrl, '_blank')}>
+          <Eye className="w-4 h-4 mr-1" />
+          Preview
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => triggerBuild.mutate()} disabled={triggerBuild.isPending}>
+          Rebuild
+        </Button>
+      </div>
+    );
+  }
+
+  if (buildStatus.status === 'failed') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-red-600 flex items-center gap-1">
+          <AlertCircle className="w-4 h-4" />
+          Build failed
+        </span>
+        <Button size="sm" variant="outline" onClick={() => triggerBuild.mutate()} disabled={triggerBuild.isPending}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 export default function PlatformTemplates() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [activeTemplate, setActiveTemplate] = useState(TEMPLATE_FALLBACKS[0].slug);
+  const [activeTemplate, setActiveTemplate] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<WebsiteTemplate | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<WebsiteTemplate[]>({
     queryKey: ["/api/platform/website-templates"],
@@ -198,28 +379,6 @@ export default function PlatformTemplates() {
         if (!r.ok) throw new Error("Failed to load templates");
         return r.json();
       }),
-    retry: false,
-  });
-
-  const { data: fallbackLiveMap = {} } = useQuery<Record<string, boolean>>({
-    queryKey: ["/api/platform/settings/template-live-fallback"],
-    queryFn: async () => {
-      const entries = await Promise.all(
-        TEMPLATE_FALLBACKS.map(async (template) => {
-          const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/${templateLiveSettingKey(template.slug)}`, {
-            credentials: "include",
-          });
-
-          if (!res.ok) return [template.slug, true] as const;
-          const data = await res.json().catch(() => ({ value: "true" }));
-          const value = String(data?.value ?? "true").trim().toLowerCase();
-          const isActive = !(value === "false" || value === "0" || value === "off");
-          return [template.slug, isActive] as const;
-        }),
-      );
-
-      return Object.fromEntries(entries);
-    },
     retry: false,
   });
 
@@ -235,15 +394,7 @@ export default function PlatformTemplates() {
     },
   });
 
-  const templateItems = templates.length
-    ? templates
-    : TEMPLATE_FALLBACKS.map((t, idx) => ({
-        id: t.slug,
-        slug: t.slug,
-        name: t.name,
-        is_active: fallbackLiveMap[t.slug] ?? true,
-        sort_order: idx,
-      }));
+  const templateItems = templates;
 
   useEffect(() => {
     if (!templateItems.length) return;
@@ -326,7 +477,34 @@ export default function PlatformTemplates() {
     },
   });
 
-  const selectedTemplate = templateItems.find((t) => t.slug === activeTemplate);
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/admin/templates/${templateId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to delete template" }));
+        throw new Error(err.error || "Failed to delete template");
+      }
+      return res.json();
+    },
+    onSuccess: (_, deletedId) => {
+      qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] });
+      if (templateToDelete?.slug === activeTemplate) {
+        const remaining = templateItems.filter((t) => t.id !== deletedId);
+        if (remaining.length > 0) {
+          setActiveTemplate(remaining[0].slug);
+        }
+      }
+      setDeleteDialogOpen(false);
+      setTemplateToDelete(null);
+      toast({ title: "Template deleted", description: "The template has been removed." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   return (
     <div className="p-6 space-y-6 max-w-5xl">
@@ -336,6 +514,8 @@ export default function PlatformTemplates() {
           Upload Figma design assets for each template and control when each template is live.
         </p>
       </div>
+
+      <TemplateZipUpload onUploadSuccess={() => qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] })} />
 
       <Card>
         <CardHeader>
@@ -348,34 +528,55 @@ export default function PlatformTemplates() {
             </div>
           ) : (
             <div className="space-y-2">
-              {templateItems.map((template) => (
-                <div key={template.slug} className="flex items-center justify-between border rounded-lg p-3">
-                  <div>
-                    <p className="font-medium text-sm flex items-center gap-2">
-                      {template.name}
-                      {defaultTemplateSlug === template.slug && <Badge variant="outline">Default for New Signups</Badge>}
-                    </p>
+              {templateItems.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No uploaded templates found.
+                </div>
+              ) : templateItems.map((template) => (
+                <div key={template.slug} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="font-medium text-sm flex items-center gap-2">
+                        {template.name}
+                        {defaultTemplateSlug === template.slug && <Badge variant="outline">Default for New Signups</Badge>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={template.is_active ? "default" : "secondary"}>
+                        {template.is_active ? "Live" : "Offline"}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!template.is_active || setDefaultTemplateMutation.isPending || defaultTemplateLoading}
+                        onClick={() => setDefaultTemplateMutation.mutate(template.slug)}
+                      >
+                        Set Default
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={template.is_active ? "outline" : "default"}
+                        disabled={toggleTemplateMutation.isPending}
+                        onClick={() => toggleTemplateMutation.mutate({ id: template.id, slug: template.slug, is_active: !template.is_active })}
+                      >
+                        {template.is_active ? "Take Offline" : "Make Live"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={deleteTemplateMutation.isPending}
+                        onClick={() => {
+                          setTemplateToDelete(template);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={template.is_active ? "default" : "secondary"}>
-                      {template.is_active ? "Live" : "Offline"}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!template.is_active || setDefaultTemplateMutation.isPending || defaultTemplateLoading}
-                      onClick={() => setDefaultTemplateMutation.mutate(template.slug)}
-                    >
-                      Set Default
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={template.is_active ? "outline" : "default"}
-                      disabled={toggleTemplateMutation.isPending}
-                      onClick={() => toggleTemplateMutation.mutate({ id: template.id, slug: template.slug, is_active: !template.is_active })}
-                    >
-                      {template.is_active ? "Take Offline" : "Make Live"}
-                    </Button>
+                  <div className="mt-2 pt-2 border-t">
+                    <TemplateBuildStatus templateSlug={template.slug} />
                   </div>
                 </div>
               ))}
@@ -397,31 +598,51 @@ export default function PlatformTemplates() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="capitalize flex items-center gap-2">
-            {activeTemplate} Template Assets
-            {selectedTemplate && (
-              <Badge variant={selectedTemplate.is_active ? "default" : "secondary"}>
-                {selectedTemplate.is_active ? "Live" : "Offline"}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TemplateAssets key={activeTemplate} templateId={activeTemplate} />
-        </CardContent>
-      </Card>
+      {templateItems.length > 0 && activeTemplate && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="capitalize flex items-center gap-2">
+                {activeTemplate} Template Folder
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TemplateFiles key={activeTemplate} templateId={activeTemplate} />
+            </CardContent>
+          </Card>
 
-      <Card className="bg-muted/30">
-        <CardContent className="pt-4">
-          <p className="text-xs text-muted-foreground font-medium mb-1">Using assets in template code</p>
-          <code className="text-xs bg-background border rounded px-2 py-1 block">
-            {`// Reference uploaded assets by their public URL (copy with the copy button above)`}<br />
-            {`// Or use the Supabase Storage path: website-template-assets/${activeTemplate}/filename.jpg`}
-          </code>
-        </CardContent>
-      </Card>
+          <Card className="bg-muted/30">
+            <CardContent className="pt-4">
+              <p className="text-xs text-muted-foreground font-medium mb-1">Using assets in template code</p>
+              <code className="text-xs bg-background border rounded px-2 py-1 block">
+                {`// Reference uploaded assets by their public URL (copy with the copy button above)`}<br />
+                {`// Or use the Supabase Storage path: website-template-assets/${activeTemplate}/filename.jpg`}
+              </code>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{templateToDelete?.name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => templateToDelete && deleteTemplateMutation.mutate(templateToDelete.id)}
+              disabled={deleteTemplateMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTemplateMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -15,10 +15,10 @@ primary_region = "lhr"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  # Peak profile: keep extra warm capacity to reduce latency spikes
-  min_machines_running = 2
-  # Allow wider burst headroom during promotions or busy seasonal windows
-  max_machines_running = 6
+  # Keep at least one machine running and allow burst scaling
+  min_machines_running = 1
+  # Cap autoscaling at four machines
+  max_machines_running = 4
 
   [http_service.concurrency]
     type = "requests"
