@@ -467,11 +467,11 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[860px] max-h-[92vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[980px] max-h-[95vh] overflow-y-auto p-4 sm:p-5">
         <DialogHeader>
           <DialogTitle>New Enquiry</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           <div className="md:col-span-2 flex rounded-lg border border-border overflow-hidden text-sm font-medium">
             <button
               type="button"
@@ -499,22 +499,22 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
             </div>
           )}
 
-          <div className="md:col-span-2 space-y-1.5">
+          <div className="md:col-span-2 space-y-1">
             <Label>Contact Name *</Label>
             <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label>Phone</Label>
               <Input value={form.contact_phone} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="07700 900000" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label>Email</Label>
               <Input value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} placeholder="john@example.com" type="email" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label>Source *</Label>
               <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>
                 {SOURCE_OPTIONS.map(s => (
@@ -522,7 +522,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label>Priority</Label>
               <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
                 <option value="low">Low</option>
@@ -532,7 +532,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               </select>
             </div>
           </div>
-          <div className="md:col-span-2 space-y-1.5">
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
+            <div className="space-y-1">
             <Label>Address</Label>
             {hasFeature("uk_address_lookup") && (
               <Suspense fallback={null}>
@@ -548,34 +549,38 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               </Suspense>
             )}
             <Input value={form.address_line1} onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))} placeholder="Address Line 1" />
-            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-1.5" />
-            <div className="grid grid-cols-2 gap-2 mt-1.5">
+            </div>
+            <div className="space-y-1">
+            <Label className="opacity-0">Address Line 2</Label>
+            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" />
+            <div className="grid grid-cols-2 gap-2">
               <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Town / City" />
               <Input value={form.postcode} onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))} placeholder="Postcode" />
+            </div>
             </div>
           </div>
           {customerMode === "existing" && selectedCustomer && (
             <p className="md:col-span-2 text-xs text-emerald-600 font-medium">✓ Using {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
           )}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Description</Label>
             <textarea
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[64px]"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[56px]"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="What does the customer need? E.g., 'Boiler not heating water, wants a quote for repair...'"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Notes</Label>
             <textarea
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[64px]"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[56px]"
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               placeholder="Internal notes about this enquiry..."
             />
           </div>
-          <div className="md:col-span-2 flex gap-3 pt-1">
+          <div className="md:col-span-2 flex gap-3 pt-0.5">
             <Button type="submit" disabled={submitting} className="flex-1">
               {submitting ? "Creating..." : "Create Enquiry"}
             </Button>
