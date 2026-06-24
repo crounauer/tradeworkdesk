@@ -54,6 +54,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
 
   let resolvedLinkedCustomerId: string | null = linked_customer_id || null;
   let createdCustomerIdForRollback: string | null = null;
+  let createdPropertyIdForRollback: string | null = null;
   let resolvedCustomerSnapshot: {
     id: string;
     email?: string | null;
@@ -128,6 +129,43 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     }
   }
 
+  if (resolvedLinkedCustomerId && req.tenantId && address_line1?.trim() && postcode?.trim()) {
+    const normalizedAddressLine1 = address_line1.trim();
+    const normalizedPostcode = postcode.trim().toUpperCase();
+    const normalizedAddressLine2 = address_line2?.trim() || null;
+    const normalizedCity = city?.trim() || null;
+
+    const { data: existingProperty, error: existingPropertyErr } = await supabaseAdmin
+      .from("properties")
+      .select("id")
+      .eq("tenant_id", req.tenantId)
+      .eq("customer_id", resolvedLinkedCustomerId)
+      .eq("address_line1", normalizedAddressLine1)
+      .eq("postcode", normalizedPostcode)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingPropertyErr) { res.status(500).json({ error: existingPropertyErr.message }); return; }
+
+    if (!existingProperty) {
+      const { data: createdProperty, error: createdPropertyErr } = await supabaseAdmin
+        .from("properties")
+        .insert({
+          tenant_id: req.tenantId,
+          customer_id: resolvedLinkedCustomerId,
+          address_line1: normalizedAddressLine1,
+          address_line2: normalizedAddressLine2,
+          city: normalizedCity,
+          postcode: normalizedPostcode,
+        })
+        .select("id")
+        .single();
+
+      if (createdPropertyErr) { res.status(500).json({ error: createdPropertyErr.message }); return; }
+      createdPropertyIdForRollback = createdProperty.id;
+    }
+  }
+
   if (resolvedLinkedCustomerId && req.tenantId) {
     // If a customer already exists, backfill missing contact/address from the enquiry.
     const customer = resolvedCustomerSnapshot || (await supabaseAdmin
@@ -182,6 +220,13 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
 
   if (error) {
     // Best-effort rollback to avoid orphaned customers when enquiry creation fails.
+    if (createdPropertyIdForRollback && req.tenantId) {
+      await supabaseAdmin
+        .from("properties")
+        .delete()
+        .eq("id", createdPropertyIdForRollback)
+        .eq("tenant_id", req.tenantId);
+    }
     if (createdCustomerIdForRollback && req.tenantId) {
       await supabaseAdmin
         .from("customers")
