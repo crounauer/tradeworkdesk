@@ -43,6 +43,30 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-red-100 text-red-700",
 };
 
+function formatEnquiryAddress(enquiry: Record<string, unknown>): string {
+  const structured = [enquiry.address_line1, enquiry.address_line2, enquiry.city, enquiry.postcode]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  if (structured.length > 0) {
+    return structured.join(", ");
+  }
+
+  return String(enquiry.address ?? "").trim();
+}
+
+function formatEnquiryAddressMultiline(enquiry: Record<string, unknown>): string {
+  const structured = [enquiry.address_line1, enquiry.address_line2, enquiry.city, enquiry.postcode]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  if (structured.length > 0) {
+    return structured.join("\n");
+  }
+
+  return String(enquiry.address ?? "").trim();
+}
+
 interface JobType {
   id: number;
   name: string;
@@ -623,10 +647,10 @@ function EnquiryDetailContent() {
                     <a href={`mailto:${enquiry.contact_email}`} className="font-medium text-primary hover:underline">{enquiry.contact_email}</a>
                   </div>
                 )}
-                {enquiry.address && (
+                {formatEnquiryAddress(enquiry) && (
                   <div className="sm:col-span-2">
                     <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> Address</p>
-                    <p className="font-medium">{enquiry.address}</p>
+                    <p className="font-medium whitespace-pre-line">{formatEnquiryAddressMultiline(enquiry)}</p>
                   </div>
                 )}
                 <div className="sm:col-span-2 pt-4 border-t border-border/50">
@@ -848,24 +872,9 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
     source: (enquiry.source as string) || "phone",
     description: (enquiry.description as string) || "",
     notes: (enquiry.notes as string) || "",
-    address: (enquiry.address as string) || "",
+    address: formatEnquiryAddress(enquiry),
     priority: (enquiry.priority as string) || "medium",
-    linked_customer_id: ((enquiry.customer as Record<string, unknown> | null)?.id as string) || "",
   });
-  const [customerSearch, setCustomerSearch] = useState(() => {
-    const c = enquiry.customer as Record<string, unknown> | null;
-    return c ? `${c.first_name} ${c.last_name}` : "";
-  });
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const { data: allCustomers } = useListCustomers();
-  const filteredCustomers = useMemo(() => {
-    if (!allCustomers || !customerSearch.trim()) return allCustomers ?? [];
-    const q = customerSearch.toLowerCase();
-    return allCustomers.filter(c =>
-      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-      (c.phone || "").toLowerCase().includes(q)
-    );
-  }, [allCustomers, customerSearch]);
 
   const SOURCE_OPTIONS = [
     { value: "phone", label: "Phone" }, { value: "email", label: "Email" },
@@ -944,47 +953,6 @@ function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown
           <Label>Notes</Label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes..." />
         </div>
-        <div className="space-y-1.5 relative">
-          <Label>Linked Customer</Label>
-          <Input
-            placeholder="Search customers..."
-            value={customerSearch}
-            onChange={e => {
-              setCustomerSearch(e.target.value);
-              setForm(f => ({ ...f, linked_customer_id: "" }));
-              setShowCustomerDropdown(true);
-            }}
-            onFocus={() => setShowCustomerDropdown(true)}
-            onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
-          />
-          {form.linked_customer_id && (
-            <button
-              type="button"
-              className="absolute right-2 top-8 text-xs text-muted-foreground hover:text-destructive"
-              onClick={() => { setForm(f => ({ ...f, linked_customer_id: "" })); setCustomerSearch(""); }}
-            >
-              Clear
-            </button>
-          )}
-          {showCustomerDropdown && filteredCustomers.length > 0 && (
-            <div className="absolute z-50 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1">
-              {filteredCustomers.slice(0, 10).map(c => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
-                  onMouseDown={() => {
-                    setForm(f => ({ ...f, linked_customer_id: c.id }));
-                    setCustomerSearch(`${c.first_name} ${c.last_name}`);
-                    setShowCustomerDropdown(false);
-                  }}
-                >
-                  {c.first_name} {c.last_name}{c.phone ? ` · ${c.phone}` : ""}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
         <div className="flex gap-3">
           <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Save Changes"}</Button>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -1019,12 +987,12 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const [newPhone, setNewPhone] = useState((enquiry.contact_phone as string) || "");
   const [newEmail, setNewEmail] = useState((enquiry.contact_email as string) || "");
   const [newAddress, setNewAddress] = useState(() => {
-    const addr = (enquiry.address as string) || "";
+    const addr = formatEnquiryAddress(enquiry);
     const parts = addr.split(",").map(s => s.trim());
     return parts[0] || "";
   });
   const [newCity, setNewCity] = useState(() => {
-    const addr = (enquiry.address as string) || "";
+    const addr = formatEnquiryAddress(enquiry);
     const parts = addr.split(",").map(s => s.trim());
     const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i;
     if (parts.length >= 3) {
@@ -1039,7 +1007,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
     return "";
   });
   const [newPostcode, setNewPostcode] = useState(() => {
-    const addr = (enquiry.address as string) || "";
+    const addr = formatEnquiryAddress(enquiry);
     const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i;
     const m = addr.match(postcodeRe);
     return m ? m[1].trim() : "";

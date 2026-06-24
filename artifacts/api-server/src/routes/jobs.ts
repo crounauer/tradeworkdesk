@@ -109,6 +109,65 @@ function deriveJobTypeEnum(
 
 const router: IRouter = Router();
 
+function buildJobConfirmationEmailBodyText(opts: {
+  customerName: string;
+  companyName: string;
+  jobRef: string;
+  jobTypeName: string;
+  scheduledDate: string;
+  scheduledTime?: string | null;
+  propertyAddress?: string | null;
+  description?: string | null;
+}): string {
+  const lines = [
+    `Dear ${opts.customerName},`,
+    "",
+    `Your appointment with ${opts.companyName} has been confirmed.",
+    "",
+    `Reference: ${opts.jobRef}`,
+    `Job type: ${opts.jobTypeName}`,
+    `Scheduled date: ${opts.scheduledDate}${opts.scheduledTime ? ` at ${opts.scheduledTime}` : ""}`,
+  ];
+
+  if (opts.propertyAddress) {
+    lines.push(`Address: ${opts.propertyAddress}`);
+  }
+
+  if (opts.description) {
+    lines.push("");
+    lines.push("Job details:");
+    lines.push(opts.description);
+  }
+
+  lines.push("", `Kind regards,`, opts.companyName);
+  return lines.join("\n");
+}
+
+function buildJobFormsEmailBodyText(opts: {
+  customerName: string;
+  companyName: string;
+  jobRef: string;
+  formsIncluded: string[];
+  photosAttached: number;
+}): string {
+  const lines = [
+    `Dear ${opts.customerName},`,
+    "",
+    `Please find attached documentation for job ${opts.jobRef}.`,
+  ];
+
+  if (opts.formsIncluded.length > 0) {
+    lines.push("", "Forms attached:", ...opts.formsIncluded.map((label) => `- ${label}`));
+  }
+
+  if (opts.photosAttached > 0) {
+    lines.push("", `Photos attached: ${opts.photosAttached}`);
+  }
+
+  lines.push("", `Kind regards,`, opts.companyName);
+  return lines.join("\n");
+}
+
 const jobsListCache = new Map<string, { data: unknown; ts: number }>();
 const JOBS_CACHE_TTL_MS = 30_000;
 
@@ -490,6 +549,16 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
   };
 
   const customerFullName = `${customer.first_name} ${customer.last_name}`;
+  const confirmationBodyText = buildJobConfirmationEmailBodyText({
+    customerName: customerFullName,
+    companyName,
+    jobRef,
+    jobTypeName,
+    scheduledDate: job.scheduled_date,
+    scheduledTime: job.scheduled_time || null,
+    propertyAddress,
+    description: job.description || null,
+  });
 
   try {
     await sendJobConfirmationEmail(
@@ -513,6 +582,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     cc: null,
     subject: `Job Confirmation — ${jobRef}`,
     forms_included: [{ form_type: "confirmation", form_label: "Appointment Confirmation", form_id: jobId }],
+    body_text: confirmationBodyText,
   });
   if (logErr) console.error("[email] Failed to log confirmation email:", logErr);
 
@@ -2192,6 +2262,13 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   if (formsIncluded.length > 0) subjectParts.push("Service Forms");
   if (photosAttached > 0) subjectParts.push("Photos");
   const subject = `Job ${jobRef} — ${subjectParts.join(" & ")} from ${companyName}`;
+  const formsEmailBodyText = buildJobFormsEmailBodyText({
+    customerName,
+    companyName,
+    jobRef,
+    formsIncluded: formsIncluded.map((f) => f.form_label),
+    photosAttached,
+  });
 
   try {
     const emailCompany: EmailCompanyDetails | undefined = pdfCompany ? {
@@ -2241,6 +2318,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     subject,
     forms_included: formsIncluded,
     photos_included: photosIncluded.length > 0 ? photosIncluded : null,
+    body_text: formsEmailBodyText,
   });
   if (logErr) {
     console.error("[email] Failed to log email send:", logErr);
@@ -2285,6 +2363,7 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
     subject: entry.subject,
     forms_included: entry.forms_included,
     photos_included: entry.photos_included ?? null,
+    body_text: entry.body_text ?? null,
     created_at: entry.created_at,
   }));
 
@@ -2397,6 +2476,13 @@ router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requir
   }
 
   const subject = `Job ${jobRef} — Service Certificate from ${companyName}`;
+  const certificateBodyText = buildJobFormsEmailBodyText({
+    customerName,
+    companyName,
+    jobRef,
+    formsIncluded: formsIncluded.map((f) => f.form_label),
+    photosAttached: 0,
+  });
 
   const emailCompany: EmailCompanyDetails | undefined = pdfCompany ? {
     ...pdfCompany,
@@ -2432,6 +2518,7 @@ router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requir
     subject,
     forms_included: formsIncluded,
     photos_included: null,
+    body_text: certificateBodyText,
   });
 
   res.json({ success: true, message: `Certificate emailed to ${customer.email}`, forms_sent: formsIncluded.map(f => f.form_label) });

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -39,6 +40,30 @@ const STATUS_OPTIONS = [
   { value: "converted", label: "Converted", color: "bg-emerald-100 text-emerald-700" },
   { value: "lost", label: "Lost", color: "bg-slate-100 text-slate-500" },
 ];
+
+function formatEnquiryAddress(enq: Record<string, unknown>): string {
+  const structured = [enq.address_line1, enq.address_line2, enq.city, enq.postcode]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  if (structured.length > 0) {
+    return structured.join(", ");
+  }
+
+  return String(enq.address ?? "").trim();
+}
+
+function formatEnquiryAddressMultiline(enq: Record<string, unknown>): string {
+  const structured = [enq.address_line1, enq.address_line2, enq.city, enq.postcode]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  if (structured.length > 0) {
+    return structured.join("\n");
+  }
+
+  return String(enq.address ?? "").trim();
+}
 
 function EnquiriesContent() {
   const { toast } = useToast();
@@ -223,8 +248,8 @@ function EnquiryCard({
             {enq.description && (
               <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{enq.description as string}</p>
             )}
-            {enq.address && (
-              <p className="text-xs text-muted-foreground mt-0.5">{enq.address as string}</p>
+            {formatEnquiryAddress(enq) && (
+              <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line">{formatEnquiryAddressMultiline(enq)}</p>
             )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -367,6 +392,16 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const { hasFeature } = usePlanFeatures();
+  const { data: customers } = useQuery({
+    queryKey: ["customers", "enquiry-create"],
+    queryFn: async () => {
+      const res = await fetch("/api/customers");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  const [customerMode, setCustomerMode] = useState<"new" | "existing">("new");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [form, setForm] = useState({
     contact_name: "",
     contact_phone: "",
@@ -381,6 +416,26 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     priority: "medium",
   });
 
+  const selectedCustomer = customers?.find((customer: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => customer.id === selectedCustomerId);
+
+  const handleCustomerSelect = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    if (!customerId) return;
+    const customer = customers?.find((item: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => item.id === customerId);
+    if (!customer) return;
+
+    setForm(f => ({
+      ...f,
+      contact_name: `${customer.first_name} ${customer.last_name}`.trim(),
+      contact_phone: customer.phone || f.contact_phone,
+      contact_email: customer.email || f.contact_email,
+      address_line1: customer.address_line1 || f.address_line1,
+      address_line2: customer.address_line2 || f.address_line2,
+      city: customer.city || f.city,
+      postcode: customer.postcode || f.postcode,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.contact_name.trim()) {
@@ -392,7 +447,10 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
       const res = await fetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          linked_customer_id: customerMode === "existing" ? selectedCustomerId || undefined : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -414,6 +472,31 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
           <DialogTitle>New Enquiry</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+            <button
+              type="button"
+              className={`flex-1 py-2 transition-colors ${customerMode === "new" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+              onClick={() => { setCustomerMode("new"); setSelectedCustomerId(""); }}
+            >New Customer</button>
+            <button
+              type="button"
+              className={`flex-1 py-2 transition-colors ${customerMode === "existing" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+              onClick={() => setCustomerMode("existing")}
+            >Existing Customer</button>
+          </div>
+
+          {customerMode === "existing" && (
+            <CustomerAutocomplete
+              customers={(customers || []).map((customer: { id: string; first_name: string; last_name: string }) => ({
+                id: customer.id,
+                first_name: customer.first_name,
+                last_name: customer.last_name,
+              }))}
+              selectedId={selectedCustomerId}
+              onSelect={handleCustomerSelect}
+            />
+          )}
+
           <div className="space-y-1.5">
             <Label>Contact Name *</Label>
             <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
@@ -469,6 +552,9 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               <Input value={form.postcode} onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))} placeholder="Postcode" />
             </div>
           </div>
+          {customerMode === "existing" && selectedCustomer && (
+            <p className="text-xs text-emerald-600 font-medium">✓ Using {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
+          )}
           <div className="space-y-1.5">
             <Label>Description</Label>
             <textarea

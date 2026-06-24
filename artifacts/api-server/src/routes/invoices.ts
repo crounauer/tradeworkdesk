@@ -1012,6 +1012,16 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   const docLabel = invoice.type === "quote"
     ? `Quote ${invoice.invoice_number}`
     : `Invoice ${invoice.invoice_number}`;
+  const logBodyText = [
+    `Dear ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"},`,
+    "",
+    `Please find your ${invoice.type === "quote" ? "quotation" : "invoice"} attached.",
+    `${docLabel}`,
+    `Amount: ${(invoice.currency as string || "GBP").toUpperCase()} ${Number(invoice.total || 0).toFixed(2)}`,
+    "",
+    "Kind regards,",
+    ((invoice as Record<string, unknown>).company_name as string) || "Your Service Provider",
+  ].join("\n");
   const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
     job_id: invoice.job_id,
     tenant_id: req.tenantId,
@@ -1019,6 +1029,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     sent_to: toEmail,
     subject: `${docLabel} — ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"}`,
     forms_included: [{ form_type: invoice.type, form_label: docLabel, form_id: req.params.id }],
+    body_text: logBodyText,
   });
   if (logErr) console.error("[invoices] Failed to log email:", logErr.message);
 

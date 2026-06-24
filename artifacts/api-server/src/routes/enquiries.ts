@@ -6,6 +6,14 @@ import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
+function splitContactName(fullName: string): { first_name: string; last_name: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return { first_name: parts[0] || "Unknown", last_name: "Unknown" };
+  }
+  return { first_name: parts[0], last_name: parts.slice(1).join(" ") };
+}
+
 router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { status, source, search } = req.query;
 
@@ -43,6 +51,55 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     ? [address_line1, address_line2, city, postcode].filter(Boolean).join(", ")
     : address?.trim() || null;
 
+  let resolvedLinkedCustomerId: string | null = linked_customer_id || null;
+  if (!resolvedLinkedCustomerId && req.tenantId) {
+    const normalizedEmail = contact_email?.trim().toLowerCase() || null;
+    const normalizedPhone = contact_phone?.trim() || null;
+
+    if (normalizedEmail || normalizedPhone) {
+      let existingQ = supabaseAdmin
+        .from("customers")
+        .select("id")
+        .eq("tenant_id", req.tenantId)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (normalizedEmail && normalizedPhone) {
+        existingQ = existingQ.or(`email.eq.${normalizedEmail},phone.eq.${normalizedPhone}`);
+      } else if (normalizedEmail) {
+        existingQ = existingQ.eq("email", normalizedEmail);
+      } else if (normalizedPhone) {
+        existingQ = existingQ.eq("phone", normalizedPhone);
+      }
+
+      const { data: existingCustomer, error: existingCustomerErr } = await existingQ.maybeSingle();
+      if (existingCustomerErr) { res.status(500).json({ error: existingCustomerErr.message }); return; }
+      resolvedLinkedCustomerId = existingCustomer?.id || null;
+    }
+
+    if (!resolvedLinkedCustomerId) {
+      const { first_name, last_name } = splitContactName(contact_name);
+      const { data: createdCustomer, error: createdCustomerErr } = await supabaseAdmin
+        .from("customers")
+        .insert({
+          tenant_id: req.tenantId,
+          first_name,
+          last_name,
+          email: contact_email?.trim() || null,
+          phone: contact_phone?.trim() || null,
+          address_line1: address_line1?.trim() || null,
+          address_line2: address_line2?.trim() || null,
+          city: city?.trim() || null,
+          postcode: postcode?.trim() || null,
+        })
+        .select("id")
+        .single();
+
+      if (createdCustomerErr) { res.status(500).json({ error: createdCustomerErr.message }); return; }
+      resolvedLinkedCustomerId = createdCustomer.id;
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from("enquiries")
     .insert({
@@ -58,7 +115,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
       address_line2: address_line2?.trim() || null,
       city: city?.trim() || null,
       postcode: postcode?.trim() || null,
-      linked_customer_id: linked_customer_id || null,
+      linked_customer_id: resolvedLinkedCustomerId,
       priority: validPriorities.includes(priority) ? priority : "medium",
       status: "new",
       created_by: req.userId,

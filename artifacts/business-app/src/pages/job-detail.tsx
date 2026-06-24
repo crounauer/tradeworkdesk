@@ -3683,9 +3683,35 @@ interface EmailLogEntry {
   sent_to: string;
   cc: string | null;
   subject: string;
+  body_text?: string | null;
   forms_included: Array<{ form_type: string; form_label: string; form_id: string }>;
   photos_included: Array<{ url: string; name?: string }> | null;
   created_at: string;
+}
+
+function getEmailLogBodyText(entry: EmailLogEntry): string {
+  if (entry.body_text && entry.body_text.trim().length > 0) {
+    return entry.body_text;
+  }
+
+  const lines = [
+    `To: ${entry.sent_to}`,
+    entry.cc ? `CC: ${entry.cc}` : "",
+    `Subject: ${entry.subject}`,
+  ].filter(Boolean);
+
+  if (entry.forms_included.length > 0) {
+    lines.push("", "Attachments:");
+    for (const form of entry.forms_included) {
+      lines.push(`- ${form.form_label}`);
+    }
+  }
+
+  if (entry.photos_included && entry.photos_included.length > 0) {
+    lines.push("", `Photos attached: ${entry.photos_included.length}`);
+  }
+
+  return lines.join("\n");
 }
 
 function EmailLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: number }) {
@@ -3737,6 +3763,7 @@ function EmailLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: num
           {logs.map(entry => {
             const isOpen = openEntries.has(entry.id);
             const hasPhotos = Array.isArray(entry.photos_included) && entry.photos_included.length > 0;
+            const emailBody = getEmailLogBodyText(entry);
             return (
               <div key={entry.id} className="border border-border/50 rounded-lg overflow-hidden">
                 {/* Header row — always visible, click to expand */}
@@ -3771,6 +3798,11 @@ function EmailLogSection({ jobId, refreshKey }: { jobId: string; refreshKey: num
                       )}
                       <span className="text-muted-foreground font-medium">Subject</span>
                       <span>{entry.subject}</span>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Email Content</p>
+                      <pre className="text-xs whitespace-pre-wrap break-words rounded-md border border-border/50 bg-muted/20 p-2.5">{emailBody}</pre>
                     </div>
 
                     {entry.forms_included.length > 0 && (
