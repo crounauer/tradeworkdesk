@@ -300,6 +300,21 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
               {form.new_is_landlord && (
                 <div className="border border-primary/20 rounded-lg p-3 bg-background space-y-2">
                   <p className="text-sm font-semibold">Job Location</p>
+                  {hasFeature("uk_address_lookup") && (
+                    <Suspense fallback={null}>
+                      <PostcodeAddressFinder
+                        initialPostcode={form.new_prop_postcode}
+                        onAddressSelected={addr => setForm(f => ({
+                          ...f,
+                          new_prop_address_line1: addr.address_line1,
+                          new_prop_address_line2: addr.address_line2 || "",
+                          new_prop_city: addr.city || "",
+                          new_prop_county: addr.county || "",
+                          new_prop_postcode: addr.postcode,
+                        }))}
+                      />
+                    </Suspense>
+                  )}
                   <Input
                     value={form.new_prop_address_line1}
                     onChange={e => setForm(f => ({ ...f, new_prop_address_line1: e.target.value }))}
