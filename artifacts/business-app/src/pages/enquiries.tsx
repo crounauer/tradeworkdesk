@@ -467,12 +467,12 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[860px] max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Enquiry</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 flex rounded-lg border border-border overflow-hidden text-sm font-medium">
             <button
               type="button"
               className={`flex-1 py-2 transition-colors ${customerMode === "new" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
@@ -486,7 +486,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
           </div>
 
           {customerMode === "existing" && (
-            <CustomerAutocomplete
+            <div className="md:col-span-2">
+              <CustomerAutocomplete
               customers={(customers || []).map((customer: { id: string; first_name: string; last_name: string }) => ({
                 id: customer.id,
                 first_name: customer.first_name,
@@ -494,10 +495,11 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               }))}
               selectedId={selectedCustomerId}
               onSelect={handleCustomerSelect}
-            />
+              />
+            </div>
           )}
 
-          <div className="space-y-1.5">
+          <div className="md:col-span-2 space-y-1.5">
             <Label>Contact Name *</Label>
             <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
           </div>
@@ -530,7 +532,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               </select>
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="md:col-span-2 space-y-1.5">
             <Label>Address</Label>
             {hasFeature("uk_address_lookup") && (
               <Suspense fallback={null}>
@@ -546,19 +548,19 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
               </Suspense>
             )}
             <Input value={form.address_line1} onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))} placeholder="Address Line 1" />
-            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-2" />
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-1.5" />
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
               <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Town / City" />
               <Input value={form.postcode} onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))} placeholder="Postcode" />
             </div>
           </div>
           {customerMode === "existing" && selectedCustomer && (
-            <p className="text-xs text-emerald-600 font-medium">✓ Using {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
+            <p className="md:col-span-2 text-xs text-emerald-600 font-medium">✓ Using {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
           )}
           <div className="space-y-1.5">
             <Label>Description</Label>
             <textarea
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[64px]"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="What does the customer need? E.g., 'Boiler not heating water, wants a quote for repair...'"
@@ -567,13 +569,13 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
           <div className="space-y-1.5">
             <Label>Notes</Label>
             <textarea
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[64px]"
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               placeholder="Internal notes about this enquiry..."
             />
           </div>
-          <div className="flex gap-3 pt-2">
+          <div className="md:col-span-2 flex gap-3 pt-1">
             <Button type="submit" disabled={submitting} className="flex-1">
               {submitting ? "Creating..." : "Create Enquiry"}
             </Button>

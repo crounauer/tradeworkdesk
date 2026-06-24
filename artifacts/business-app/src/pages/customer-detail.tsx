@@ -645,12 +645,12 @@ function BookEnquiryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[860px] max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Enquiry</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 space-y-1.5">
             <Label>Contact Name *</Label>
             <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
           </div>
@@ -687,7 +687,7 @@ function BookEnquiryDialog({
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="md:col-span-2 space-y-1.5">
             <Label>Address</Label>
             {hasFeature("uk_address_lookup") && (
               <Suspense fallback={null}>
@@ -703,8 +703,8 @@ function BookEnquiryDialog({
               </Suspense>
             )}
             <Input value={form.address_line1} onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))} placeholder="Address Line 1" />
-            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-2" />
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <Input value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} placeholder="Address Line 2" className="mt-1.5" />
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
               <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Town / City" />
               <Input value={form.postcode} onChange={e => setForm(f => ({ ...f, postcode: e.target.value.toUpperCase() }))} placeholder="Postcode" />
             </div>
@@ -712,13 +712,13 @@ function BookEnquiryDialog({
           <div className="space-y-1.5">
             <Label>Description</Label>
             <textarea
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px] resize-y"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[64px] resize-y"
               placeholder="What does the customer need?"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             />
           </div>
-          <div className="flex gap-3 pt-1">
+          <div className="md:col-span-2 flex gap-3 pt-1">
             <Button type="submit" disabled={submitting} className="flex-1">
               {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : <><MessageSquare className="w-4 h-4 mr-2" /> Create Enquiry</>}
             </Button>
