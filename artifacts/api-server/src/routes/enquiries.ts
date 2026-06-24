@@ -27,7 +27,7 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
   if (source && typeof source === "string") q = q.eq("source", source);
   if (search && typeof search === "string") {
     const s = `%${search}%`;
-    q = q.or(`contact_name.ilike.${s},contact_phone.ilike.${s},contact_email.ilike.${s},description.ilike.${s},notes.ilike.${s},address.ilike.${s}`);
+    q = q.or(`contact_name.ilike.${s},contact_phone.ilike.${s},contact_email.ilike.${s},description.ilike.${s},notes.ilike.${s},address.ilike.${s},address_line1.ilike.${s},address_line2.ilike.${s},city.ilike.${s},postcode.ilike.${s}`);
   }
 
   const { data, error } = await q;
@@ -52,6 +52,28 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     : address?.trim() || null;
 
   let resolvedLinkedCustomerId: string | null = linked_customer_id || null;
+  let resolvedCustomerSnapshot: {
+    id: string;
+    email?: string | null;
+    phone?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    postcode?: string | null;
+  } | null = null;
+
+  if (resolvedLinkedCustomerId && req.tenantId) {
+    const { data: linkedCustomer, error: linkedCustomerErr } = await supabaseAdmin
+      .from("customers")
+      .select("id, email, phone, address_line1, address_line2, city, postcode")
+      .eq("id", resolvedLinkedCustomerId)
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle();
+    if (linkedCustomerErr) { res.status(500).json({ error: linkedCustomerErr.message }); return; }
+    if (!linkedCustomer) { res.status(403).json({ error: "Invalid linked customer" }); return; }
+    resolvedCustomerSnapshot = linkedCustomer;
+  }
+
   if (!resolvedLinkedCustomerId && req.tenantId) {
     const normalizedEmail = contact_email?.trim().toLowerCase() || null;
     const normalizedPhone = contact_phone?.trim() || null;
@@ -59,7 +81,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     if (normalizedEmail || normalizedPhone) {
       let existingQ = supabaseAdmin
         .from("customers")
-        .select("id")
+        .select("id, email, phone, address_line1, address_line2, city, postcode")
         .eq("tenant_id", req.tenantId)
         .eq("is_active", true)
         .limit(1);
@@ -75,6 +97,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
       const { data: existingCustomer, error: existingCustomerErr } = await existingQ.maybeSingle();
       if (existingCustomerErr) { res.status(500).json({ error: existingCustomerErr.message }); return; }
       resolvedLinkedCustomerId = existingCustomer?.id || null;
+      resolvedCustomerSnapshot = existingCustomer || null;
     }
 
     if (!resolvedLinkedCustomerId) {
@@ -97,6 +120,35 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
 
       if (createdCustomerErr) { res.status(500).json({ error: createdCustomerErr.message }); return; }
       resolvedLinkedCustomerId = createdCustomer.id;
+    }
+  }
+
+  if (resolvedLinkedCustomerId && req.tenantId) {
+    // If a customer already exists, backfill missing contact/address from the enquiry.
+    const customer = resolvedCustomerSnapshot || (await supabaseAdmin
+      .from("customers")
+      .select("id, email, phone, address_line1, address_line2, city, postcode")
+      .eq("id", resolvedLinkedCustomerId)
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle()).data;
+
+    if (customer) {
+      const updates: Record<string, string | null> = {};
+      if (!customer.email && contact_email?.trim()) updates.email = contact_email.trim();
+      if (!customer.phone && contact_phone?.trim()) updates.phone = contact_phone.trim();
+      if (!customer.address_line1 && address_line1?.trim()) updates.address_line1 = address_line1.trim();
+      if (!customer.address_line2 && address_line2?.trim()) updates.address_line2 = address_line2.trim();
+      if (!customer.city && city?.trim()) updates.city = city.trim();
+      if (!customer.postcode && postcode?.trim()) updates.postcode = postcode.trim();
+
+      if (Object.keys(updates).length > 0) {
+        const { error: updateCustomerErr } = await supabaseAdmin
+          .from("customers")
+          .update(updates)
+          .eq("id", resolvedLinkedCustomerId)
+          .eq("tenant_id", req.tenantId);
+        if (updateCustomerErr) { res.status(500).json({ error: updateCustomerErr.message }); return; }
+      }
     }
   }
 

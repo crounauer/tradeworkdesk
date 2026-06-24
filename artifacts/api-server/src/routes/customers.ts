@@ -32,7 +32,7 @@ router.get("/customers", requireAuth, requireTenant, async (req: AuthenticatedRe
     }
     if (query.data.search) {
       const s = `%${query.data.search}%`;
-      q = q.or(`first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},postcode.ilike.${s}`);
+      q = q.or(`first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},mobile.ilike.${s},address_line1.ilike.${s},address_line2.ilike.${s},city.ilike.${s},county.ilike.${s},postcode.ilike.${s}`);
     }
   } else {
     q = q.eq("is_active", true);
