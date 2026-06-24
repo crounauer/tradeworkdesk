@@ -18,6 +18,29 @@ import { sendPortalInviteEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
+async function insertTenantAuditLog(opts: {
+  tenantId?: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  eventType: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  detail?: Record<string, unknown>;
+}) {
+  if (!opts.tenantId) return;
+  await supabaseAdmin.from("tenant_audit_log").insert({
+    tenant_id: opts.tenantId,
+    actor_id: opts.actorId || null,
+    actor_email: opts.actorEmail || null,
+    actor_role: opts.actorRole || null,
+    event_type: opts.eventType,
+    entity_type: opts.entityType || null,
+    entity_id: opts.entityId || null,
+    detail: opts.detail || {},
+  });
+}
+
 router.get("/customers", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListCustomersQueryParams.safeParse(req.query);
   let q = supabaseAdmin.from("customers").select("*").order("last_name");
@@ -49,6 +72,21 @@ router.post("/customers", requireAuth, requireTenant, requireRole("admin", "offi
 
   const { data, error } = await supabaseAdmin.from("customers").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "customer_created",
+    entityType: "customer",
+    entityId: String((data as { id?: string })?.id || ""),
+    detail: {
+      first_name: (data as Record<string, unknown>).first_name,
+      last_name: (data as Record<string, unknown>).last_name,
+    },
+  });
+
   res.status(201).json(data);
 });
 
@@ -80,6 +118,20 @@ router.patch("/customers/:id", requireAuth, requireTenant, requireRole("admin", 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Customer not found" }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "customer_updated",
+    entityType: "customer",
+    entityId: params.data.id,
+    detail: {
+      updated_fields: Object.keys(body.data),
+    },
+  });
+
   res.json(UpdateCustomerResponse.parse(data));
 });
 
@@ -91,6 +143,17 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "customer_deleted",
+    entityType: "customer",
+    entityId: params.data.id,
+  });
+
   res.sendStatus(204);
 });
 

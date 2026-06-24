@@ -6,6 +6,29 @@ import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 
 const router: IRouter = Router();
 
+async function insertTenantAuditLog(opts: {
+  tenantId?: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  eventType: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  detail?: Record<string, unknown>;
+}) {
+  if (!opts.tenantId) return;
+  await supabaseAdmin.from("tenant_audit_log").insert({
+    tenant_id: opts.tenantId,
+    actor_id: opts.actorId || null,
+    actor_email: opts.actorEmail || null,
+    actor_role: opts.actorRole || null,
+    event_type: opts.eventType,
+    entity_type: opts.entityType || null,
+    entity_id: opts.entityId || null,
+    detail: opts.detail || {},
+  });
+}
+
 function splitContactName(fullName: string): { first_name: string; last_name: string } {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length <= 1) {
@@ -237,6 +260,24 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     res.status(500).json({ error: error.message });
     return;
   }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "enquiry_created",
+    entityType: "enquiry",
+    entityId: String((data as { id?: string })?.id || ""),
+    detail: {
+      linked_customer_id: resolvedLinkedCustomerId,
+      created_customer_id: createdCustomerIdForRollback,
+      created_property_id: createdPropertyIdForRollback,
+      source: validSources.includes(source) ? source : "phone",
+      priority: validPriorities.includes(priority) ? priority : "medium",
+    },
+  });
+
   res.status(201).json(data);
 });
 
@@ -304,6 +345,21 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Enquiry not found" }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "enquiry_updated",
+    entityType: "enquiry",
+    entityId: id,
+    detail: {
+      updated_fields: Object.keys(updates),
+      status: (data as Record<string, unknown>).status,
+    },
+  });
+
   res.json(data);
 });
 
@@ -312,7 +368,19 @@ router.delete("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("
 
   let q = supabaseAdmin.from("enquiries").delete().eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  await q;
+  const { error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "enquiry_deleted",
+    entityType: "enquiry",
+    entityId: id,
+  });
+
   res.sendStatus(204);
 });
 
