@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
 type AuditEntry = {
@@ -15,12 +16,39 @@ type AuditEntry = {
   created_at: string;
 };
 
+type AuditActor = {
+  id: string;
+  full_name: string;
+  email: string | null;
+};
+
 export default function AdminAuditLog() {
   const [eventFilter, setEventFilter] = useState("");
+  const [actorFilter, setActorFilter] = useState("all");
   const [page, setPage] = useState(0);
   const pageSize = 30;
 
-  const queryKey = useMemo(() => ["admin-audit-log", eventFilter, page], [eventFilter, page]);
+  const queryKey = useMemo(() => ["admin-audit-log", eventFilter, actorFilter, page], [eventFilter, actorFilter, page]);
+
+  const { data: actors = [] } = useQuery<AuditActor[]>({
+    queryKey: ["admin-audit-actors"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) return [];
+      const users = (await res.json()) as Array<{ id: string; full_name?: string | null; email?: string | null }>;
+      return users
+        .map((u) => ({
+          id: u.id,
+          full_name: (u.full_name || "").trim(),
+          email: u.email || null,
+        }))
+        .sort((a, b) => {
+          const aLabel = a.full_name || a.email || "";
+          const bLabel = b.full_name || b.email || "";
+          return aLabel.localeCompare(bLabel);
+        });
+    },
+  });
 
   const { data, isLoading, isError, error } = useQuery<AuditEntry[]>({
     queryKey,
@@ -29,6 +57,7 @@ export default function AdminAuditLog() {
       params.set("limit", String(pageSize));
       params.set("offset", String(page * pageSize));
       if (eventFilter.trim()) params.set("event_type", eventFilter.trim());
+      if (actorFilter !== "all") params.set("actor_id", actorFilter);
       const res = await fetch(`/api/admin/audit-log?${params.toString()}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -69,7 +98,24 @@ export default function AdminAuditLog() {
         <CardHeader>
           <CardTitle className="text-base">Filters</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-3">
+        <CardContent className="space-y-3">
+          <Tabs
+            value={actorFilter}
+            onValueChange={(value) => {
+              setActorFilter(value);
+              setPage(0);
+            }}
+          >
+            <TabsList className="flex w-full overflow-x-auto justify-start">
+              <TabsTrigger value="all">All Users</TabsTrigger>
+              {actors.map((actor) => (
+                <TabsTrigger key={actor.id} value={actor.id}>
+                  {actor.full_name || actor.email || "Unknown"}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
           <Input
             placeholder="Filter by event type (e.g. user_updated)"
             value={eventFilter}
