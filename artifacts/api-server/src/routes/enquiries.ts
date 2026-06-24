@@ -53,6 +53,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     : address?.trim() || null;
 
   let resolvedLinkedCustomerId: string | null = linked_customer_id || null;
+  let createdCustomerIdForRollback: string | null = null;
   let resolvedCustomerSnapshot: {
     id: string;
     email?: string | null;
@@ -121,6 +122,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
 
       if (createdCustomerErr) { res.status(500).json({ error: createdCustomerErr.message }); return; }
       resolvedLinkedCustomerId = createdCustomer.id;
+      createdCustomerIdForRollback = createdCustomer.id;
     }
   }
 
@@ -176,7 +178,18 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     .select()
     .single();
 
-  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (error) {
+    // Best-effort rollback to avoid orphaned customers when enquiry creation fails.
+    if (createdCustomerIdForRollback && req.tenantId) {
+      await supabaseAdmin
+        .from("customers")
+        .delete()
+        .eq("id", createdCustomerIdForRollback)
+        .eq("tenant_id", req.tenantId);
+    }
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.status(201).json(data);
 });
 
