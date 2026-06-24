@@ -327,6 +327,7 @@ export default function CustomerDetail() {
       <BookEnquiryDialog
         open={showBookEnquiry}
         onOpenChange={setShowBookEnquiry}
+        initialCustomerId={customer.id}
         initialName={`${customer.title ? customer.title + " " : ""}${customer.first_name} ${customer.last_name}`.trim()}
         initialPhone={customer.phone || customer.mobile || ""}
         initialEmail={customer.email || ""}
@@ -580,10 +581,11 @@ const SOURCE_OPTIONS = [
 ];
 
 function BookEnquiryDialog({
-  open, onOpenChange, initialName, initialPhone, initialEmail, onCreated,
+  open, onOpenChange, initialCustomerId, initialName, initialPhone, initialEmail, onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  initialCustomerId?: string;
   initialName?: string;
   initialPhone?: string;
   initialEmail?: string;
@@ -630,7 +632,10 @@ function BookEnquiryDialog({
       const res = await customFetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          linked_customer_id: initialCustomerId,
+        }),
       }) as { id?: string };
       toast({ title: "Enquiry created", description: "The enquiry has been logged." });
       onCreated?.();

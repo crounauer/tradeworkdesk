@@ -450,6 +450,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
         body: JSON.stringify({
           ...form,
           linked_customer_id: customerMode === "existing" ? selectedCustomerId || undefined : undefined,
+          force_new_customer: customerMode === "new",
         }),
       });
       if (!res.ok) {

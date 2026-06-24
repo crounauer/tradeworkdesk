@@ -38,6 +38,7 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
 router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { contact_name, contact_phone, contact_email, source, description, notes, address, priority,
     address_line1, address_line2, city, postcode, linked_customer_id } = req.body;
+  const forceNewCustomer = req.body?.force_new_customer === true;
 
   if (!contact_name || typeof contact_name !== "string" || !contact_name.trim()) {
     res.status(400).json({ error: "contact_name is required" }); return;
@@ -74,7 +75,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     resolvedCustomerSnapshot = linkedCustomer;
   }
 
-  if (!resolvedLinkedCustomerId && req.tenantId) {
+  if (!resolvedLinkedCustomerId && req.tenantId && !forceNewCustomer) {
     const normalizedEmail = contact_email?.trim().toLowerCase() || null;
     const normalizedPhone = contact_phone?.trim() || null;
 
