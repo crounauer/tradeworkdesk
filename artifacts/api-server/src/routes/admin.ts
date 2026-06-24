@@ -157,7 +157,38 @@ router.get("/admin/audit-log", requireAuth, requireTenant, requireRole("admin"),
 
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || []);
+
+  const rows = (data || []) as Array<Record<string, unknown>>;
+  const missingActorRows = rows.filter((row) => !row.actor_email && row.actor_id).map((row) => String(row.actor_id));
+
+  if (missingActorRows.length === 0) {
+    res.json(rows);
+    return;
+  }
+
+  const actorIds = [...new Set(missingActorRows)];
+  const { data: actorProfiles } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email, role")
+    .in("id", actorIds);
+
+  const actorMap = new Map<string, { email?: string | null; role?: string | null }>();
+  for (const p of (actorProfiles || []) as Array<{ id: string; email?: string | null; role?: string | null }>) {
+    actorMap.set(p.id, { email: p.email || null, role: p.role || null });
+  }
+
+  const enriched = rows.map((row) => {
+    if (row.actor_email || !row.actor_id) return row;
+    const actor = actorMap.get(String(row.actor_id));
+    if (!actor) return row;
+    return {
+      ...row,
+      actor_email: actor.email || row.actor_email || null,
+      actor_role: actor.role || row.actor_role || null,
+    };
+  });
+
+  res.json(enriched);
 });
 
 router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
