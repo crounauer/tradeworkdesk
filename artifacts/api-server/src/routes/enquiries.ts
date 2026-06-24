@@ -62,9 +62,20 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
   const { contact_name, contact_phone, contact_email, source, description, notes, address, priority,
     address_line1, address_line2, city, postcode, linked_customer_id } = req.body;
   const forceNewCustomer = req.body?.force_new_customer === true;
+  const isLandlord = req.body?.new_is_landlord === true;
+  const jobAddressLine1 = typeof req.body?.new_prop_address_line1 === "string" ? req.body.new_prop_address_line1.trim() : "";
+  const jobAddressLine2 = typeof req.body?.new_prop_address_line2 === "string" ? req.body.new_prop_address_line2.trim() : "";
+  const jobCity = typeof req.body?.new_prop_city === "string" ? req.body.new_prop_city.trim() : "";
+  const jobCounty = typeof req.body?.new_prop_county === "string" ? req.body.new_prop_county.trim() : "";
+  const jobPostcode = typeof req.body?.new_prop_postcode === "string" ? req.body.new_prop_postcode.trim() : "";
 
   if (!contact_name || typeof contact_name !== "string" || !contact_name.trim()) {
     res.status(400).json({ error: "contact_name is required" }); return;
+  }
+
+  if (isLandlord && (!jobAddressLine1 || !jobPostcode)) {
+    res.status(400).json({ error: "Job location address_line1 and postcode are required for landlord enquiries" });
+    return;
   }
 
   const validSources = ["phone", "email", "text", "facebook", "whatsapp", "messenger", "website", "website_contact_form", "website_free_survey", "referral", "other"];
@@ -152,40 +163,48 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     }
   }
 
-  if (resolvedLinkedCustomerId && req.tenantId && address_line1?.trim() && postcode?.trim()) {
-    const normalizedAddressLine1 = address_line1.trim();
-    const normalizedPostcode = postcode.trim().toUpperCase();
-    const normalizedAddressLine2 = address_line2?.trim() || null;
-    const normalizedCity = city?.trim() || null;
+  if (resolvedLinkedCustomerId && req.tenantId) {
+    const normalizedAddressLine1 = (isLandlord ? jobAddressLine1 : String(address_line1 || "").trim()) || "";
+    const normalizedPostcode = (isLandlord ? jobPostcode : String(postcode || "").trim()).toUpperCase();
+    const normalizedAddressLine2 = (isLandlord ? jobAddressLine2 : String(address_line2 || "").trim()) || null;
+    const normalizedCity = (isLandlord ? jobCity : String(city || "").trim()) || null;
+    const normalizedCounty = (isLandlord ? jobCounty : "") || null;
 
-    const { data: existingProperty, error: existingPropertyErr } = await supabaseAdmin
-      .from("properties")
-      .select("id")
-      .eq("tenant_id", req.tenantId)
-      .eq("customer_id", resolvedLinkedCustomerId)
-      .eq("address_line1", normalizedAddressLine1)
-      .eq("postcode", normalizedPostcode)
-      .limit(1)
-      .maybeSingle();
+    if (!normalizedAddressLine1 || !normalizedPostcode) {
+      // No usable property address in enquiry payload.
+      // This is allowed for quick lead capture where only contact details are known.
+    } else {
 
-    if (existingPropertyErr) { res.status(500).json({ error: existingPropertyErr.message }); return; }
-
-    if (!existingProperty) {
-      const { data: createdProperty, error: createdPropertyErr } = await supabaseAdmin
+      const { data: existingProperty, error: existingPropertyErr } = await supabaseAdmin
         .from("properties")
-        .insert({
-          tenant_id: req.tenantId,
-          customer_id: resolvedLinkedCustomerId,
-          address_line1: normalizedAddressLine1,
-          address_line2: normalizedAddressLine2,
-          city: normalizedCity,
-          postcode: normalizedPostcode,
-        })
         .select("id")
-        .single();
+        .eq("tenant_id", req.tenantId)
+        .eq("customer_id", resolvedLinkedCustomerId)
+        .eq("address_line1", normalizedAddressLine1)
+        .eq("postcode", normalizedPostcode)
+        .limit(1)
+        .maybeSingle();
 
-      if (createdPropertyErr) { res.status(500).json({ error: createdPropertyErr.message }); return; }
-      createdPropertyIdForRollback = createdProperty.id;
+      if (existingPropertyErr) { res.status(500).json({ error: existingPropertyErr.message }); return; }
+
+      if (!existingProperty) {
+        const { data: createdProperty, error: createdPropertyErr } = await supabaseAdmin
+          .from("properties")
+          .insert({
+            tenant_id: req.tenantId,
+            customer_id: resolvedLinkedCustomerId,
+            address_line1: normalizedAddressLine1,
+            address_line2: normalizedAddressLine2,
+            city: normalizedCity,
+            county: normalizedCounty,
+            postcode: normalizedPostcode,
+          })
+          .select("id")
+          .single();
+
+        if (createdPropertyErr) { res.status(500).json({ error: createdPropertyErr.message }); return; }
+        createdPropertyIdForRollback = createdProperty.id;
+      }
     }
   }
 

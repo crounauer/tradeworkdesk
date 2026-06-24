@@ -413,6 +413,12 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     address_line2: "",
     city: "",
     postcode: "",
+    new_is_landlord: false,
+    new_prop_address_line1: "",
+    new_prop_address_line2: "",
+    new_prop_city: "",
+    new_prop_county: "",
+    new_prop_postcode: "",
     priority: "medium",
   });
 
@@ -440,6 +446,10 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     e.preventDefault();
     if (!form.contact_name.trim()) {
       toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
+      return;
+    }
+    if (customerMode === "new" && form.new_is_landlord && (!form.new_prop_address_line1.trim() || !form.new_prop_postcode.trim())) {
+      toast({ title: "Missing info", description: "Please enter the job location address and postcode.", variant: "destructive" });
       return;
     }
     setSubmitting(true);
@@ -560,6 +570,52 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
             </div>
             </div>
           </div>
+          {customerMode === "new" && (
+            <div className="md:col-span-2 space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="rounded border-border"
+                  checked={form.new_is_landlord}
+                  onChange={e => setForm(f => ({ ...f, new_is_landlord: e.target.checked }))}
+                />
+                <span className="text-muted-foreground">Landlord - job is at a different address</span>
+              </label>
+
+              {form.new_is_landlord && (
+                <div className="border border-primary/20 rounded-lg p-3 bg-background space-y-2">
+                  <p className="text-sm font-semibold">Job Location</p>
+                  <Input
+                    value={form.new_prop_address_line1}
+                    onChange={e => setForm(f => ({ ...f, new_prop_address_line1: e.target.value }))}
+                    placeholder="Address"
+                  />
+                  <Input
+                    value={form.new_prop_address_line2}
+                    onChange={e => setForm(f => ({ ...f, new_prop_address_line2: e.target.value }))}
+                    placeholder="Address Line 2"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={form.new_prop_city}
+                      onChange={e => setForm(f => ({ ...f, new_prop_city: e.target.value }))}
+                      placeholder="Town / City"
+                    />
+                    <Input
+                      value={form.new_prop_county}
+                      onChange={e => setForm(f => ({ ...f, new_prop_county: e.target.value }))}
+                      placeholder="County"
+                    />
+                  </div>
+                  <Input
+                    value={form.new_prop_postcode}
+                    onChange={e => setForm(f => ({ ...f, new_prop_postcode: e.target.value.toUpperCase() }))}
+                    placeholder="Postcode"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           {customerMode === "existing" && selectedCustomer && (
             <p className="md:col-span-2 text-xs text-emerald-600 font-medium">✓ Using {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
           )}
