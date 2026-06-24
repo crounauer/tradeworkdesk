@@ -1015,7 +1015,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   const logBodyText = [
     `Dear ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"},`,
     "",
-    `Please find your ${invoice.type === "quote" ? "quotation" : "invoice"} attached.",
+    `Please find your ${invoice.type === "quote" ? "quotation" : "invoice"} attached.`,
     `${docLabel}`,
     `Amount: ${(invoice.currency as string || "GBP").toUpperCase()} ${Number(invoice.total || 0).toFixed(2)}`,
     "",

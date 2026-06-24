@@ -122,7 +122,7 @@ function buildJobConfirmationEmailBodyText(opts: {
   const lines = [
     `Dear ${opts.customerName},`,
     "",
-    `Your appointment with ${opts.companyName} has been confirmed.",
+    `Your appointment with ${opts.companyName} has been confirmed.`,
     "",
     `Reference: ${opts.jobRef}`,
     `Job type: ${opts.jobTypeName}`,
