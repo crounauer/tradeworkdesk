@@ -38,6 +38,8 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     : "";
   const [form, setForm] = useState({
     contact_name: "",
+    new_first_name: "",
+    new_last_name: "",
     contact_phone: "",
     contact_email: "",
     source: "phone",
@@ -90,8 +92,12 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.contact_name.trim()) {
-      toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
+    const contactName = customerMode === "new"
+      ? `${form.new_first_name} ${form.new_last_name}`.trim()
+      : form.contact_name.trim();
+
+    if (!contactName) {
+      toast({ title: "Missing info", description: customerMode === "new" ? "Please enter first name and surname." : "Please enter a contact name.", variant: "destructive" });
       return;
     }
     if (customerMode === "new" && form.new_is_landlord && (!form.new_prop_address_line1.trim() || !form.new_prop_postcode.trim())) {
@@ -102,6 +108,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     try {
       const payload: Record<string, unknown> = {
         ...form,
+        contact_name: contactName,
         linked_customer_id: selectedCustomerId || undefined,
         force_new_customer: customerMode === "new",
       };
@@ -117,7 +124,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
       qc.invalidateQueries({ queryKey: ["enquiries"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
-      toast({ title: "Enquiry added", description: `Enquiry for ${form.contact_name} created.` });
+      toast({ title: "Enquiry added", description: `Enquiry for ${contactName} created.` });
       onOpenChange(false);
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
@@ -189,10 +196,23 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
           )}
 
           {/* Contact fields */}
-          <div className="space-y-1.5">
-            <Label>Contact Name *</Label>
-            <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" autoFocus />
-          </div>
+          {customerMode === "new" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>First Name *</Label>
+                <Input value={form.new_first_name} onChange={e => setForm(f => ({ ...f, new_first_name: e.target.value }))} placeholder="John" autoFocus />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Surname *</Label>
+                <Input value={form.new_last_name} onChange={e => setForm(f => ({ ...f, new_last_name: e.target.value }))} placeholder="Smith" />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Contact Name *</Label>
+              <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" autoFocus />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Phone</Label>

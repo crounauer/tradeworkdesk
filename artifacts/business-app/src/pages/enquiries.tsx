@@ -404,6 +404,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [form, setForm] = useState({
     contact_name: "",
+    new_first_name: "",
+    new_last_name: "",
     contact_phone: "",
     contact_email: "",
     source: "phone",
@@ -444,8 +446,12 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.contact_name.trim()) {
-      toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
+    const contactName = customerMode === "new"
+      ? `${form.new_first_name} ${form.new_last_name}`.trim()
+      : form.contact_name.trim();
+
+    if (!contactName) {
+      toast({ title: "Missing info", description: customerMode === "new" ? "Please enter first name and surname." : "Please enter a contact name.", variant: "destructive" });
       return;
     }
     if (customerMode === "new" && form.new_is_landlord && (!form.new_prop_address_line1.trim() || !form.new_prop_postcode.trim())) {
@@ -459,6 +465,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          contact_name: contactName,
           linked_customer_id: customerMode === "existing" ? selectedCustomerId || undefined : undefined,
           force_new_customer: customerMode === "new",
         }),
@@ -510,10 +517,23 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
             </div>
           )}
 
-          <div className="md:col-span-2 space-y-1">
-            <Label>Contact Name *</Label>
-            <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
-          </div>
+          {customerMode === "new" ? (
+            <div className="md:col-span-2 grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>First Name *</Label>
+                <Input value={form.new_first_name} onChange={e => setForm(f => ({ ...f, new_first_name: e.target.value }))} placeholder="John" />
+              </div>
+              <div className="space-y-1">
+                <Label>Surname *</Label>
+                <Input value={form.new_last_name} onChange={e => setForm(f => ({ ...f, new_last_name: e.target.value }))} placeholder="Smith" />
+              </div>
+            </div>
+          ) : (
+            <div className="md:col-span-2 space-y-1">
+              <Label>Contact Name *</Label>
+              <Input value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="John Smith" />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>Phone</Label>
