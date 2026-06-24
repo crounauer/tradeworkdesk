@@ -76,30 +76,32 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     resolvedCustomerSnapshot = linkedCustomer;
   }
 
-  if (!resolvedLinkedCustomerId && req.tenantId && !forceNewCustomer) {
-    const normalizedEmail = contact_email?.trim().toLowerCase() || null;
-    const normalizedPhone = contact_phone?.trim() || null;
+  if (!resolvedLinkedCustomerId && req.tenantId) {
+    if (!forceNewCustomer) {
+      const normalizedEmail = contact_email?.trim().toLowerCase() || null;
+      const normalizedPhone = contact_phone?.trim() || null;
 
-    if (normalizedEmail || normalizedPhone) {
-      let existingQ = supabaseAdmin
-        .from("customers")
-        .select("id, email, phone, address_line1, address_line2, city, postcode")
-        .eq("tenant_id", req.tenantId)
-        .eq("is_active", true)
-        .limit(1);
+      if (normalizedEmail || normalizedPhone) {
+        let existingQ = supabaseAdmin
+          .from("customers")
+          .select("id, email, phone, address_line1, address_line2, city, postcode")
+          .eq("tenant_id", req.tenantId)
+          .eq("is_active", true)
+          .limit(1);
 
-      if (normalizedEmail && normalizedPhone) {
-        existingQ = existingQ.or(`email.eq.${normalizedEmail},phone.eq.${normalizedPhone}`);
-      } else if (normalizedEmail) {
-        existingQ = existingQ.eq("email", normalizedEmail);
-      } else if (normalizedPhone) {
-        existingQ = existingQ.eq("phone", normalizedPhone);
+        if (normalizedEmail && normalizedPhone) {
+          existingQ = existingQ.or(`email.eq.${normalizedEmail},phone.eq.${normalizedPhone}`);
+        } else if (normalizedEmail) {
+          existingQ = existingQ.eq("email", normalizedEmail);
+        } else if (normalizedPhone) {
+          existingQ = existingQ.eq("phone", normalizedPhone);
+        }
+
+        const { data: existingCustomer, error: existingCustomerErr } = await existingQ.maybeSingle();
+        if (existingCustomerErr) { res.status(500).json({ error: existingCustomerErr.message }); return; }
+        resolvedLinkedCustomerId = existingCustomer?.id || null;
+        resolvedCustomerSnapshot = existingCustomer || null;
       }
-
-      const { data: existingCustomer, error: existingCustomerErr } = await existingQ.maybeSingle();
-      if (existingCustomerErr) { res.status(500).json({ error: existingCustomerErr.message }); return; }
-      resolvedLinkedCustomerId = existingCustomer?.id || null;
-      resolvedCustomerSnapshot = existingCustomer || null;
     }
 
     if (!resolvedLinkedCustomerId) {
