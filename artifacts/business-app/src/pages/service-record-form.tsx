@@ -44,6 +44,9 @@ interface ServiceRecordFormData {
   thermostat_checked: boolean;
   safety_devices_checked: boolean;
   safety_devices_notes: string;
+  capacitor_type: string;
+  capacitor_value: string;
+  capacitor_actual_reading: string;
   leaks_found: boolean;
   leaks_details: string;
   defects_found: boolean;
@@ -119,6 +122,31 @@ export default function ServiceRecordForm() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  const CAP_TYPE_LABEL = "Capacitor Type";
+  const CAP_VALUE_LABEL = "Capacitor Value";
+  const CAP_READING_LABEL = "Capacitor Actual Reading";
+
+  const getTaggedLineValue = (text: string, label: string): string => {
+    const rx = new RegExp(`^${label}:\\s*(.*)$`, "mi");
+    const m = text.match(rx);
+    return m?.[1]?.trim() || "";
+  };
+
+  const stripCapacitorLines = (text: string): string => {
+    return text
+      .split("\n")
+      .filter((line) => {
+        const t = line.trimStart();
+        return !(
+          t.startsWith(`${CAP_TYPE_LABEL}:`) ||
+          t.startsWith(`${CAP_VALUE_LABEL}:`) ||
+          t.startsWith(`${CAP_READING_LABEL}:`)
+        );
+      })
+      .join("\n")
+      .trim();
+  };
+
   const watchClassification = watch("appliance_classification");
   const isAtRisk = watchClassification === "at_risk";
   const isImmediatelyDangerous = watchClassification === "immediately_dangerous";
@@ -127,6 +155,8 @@ export default function ServiceRecordForm() {
   useEffect(() => {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
+      const existingSafetyNotes = existingRecord.safety_devices_notes || "";
+      const baseSafetyNotes = stripCapacitorLines(existingSafetyNotes);
       reset({
         service_date: existingRecord.arrival_time ? String(existingRecord.arrival_time).slice(0, 10) : "",
         visual_inspection: existingRecord.visual_inspection || "",
@@ -157,7 +187,10 @@ export default function ServiceRecordForm() {
         controls_checked: existingRecord.controls_checked ?? false,
         thermostat_checked: existingRecord.thermostat_checked ?? false,
         safety_devices_checked: existingRecord.safety_devices_checked ?? false,
-        safety_devices_notes: existingRecord.safety_devices_notes || "",
+        safety_devices_notes: baseSafetyNotes,
+        capacitor_type: getTaggedLineValue(existingSafetyNotes, CAP_TYPE_LABEL),
+        capacitor_value: getTaggedLineValue(existingSafetyNotes, CAP_VALUE_LABEL),
+        capacitor_actual_reading: getTaggedLineValue(existingSafetyNotes, CAP_READING_LABEL),
         leaks_found: existingRecord.leaks_found ?? false,
         leaks_details: existingRecord.leaks_details || "",
         defects_found: existingRecord.defects_found ?? false,
@@ -200,6 +233,13 @@ export default function ServiceRecordForm() {
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
 
+    const capLines: string[] = [];
+    if (data.capacitor_type.trim()) capLines.push(`${CAP_TYPE_LABEL}: ${data.capacitor_type.trim()}`);
+    if (data.capacitor_value.trim()) capLines.push(`${CAP_VALUE_LABEL}: ${data.capacitor_value.trim()}`);
+    if (data.capacitor_actual_reading.trim()) capLines.push(`${CAP_READING_LABEL}: ${data.capacitor_actual_reading.trim()}`);
+    const baseSafetyNotes = stripCapacitorLines(data.safety_devices_notes || "");
+    const mergedSafetyNotes = [baseSafetyNotes, ...capLines].filter(Boolean).join("\n");
+
     const payload: CreateServiceRecordBody = {
       job_id: jobId!,
       technician_id: user.id,
@@ -219,7 +259,7 @@ export default function ServiceRecordForm() {
       controls_checked: data.controls_checked,
       thermostat_checked: data.thermostat_checked,
       safety_devices_checked: data.safety_devices_checked,
-      safety_devices_notes: data.safety_devices_notes || undefined,
+      safety_devices_notes: mergedSafetyNotes || undefined,
       leaks_found: data.leaks_found,
       leaks_details: data.leaks_details || undefined,
       defects_found: data.defects_found,
@@ -367,6 +407,61 @@ export default function ServiceRecordForm() {
             </div>
           </div>
         </Card>
+
+        {isOil && (
+          <Card className="p-6 shadow-sm border-amber-200 bg-amber-50/30">
+            <h2 className="font-bold text-lg mb-4 text-amber-700 flex items-center gap-2"><Wrench className="w-5 h-5"/> Appliance Identification</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Appliance Make</Label>
+                <Input value={job?.appliance?.manufacturer || ""} placeholder="Not set" readOnly />
+              </div>
+              <div className="space-y-2">
+                <Label>Appliance Model</Label>
+                <Input value={job?.appliance?.model || ""} placeholder="Not set" readOnly />
+              </div>
+              <div className="space-y-2">
+                <Label>Appliance Serial</Label>
+                <Input value={job?.appliance?.serial_number || ""} placeholder="Not set" readOnly />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Appliance Type</Label>
+                <Input value={job?.appliance?.boiler_type || ""} placeholder="Not set" readOnly />
+              </div>
+              <div className="space-y-2">
+                <Label>Appliance Output</Label>
+                <Input value="" placeholder="Capture in appliance notes if required" readOnly />
+              </div>
+              <div className="space-y-2">
+                <Label>Fuel Supply Type Details</Label>
+                <Input
+                  value={[job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ")}
+                  placeholder="Not set"
+                  readOnly
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Appliance Location Within Property</Label>
+                <Input value={job?.property?.boiler_location || ""} placeholder="Not set" readOnly />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Burner Make / Model</Label>
+                <Input
+                  value={[job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / ")}
+                  placeholder="Not set"
+                  readOnly
+                />
+              </div>
+            </div>
+            {job?.appliance?.id && (
+              <p className="text-xs text-amber-700 mt-3">
+                To change these values, update the appliance record for this job.
+              </p>
+            )}
+          </Card>
+        )}
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/> Visual Inspection</h2>
@@ -535,6 +630,24 @@ export default function ServiceRecordForm() {
               <div className="space-y-2">
                 <Label>Oil Pressure (bar)</Label>
                 <Input {...register("oil_pressure")} placeholder="e.g. 7.0" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Capacitor Type</Label>
+                <Input {...register("capacitor_type")} placeholder="e.g. Start / Run" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Capacitor Value</Label>
+                <Input {...register("capacitor_value")} placeholder="e.g. 4 uF" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Capacitor Actual Reading</Label>
+                <Input {...register("capacitor_actual_reading")} placeholder="e.g. 3.8 uF" />
               </div>
             )}
             <div className="space-y-2">
