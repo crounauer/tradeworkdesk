@@ -44,7 +44,6 @@ interface ServiceRecordFormData {
   thermostat_checked: boolean;
   safety_devices_checked: boolean;
   safety_devices_notes: string;
-  capacitor_type: string;
   capacitor_value: string;
   capacitor_actual_reading: string;
   appliance_make: string;
@@ -289,7 +288,6 @@ export default function ServiceRecordForm() {
         thermostat_checked: existingRecord.thermostat_checked ?? false,
         safety_devices_checked: existingRecord.safety_devices_checked ?? false,
         safety_devices_notes: baseSafetyNotes,
-        capacitor_type: getTaggedLineValue(existingSafetyNotes, CAP_TYPE_LABEL),
         capacitor_value: getTaggedLineValue(existingSafetyNotes, CAP_VALUE_LABEL),
         capacitor_actual_reading: getTaggedLineValue(existingSafetyNotes, CAP_READING_LABEL),
         appliance_make: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MAKE_LABEL) || (job?.appliance?.manufacturer || ""),
@@ -369,7 +367,6 @@ export default function ServiceRecordForm() {
     if (!user?.id) return;
 
     const capLines: string[] = [];
-    if (data.capacitor_type.trim()) capLines.push(`${CAP_TYPE_LABEL}: ${data.capacitor_type.trim()}`);
     if (data.capacitor_value.trim()) capLines.push(`${CAP_VALUE_LABEL}: ${data.capacitor_value.trim()}`);
     if (data.capacitor_actual_reading.trim()) capLines.push(`${CAP_READING_LABEL}: ${data.capacitor_actual_reading.trim()}`);
     if (data.appliance_make.trim()) capLines.push(`${APPLIANCE_MAKE_LABEL}: ${data.appliance_make.trim()}`);
@@ -815,104 +812,63 @@ export default function ServiceRecordForm() {
           )}
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             {isOil && (
-              <div className="md:col-span-2 grid md:grid-cols-2 gap-4 p-3 border rounded-xl bg-slate-50/60">
-                <div className="space-y-2">
+              <div className="md:col-span-2 space-y-3 p-3 border rounded-xl bg-slate-50/60">
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Heat Exchanger</Label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" {...register("heat_exchanger_cleaned_tb")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Cleaned</span>
-                  </label>
-                  <textarea
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]"
-                    {...register("heat_exchanger_turbulators")}
-                    placeholder="General notes..."
-                  />
+                  <Input {...register("heat_exchanger_turbulators")} placeholder="Notes" />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="font-semibold">Blaster Assembly</Label>
-                  <Label className="text-sm font-medium">Nozzle</Label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" {...register("blast_nozzle_replaced")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Nozzle changed</span>
-                  </label>
-                  <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
-
-                  <Label className="text-sm font-medium">Electrodes</Label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" {...register("blast_electrode_settings_checked")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Condition</span>
-                  </label>
-                  <Input {...register("electrodes_condition")} placeholder="Condition" />
-                  <Input {...register("blast_electrode_settings_text")} placeholder="Electrode gap" />
-
-                  <Label className="text-sm font-medium">O-Ring</Label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" {...register("blast_oring_replaced")} className="w-4 h-4 accent-primary rounded" />
-                    <span>O-ring changed</span>
-                  </label>
-                </div>
-
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Combustion Chamber</Label>
-                  <Input {...register("combustion_chamber_baffles")} placeholder="Baffles" />
-                  <textarea
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]"
-                    {...register("rope_seal_gasket_comments")}
-                    placeholder="Rope Seal / Gasket comments"
-                  />
+                  <Input {...register("combustion_chamber_baffles")} placeholder="Notes" />
                 </div>
-
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Nozzle</Label>
+                  <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Electrodes</Label>
+                  <Input {...register("electrodes_condition")} placeholder="Condition" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">O-Ring</Label>
+                  <Input {...register("burner_oring")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Condensate</Label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" {...register("condensate_cleaned_tb")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Cleaned</span>
-                  </label>
                   <Input {...register("condensate_condition")} placeholder="Condition" />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="font-semibold">Oil Pump / Air</Label>
-                  <Input {...register("oil_pump_pressure")} placeholder="Oil pump pressure" />
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Oil Pump</Label>
+                  <Input {...register("oil_pump_pressure")} placeholder="Pressure / notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Air Setting</Label>
                   <Input {...register("air_setting")} placeholder="Air setting" />
                 </div>
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Capacitor Type</Label>
-                <Input {...register("capacitor_type")} placeholder="e.g. Start / Run" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Capacitor Actual Reading</Label>
-                <Input {...register("capacitor_actual_reading")} placeholder="e.g. 3.8 uF" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Burner O-Ring</Label>
-                <Input {...register("burner_oring")} placeholder="e.g. Good / Replaced" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Electrodes Condition</Label>
-                <Input {...register("electrodes_condition")} placeholder="e.g. Good / Worn" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Electrode Settings</Label>
-                <Input {...register("electrode_settings")} placeholder="e.g. 3.5 mm gap" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2 md:col-span-2">
-                <Label>Overall Condition Remarks</Label>
-                <Input {...register("overall_condition_remarks")} placeholder="Any additional burner condition remarks..." />
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Capacitor</Label>
+                  <Input {...register("capacitor_actual_reading")} placeholder="Reading" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Oil Pump</Label>
+                  <Input {...register("oil_pressure")} placeholder="Setting" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Solednoid</Label>
+                  <Input {...register("solenoid_notes")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Control Box</Label>
+                  <Input {...register("electronics_controlbox")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Motor</Label>
+                  <Input {...register("motor_text")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Blast Tube</Label>
+                  <Input {...register("blast_tube_condition")} placeholder="Condition" />
+                </div>
               </div>
             )}
             <div className="space-y-2">
