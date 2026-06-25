@@ -848,14 +848,6 @@ export default function ServiceRecordForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-semibold">Electrics</Label>
-                  <Input {...register("electronics_controlbox")} placeholder="Control Box notes" />
-                  <Input {...register("capacitor_reading_text")} placeholder="Capacitor reading" />
-                  <Input {...register("motor_text")} placeholder="Motor notes" />
-                  <Input {...register("solenoid_notes")} placeholder="Solenoid notes" />
-                </div>
-
-                <div className="space-y-2">
                   <Label className="font-semibold">Combustion Chamber</Label>
                   <Input {...register("combustion_chamber_baffles")} placeholder="Baffles" />
                   <textarea
