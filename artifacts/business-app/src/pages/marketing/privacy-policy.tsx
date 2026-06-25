@@ -96,7 +96,10 @@ export default function PrivacyPolicyPage() {
               <li>Role-based access controls</li>
               <li>Regular security reviews</li>
               <li>Automated backups</li>
+              <li>Segregated infrastructure layers for data services, web delivery, and API runtime</li>
+              <li>Production monitoring and controlled deployment workflows</li>
             </ul>
+            <p>Our architecture separates responsibilities across dedicated services: managed data/auth systems, edge web delivery, and containerised application APIs. This reduces single points of failure and limits blast radius during incidents.</p>
           </section>
 
           <section>

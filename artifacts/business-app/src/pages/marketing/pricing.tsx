@@ -100,7 +100,11 @@ function buildFaqs(plan: Plan | undefined) {
     },
     {
       question: "Is my data secure?",
-      answer: "Yes. All data is encrypted in transit and at rest. Our infrastructure is hosted in UK/EU data centres and we are fully GDPR compliant.",
+      answer: "Yes. Data is encrypted in transit and at rest, hosted in UK/EU data centres, and managed under UK GDPR controls. We use separate managed services for data storage/authentication, edge-delivered web hosting, and isolated API runtime with monitored deployments.",
+    },
+    {
+      question: "How do you protect reliability and recovery?",
+      answer: "We run automated backups, production monitoring, and controlled release processes so customer records remain protected and recoverable. If an issue occurs, we can restore service and data without relying on a single infrastructure layer.",
     },
     {
       question: "Does the website builder cost extra?",

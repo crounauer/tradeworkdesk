@@ -13,6 +13,21 @@ import {
   CheckCircle, ArrowRight, Star, Flame, Wrench, ClipboardCheck, Globe
 } from "lucide-react";
 
+const securityPillars = [
+  {
+    title: "Data Platform",
+    body: "Customer, job, and form records are stored in managed UK/EU infrastructure with encryption at rest, strict access controls, and automated backups.",
+  },
+  {
+    title: "Web Delivery",
+    body: "The website and app are delivered over HTTPS/TLS through resilient edge delivery to protect sessions and keep pages fast and available.",
+  },
+  {
+    title: "Application Runtime",
+    body: "Core API services run in isolated containers with secure environment configuration, controlled deployments, and production monitoring.",
+  },
+];
+
 const features = [
   {
     icon: Briefcase,
@@ -196,6 +211,30 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-50 py-16 md:py-20 border-y border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mb-8">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-slate-900">
+              Security and reliability built into every layer
+            </h2>
+            <p className="mt-3 text-slate-600">
+              From data storage to web delivery and API operations, the platform is designed to protect records and keep services dependable.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {securityPillars.map((item) => (
+              <div key={item.title} className="rounded-xl border border-slate-200 bg-white p-5">
+                <p className="font-semibold text-slate-900">{item.title}</p>
+                <p className="mt-2 text-sm text-slate-600 leading-relaxed">{item.body}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-xs text-slate-500">
+            Full details are available in our Privacy Policy.
+          </p>
         </div>
       </section>
 
