@@ -47,6 +47,12 @@ interface ServiceRecordFormData {
   capacitor_type: string;
   capacitor_value: string;
   capacitor_actual_reading: string;
+  burner_oring: string;
+  electrodes_condition: string;
+  electrode_settings: string;
+  air_setting: string;
+  blast_tube_condition: string;
+  overall_condition_remarks: string;
   leaks_found: boolean;
   leaks_details: string;
   defects_found: boolean;
@@ -125,6 +131,12 @@ export default function ServiceRecordForm() {
   const CAP_TYPE_LABEL = "Capacitor Type";
   const CAP_VALUE_LABEL = "Capacitor Value";
   const CAP_READING_LABEL = "Capacitor Actual Reading";
+  const BURNER_ORING_LABEL = "Burner O-Ring";
+  const ELECTRODES_CONDITION_LABEL = "Electrodes Condition";
+  const ELECTRODE_SETTINGS_LABEL = "Electrode Settings";
+  const AIR_SETTING_LABEL = "Air Setting";
+  const BLAST_TUBE_CONDITION_LABEL = "Blast Tube Condition";
+  const OVERALL_CONDITION_REMARKS_LABEL = "Overall Condition Remarks";
 
   const getTaggedLineValue = (text: string, label: string): string => {
     const rx = new RegExp(`^${label}:\\s*(.*)$`, "mi");
@@ -132,16 +144,24 @@ export default function ServiceRecordForm() {
     return m?.[1]?.trim() || "";
   };
 
-  const stripCapacitorLines = (text: string): string => {
+  const stripTaggedSafetyLines = (text: string): string => {
+    const taggedLabels = [
+      CAP_TYPE_LABEL,
+      CAP_VALUE_LABEL,
+      CAP_READING_LABEL,
+      BURNER_ORING_LABEL,
+      ELECTRODES_CONDITION_LABEL,
+      ELECTRODE_SETTINGS_LABEL,
+      AIR_SETTING_LABEL,
+      BLAST_TUBE_CONDITION_LABEL,
+      OVERALL_CONDITION_REMARKS_LABEL,
+    ];
+
     return text
       .split("\n")
       .filter((line) => {
         const t = line.trimStart();
-        return !(
-          t.startsWith(`${CAP_TYPE_LABEL}:`) ||
-          t.startsWith(`${CAP_VALUE_LABEL}:`) ||
-          t.startsWith(`${CAP_READING_LABEL}:`)
-        );
+        return !taggedLabels.some((label) => t.startsWith(`${label}:`));
       })
       .join("\n")
       .trim();
@@ -156,7 +176,7 @@ export default function ServiceRecordForm() {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
       const existingSafetyNotes = existingRecord.safety_devices_notes || "";
-      const baseSafetyNotes = stripCapacitorLines(existingSafetyNotes);
+      const baseSafetyNotes = stripTaggedSafetyLines(existingSafetyNotes);
       reset({
         service_date: existingRecord.arrival_time ? String(existingRecord.arrival_time).slice(0, 10) : "",
         visual_inspection: existingRecord.visual_inspection || "",
@@ -191,6 +211,12 @@ export default function ServiceRecordForm() {
         capacitor_type: getTaggedLineValue(existingSafetyNotes, CAP_TYPE_LABEL),
         capacitor_value: getTaggedLineValue(existingSafetyNotes, CAP_VALUE_LABEL),
         capacitor_actual_reading: getTaggedLineValue(existingSafetyNotes, CAP_READING_LABEL),
+        burner_oring: getTaggedLineValue(existingSafetyNotes, BURNER_ORING_LABEL),
+        electrodes_condition: getTaggedLineValue(existingSafetyNotes, ELECTRODES_CONDITION_LABEL),
+        electrode_settings: getTaggedLineValue(existingSafetyNotes, ELECTRODE_SETTINGS_LABEL),
+        air_setting: getTaggedLineValue(existingSafetyNotes, AIR_SETTING_LABEL),
+        blast_tube_condition: getTaggedLineValue(existingSafetyNotes, BLAST_TUBE_CONDITION_LABEL),
+        overall_condition_remarks: getTaggedLineValue(existingSafetyNotes, OVERALL_CONDITION_REMARKS_LABEL),
         leaks_found: existingRecord.leaks_found ?? false,
         leaks_details: existingRecord.leaks_details || "",
         defects_found: existingRecord.defects_found ?? false,
@@ -237,7 +263,13 @@ export default function ServiceRecordForm() {
     if (data.capacitor_type.trim()) capLines.push(`${CAP_TYPE_LABEL}: ${data.capacitor_type.trim()}`);
     if (data.capacitor_value.trim()) capLines.push(`${CAP_VALUE_LABEL}: ${data.capacitor_value.trim()}`);
     if (data.capacitor_actual_reading.trim()) capLines.push(`${CAP_READING_LABEL}: ${data.capacitor_actual_reading.trim()}`);
-    const baseSafetyNotes = stripCapacitorLines(data.safety_devices_notes || "");
+    if (data.burner_oring.trim()) capLines.push(`${BURNER_ORING_LABEL}: ${data.burner_oring.trim()}`);
+    if (data.electrodes_condition.trim()) capLines.push(`${ELECTRODES_CONDITION_LABEL}: ${data.electrodes_condition.trim()}`);
+    if (data.electrode_settings.trim()) capLines.push(`${ELECTRODE_SETTINGS_LABEL}: ${data.electrode_settings.trim()}`);
+    if (data.air_setting.trim()) capLines.push(`${AIR_SETTING_LABEL}: ${data.air_setting.trim()}`);
+    if (data.blast_tube_condition.trim()) capLines.push(`${BLAST_TUBE_CONDITION_LABEL}: ${data.blast_tube_condition.trim()}`);
+    if (data.overall_condition_remarks.trim()) capLines.push(`${OVERALL_CONDITION_REMARKS_LABEL}: ${data.overall_condition_remarks.trim()}`);
+    const baseSafetyNotes = stripTaggedSafetyLines(data.safety_devices_notes || "");
     const mergedSafetyNotes = [baseSafetyNotes, ...capLines].filter(Boolean).join("\n");
 
     const payload: CreateServiceRecordBody = {
@@ -648,6 +680,42 @@ export default function ServiceRecordForm() {
               <div className="space-y-2">
                 <Label>Capacitor Actual Reading</Label>
                 <Input {...register("capacitor_actual_reading")} placeholder="e.g. 3.8 uF" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Burner O-Ring</Label>
+                <Input {...register("burner_oring")} placeholder="e.g. Good / Replaced" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Electrodes Condition</Label>
+                <Input {...register("electrodes_condition")} placeholder="e.g. Good / Worn" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Electrode Settings</Label>
+                <Input {...register("electrode_settings")} placeholder="e.g. 3.5 mm gap" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Air Setting</Label>
+                <Input {...register("air_setting")} placeholder="e.g. 2.5" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2">
+                <Label>Blast Tube Condition</Label>
+                <Input {...register("blast_tube_condition")} placeholder="e.g. Clean / Light soot" />
+              </div>
+            )}
+            {isOil && (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Overall Condition Remarks</Label>
+                <Input {...register("overall_condition_remarks")} placeholder="Any additional burner condition remarks..." />
               </div>
             )}
             <div className="space-y-2">
