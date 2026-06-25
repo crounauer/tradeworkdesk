@@ -831,19 +831,25 @@ export default function ServiceRecordForm() {
 
                 <div className="space-y-2">
                   <Label className="font-semibold">Blaster Assembly</Label>
+                  <Label className="text-sm font-medium">Nozzle</Label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("blast_nozzle_replaced")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Nozzle replaced</span>
+                    <span>Nozzle changed</span>
                   </label>
                   <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
+
+                  <Label className="text-sm font-medium">Electrodes</Label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("blast_electrode_settings_checked")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Electrodes</span>
+                    <span>Condition</span>
                   </label>
-                  <Input {...register("blast_electrode_settings_text")} placeholder="Electrode settings" />
+                  <Input {...register("electrodes_condition")} placeholder="Condition" />
+                  <Input {...register("blast_electrode_settings_text")} placeholder="Electrode gap" />
+
+                  <Label className="text-sm font-medium">O-Ring</Label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("blast_oring_replaced")} className="w-4 h-4 accent-primary rounded" />
-                    <span>O-ring replaced</span>
+                    <span>O-ring changed</span>
                   </label>
                 </div>
 
