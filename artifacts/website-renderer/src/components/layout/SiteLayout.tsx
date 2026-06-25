@@ -25,35 +25,19 @@ export default function SiteLayout({ site, children, basePath, previewToken }: P
         href="#main-content"
         style={{
           position: "absolute",
-          left: "-9999px",
-          top: "auto",
-          width: 1,
-          height: 1,
+          left: "8px",
+          top: "8px",
+          width: "auto",
+          height: "auto",
           overflow: "hidden",
-        }}
-        onFocus={(e) => {
-          const el = e.currentTarget;
-          el.style.left = "8px";
-          el.style.top = "8px";
-          el.style.width = "auto";
-          el.style.height = "auto";
-          el.style.overflow = "visible";
-          el.style.zIndex = "9999";
-          el.style.padding = "8px 16px";
-          el.style.background = "#fff";
-          el.style.color = "#111";
-          el.style.borderRadius = "4px";
-          el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
-          el.style.textDecoration = "none";
-          el.style.fontWeight = "600";
-        }}
-        onBlur={(e) => {
-          const el = e.currentTarget;
-          el.style.left = "-9999px";
-          el.style.top = "auto";
-          el.style.width = "1px";
-          el.style.height = "1px";
-          el.style.overflow = "hidden";
+          zIndex: "9999",
+          padding: "8px 16px",
+          background: "#fff",
+          color: "#111",
+          borderRadius: "4px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          textDecoration: "none",
+          fontWeight: "600",
         }}
       >
         Skip to main content

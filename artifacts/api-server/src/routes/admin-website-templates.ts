@@ -1,0 +1,684 @@
+import { createHash } from "crypto";
+import { Router, type Request, type Response } from "express";
+import multer from "multer";
+import JSZip from "jszip";
+import { v4 as uuidv4 } from "uuid";
+import { supabaseAdmin } from "../lib/supabase";
+import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
+import { validateTemplateZip } from "../lib/template-zip-validator";
+
+const router = Router();
+
+const TEMPLATE_PACKAGE_BUCKET = "template-packages";
+const TEMPLATE_MAX_FILE_SIZE = 100 * 1024 * 1024;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: TEMPLATE_MAX_FILE_SIZE,
+    files: 1,
+  },
+});
+
+type TemplateManifest = {
+  slug: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  version?: number | string | null;
+};
+
+type TemplatePageManifest = {
+  slug: string;
+  title: string;
+  path: string;
+  page_type: string;
+  sort_order: number;
+  seo: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  blocks: Array<{
+    type: string;
+    block_type: string;
+    label?: string;
+    content?: Record<string, unknown>;
+    settings?: Record<string, unknown>;
+    sort_order: number;
+  }>;
+};
+
+type ImportedTemplateContent = {
+  manifest: TemplateManifest;
+  pages: TemplatePageManifest[];
+  themeJson: Record<string, unknown>;
+  cmsMappingJson: Record<string, unknown>;
+};
+
+function normalizeJson<T>(value: unknown, fallback: T): T {
+  return value && typeof value === "object" ? (value as T) : fallback;
+}
+
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function ensureZipFile(file: Express.Multer.File | undefined): asserts file is Express.Multer.File {
+  if (!file) {
+    throw new Error("No file uploaded");
+  }
+  if (!file.originalname.toLowerCase().endsWith(".zip")) {
+    throw new Error("The upload must be a .zip file");
+  }
+  if (file.mimetype && file.mimetype !== "application/zip" && file.mimetype !== "application/x-zip-compressed") {
+    throw new Error("The upload must be a ZIP archive");
+  }
+}
+
+async function readZipJson<T>(zip: JSZip, path: string): Promise<T | null> {
+  const entry = zip.file(path);
+  if (!entry) return null;
+  const text = await entry.async("text");
+  return JSON.parse(text) as T;
+}
+
+function resolvePageFileCandidates(pageSlug: string): string[] {
+  const base = pageSlug.replace(/\.json$/i, "");
+  const aliases: Record<string, string> = {
+    areas: "areas.json",
+    "areas-covered": "areas-covered.json",
+    blog: "blog.json",
+    "blog-index": "blog-index.json",
+    privacy: "privacy.json",
+    "privacy-policy": "privacy-policy.json",
+    terms: "terms.json",
+    "terms-conditions": "terms-conditions.json",
+  };
+
+  const candidates = new Set<string>([
+    `pages/${base}.json`,
+    `pages/${base}`,
+    `pages/${aliases[base] || `${base}.json`}`,
+  ]);
+
+  return [...candidates];
+}
+
+async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: string): Promise<ImportedTemplateContent> {
+  const zip = await JSZip.loadAsync(zipBuffer);
+  const templateFolder = `templates/${manifestSlug}`;
+
+  const manifest = (await readZipJson<TemplateManifest>(zip, `${templateFolder}/template.json`)) || {
+    slug: manifestSlug,
+    name: manifestSlug,
+    description: null,
+    category: null,
+    version: 1,
+  };
+
+  const rawPages = await readZipJson<{ pages?: unknown } | unknown[]>(zip, `${templateFolder}/pages/pages.json`);
+  const pageEntries = Array.isArray(rawPages)
+    ? rawPages
+    : Array.isArray(rawPages?.pages)
+      ? rawPages.pages
+      : [];
+
+  const pages: TemplatePageManifest[] = [];
+  for (let index = 0; index < pageEntries.length; index += 1) {
+    const pageEntry = pageEntries[index];
+    const pageKey = typeof pageEntry === "string" ? pageEntry : String((pageEntry as Record<string, unknown>).slug || (pageEntry as Record<string, unknown>).file || (pageEntry as Record<string, unknown>).filename || (pageEntry as Record<string, unknown>).path || "");
+    const candidates = resolvePageFileCandidates(pageKey || `page-${index + 1}`)
+      .map((candidate) => `${templateFolder}/${candidate}`);
+
+    let pageJson: Record<string, unknown> | null = null;
+    for (const candidate of candidates) {
+      pageJson = await readZipJson<Record<string, unknown>>(zip, candidate);
+      if (pageJson) break;
+    }
+
+    const content = pageJson || (typeof pageEntry === "object" && pageEntry ? pageEntry as Record<string, unknown> : {});
+    const slug = String(content.slug || pageKey || `page-${index + 1}`).replace(/\.json$/i, "");
+    const title = String(content.title || slug.replace(/-/g, " ")).trim() || slug;
+    const blocks = Array.isArray(content.blocks) ? content.blocks : [];
+
+    pages.push({
+      slug,
+      title,
+      path: `${slug}.json`,
+      page_type: String(content.page_type || (slug === "home" ? "home" : "custom")),
+      sort_order: typeof content.sort_order === "number" ? content.sort_order : index,
+      seo: normalizeJson(content.seo, {}),
+      settings: normalizeJson(content.settings, {}),
+      blocks: blocks.map((block, blockIndex) => {
+        const blockRecord = block as Record<string, unknown>;
+        const blockType = String(blockRecord.type || blockRecord.block_type || "text").trim() || "text";
+        return {
+          type: blockType,
+          block_type: blockType,
+          label: typeof blockRecord.label === "string" ? blockRecord.label : undefined,
+          content: normalizeJson(blockRecord.content, {}),
+          settings: normalizeJson(blockRecord.settings, {}),
+          sort_order: typeof blockRecord.sort_order === "number" ? blockRecord.sort_order : blockIndex,
+        };
+      }),
+    });
+  }
+
+  const themeJson = (await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/styles/theme.json`)) || {};
+  const cmsMappingJson = (await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/styles/cms-mapping.json`))
+    || (await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/cms-mapping.json`))
+    || {};
+
+  return { manifest, pages, themeJson, cmsMappingJson };
+}
+
+async function safeDeleteTemplateChildren(templateId: string): Promise<void> {
+  await supabaseAdmin.from("template_versions").delete().eq("template_id", templateId);
+  await supabaseAdmin.from("website_template_blocks").delete().eq("template_id", templateId);
+  await supabaseAdmin.from("website_template_pages").delete().eq("template_id", templateId);
+}
+
+function buildImportPages(manifest: unknown): TemplatePageManifest[] {
+  const pages = Array.isArray(manifest)
+    ? manifest
+    : Array.isArray((manifest as { pages?: unknown }).pages)
+      ? (manifest as { pages: unknown[] }).pages
+      : [];
+
+  return pages.map((page, index) => {
+    const entry = typeof page === "string" ? { slug: page.replace(/\.json$/i, "") } : (page as Record<string, unknown>);
+    const slug = String(entry.slug || entry.file || entry.filename || entry.path || `page-${index + 1}`).replace(/\.json$/i, "");
+    const title = String(entry.title || slug.replace(/-/g, " ")).trim() || slug;
+    const path = String(entry.path || entry.file || entry.filename || `${slug}.json`);
+    const pageType = String(entry.page_type || entry.pageType || (slug === "home" ? "home" : "custom"));
+    const sortOrder = typeof entry.sort_order === "number" ? entry.sort_order : index;
+    const blocks = Array.isArray(entry.blocks) ? entry.blocks : [];
+
+    return {
+      slug,
+      title,
+      path,
+      page_type: pageType,
+      sort_order: sortOrder,
+      seo: normalizeJson(entry.seo, {}),
+      settings: normalizeJson(entry.settings, {}),
+      blocks: blocks.map((block, blockIndex) => {
+        const blockRecord = block as Record<string, unknown>;
+        const blockType = String(blockRecord.type || blockRecord.block_type || "text").trim();
+        return {
+          type: blockType,
+          block_type: blockType,
+          label: typeof blockRecord.label === "string" ? blockRecord.label : undefined,
+          content: normalizeJson(blockRecord.content, {}),
+          settings: normalizeJson(blockRecord.settings, {}),
+          sort_order: typeof blockRecord.sort_order === "number" ? blockRecord.sort_order : blockIndex,
+        };
+      }),
+    };
+  });
+}
+
+async function upsertTemplateGraph(opts: {
+  templateId: string;
+  manifest: TemplateManifest;
+  pages: TemplatePageManifest[];
+  themeJson: Record<string, unknown>;
+  cmsMappingJson: Record<string, unknown>;
+  validationReport: ReturnType<typeof buildValidationEnvelope>;
+  uploadId: string;
+  checksum: string;
+  fileName: string;
+  storagePath: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  originalZipMetadata: Record<string, unknown>;
+  userId?: string;
+}): Promise<{ templateId: string }> {
+  const existingTemplate = await supabaseAdmin
+    .from("website_templates")
+    .select("id, version")
+    .eq("slug", opts.manifest.slug)
+    .maybeSingle();
+
+  const templateId = existingTemplate.data?.id || opts.templateId;
+  const templateVersion = existingTemplate.data?.version
+    ? Number(existingTemplate.data.version) + 1
+    : typeof opts.manifest.version === "number"
+      ? opts.manifest.version
+      : 1;
+
+  if (existingTemplate.data?.id) {
+    await safeDeleteTemplateChildren(existingTemplate.data.id);
+  }
+
+  const templateRecord = {
+    id: templateId,
+    name: opts.manifest.name,
+    slug: opts.manifest.slug,
+    description: opts.manifest.description || null,
+    category: opts.manifest.category || "general",
+    version: templateVersion,
+    status: opts.validationReport.valid ? "validated" : "failed",
+    is_active: false,
+    is_featured: false,
+    sort_order: 0,
+    created_by: opts.userId || null,
+    source_upload_id: opts.uploadId,
+    template_json: opts.manifest,
+    theme_json: opts.themeJson,
+    cms_mapping_json: opts.cmsMappingJson,
+    default_theme: opts.themeJson,
+    default_pages: opts.pages,
+    design_tokens: {},
+    figma_export_info: {
+      import_type: "zip",
+      validation_report: opts.validationReport,
+      original_zip_metadata: opts.originalZipMetadata,
+      storage_bucket: TEMPLATE_PACKAGE_BUCKET,
+      storage_path: opts.storagePath,
+      file_name: opts.fileName,
+      file_size_bytes: opts.fileSizeBytes,
+      checksum_sha256: opts.checksum,
+      mime_type: opts.mimeType,
+    },
+  };
+
+  const { error: templateError } = await supabaseAdmin
+    .from("website_templates")
+    .upsert(templateRecord, { onConflict: "slug" });
+
+  if (templateError) {
+    throw templateError;
+  }
+
+  const { data: savedTemplate, error: templateLookupError } = await supabaseAdmin
+    .from("website_templates")
+    .select("id")
+    .eq("slug", opts.manifest.slug)
+    .single();
+
+  if (templateLookupError || !savedTemplate) {
+    throw templateLookupError || new Error("Failed to reload template after upsert");
+  }
+
+  const pageInserts = opts.pages.map((page) => ({
+    template_id: savedTemplate.id,
+    slug: page.slug,
+    title: page.title,
+    path: page.path,
+    page_type: page.page_type,
+    sort_order: page.sort_order,
+    seo: page.seo,
+    settings: page.settings,
+  }));
+
+  const { data: insertedPages, error: pagesError } = await supabaseAdmin
+    .from("website_template_pages")
+    .insert(pageInserts)
+    .select("id, slug");
+
+  if (pagesError) {
+    throw pagesError;
+  }
+
+  const pageIdBySlug = new Map((insertedPages || []).map((page) => [page.slug, page.id]));
+  const blockInserts = opts.pages.flatMap((page) => {
+    const pageId = pageIdBySlug.get(page.slug);
+    if (!pageId) return [];
+    return page.blocks.map((block) => ({
+      template_id: savedTemplate.id,
+      page_id: pageId,
+      block_type: block.block_type || block.type,
+      sort_order: block.sort_order,
+      content: block.content || {},
+      settings: block.settings || {},
+    }));
+  });
+
+  if (blockInserts.length > 0) {
+    const { error: blocksError } = await supabaseAdmin
+      .from("website_template_blocks")
+      .insert(blockInserts);
+    if (blocksError) {
+      throw blocksError;
+    }
+  }
+
+  const versionRecord = {
+    id: uuidv4(),
+    template_id: savedTemplate.id,
+    version: templateVersion,
+    design_tokens: opts.themeJson,
+    demo_pages: opts.pages,
+    release_notes: `Imported from ${opts.fileName}`,
+  };
+
+  const { error: versionError } = await supabaseAdmin.from("template_versions").insert(versionRecord);
+  if (versionError) {
+    throw versionError;
+  }
+
+  const uploadUpdate = {
+    template_id: savedTemplate.id,
+    validation_status: opts.validationReport.valid ? "validated" : "failed",
+    validation_errors: opts.validationReport.valid ? [] : opts.validationReport.errors,
+    validated_at: opts.validationReport.valid ? new Date().toISOString() : null,
+    failed_at: opts.validationReport.valid ? null : new Date().toISOString(),
+  };
+
+  const { error: uploadUpdateError } = await supabaseAdmin
+    .from("website_template_uploads")
+    .update(uploadUpdate)
+    .eq("id", opts.uploadId);
+
+  if (uploadUpdateError) {
+    throw uploadUpdateError;
+  }
+
+  return { templateId: savedTemplate.id };
+}
+
+function buildValidationEnvelope(validation: Awaited<ReturnType<typeof validateTemplateZip>>) {
+  return {
+    valid: validation.valid,
+    templateSlug: validation.templateSlug,
+    templateName: validation.templateName,
+    pagesFound: validation.pagesFound,
+    blocksFound: validation.blocksFound,
+    warnings: validation.warnings,
+    errors: validation.errors,
+  };
+}
+
+router.post(
+  "/admin/website-templates/upload",
+  requireAuth,
+  requireSuperAdmin,
+  (req, res, next) => upload.single("file")(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      res.status(400).json({ error: err.message, code: err.code });
+      return;
+    }
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to parse upload" });
+  }),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      ensureZipFile(req.file);
+
+      const uploadId = uuidv4();
+      const storagePath = `template-packages/${uploadId}/original.zip`;
+      const checksumSha256 = createHash("sha256").update(req.file.buffer).digest("hex");
+
+      const { error: storageError } = await supabaseAdmin.storage
+        .from(TEMPLATE_PACKAGE_BUCKET)
+        .upload(storagePath, req.file.buffer, {
+          contentType: req.file.mimetype || "application/zip",
+          upsert: false,
+        });
+
+      if (storageError) {
+        res.status(500).json({ error: `Failed to store uploaded ZIP: ${storageError.message}` });
+        return;
+      }
+
+      const validation = buildValidationEnvelope(await validateTemplateZip(req.file.buffer));
+      const manifestSlug = validation.templateSlug || slugify(req.file.originalname.replace(/\.zip$/i, "")) || "template";
+      const importedContent = validation.valid
+        ? await parseImportedTemplateContent(req.file.buffer, manifestSlug)
+        : {
+            manifest: {
+              slug: manifestSlug,
+              name: validation.templateName || req.file.originalname.replace(/\.zip$/i, "") || manifestSlug,
+              description: typeof req.body?.description === "string" ? req.body.description : null,
+              category: typeof req.body?.category === "string" ? req.body.category : null,
+              version: 1,
+            },
+            pages: [] as TemplatePageManifest[],
+            themeJson: {},
+            cmsMappingJson: {},
+          };
+
+      const { data: uploadRow, error: uploadInsertError } = await supabaseAdmin
+        .from("website_template_uploads")
+        .insert({
+          id: uploadId,
+          file_name: req.file.originalname,
+          original_zip_metadata: {
+            original_filename: req.file.originalname,
+            validation,
+          },
+          storage_bucket: TEMPLATE_PACKAGE_BUCKET,
+          storage_path: storagePath,
+          checksum_sha256: checksumSha256,
+          file_size_bytes: req.file.size,
+          mime_type: req.file.mimetype || "application/zip",
+          validation_status: validation.valid ? "validating" : "failed",
+          validation_errors: validation.errors,
+          created_by: req.userId,
+        })
+        .select("id")
+        .single();
+
+      if (uploadInsertError || !uploadRow) {
+        res.status(500).json({ error: uploadInsertError?.message || "Failed to create upload record" });
+        return;
+      }
+
+      if (!validation.valid) {
+        await supabaseAdmin
+          .from("website_template_uploads")
+          .update({ validation_status: "failed", validation_errors: validation.errors, failed_at: new Date().toISOString() })
+          .eq("id", uploadId);
+
+        res.status(400).json({
+          success: false,
+          upload_id: uploadId,
+          validation,
+        });
+        return;
+      }
+
+      const importResult = await upsertTemplateGraph({
+        templateId: uuidv4(),
+        manifest: {
+          ...importedContent.manifest,
+          description: typeof req.body?.description === "string" ? req.body.description : importedContent.manifest.description,
+          category: typeof req.body?.category === "string" ? req.body.category : importedContent.manifest.category,
+        },
+        pages: importedContent.pages,
+        themeJson: importedContent.themeJson,
+        cmsMappingJson: importedContent.cmsMappingJson,
+        validationReport: validation,
+        uploadId,
+        checksum: checksumSha256,
+        fileName: req.file.originalname,
+        storagePath,
+        fileSizeBytes: req.file.size,
+        mimeType: req.file.mimetype || "application/zip",
+          originalZipMetadata: { original_filename: req.file.originalname, validation, import_source: "admin_website_templates" },
+        userId: req.userId,
+      });
+
+      await supabaseAdmin
+        .from("website_template_uploads")
+        .update({ validation_status: "validated", validation_errors: [], validated_at: new Date().toISOString(), template_id: importResult.templateId })
+        .eq("id", uploadId);
+
+      res.status(201).json({
+        success: true,
+        upload_id: uploadId,
+        template_id: importResult.templateId,
+        validation,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload template ZIP";
+      res.status(500).json({ error: message });
+    }
+  }
+);
+
+router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("website_templates")
+    .select("id, name, slug, status, created_at, updated_at, source_upload_id")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const templates = await Promise.all((data || []).map(async (template) => {
+    const [{ count: pagesCount }, { count: blocksCount }, { data: uploadRow }] = await Promise.all([
+      supabaseAdmin.from("website_template_pages").select("id", { count: "exact", head: true }).eq("template_id", template.id),
+      supabaseAdmin.from("website_template_blocks").select("id", { count: "exact", head: true }).eq("template_id", template.id),
+      supabaseAdmin.from("website_template_uploads").select("id, created_at").eq("template_id", template.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+
+    return {
+      ...template,
+      page_count: pagesCount || 0,
+      block_count: blocksCount || 0,
+      uploaded_at: uploadRow?.created_at || template.created_at,
+    };
+  }));
+
+  res.json(templates);
+});
+
+router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: template, error } = await supabaseAdmin
+    .from("website_templates")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !template) {
+    res.status(404).json({ error: "Template not found" });
+    return;
+  }
+
+  const [pagesResult, blocksResult, uploadResult, versionsResult] = await Promise.all([
+    supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
+    supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
+    supabaseAdmin.from("website_template_uploads").select("*").eq("template_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from("template_versions").select("*").eq("template_id", id).order("version", { ascending: false }),
+  ]);
+
+  res.json({
+    template,
+    pages: pagesResult.data || [],
+    blocks: blocksResult.data || [],
+    upload: uploadResult.data || null,
+    versions: versionsResult.data || [],
+    validation_report: (uploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null,
+  });
+});
+
+router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: template, error } = await supabaseAdmin
+    .from("website_templates")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !template) {
+    res.status(404).json({ error: "Template not found" });
+    return;
+  }
+
+  const [pagesResult, blocksResult, uploadResult] = await Promise.all([
+    supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
+    supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
+    supabaseAdmin.from("website_template_uploads").select("*").eq("template_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+
+  const validation = (uploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null;
+
+  res.json({
+    template,
+    theme: (template as Record<string, unknown>).theme_json || (template as Record<string, unknown>).default_theme || {},
+    pages: pagesResult.data || [],
+    blocks: blocksResult.data || [],
+    upload: uploadResult.data || null,
+    validation_report: validation,
+  });
+});
+
+router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { data: template, error } = await supabaseAdmin
+    .from("website_templates")
+    .select("id, status, source_upload_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !template) {
+    res.status(404).json({ error: "Template not found" });
+    return;
+  }
+
+  const { data: uploadRow } = await supabaseAdmin
+    .from("website_template_uploads")
+    .select("validation_status, validation_errors")
+    .eq("id", template.source_upload_id)
+    .maybeSingle();
+
+  if (uploadRow?.validation_status !== "validated") {
+    res.status(400).json({ error: "Template cannot be published until validation passes" });
+    return;
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("website_templates")
+    .update({ status: "published", is_active: true, published_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (updateError) {
+    res.status(500).json({ error: updateError.message });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
+router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { error } = await supabaseAdmin
+    .from("website_templates")
+    .update({ status: "archived", is_active: false })
+    .eq("id", id);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
+router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { error } = await supabaseAdmin
+    .from("website_templates")
+    .update({ status: "archived", is_active: false })
+    .eq("id", id);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ success: true, deleted: false, archived: true });
+});
+
+export default router;

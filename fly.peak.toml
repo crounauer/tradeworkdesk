@@ -15,8 +15,8 @@ primary_region = "lhr"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  # Keep at least one machine running and allow burst scaling
-  min_machines_running = 1
+  # Dev profile: allow full scale-to-zero when idle
+  min_machines_running = 0
   # Cap autoscaling at four machines
   max_machines_running = 4
 

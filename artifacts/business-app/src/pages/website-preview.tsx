@@ -61,11 +61,10 @@ export default function WebsitePreview() {
     enabled: !!website,
   });
 
-  const activeDomain = website?.domains.find(d => d.is_active);
   const currentDevice = DEVICES.find(d => d.id === device) ?? DEVICES[0];
 
-  // Always prefer the renderer's /preview route — it shows draft pages too.
-  // Only fall back to the live custom domain if preview_url isn't configured.
+  // Only use renderer preview URLs here so draft/editor preview never points at
+  // external domains that may not be reachable in local/dev environments.
   const previewUrl = (() => {
     if (!website) return null;
     if (website.preview_url) {
@@ -73,23 +72,16 @@ export default function WebsitePreview() {
       if (!selectedPage || selectedPage === "/" || selectedPage === "home") return base;
       return `${base}?page=${encodeURIComponent(selectedPage)}`;
     }
-    // Fallback: live domain (published pages only)
-    if (!activeDomain) return null;
-    const base = `https://${activeDomain.domain}`;
-    if (!selectedPage || selectedPage === "/" || selectedPage === "home") return base;
-    const slug = selectedPage.startsWith("/") ? selectedPage : `/${selectedPage}`;
-    return `${base}${slug}`;
+    const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (isLocalDev && website.id) {
+      const localBase = `http://localhost:3002/preview/${website.id}`;
+      if (!selectedPage || selectedPage === "/" || selectedPage === "home") return localBase;
+      return `${localBase}?page=${encodeURIComponent(selectedPage)}`;
+    }
+    return null;
   })();
 
-  // External "open in new tab" always goes to the live domain if available
-  const externalUrl = activeDomain
-    ? (() => {
-        const base = `https://${activeDomain.domain}`;
-        if (!selectedPage || selectedPage === "/" || selectedPage === "home") return base;
-        const slug = selectedPage.startsWith("/") ? selectedPage : `/${selectedPage}`;
-        return `${base}${slug}`;
-      })()
-    : previewUrl;
+  const externalUrl = previewUrl;
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">

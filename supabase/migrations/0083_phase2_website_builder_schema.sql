@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS websites (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   template_id     UUID REFERENCES website_templates(id) ON DELETE SET NULL,
+  applied_template_version INTEGER,
+  applied_at      TIMESTAMPTZ,
   status          TEXT NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft', 'published', 'suspended')),
   -- Branding (overrides company_settings for the public site)

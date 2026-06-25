@@ -17,8 +17,8 @@ primary_region = "lhr"
   auto_stop_machines = "stop"
   auto_start_machines = true
   # Normal profile (cost-balanced)
-  # Keep at least 1 machine running so setInterval schedulers stay alive
-  min_machines_running = 1
+  # Dev profile: allow full scale-to-zero when idle
+  min_machines_running = 0
   # Balanced cap: allow extra burst headroom while keeping spend bounded
   max_machines_running = 4
 

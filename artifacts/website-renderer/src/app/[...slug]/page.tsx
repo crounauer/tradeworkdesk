@@ -8,7 +8,7 @@ import SchemaMarkup from "@/components/SchemaMarkup";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
 
-export const revalidate = 60;
+export const revalidate = 5;
 
 interface PageProps {
   params: Promise<{ slug: string[] }>;
@@ -70,6 +70,7 @@ export default async function DynamicPage({ params }: PageProps) {
         websiteId={site.website.id}
         slug={page.slug}
         page={page}
+        site={site}
         theme={siteTheme}
         tenantId={site.website.tenant_id}
         companyContact={{

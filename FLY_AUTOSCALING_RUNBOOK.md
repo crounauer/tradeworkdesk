@@ -5,11 +5,11 @@ This runbook defines when to keep settings unchanged and when to switch between 
 ## Profiles
 
 - Normal (default): fly.toml
-  - min_machines_running = 1
+  - min_machines_running = 0
   - max_machines_running = 4
   - concurrency soft/hard = 60/90
 - Peak: fly.peak.toml
-  - min_machines_running = 1
+  - min_machines_running = 0
   - max_machines_running = 4
   - concurrency soft/hard = 40/60
 
@@ -25,7 +25,7 @@ This runbook defines when to keep settings unchanged and when to switch between 
 - 24-48h before expected peak:
   - Deploy peak mode.
   - Confirm app health: curl -sS https://tradeworkdesk-api.fly.dev/health
-  - Confirm at least 1 machine started: flyctl machine list -a tradeworkdesk-api
+  - Confirm machines can auto-start on first request: flyctl machine list -a tradeworkdesk-api
 - During peak:
   - Watch Fly dashboard latency and machine count.
   - Watch Sentry issue volume and error rate.
@@ -97,5 +97,6 @@ After each change:
 
 ## Notes for This Project
 
-- Keep min_machines_running >= 1 in normal mode because in-process schedulers are used.
+- Dev mode uses min_machines_running = 0 to minimise idle cost.
+- First request after idle may have a short cold-start delay while a machine starts.
 - Keep the health monitor pointed at /health, not /api/health.

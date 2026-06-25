@@ -131,7 +131,7 @@ const PlatformBetaInvites = lazyRetry(() => import("@/pages/platform-beta-invite
 const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
 const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
-const PlatformTemplatesPage = lazyRetry(() => import("@/pages/platform-templates"));
+const AdminWebsiteTemplatesPage = lazyRetry(() => import("@/pages/admin-website-templates"));
 const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
@@ -149,6 +149,7 @@ const SupportTicketsPage = lazyRetry(() => import("@/pages/support-tickets"));
 const PlatformSupportTicketsPage = lazyRetry(() => import("@/pages/platform-support-tickets"));
 
 const WebsiteSetup = lazyRetry(() => import("@/pages/website-setup"));
+const WebsiteTemplatesPage = lazyRetry(() => import("@/pages/website-templates"));
 const WebsitePages = lazyRetry(() => import("@/pages/website-pages"));
 const WebsitePageEditor = lazyRetry(() => import("@/pages/website-page-editor"));
 const WebsiteDomain = lazyRetry(() => import("@/pages/website-domain"));
@@ -158,6 +159,7 @@ const WebsiteBlogEditor = lazyRetry(() => import("@/pages/website-blog-editor"))
 const WebsitePreview = lazyRetry(() => import("@/pages/website-preview"));
 const WebsiteAnalytics = lazyRetry(() => import("@/pages/website-analytics"));
 const WebsiteIndexNow = lazyRetry(() => import("@/pages/website-indexnow"));
+const WebsiteBuilderEditor = lazyRetry(() => import("@/pages/website-builder"));
 
 const Bookings = lazyRetry(() => import("@/pages/bookings"));
 const BookingSetup = lazyRetry(() => import("@/pages/booking-setup"));
@@ -434,6 +436,7 @@ const HelpRoute = protect(HelpPage);
 const GettingStartedRoute = protect(GettingStartedPage);
 const SupportTicketsRoute = protect(SupportTicketsPage);
 const WebsiteSetupRoute = protectFeature(WebsiteSetup, "website_builder");
+const WebsiteTemplatesRoute = protectFeature(WebsiteTemplatesPage, "website_builder");
 const WebsitePagesRoute = protectFeature(WebsitePages, "website_builder");
 const WebsitePageEditorRoute = protectFeature(WebsitePageEditor, "website_builder");
 const WebsiteDomainRoute = protectFeature(WebsiteDomain, "website_builder");
@@ -443,6 +446,7 @@ const WebsiteBlogEditorRoute = protectFeature(WebsiteBlogEditor, "website_builde
 const WebsitePreviewRoute = protectFeature(WebsitePreview, "website_builder");
 const WebsiteAnalyticsRoute = protectFeature(WebsiteAnalytics, "website_builder");
 const WebsiteIndexNowRoute = protectFeature(WebsiteIndexNow, "website_builder");
+const WebsiteBuilderEditorRoute = protectFeature(WebsiteBuilderEditor, "website_builder");
 const BookingsRoute = protectFeature(Bookings, "website_builder");
 const BookingSetupRoute = protectFeature(BookingSetup, "website_builder");
 const ReviewRequestsRoute = protectFeature(ReviewRequests, "website_builder");
@@ -470,7 +474,8 @@ const PlatformAnnouncementsRoute = protect(PlatformAnnouncements, ["super_admin"
 const PlatformBetaInvitesRoute = protect(PlatformBetaInvites, ["super_admin"]);
 const PlatformAuditLogRoute = protect(PlatformAuditLog, ["super_admin"]);
 const PlatformSettingsRoute = protect(PlatformSettingsPage, ["super_admin"]);
-const PlatformTemplatesRoute = protect(PlatformTemplatesPage, ["super_admin"]);
+const AdminWebsiteTemplatesRoute = protect(AdminWebsiteTemplatesPage, ["super_admin"]);
+const AdminWebsiteTemplatePreviewRoute = protect(lazyRetry(() => import("@/pages/admin-website-template-preview")), ["super_admin"]);
 const PlatformSupportTicketsRoute = protect(PlatformSupportTicketsPage, ["super_admin"]);
 const NotFoundRoute = () => <Suspense fallback={<PageFallback />}><NotFound /></Suspense>;
 
@@ -594,9 +599,11 @@ function AppRouter() {
   <Route path="/support" component={SupportTicketsRoute} />
 
         <Route path="/website" component={WebsiteSetupRoute} />
+        <Route path="/website/templates" component={WebsiteTemplatesRoute} />
         <Route path="/website/preview" component={WebsitePreviewRoute} />
         <Route path="/website/pages" component={WebsitePagesRoute} />
         <Route path="/website/pages/:pageId" component={WebsitePageEditorRoute} />
+        <Route path="/website/builder" component={WebsiteBuilderEditorRoute} />
         <Route path="/website/domain" component={WebsiteDomainRoute} />
         <Route path="/website/settings" component={WebsiteSettingsRoute} />
         <Route path="/website/analytics">{() => <Redirect to="/reporting?tab=analytics" />}</Route>
@@ -636,7 +643,9 @@ function AppRouter() {
         <Route path="/platform/audit-log" component={PlatformAuditLogRoute} />
         <Route path="/platform/support-tickets" component={PlatformSupportTicketsRoute} />
         <Route path="/platform/settings" component={PlatformSettingsRoute} />
-        <Route path="/platform/templates" component={PlatformTemplatesRoute} />
+        <Route path="/platform/templates" component={AdminWebsiteTemplatesRoute} />
+        <Route path="/admin/website-templates" component={AdminWebsiteTemplatesRoute} />
+        <Route path="/admin/website-templates/:id/preview" component={AdminWebsiteTemplatePreviewRoute} />
 
         <Route component={NotFoundRoute} />
       </Switch>

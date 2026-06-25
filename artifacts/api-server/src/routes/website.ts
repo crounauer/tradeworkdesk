@@ -23,6 +23,7 @@ import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
 import { addDomainToVercel } from "../lib/vercel";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
+import { generatePagesFromFigma, validateGeneratedPages } from "../lib/figma-page-generator";
 import {
   requireAuth,
   requireTenant,
@@ -31,6 +32,7 @@ import {
   type AuthenticatedRequest,
 } from "../middlewares/auth";
 
+import { generateDefaultTheme, getDefaultPagesForTemplate } from "../lib/template-utils";
 const router: IRouter = Router();
 const db = supabaseAdmin as any; // new tables not yet in generated types
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
@@ -114,6 +116,52 @@ function requireWebsiteBuilder() {
   return requirePlanFeature("website_builder");
 }
 
+function normalizeTenantPageType(pageType: unknown): string {
+  const value = String(pageType || "").trim();
+  return ["home", "service", "location", "about", "contact", "blog_index", "custom"].includes(value)
+    ? value
+    : "custom";
+}
+
+function buildArchivedSlug(slug: string): string {
+  return `archived-${Date.now()}-${slug}`.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+async function createWebsiteForTenant(req: AuthenticatedRequest, templateId: string | null, theme: Record<string, unknown> | null = null): Promise<Record<string, unknown> | null> {
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const defaultName = (cs as any)?.trading_name || (cs as any)?.name || "My Website";
+
+  const { data: website, error } = await db
+    .from("websites")
+    .insert({
+      tenant_id: req.tenantId,
+      template_id: templateId,
+      site_name: defaultName,
+      tagline: null,
+      status: "draft",
+      theme: theme || {},
+      applied_at: templateId ? new Date().toISOString() : null,
+    })
+    .select()
+    .single() as { data: Record<string, unknown> | null; error: unknown };
+
+  if (error || !website) {
+    return null;
+  }
+
+  provisionPlatformSubdomain(String(website.id), req.tenantId!, defaultName).catch((e) =>
+    console.error("[website] subdomain provision failed:", e)
+  );
+
+  return website;
+}
+
 
 // ─── Website (root settings) ──────────────────────────────────────────────────
 
@@ -139,6 +187,9 @@ router.get(
 
     // Provide a preview URL using the renderer base URL (no custom domain required)
     let rendererBase = (process.env.RENDERER_BASE_URL || "").replace(/\/$/, "");
+    if (!rendererBase && process.env.NODE_ENV !== "production") {
+      rendererBase = "http://localhost:3002";
+    }
     if (rendererBase && !rendererBase.startsWith("http")) rendererBase = `https://${rendererBase}`;
     const previewSecret = process.env.RENDERER_PREVIEW_SECRET;
     const previewToken = previewSecret
@@ -165,13 +216,31 @@ router.post(
       return;
     }
 
-    const { site_name, tagline } = req.body as {
+    const { site_name, tagline, template_id } = req.body as {
       site_name?: string;
       tagline?: string;
+      template_id?: string;
     };
-    // Start with no template — superadmin must upload and configure one via the template management UI
-    const resolvedTemplateId: string | null = null;
 
+    let resolvedTemplateId: string | null = template_id || null;
+    let resolvedTemplate: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown> } | null = null;
+
+    // If template_id provided, fetch and validate it
+    if (resolvedTemplateId) {
+      const { data: template } = await db
+        .from("website_templates")
+        .select("slug, default_pages, default_theme, design_tokens, figma_export_info")
+        .eq("id", resolvedTemplateId)
+        .eq("is_active", true)
+        .maybeSingle() as { data: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown> } | null };
+
+      if (!template) {
+        res.status(400).json({ error: "Selected template is not available or not live." });
+        return;
+      }
+
+      resolvedTemplate = template;
+    }
     // Pull company name from company_settings as default site_name
     const { data: cs } = await supabaseAdmin
       .from("company_settings")
@@ -209,13 +278,142 @@ router.post(
       console.error("[website] subdomain provision failed:", e)
     );
 
-    // No automatic page seeding — website starts blank
-    // Superadmin can seed pages and theme after uploading a template
+    // If template provided, seed default pages and theme
+    if (resolvedTemplate) {
+      let createdPages: Array<{ id: string; slug: string; page_type: string }> = [];
+      const templateSlug = String(resolvedTemplate.slug || "") || "modern";
+      let defaultPages = resolvedTemplate.default_pages?.length
+        ? (resolvedTemplate.default_pages as Array<Record<string, unknown>>)
+        : [];
+
+      // If template has no stored default pages, attempt generation from uploaded Figma preview HTML.
+      if (!defaultPages.length) {
+        const figmaInfo = (resolvedTemplate.figma_export_info || {}) as Record<string, unknown>;
+        const previewHtml = typeof figmaInfo.preview_html === "string" ? figmaInfo.preview_html : "";
+        const uploadedImages = Array.isArray(figmaInfo.uploaded_images)
+          ? (figmaInfo.uploaded_images as Array<{ public_url: string; file_name: string }>)
+          : [];
+
+        if (previewHtml) {
+          const generatedPages = generatePagesFromFigma(previewHtml, uploadedImages);
+          const validation = validateGeneratedPages(generatedPages);
+          if (validation.valid && generatedPages.length > 0) {
+            const genericPages = getDefaultPagesForTemplate(templateSlug);
+            const generatedRecords = generatedPages as unknown as Array<Record<string, unknown>>;
+            const generatedSlugs = new Set(generatedRecords.map((p) => String(p.slug || "")));
+            const backfilledPages = genericPages.filter((p) => !generatedSlugs.has(String(p.slug || "")));
+
+            defaultPages = [...generatedRecords, ...backfilledPages];
+            console.log(`[website] Using ${generatedPages.length} Figma-generated pages and backfilled ${backfilledPages.length} defaults for template: ${templateSlug}`);
+          } else {
+            console.log(`[website] Figma page generation invalid, falling back to generic defaults: ${validation.errors.join("; ")}`);
+          }
+        }
+      }
+
+      if (!defaultPages.length) {
+        defaultPages = getDefaultPagesForTemplate(templateSlug);
+      }
+
+      // Keep nav ordering stable and deterministic after any merges/backfills.
+      defaultPages = defaultPages.map((p, i) => ({
+        ...p,
+        nav_order: i + 1,
+      }));
+
+      console.log(`[website] Creating ${defaultPages?.length || 0} pages for template slug: ${templateSlug}`);
+
+      if (defaultPages?.length) {
+        const pageInserts = defaultPages.map((p: Record<string, unknown>, i: number) => {
+          const normalizedPageType = String(p.page_type || "") === "home" ? "home" : "custom";
+
+          return {
+            website_id: website.id,
+            tenant_id: req.tenantId,
+            slug: String(p.slug || ""),
+            title: String(p.title || "Page"),
+            page_type: normalizedPageType,
+            status: "draft",
+            show_in_nav: Boolean(p.show_in_nav),
+            nav_label: p.nav_label ? String(p.nav_label) : null,
+            nav_order: typeof p.nav_order === "number" ? p.nav_order : i + 1,
+          };
+        });
+
+        const { data: pages } = await db
+          .from("website_pages")
+          .insert(pageInserts)
+          .select("id, slug, page_type") as { data: Array<{ id: string; slug: string; page_type: string }> | null };
+
+        createdPages = pages || [];
+        console.log(`[website] Created ${pages?.length || 0} pages`);
+
+        // Seed initial blocks from the template page definitions.
+        if (createdPages.length > 0) {
+          const pageIdBySlug = new Map<string, string>(
+            createdPages.map((p) => [String(p.slug || ""), String(p.id || "")])
+          );
+
+          const blockInserts: Array<{
+            page_id: string;
+            tenant_id: string | undefined;
+            block_type: string;
+            content: Record<string, unknown>;
+            sort_order: number;
+            is_visible: boolean;
+          }> = [];
+
+          for (const pageDef of defaultPages) {
+            const pageSlug = String(pageDef.slug || "");
+            const pageId = pageIdBySlug.get(pageSlug);
+            if (!pageId) continue;
+
+            const pageBlocks = Array.isArray(pageDef.blocks)
+              ? (pageDef.blocks as Array<Record<string, unknown>>)
+              : [];
+
+            pageBlocks.forEach((blockDef, i) => {
+              const blockType = String(blockDef.type || blockDef.block_type || "text");
+              blockInserts.push({
+                page_id: pageId,
+                tenant_id: req.tenantId,
+                block_type: blockType,
+                content: (blockDef.content as Record<string, unknown>) || {},
+                sort_order: typeof blockDef.sort_order === "number" ? blockDef.sort_order : i,
+                is_visible: blockDef.is_visible !== false,
+              });
+            });
+          }
+
+          if (blockInserts.length > 0) {
+            const { error: blockSeedError } = await db.from("website_blocks").insert(blockInserts) as { error: unknown };
+            if (blockSeedError) {
+              console.error("[website] block seed failed:", blockSeedError);
+            } else {
+              console.log(`[website] Seeded ${blockInserts.length} blocks`);
+            }
+          }
+        }
+      }
+
+      const hasTemplateTheme = !!resolvedTemplate.default_theme
+        && Object.keys(resolvedTemplate.default_theme as Record<string, unknown>).length > 0;
+      const defaultTheme = hasTemplateTheme
+        ? (resolvedTemplate.default_theme as Record<string, unknown>)
+        : generateDefaultTheme(resolvedTemplate.design_tokens || {});
+
+      if (defaultTheme) {
+        await db
+          .from("websites")
+          .update({ theme: defaultTheme })
+          .eq("id", website.id);
+        console.log("[website] Applied theme");
+      }
+    }
 
     res.status(201).json(website);
   }
 );
-
 // ─── Quick Start — seed a fully populated website from company data ───────────
 
 router.post(
@@ -567,12 +765,196 @@ router.get(
   async (_req: AuthenticatedRequest, res): Promise<void> => {
     const { data, error } = await db
       .from("website_templates")
-      .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, default_theme")
-      .eq("is_active", true)
+      .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, theme_json, default_theme, published_at")
+      .eq("status", "published")
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to load templates" }); return; }
     res.json(data || []);
+  }
+);
+
+router.post(
+  "/website/templates/:templateId/apply",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { templateId } = req.params;
+    const confirmReplace = Boolean((req.body as { confirmReplace?: boolean } | undefined)?.confirmReplace);
+
+    const { data: template, error: templateError } = await db
+      .from("website_templates")
+      .select("id, name, slug, version, status, theme_json, default_theme")
+      .eq("id", templateId)
+      .eq("status", "published")
+      .single() as { data: Record<string, unknown> | null; error: unknown };
+
+    if (templateError || !template) {
+      res.status(404).json({ error: "Template not found or not published" });
+      return;
+    }
+
+    const { data: websitePages, error: websitePagesError } = await db
+      .from("website_pages")
+      .select("id, slug, status")
+      .eq("tenant_id", req.tenantId!)
+      .order("created_at", { ascending: true }) as { data: Array<{ id: string; slug: string; status: string }> | null; error: unknown };
+
+    if (websitePagesError) {
+      res.status(500).json({ error: "Failed to inspect existing pages" });
+      return;
+    }
+
+    let website = await getWebsiteForTenant(req.tenantId!);
+    const hasExistingPages = (websitePages || []).length > 0;
+
+    if (hasExistingPages && !confirmReplace) {
+      res.status(409).json({ error: "website already has pages", page_count: websitePages?.length || 0, confirmReplaceRequired: true });
+      return;
+    }
+
+    if (!website) {
+      website = await createWebsiteForTenant(req, String(template.id), (template.theme_json as Record<string, unknown>) || (template.default_theme as Record<string, unknown>) || {});
+      if (!website) {
+        res.status(500).json({ error: "Failed to create website" });
+        return;
+      }
+    }
+
+    const theme = (template.theme_json as Record<string, unknown>) || (template.default_theme as Record<string, unknown>) || {};
+
+    if (hasExistingPages && confirmReplace) {
+      const archivedAt = Date.now();
+      for (const page of websitePages || []) {
+        await db
+          .from("website_pages")
+          .update({
+            status: "archived",
+            show_in_nav: false,
+            slug: buildArchivedSlug(`${page.slug}-${archivedAt}`),
+          })
+          .eq("id", page.id)
+          .eq("tenant_id", req.tenantId!);
+      }
+    }
+
+    if (!hasExistingPages && !website) {
+      res.status(500).json({ error: "Failed to prepare website" });
+      return;
+    }
+
+    const { data: templatePages, error: pagesError } = await db
+      .from("website_template_pages")
+      .select("id, slug, title, path, page_type, sort_order, seo, settings")
+      .eq("template_id", template.id)
+      .order("sort_order", { ascending: true }) as { data: Array<Record<string, unknown>> | null; error: unknown };
+
+    if (pagesError) {
+      res.status(500).json({ error: "Failed to load template pages" });
+      return;
+    }
+
+    if (!templatePages || templatePages.length === 0) {
+      res.status(400).json({ error: "Template has no pages to apply" });
+      return;
+    }
+
+    const { data: templateBlocks, error: blocksError } = await db
+      .from("website_template_blocks")
+      .select("id, page_id, block_type, sort_order, content, settings")
+      .eq("template_id", template.id)
+      .order("sort_order", { ascending: true }) as { data: Array<Record<string, unknown>> | null; error: unknown };
+
+    if (blocksError) {
+      res.status(500).json({ error: "Failed to load template blocks" });
+      return;
+    }
+
+    const pageInserts = templatePages.map((page, index) => {
+      const seo = (page.seo as Record<string, unknown>) || {};
+      const settings = (page.settings as Record<string, unknown>) || {};
+      return {
+        website_id: website!.id,
+        tenant_id: req.tenantId,
+        slug: String(page.slug || `page-${index + 1}`),
+        title: String(page.title || page.slug || "Page"),
+        page_type: normalizeTenantPageType(page.page_type),
+        status: "draft",
+        meta_title: typeof seo.meta_title === "string" ? seo.meta_title : null,
+        meta_description: typeof seo.meta_description === "string" ? seo.meta_description : null,
+        og_image_url: typeof seo.og_image_url === "string" ? seo.og_image_url : null,
+        canonical_url: typeof seo.canonical_url === "string" ? seo.canonical_url : null,
+        no_index: Boolean(seo.no_index),
+        schema_markup: seo.schema_markup || null,
+        show_in_nav: settings.show_in_nav !== false,
+        nav_label: typeof settings.nav_label === "string" ? settings.nav_label : String(page.title || page.slug || "Page"),
+        nav_order: typeof settings.nav_order === "number" ? settings.nav_order : index + 1,
+      };
+    });
+
+    const { data: insertedPages, error: insertedPagesError } = await db
+      .from("website_pages")
+      .insert(pageInserts)
+      .select("id, slug");
+
+    if (insertedPagesError || !insertedPages) {
+      res.status(500).json({ error: "Failed to create tenant pages" });
+      return;
+    }
+
+    const pageIdBySlug = new Map<string, string>((insertedPages || []).map((page) => [String(page.slug), String(page.id)]));
+    const blockInserts = templateBlocks.flatMap((block) => {
+      const targetPage = templatePages.find((page) => String(page.id) === String(block.page_id));
+      const tenantPageId = targetPage ? pageIdBySlug.get(String(targetPage.slug)) : null;
+      if (!tenantPageId) return [];
+
+      const blockContent = block.settings && Object.keys(block.settings as Record<string, unknown>).length > 0
+        ? { ...(block.content as Record<string, unknown> || {}), settings: block.settings }
+        : (block.content as Record<string, unknown>) || {};
+
+      return [{
+        page_id: tenantPageId,
+        tenant_id: req.tenantId,
+        block_type: String(block.block_type || "text"),
+        content: blockContent,
+        sort_order: typeof block.sort_order === "number" ? block.sort_order : 0,
+        is_visible: true,
+      }];
+    });
+
+    if (blockInserts.length > 0) {
+      const { error: blockInsertError } = await db.from("website_blocks").insert(blockInserts) as { error: unknown };
+      if (blockInsertError) {
+        res.status(500).json({ error: "Failed to create tenant blocks" });
+        return;
+      }
+    }
+
+    const { error: websiteUpdateError } = await db
+      .from("websites")
+      .update({
+        template_id: template.id,
+        applied_template_version: typeof template.version === "number" ? template.version : null,
+        applied_at: new Date().toISOString(),
+        theme,
+      })
+      .eq("id", website.id);
+
+    if (websiteUpdateError) {
+      res.status(500).json({ error: "Failed to update website template settings" });
+      return;
+    }
+
+    res.json({
+      success: true,
+      website_id: website.id,
+      template_id: template.id,
+      pages_created: insertedPages.length,
+      blocks_created: blockInserts.length,
+      confirm_replace: hasExistingPages,
+    });
   }
 );
 

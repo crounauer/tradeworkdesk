@@ -1,28 +1,7 @@
-/**
- * BlockRenderer: routes each block_type to its React component.
- *
- * Block types supported:
- *   hero        — full-width hero with heading, sub, CTA
- *   text        — rich text / HTML content
- *   image       — single image with optional caption
- *   gallery     — grid of images
- *   testimonials — testimonial slider/grid
- *   contact_form — embedded contact form
- *   cta         — call-to-action banner
- *   services    — service cards list
- *   accreditations — logos/badges row
- *   map         — embedded map (iframe or static)
- *   why_choose_us — feature columns (icon/title/desc), coloured bg
- *   faq         — accordion FAQ list
- *   areas       — areas covered tag pills + text
- *   brands      — brand/partner logo bar
- *   spacer      — vertical spacer
- *   html        — raw HTML embed (sanitised)
- *   online_booking — customer booking widget (multi-step)
- */
 "use client";
 
-import type { SiteBlock } from "@/lib/api";
+import type { ComponentType, ReactElement } from "react";
+import type { SiteBlock, SiteData, SitePage } from "@/lib/api";
 import HeroBlock from "./HeroBlock";
 import TextBlock from "./TextBlock";
 import ImageBlock from "./ImageBlock";
@@ -41,6 +20,11 @@ import FeaturesBarBlock from "./FeaturesBarBlock";
 import ProcessBlock from "./ProcessBlock";
 import ProjectShowcaseBlock from "./ProjectShowcaseBlock";
 import OnlineBookingBlock from "./OnlineBookingBlock";
+import BlogIndexBlock from "./BlogIndexBlock";
+import BlogPostBlock from "./BlogPostBlock";
+import LegalContentBlock from "./LegalContentBlock";
+import FeatureCardsBlock from "./FeatureCardsBlock";
+import DetailSectionBlock from "./DetailSectionBlock";
 
 interface Props {
   block: SiteBlock;
@@ -52,67 +36,117 @@ interface Props {
   tenantId?: string;
   /** Company contact fallback values */
   companyContact?: { phone?: string | null; email?: string | null };
+  site?: SiteData;
+  page?: SitePage;
+  showFallback?: boolean;
 }
 
-export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact }: Props) {
-  // Merge site theme as low-priority defaults so per-block overrides still win.
+type BlockRenderContext = {
+  content: Record<string, unknown>;
+  site?: SiteData;
+  page?: SitePage;
+};
+
+type BlockRendererFn = (context: BlockRenderContext) => ReactElement | null;
+
+function render(
+  Component: ComponentType<{ content: Record<string, unknown> }>,
+  context: BlockRenderContext,
+): ReactElement | null {
+  const BlockComponent = Component as ComponentType<{ content: Record<string, unknown> }>;
+  return <BlockComponent content={context.content} />;
+}
+
+function renderBlogIndex(context: BlockRenderContext): ReactElement | null {
+  return <BlogIndexBlock content={context.content} site={context.site} />;
+}
+
+function renderBlogPost(context: BlockRenderContext): ReactElement | null {
+  return <BlogPostBlock content={context.content} site={context.site} page={context.page} />;
+}
+
+function renderLegalContent(context: BlockRenderContext): ReactElement | null {
+  return <LegalContentBlock content={context.content} />;
+}
+
+function renderFeatureCards(context: BlockRenderContext): ReactElement | null {
+  return <FeatureCardsBlock content={context.content} />;
+}
+
+function renderDetailSection(context: BlockRenderContext): ReactElement | null {
+  return <DetailSectionBlock content={context.content} />;
+}
+
+const blockRegistry: Record<string, BlockRendererFn> = {
+  hero: (context) => render(HeroBlock, context),
+  hero_split: (context) => render(HeroBlock, context),
+  text: (context) => render(TextBlock, context),
+  rich_text: (context) => render(TextBlock, context),
+  text_section: (context) => render(TextBlock, context),
+  image: (context) => render(ImageBlock, context),
+  cta: (context) => render(CtaBlock, context),
+  cta_band: (context) => render(CtaBlock, context),
+  services: (context) => render(ServicesBlock, context),
+  services_grid: (context) => render(ServicesBlock, context),
+  service_detail: renderDetailSection,
+  contact_form: (context) => render(ContactFormBlock, context),
+  contact: (context) => render(ContactFormBlock, context),
+  testimonials: (context) => render(TestimonialsBlock, context),
+  reviews: (context) => render(TestimonialsBlock, context),
+  gallery: (context) => render(GalleryBlock, context),
+  accreditations: (context) => render(AccreditationsBlock, context),
+  trust_badges: (context) => render(AccreditationsBlock, context),
+  spacer: (context) => render(SpacerBlock, context),
+  why_choose_us: (context) => render(WhyChooseUsBlock, context),
+  faq: (context) => render(FaqBlock, context),
+  areas: (context) => render(AreasBlock, context),
+  areas_grid: (context) => render(AreasBlock, context),
+  area_detail_hero: renderDetailSection,
+  brands: (context) => render(BrandsBlock, context),
+  partners: (context) => render(BrandsBlock, context),
+  features_bar: (context) => render(FeaturesBarBlock, context),
+  feature_cards: renderFeatureCards,
+  process: (context) => render(ProcessBlock, context),
+  steps: (context) => render(ProcessBlock, context),
+  how_it_works: (context) => render(ProcessBlock, context),
+  project_showcase: (context) => render(ProjectShowcaseBlock, context),
+  case_study: (context) => render(ProjectShowcaseBlock, context),
+  projects: (context) => render(ProjectShowcaseBlock, context),
+  online_booking: (context) => render(OnlineBookingBlock, context),
+  booking: (context) => render(OnlineBookingBlock, context),
+  blog_index: renderBlogIndex,
+  blog_post: renderBlogPost,
+  legal_content: renderLegalContent,
+};
+
+function UnsupportedBlock({ blockType, showFallback }: { blockType: string; showFallback?: boolean }) {
+  if (!showFallback) return null;
+
+  return (
+    <section style={{ padding: "32px 24px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", border: "1px solid #e5e7eb", borderRadius: 12, padding: "20px 24px", background: "#fffaf3", color: "#92400e" }}>
+        <strong>Unsupported block type:</strong> {blockType}
+      </div>
+    </section>
+  );
+}
+
+export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact, site, page, showFallback }: Props) {
   const siteAccent = theme?.accent_color;
   const base = siteAccent ? { accent_color: siteAccent } : {};
   const companyBase = {
     phone: companyContact?.phone ?? undefined,
     email: companyContact?.email ?? undefined,
   };
-  // Inject tenantId for blocks that need to call public APIs
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
   const websiteOverride = websiteId ? { website_id: websiteId } : {};
   const content = { ...base, ...companyBase, ...tenantOverride, ...websiteOverride, ...(block.content as Record<string, unknown>) };
+  const normalizedType = block.block_type.trim().toLowerCase();
+  const renderer = blockRegistry[normalizedType];
 
-  switch (block.block_type) {
-    case "hero":
-      return <HeroBlock content={content} />;
-    case "text":
-    case "rich_text":
-      return <TextBlock content={content} />;
-    case "image":
-      return <ImageBlock content={content} />;
-    case "cta":
-      return <CtaBlock content={content} />;
-    case "services":
-      return <ServicesBlock content={content} />;
-    case "contact_form":
-      return <ContactFormBlock content={content} />;
-    case "testimonials":
-      return <TestimonialsBlock content={content} />;
-    case "gallery":
-      return <GalleryBlock content={content} />;
-    case "accreditations":
-      return <AccreditationsBlock content={content} />;
-    case "spacer":
-      return <SpacerBlock content={content} />;
-    case "why_choose_us":
-    case "features":
-      return <WhyChooseUsBlock content={content} />;
-    case "faq":
-    case "accordion":
-      return <FaqBlock content={content} />;
-    case "areas":
-      return <AreasBlock content={content} />;
-    case "brands":
-    case "partners":
-      return <BrandsBlock content={content} />;
-    case "features_bar":
-      return <FeaturesBarBlock content={content} />;
-    case "process":
-    case "steps":
-    case "how_it_works":
-      return <ProcessBlock content={content} />;
-    case "project_showcase":
-    case "case_study":
-      return <ProjectShowcaseBlock content={content} />;
-    case "online_booking":
-    case "booking":
-      return <OnlineBookingBlock content={content} />;
-    default:
-      return null;
+  if (!renderer) {
+    return <UnsupportedBlock blockType={block.block_type} showFallback={showFallback} />;
   }
+
+  return renderer({ content, site, page });
 }

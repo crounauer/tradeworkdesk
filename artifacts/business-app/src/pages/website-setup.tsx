@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
   ExternalLink, ChevronRight, Loader2, Eye, Zap, Trash2, CheckCircle2,
-  CalendarCheck, Star, ShieldPlus, MailOpen, PhoneCall,
+  CalendarCheck, Star, ShieldPlus, MailOpen, PhoneCall, LayoutTemplate,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -57,7 +57,42 @@ interface Template {
   description: string | null;
   thumbnail_url: string | null;
   preview_url: string | null;
+  screenshot_urls?: string[];
   category: string;
+}
+
+function TemplatePreview({ template }: { template: Template }) {
+  const screenshots = (template.screenshot_urls || []).filter(Boolean).slice(0, 4);
+  const primaryImage = template.preview_url || template.thumbnail_url || screenshots[0] || null;
+  const extraImages = screenshots.filter((url) => url !== primaryImage).slice(0, 3);
+
+  return (
+    <div className="space-y-2">
+      {primaryImage ? (
+        <div className="w-full h-48 bg-muted overflow-hidden rounded-t-lg">
+          <img
+            src={primaryImage}
+            alt={template.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="w-full h-48 bg-muted flex items-center justify-center text-muted-foreground rounded-t-lg">
+          <Layout className="w-8 h-8" />
+        </div>
+      )}
+
+      {extraImages.length > 0 && (
+        <div className="grid grid-cols-3 gap-1 px-3 pb-3">
+          {extraImages.map((url, index) => (
+            <div key={`${template.id}-${index}`} className="aspect-[4/3] rounded-md overflow-hidden bg-muted border">
+              <img src={url} alt={`${template.name} screenshot ${index + 2}`} className="w-full h-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function WebsiteSetup() {
@@ -66,6 +101,9 @@ export default function WebsiteSetup() {
   const qc = useQueryClient();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showTemplateSelection, setShowTemplateSelection] = useState(false);
+  const [showChangeTemplate, setShowChangeTemplate] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   const { data: website, isLoading: websiteLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -76,37 +114,29 @@ export default function WebsiteSetup() {
     enabled: !featuresLoading && hasFeature("website_builder"),
   });
 
-  const { data: templates, isLoading: templatesLoading } = useQuery<Template[]>({
+  const { data: templates, isLoading: templatesLoading, refetch: refetchTemplates } = useQuery<Template[]>({
     queryKey: ["/api/website/templates"],
     queryFn: () => apiFetch("/api/website/templates"),
     enabled: !featuresLoading && hasFeature("website_builder"),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      apiFetch("/api/website", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/website"] });
-      toast({ title: "Website created!", description: "Your website has been set up. You can now edit your pages." });
-    },
-    onError: (e: Error) => {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const buildMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedTemplateId) {
+        throw new Error("Please choose a template first");
+      }
       await apiFetch("/api/website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ template_id: selectedTemplateId }),
       });
     },
     onSuccess: () => {
+      setShowTemplateSelection(false);
+      setSelectedTemplateId(null);
       qc.invalidateQueries({ queryKey: ["/api/website"] });
       toast({ title: "Your website is ready!", description: "Review each page and publish when you're happy." });
     },
@@ -147,6 +177,24 @@ export default function WebsiteSetup() {
     },
   });
 
+  const changeTemplateMutation = useMutation({
+    mutationFn: (templateId: string) =>
+      apiFetch("/api/website", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
+      setShowChangeTemplate(false);
+      setSelectedTemplateId(null);
+      toast({ title: "Template updated", description: "Your website template has been changed." });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
 
 
   if (featuresLoading || websiteLoading) {
@@ -170,7 +218,7 @@ export default function WebsiteSetup() {
   }
 
   if (!website) {
-    const busy = buildMutation.isPending || createMutation.isPending;
+    const busy = buildMutation.isPending;
 
     return (
       <div className="p-6 max-w-xl mx-auto">
@@ -216,8 +264,20 @@ export default function WebsiteSetup() {
         <Button
           size="lg"
           className="w-full"
-          onClick={() => buildMutation.mutate()}
-          disabled={busy}
+          onClick={async () => {
+            const latest = await refetchTemplates();
+            const latestTemplates = latest.data || templates || [];
+            if (latestTemplates.length === 0) {
+              toast({
+                title: "No templates available",
+                description: "Activate or upload a template in Platform Templates first.",
+                variant: "destructive",
+              });
+              return;
+            }
+            setShowTemplateSelection(true);
+          }}
+          disabled={busy || templatesLoading}
         >
           {buildMutation.isPending ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building your website…</>
@@ -225,6 +285,82 @@ export default function WebsiteSetup() {
             <><Zap className="w-4 h-4 mr-2" /> Build My Website</>
           )}
         </Button>
+
+        {!templatesLoading && (!templates || templates.length === 0) && (
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            No templates are available yet. Activate or upload a template in Platform Templates first.
+          </p>
+        )}
+
+        {/* Template Selection Modal */}
+        {showTemplateSelection && templates && templates.length > 0 && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>Select a Template</CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">Choose a template to start building your website</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Template Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                        selectedTemplateId === template.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => setSelectedTemplateId(template.id)}
+                    >
+                      <TemplatePreview template={template} />
+
+                      {/* Template Info */}
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-semibold text-sm">{template.name}</h3>
+                          {selectedTemplateId === template.id && (
+                            <Badge variant="default" className="shrink-0">Selected</Badge>
+                          )}
+                        </div>
+                        {template.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                        )}
+                        {template.category && (
+                          <Badge variant="outline" className="mt-2 text-xs">{template.category}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 justify-end pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowTemplateSelection(false);
+                      setSelectedTemplateId(null);
+                    }}
+                    disabled={buildMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => buildMutation.mutate()}
+                    disabled={!selectedTemplateId || buildMutation.isPending}
+                  >
+                    {buildMutation.isPending ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building…</>
+                    ) : (
+                      "Build My Website"
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     );
   }
@@ -233,12 +369,10 @@ export default function WebsiteSetup() {
   const platformDomain = website.domains.find((d) => d.is_platform_subdomain);
   const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && (d.verification_status === "verified" || d.is_active));
   const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && d.verification_status !== "verified" && !d.is_active);
-  // Show custom domain URL once active, otherwise fall back to the free platform subdomain
-  const liveUrl = activeCustomDomain
-    ? `https://${activeCustomDomain.domain}?twd_edit=1`
-    : platformDomain
-    ? `https://${platformDomain.domain}?twd_edit=1`
-    : undefined;
+  // Always use in-app preview route from admin to avoid broken external domain links in editor flow.
+  const liveUrl = website.preview_url
+    ? `${website.preview_url}${website.preview_url.includes("?") ? "&" : "?"}twd_edit=1`
+    : "/website/preview";
 
   return (
     <div className="p-6 space-y-6">
@@ -282,11 +416,11 @@ export default function WebsiteSetup() {
         {liveUrl && (
           <a
             href={liveUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            target={liveUrl.startsWith("http") ? "_blank" : undefined}
+            rel={liveUrl.startsWith("http") ? "noopener noreferrer" : undefined}
             className="inline-flex items-center gap-1 text-sm text-primary underline font-mono"
           >
-            {liveUrl.replace("https://", "")}
+            {liveUrl.startsWith("http") ? liveUrl.replace("https://", "") : "Preview draft site"}
             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
           </a>
         )}
@@ -303,10 +437,117 @@ export default function WebsiteSetup() {
           <Globe className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
           <div>
             Your site is live at{" "}
-            <a href={`https://${platformDomain.domain}?twd_edit=1`} target="_blank" rel="noopener noreferrer" className="font-mono underline">{platformDomain.domain}</a>.
+            <a href={liveUrl || "/website/preview"} target={liveUrl?.startsWith("http") ? "_blank" : undefined} rel={liveUrl?.startsWith("http") ? "noopener noreferrer" : undefined} className="font-mono underline">{liveUrl?.startsWith("http") ? platformDomain.domain : "Preview draft site"}</a>.
             {" "}Want your own address?{" "}
             <Link href="/website/domain" className="underline hover:text-blue-900">Connect a custom domain</Link>.
           </div>
+        </div>
+      )}
+
+      {/* Current Template Card */}
+      {website.template_id && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-base">Template</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {templates?.find((t) => t.id === website.template_id)?.name || "Unknown template"}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedTemplateId(website.template_id);
+                  setShowChangeTemplate(true);
+                }}
+              >
+                Change Template
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Change Template Modal */}
+      {showChangeTemplate && templates && templates.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Change Template</CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">Select a different template for your website</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Template Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                      selectedTemplateId === template.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => setSelectedTemplateId(template.id)}
+                  >
+                    <TemplatePreview template={template} />
+
+                    {/* Template Info */}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-semibold text-sm">{template.name}</h3>
+                        {selectedTemplateId === template.id && (
+                          <Badge variant="default" className="shrink-0">Selected</Badge>
+                        )}
+                        {website.template_id === template.id && (
+                          <Badge variant="secondary" className="shrink-0">Current</Badge>
+                        )}
+                      </div>
+                      {template.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                      )}
+                      {template.category && (
+                        <Badge variant="outline" className="mt-2 text-xs">{template.category}</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowChangeTemplate(false);
+                    setSelectedTemplateId(website.template_id);
+                  }}
+                  disabled={changeTemplateMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedTemplateId && selectedTemplateId !== website.template_id) {
+                      changeTemplateMutation.mutate(selectedTemplateId);
+                    }
+                  }}
+                  disabled={
+                    !selectedTemplateId ||
+                    selectedTemplateId === website.template_id ||
+                    changeTemplateMutation.isPending
+                  }
+                >
+                  {changeTemplateMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Changing…</>
+                  ) : (
+                    "Change Template"
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -316,6 +557,7 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/blog" icon={<FileText className="w-5 h-5" />} title="Blog" description="Write and publish blog posts" />
         <QuickCard href="/website/analytics" icon={<MessageSquare className="w-5 h-5" />} title="Analytics" description="Track leads, forms and conversion trends" />
         <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your custom domain" />
+        <QuickCard href="/website/templates" icon={<LayoutTemplate className="w-5 h-5" />} title="Website Template" description="Choose a published global template" />
         <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
       </div>
 

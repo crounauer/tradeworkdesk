@@ -185,14 +185,9 @@ export default function WebsiteDomain() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <a
-              href={`https://${platformDomain.domain}?twd_edit=1`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-green-700 underline"
-            >
-              https://{platformDomain.domain}
-            </a>
+            <Link href="/website/preview" className="text-sm text-green-700 underline">
+              Open preview
+            </Link>
             <p className="text-xs text-green-700 mt-1">This address is always active — no setup needed.</p>
           </CardContent>
         </Card>
@@ -258,7 +253,7 @@ export default function WebsiteDomain() {
                 <CardContent>
                   <p className="text-sm text-green-700 flex items-center gap-1">
                     <CheckCircle className="w-4 h-4" />
-                    Your site is live at <a href={`https://${d.domain}?twd_edit=1`} target="_blank" rel="noopener noreferrer" className="underline ml-1">{d.domain}</a>
+                    Your site preview is available at <Link href="/website/preview" className="underline ml-1">/website/preview</Link>
                   </p>
                 </CardContent>
               )}

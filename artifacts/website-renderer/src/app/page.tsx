@@ -9,7 +9,7 @@ import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
 
 // ISR — re-validate every 60 seconds
-export const revalidate = 60;
+export const revalidate = 5;
 
 export async function generateMetadata(): Promise<Metadata> {
   const domain = (await headers()).get("x-tenant-domain") || "localhost";

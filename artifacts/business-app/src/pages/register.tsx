@@ -261,7 +261,9 @@ export default function Register() {
   async function handleCompanySubmit(e: React.FormEvent) {
     e.preventDefault();
     const missing: string[] = [];
-    if (!betaCode.trim()) {
+    // In development, beta code is optional
+    const isDev = import.meta.env.MODE === "development" || import.meta.env.DEV;
+    if (!isDev && !betaCode.trim()) {
       missing.push("Beta Invite Code");
       setFieldError("betaCode", "Beta invite code is required.");
     }
@@ -329,8 +331,9 @@ export default function Register() {
   };
 
   const validateCompanyDetailsStep = () => {
+    const isDev = import.meta.env.MODE === "development" || import.meta.env.DEV;
     const missing: string[] = [];
-    if (!betaCode.trim()) {
+    if (!isDev && !betaCode.trim()) {
       missing.push("Beta Invite Code");
       setFieldError("betaCode", "Beta invite code is required.");
     }
@@ -346,7 +349,7 @@ export default function Register() {
       showMissingFieldsToast(missing);
       return false;
     }
-    if (!betaValid) {
+    if (!isDev && !betaValid) {
       toast({ title: "Beta Invite Code is invalid", variant: "destructive" });
       return false;
     }
@@ -354,7 +357,8 @@ export default function Register() {
   };
 
   const validateCompanyProductStep = () => {
-    if (!betaCode.trim()) {
+    const isDev = import.meta.env.MODE === "development" || import.meta.env.DEV;
+    if (!isDev && !betaCode.trim()) {
       setFieldError("betaCode", "Beta invite code is required.");
       showMissingFieldsToast(["Beta Invite Code"]);
       return false;

@@ -7,7 +7,7 @@ import BlogPostContent from "@/components/blog/BlogPostContent";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
 
-export const revalidate = 60;
+export const revalidate = 5;
 
 interface BlogPostProps {
   params: Promise<{ slug: string }>;

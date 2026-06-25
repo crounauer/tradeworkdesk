@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Archive, AlertCircle, ChevronRight, File, FolderOpen, Eye, Trash2 } from "lucide-react";
+import { Loader2, Upload, Archive, AlertCircle, ChevronRight, File, FolderOpen, Eye, Trash2, Image as ImageIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -39,7 +39,17 @@ interface TemplateFile {
 interface TemplateFilesResponse {
   templateId: string;
   templateName: string;
+  extractedFiles?: string[];
+  extractedFileTree?: TemplateFile[];
   files: TemplateFile[];
+  uploadedImages?: Array<{
+    file_name: string;
+    public_url?: string | null;
+    storage_path?: string | null;
+    mime_type?: string | null;
+    size?: number;
+    path: string;
+  }>;
 }
 
 interface BuildStatus {
@@ -93,8 +103,11 @@ function formatBytes(bytes?: number) {
 function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void }) {
   const { toast } = useToast();
   const zipInputRef = useRef<HTMLInputElement>(null);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [description, setDescription] = useState("");
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
 
   const deriveTemplateName = (fileName: string): string =>
     fileName
@@ -113,14 +126,15 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
       .join(" ");
 
   const uploadZipMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, images }: { file: File; images: File[] }) => {
       const templateName = deriveTemplateName(file.name);
       if (!templateName) {
         throw new Error("Unable to derive a template name from the zip file");
       }
 
       const formData = new FormData();
-      formData.append("zip", file);
+      formData.append("file", file);
+      images.forEach((image) => formData.append("images", image));
       formData.append("name", templateName.trim());
       formData.append("displayName", deriveDisplayName(templateName));
       if (description.trim()) {
@@ -129,7 +143,7 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
       formData.append("version", "1.0.0");
 
       const res = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/templates/upload`,
+        `${import.meta.env.BASE_URL}api/template-admin/templates/upload-zip`,
         {
           method: "POST",
           body: formData,
@@ -147,7 +161,10 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
     onSuccess: () => {
       toast({ title: "Template uploaded!", description: "Your template has been successfully uploaded." });
       setDescription("");
+      setZipFile(null);
+      setImageFiles([]);
       if (zipInputRef.current) zipInputRef.current.value = "";
+      if (imagesInputRef.current) imagesInputRef.current.value = "";
       onUploadSuccess();
     },
     onError: (error: Error) => {
@@ -155,7 +172,7 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
     },
   });
 
-  const handleZipSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleZipSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -164,9 +181,38 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
       return;
     }
 
+    setZipFile(file);
+  };
+
+  const handleImagesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
+      setImageFiles([]);
+      return;
+    }
+
+    const invalidFile = files.find((file) => !file.type.startsWith("image/"));
+    if (invalidFile) {
+      toast({
+        title: "Invalid image",
+        description: `${invalidFile.name} is not an image file`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImageFiles(files);
+  };
+
+  const handleUpload = async () => {
+    if (!zipFile) {
+      toast({ title: "ZIP required", description: "Select a template ZIP file first", variant: "destructive" });
+      return;
+    }
+
     setUploading(true);
     try {
-      await uploadZipMutation.mutateAsync(file);
+      await uploadZipMutation.mutateAsync({ file: zipFile, images: imageFiles });
     } finally {
       setUploading(false);
     }
@@ -183,7 +229,7 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Upload a zip file containing your complete template. The zip must have a folder matching the template name.
+            Upload a zip file containing your complete template.
           </AlertDescription>
         </Alert>
 
@@ -212,14 +258,48 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
               onClick={() => zipInputRef.current?.click()}
               disabled={uploading}
               className="w-full"
+              variant="outline"
+            >
+              <><Archive className="w-4 h-4 mr-2" /> {zipFile ? `ZIP: ${zipFile.name}` : "Select ZIP File"}</>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">ZIP maximum 50MB</p>
+          </div>
+
+          <div>
+            <input
+              ref={imagesInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImagesSelect}
+              disabled={uploading}
+            />
+            <Button
+              onClick={() => imagesInputRef.current?.click()}
+              disabled={uploading}
+              className="w-full"
+              variant="outline"
+            >
+              <><Upload className="w-4 h-4 mr-2" />
+                {imageFiles.length > 0 ? `${imageFiles.length} page image(s) selected` : "Select Page Images (Optional)"}
+              </>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Add screenshots/assets from all pages for accurate template reproduction.</p>
+          </div>
+
+          <div>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !zipFile}
+              className="w-full"
             >
               {uploading ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading Template…</>
               ) : (
-                <><Archive className="w-4 h-4 mr-2" /> Select ZIP File</>
+                <><Archive className="w-4 h-4 mr-2" /> Upload Template Package</>
               )}
             </Button>
-            <p className="text-xs text-muted-foreground mt-2">Maximum 50MB</p>
           </div>
         </div>
       </CardContent>
@@ -228,13 +308,65 @@ function TemplateZipUpload({ onUploadSuccess }: { onUploadSuccess: () => void })
 }
 
 function TemplateFiles({ templateId }: { templateId: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
   const { data: response, isLoading, error } = useQuery<TemplateFilesResponse>({
-    queryKey: [`/api/templates/${templateId}/files`],
+    queryKey: [`/api/template-admin/templates/${templateId}/files`],
     queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/templates/${templateId}/files`).then((r) => {
+      fetch(`${import.meta.env.BASE_URL}api/template-admin/templates/${templateId}/files`, {
+        credentials: "include",
+      }).then((r) => {
         if (!r.ok) throw new Error("Failed to load template files");
         return r.json();
       }),
+  });
+
+  const backfillMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/template-admin/templates/${templateId}/files/backfill`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Backfill failed" }));
+        throw new Error(err.error || "Backfill failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { uploadedImagesCount?: number; extractedFilesCount?: number }) => {
+      qc.invalidateQueries({ queryKey: [`/api/template-admin/templates/${templateId}/files`] });
+      toast({
+        title: "Files backfilled",
+        description: `Images: ${data.uploadedImagesCount ?? 0}, extracted files: ${data.extractedFilesCount ?? 0}`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Backfill failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const generatePagesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/template-admin/templates/${templateId}/generate-pages`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Page generation failed" }));
+        throw new Error(err.error || "Page generation failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { pagesCount?: number }) => {
+      toast({
+        title: "Pages generated",
+        description: `Created ${data.pagesCount ?? 0} pages from Figma design`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Page generation failed", description: err.message, variant: "destructive" });
+    },
   });
 
   if (isLoading) {
@@ -254,21 +386,105 @@ function TemplateFiles({ templateId }: { templateId: string }) {
     );
   }
 
+  const uploadedImages = response.uploadedImages || [];
+  const extractedFileTree = response.extractedFileTree || [];
+  const hasExtractedFiles = extractedFileTree.length > 0;
+  const hasFiles = response.files.length > 0;
+  const hasImages = uploadedImages.length > 0;
+
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="bg-muted/30 px-4 py-2 text-sm font-medium flex items-center gap-2">
-        <Archive className="w-4 h-4" />
-        Extracted Template Files
+    <div className="border rounded-lg overflow-hidden space-y-0">
+      <div className="bg-muted/30 px-4 py-2 text-sm font-medium flex items-center justify-between gap-2 border-b">
+        <span className="flex items-center gap-2">
+          <Archive className="w-4 h-4" />
+          Template Files & Uploaded Images
+        </span>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => generatePagesMutation.mutate()}
+            disabled={generatePagesMutation.isPending}
+          >
+            {generatePagesMutation.isPending ? (
+              <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Generating…</>
+            ) : (
+              "Generate Pages"
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => backfillMutation.mutate()}
+            disabled={backfillMutation.isPending}
+          >
+            {backfillMutation.isPending ? (
+              <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Backfilling…</>
+            ) : (
+              "Backfill Files"
+            )}
+          </Button>
+        </div>
       </div>
-      <div className="max-h-96 overflow-y-auto divide-y">
-        {response.files.length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground text-center">No files extracted</div>
+      {hasImages && (
+        <div className="p-4 border-b">
+          <div className="text-sm font-medium mb-3 flex items-center gap-2">
+            <ImageIcon className="w-4 h-4" />
+            Uploaded Images ({uploadedImages.length})
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {uploadedImages.map((image) => (
+              <div key={image.path} className="rounded border overflow-hidden bg-muted/20">
+                {image.public_url ? (
+                  <img
+                    src={image.public_url}
+                    alt={image.file_name}
+                    className="w-full h-28 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-28 flex items-center justify-center text-muted-foreground">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                )}
+                <div className="p-2">
+                  <div className="text-xs font-medium truncate" title={image.file_name}>{image.file_name}</div>
+                  <div className="text-xs text-muted-foreground">{formatBytes(image.size)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="p-4 border-b">
+        <div className="text-sm font-medium mb-3 flex items-center gap-2">
+          <Archive className="w-4 h-4" />
+          Extracted ZIP Files
+        </div>
+        {hasExtractedFiles ? (
+          <div className="border rounded overflow-hidden">
+            <div className="p-2">
+              {extractedFileTree.map((file) => (
+                <FileTreeItem key={file.path} file={file} />
+              ))}
+            </div>
+          </div>
         ) : (
+          <div className="text-sm text-muted-foreground">No extracted files available for this template yet.</div>
+        )}
+      </div>
+
+      <div className="max-h-96 overflow-y-auto divide-y">
+        {hasFiles ? (
           <div className="p-2">
             {response.files.map((file) => (
               <FileTreeItem key={file.path} file={file} />
             ))}
           </div>
+        ) : hasImages ? (
+          <div className="p-4 text-sm text-muted-foreground text-center">No ZIP file hierarchy available for this template.</div>
+        ) : (
+          <div className="p-4 text-sm text-muted-foreground text-center">No uploaded files or images found.</div>
         )}
       </div>
     </div>
@@ -280,9 +496,9 @@ function TemplateBuildStatus({ templateSlug }: { templateSlug: string }) {
   const qc = useQueryClient();
 
   const { data: buildStatus, refetch } = useQuery<BuildStatus>({
-    queryKey: [`/api/admin/template-builds/${templateSlug}/status`],
+    queryKey: [`/api/template-admin/template-builds/${templateSlug}/status`],
     queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/admin/template-builds/${templateSlug}/status`, {
+      fetch(`${import.meta.env.BASE_URL}api/template-admin/template-builds/${templateSlug}/status`, {
         credentials: "include",
       }).then((r) => {
         if (!r.ok) throw new Error("Failed to load build status");
@@ -293,13 +509,13 @@ function TemplateBuildStatus({ templateSlug }: { templateSlug: string }) {
 
   const triggerBuild = useMutation({
     mutationFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/admin/template-builds/${templateSlug}`, {
+      fetch(`${import.meta.env.BASE_URL}api/template-admin/template-builds/${templateSlug}`, {
         method: "POST",
         credentials: "include",
       }).then((r) => r.json()),
     onSuccess: () => {
       toast({ title: "Build started", description: "Template is being built…" });
-      qc.invalidateQueries({ queryKey: [`/api/admin/template-builds/${templateSlug}/status`] });
+      qc.invalidateQueries({ queryKey: [`/api/template-admin/template-builds/${templateSlug}/status`] });
       // poll until done
       const poll = setInterval(() => {
         refetch().then((r) => {
@@ -371,9 +587,9 @@ export default function PlatformTemplates() {
   const [templateToDelete, setTemplateToDelete] = useState<WebsiteTemplate | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<WebsiteTemplate[]>({
-    queryKey: ["/api/platform/website-templates"],
+    queryKey: ["/api/template-admin/templates"],
     queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/platform/website-templates`, {
+      fetch(`${import.meta.env.BASE_URL}api/template-admin/templates`, {
         credentials: "include",
       }).then((r) => {
         if (!r.ok) throw new Error("Failed to load templates");
@@ -445,7 +661,7 @@ export default function PlatformTemplates() {
       throw new Error(lastError);
     },
     onSuccess: (updated: WebsiteTemplate) => {
-      qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] });
+      qc.invalidateQueries({ queryKey: ["/api/template-admin/templates"] });
       qc.invalidateQueries({ queryKey: ["/api/platform/settings/template-live-fallback"] });
       toast({ title: updated.is_active ? "Template set live" : "Template taken offline" });
     },
@@ -479,7 +695,7 @@ export default function PlatformTemplates() {
 
   const deleteTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/admin/templates/${templateId}`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/template-admin/templates/${templateId}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -490,7 +706,7 @@ export default function PlatformTemplates() {
       return res.json();
     },
     onSuccess: (_, deletedId) => {
-      qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] });
+      qc.invalidateQueries({ queryKey: ["/api/template-admin/templates"] });
       if (templateToDelete?.slug === activeTemplate) {
         const remaining = templateItems.filter((t) => t.id !== deletedId);
         if (remaining.length > 0) {
@@ -515,7 +731,7 @@ export default function PlatformTemplates() {
         </p>
       </div>
 
-      <TemplateZipUpload onUploadSuccess={() => qc.invalidateQueries({ queryKey: ["/api/platform/website-templates"] })} />
+      <TemplateZipUpload onUploadSuccess={() => qc.invalidateQueries({ queryKey: ["/api/template-admin/templates"] })} />
 
       <Card>
         <CardHeader>
@@ -616,7 +832,7 @@ export default function PlatformTemplates() {
               <p className="text-xs text-muted-foreground font-medium mb-1">Using assets in template code</p>
               <code className="text-xs bg-background border rounded px-2 py-1 block">
                 {`// Reference uploaded assets by their public URL (copy with the copy button above)`}<br />
-                {`// Or use the Supabase Storage path: website-template-assets/${activeTemplate}/filename.jpg`}
+                {`// Or use the Supabase Storage path: template-assets/{templateSlug}/{version}/filename.jpg`}
               </code>
             </CardContent>
           </Card>

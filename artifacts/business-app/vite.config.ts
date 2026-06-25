@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
-const port = 3000;
+const port = Number(process.env.PORT) || 3000;
 
 const basePath = process.env.BASE_PATH || "/";
 
@@ -57,6 +57,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
+      "@website-renderer": path.resolve(import.meta.dirname, "..", "website-renderer", "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
     dedupe: ["react", "react-dom"],
@@ -91,6 +92,7 @@ export default defineConfig({
   },
   server: {
     port,
+    strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
     proxy: {
@@ -102,6 +104,7 @@ export default defineConfig({
     fs: {
       strict: true,
       deny: ["**/.*"],
+      allow: [path.resolve(import.meta.dirname, "..", "website-renderer")],
     },
   },
   preview: {
