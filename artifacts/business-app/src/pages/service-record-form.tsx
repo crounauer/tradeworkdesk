@@ -47,6 +47,14 @@ interface ServiceRecordFormData {
   capacitor_type: string;
   capacitor_value: string;
   capacitor_actual_reading: string;
+  appliance_make: string;
+  appliance_model: string;
+  appliance_serial: string;
+  appliance_type: string;
+  appliance_output: string;
+  appliance_location_within_property: string;
+  burner_make_model: string;
+  fuel_supply_type_details: string;
   burner_oring: string;
   electrodes_condition: string;
   electrode_settings: string;
@@ -104,7 +112,7 @@ export default function ServiceRecordForm() {
   const createMutation = useCreateServiceRecord();
   const updateMutation = useUpdateServiceRecord();
 
-  const { register, handleSubmit, reset, watch } = useForm<ServiceRecordFormData>();
+  const { register, handleSubmit, reset, watch, setValue } = useForm<ServiceRecordFormData>();
   const populatedAt = useRef(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -131,6 +139,14 @@ export default function ServiceRecordForm() {
   const CAP_TYPE_LABEL = "Capacitor Type";
   const CAP_VALUE_LABEL = "Capacitor Value";
   const CAP_READING_LABEL = "Capacitor Actual Reading";
+  const APPLIANCE_MAKE_LABEL = "Appliance Make";
+  const APPLIANCE_MODEL_LABEL = "Appliance Model";
+  const APPLIANCE_SERIAL_LABEL = "Appliance Serial";
+  const APPLIANCE_TYPE_LABEL = "Appliance Type";
+  const APPLIANCE_OUTPUT_LABEL = "Appliance Output";
+  const APPLIANCE_LOCATION_LABEL = "Appliance Location Within Property";
+  const BURNER_MAKE_MODEL_LABEL = "Burner Make / Model";
+  const FUEL_SUPPLY_TYPE_DETAILS_LABEL = "Fuel Supply Type Details";
   const BURNER_ORING_LABEL = "Burner O-Ring";
   const ELECTRODES_CONDITION_LABEL = "Electrodes Condition";
   const ELECTRODE_SETTINGS_LABEL = "Electrode Settings";
@@ -149,6 +165,14 @@ export default function ServiceRecordForm() {
       CAP_TYPE_LABEL,
       CAP_VALUE_LABEL,
       CAP_READING_LABEL,
+      APPLIANCE_MAKE_LABEL,
+      APPLIANCE_MODEL_LABEL,
+      APPLIANCE_SERIAL_LABEL,
+      APPLIANCE_TYPE_LABEL,
+      APPLIANCE_OUTPUT_LABEL,
+      APPLIANCE_LOCATION_LABEL,
+      BURNER_MAKE_MODEL_LABEL,
+      FUEL_SUPPLY_TYPE_DETAILS_LABEL,
       BURNER_ORING_LABEL,
       ELECTRODES_CONDITION_LABEL,
       ELECTRODE_SETTINGS_LABEL,
@@ -211,6 +235,14 @@ export default function ServiceRecordForm() {
         capacitor_type: getTaggedLineValue(existingSafetyNotes, CAP_TYPE_LABEL),
         capacitor_value: getTaggedLineValue(existingSafetyNotes, CAP_VALUE_LABEL),
         capacitor_actual_reading: getTaggedLineValue(existingSafetyNotes, CAP_READING_LABEL),
+        appliance_make: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MAKE_LABEL) || (job?.appliance?.manufacturer || ""),
+        appliance_model: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MODEL_LABEL) || (job?.appliance?.model || ""),
+        appliance_serial: getTaggedLineValue(existingSafetyNotes, APPLIANCE_SERIAL_LABEL) || (job?.appliance?.serial_number || ""),
+        appliance_type: getTaggedLineValue(existingSafetyNotes, APPLIANCE_TYPE_LABEL) || (job?.appliance?.boiler_type || ""),
+        appliance_output: getTaggedLineValue(existingSafetyNotes, APPLIANCE_OUTPUT_LABEL),
+        appliance_location_within_property: getTaggedLineValue(existingSafetyNotes, APPLIANCE_LOCATION_LABEL) || (job?.property?.boiler_location || ""),
+        burner_make_model: getTaggedLineValue(existingSafetyNotes, BURNER_MAKE_MODEL_LABEL) || [job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / "),
+        fuel_supply_type_details: getTaggedLineValue(existingSafetyNotes, FUEL_SUPPLY_TYPE_DETAILS_LABEL) || [job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / "),
         burner_oring: getTaggedLineValue(existingSafetyNotes, BURNER_ORING_LABEL),
         electrodes_condition: getTaggedLineValue(existingSafetyNotes, ELECTRODES_CONDITION_LABEL),
         electrode_settings: getTaggedLineValue(existingSafetyNotes, ELECTRODE_SETTINGS_LABEL),
@@ -254,7 +286,7 @@ export default function ServiceRecordForm() {
         gas_pressure_checked: existingRecord.gas_pressure_checked ?? false,
       });
     }
-  }, [existingRecord, dataUpdatedAt, reset]);
+  }, [existingRecord, dataUpdatedAt, reset, job]);
 
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
@@ -263,6 +295,14 @@ export default function ServiceRecordForm() {
     if (data.capacitor_type.trim()) capLines.push(`${CAP_TYPE_LABEL}: ${data.capacitor_type.trim()}`);
     if (data.capacitor_value.trim()) capLines.push(`${CAP_VALUE_LABEL}: ${data.capacitor_value.trim()}`);
     if (data.capacitor_actual_reading.trim()) capLines.push(`${CAP_READING_LABEL}: ${data.capacitor_actual_reading.trim()}`);
+    if (data.appliance_make.trim()) capLines.push(`${APPLIANCE_MAKE_LABEL}: ${data.appliance_make.trim()}`);
+    if (data.appliance_model.trim()) capLines.push(`${APPLIANCE_MODEL_LABEL}: ${data.appliance_model.trim()}`);
+    if (data.appliance_serial.trim()) capLines.push(`${APPLIANCE_SERIAL_LABEL}: ${data.appliance_serial.trim()}`);
+    if (data.appliance_type.trim()) capLines.push(`${APPLIANCE_TYPE_LABEL}: ${data.appliance_type.trim()}`);
+    if (data.appliance_output.trim()) capLines.push(`${APPLIANCE_OUTPUT_LABEL}: ${data.appliance_output.trim()}`);
+    if (data.appliance_location_within_property.trim()) capLines.push(`${APPLIANCE_LOCATION_LABEL}: ${data.appliance_location_within_property.trim()}`);
+    if (data.burner_make_model.trim()) capLines.push(`${BURNER_MAKE_MODEL_LABEL}: ${data.burner_make_model.trim()}`);
+    if (data.fuel_supply_type_details.trim()) capLines.push(`${FUEL_SUPPLY_TYPE_DETAILS_LABEL}: ${data.fuel_supply_type_details.trim()}`);
     if (data.burner_oring.trim()) capLines.push(`${BURNER_ORING_LABEL}: ${data.burner_oring.trim()}`);
     if (data.electrodes_condition.trim()) capLines.push(`${ELECTRODES_CONDITION_LABEL}: ${data.electrodes_condition.trim()}`);
     if (data.electrode_settings.trim()) capLines.push(`${ELECTRODE_SETTINGS_LABEL}: ${data.electrode_settings.trim()}`);
@@ -435,7 +475,17 @@ export default function ServiceRecordForm() {
           <div className="max-w-xs">
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input type="date" {...register("service_date")} />
+              <div className="flex items-center gap-2">
+                <Input type="date" {...register("service_date")} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => setValue("service_date", new Date().toISOString().slice(0, 10))}
+                >
+                  Today
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
@@ -446,52 +496,63 @@ export default function ServiceRecordForm() {
             <div className="grid md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Appliance Make</Label>
-                <Input value={job?.appliance?.manufacturer || ""} placeholder="Not set" readOnly />
+                <Input
+                  {...register("appliance_make")}
+                  placeholder={job?.appliance?.manufacturer || "Not set"}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Appliance Model</Label>
-                <Input value={job?.appliance?.model || ""} placeholder="Not set" readOnly />
+                <Input
+                  {...register("appliance_model")}
+                  placeholder={job?.appliance?.model || "Not set"}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Appliance Serial</Label>
-                <Input value={job?.appliance?.serial_number || ""} placeholder="Not set" readOnly />
+                <Input
+                  {...register("appliance_serial")}
+                  placeholder={job?.appliance?.serial_number || "Not set"}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>Appliance Type</Label>
-                <Input value={job?.appliance?.boiler_type || ""} placeholder="Not set" readOnly />
+                <Input
+                  {...register("appliance_type")}
+                  placeholder={job?.appliance?.boiler_type || "Not set"}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Appliance Output</Label>
-                <Input value="" placeholder="Capture in appliance notes if required" readOnly />
+                <Input
+                  {...register("appliance_output")}
+                  placeholder="e.g. 26 kW"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Fuel Supply Type Details</Label>
                 <Input
-                  value={[job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ")}
-                  placeholder="Not set"
-                  readOnly
+                  {...register("fuel_supply_type_details")}
+                  placeholder={[job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ") || "Not set"}
                 />
               </div>
 
               <div className="space-y-2 md:col-span-2">
                 <Label>Appliance Location Within Property</Label>
-                <Input value={job?.property?.boiler_location || ""} placeholder="Not set" readOnly />
+                <Input
+                  {...register("appliance_location_within_property")}
+                  placeholder={job?.property?.boiler_location || "Not set"}
+                />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Burner Make / Model</Label>
                 <Input
-                  value={[job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / ")}
-                  placeholder="Not set"
-                  readOnly
+                  {...register("burner_make_model")}
+                  placeholder={[job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / ") || "Not set"}
                 />
               </div>
             </div>
-            {job?.appliance?.id && (
-              <p className="text-xs text-amber-700 mt-3">
-                To change these values, update the appliance record for this job.
-              </p>
-            )}
           </Card>
         )}
 
