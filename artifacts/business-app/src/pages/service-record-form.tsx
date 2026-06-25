@@ -48,6 +48,7 @@ interface ServiceRecordFormData {
   capacitor_value: string;
   capacitor_actual_reading: string;
   appliance_make: string;
+  appliance_manufacturer_date: string;
   appliance_model: string;
   appliance_serial: string;
   appliance_type: string;
@@ -140,6 +141,7 @@ export default function ServiceRecordForm() {
   const CAP_VALUE_LABEL = "Capacitor Value";
   const CAP_READING_LABEL = "Capacitor Actual Reading";
   const APPLIANCE_MAKE_LABEL = "Appliance Make";
+  const APPLIANCE_MANUFACTURER_DATE_LABEL = "Appliance Manufacturer Date";
   const APPLIANCE_MODEL_LABEL = "Appliance Model";
   const APPLIANCE_SERIAL_LABEL = "Appliance Serial";
   const APPLIANCE_TYPE_LABEL = "Appliance Type";
@@ -166,6 +168,7 @@ export default function ServiceRecordForm() {
       CAP_VALUE_LABEL,
       CAP_READING_LABEL,
       APPLIANCE_MAKE_LABEL,
+      APPLIANCE_MANUFACTURER_DATE_LABEL,
       APPLIANCE_MODEL_LABEL,
       APPLIANCE_SERIAL_LABEL,
       APPLIANCE_TYPE_LABEL,
@@ -236,6 +239,7 @@ export default function ServiceRecordForm() {
         capacitor_value: getTaggedLineValue(existingSafetyNotes, CAP_VALUE_LABEL),
         capacitor_actual_reading: getTaggedLineValue(existingSafetyNotes, CAP_READING_LABEL),
         appliance_make: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MAKE_LABEL) || (job?.appliance?.manufacturer || ""),
+        appliance_manufacturer_date: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MANUFACTURER_DATE_LABEL),
         appliance_model: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MODEL_LABEL) || (job?.appliance?.model || ""),
         appliance_serial: getTaggedLineValue(existingSafetyNotes, APPLIANCE_SERIAL_LABEL) || (job?.appliance?.serial_number || ""),
         appliance_type: getTaggedLineValue(existingSafetyNotes, APPLIANCE_TYPE_LABEL) || (job?.appliance?.boiler_type || ""),
@@ -296,6 +300,7 @@ export default function ServiceRecordForm() {
     if (data.capacitor_value.trim()) capLines.push(`${CAP_VALUE_LABEL}: ${data.capacitor_value.trim()}`);
     if (data.capacitor_actual_reading.trim()) capLines.push(`${CAP_READING_LABEL}: ${data.capacitor_actual_reading.trim()}`);
     if (data.appliance_make.trim()) capLines.push(`${APPLIANCE_MAKE_LABEL}: ${data.appliance_make.trim()}`);
+    if (data.appliance_manufacturer_date.trim()) capLines.push(`${APPLIANCE_MANUFACTURER_DATE_LABEL}: ${data.appliance_manufacturer_date.trim()}`);
     if (data.appliance_model.trim()) capLines.push(`${APPLIANCE_MODEL_LABEL}: ${data.appliance_model.trim()}`);
     if (data.appliance_serial.trim()) capLines.push(`${APPLIANCE_SERIAL_LABEL}: ${data.appliance_serial.trim()}`);
     if (data.appliance_type.trim()) capLines.push(`${APPLIANCE_TYPE_LABEL}: ${data.appliance_type.trim()}`);
@@ -499,6 +504,13 @@ export default function ServiceRecordForm() {
                 <Input
                   {...register("appliance_make")}
                   placeholder={job?.appliance?.manufacturer || "Not set"}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Appliance Manufacturer Date</Label>
+                <Input
+                  type="date"
+                  {...register("appliance_manufacturer_date")}
                 />
               </div>
               <div className="space-y-2">
