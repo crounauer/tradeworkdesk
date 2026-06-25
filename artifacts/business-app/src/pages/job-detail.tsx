@@ -976,7 +976,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const updateMutation = useUpdateJobTimeEntry();
   const [showAdd, setShowAdd] = useState(false);
   const [arrival, setArrival] = useState("");
-  const [departure, setDeparture] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
+  const [departureTime, setDepartureTime] = useState("");
   const [notes, setNotes] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -986,7 +987,6 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const [editHourlyRate, setEditHourlyRate] = useState("");
   const [editCalloutFee, setEditCalloutFee] = useState<number | null>(null);
   const [editCalloutRateId, setEditCalloutRateId] = useState<string>("auto");
-  const departureInputRef = useRef<HTMLInputElement>(null);
   const editDepartureInputRef = useRef<HTMLInputElement>(null);
   const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number; hourly_rate: number | null }[]>([]);
   const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
@@ -1113,10 +1113,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     return Number(companySettings?.default_hourly_rate) || 0;
   })();
 
+  const departureValue = departureDate && departureTime ? `${departureDate}T${departureTime}` : "";
+
   const handleAdd = async () => {
     if (!arrival) return;
-    // Read departure directly from the DOM to catch any value not yet reflected in state
-    const departureValue = departureInputRef.current?.value || departure;
     const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : null;
     const arrivalDate = new Date(arrival);
     let departureDate = departureValue ? new Date(departureValue) : null;
@@ -1136,7 +1136,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       setOfflineSubmitting(true);
       try {
         await queueTimeEntry(jobId, entryData);
-        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
+        setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
         toast({ title: "Saved offline", description: "Time entry will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save time entry offline", variant: "destructive" });
@@ -1150,7 +1150,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
         jobId,
         data: entryData as Record<string, unknown>,
       });
-      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
+      setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
       onChanged?.();
@@ -1275,19 +1275,44 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               <Label className="text-xs">Arrival *</Label>
               <div className="flex gap-1.5">
                 <Input type="datetime-local" value={arrival} onChange={(e) => {
-                  setArrival(e.target.value);
+                  const nextArrival = e.target.value;
+                  setArrival(nextArrival);
+                  setDepartureDate(nextArrival ? nextArrival.split("T")[0] : "");
                 }} className="flex-1" />
                 <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
                   const now = toLocalDatetimeStr(new Date());
                   setArrival(now);
+                  setDepartureDate(now.split("T")[0] || "");
                 }}>Now</Button>
               </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Departure</Label>
               <div className="flex gap-1.5">
-                <Input ref={departureInputRef} type="datetime-local" value={departure} onChange={(e) => setDeparture(e.target.value)} onBlur={(e) => setDeparture(e.target.value)} className="flex-1" />
-                <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
+                <Input
+                  type="date"
+                  value={departureDate}
+                  onChange={(e) => setDepartureDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="time"
+                  value={departureTime}
+                  onChange={(e) => setDepartureTime(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="px-2.5 text-xs font-medium shrink-0"
+                  onClick={() => {
+                    const now = toLocalDatetimeStr(new Date());
+                    const [datePart, timePart] = now.split("T");
+                    setDepartureDate(datePart || "");
+                    setDepartureTime(timePart || "");
+                  }}
+                >Now</Button>
               </div>
             </div>
           </div>
@@ -1330,10 +1355,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               </label>
             </div>
           )}
-          {arrival && departure && (() => {
-            const ms = new Date(departure).getTime() - new Date(arrival).getTime();
+          {arrival && departureValue && (() => {
+            const ms = new Date(departureValue).getTime() - new Date(arrival).getTime();
             const hours = ms / 3600000;
-            const durationStr = calcDuration(arrival, departure);
+            const durationStr = calcDuration(arrival, departureValue);
             const rate = effectiveHourlyRate;
             const hasCallout = addEntryFee > 0;
             const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
@@ -1352,7 +1377,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
               <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); }}>
+            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); }}>
               Cancel
             </Button>
           </div>
