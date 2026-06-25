@@ -69,6 +69,7 @@ interface ServiceRecordFormData {
   solenoid_notes: string;
   control_panel_notes: string;
   prv_notes: string;
+  oil_hoses_notes: string;
   combustion_chamber_baffles: string;
   rope_seal_gasket_comments: string;
   condensate_cleaned_tb: boolean;
@@ -182,6 +183,7 @@ export default function ServiceRecordForm() {
   const SOLENOID_NOTES_LABEL = "Solenoid Notes";
   const CONTROL_PANEL_NOTES_LABEL = "Control Panel Notes";
   const PRV_NOTES_LABEL = "PRV Notes";
+  const OIL_HOSES_NOTES_LABEL = "Oil Hose/s Notes";
   const COMBUSTION_CHAMBER_BAFFLES_LABEL = "Combustion Chamber Baffles";
   const ROPE_SEAL_GASKET_COMMENTS_LABEL = "Rope Seal / Gasket Comments";
   const CONDENSATE_CLEANED_LABEL = "Condensate Cleaned";
@@ -230,6 +232,7 @@ export default function ServiceRecordForm() {
       SOLENOID_NOTES_LABEL,
       CONTROL_PANEL_NOTES_LABEL,
       PRV_NOTES_LABEL,
+      OIL_HOSES_NOTES_LABEL,
       COMBUSTION_CHAMBER_BAFFLES_LABEL,
       ROPE_SEAL_GASKET_COMMENTS_LABEL,
       CONDENSATE_CLEANED_LABEL,
@@ -321,6 +324,7 @@ export default function ServiceRecordForm() {
         solenoid_notes: getTaggedLineValue(existingSafetyNotes, SOLENOID_NOTES_LABEL),
         control_panel_notes: getTaggedLineValue(existingSafetyNotes, CONTROL_PANEL_NOTES_LABEL),
         prv_notes: getTaggedLineValue(existingSafetyNotes, PRV_NOTES_LABEL),
+        oil_hoses_notes: getTaggedLineValue(existingSafetyNotes, OIL_HOSES_NOTES_LABEL),
         combustion_chamber_baffles: getTaggedLineValue(existingSafetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL),
         rope_seal_gasket_comments: getTaggedLineValue(existingSafetyNotes, ROPE_SEAL_GASKET_COMMENTS_LABEL),
         condensate_cleaned_tb: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CLEANED_LABEL) === "Yes",
@@ -374,42 +378,44 @@ export default function ServiceRecordForm() {
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
 
+    const text = (value: string | null | undefined): string => (value || "").trim();
     const capLines: string[] = [];
-    if (data.capacitor_value.trim()) capLines.push(`${CAP_VALUE_LABEL}: ${data.capacitor_value.trim()}`);
-    if (data.capacitor_actual_reading.trim()) capLines.push(`${CAP_READING_LABEL}: ${data.capacitor_actual_reading.trim()}`);
-    if (data.appliance_make.trim()) capLines.push(`${APPLIANCE_MAKE_LABEL}: ${data.appliance_make.trim()}`);
-    if (data.appliance_manufacturer_date.trim()) capLines.push(`${APPLIANCE_MANUFACTURER_DATE_LABEL}: ${data.appliance_manufacturer_date.trim()}`);
-    if (data.appliance_model.trim()) capLines.push(`${APPLIANCE_MODEL_LABEL}: ${data.appliance_model.trim()}`);
-    if (data.appliance_serial.trim()) capLines.push(`${APPLIANCE_SERIAL_LABEL}: ${data.appliance_serial.trim()}`);
-    if (data.appliance_type.trim()) capLines.push(`${APPLIANCE_TYPE_LABEL}: ${data.appliance_type.trim()}`);
-    if (data.appliance_output.trim()) capLines.push(`${APPLIANCE_OUTPUT_LABEL}: ${data.appliance_output.trim()}`);
-    if (data.appliance_location_within_property.trim()) capLines.push(`${APPLIANCE_LOCATION_LABEL}: ${data.appliance_location_within_property.trim()}`);
-    if (data.burner_make_model.trim()) capLines.push(`${BURNER_MAKE_MODEL_LABEL}: ${data.burner_make_model.trim()}`);
-    if (data.fuel_supply_type_details.trim()) capLines.push(`${FUEL_SUPPLY_TYPE_DETAILS_LABEL}: ${data.fuel_supply_type_details.trim()}`);
-    if (data.burner_oring.trim()) capLines.push(`${BURNER_ORING_LABEL}: ${data.burner_oring.trim()}`);
+    if (text(data.capacitor_value)) capLines.push(`${CAP_VALUE_LABEL}: ${text(data.capacitor_value)}`);
+    if (text(data.capacitor_actual_reading)) capLines.push(`${CAP_READING_LABEL}: ${text(data.capacitor_actual_reading)}`);
+    if (text(data.appliance_make)) capLines.push(`${APPLIANCE_MAKE_LABEL}: ${text(data.appliance_make)}`);
+    if (text(data.appliance_manufacturer_date)) capLines.push(`${APPLIANCE_MANUFACTURER_DATE_LABEL}: ${text(data.appliance_manufacturer_date)}`);
+    if (text(data.appliance_model)) capLines.push(`${APPLIANCE_MODEL_LABEL}: ${text(data.appliance_model)}`);
+    if (text(data.appliance_serial)) capLines.push(`${APPLIANCE_SERIAL_LABEL}: ${text(data.appliance_serial)}`);
+    if (text(data.appliance_type)) capLines.push(`${APPLIANCE_TYPE_LABEL}: ${text(data.appliance_type)}`);
+    if (text(data.appliance_output)) capLines.push(`${APPLIANCE_OUTPUT_LABEL}: ${text(data.appliance_output)}`);
+    if (text(data.appliance_location_within_property)) capLines.push(`${APPLIANCE_LOCATION_LABEL}: ${text(data.appliance_location_within_property)}`);
+    if (text(data.burner_make_model)) capLines.push(`${BURNER_MAKE_MODEL_LABEL}: ${text(data.burner_make_model)}`);
+    if (text(data.fuel_supply_type_details)) capLines.push(`${FUEL_SUPPLY_TYPE_DETAILS_LABEL}: ${text(data.fuel_supply_type_details)}`);
+    if (text(data.burner_oring)) capLines.push(`${BURNER_ORING_LABEL}: ${text(data.burner_oring)}`);
     if (data.heat_exchanger_cleaned_tb) capLines.push(`${HEAT_EXCHANGER_CLEANED_LABEL}: Yes`);
-    if (data.heat_exchanger_turbulators.trim()) capLines.push(`${HEAT_EXCHANGER_TURBULATORS_LABEL}: ${data.heat_exchanger_turbulators.trim()}`);
-    if (data.blast_nozzle_size.trim()) capLines.push(`${BLAST_NOZZLE_SIZE_LABEL}: ${data.blast_nozzle_size.trim()}`);
+    if (text(data.heat_exchanger_turbulators)) capLines.push(`${HEAT_EXCHANGER_TURBULATORS_LABEL}: ${text(data.heat_exchanger_turbulators)}`);
+    if (text(data.blast_nozzle_size)) capLines.push(`${BLAST_NOZZLE_SIZE_LABEL}: ${text(data.blast_nozzle_size)}`);
     if (data.blast_nozzle_replaced) capLines.push(`${BLAST_NOZZLE_REPLACED_LABEL}: Yes`);
     if (data.blast_electrode_settings_checked) capLines.push(`${BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL}: Yes`);
-    if (data.blast_electrode_settings_text.trim()) capLines.push(`${BLAST_ELECTRODE_SETTINGS_TEXT_LABEL}: ${data.blast_electrode_settings_text.trim()}`);
+    if (text(data.blast_electrode_settings_text)) capLines.push(`${BLAST_ELECTRODE_SETTINGS_TEXT_LABEL}: ${text(data.blast_electrode_settings_text)}`);
     if (data.blast_oring_replaced) capLines.push(`${BLAST_ORING_REPLACED_LABEL}: Yes`);
-    if (data.electronics_controlbox.trim()) capLines.push(`${ELECTRONICS_CONTROLBOX_LABEL}: ${data.electronics_controlbox.trim()}`);
-    if (data.capacitor_reading_text.trim()) capLines.push(`${CAPACITOR_READING_LABEL}: ${data.capacitor_reading_text.trim()}`);
-    if (data.motor_text.trim()) capLines.push(`${MOTOR_TEXT_LABEL}: ${data.motor_text.trim()}`);
-    if (data.solenoid_notes.trim()) capLines.push(`${SOLENOID_NOTES_LABEL}: ${data.solenoid_notes.trim()}`);
-    if (data.control_panel_notes.trim()) capLines.push(`${CONTROL_PANEL_NOTES_LABEL}: ${data.control_panel_notes.trim()}`);
-    if (data.prv_notes.trim()) capLines.push(`${PRV_NOTES_LABEL}: ${data.prv_notes.trim()}`);
-    if (data.combustion_chamber_baffles.trim()) capLines.push(`${COMBUSTION_CHAMBER_BAFFLES_LABEL}: ${data.combustion_chamber_baffles.trim()}`);
-    if (data.rope_seal_gasket_comments.trim()) capLines.push(`${ROPE_SEAL_GASKET_COMMENTS_LABEL}: ${data.rope_seal_gasket_comments.trim()}`);
+    if (text(data.electronics_controlbox)) capLines.push(`${ELECTRONICS_CONTROLBOX_LABEL}: ${text(data.electronics_controlbox)}`);
+    if (text(data.capacitor_reading_text)) capLines.push(`${CAPACITOR_READING_LABEL}: ${text(data.capacitor_reading_text)}`);
+    if (text(data.motor_text)) capLines.push(`${MOTOR_TEXT_LABEL}: ${text(data.motor_text)}`);
+    if (text(data.solenoid_notes)) capLines.push(`${SOLENOID_NOTES_LABEL}: ${text(data.solenoid_notes)}`);
+    if (text(data.control_panel_notes)) capLines.push(`${CONTROL_PANEL_NOTES_LABEL}: ${text(data.control_panel_notes)}`);
+    if (text(data.prv_notes)) capLines.push(`${PRV_NOTES_LABEL}: ${text(data.prv_notes)}`);
+    if (text(data.oil_hoses_notes)) capLines.push(`${OIL_HOSES_NOTES_LABEL}: ${text(data.oil_hoses_notes)}`);
+    if (text(data.combustion_chamber_baffles)) capLines.push(`${COMBUSTION_CHAMBER_BAFFLES_LABEL}: ${text(data.combustion_chamber_baffles)}`);
+    if (text(data.rope_seal_gasket_comments)) capLines.push(`${ROPE_SEAL_GASKET_COMMENTS_LABEL}: ${text(data.rope_seal_gasket_comments)}`);
     if (data.condensate_cleaned_tb) capLines.push(`${CONDENSATE_CLEANED_LABEL}: Yes`);
-    if (data.condensate_condition.trim()) capLines.push(`${CONDENSATE_CONDITION_LABEL}: ${data.condensate_condition.trim()}`);
-    if (data.oil_pump_pressure.trim()) capLines.push(`${OIL_PUMP_PRESSURE_LABEL}: ${data.oil_pump_pressure.trim()}`);
-    if (data.electrodes_condition.trim()) capLines.push(`${ELECTRODES_CONDITION_LABEL}: ${data.electrodes_condition.trim()}`);
-    if (data.electrode_settings.trim()) capLines.push(`${ELECTRODE_SETTINGS_LABEL}: ${data.electrode_settings.trim()}`);
-    if (data.air_setting.trim()) capLines.push(`${AIR_SETTING_LABEL}: ${data.air_setting.trim()}`);
-    if (data.blast_tube_condition.trim()) capLines.push(`${BLAST_TUBE_CONDITION_LABEL}: ${data.blast_tube_condition.trim()}`);
-    if (data.overall_condition_remarks.trim()) capLines.push(`${OVERALL_CONDITION_REMARKS_LABEL}: ${data.overall_condition_remarks.trim()}`);
+    if (text(data.condensate_condition)) capLines.push(`${CONDENSATE_CONDITION_LABEL}: ${text(data.condensate_condition)}`);
+    if (text(data.oil_pump_pressure)) capLines.push(`${OIL_PUMP_PRESSURE_LABEL}: ${text(data.oil_pump_pressure)}`);
+    if (text(data.electrodes_condition)) capLines.push(`${ELECTRODES_CONDITION_LABEL}: ${text(data.electrodes_condition)}`);
+    if (text(data.electrode_settings)) capLines.push(`${ELECTRODE_SETTINGS_LABEL}: ${text(data.electrode_settings)}`);
+    if (text(data.air_setting)) capLines.push(`${AIR_SETTING_LABEL}: ${text(data.air_setting)}`);
+    if (text(data.blast_tube_condition)) capLines.push(`${BLAST_TUBE_CONDITION_LABEL}: ${text(data.blast_tube_condition)}`);
+    if (text(data.overall_condition_remarks)) capLines.push(`${OVERALL_CONDITION_REMARKS_LABEL}: ${text(data.overall_condition_remarks)}`);
     const baseSafetyNotes = stripTaggedSafetyLines(data.safety_devices_notes || "");
     const mergedSafetyNotes = [baseSafetyNotes, ...capLines].filter(Boolean).join("\n");
 
@@ -860,7 +866,7 @@ export default function ServiceRecordForm() {
                   <Input {...register("capacitor_actual_reading")} placeholder="Reading" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
-                  <Label className="font-semibold">Oil Pump</Label>
+                  <Label className="font-semibold">Oil Pressure</Label>
                   <Input {...register("oil_pressure")} placeholder="Setting" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
@@ -882,6 +888,10 @@ export default function ServiceRecordForm() {
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">PRV</Label>
                   <Input {...register("prv_notes")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Oil Hose/s</Label>
+                  <Input {...register("oil_hoses_notes")} placeholder="Notes" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Blast Tube</Label>

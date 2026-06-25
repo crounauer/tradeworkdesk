@@ -297,25 +297,43 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
   y += 8;
   const sr = data.serviceRecord;
   const safetyNotes = sr.safety_devices_notes || "";
-  const CAP_TYPE_LABEL = "Capacitor Type";
   const CAP_VALUE_LABEL = "Capacitor Value";
   const CAP_READING_LABEL = "Capacitor Actual Reading";
+  const HEAT_EXCHANGER_TURBULATORS_LABEL = "Heat Exchanger Turbulators";
+  const COMBUSTION_CHAMBER_BAFFLES_LABEL = "Combustion Chamber Baffles";
+  const BLAST_NOZZLE_SIZE_LABEL = "Blast Assembly Nozzle Size";
+  const BLAST_ELECTRODE_SETTINGS_TEXT_LABEL = "Blast Assembly Electrode Settings";
   const BURNER_ORING_LABEL = "Burner O-Ring";
+  const CONDENSATE_CONDITION_LABEL = "Condensate Condition";
+  const OIL_PUMP_PRESSURE_LABEL = "Oil Pump Pressure";
   const ELECTRODES_CONDITION_LABEL = "Electrodes Condition";
-  const ELECTRODE_SETTINGS_LABEL = "Electrode Settings";
   const AIR_SETTING_LABEL = "Air Setting";
+  const CONTROL_PANEL_NOTES_LABEL = "Control Panel Notes";
+  const PRV_NOTES_LABEL = "PRV Notes";
+  const OIL_HOSES_NOTES_LABEL = "Oil Hose/s Notes";
+  const SOLENOID_NOTES_LABEL = "Solenoid Notes";
+  const ELECTRONICS_CONTROLBOX_LABEL = "Electronics Controlbox";
+  const MOTOR_TEXT_LABEL = "Motor";
   const BLAST_TUBE_CONDITION_LABEL = "Blast Tube Condition";
-  const OVERALL_CONDITION_REMARKS_LABEL = "Overall Condition Remarks";
   const taggedSafetyLabels = [
-    CAP_TYPE_LABEL,
     CAP_VALUE_LABEL,
     CAP_READING_LABEL,
+    HEAT_EXCHANGER_TURBULATORS_LABEL,
+    COMBUSTION_CHAMBER_BAFFLES_LABEL,
+    BLAST_NOZZLE_SIZE_LABEL,
+    BLAST_ELECTRODE_SETTINGS_TEXT_LABEL,
     BURNER_ORING_LABEL,
+    CONDENSATE_CONDITION_LABEL,
+    OIL_PUMP_PRESSURE_LABEL,
     ELECTRODES_CONDITION_LABEL,
-    ELECTRODE_SETTINGS_LABEL,
     AIR_SETTING_LABEL,
+    CONTROL_PANEL_NOTES_LABEL,
+    PRV_NOTES_LABEL,
+    OIL_HOSES_NOTES_LABEL,
+    SOLENOID_NOTES_LABEL,
+    ELECTRONICS_CONTROLBOX_LABEL,
+    MOTOR_TEXT_LABEL,
     BLAST_TUBE_CONDITION_LABEL,
-    OVERALL_CONDITION_REMARKS_LABEL,
   ];
 
   y = addSection(y, "Job Details", [
@@ -348,34 +366,32 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
   ]);
 
   y = addSection(y, "Checks & Cleaning", [
-    ["Burner Cleaned", bool(sr.burner_cleaned)],
-    ["Heat Exchanger Cleaned", bool(sr.heat_exchanger_cleaned)],
-    ["Nozzle Checked", bool(sr.nozzle_checked)],
-    ["Nozzle Replaced", bool(sr.nozzle_replaced)],
-    ["Nozzle Size Fitted", sr.nozzle_size_fitted || ""],
-    ["Oil Pressure (bar)", sr.oil_pressure || ""],
-    ["Capacitor Type", getTaggedLineValue(safetyNotes, CAP_TYPE_LABEL)],
-    ["Capacitor Value", getTaggedLineValue(safetyNotes, CAP_VALUE_LABEL)],
-    ["Capacitor Actual Reading", getTaggedLineValue(safetyNotes, CAP_READING_LABEL)],
-    ["Burner O-Ring", getTaggedLineValue(safetyNotes, BURNER_ORING_LABEL)],
-    ["Electrodes Condition", getTaggedLineValue(safetyNotes, ELECTRODES_CONDITION_LABEL)],
-    ["Electrode Settings", getTaggedLineValue(safetyNotes, ELECTRODE_SETTINGS_LABEL)],
+    ["Heat Exchanger", getTaggedLineValue(safetyNotes, HEAT_EXCHANGER_TURBULATORS_LABEL)],
+    ["Combustion Chamber", getTaggedLineValue(safetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL)],
+    ["Nozzle", getTaggedLineValue(safetyNotes, BLAST_NOZZLE_SIZE_LABEL) || sr.nozzle_size_fitted || ""],
+    ["Electrodes", getTaggedLineValue(safetyNotes, ELECTRODES_CONDITION_LABEL)],
+    ["O-Ring", getTaggedLineValue(safetyNotes, BURNER_ORING_LABEL)],
+    ["Condensate", getTaggedLineValue(safetyNotes, CONDENSATE_CONDITION_LABEL)],
+    ["Oil Pump", getTaggedLineValue(safetyNotes, OIL_PUMP_PRESSURE_LABEL)],
     ["Air Setting", getTaggedLineValue(safetyNotes, AIR_SETTING_LABEL)],
-    ["Blast Tube Condition", getTaggedLineValue(safetyNotes, BLAST_TUBE_CONDITION_LABEL)],
-    ["Overall Condition Remarks", getTaggedLineValue(safetyNotes, OVERALL_CONDITION_REMARKS_LABEL)],
-    ["Electrodes Checked", bool(sr.electrodes_checked)],
-    ["Electrodes Replaced", bool(sr.electrodes_replaced)],
+    ["Capacitor", getTaggedLineValue(safetyNotes, CAP_READING_LABEL)],
+    ["Oil Pressure", sr.oil_pressure || ""],
+    ["Solednoid", getTaggedLineValue(safetyNotes, SOLENOID_NOTES_LABEL)],
+    ["Control Box", getTaggedLineValue(safetyNotes, ELECTRONICS_CONTROLBOX_LABEL)],
+    ["Control Panel", getTaggedLineValue(safetyNotes, CONTROL_PANEL_NOTES_LABEL)],
+    ["Motor", getTaggedLineValue(safetyNotes, MOTOR_TEXT_LABEL)],
+    ["PRV", getTaggedLineValue(safetyNotes, PRV_NOTES_LABEL)],
+    ["Oil Hose/s", getTaggedLineValue(safetyNotes, OIL_HOSES_NOTES_LABEL)],
+    ["Blast Tube", getTaggedLineValue(safetyNotes, BLAST_TUBE_CONDITION_LABEL)],
+    ["Nozzle Changed", bool(sr.nozzle_replaced)],
+    ["Electrodes Changed", bool(sr.electrodes_replaced)],
     ["Filter Checked", bool(sr.filter_checked)],
     ["Filter Cleaned", bool(sr.filter_cleaned)],
     ["Filter Replaced", bool(sr.filter_replaced)],
     ["Oil Line Checked", bool(sr.oil_line_checked)],
     ["Fire Valve Checked", bool(sr.fire_valve_checked)],
-    ["Seals/Gaskets Checked", bool(sr.seals_gaskets_checked)],
-    ["Seals/Gaskets Replaced", bool(sr.seals_gaskets_replaced)],
-    ["Controls Checked", bool(sr.controls_checked)],
-    ["Thermostat Checked", bool(sr.thermostat_checked)],
-    ["Safety Devices Checked", bool(sr.safety_devices_checked)],
-    ["Safety Devices Notes", stripTaggedLines(safetyNotes, taggedSafetyLabels)],
+    ["Capacitor Value", getTaggedLineValue(safetyNotes, CAP_VALUE_LABEL)],
+    ["Legacy Safety Notes", stripTaggedLines(safetyNotes, taggedSafetyLabels)],
   ]);
 
   y = addSection(y, "Safety & Defects", [
