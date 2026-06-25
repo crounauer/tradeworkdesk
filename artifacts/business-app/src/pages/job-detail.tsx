@@ -1627,11 +1627,11 @@ function ScheduleHistorySection({ jobId }: { jobId: string }) {
   if (isLoading || !history || history.length === 0) return null;
 
   const fmtDate = (d: string | null) => {
-    if (!d) return "Not set";
+    if (!d) return "Date not scheduled";
     return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   };
   const fmtTime = (t: string | null) => {
-    if (!t) return "Not set";
+    if (!t) return "Time not scheduled";
     return t.slice(0, 5);
   };
 

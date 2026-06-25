@@ -366,11 +366,11 @@ export default function PlatformPlans() {
                   </div>
                   <div className="pt-2 border-t text-xs space-y-1 text-muted-foreground">
                     <p className="font-medium text-foreground/60">Stripe</p>
-                    <p className="font-mono truncate" title={plan.stripe_price_id || "Not set"}>
-                      Monthly: {plan.stripe_price_id ? <span className="text-green-600">{plan.stripe_price_id}</span> : <span className="italic">Not set</span>}
+                    <p className="font-mono truncate" title={plan.stripe_price_id || "Add Stripe monthly price ID in plan settings"}>
+                      Monthly: {plan.stripe_price_id ? <span className="text-green-600">{plan.stripe_price_id}</span> : <span className="italic">Add Stripe monthly price ID in plan settings</span>}
                     </p>
-                    <p className="font-mono truncate" title={plan.stripe_price_id_annual || "Not set"}>
-                      Annual: {plan.stripe_price_id_annual ? <span className="text-green-600">{plan.stripe_price_id_annual}</span> : <span className="italic">Not set</span>}
+                    <p className="font-mono truncate" title={plan.stripe_price_id_annual || "Add Stripe annual price ID in plan settings"}>
+                      Annual: {plan.stripe_price_id_annual ? <span className="text-green-600">{plan.stripe_price_id_annual}</span> : <span className="italic">Add Stripe annual price ID in plan settings</span>}
                     </p>
                   </div>
                 </CardContent>

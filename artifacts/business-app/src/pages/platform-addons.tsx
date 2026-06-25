@@ -682,11 +682,11 @@ export default function PlatformAddons() {
                   </div>
                   <div className="pt-2 border-t text-xs space-y-1 text-muted-foreground">
                     <p className="font-medium text-foreground/60">Stripe</p>
-                    <p className="font-mono truncate" title={addon.stripe_price_id || "Not set"}>
-                      Monthly: {addon.stripe_price_id ? <span className="text-green-600">{addon.stripe_price_id}</span> : <span className="italic">Not set</span>}
+                    <p className="font-mono truncate" title={addon.stripe_price_id || "Add Stripe monthly price ID in addon settings"}>
+                      Monthly: {addon.stripe_price_id ? <span className="text-green-600">{addon.stripe_price_id}</span> : <span className="italic">Add Stripe monthly price ID in addon settings</span>}
                     </p>
-                    <p className="font-mono truncate" title={addon.stripe_price_id_annual || "Not set"}>
-                      Annual: {addon.stripe_price_id_annual ? <span className="text-green-600">{addon.stripe_price_id_annual}</span> : <span className="italic">Not set</span>}
+                    <p className="font-mono truncate" title={addon.stripe_price_id_annual || "Add Stripe annual price ID in addon settings"}>
+                      Annual: {addon.stripe_price_id_annual ? <span className="text-green-600">{addon.stripe_price_id_annual}</span> : <span className="italic">Add Stripe annual price ID in addon settings</span>}
                     </p>
                   </div>
                 </CardContent>

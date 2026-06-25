@@ -67,7 +67,9 @@ interface ServiceRecordFormData {
   electronics_controlbox: string;
   capacitor_reading_text: string;
   motor_text: string;
+  solenoid_notes: string;
   combustion_chamber_baffles: string;
+  rope_seal_gasket_comments: string;
   condensate_cleaned_tb: boolean;
   condensate_condition: string;
   oil_pump_pressure: string;
@@ -165,7 +167,8 @@ export default function ServiceRecordForm() {
   const BURNER_MAKE_MODEL_LABEL = "Burner Make / Model";
   const FUEL_SUPPLY_TYPE_DETAILS_LABEL = "Fuel Supply Type Details";
   const BURNER_ORING_LABEL = "Burner O-Ring";
-  const HEAT_EXCHANGER_CLEANED_LABEL = "Heat Exchanger Cleaned (TB)";
+  const HEAT_EXCHANGER_CLEANED_LABEL = "Heat Exchanger Cleaned";
+  const HEAT_EXCHANGER_CLEANED_LEGACY_LABEL = "Heat Exchanger Cleaned (TB)";
   const HEAT_EXCHANGER_TURBULATORS_LABEL = "Heat Exchanger Turbulators";
   const BLAST_NOZZLE_SIZE_LABEL = "Blast Assembly Nozzle Size";
   const BLAST_NOZZLE_REPLACED_LABEL = "Blast Assembly Nozzle Replaced";
@@ -175,7 +178,9 @@ export default function ServiceRecordForm() {
   const ELECTRONICS_CONTROLBOX_LABEL = "Electronics Controlbox";
   const CAPACITOR_READING_LABEL = "Capacitor Reading";
   const MOTOR_TEXT_LABEL = "Motor";
+  const SOLENOID_NOTES_LABEL = "Solenoid Notes";
   const COMBUSTION_CHAMBER_BAFFLES_LABEL = "Combustion Chamber Baffles";
+  const ROPE_SEAL_GASKET_COMMENTS_LABEL = "Rope Seal / Gasket Comments";
   const CONDENSATE_CLEANED_LABEL = "Condensate Cleaned";
   const CONDENSATE_CONDITION_LABEL = "Condensate Condition";
   const OIL_PUMP_PRESSURE_LABEL = "Oil Pump Pressure";
@@ -187,7 +192,8 @@ export default function ServiceRecordForm() {
   const OVERALL_CONDITION_REMARKS_LABEL = "Overall Condition Remarks";
 
   const getTaggedLineValue = (text: string, label: string): string => {
-    const rx = new RegExp(`^${label}:\\s*(.*)$`, "mi");
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rx = new RegExp(`^${escapedLabel}:\\s*(.*)$`, "mi");
     const m = text.match(rx);
     return m?.[1]?.trim() || "";
   };
@@ -208,6 +214,7 @@ export default function ServiceRecordForm() {
       FUEL_SUPPLY_TYPE_DETAILS_LABEL,
       BURNER_ORING_LABEL,
       HEAT_EXCHANGER_CLEANED_LABEL,
+      HEAT_EXCHANGER_CLEANED_LEGACY_LABEL,
       HEAT_EXCHANGER_TURBULATORS_LABEL,
       BLAST_NOZZLE_SIZE_LABEL,
       BLAST_NOZZLE_REPLACED_LABEL,
@@ -217,7 +224,9 @@ export default function ServiceRecordForm() {
       ELECTRONICS_CONTROLBOX_LABEL,
       CAPACITOR_READING_LABEL,
       MOTOR_TEXT_LABEL,
+      SOLENOID_NOTES_LABEL,
       COMBUSTION_CHAMBER_BAFFLES_LABEL,
+      ROPE_SEAL_GASKET_COMMENTS_LABEL,
       CONDENSATE_CLEANED_LABEL,
       CONDENSATE_CONDITION_LABEL,
       OIL_PUMP_PRESSURE_LABEL,
@@ -293,7 +302,9 @@ export default function ServiceRecordForm() {
         burner_make_model: getTaggedLineValue(existingSafetyNotes, BURNER_MAKE_MODEL_LABEL) || [job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / "),
         fuel_supply_type_details: getTaggedLineValue(existingSafetyNotes, FUEL_SUPPLY_TYPE_DETAILS_LABEL) || [job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / "),
         burner_oring: getTaggedLineValue(existingSafetyNotes, BURNER_ORING_LABEL),
-        heat_exchanger_cleaned_tb: getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_CLEANED_LABEL) === "Yes",
+        heat_exchanger_cleaned_tb:
+          getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_CLEANED_LABEL) === "Yes" ||
+          getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_CLEANED_LEGACY_LABEL) === "Yes",
         heat_exchanger_turbulators: getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_TURBULATORS_LABEL),
         blast_nozzle_size: getTaggedLineValue(existingSafetyNotes, BLAST_NOZZLE_SIZE_LABEL),
         blast_nozzle_replaced: getTaggedLineValue(existingSafetyNotes, BLAST_NOZZLE_REPLACED_LABEL) === "Yes",
@@ -303,11 +314,13 @@ export default function ServiceRecordForm() {
         electronics_controlbox: getTaggedLineValue(existingSafetyNotes, ELECTRONICS_CONTROLBOX_LABEL),
         capacitor_reading_text: getTaggedLineValue(existingSafetyNotes, CAPACITOR_READING_LABEL),
         motor_text: getTaggedLineValue(existingSafetyNotes, MOTOR_TEXT_LABEL),
+        solenoid_notes: getTaggedLineValue(existingSafetyNotes, SOLENOID_NOTES_LABEL),
         combustion_chamber_baffles: getTaggedLineValue(existingSafetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL),
+        rope_seal_gasket_comments: getTaggedLineValue(existingSafetyNotes, ROPE_SEAL_GASKET_COMMENTS_LABEL),
         condensate_cleaned_tb: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CLEANED_LABEL) === "Yes",
         condensate_condition: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CONDITION_LABEL),
         oil_pump_pressure: getTaggedLineValue(existingSafetyNotes, OIL_PUMP_PRESSURE_LABEL),
-        solenoid_checked: getTaggedLineValue(existingSafetyNotes, SOLENOID_CHECKED_LABEL) === "Yes",
+        solenoid_checked: false,
         electrodes_condition: getTaggedLineValue(existingSafetyNotes, ELECTRODES_CONDITION_LABEL),
         electrode_settings: getTaggedLineValue(existingSafetyNotes, ELECTRODE_SETTINGS_LABEL),
         air_setting: getTaggedLineValue(existingSafetyNotes, AIR_SETTING_LABEL),
@@ -379,11 +392,12 @@ export default function ServiceRecordForm() {
     if (data.electronics_controlbox.trim()) capLines.push(`${ELECTRONICS_CONTROLBOX_LABEL}: ${data.electronics_controlbox.trim()}`);
     if (data.capacitor_reading_text.trim()) capLines.push(`${CAPACITOR_READING_LABEL}: ${data.capacitor_reading_text.trim()}`);
     if (data.motor_text.trim()) capLines.push(`${MOTOR_TEXT_LABEL}: ${data.motor_text.trim()}`);
+    if (data.solenoid_notes.trim()) capLines.push(`${SOLENOID_NOTES_LABEL}: ${data.solenoid_notes.trim()}`);
     if (data.combustion_chamber_baffles.trim()) capLines.push(`${COMBUSTION_CHAMBER_BAFFLES_LABEL}: ${data.combustion_chamber_baffles.trim()}`);
+    if (data.rope_seal_gasket_comments.trim()) capLines.push(`${ROPE_SEAL_GASKET_COMMENTS_LABEL}: ${data.rope_seal_gasket_comments.trim()}`);
     if (data.condensate_cleaned_tb) capLines.push(`${CONDENSATE_CLEANED_LABEL}: Yes`);
     if (data.condensate_condition.trim()) capLines.push(`${CONDENSATE_CONDITION_LABEL}: ${data.condensate_condition.trim()}`);
     if (data.oil_pump_pressure.trim()) capLines.push(`${OIL_PUMP_PRESSURE_LABEL}: ${data.oil_pump_pressure.trim()}`);
-    if (data.solenoid_checked) capLines.push(`${SOLENOID_CHECKED_LABEL}: Yes`);
     if (data.electrodes_condition.trim()) capLines.push(`${ELECTRODES_CONDITION_LABEL}: ${data.electrodes_condition.trim()}`);
     if (data.electrode_settings.trim()) capLines.push(`${ELECTRODE_SETTINGS_LABEL}: ${data.electrode_settings.trim()}`);
     if (data.air_setting.trim()) capLines.push(`${AIR_SETTING_LABEL}: ${data.air_setting.trim()}`);
@@ -579,7 +593,7 @@ export default function ServiceRecordForm() {
                 <Label>Appliance Make</Label>
                 <Input
                   {...register("appliance_make")}
-                  placeholder={job?.appliance?.manufacturer || "Not set"}
+                  placeholder={job?.appliance?.manufacturer || "Enter appliance make (e.g. Worcester Bosch)"}
                 />
               </div>
               <div className="space-y-2">
@@ -593,14 +607,14 @@ export default function ServiceRecordForm() {
                 <Label>Appliance Model</Label>
                 <Input
                   {...register("appliance_model")}
-                  placeholder={job?.appliance?.model || "Not set"}
+                  placeholder={job?.appliance?.model || "Enter appliance model (e.g. Greenstar 30i)"}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Appliance Serial</Label>
                 <Input
                   {...register("appliance_serial")}
-                  placeholder={job?.appliance?.serial_number || "Not set"}
+                  placeholder={job?.appliance?.serial_number || "Enter serial number from data plate"}
                 />
               </div>
 
@@ -608,7 +622,7 @@ export default function ServiceRecordForm() {
                 <Label>Appliance Type</Label>
                 <Input
                   {...register("appliance_type")}
-                  placeholder={job?.appliance?.boiler_type || "Not set"}
+                  placeholder={job?.appliance?.boiler_type || "Enter appliance type (e.g. Boiler)"}
                 />
               </div>
               <div className="space-y-2">
@@ -622,7 +636,7 @@ export default function ServiceRecordForm() {
                 <Label>Fuel Supply Type Details</Label>
                 <Input
                   {...register("fuel_supply_type_details")}
-                  placeholder={[job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ") || "Not set"}
+                  placeholder={[job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ") || "Enter fuel/system details (e.g. Oil / Combi)"}
                 />
               </div>
 
@@ -647,14 +661,14 @@ export default function ServiceRecordForm() {
                 <Label>Appliance Location Within Property</Label>
                 <Input
                   {...register("appliance_location_within_property")}
-                  placeholder={job?.property?.boiler_location || "Not set"}
+                  placeholder={job?.property?.boiler_location || "Enter location within property (e.g. Kitchen)"}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Burner Make / Model</Label>
                 <Input
                   {...register("burner_make_model")}
-                  placeholder={[job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / ") || "Not set"}
+                  placeholder={[job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / ") || "Enter burner make/model (e.g. Riello RDB)"}
                 />
               </div>
             </div>
@@ -783,40 +797,22 @@ export default function ServiceRecordForm() {
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Wrench className="w-5 h-5"/> Checks & Cleaning</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {([
-              ["burner_cleaned", "Burner Cleaned", true],
-              ["heat_exchanger_cleaned", "Heat Exchanger Cleaned", true],
-              ["seals_gaskets_checked", "Seals/Gaskets Checked", true],
-              ["seals_gaskets_replaced", "Seals/Gaskets Replaced", true],
-              ["controls_checked", "Controls Checked", true],
-              ["thermostat_checked", "Thermostat Checked", true],
-              ["safety_devices_checked", "Safety Devices Checked", true],
-              ...(isOil ? [
-                ["nozzle_checked", "Nozzle Checked", true],
-                ["nozzle_replaced", "Nozzle Replaced", true],
-                ["electrodes_checked", "Electrodes Checked", true],
-                ["electrodes_replaced", "Electrodes Replaced", true],
-                ["filter_checked", "Filter Checked", true],
-                ["filter_cleaned", "Filter Cleaned", true],
-                ["filter_replaced", "Filter Replaced", true],
-                ["oil_line_checked", "Oil Line Checked", true],
-                ["fire_valve_checked", "Fire Valve Checked", true],
-              ] : []),
-              ...(isGas ? [
-                ["gas_valve_checked", "Gas Valve Checked", true],
-                ["injectors_checked", "Injectors Checked", true],
-                ["pilot_checked", "Pilot Checked", true],
-                ["ignition_checked", "Ignition Checked", true],
-                ["gas_pressure_checked", "Gas Pressure Checked", true],
-              ] : []),
-            ] as [string, string, boolean][]).map(([name, label]) => (
-              <label key={name} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors text-sm">
-                <input type="checkbox" {...register(name as keyof ServiceRecordFormData)} className="w-4 h-4 accent-primary rounded" />
-                <span className="font-medium">{label}</span>
-              </label>
-            ))}
-          </div>
+          {isGas && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {([
+                ["gas_valve_checked", "Gas Valve Checked"],
+                ["injectors_checked", "Injectors Checked"],
+                ["pilot_checked", "Pilot Checked"],
+                ["ignition_checked", "Ignition Checked"],
+                ["gas_pressure_checked", "Gas Pressure Checked"],
+              ] as [string, string][]).map(([name, label]) => (
+                <label key={name} className="flex items-center gap-2 p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors text-sm">
+                  <input type="checkbox" {...register(name as keyof ServiceRecordFormData)} className="w-4 h-4 accent-primary rounded" />
+                  <span className="font-medium">{label}</span>
+                </label>
+              ))}
+            </div>
+          )}
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             {isOil && (
               <div className="md:col-span-2 grid md:grid-cols-2 gap-4 p-3 border rounded-xl bg-slate-50/60">
@@ -824,21 +820,25 @@ export default function ServiceRecordForm() {
                   <Label className="font-semibold">Heat Exchanger</Label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("heat_exchanger_cleaned_tb")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Cleaned (TB)</span>
+                    <span>Cleaned</span>
                   </label>
-                  <Input {...register("heat_exchanger_turbulators")} placeholder="Turbulators" />
+                  <textarea
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]"
+                    {...register("heat_exchanger_turbulators")}
+                    placeholder="General notes..."
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-semibold">Blast Assembly</Label>
-                  <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
+                  <Label className="font-semibold">Blaster Assembly</Label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("blast_nozzle_replaced")} className="w-4 h-4 accent-primary rounded" />
                     <span>Nozzle replaced</span>
                   </label>
+                  <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("blast_electrode_settings_checked")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Electrode settings checked (TB)</span>
+                    <span>Electrodes</span>
                   </label>
                   <Input {...register("blast_electrode_settings_text")} placeholder="Electrode settings" />
                   <label className="flex items-center gap-2 text-sm">
@@ -848,33 +848,35 @@ export default function ServiceRecordForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-semibold">Electronics</Label>
-                  <Input {...register("electronics_controlbox")} placeholder="Controlbox" />
+                  <Label className="font-semibold">Electrics</Label>
+                  <Input {...register("electronics_controlbox")} placeholder="Control Box notes" />
                   <Input {...register("capacitor_reading_text")} placeholder="Capacitor reading" />
-                  <Input {...register("motor_text")} placeholder="Motor" />
+                  <Input {...register("motor_text")} placeholder="Motor notes" />
+                  <Input {...register("solenoid_notes")} placeholder="Solenoid notes" />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="font-semibold">Combustion Chamber</Label>
                   <Input {...register("combustion_chamber_baffles")} placeholder="Baffles" />
+                  <textarea
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]"
+                    {...register("rope_seal_gasket_comments")}
+                    placeholder="Rope Seal / Gasket comments"
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="font-semibold">Condensate</Label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" {...register("condensate_cleaned_tb")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Cleaned (TB)</span>
+                    <span>Cleaned</span>
                   </label>
                   <Input {...register("condensate_condition")} placeholder="Condition" />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-semibold">Oil Pump / Solenoid / Air</Label>
+                  <Label className="font-semibold">Oil Pump / Air</Label>
                   <Input {...register("oil_pump_pressure")} placeholder="Oil pump pressure" />
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" {...register("solenoid_checked")} className="w-4 h-4 accent-primary rounded" />
-                    <span>Solenoid checked</span>
-                  </label>
                   <Input {...register("air_setting")} placeholder="Air setting" />
                 </div>
               </div>
