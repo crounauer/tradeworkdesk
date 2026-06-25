@@ -67,6 +67,8 @@ interface ServiceRecordFormData {
   capacitor_reading_text: string;
   motor_text: string;
   solenoid_notes: string;
+  control_panel_notes: string;
+  prv_notes: string;
   combustion_chamber_baffles: string;
   rope_seal_gasket_comments: string;
   condensate_cleaned_tb: boolean;
@@ -178,6 +180,8 @@ export default function ServiceRecordForm() {
   const CAPACITOR_READING_LABEL = "Capacitor Reading";
   const MOTOR_TEXT_LABEL = "Motor";
   const SOLENOID_NOTES_LABEL = "Solenoid Notes";
+  const CONTROL_PANEL_NOTES_LABEL = "Control Panel Notes";
+  const PRV_NOTES_LABEL = "PRV Notes";
   const COMBUSTION_CHAMBER_BAFFLES_LABEL = "Combustion Chamber Baffles";
   const ROPE_SEAL_GASKET_COMMENTS_LABEL = "Rope Seal / Gasket Comments";
   const CONDENSATE_CLEANED_LABEL = "Condensate Cleaned";
@@ -224,6 +228,8 @@ export default function ServiceRecordForm() {
       CAPACITOR_READING_LABEL,
       MOTOR_TEXT_LABEL,
       SOLENOID_NOTES_LABEL,
+      CONTROL_PANEL_NOTES_LABEL,
+      PRV_NOTES_LABEL,
       COMBUSTION_CHAMBER_BAFFLES_LABEL,
       ROPE_SEAL_GASKET_COMMENTS_LABEL,
       CONDENSATE_CLEANED_LABEL,
@@ -313,6 +319,8 @@ export default function ServiceRecordForm() {
         capacitor_reading_text: getTaggedLineValue(existingSafetyNotes, CAPACITOR_READING_LABEL),
         motor_text: getTaggedLineValue(existingSafetyNotes, MOTOR_TEXT_LABEL),
         solenoid_notes: getTaggedLineValue(existingSafetyNotes, SOLENOID_NOTES_LABEL),
+        control_panel_notes: getTaggedLineValue(existingSafetyNotes, CONTROL_PANEL_NOTES_LABEL),
+        prv_notes: getTaggedLineValue(existingSafetyNotes, PRV_NOTES_LABEL),
         combustion_chamber_baffles: getTaggedLineValue(existingSafetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL),
         rope_seal_gasket_comments: getTaggedLineValue(existingSafetyNotes, ROPE_SEAL_GASKET_COMMENTS_LABEL),
         condensate_cleaned_tb: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CLEANED_LABEL) === "Yes",
@@ -390,6 +398,8 @@ export default function ServiceRecordForm() {
     if (data.capacitor_reading_text.trim()) capLines.push(`${CAPACITOR_READING_LABEL}: ${data.capacitor_reading_text.trim()}`);
     if (data.motor_text.trim()) capLines.push(`${MOTOR_TEXT_LABEL}: ${data.motor_text.trim()}`);
     if (data.solenoid_notes.trim()) capLines.push(`${SOLENOID_NOTES_LABEL}: ${data.solenoid_notes.trim()}`);
+    if (data.control_panel_notes.trim()) capLines.push(`${CONTROL_PANEL_NOTES_LABEL}: ${data.control_panel_notes.trim()}`);
+    if (data.prv_notes.trim()) capLines.push(`${PRV_NOTES_LABEL}: ${data.prv_notes.trim()}`);
     if (data.combustion_chamber_baffles.trim()) capLines.push(`${COMBUSTION_CHAMBER_BAFFLES_LABEL}: ${data.combustion_chamber_baffles.trim()}`);
     if (data.rope_seal_gasket_comments.trim()) capLines.push(`${ROPE_SEAL_GASKET_COMMENTS_LABEL}: ${data.rope_seal_gasket_comments.trim()}`);
     if (data.condensate_cleaned_tb) capLines.push(`${CONDENSATE_CLEANED_LABEL}: Yes`);
@@ -862,8 +872,16 @@ export default function ServiceRecordForm() {
                   <Input {...register("electronics_controlbox")} placeholder="Notes" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">Control Panel</Label>
+                  <Input {...register("control_panel_notes")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Motor</Label>
                   <Input {...register("motor_text")} placeholder="Notes" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
+                  <Label className="font-semibold">PRV</Label>
+                  <Input {...register("prv_notes")} placeholder="Notes" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Blast Tube</Label>
@@ -871,10 +889,6 @@ export default function ServiceRecordForm() {
                 </div>
               </div>
             )}
-            <div className="space-y-2">
-              <Label>Safety Devices Notes</Label>
-              <Input {...register("safety_devices_notes")} placeholder="Any notes on safety devices..." />
-            </div>
           </div>
         </Card>
 
