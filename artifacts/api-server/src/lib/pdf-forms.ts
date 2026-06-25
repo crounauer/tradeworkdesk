@@ -267,12 +267,29 @@ const SERVICE_RECORD_SECTIONS: SectionDef[] = [
     fields: ["burner_cleaned", "heat_exchanger_cleaned", "seals_gaskets_checked", "seals_gaskets_replaced",
              "controls_checked", "thermostat_checked", "safety_devices_checked"],
     checkboxGrid: true,
+    fuel: "gas",
   },
   {
-    title: "Oil Checks",
-    fields: ["nozzle_checked", "nozzle_replaced", "electrodes_checked", "electrodes_replaced",
-             "filter_checked", "filter_cleaned", "filter_replaced", "oil_line_checked", "fire_valve_checked"],
-    checkboxGrid: true,
+    title: "Checks & Cleaning",
+    fields: [
+      "oil_check_heat_exchanger",
+      "oil_check_combustion_chamber",
+      "oil_check_nozzle",
+      "oil_check_electrodes",
+      "oil_check_oring",
+      "oil_check_condensate",
+      "oil_check_oil_pump",
+      "oil_check_air_setting",
+      "oil_check_capacitor",
+      "oil_check_oil_pressure",
+      "oil_check_solednoid",
+      "oil_check_control_box",
+      "oil_check_control_panel",
+      "oil_check_motor",
+      "oil_check_prv",
+      "oil_check_oil_hoses",
+      "oil_check_blast_tube",
+    ],
     fuel: "oil",
   },
   {
@@ -280,10 +297,6 @@ const SERVICE_RECORD_SECTIONS: SectionDef[] = [
     fields: ["gas_valve_checked", "injectors_checked", "pilot_checked", "ignition_checked", "gas_pressure_checked"],
     checkboxGrid: true,
     fuel: "gas",
-  },
-  {
-    title: "Checks & Cleaning (Details)",
-    fields: ["nozzle_size_fitted", "safety_devices_notes"],
   },
   {
     title: "Appliance Classification",
@@ -615,6 +628,38 @@ export function generateFormPdf(
 
   const sections = FORM_SECTIONS[formType] || null;
   const isGas = fuelType === "gas" || fuelType === "lpg";
+  const effectiveRecord = (() => {
+    if (formType !== "service_record") return record;
+
+    const safetyNotes = str(record.safety_devices_notes);
+    const getTaggedLineValue = (text: string, label: string): string => {
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rx = new RegExp(`^${escapedLabel}:\\s*(.*)$`, "mi");
+      const m = text.match(rx);
+      return m?.[1]?.trim() || "";
+    };
+
+    return {
+      ...record,
+      oil_check_heat_exchanger: getTaggedLineValue(safetyNotes, "Heat Exchanger Turbulators"),
+      oil_check_combustion_chamber: getTaggedLineValue(safetyNotes, "Combustion Chamber Baffles"),
+      oil_check_nozzle: getTaggedLineValue(safetyNotes, "Blast Assembly Nozzle Size") || str(record.nozzle_size_fitted),
+      oil_check_electrodes: getTaggedLineValue(safetyNotes, "Electrodes Condition"),
+      oil_check_oring: getTaggedLineValue(safetyNotes, "Burner O-Ring"),
+      oil_check_condensate: getTaggedLineValue(safetyNotes, "Condensate Condition"),
+      oil_check_oil_pump: getTaggedLineValue(safetyNotes, "Oil Pump Pressure"),
+      oil_check_air_setting: getTaggedLineValue(safetyNotes, "Air Setting"),
+      oil_check_capacitor: getTaggedLineValue(safetyNotes, "Capacitor Actual Reading"),
+      oil_check_oil_pressure: str(record.oil_pressure),
+      oil_check_solednoid: getTaggedLineValue(safetyNotes, "Solenoid Notes"),
+      oil_check_control_box: getTaggedLineValue(safetyNotes, "Electronics Controlbox"),
+      oil_check_control_panel: getTaggedLineValue(safetyNotes, "Control Panel Notes"),
+      oil_check_motor: getTaggedLineValue(safetyNotes, "Motor"),
+      oil_check_prv: getTaggedLineValue(safetyNotes, "PRV Notes"),
+      oil_check_oil_hoses: getTaggedLineValue(safetyNotes, "Oil Hose/s Notes"),
+      oil_check_blast_tube: getTaggedLineValue(safetyNotes, "Blast Tube Condition"),
+    };
+  })();
 
   if (sections) {
     const usedCols = new Set<string>();
@@ -633,7 +678,7 @@ export function generateFormPdf(
       for (const col of section.fields) {
         const label = fieldMap[col];
         if (!label) continue;
-        const val = record[col];
+        const val = effectiveRecord[col];
         if (val == null && !isCheckboxField(col)) continue;
 
         usedCols.add(col);
@@ -679,7 +724,7 @@ export function generateFormPdf(
     const remainingRows: [string, string][] = [];
     for (const [col, label] of Object.entries(fieldMap)) {
       if (usedCols.has(col)) continue;
-      const val = record[col];
+      const val = effectiveRecord[col];
       if (val == null && !isCheckboxField(col)) continue;
       if (isCheckboxField(col)) {
         remainingRows.push([label, bool(val as boolean)]);
