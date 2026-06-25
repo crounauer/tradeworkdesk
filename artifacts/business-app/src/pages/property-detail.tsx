@@ -58,7 +58,7 @@ export default function PropertyDetail() {
   useEffect(() => {
     if (property && property.latitude == null && id) {
       updateProperty.mutate(
-        { id, body: {} },
+        { id, data: {} },
         { onSuccess: () => qc.invalidateQueries({ queryKey: [`/api/properties/${id}`] }) }
       );
     }

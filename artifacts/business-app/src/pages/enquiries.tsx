@@ -240,12 +240,12 @@ function EnquiryCard({
                 </span>
               )}
             </div>
-            {(enq.contact_phone || enq.contact_email) && (
+            {(Boolean(enq.contact_phone) || Boolean(enq.contact_email)) && (
               <p className="text-sm text-muted-foreground">
                 {enq.contact_phone as string}{enq.contact_phone && enq.contact_email ? " · " : ""}{enq.contact_email as string}
               </p>
             )}
-            {enq.description && (
+            {Boolean(enq.description) && (
               <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{enq.description as string}</p>
             )}
             {formatEnquiryAddress(enq) && (

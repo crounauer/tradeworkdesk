@@ -93,7 +93,7 @@ export default function JobDetail() {
   const [, navigate] = useLocation();
   const { isOnline, queueJobUpdate, pendingMutations, failedMutations } = useOffline();
   const { data: onlineJob, isLoading } = useGetJob(id);
-  const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } });
+  const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } } as any);
   const { data: completedForms } = useQuery({
     queryKey: [`/api/jobs/${id}/completed-forms`],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs/${id}/completed-forms`) as Promise<Array<{ form_type: string; form_label: string; form_id: string }>>,
@@ -154,7 +154,10 @@ export default function JobDetail() {
     (m) => (m.type === "update-job" || m.type === "create-job-note" || m.type === "create-time-entry" || m.type === "create-job-part") && m.payload.jobId === id
   );
 
-  const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
+  const customerEmail = (job.customer as unknown as Record<string, unknown>)?.email as string || "";
+  const jobRecord = job as unknown as Record<string, unknown>;
+  const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
+  const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
 
   const handleSendConfirmationDirect = async () => {
     setSendingConfirmation(true);
@@ -257,7 +260,7 @@ export default function JobDetail() {
       a.href = url;
       const fuelCat = (job as unknown as { fuel_category?: string | null }).fuel_category;
       const label = (fuelCat === "gas" || fuelCat === "lpg") ? "cp12" : "service-record";
-      a.download = `${label}-${job.job_ref || job.id.slice(0, 8)}.pdf`;
+      a.download = `${label}-${jobRef || job.id.slice(0, 8)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: unknown) {
@@ -297,15 +300,15 @@ export default function JobDetail() {
       <div className="flex flex-col gap-4 min-w-0 max-w-full">
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{job.job_ref ? `Job ${job.job_ref}` : `Job #${job.id.slice(0, 8)}`}</h1>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
             <span className={`px-3 py-1 rounded-md text-xs sm:text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
               {job.status.replace(/_/g, ' ')}
             </span>
           </div>
-          {(job as unknown as Record<string, unknown>).from_quote_id && (
+          {fromQuoteId && (
             <button
               className="text-sm text-muted-foreground hover:text-primary mb-1 text-left"
-              onClick={() => navigate(`/invoices/${(job as unknown as Record<string, unknown>).from_quote_id as string}`)}
+              onClick={() => navigate(`/invoices/${fromQuoteId}`)}
             >
               From Quote →
             </button>
@@ -348,7 +351,7 @@ export default function JobDetail() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Reopen Job {job.job_ref || `#${job.id.slice(0, 8)}`}?</AlertDialogTitle>
+                  <AlertDialogTitle>Reopen Job {jobRef || `#${job.id.slice(0, 8)}`}?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will move the job back to "In Progress". All time entries, notes, and forms will be preserved.
                   </AlertDialogDescription>
@@ -423,7 +426,7 @@ export default function JobDetail() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Job {job.job_ref || `#${job.id.slice(0, 8)}`}?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete Job {jobRef || `#${job.id.slice(0, 8)}`}?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will remove the job and it will no longer appear in your jobs list. This action cannot be undone.
                   </AlertDialogDescription>
@@ -954,7 +957,7 @@ export default function JobDetail() {
       {emailModalOpen && (
         <EmailFormsModal
           jobId={job.id}
-          customerEmail={(job.customer as Record<string, unknown>)?.email as string || ""}
+          customerEmail={(job.customer as unknown as Record<string, unknown>)?.email as string || ""}
           customerName={`${job.customer?.first_name || ""} ${job.customer?.last_name || ""}`.trim()}
           onClose={() => setEmailModalOpen(false)}
           onSent={() => setEmailLogRefresh(k => k + 1)}
@@ -998,7 +1001,19 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     (async () => {
       try {
         const data = await customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`);
-        if (Array.isArray(data)) setCalloutRates(data as { id: string; name: string; amount: number }[]);
+        if (Array.isArray(data)) {
+          setCalloutRates(
+            data.map((row) => {
+              const record = row as Record<string, unknown>;
+              return {
+                id: String(record.id || ""),
+                name: String(record.name || "Rate"),
+                amount: Number(record.amount || 0),
+                hourly_rate: record.hourly_rate != null ? Number(record.hourly_rate) : null,
+              };
+            }),
+          );
+        }
       } catch { /* silently ignore auth errors */ }
     })();
   }, []);
@@ -1056,6 +1071,15 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const callOutFee = selectedRateAmount;
   const addEntryFee = waiveCallout ? 0 : callOutFee;
 
+  // Derive the effective hourly rate from currently selected callout rate (or company default)
+  const effectiveHourlyRate = (() => {
+    if (selectedCalloutRate !== "auto") {
+      const found = calloutRates.find(r => r.id === selectedCalloutRate);
+      if (found?.hourly_rate != null) return Number(found.hourly_rate);
+    }
+    return Number(companySettings?.default_hourly_rate) || 0;
+  })();
+
   const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
 
   const totalMinutes = sortedEntries.reduce((sum, e) => {
@@ -1071,8 +1095,9 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     const map = new Map<string, { totalHours: number; calloutHours: number; calloutRate: number; calloutCost: number; billableHours: number; hourlyRate: number; billableCost: number; entryCost: number }>();
     for (const e of sortedEntries) {
       // Prefer callout_fee stored on the entry; fall back to job-level fee for legacy entries
-      const entryCalloutFee = (e as Record<string, unknown>).callout_fee != null
-        ? Number((e as Record<string, unknown>).callout_fee)
+      const eRecord = e as unknown as Record<string, unknown>;
+      const entryCalloutFee = eRecord.callout_fee != null
+        ? Number(eRecord.callout_fee)
         : callOutFee;
       if (!e.departure_time) {
         // Ongoing: callout fee still applies once the technician has arrived
@@ -1081,7 +1106,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       }
       const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
       // Use stored hourly_rate if available, else fall back to the job-level effective rate
-      const rate = e.hourly_rate != null ? Number(e.hourly_rate) : effectiveHourlyRate;
+      const rate = eRecord.hourly_rate != null ? Number(eRecord.hourly_rate) : effectiveHourlyRate;
       const calloutHoursForEntry = entryCalloutFee > 0 ? 1 : 0;
       const calloutHours = Math.min(hours, calloutHoursForEntry);
       const calloutCost = entryCalloutFee;
@@ -1103,15 +1128,6 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const showLegacy = !hasEntries && (legacyArrival || legacyDeparture);
 
   const [offlineSubmitting, setOfflineSubmitting] = useState(false);
-
-  // Derive the effective hourly rate from currently selected callout rate (or company default)
-  const effectiveHourlyRate = (() => {
-    if (selectedCalloutRate !== "auto") {
-      const found = calloutRates.find(r => r.id === selectedCalloutRate);
-      if (found?.hourly_rate != null) return Number(found.hourly_rate);
-    }
-    return Number(companySettings?.default_hourly_rate) || 0;
-  })();
 
   const departureValue = departureDate && departureTime ? `${departureDate}T${departureTime}` : "";
 
@@ -1146,10 +1162,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       return;
     }
     try {
-      await createMutation.mutateAsync({
-        jobId,
-        data: entryData as Record<string, unknown>,
-      });
+      await createMutation.mutateAsync({ jobId, data: entryData as any });
       setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
@@ -1517,7 +1530,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     const bd = entryBreakdowns.get(entry.id);
                     if (!bd || (bd.totalHours === 0 && bd.calloutCost === 0)) return null;
                     if (bd.hourlyRate <= 0 && bd.calloutCost <= 0) return null;
-                    const entryStoredFee = (entry as Record<string, unknown>).callout_fee;
+                    const entryStoredFee = (entry as unknown as Record<string, unknown>).callout_fee;
                     const entryCalloutRate = entryStoredFee != null
                       ? calloutRates.find(r => Number(r.amount) === Number(entryStoredFee))
                       : (selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null);

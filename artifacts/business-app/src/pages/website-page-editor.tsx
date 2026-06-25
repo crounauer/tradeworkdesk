@@ -847,7 +847,7 @@ function BlockCard({
               <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-sm">{palette?.label ?? block.block_type}</span>
-                {block.content.heading && (
+                {Boolean(block.content.heading) && (
                   <span className="text-muted-foreground text-xs ml-2 truncate">— {String(block.content.heading)}</span>
                 )}
               </div>

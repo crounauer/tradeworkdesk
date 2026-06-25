@@ -196,14 +196,16 @@ export default function ServiceRecordForm() {
   const BLAST_TUBE_CONDITION_LABEL = "Blast Tube Condition";
   const OVERALL_CONDITION_REMARKS_LABEL = "Overall Condition Remarks";
 
-  const getTaggedLineValue = (text: string, label: string): string => {
+  const getTaggedLineValue = (text: unknown, label: string): string => {
+    const safeText = typeof text === "string" ? text : "";
     const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const rx = new RegExp(`^${escapedLabel}:\\s*(.*)$`, "mi");
-    const m = text.match(rx);
-    return m?.[1]?.trim() || "";
+    const m = safeText.match(rx);
+    return typeof m?.[1] === "string" ? m[1].trim() : "";
   };
 
-  const stripTaggedSafetyLines = (text: string): string => {
+  const stripTaggedSafetyLines = (text: unknown): string => {
+    const safeText = typeof text === "string" ? text : "";
     const taggedLabels = [
       CAP_TYPE_LABEL,
       CAP_VALUE_LABEL,
@@ -246,7 +248,7 @@ export default function ServiceRecordForm() {
       OVERALL_CONDITION_REMARKS_LABEL,
     ];
 
-    return text
+    return safeText
       .split("\n")
       .filter((line) => {
         const t = line.trimStart();
@@ -465,7 +467,7 @@ export default function ServiceRecordForm() {
         filter_replaced: data.filter_replaced,
         oil_line_checked: data.oil_line_checked,
         fire_valve_checked: data.fire_valve_checked,
-        oil_pressure: data.oil_pump_pressure || data.oil_pressure || undefined,
+        oil_pump_pressure: data.oil_pump_pressure || data.oil_pressure || undefined,
       } : {}),
       ...(isGas ? {
         gas_tightness_pass: data.gas_tightness_pass,

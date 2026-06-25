@@ -264,7 +264,7 @@ export default function CustomerImportDialog({ open, onOpenChange }: { open: boo
                         const disabled = !!usedBy && usedBy !== header;
                         return (
                           <SelectItem key={f.value} value={f.value} disabled={disabled}>
-                            {f.label} {f.required && <span className="text-red-500">*</span>}
+                            {f.label} {("required" in f && f.required) && <span className="text-red-500">*</span>}
                           </SelectItem>
                         );
                       })}

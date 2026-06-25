@@ -283,7 +283,7 @@ function PublicToolRoute({ component: Component }: { component: React.ComponentT
 
 function PublicPage<P extends Record<string, unknown>>({ component: Component, ...props }: { component: React.ComponentType<P> } & P) {  return (
     <Suspense fallback={<PageFallback />}>
-      <Component {...(props as P)} />
+      <Component {...(props as unknown as P)} />
     </Suspense>
   );
 }

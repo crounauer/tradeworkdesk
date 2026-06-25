@@ -238,7 +238,7 @@ export default function PlatformAddons() {
       stripe_price_id: addon.stripe_price_id || "",
       stripe_price_id_annual: addon.stripe_price_id_annual || "",
       is_active: addon.is_active,
-      is_per_seat: !!(addon as Record<string, unknown>).is_per_seat,
+      is_per_seat: !!(addon as unknown as Record<string, unknown>).is_per_seat,
       sort_order: addon.sort_order,
     });
     setEditingId(addon.id);
@@ -539,7 +539,7 @@ export default function PlatformAddons() {
               <div>
                 <span className="text-muted-foreground">Users:</span> <span className="font-medium">{String(plan.max_users)}</span>
               </div>
-              {plan.stripe_price_id && (
+              {Boolean(plan.stripe_price_id) && (
                 <Badge variant="secondary" className="text-xs">Stripe configured</Badge>
               )}
             </div>

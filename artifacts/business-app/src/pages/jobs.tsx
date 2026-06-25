@@ -83,7 +83,7 @@ function JobsContent() {
     limit: 50,
   }, {
     query: { staleTime: 30_000 },  // server cache is 30s; avoid redundant refetches on tab-switch
-  });
+  } as any);
   const onlineJobs = jobsResponse?.jobs;
   const pagination = jobsResponse?.pagination;
 
@@ -185,7 +185,7 @@ function JobsContent() {
     if (selectedExportable.length === exportableJobs.length && exportableJobs.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(exportableJobs.map((j) => j.id)));
+      setSelectedIds(new Set(exportableJobs.map((j) => String(j.id))));
     }
   };
 

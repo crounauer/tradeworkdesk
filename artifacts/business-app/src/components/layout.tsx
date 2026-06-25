@@ -246,7 +246,7 @@ export function Layout({ children }: { children: ReactNode }) {
     );
   };
 
-  const renderSection = (title: string, items: typeof navItems, onClick?: () => void, mobile?: boolean) => (
+  const renderSection = (title: string, items: Array<{ href: string; label: string; icon: React.ElementType }>, onClick?: () => void, mobile?: boolean) => (
     <div className={cn(mobile ? "pt-3 mt-2" : "pt-4 mt-3", "border-t border-border/50")}>
       <p className={cn("text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2", mobile ? "px-4" : "px-3")}>
         {title}

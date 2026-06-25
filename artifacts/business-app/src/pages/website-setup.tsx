@@ -43,6 +43,7 @@ interface Website {
   site_name: string;
   tagline: string | null;
   logo_url: string | null;
+  preview_url: string | null;
   status: "draft" | "published";
   published_at: string | null;
   theme: Record<string, string>;

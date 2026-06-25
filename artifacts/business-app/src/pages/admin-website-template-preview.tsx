@@ -115,7 +115,7 @@ export default function AdminWebsiteTemplatePreviewPage() {
         social_links: null,
         status: "draft",
       },
-      pages: pages as SitePage[],
+      pages: pages as unknown as SitePage[],
       blog_posts: [],
       testimonials: [],
       gallery: [],
@@ -200,7 +200,7 @@ export default function AdminWebsiteTemplatePreviewPage() {
             <CardHeader className="space-y-3">
               <CardTitle className="text-base">Pages</CardTitle>
               {pages.length > 0 && (
-                <Select value={selectedPage?.slug || ""} onValueChange={(value) => updatePage(value)}>
+                <Select value={String(selectedPage?.slug ?? "")} onValueChange={(value) => updatePage(value)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a page" />
                   </SelectTrigger>

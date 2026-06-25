@@ -104,7 +104,7 @@ export default function JobMapView() {
     date_from: dateStr,
     date_to: dateStr,
     limit: 500,
-  } as Record<string, string>);
+  } as any);
 
   const { data: profiles = [] } = useListProfiles();
   const technicians = useMemo(() => profiles.filter(p => p.role === "technician"), [profiles]);
