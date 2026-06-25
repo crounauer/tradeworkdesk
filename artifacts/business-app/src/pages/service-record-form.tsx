@@ -57,6 +57,21 @@ interface ServiceRecordFormData {
   burner_make_model: string;
   fuel_supply_type_details: string;
   burner_oring: string;
+  heat_exchanger_cleaned_tb: boolean;
+  heat_exchanger_turbulators: string;
+  blast_nozzle_size: string;
+  blast_nozzle_replaced: boolean;
+  blast_electrode_settings_checked: boolean;
+  blast_electrode_settings_text: string;
+  blast_oring_replaced: boolean;
+  electronics_controlbox: string;
+  capacitor_reading_text: string;
+  motor_text: string;
+  combustion_chamber_baffles: string;
+  condensate_cleaned_tb: boolean;
+  condensate_condition: string;
+  oil_pump_pressure: string;
+  solenoid_checked: boolean;
   electrodes_condition: string;
   electrode_settings: string;
   air_setting: string;
@@ -150,6 +165,21 @@ export default function ServiceRecordForm() {
   const BURNER_MAKE_MODEL_LABEL = "Burner Make / Model";
   const FUEL_SUPPLY_TYPE_DETAILS_LABEL = "Fuel Supply Type Details";
   const BURNER_ORING_LABEL = "Burner O-Ring";
+  const HEAT_EXCHANGER_CLEANED_LABEL = "Heat Exchanger Cleaned (TB)";
+  const HEAT_EXCHANGER_TURBULATORS_LABEL = "Heat Exchanger Turbulators";
+  const BLAST_NOZZLE_SIZE_LABEL = "Blast Assembly Nozzle Size";
+  const BLAST_NOZZLE_REPLACED_LABEL = "Blast Assembly Nozzle Replaced";
+  const BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL = "Blast Assembly Electrode Settings Checked";
+  const BLAST_ELECTRODE_SETTINGS_TEXT_LABEL = "Blast Assembly Electrode Settings";
+  const BLAST_ORING_REPLACED_LABEL = "Blast Assembly O-Ring Replaced";
+  const ELECTRONICS_CONTROLBOX_LABEL = "Electronics Controlbox";
+  const CAPACITOR_READING_LABEL = "Capacitor Reading";
+  const MOTOR_TEXT_LABEL = "Motor";
+  const COMBUSTION_CHAMBER_BAFFLES_LABEL = "Combustion Chamber Baffles";
+  const CONDENSATE_CLEANED_LABEL = "Condensate Cleaned";
+  const CONDENSATE_CONDITION_LABEL = "Condensate Condition";
+  const OIL_PUMP_PRESSURE_LABEL = "Oil Pump Pressure";
+  const SOLENOID_CHECKED_LABEL = "Solenoid Checked";
   const ELECTRODES_CONDITION_LABEL = "Electrodes Condition";
   const ELECTRODE_SETTINGS_LABEL = "Electrode Settings";
   const AIR_SETTING_LABEL = "Air Setting";
@@ -177,6 +207,21 @@ export default function ServiceRecordForm() {
       BURNER_MAKE_MODEL_LABEL,
       FUEL_SUPPLY_TYPE_DETAILS_LABEL,
       BURNER_ORING_LABEL,
+      HEAT_EXCHANGER_CLEANED_LABEL,
+      HEAT_EXCHANGER_TURBULATORS_LABEL,
+      BLAST_NOZZLE_SIZE_LABEL,
+      BLAST_NOZZLE_REPLACED_LABEL,
+      BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL,
+      BLAST_ELECTRODE_SETTINGS_TEXT_LABEL,
+      BLAST_ORING_REPLACED_LABEL,
+      ELECTRONICS_CONTROLBOX_LABEL,
+      CAPACITOR_READING_LABEL,
+      MOTOR_TEXT_LABEL,
+      COMBUSTION_CHAMBER_BAFFLES_LABEL,
+      CONDENSATE_CLEANED_LABEL,
+      CONDENSATE_CONDITION_LABEL,
+      OIL_PUMP_PRESSURE_LABEL,
+      SOLENOID_CHECKED_LABEL,
       ELECTRODES_CONDITION_LABEL,
       ELECTRODE_SETTINGS_LABEL,
       AIR_SETTING_LABEL,
@@ -248,6 +293,21 @@ export default function ServiceRecordForm() {
         burner_make_model: getTaggedLineValue(existingSafetyNotes, BURNER_MAKE_MODEL_LABEL) || [job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / "),
         fuel_supply_type_details: getTaggedLineValue(existingSafetyNotes, FUEL_SUPPLY_TYPE_DETAILS_LABEL) || [job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / "),
         burner_oring: getTaggedLineValue(existingSafetyNotes, BURNER_ORING_LABEL),
+        heat_exchanger_cleaned_tb: getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_CLEANED_LABEL) === "Yes",
+        heat_exchanger_turbulators: getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_TURBULATORS_LABEL),
+        blast_nozzle_size: getTaggedLineValue(existingSafetyNotes, BLAST_NOZZLE_SIZE_LABEL),
+        blast_nozzle_replaced: getTaggedLineValue(existingSafetyNotes, BLAST_NOZZLE_REPLACED_LABEL) === "Yes",
+        blast_electrode_settings_checked: getTaggedLineValue(existingSafetyNotes, BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL) === "Yes",
+        blast_electrode_settings_text: getTaggedLineValue(existingSafetyNotes, BLAST_ELECTRODE_SETTINGS_TEXT_LABEL),
+        blast_oring_replaced: getTaggedLineValue(existingSafetyNotes, BLAST_ORING_REPLACED_LABEL) === "Yes",
+        electronics_controlbox: getTaggedLineValue(existingSafetyNotes, ELECTRONICS_CONTROLBOX_LABEL),
+        capacitor_reading_text: getTaggedLineValue(existingSafetyNotes, CAPACITOR_READING_LABEL),
+        motor_text: getTaggedLineValue(existingSafetyNotes, MOTOR_TEXT_LABEL),
+        combustion_chamber_baffles: getTaggedLineValue(existingSafetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL),
+        condensate_cleaned_tb: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CLEANED_LABEL) === "Yes",
+        condensate_condition: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CONDITION_LABEL),
+        oil_pump_pressure: getTaggedLineValue(existingSafetyNotes, OIL_PUMP_PRESSURE_LABEL),
+        solenoid_checked: getTaggedLineValue(existingSafetyNotes, SOLENOID_CHECKED_LABEL) === "Yes",
         electrodes_condition: getTaggedLineValue(existingSafetyNotes, ELECTRODES_CONDITION_LABEL),
         electrode_settings: getTaggedLineValue(existingSafetyNotes, ELECTRODE_SETTINGS_LABEL),
         air_setting: getTaggedLineValue(existingSafetyNotes, AIR_SETTING_LABEL),
@@ -309,6 +369,21 @@ export default function ServiceRecordForm() {
     if (data.burner_make_model.trim()) capLines.push(`${BURNER_MAKE_MODEL_LABEL}: ${data.burner_make_model.trim()}`);
     if (data.fuel_supply_type_details.trim()) capLines.push(`${FUEL_SUPPLY_TYPE_DETAILS_LABEL}: ${data.fuel_supply_type_details.trim()}`);
     if (data.burner_oring.trim()) capLines.push(`${BURNER_ORING_LABEL}: ${data.burner_oring.trim()}`);
+    if (data.heat_exchanger_cleaned_tb) capLines.push(`${HEAT_EXCHANGER_CLEANED_LABEL}: Yes`);
+    if (data.heat_exchanger_turbulators.trim()) capLines.push(`${HEAT_EXCHANGER_TURBULATORS_LABEL}: ${data.heat_exchanger_turbulators.trim()}`);
+    if (data.blast_nozzle_size.trim()) capLines.push(`${BLAST_NOZZLE_SIZE_LABEL}: ${data.blast_nozzle_size.trim()}`);
+    if (data.blast_nozzle_replaced) capLines.push(`${BLAST_NOZZLE_REPLACED_LABEL}: Yes`);
+    if (data.blast_electrode_settings_checked) capLines.push(`${BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL}: Yes`);
+    if (data.blast_electrode_settings_text.trim()) capLines.push(`${BLAST_ELECTRODE_SETTINGS_TEXT_LABEL}: ${data.blast_electrode_settings_text.trim()}`);
+    if (data.blast_oring_replaced) capLines.push(`${BLAST_ORING_REPLACED_LABEL}: Yes`);
+    if (data.electronics_controlbox.trim()) capLines.push(`${ELECTRONICS_CONTROLBOX_LABEL}: ${data.electronics_controlbox.trim()}`);
+    if (data.capacitor_reading_text.trim()) capLines.push(`${CAPACITOR_READING_LABEL}: ${data.capacitor_reading_text.trim()}`);
+    if (data.motor_text.trim()) capLines.push(`${MOTOR_TEXT_LABEL}: ${data.motor_text.trim()}`);
+    if (data.combustion_chamber_baffles.trim()) capLines.push(`${COMBUSTION_CHAMBER_BAFFLES_LABEL}: ${data.combustion_chamber_baffles.trim()}`);
+    if (data.condensate_cleaned_tb) capLines.push(`${CONDENSATE_CLEANED_LABEL}: Yes`);
+    if (data.condensate_condition.trim()) capLines.push(`${CONDENSATE_CONDITION_LABEL}: ${data.condensate_condition.trim()}`);
+    if (data.oil_pump_pressure.trim()) capLines.push(`${OIL_PUMP_PRESSURE_LABEL}: ${data.oil_pump_pressure.trim()}`);
+    if (data.solenoid_checked) capLines.push(`${SOLENOID_CHECKED_LABEL}: Yes`);
     if (data.electrodes_condition.trim()) capLines.push(`${ELECTRODES_CONDITION_LABEL}: ${data.electrodes_condition.trim()}`);
     if (data.electrode_settings.trim()) capLines.push(`${ELECTRODE_SETTINGS_LABEL}: ${data.electrode_settings.trim()}`);
     if (data.air_setting.trim()) capLines.push(`${AIR_SETTING_LABEL}: ${data.air_setting.trim()}`);
@@ -363,6 +438,7 @@ export default function ServiceRecordForm() {
         filter_replaced: data.filter_replaced,
         oil_line_checked: data.oil_line_checked,
         fire_valve_checked: data.fire_valve_checked,
+        oil_pressure: data.oil_pump_pressure || data.oil_pressure || undefined,
       } : {}),
       ...(isGas ? {
         gas_tightness_pass: data.gas_tightness_pass,
@@ -735,6 +811,67 @@ export default function ServiceRecordForm() {
               <div className="space-y-2">
                 <Label>Oil Pressure (bar)</Label>
                 <Input {...register("oil_pressure")} placeholder="e.g. 7.0" />
+              </div>
+            )}
+            {isOil && (
+              <div className="md:col-span-2 grid md:grid-cols-2 gap-4 p-3 border rounded-xl bg-slate-50/60">
+                <div className="space-y-2">
+                  <Label className="font-semibold">Heat Exchanger</Label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" {...register("heat_exchanger_cleaned_tb")} className="w-4 h-4 accent-primary rounded" />
+                    <span>Cleaned (TB)</span>
+                  </label>
+                  <Input {...register("heat_exchanger_turbulators")} placeholder="Turbulators" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">Blast Assembly</Label>
+                  <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" {...register("blast_nozzle_replaced")} className="w-4 h-4 accent-primary rounded" />
+                    <span>Nozzle replaced</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" {...register("blast_electrode_settings_checked")} className="w-4 h-4 accent-primary rounded" />
+                    <span>Electrode settings checked (TB)</span>
+                  </label>
+                  <Input {...register("blast_electrode_settings_text")} placeholder="Electrode settings" />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" {...register("blast_oring_replaced")} className="w-4 h-4 accent-primary rounded" />
+                    <span>O-ring replaced</span>
+                  </label>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">Electronics</Label>
+                  <Input {...register("electronics_controlbox")} placeholder="Controlbox" />
+                  <Input {...register("capacitor_reading_text")} placeholder="Capacitor reading" />
+                  <Input {...register("motor_text")} placeholder="Motor" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">Combustion Chamber</Label>
+                  <Input {...register("combustion_chamber_baffles")} placeholder="Baffles" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">Condensate</Label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" {...register("condensate_cleaned_tb")} className="w-4 h-4 accent-primary rounded" />
+                    <span>Cleaned (TB)</span>
+                  </label>
+                  <Input {...register("condensate_condition")} placeholder="Condition" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">Oil Pump / Solenoid / Air</Label>
+                  <Input {...register("oil_pump_pressure")} placeholder="Oil pump pressure" />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" {...register("solenoid_checked")} className="w-4 h-4 accent-primary rounded" />
+                    <span>Solenoid checked</span>
+                  </label>
+                  <Input {...register("air_setting")} placeholder="Air setting" />
+                </div>
               </div>
             )}
             {isOil && (
