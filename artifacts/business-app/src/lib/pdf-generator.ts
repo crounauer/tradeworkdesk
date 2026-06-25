@@ -265,6 +265,23 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
   const doc = new jsPDF();
   const { pageWidth, pageHeight, margin, checkPageBreak, addSection, bool } = createPdfHelpers(doc);
 
+  const getTaggedLineValue = (text: string, label: string): string => {
+    const rx = new RegExp(`^${label}:\\s*(.*)$`, "mi");
+    const m = text.match(rx);
+    return m?.[1]?.trim() || "";
+  };
+
+  const stripTaggedLines = (text: string, labels: string[]): string => {
+    return text
+      .split("\n")
+      .filter((line) => {
+        const t = line.trimStart();
+        return !labels.some((label) => t.startsWith(`${label}:`));
+      })
+      .join("\n")
+      .trim();
+  };
+
   let y = renderPdfHeader(doc, company, "Oil Service Record");
 
   doc.setFontSize(9);
@@ -279,6 +296,27 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
 
   y += 8;
   const sr = data.serviceRecord;
+  const safetyNotes = sr.safety_devices_notes || "";
+  const CAP_TYPE_LABEL = "Capacitor Type";
+  const CAP_VALUE_LABEL = "Capacitor Value";
+  const CAP_READING_LABEL = "Capacitor Actual Reading";
+  const BURNER_ORING_LABEL = "Burner O-Ring";
+  const ELECTRODES_CONDITION_LABEL = "Electrodes Condition";
+  const ELECTRODE_SETTINGS_LABEL = "Electrode Settings";
+  const AIR_SETTING_LABEL = "Air Setting";
+  const BLAST_TUBE_CONDITION_LABEL = "Blast Tube Condition";
+  const OVERALL_CONDITION_REMARKS_LABEL = "Overall Condition Remarks";
+  const taggedSafetyLabels = [
+    CAP_TYPE_LABEL,
+    CAP_VALUE_LABEL,
+    CAP_READING_LABEL,
+    BURNER_ORING_LABEL,
+    ELECTRODES_CONDITION_LABEL,
+    ELECTRODE_SETTINGS_LABEL,
+    AIR_SETTING_LABEL,
+    BLAST_TUBE_CONDITION_LABEL,
+    OVERALL_CONDITION_REMARKS_LABEL,
+  ];
 
   y = addSection(y, "Job Details", [
     ["Customer", data.customerName],
@@ -316,6 +354,15 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
     ["Nozzle Replaced", bool(sr.nozzle_replaced)],
     ["Nozzle Size Fitted", sr.nozzle_size_fitted || ""],
     ["Oil Pressure (bar)", sr.oil_pressure || ""],
+    ["Capacitor Type", getTaggedLineValue(safetyNotes, CAP_TYPE_LABEL)],
+    ["Capacitor Value", getTaggedLineValue(safetyNotes, CAP_VALUE_LABEL)],
+    ["Capacitor Actual Reading", getTaggedLineValue(safetyNotes, CAP_READING_LABEL)],
+    ["Burner O-Ring", getTaggedLineValue(safetyNotes, BURNER_ORING_LABEL)],
+    ["Electrodes Condition", getTaggedLineValue(safetyNotes, ELECTRODES_CONDITION_LABEL)],
+    ["Electrode Settings", getTaggedLineValue(safetyNotes, ELECTRODE_SETTINGS_LABEL)],
+    ["Air Setting", getTaggedLineValue(safetyNotes, AIR_SETTING_LABEL)],
+    ["Blast Tube Condition", getTaggedLineValue(safetyNotes, BLAST_TUBE_CONDITION_LABEL)],
+    ["Overall Condition Remarks", getTaggedLineValue(safetyNotes, OVERALL_CONDITION_REMARKS_LABEL)],
     ["Electrodes Checked", bool(sr.electrodes_checked)],
     ["Electrodes Replaced", bool(sr.electrodes_replaced)],
     ["Filter Checked", bool(sr.filter_checked)],
@@ -328,7 +375,7 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
     ["Controls Checked", bool(sr.controls_checked)],
     ["Thermostat Checked", bool(sr.thermostat_checked)],
     ["Safety Devices Checked", bool(sr.safety_devices_checked)],
-    ["Safety Devices Notes", sr.safety_devices_notes || ""],
+    ["Safety Devices Notes", stripTaggedLines(safetyNotes, taggedSafetyLabels)],
   ]);
 
   y = addSection(y, "Safety & Defects", [
