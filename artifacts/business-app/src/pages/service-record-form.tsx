@@ -626,6 +626,23 @@ export default function ServiceRecordForm() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label>Capacitor</Label>
+                <Input {...register("capacitor_value")} placeholder="Value (e.g. 4 uF)" />
+              </div>
+              <div className="space-y-2">
+                <Label>Nozzle</Label>
+                <Input {...register("nozzle_size_fitted")} placeholder="Size (e.g. 0.50 USG 60S)" />
+              </div>
+              <div className="space-y-2">
+                <Label>Oil Pressure</Label>
+                <Input {...register("oil_pressure")} placeholder="Setting (e.g. 7.0 bar)" />
+              </div>
+              <div className="space-y-2">
+                <Label>Blast Tube</Label>
+                <Input {...register("blast_tube_condition")} placeholder="Setting / condition" />
+              </div>
+
               <div className="space-y-2 md:col-span-2">
                 <Label>Appliance Location Within Property</Label>
                 <Input
@@ -802,18 +819,6 @@ export default function ServiceRecordForm() {
           </div>
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             {isOil && (
-              <div className="space-y-2">
-                <Label>Nozzle Size Fitted</Label>
-                <Input {...register("nozzle_size_fitted")} placeholder="e.g. 0.50 USG 60S" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Oil Pressure (bar)</Label>
-                <Input {...register("oil_pressure")} placeholder="e.g. 7.0" />
-              </div>
-            )}
-            {isOil && (
               <div className="md:col-span-2 grid md:grid-cols-2 gap-4 p-3 border rounded-xl bg-slate-50/60">
                 <div className="space-y-2">
                   <Label className="font-semibold">Heat Exchanger</Label>
@@ -882,12 +887,6 @@ export default function ServiceRecordForm() {
             )}
             {isOil && (
               <div className="space-y-2">
-                <Label>Capacitor Value</Label>
-                <Input {...register("capacitor_value")} placeholder="e.g. 4 uF" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
                 <Label>Capacitor Actual Reading</Label>
                 <Input {...register("capacitor_actual_reading")} placeholder="e.g. 3.8 uF" />
               </div>
@@ -908,18 +907,6 @@ export default function ServiceRecordForm() {
               <div className="space-y-2">
                 <Label>Electrode Settings</Label>
                 <Input {...register("electrode_settings")} placeholder="e.g. 3.5 mm gap" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Air Setting</Label>
-                <Input {...register("air_setting")} placeholder="e.g. 2.5" />
-              </div>
-            )}
-            {isOil && (
-              <div className="space-y-2">
-                <Label>Blast Tube Condition</Label>
-                <Input {...register("blast_tube_condition")} placeholder="e.g. Clean / Light soot" />
               </div>
             )}
             {isOil && (
