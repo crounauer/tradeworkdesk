@@ -35,7 +35,9 @@ type TemplateSummary = {
   id: string;
   name: string;
   slug: string;
-  status: TemplateStatus;
+  status?: TemplateStatus | string | null;
+  is_active?: boolean | null;
+  published_at?: string | null;
   page_count: number;
   block_count: number;
   uploaded_at?: string | null;
@@ -90,6 +92,15 @@ function formatDate(value?: string | null) {
 
 function statusLabel(status: TemplateStatus) {
   return status.replace(/_/g, " ");
+}
+
+function normalizeTemplateStatus(template: Pick<TemplateSummary, "status" | "is_active" | "published_at">): TemplateStatus {
+  if (template.status === "published" || template.is_active) return "published";
+  if (template.status === "validated" || template.published_at) return "validated";
+  if (template.status === "uploaded" || template.status === "draft" || template.status === "archived" || template.status === "failed") {
+    return template.status;
+  }
+  return "draft";
 }
 
 function statusVariant(status: TemplateStatus): "default" | "secondary" | "outline" | "destructive" {
@@ -277,7 +288,7 @@ function TemplateDetailsDialog({
                         <CardContent className="space-y-2 text-sm">
                           <div><span className="text-muted-foreground">Name:</span> {data.template.name || "—"}</div>
                           <div><span className="text-muted-foreground">Slug:</span> {data.template.slug || "—"}</div>
-                          <div><span className="text-muted-foreground">Status:</span> {data.template.status || "draft"}</div>
+                          <div><span className="text-muted-foreground">Status:</span> {normalizeTemplateStatus(data.template as Pick<TemplateSummary, "status" | "is_active" | "published_at">)}</div>
                         </CardContent>
                       </Card>
 
@@ -415,13 +426,13 @@ function TemplateDetailsDialog({
                 </Tabs>
 
                 <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
-                  {data.template.status !== "published" && (
+                  {normalizeTemplateStatus(data.template as Pick<TemplateSummary, "status" | "is_active" | "published_at">) !== "published" && (
                     <Button onClick={() => publishMutation.mutate()} disabled={publishMutation.isPending}>
                       {publishMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-2 h-4 w-4" />}
                       Publish
                     </Button>
                   )}
-                  {data.template.status === "published" && (
+                  {normalizeTemplateStatus(data.template as Pick<TemplateSummary, "status" | "is_active" | "published_at">) === "published" && (
                     <Button variant="outline" onClick={() => archiveMutation.mutate()} disabled={archiveMutation.isPending}>
                       {archiveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
                       Archive
@@ -675,7 +686,7 @@ export default function AdminWebsiteTemplatesPage() {
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-semibold">{template.name}</h3>
-                        <Badge variant={statusVariant(template.status)}>{statusLabel(template.status)}</Badge>
+                        <Badge variant={statusVariant(normalizeTemplateStatus(template))}>{statusLabel(normalizeTemplateStatus(template))}</Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">{template.slug}</div>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -695,13 +706,16 @@ export default function AdminWebsiteTemplatesPage() {
                           <ExternalLink className="mr-2 h-4 w-4" /> Preview
                         </Link>
                       </Button>
-                      {(template.status === "validated" || template.status === "draft") && (
+                      {(() => {
+                        const templateStatus = normalizeTemplateStatus(template);
+                        return (templateStatus === "validated" || templateStatus === "draft") && (
                         <Button onClick={() => publishMutation.mutate(template.id)} disabled={publishMutation.isPending}>
                           {publishMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-2 h-4 w-4" />}
                           Publish
                         </Button>
-                      )}
-                      {template.status === "published" && (
+                        );
+                      })()}
+                      {normalizeTemplateStatus(template) === "published" && (
                         <Button variant="outline" onClick={() => archiveMutation.mutate(template.id)} disabled={archiveMutation.isPending}>
                           {archiveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
                           Archive
@@ -732,7 +746,7 @@ export default function AdminWebsiteTemplatesPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Status</div>
-                    <div className="mt-1 font-medium capitalize">{selectedTemplate.status.replace(/_/g, " ")}</div>
+                    <div className="mt-1 font-medium capitalize">{normalizeTemplateStatus(selectedTemplate).replace(/_/g, " ")}</div>
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Pages</div>

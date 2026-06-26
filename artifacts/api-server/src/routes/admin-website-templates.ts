@@ -54,6 +54,24 @@ type ImportedTemplateContent = {
   cmsMappingJson: Record<string, unknown>;
 };
 
+type TemplateRow = {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  source_upload_id?: string | null;
+  is_active?: boolean | null;
+  status?: string | null;
+  published_at?: string | null;
+};
+
+function normalizeTemplateStatus(template: TemplateRow): string {
+  if (typeof template.status === "string" && template.status.length > 0) return template.status;
+  if (template.is_active) return "published";
+  return template.published_at ? "validated" : "draft";
+}
+
 class TemplateImportError extends Error {
   readonly status: number;
   readonly code: string;
@@ -701,7 +719,7 @@ router.post(
 router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_req: Request, res: Response): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("website_templates")
-    .select("id, name, slug, status, created_at, updated_at, source_upload_id")
+    .select("id, name, slug, is_active, created_at, updated_at, source_upload_id, published_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -718,6 +736,7 @@ router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_r
 
     return {
       ...template,
+      status: normalizeTemplateStatus(template as TemplateRow),
       page_count: pagesCount || 0,
       block_count: blocksCount || 0,
       uploaded_at: uploadRow?.created_at || template.created_at,
@@ -741,6 +760,11 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     return;
   }
 
+  const normalizedTemplate = {
+    ...template,
+    status: normalizeTemplateStatus(template as TemplateRow),
+  };
+
   const [pagesResult, blocksResult, uploadResult, versionsResult] = await Promise.all([
     supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
     supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
@@ -749,7 +773,7 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
   ]);
 
   res.json({
-    template,
+    template: normalizedTemplate,
     pages: pagesResult.data || [],
     blocks: blocksResult.data || [],
     upload: uploadResult.data || null,
@@ -772,6 +796,11 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
     return;
   }
 
+  const normalizedTemplate = {
+    ...template,
+    status: normalizeTemplateStatus(template as TemplateRow),
+  };
+
   const [pagesResult, blocksResult, uploadResult] = await Promise.all([
     supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
     supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
@@ -781,7 +810,7 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
   const validation = (uploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null;
 
   res.json({
-    template,
+    template: normalizedTemplate,
     theme: (template as Record<string, unknown>).theme_json || (template as Record<string, unknown>).default_theme || {},
     pages: pagesResult.data || [],
     blocks: blocksResult.data || [],
@@ -795,7 +824,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
   const authReq = req as AuthenticatedRequest;
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
-    .select("id, status, source_upload_id")
+    .select("id, is_active, published_at, source_upload_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -817,7 +846,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
 
   const { error: updateError } = await supabaseAdmin
     .from("website_templates")
-    .update({ status: "published", is_active: true, published_at: new Date().toISOString() })
+    .update({ is_active: true, published_at: new Date().toISOString() })
     .eq("id", id);
 
   if (updateError) {
@@ -841,7 +870,7 @@ router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdm
   const authReq = req as AuthenticatedRequest;
   const { error } = await supabaseAdmin
     .from("website_templates")
-    .update({ status: "archived", is_active: false })
+    .update({ is_active: false })
     .eq("id", id);
 
   if (error) {
@@ -864,7 +893,7 @@ router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, as
   const authReq = req as AuthenticatedRequest;
   const { error } = await supabaseAdmin
     .from("website_templates")
-    .update({ status: "archived", is_active: false })
+    .update({ is_active: false })
     .eq("id", id);
 
   if (error) {
