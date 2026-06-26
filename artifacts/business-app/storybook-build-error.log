@@ -1,0 +1,214 @@
+
+> @workspace/business-app@0.0.0 build-storybook /home/simon/projects/tradeworkdesk/artifacts/business-app
+> storybook build
+
+
+┌  Building storybook v10.4.6
+│
+◇  Cleaning outputDir: storybook-static
+│
+◇  Loading presets
+│
+◇  Building manager..
+│
+▲  unable to find package.json for react-leaflet
+│
+●  Building preview..
+│  Vite vite v7.3.1 building client environment for production...
+│  Vite transforming...
+│  Vite ✓ 237 modules transformed.
+│  Vite rendering chunks...
+│  Vite computing gzip size...
+│  Vite storybook-static/registerSW.js
+│  0.14 kB
+│  Vite storybook-static/manifest.webmanifest
+│  0.47 kB
+│  Vite storybook-static/assets/context-C0qIqeS4.png
+│  6.12 kB
+│  Vite storybook-static/assets/styling-Bk6zjRzU.png
+│  7.24 kB
+│  Vite storybook-static/iframe.html
+│  19.08 kB │ gzip:   5.32 kB
+│  Vite storybook-static/assets/docs---vsFbMi.png
+│  27.88 kB
+│  Vite storybook-static/assets/share-DGA-UcQf.png
+│  40.77 kB
+│  Vite storybook-static/assets/accessibility-W_h2acOZ.png
+│  42.34 kB
+│  Vite storybook-static/assets/figma-plugin-CH2hELiO.png
+│  44.25 kB
+│  Vite storybook-static/assets/theming-D6WJLNoW.png
+│  44.37 kB
+│  Vite storybook-static/assets/testing-cbzR9l9r.png
+│  49.31 kB
+│  Vite storybook-static/assets/addon-library-BWUCAmyN.png
+│  467.37 kB
+│  Vite storybook-static/assets/Header-Ck-SSN7O.css
+│  0.51 kB │ gzip:   0.30 kB
+│  Vite storybook-static/assets/Button-B2efaGtC.css
+│  0.52 kB │ gzip:   0.29 kB
+│  Vite storybook-static/assets/Page-CeeQJVdd.css
+│  0.91 kB │ gzip:   0.39 kB
+│  Vite storybook-static/assets/iframe-nKrqLz6b.css
+│  152.15 kB │ gzip:  23.36 kB
+│  Vite storybook-static/assets/formatter-L2YTDE3Q-tfkwSKJ8.js
+│  0.27 kB │ gzip:   0.22 kB
+│  Vite storybook-static/assets/jsx-runtime-u17CrQMm.js
+│  0.48 kB │ gzip:   0.31 kB
+│  Vite storybook-static/assets/NotFoundBlock.stories-CXdE2CtN.js
+│  0.68 kB │ gzip:   0.39 kB
+│  Vite storybook-static/assets/Header.stories-BQ9e8c_S.js
+│  0.73 kB │ gzip:   0.41 kB
+│  Vite storybook-static/assets/CtaBannerBlock.stories-DajDgpP6.js
+│  0.85 kB │ gzip:   0.45 kB
+│  Vite storybook-static/assets/TrustBadgesBlock-B8VyGIXD.js
+│  0.87 kB │ gzip:   0.48 kB
+│  Vite storybook-static/assets/ContactBlock.stories-XpnHm0Wp.js
+│  0.96 kB │ gzip:   0.50 kB
+│  Vite storybook-static/assets/NotFoundBlock-ByBhxsoM.js
+│  1.00 kB │ gzip:   0.49 kB
+│  Vite storybook-static/assets/TrustBadgesBlock.stories-y8NSBKSv.js
+│  1.05 kB │ gzip:   0.50 kB
+│  Vite storybook-static/assets/GalleryBlock.stories-CCT_hzCz.js
+│  1.06 kB │ gzip:   0.46 kB
+│  Vite storybook-static/assets/SiteHeaderBlock.stories-h88VAnoK.js
+│  1.09 kB │ gzip:   0.51 kB
+│  Vite storybook-static/assets/AboutIntroBlock.stories-CoH5LS9u.js
+│  1.14 kB │ gzip:   0.53 kB
+│  Vite storybook-static/assets/HeroBlock.stories-DSzYK0Gn.js
+│  1.17 kB │ gzip:   0.54 kB
+│  Vite storybook-static/assets/LegalContentBlock--7sC9AQj.js
+│  1.17 kB │ gzip:   0.56 kB
+│  Vite storybook-static/assets/ProcessStepsBlock.stories-Dijfm1jy.js
+│  1.19 kB │ gzip:   0.54 kB
+│  Vite storybook-static/assets/CtaBannerBlock-DrwVxB27.js
+│  1.22 kB │ gzip:   0.54 kB
+│  Vite storybook-static/assets/Button.stories-DICCZnhb.js
+│  1.22 kB │ gzip:   0.49 kB
+│  Vite storybook-static/assets/Button-jgPm6gUn.js
+│  1.23 kB │ gzip:   0.60 kB
+│  Vite storybook-static/assets/preload-helper-PPVm8Dsz.js
+│  1.23 kB │ gzip:   0.71 kB
+│  Vite storybook-static/assets/AboutIntroBlock-CpG-_Nzj.js
+│  1.24 kB │ gzip:   0.60 kB
+│  Vite storybook-static/assets/DocsRenderer-JROSPFPF-CYTqIC5F.js
+│  1.26 kB │ gzip:   0.70 kB
+│  Vite storybook-static/assets/FaqBlock-B8yMN6tC.js
+│  1.31 kB │ gzip:   0.64 kB
+│  Vite storybook-static/assets/LegalContentBlock.stories-CLKteg48.js
+│  1.35 kB │ gzip:   0.56 kB
+│  Vite storybook-static/assets/ReviewsBlock.stories-Cl07EjC4.js
+│  1.38 kB │ gzip:   0.58 kB
+│  Vite storybook-static/assets/FaqBlock.stories-CxxXzWOG.js
+│  1.41 kB │ gzip:   0.58 kB
+│  Vite storybook-static/assets/GalleryBlock-DAS5bdrl.js
+│  1.41 kB │ gzip:   0.69 kB
+│  Vite storybook-static/assets/ProcessStepsBlock-OFQYuY1w.js
+│  1.45 kB │ gzip:   0.69 kB
+│  Vite storybook-static/assets/FeatureListBlock-Dpczumat.js
+│  1.49 kB │ gzip:   0.67 kB
+│  Vite storybook-static/assets/AreasCoveredBlock-DIoJJUOB.js
+│  1.50 kB │ gzip:   0.70 kB
+│  Vite storybook-static/assets/SiteFooterBlock.stories-DOKiQ_Up.js
+│  1.51 kB │ gzip:   0.63 kB
+│  Vite storybook-static/assets/AreasCoveredBlock.stories-BTrAT_cl.js
+│  1.57 kB │ gzip:   0.59 kB
+│  Vite storybook-static/assets/BlogIndexBlock-B1Zxi-xY.js
+│  1.63 kB │ gzip:   0.71 kB
+│  Vite storybook-static/assets/ServicesGridBlock.stories-v5oxUAjQ.js
+│  1.67 kB │ gzip:   0.63 kB
+│  Vite storybook-static/assets/ReviewsBlock-hT-z83It.js
+│  1.68 kB │ gzip:   0.75 kB
+│  Vite storybook-static/assets/BlogIndexBlock.stories-CI9vB_nq.js
+│  1.71 kB │ gzip:   0.68 kB
+│  Vite storybook-static/assets/ServicesGridBlock-DfG6BZi0.js
+│  1.72 kB │ gzip:   0.74 kB
+│  Vite storybook-static/assets/FeatureListBlock.stories-B7b-qxzq.js
+│  1.78 kB │ gzip:   0.70 kB
+│  Vite storybook-static/assets/SiteHeaderBlock-nh5ZUJQW.js
+│  1.79 kB │ gzip:   0.75 kB
+│  Vite storybook-static/assets/Header-NSEOOhCQ.js
+│  1.79 kB │ gzip:   0.78 kB
+│  Vite storybook-static/assets/SiteFooterBlock-CESyPjfU.js
+│  1.98 kB │ gzip:   0.67 kB
+│  Vite storybook-static/assets/HeroBlock-C9WRL4V4.js
+│  2.02 kB │ gzip:   0.78 kB
+│  Vite storybook-static/assets/ContactBlock-CI0pGG9O.js
+│  2.10 kB │ gzip:   0.74 kB
+│  Vite storybook-static/assets/Page.stories-B_1Lum1N.js
+│  3.50 kB │ gzip:   1.54 kB
+│  Vite storybook-static/assets/index-XVtfxTS0.js
+│  3.66 kB │ gzip:   1.38 kB
+│  Vite storybook-static/assets/ModernTradeHomePage.stories-CIOyO_Du.js
+│  6.87 kB │ gzip:   2.56 kB
+│  Vite storybook-static/assets/Configure-KpE6tAZ3.js
+│  26.17 kB │ gzip:  11.05 kB
+│  Vite storybook-static/vite-inject-mocker-entry.js
+│  28.11 kB │ gzip:   9.82 kB
+│  Vite storybook-static/assets/matchers-JIUQ3HVY-HJu_DfWo.js
+│  29.23 kB │ gzip:  10.06 kB
+│  Vite storybook-static/assets/Color-KMSTOMOX-HCICFIFR.js
+│  30.11 kB │ gzip:  11.43 kB
+│  Vite storybook-static/assets/WithTooltip-7X4HQR7L-BewB4mJB.js
+│  33.09 kB │ gzip:  11.65 kB
+│  Vite storybook-static/assets/syntaxhighlighter-RTCFPKCB-DkrVPK97.js
+│  78.55 kB │ gzip:  27.52 kB
+│  Vite storybook-static/assets/react-18-DvYuB3ds.js
+│  173.95 kB │ gzip:  55.10 kB
+│  Vite storybook-static/assets/axe-BWKlgPgU.js
+│  592.15 kB │ gzip: 163.49 kB
+│  Vite storybook-static/assets/blocks-cp9cUK_H.js
+│  823.36 kB │ gzip: 263.70 kB
+│  Vite storybook-static/assets/iframe-xLkrJy_z.js
+│  1,100.85 kB │ gzip: 313.77 kB
+│
+▲  Vite
+│  (!) Some chunks are larger than 500 kB after minification. Consider:
+│  - Using dynamic import() to code-split the application
+│  - Use build.rollupOptions.output.manualChunks to improve chunking:
+│  ]8;;https://rollupjs.org/configuration-options/#output-manualchunkshttps://rollupjs.org/configuration-options/#output-manualchunks]8;;
+│  - Adjust chunk size limit for this warning via
+│  build.chunkSizeWarningLimit.
+│  Vite ✓ built in 7.47s
+│
+■  Failed to build the preview
+│
+■  [38;2;241;97;97mError:
+│  Configure "workbox.maximumFileSizeToCacheInBytes" to change the limit:
+│  the default value is 2 MiB.
+│  Check ]8;;https://vite-pwa-org.netlify.app/guide/faq.html#missing-assets-from-sw-precache-manifesthttps://vite-pwa-org.netlify.app/guide/faq.html#missing-ass...]8;;
+│  for more information.
+│  Assets exceeding the limit:
+│  - sb-manager/globals-runtime.js is 3.2 MB, and won't be precached.
+│  [39m
+│  at logWorkboxResult
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/vite-plugin-pwa@1.2.0_@types+babel__core@7.20.5_vite@7.3.1_@types+node@25.3.5_jiti@2.6._56e9348653ce437f7c4e3ff6d322e998/node_modules/vite-plugin-pwa/dist/chunk-G4TAN34B.js:44:13)
+│  at generateServiceWorker
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/vite-plugin-pwa@1.2.0_@types+babel__core@7.20.5_vite@7.3.1_@types+node@25.3.5_jiti@2.6._56e9348653ce437f7c4e3ff6d322e998/node_modules/vite-plugin-pwa/dist/index.js:209:3)
+│  at async _generateSW
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/vite-plugin-pwa@1.2.0_@types+babel__core@7.20.5_vite@7.3.1_@types+node@25.3.5_jiti@2.6._56e9348653ce437f7c4e3ff6d322e998/node_modules/vite-plugin-pwa/dist/index.js:234:5)
+│  at async Object.handler
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/vite-plugin-pwa@1.2.0_@types+babel__core@7.20.5_vite@7.3.1_@types+node@25.3.5_jiti@2.6._56e9348653ce437f7c4e3ff6d322e998/node_modules/vite-plugin-pwa/dist/index.js:427:13)
+│  at async PluginDriver.hookParallel
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/es/shared/node-entry.js:22475:17)
+│  at async Object.close
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/rollup@4.59.0/node_modules/rollup/dist/es/shared/node-entry.js:23494:13)
+│  at async buildEnvironment
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:33555:15)
+│  at async Object.build
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_terser@5.46.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:33900:19)
+│  at async build
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/@storybook+builder-vite@10.4.6_esbuild@0.27.3_rollup@4.59.0_storybook@10.4.6_@types+rea_128e9bf86aff42e7228f839b4ffa4676/node_modules/@storybook/builder-vite/dist/index.js:1516:290)
+│  at async Promise.all (index 0)
+│  at async buildStaticStandalone
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/storybook@10.4.6_@types+react@19.2.14_prettier@3.8.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/storybook/dist/core-server/index.js:9630:7)
+│  at async withTelemetry
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/storybook@10.4.6_@types+react@19.2.14_prettier@3.8.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/storybook/dist/_node-chunks/chunk-G7NXW2C2.js:650:12)
+│  at async build
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/storybook@10.4.6_@types+react@19.2.14_prettier@3.8.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/storybook/dist/bin/core.js:2679:3)
+│  at async _Command.<anonymous>
+│  (file:///home/simon/projects/tradeworkdesk/node_modules/.pnpm/storybook@10.4.6_@types+react@19.2.14_prettier@3.8.1_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/storybook/dist/bin/core.js:2823:7)
+│
+└  Storybook exited with an error
+
+ ELIFECYCLE  Command failed with exit code 1.
