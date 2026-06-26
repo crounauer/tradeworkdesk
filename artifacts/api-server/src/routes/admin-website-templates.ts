@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { validateTemplateZip } from "../lib/template-zip-validator";
+import { findUnsupportedBlockTypes } from "../lib/template-import-safeguards";
 
 const router = Router();
 
@@ -53,6 +54,17 @@ type ImportedTemplateContent = {
   cmsMappingJson: Record<string, unknown>;
 };
 
+class TemplateImportError extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(message: string, opts: { status: number; code: string }) {
+    super(message);
+    this.status = opts.status;
+    this.code = opts.code;
+  }
+}
+
 function normalizeJson<T>(value: unknown, fallback: T): T {
   return value && typeof value === "object" ? (value as T) : fallback;
 }
@@ -86,6 +98,23 @@ async function readZipJson<T>(zip: JSZip, path: string): Promise<T | null> {
   return JSON.parse(text) as T;
 }
 
+async function insertTemplateAuditLog(opts: {
+  actorId?: string;
+  actorEmail?: string;
+  eventType: string;
+  entityId?: string | null;
+  detail?: Record<string, unknown>;
+}) {
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: opts.actorId || null,
+    actor_email: opts.actorEmail || null,
+    event_type: opts.eventType,
+    entity_type: "website_template",
+    entity_id: opts.entityId || null,
+    detail: opts.detail || {},
+  });
+}
+
 function resolvePageFileCandidates(pageSlug: string): string[] {
   const base = pageSlug.replace(/\.json$/i, "");
   const aliases: Record<string, string> = {
@@ -109,7 +138,12 @@ function resolvePageFileCandidates(pageSlug: string): string[] {
 }
 
 async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: string): Promise<ImportedTemplateContent> {
-  const zip = await JSZip.loadAsync(zipBuffer);
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(zipBuffer);
+  } catch {
+    throw new TemplateImportError("Unable to read ZIP archive", { status: 400, code: "INVALID_ZIP" });
+  }
   const templateFolder = `templates/${manifestSlug}`;
 
   const manifest = (await readZipJson<TemplateManifest>(zip, `${templateFolder}/template.json`)) || {
@@ -126,6 +160,17 @@ async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: str
     : Array.isArray(rawPages?.pages)
       ? rawPages.pages
       : [];
+
+  let supportedBlockTypes = new Set<string>();
+  const registry = await readZipJson<{ blocks?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(zip, "registry/block-registry.json");
+  if (registry) {
+    const entries = Array.isArray(registry) ? registry : Array.isArray(registry.blocks) ? registry.blocks : [];
+    supportedBlockTypes = new Set(
+      entries
+        .map((entry) => String(entry.type || entry.key || entry.name || "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+  }
 
   const pages: TemplatePageManifest[] = [];
   for (let index = 0; index < pageEntries.length; index += 1) {
@@ -166,6 +211,15 @@ async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: str
         };
       }),
     });
+  }
+
+  const unsupportedBlockTypes = findUnsupportedBlockTypes(pages, supportedBlockTypes);
+
+  if (unsupportedBlockTypes.length > 0) {
+    throw new TemplateImportError(
+      `Unsupported block type(s): ${unsupportedBlockTypes.join(", ")}`,
+      { status: 400, code: "UNSUPPORTED_BLOCK_TYPE" },
+    );
   }
 
   const themeJson = (await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/styles/theme.json`)) || {};
@@ -408,7 +462,32 @@ router.post(
   }),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      ensureZipFile(req.file);
+      try {
+        ensureZipFile(req.file);
+      } catch (error) {
+        await insertTemplateAuditLog({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          eventType: "website_template_upload_rejected",
+          detail: { reason: error instanceof Error ? error.message : "Invalid upload" },
+        });
+        res.status(400).json({
+          error: error instanceof Error ? error.message : "Invalid upload",
+          code: "INVALID_ZIP",
+        });
+        return;
+      }
+
+      await insertTemplateAuditLog({
+        actorId: req.userId,
+        actorEmail: req.userEmail,
+        eventType: "website_template_upload_started",
+        detail: {
+          file_name: req.file.originalname,
+          mime_type: req.file.mimetype || "application/zip",
+          file_size_bytes: req.file.size,
+        },
+      });
 
       const uploadId = uuidv4();
       const storagePath = `template-packages/${uploadId}/original.zip`;
@@ -422,15 +501,51 @@ router.post(
         });
 
       if (storageError) {
-        res.status(500).json({ error: `Failed to store uploaded ZIP: ${storageError.message}` });
+        await insertTemplateAuditLog({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          eventType: "website_template_upload_failed",
+          detail: {
+            file_name: req.file.originalname,
+            code: "STORAGE_UPLOAD_FAILED",
+            storage_error: storageError.message,
+          },
+        });
+        res.status(500).json({ error: `Failed to store uploaded ZIP: ${storageError.message}`, code: "STORAGE_UPLOAD_FAILED" });
         return;
       }
 
       const validation = buildValidationEnvelope(await validateTemplateZip(req.file.buffer));
       const manifestSlug = validation.templateSlug || slugify(req.file.originalname.replace(/\.zip$/i, "")) || "template";
-      const importedContent = validation.valid
-        ? await parseImportedTemplateContent(req.file.buffer, manifestSlug)
-        : {
+      let importedContent: ImportedTemplateContent = {
+        manifest: {
+          slug: manifestSlug,
+          name: validation.templateName || req.file.originalname.replace(/\.zip$/i, "") || manifestSlug,
+          description: typeof req.body?.description === "string" ? req.body.description : null,
+          category: typeof req.body?.category === "string" ? req.body.category : null,
+          version: 1,
+        },
+        pages: [] as TemplatePageManifest[],
+        themeJson: {},
+        cmsMappingJson: {},
+      };
+      if (validation.valid) {
+        try {
+          importedContent = await parseImportedTemplateContent(req.file.buffer, manifestSlug);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Invalid template JSON";
+          const code = error instanceof TemplateImportError ? error.code : "INVALID_TEMPLATE_JSON";
+          await insertTemplateAuditLog({
+            actorId: req.userId,
+            actorEmail: req.userEmail,
+            eventType: "website_template_validation_failed",
+            detail: { file_name: req.file.originalname, code, message },
+          });
+          res.status(error instanceof TemplateImportError ? error.status : 400).json({ error: message, code });
+          return;
+        }
+      } else {
+        importedContent = {
             manifest: {
               slug: manifestSlug,
               name: validation.templateName || req.file.originalname.replace(/\.zip$/i, "") || manifestSlug,
@@ -442,6 +557,7 @@ router.post(
             themeJson: {},
             cmsMappingJson: {},
           };
+      }
 
       const { data: uploadRow, error: uploadInsertError } = await supabaseAdmin
         .from("website_template_uploads")
@@ -465,7 +581,17 @@ router.post(
         .single();
 
       if (uploadInsertError || !uploadRow) {
-        res.status(500).json({ error: uploadInsertError?.message || "Failed to create upload record" });
+        await insertTemplateAuditLog({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          eventType: "website_template_upload_failed",
+          detail: {
+            file_name: req.file.originalname,
+            code: "DB_TRANSACTION_FAILED",
+            error: uploadInsertError?.message || "Failed to create upload record",
+          },
+        });
+        res.status(500).json({ error: uploadInsertError?.message || "Failed to create upload record", code: "DB_TRANSACTION_FAILED" });
         return;
       }
 
@@ -475,15 +601,30 @@ router.post(
           .update({ validation_status: "failed", validation_errors: validation.errors, failed_at: new Date().toISOString() })
           .eq("id", uploadId);
 
+        await insertTemplateAuditLog({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          eventType: "website_template_validation_failed",
+          detail: {
+            upload_id: uploadId,
+            file_name: req.file.originalname,
+            code: "VALIDATION_FAILED",
+            validation_errors: validation.errors,
+          },
+        });
+
         res.status(400).json({
           success: false,
           upload_id: uploadId,
           validation,
+          code: "VALIDATION_FAILED",
         });
         return;
       }
 
-      const importResult = await upsertTemplateGraph({
+      let importResult: { templateId: string };
+      try {
+        importResult = await upsertTemplateGraph({
         templateId: uuidv4(),
         manifest: {
           ...importedContent.manifest,
@@ -503,11 +644,40 @@ router.post(
           originalZipMetadata: { original_filename: req.file.originalname, validation, import_source: "admin_website_templates" },
         userId: req.userId,
       });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to import template";
+        await insertTemplateAuditLog({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          eventType: "website_template_import_failed",
+          detail: {
+            upload_id: uploadId,
+            file_name: req.file.originalname,
+            code: "DB_TRANSACTION_FAILED",
+            error: message,
+          },
+        });
+        res.status(500).json({ error: message, code: "DB_TRANSACTION_FAILED" });
+        return;
+      }
 
       await supabaseAdmin
         .from("website_template_uploads")
         .update({ validation_status: "validated", validation_errors: [], validated_at: new Date().toISOString(), template_id: importResult.templateId })
         .eq("id", uploadId);
+
+      await insertTemplateAuditLog({
+        actorId: req.userId,
+        actorEmail: req.userEmail,
+        eventType: "website_template_imported",
+        entityId: importResult.templateId,
+        detail: {
+          upload_id: uploadId,
+          file_name: req.file.originalname,
+          page_count: importedContent.pages.length,
+          block_count: importedContent.pages.reduce((acc, page) => acc + page.blocks.length, 0),
+        },
+      });
 
       res.status(201).json({
         success: true,
@@ -517,7 +687,13 @@ router.post(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to upload template ZIP";
-      res.status(500).json({ error: message });
+      await insertTemplateAuditLog({
+        actorId: req.userId,
+        actorEmail: req.userEmail,
+        eventType: "website_template_upload_failed",
+        detail: { code: "IMPORT_FAILED", error: message },
+      });
+      res.status(500).json({ error: message, code: "IMPORT_FAILED" });
     }
   }
 );
@@ -616,6 +792,7 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
 
 router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
+  const authReq = req as AuthenticatedRequest;
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
     .select("id, status, source_upload_id")
@@ -648,11 +825,20 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
     return;
   }
 
+  await insertTemplateAuditLog({
+    actorId: authReq.userId,
+    actorEmail: authReq.userEmail,
+    eventType: "website_template_published",
+    entityId: id,
+    detail: { source_upload_id: template.source_upload_id },
+  });
+
   res.json({ success: true });
 });
 
 router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
+  const authReq = req as AuthenticatedRequest;
   const { error } = await supabaseAdmin
     .from("website_templates")
     .update({ status: "archived", is_active: false })
@@ -662,12 +848,20 @@ router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdm
     res.status(500).json({ error: error.message });
     return;
   }
+
+  await insertTemplateAuditLog({
+    actorId: authReq.userId,
+    actorEmail: authReq.userEmail,
+    eventType: "website_template_archived",
+    entityId: id,
+  });
 
   res.json({ success: true });
 });
 
 router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
+  const authReq = req as AuthenticatedRequest;
   const { error } = await supabaseAdmin
     .from("website_templates")
     .update({ status: "archived", is_active: false })
@@ -677,6 +871,14 @@ router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, as
     res.status(500).json({ error: error.message });
     return;
   }
+
+  await insertTemplateAuditLog({
+    actorId: authReq.userId,
+    actorEmail: authReq.userEmail,
+    eventType: "website_template_delete_requested",
+    entityId: id,
+    detail: { deleted: false, archived: true },
+  });
 
   res.json({ success: true, deleted: false, archived: true });
 });

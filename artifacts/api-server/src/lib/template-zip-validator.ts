@@ -101,7 +101,9 @@ function normalizePath(rawPath: string): string | null {
 function isDisallowedFile(pathname: string): boolean {
   const lower = pathname.toLowerCase();
   if (/(^|\/)(node_modules|dist|build|out|\.git)(\/|$)/.test(lower)) return true;
-  if (/(^|\/)(package\.json|pnpm-lock\.yaml|yarn\.lock|package-lock\.json)$/i.test(lower)) return true;
+  // Allow project manifests inside source-figma-prototype reference folders.
+  const inPrototypeSource = /(^|\/)source-figma-prototype\//.test(lower);
+  if (/(^|\/)(package\.json|pnpm-lock\.yaml|yarn\.lock|package-lock\.json)$/i.test(lower) && !inPrototypeSource) return true;
   if (/(^|\/)(dockerfile|docker-compose\.ya?ml|\.env(\.|$)|\.npmrc)$/i.test(lower)) return true;
   if (/(^|\/).*(\.exe|\.dll|\.so|\.dylib|\.bat|\.cmd|\.ps1|\.sh)$/i.test(lower)) return true;
   return false;

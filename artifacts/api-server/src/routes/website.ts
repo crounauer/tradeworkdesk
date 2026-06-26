@@ -24,6 +24,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { addDomainToVercel } from "../lib/vercel";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
 import { generatePagesFromFigma, validateGeneratedPages } from "../lib/figma-page-generator";
+import { mergeTemplateBlockContent } from "../lib/template-clone";
 import {
   requireAuth,
   requireTenant,
@@ -125,6 +126,32 @@ function normalizeTenantPageType(pageType: unknown): string {
 
 function buildArchivedSlug(slug: string): string {
   return `archived-${Date.now()}-${slug}`.replace(/[^a-z0-9-]/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+async function insertTenantTemplateAuditLog(opts: {
+  tenantId?: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  eventType: string;
+  websiteId?: string | null;
+  templateId?: string | null;
+  detail?: Record<string, unknown>;
+}) {
+  if (!opts.tenantId) return;
+  await supabaseAdmin.from("tenant_audit_log").insert({
+    tenant_id: opts.tenantId,
+    actor_id: opts.actorId || null,
+    actor_email: opts.actorEmail || null,
+    actor_role: opts.actorRole || null,
+    event_type: opts.eventType,
+    entity_type: "website_template",
+    entity_id: opts.templateId || null,
+    detail: {
+      website_id: opts.websiteId || null,
+      ...(opts.detail || {}),
+    },
+  });
 }
 
 async function createWebsiteForTenant(req: AuthenticatedRequest, templateId: string | null, theme: Record<string, unknown> | null = null): Promise<Record<string, unknown> | null> {
@@ -803,7 +830,7 @@ router.post(
       .order("created_at", { ascending: true }) as { data: Array<{ id: string; slug: string; status: string }> | null; error: unknown };
 
     if (websitePagesError) {
-      res.status(500).json({ error: "Failed to inspect existing pages" });
+      res.status(500).json({ error: "Failed to inspect existing pages", code: "TENANT_PAGE_CHECK_FAILED" });
       return;
     }
 
@@ -811,14 +838,28 @@ router.post(
     const hasExistingPages = (websitePages || []).length > 0;
 
     if (hasExistingPages && !confirmReplace) {
-      res.status(409).json({ error: "website already has pages", page_count: websitePages?.length || 0, confirmReplaceRequired: true });
+      await insertTenantTemplateAuditLog({
+        tenantId: req.tenantId,
+        actorId: req.userId,
+        actorEmail: req.userEmail,
+        actorRole: req.userRole,
+        eventType: "website_template_apply_blocked_existing_pages",
+        templateId: String(template.id),
+        detail: { page_count: websitePages?.length || 0 },
+      });
+      res.status(409).json({
+        error: "Website already has pages. Confirm replacement to continue.",
+        code: "TENANT_PAGES_EXIST",
+        page_count: websitePages?.length || 0,
+        confirmReplaceRequired: true,
+      });
       return;
     }
 
     if (!website) {
       website = await createWebsiteForTenant(req, String(template.id), (template.theme_json as Record<string, unknown>) || (template.default_theme as Record<string, unknown>) || {});
       if (!website) {
-        res.status(500).json({ error: "Failed to create website" });
+        res.status(500).json({ error: "Failed to create website", code: "WEBSITE_CREATE_FAILED" });
         return;
       }
     }
@@ -841,7 +882,7 @@ router.post(
     }
 
     if (!hasExistingPages && !website) {
-      res.status(500).json({ error: "Failed to prepare website" });
+      res.status(500).json({ error: "Failed to prepare website", code: "WEBSITE_PREPARE_FAILED" });
       return;
     }
 
@@ -852,12 +893,12 @@ router.post(
       .order("sort_order", { ascending: true }) as { data: Array<Record<string, unknown>> | null; error: unknown };
 
     if (pagesError) {
-      res.status(500).json({ error: "Failed to load template pages" });
+      res.status(500).json({ error: "Failed to load template pages", code: "TEMPLATE_PAGES_LOAD_FAILED" });
       return;
     }
 
     if (!templatePages || templatePages.length === 0) {
-      res.status(400).json({ error: "Template has no pages to apply" });
+      res.status(400).json({ error: "Template has no pages to apply", code: "TEMPLATE_NO_PAGES" });
       return;
     }
 
@@ -868,7 +909,7 @@ router.post(
       .order("sort_order", { ascending: true }) as { data: Array<Record<string, unknown>> | null; error: unknown };
 
     if (blocksError) {
-      res.status(500).json({ error: "Failed to load template blocks" });
+      res.status(500).json({ error: "Failed to load template blocks", code: "TEMPLATE_BLOCKS_LOAD_FAILED" });
       return;
     }
 
@@ -900,7 +941,7 @@ router.post(
       .select("id, slug");
 
     if (insertedPagesError || !insertedPages) {
-      res.status(500).json({ error: "Failed to create tenant pages" });
+      res.status(500).json({ error: "Failed to create tenant pages", code: "TENANT_PAGES_CREATE_FAILED" });
       return;
     }
 
@@ -910,9 +951,10 @@ router.post(
       const tenantPageId = targetPage ? pageIdBySlug.get(String(targetPage.slug)) : null;
       if (!tenantPageId) return [];
 
-      const blockContent = block.settings && Object.keys(block.settings as Record<string, unknown>).length > 0
-        ? { ...(block.content as Record<string, unknown> || {}), settings: block.settings }
-        : (block.content as Record<string, unknown>) || {};
+      const blockContent = mergeTemplateBlockContent(
+        (block.content as Record<string, unknown>) || {},
+        (block.settings as Record<string, unknown>) || {},
+      );
 
       return [{
         page_id: tenantPageId,
@@ -927,7 +969,7 @@ router.post(
     if (blockInserts.length > 0) {
       const { error: blockInsertError } = await db.from("website_blocks").insert(blockInserts) as { error: unknown };
       if (blockInsertError) {
-        res.status(500).json({ error: "Failed to create tenant blocks" });
+        res.status(500).json({ error: "Failed to create tenant blocks", code: "TENANT_BLOCKS_CREATE_FAILED" });
         return;
       }
     }
@@ -943,9 +985,24 @@ router.post(
       .eq("id", website.id);
 
     if (websiteUpdateError) {
-      res.status(500).json({ error: "Failed to update website template settings" });
+      res.status(500).json({ error: "Failed to update website template settings", code: "WEBSITE_UPDATE_FAILED" });
       return;
     }
+
+    await insertTenantTemplateAuditLog({
+      tenantId: req.tenantId,
+      actorId: req.userId,
+      actorEmail: req.userEmail,
+      actorRole: req.userRole,
+      eventType: "website_template_applied",
+      websiteId: String(website.id),
+      templateId: String(template.id),
+      detail: {
+        pages_created: insertedPages.length,
+        blocks_created: blockInserts.length,
+        replaced_existing_pages: hasExistingPages,
+      },
+    });
 
     res.json({
       success: true,

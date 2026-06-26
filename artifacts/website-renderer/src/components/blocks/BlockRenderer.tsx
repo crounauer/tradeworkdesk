@@ -25,6 +25,7 @@ import BlogPostBlock from "./BlogPostBlock";
 import LegalContentBlock from "./LegalContentBlock";
 import FeatureCardsBlock from "./FeatureCardsBlock";
 import DetailSectionBlock from "./DetailSectionBlock";
+import { hasBlockRendererForType, normalizeBlockType } from "./block-registry";
 
 interface Props {
   block: SiteBlock;
@@ -141,7 +142,7 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
   const websiteOverride = websiteId ? { website_id: websiteId } : {};
   const content = { ...base, ...companyBase, ...tenantOverride, ...websiteOverride, ...(block.content as Record<string, unknown>) };
-  const normalizedType = block.block_type.trim().toLowerCase();
+  const normalizedType = normalizeBlockType(block.block_type);
   const renderer = blockRegistry[normalizedType];
 
   if (!renderer) {

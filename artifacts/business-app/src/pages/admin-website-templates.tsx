@@ -24,8 +24,10 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 type TemplateStatus = "uploaded" | "validated" | "draft" | "published" | "archived" | "failed";
 
@@ -130,7 +132,7 @@ function TemplateDetailsDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery<TemplateDetail>({
+  const { data, isLoading, isError, error, refetch } = useQuery<TemplateDetail>({
     queryKey: ["admin-website-template", templateId],
     enabled: open && !!templateId,
     queryFn: async () => {
@@ -207,9 +209,26 @@ function TemplateDetailsDialog({
             </DialogTitle>
           </DialogHeader>
 
-          {isLoading || !data ? (
+          {isLoading ? (
             <div className="flex flex-1 items-center justify-center text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading details…
+            </div>
+          ) : isError ? (
+            <div className="p-6">
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertTitle>Failed to load template details</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <div>{(error as Error | undefined)?.message || "Unable to load template details."}</div>
+                  <Button variant="outline" size="sm" onClick={() => refetch()}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : !data ? (
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
+              No template details found.
             </div>
           ) : (
             <ScrollArea className="flex-1">
@@ -420,6 +439,7 @@ function TemplateDetailsDialog({
 
 export default function AdminWebsiteTemplatesPage() {
   const { toast } = useToast();
+  const { session } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -450,29 +470,27 @@ export default function AdminWebsiteTemplatesPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      return await new Promise<UploadResult>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${API_BASE}/admin/website-templates/upload`);
-        xhr.withCredentials = true;
+      const sessionResult = session ? { data: { session } } : await supabase.auth.getSession();
+      const accessToken = sessionResult.data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Your session is not ready yet. Please refresh and try again.");
+      }
 
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            setUploadProgress((event.loaded / event.total) * 100);
-          }
-        };
-
-        xhr.onload = () => {
-          const body = xhr.responseText ? JSON.parse(xhr.responseText) : {};
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(body);
-          } else {
-            reject(new Error(body.error || body.message || `Upload failed (${xhr.status})`));
-          }
-        };
-
-        xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.send(formData);
+      const res = await fetch(`${API_BASE}/admin/website-templates/upload`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
       });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = body.error || body.message || `Upload failed (${res.status})`;
+        throw new Error(message);
+      }
+      setUploadProgress(100);
+      return body as UploadResult;
     },
     onMutate: () => {
       setUploading(true);
@@ -639,6 +657,17 @@ export default function AdminWebsiteTemplatesPage() {
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading templates...
               </div>
+            ) : templatesQuery.isError ? (
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertTitle>Failed to load templates</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <div>{(templatesQuery.error as Error | undefined)?.message || "Unable to load website templates."}</div>
+                  <Button variant="outline" size="sm" onClick={() => templatesQuery.refetch()}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
             ) : templatesQuery.data?.length ? (
               templatesQuery.data.map((template) => (
                 <div key={template.id} className={cn("rounded-xl border p-4 shadow-sm", selectedTemplate?.id === template.id && "border-primary bg-primary/5")}>

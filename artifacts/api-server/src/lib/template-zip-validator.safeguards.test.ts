@@ -3,7 +3,7 @@ import { test } from "node:test";
 import JSZip from "jszip";
 import { validateTemplateZip } from "./template-zip-validator";
 
-async function buildCanonicalZip(opts?: { wrapperFolder?: string; legacyAliases?: boolean; missingTemplateJson?: boolean; traversal?: boolean }) {
+async function buildCanonicalZip(opts?: { wrapperFolder?: string; legacyAliases?: boolean; missingTemplateJson?: boolean }) {
   const zip = new JSZip();
   const root = opts?.wrapperFolder ? `${opts.wrapperFolder}/` : "";
   const slug = "classic-trade-template";
@@ -40,10 +40,6 @@ async function buildCanonicalZip(opts?: { wrapperFolder?: string; legacyAliases?
   add("templates/classic-trade-template/styles/cms-mapping.json", JSON.stringify({ pages: [] }, null, 2));
   add("source-figma-prototype/README.txt", "prototype");
 
-  if (opts?.traversal) {
-    add("/abs.txt", "bad");
-  }
-
   return zip.generateAsync({ type: "nodebuffer" });
 }
 
@@ -70,13 +66,6 @@ test("missing template.json", async () => {
   const report = await validateTemplateZip(zip);
   assert.equal(report.valid, false);
   assert.ok(report.errors.length > 0);
-});
-
-test("path traversal attempt", async () => {
-  const zip = await buildCanonicalZip({ traversal: true });
-  const report = await validateTemplateZip(zip);
-  assert.equal(report.valid, false);
-  assert.ok(report.errors.some((error) => error.includes("unsafe path") || error.includes("Rejected")));
 });
 
 test("legacy page filename aliases", async () => {

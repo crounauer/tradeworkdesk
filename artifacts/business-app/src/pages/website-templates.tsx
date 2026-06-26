@@ -16,7 +16,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
@@ -45,11 +54,26 @@ type Template = {
   theme_json?: Record<string, unknown>;
 };
 
+class ApiRequestError extends Error {
+  readonly code?: string;
+  readonly status: number;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+
 async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error((body as { error?: string }).error || `HTTP ${res.status}`);
+    throw new ApiRequestError(
+      (body as { error?: string }).error || `HTTP ${res.status}`,
+      res.status,
+      (body as { code?: string }).code,
+    );
   }
   return body as T;
 }
@@ -102,11 +126,11 @@ function TemplateTile({ template, active }: { template: Template; active: boolea
 export default function WebsiteTemplatesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [confirmReplace, setConfirmReplace] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
-  const { data: website } = useQuery<Website | null>({
+  const websiteQuery = useQuery<Website | null>({
     queryKey: ["/api/website"],
     queryFn: () => apiFetch<Website>(`${API_BASE}/website`).catch((error: Error) => {
       if (error.message.includes("404") || error.message.includes("No website")) return null;
@@ -114,7 +138,7 @@ export default function WebsiteTemplatesPage() {
     }),
   });
 
-  const { data: pages = [] } = useQuery<WebsitePage[]>({
+  const pagesQuery = useQuery<WebsitePage[]>({
     queryKey: ["/api/website/pages"],
     queryFn: () => apiFetch<WebsitePage[]>(`${API_BASE}/website/pages`).catch((error: Error) => {
       if (error.message.includes("404") || error.message.includes("Website not found")) return [];
@@ -122,10 +146,13 @@ export default function WebsiteTemplatesPage() {
     }),
   });
 
-  const { data: templates = [], isLoading } = useQuery<Template[]>({
+  const { data: templates = [], isLoading, isError: templatesError, error: templatesErrorDetail, refetch: refetchTemplates } = useQuery<Template[]>({
     queryKey: ["/api/website/templates"],
     queryFn: () => apiFetch<Template[]>(`${API_BASE}/website/templates`),
   });
+
+  const website = websiteQuery.data ?? null;
+  const pages = pagesQuery.data ?? [];
 
   useEffect(() => {
     if (!selectedTemplateId && templates.length > 0) {
@@ -152,12 +179,15 @@ export default function WebsiteTemplatesPage() {
       toast({ title: "Template applied", description: "Your website has been updated from the selected template." });
     },
     onError: (error: Error) => {
+      if (error instanceof ApiRequestError && error.code === "TENANT_PAGES_EXIST") {
+        setReplaceDialogOpen(true);
+      }
       setStatusMessage({ kind: "error", message: error.message });
       toast({ title: "Template apply failed", description: error.message, variant: "destructive" });
     },
   });
 
-  const canApply = !!selectedTemplate && (!hasExistingPages || confirmReplace);
+  const canApply = !!selectedTemplate;
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
@@ -188,12 +218,31 @@ export default function WebsiteTemplatesPage() {
         </Alert>
       )}
 
+      {(websiteQuery.isError || pagesQuery.isError) && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Unable to fully load current website context</AlertTitle>
+          <AlertDescription>
+            {(websiteQuery.error as Error | undefined)?.message || (pagesQuery.error as Error | undefined)?.message || "Failed to load website details."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
           {isLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading templates…
+              </CardContent>
+            </Card>
+          ) : templatesError ? (
+            <Card>
+              <CardContent className="space-y-3 py-10 text-center">
+                <div className="text-sm text-muted-foreground">{(templatesErrorDetail as Error | undefined)?.message || "Failed to load published templates."}</div>
+                <Button variant="outline" onClick={() => refetchTemplates()}>
+                  Retry
+                </Button>
               </CardContent>
             </Card>
           ) : templates.length === 0 ? (
@@ -235,18 +284,9 @@ export default function WebsiteTemplatesPage() {
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Existing pages detected</AlertTitle>
                   <AlertDescription>
-                    Applying a template will be blocked unless you confirm replacement. Existing pages will be archived first.
+                    Applying a template will show a confirmation dialog and archive current pages first.
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {hasExistingPages && (
-                <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
-                  <Checkbox checked={confirmReplace} onCheckedChange={(checked) => setConfirmReplace(Boolean(checked))} />
-                  <span>
-                    I understand this will archive the current tenant pages before the new template is cloned.
-                  </span>
-                </label>
               )}
 
               <div className="space-y-2">
@@ -260,7 +300,14 @@ export default function WebsiteTemplatesPage() {
               <Button
                 className="w-full"
                 disabled={!selectedTemplate || applyMutation.isPending || !canApply}
-                onClick={() => selectedTemplate && applyMutation.mutate({ templateId: selectedTemplate.id, confirm: confirmReplace })}
+                onClick={() => {
+                  if (!selectedTemplate) return;
+                  if (hasExistingPages) {
+                    setReplaceDialogOpen(true);
+                    return;
+                  }
+                  applyMutation.mutate({ templateId: selectedTemplate.id, confirm: false });
+                }}
               >
                 {applyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-2 h-4 w-4" />}
                 Use this template
@@ -290,6 +337,35 @@ export default function WebsiteTemplatesPage() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={replaceDialogOpen} onOpenChange={setReplaceDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace existing website pages?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive your current pages and clone pages from {selectedTemplate?.name || "the selected template"}. This action should be confirmed before continuing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applyMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={applyMutation.isPending || !selectedTemplate}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!selectedTemplate) return;
+                applyMutation.mutate(
+                  { templateId: selectedTemplate.id, confirm: true },
+                  {
+                    onSuccess: () => setReplaceDialogOpen(false),
+                  },
+                );
+              }}
+            >
+              {applyMutation.isPending ? "Applying..." : "Archive and apply template"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

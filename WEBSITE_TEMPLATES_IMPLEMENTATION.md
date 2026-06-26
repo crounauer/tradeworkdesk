@@ -113,6 +113,15 @@ curl http://localhost:3000/api/website/pages \
 3. **Build frontend UI**: Create pages for template selection and site management
 4. **Integrate with tenant domain system**: Connect published websites to custom domains
 
+## Production Safeguards
+
+- Template ZIP uploads are validated before import and now surface explicit error codes for invalid archives, storage failures, validation failures, and import failures.
+- Superadmin upload, publish, archive, and delete actions are written to the platform audit log.
+- Tenant template application shows a confirmation dialog when replacing an existing website and returns a conflict response if replacement is not confirmed.
+- Admin and tenant template screens should show loading, empty, and error states rather than silently failing.
+- When adding a new block type, update the template registry, the renderer registry, and the template ZIP validation fixtures together so import and preview stay aligned.
+- Canonical template packages should continue to include `README.md`, `registry/block-registry.json`, `scripts/validate-template.ts`, `supabase/seed-template-example.sql`, `templates/[slug]/template.json`, `templates/[slug]/pages/pages.json`, the page JSON files, `templates/[slug]/styles/theme.json`, and `source-figma-prototype/`.
+
 ## Files Modified/Created
 
 - ✅ `artifacts/api-server/supabase/migrations/20260622_website_templates.sql` (NEW)
