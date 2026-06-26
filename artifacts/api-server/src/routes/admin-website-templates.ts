@@ -66,6 +66,53 @@ type TemplateRow = {
   published_at?: string | null;
 };
 
+type TemplateUploadRow = {
+  id?: string;
+  created_at?: string | null;
+  original_zip_metadata?: {
+    validation?: unknown;
+  } | null;
+  validation_status?: string | null;
+  validation_errors?: unknown;
+} | null;
+
+function isMissingTemplateUploadsTableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /website_template_uploads/i.test(message) && /(schema cache|does not exist|relation .* does not exist|Could not find the table)/i.test(message);
+}
+
+function isMissingTemplateImportSchemaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /(website_template_uploads|website_template_pages|website_template_blocks|template_versions|website_templates)/i.test(message)
+    && /(schema cache|does not exist|relation .* does not exist|Could not find the table|column .* does not exist)/i.test(message);
+}
+
+async function getLatestTemplateUpload(templateId: string, columns = "*"): Promise<{ data: TemplateUploadRow; missingTable: boolean }> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("website_template_uploads")
+      .select(columns)
+      .eq("template_id", templateId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingTemplateUploadsTableError(error)) {
+        return { data: null, missingTable: true };
+      }
+      throw error;
+    }
+
+    return { data: (data as TemplateUploadRow) || null, missingTable: false };
+  } catch (error) {
+    if (isMissingTemplateUploadsTableError(error)) {
+      return { data: null, missingTable: true };
+    }
+    throw error;
+  }
+}
+
 function normalizeTemplateStatus(template: TemplateRow): string {
   if (typeof template.status === "string" && template.status.length > 0) return template.status;
   if (template.is_active) return "published";
@@ -434,6 +481,10 @@ async function upsertTemplateGraph(opts: {
     throw versionError;
   }
 
+  if (!opts.uploadId) {
+    return { templateId: savedTemplate.id };
+  }
+
   const uploadUpdate = {
     template_id: savedTemplate.id,
     validation_status: opts.validationReport.valid ? "validated" : "failed",
@@ -510,6 +561,64 @@ router.post(
       const uploadId = uuidv4();
       const storagePath = `template-packages/${uploadId}/original.zip`;
       const checksumSha256 = createHash("sha256").update(req.file.buffer).digest("hex");
+
+      const { data: existingUpload, error: existingUploadError } = await supabaseAdmin
+        .from("website_template_uploads")
+        .select("id, template_id, validation_status, validation_errors, original_zip_metadata, created_at")
+        .eq("checksum_sha256", checksumSha256)
+        .maybeSingle();
+
+      if (existingUploadError) {
+        if (isMissingTemplateUploadsTableError(existingUploadError)) {
+          await insertTemplateAuditLog({
+            actorId: req.userId,
+            actorEmail: req.userEmail,
+            eventType: "website_template_upload_failed",
+            detail: {
+              file_name: req.file.originalname,
+              code: "MISSING_TEMPLATE_UPLOADS_TABLE",
+              error: "The website_template_uploads table is missing. Apply migration 0108_website_template_import_system.sql in Supabase.",
+            },
+          });
+          res.status(503).json({
+            error: "The website_template_uploads table is missing. Apply migration 0108_website_template_import_system.sql in Supabase.",
+            code: "MISSING_TEMPLATE_UPLOADS_TABLE",
+          });
+          return;
+        }
+        throw existingUploadError;
+      }
+
+      if (existingUpload) {
+        const existingValidation = (existingUpload.original_zip_metadata as { validation?: unknown } | null)?.validation || null;
+        await insertTemplateAuditLog({
+          actorId: req.userId,
+          actorEmail: req.userEmail,
+          eventType: "website_template_upload_duplicate_detected",
+          detail: {
+            file_name: req.file.originalname,
+            upload_id: existingUpload.id,
+            template_id: existingUpload.template_id || null,
+            checksum_sha256: checksumSha256,
+          },
+        });
+        res.status(200).json({
+          success: true,
+          upload_id: existingUpload.id,
+          template_id: existingUpload.template_id || null,
+          validation: existingValidation || {
+            valid: existingUpload.validation_status === "validated",
+            templateSlug: null,
+            templateName: null,
+            pagesFound: [],
+            blocksFound: 0,
+            warnings: [],
+            errors: existingUpload.validation_errors && Array.isArray(existingUpload.validation_errors) ? (existingUpload.validation_errors as string[]) : [],
+          },
+          duplicate: true,
+        });
+        return;
+      }
 
       const { error: storageError } = await supabaseAdmin.storage
         .from(TEMPLATE_PACKAGE_BUCKET)
@@ -663,6 +772,22 @@ router.post(
         userId: req.userId,
       });
       } catch (error) {
+        if (isMissingTemplateImportSchemaError(error)) {
+          const migrationMessage = "The template import schema is incomplete. Apply migration 0108_website_template_import_system.sql in Supabase.";
+          await insertTemplateAuditLog({
+            actorId: req.userId,
+            actorEmail: req.userEmail,
+            eventType: "website_template_import_failed",
+            detail: {
+              upload_id: uploadId,
+              file_name: req.file.originalname,
+              code: "MISSING_TEMPLATE_IMPORT_SCHEMA",
+              error: error instanceof Error ? error.message : migrationMessage,
+            },
+          });
+          res.status(503).json({ error: migrationMessage, code: "MISSING_TEMPLATE_IMPORT_SCHEMA" });
+          return;
+        }
         const message = error instanceof Error ? error.message : "Failed to import template";
         await insertTemplateAuditLog({
           actorId: req.userId,
@@ -719,7 +844,7 @@ router.post(
 router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_req: Request, res: Response): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("website_templates")
-    .select("id, name, slug, is_active, created_at, updated_at, published_at")
+    .select("id, name, slug, is_active, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -728,10 +853,10 @@ router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_r
   }
 
   const templates = await Promise.all((data || []).map(async (template) => {
-    const [{ count: pagesCount }, { count: blocksCount }, { data: uploadRow }] = await Promise.all([
+    const latestUploadResult = await getLatestTemplateUpload(template.id, "id, created_at");
+    const [{ count: pagesCount }, { count: blocksCount }] = await Promise.all([
       supabaseAdmin.from("website_template_pages").select("id", { count: "exact", head: true }).eq("template_id", template.id),
       supabaseAdmin.from("website_template_blocks").select("id", { count: "exact", head: true }).eq("template_id", template.id),
-      supabaseAdmin.from("website_template_uploads").select("id, created_at").eq("template_id", template.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     return {
@@ -739,7 +864,7 @@ router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_r
       status: normalizeTemplateStatus(template as TemplateRow),
       page_count: pagesCount || 0,
       block_count: blocksCount || 0,
-      uploaded_at: uploadRow?.created_at || template.created_at,
+      uploaded_at: latestUploadResult.data?.created_at || template.created_at,
     };
   }));
 
@@ -765,10 +890,10 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     status: normalizeTemplateStatus(template as TemplateRow),
   };
 
-  const [pagesResult, blocksResult, uploadResult, versionsResult] = await Promise.all([
+  const latestUploadResult = await getLatestTemplateUpload(id);
+  const [pagesResult, blocksResult, versionsResult] = await Promise.all([
     supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
     supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
-    supabaseAdmin.from("website_template_uploads").select("*").eq("template_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("template_versions").select("*").eq("template_id", id).order("version", { ascending: false }),
   ]);
 
@@ -776,9 +901,9 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     template: normalizedTemplate,
     pages: pagesResult.data || [],
     blocks: blocksResult.data || [],
-    upload: uploadResult.data || null,
+    upload: latestUploadResult.data || null,
     versions: versionsResult.data || [],
-    validation_report: (uploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null,
+    validation_report: (latestUploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null,
   });
 });
 
@@ -801,20 +926,20 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
     status: normalizeTemplateStatus(template as TemplateRow),
   };
 
-  const [pagesResult, blocksResult, uploadResult] = await Promise.all([
+  const latestUploadResult = await getLatestTemplateUpload(id);
+  const [pagesResult, blocksResult] = await Promise.all([
     supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
     supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
-    supabaseAdmin.from("website_template_uploads").select("*").eq("template_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  const validation = (uploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null;
+  const validation = (latestUploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null;
 
   res.json({
     template: normalizedTemplate,
     theme: (template as Record<string, unknown>).theme_json || (template as Record<string, unknown>).default_theme || {},
     pages: pagesResult.data || [],
     blocks: blocksResult.data || [],
-    upload: uploadResult.data || null,
+    upload: latestUploadResult.data || null,
     validation_report: validation,
   });
 });
@@ -824,7 +949,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
   const authReq = req as AuthenticatedRequest;
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
-    .select("id, is_active, published_at")
+    .select("id, is_active")
     .eq("id", id)
     .maybeSingle();
 
@@ -833,13 +958,17 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
     return;
   }
 
-  const { data: uploadRow } = await supabaseAdmin
-    .from("website_template_uploads")
-    .select("validation_status, validation_errors")
-    .eq("template_id", id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const uploadResult = await getLatestTemplateUpload(id, "validation_status, validation_errors");
+
+  if (uploadResult.missingTable) {
+    res.status(503).json({
+      error: "The website_template_uploads table is missing. Apply migration 0108_website_template_import_system.sql in Supabase.",
+      code: "MISSING_TEMPLATE_UPLOADS_TABLE",
+    });
+    return;
+  }
+
+  const uploadRow = uploadResult.data;
 
   if (uploadRow?.validation_status !== "validated") {
     res.status(400).json({ error: "Template cannot be published until validation passes" });
@@ -848,7 +977,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
 
   const { error: updateError } = await supabaseAdmin
     .from("website_templates")
-    .update({ is_active: true, published_at: new Date().toISOString() })
+    .update({ is_active: true })
     .eq("id", id);
 
   if (updateError) {
@@ -893,13 +1022,31 @@ router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdm
 router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const authReq = req as AuthenticatedRequest;
-  const { error } = await supabaseAdmin
+  const { data: template, error: templateError } = await supabaseAdmin
     .from("website_templates")
-    .update({ is_active: false })
+    .select("id, name, slug")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (templateError || !template) {
+    res.status(404).json({ error: "Template not found" });
+    return;
+  }
+
+  await safeDeleteTemplateChildren(id);
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("website_templates")
+    .delete()
     .eq("id", id);
 
-  if (error) {
-    res.status(500).json({ error: error.message });
+  if (deleteError) {
+    const errorCode = (deleteError as { code?: string }).code;
+    if (errorCode === "23503") {
+      res.status(409).json({ error: "Template is currently in use and cannot be deleted" });
+      return;
+    }
+    res.status(500).json({ error: deleteError.message });
     return;
   }
 
@@ -908,10 +1055,10 @@ router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, as
     actorEmail: authReq.userEmail,
     eventType: "website_template_delete_requested",
     entityId: id,
-    detail: { deleted: false, archived: true },
+    detail: { deleted: true, archived: false, name: template.name, slug: template.slug },
   });
 
-  res.json({ success: true, deleted: false, archived: true });
+  res.json({ success: true, deleted: true, archived: false });
 });
 
 export default router;

@@ -570,6 +570,29 @@ export default function AdminWebsiteTemplatesPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const res = await fetch(`${API_BASE}/admin/website-templates/${templateId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Failed to delete template");
+      return { templateId };
+    },
+    onSuccess: ({ templateId }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-website-templates"] });
+      if (selectedTemplateId === templateId) {
+        setSelectedTemplateId(null);
+        setDetailsOpen(false);
+      }
+      toast({ title: "Template deleted" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -721,6 +744,18 @@ export default function AdminWebsiteTemplatesPage() {
                           Archive
                         </Button>
                       )}
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          const confirmed = window.confirm(`Delete template \"${template.name}\"? This cannot be undone.`);
+                          if (!confirmed) return;
+                          deleteMutation.mutate(template.id);
+                        }}
+                        disabled={deleteMutation.isPending}
+                      >
+                        {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </div>
