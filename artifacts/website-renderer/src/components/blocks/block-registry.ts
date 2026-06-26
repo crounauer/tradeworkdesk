@@ -7,6 +7,18 @@ const blockTypeAliases: Record<string, string> = {
   cta_banner: "cta_band",
   blog_cards: "blog_index",
   footer_cta: "cta_band",
+  hero_centered: "hero",
+  service_detail_intro: "service_detail",
+  team_cards: "feature_cards",
+  area_list: "areas_grid",
+  map_opening_hours: "contact",
+  gallery_grid: "gallery",
+  before_after: "gallery",
+  faq_accordion: "faq",
+  contact_form_section: "contact_form",
+  richtext_article_body: "rich_text",
+  system_404: "text",
+  pricing_table: "feature_cards",
 };
 
 export function normalizeBlockType(blockType: string): string {
