@@ -719,7 +719,7 @@ router.post(
 router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_req: Request, res: Response): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("website_templates")
-    .select("id, name, slug, is_active, created_at, updated_at, source_upload_id, published_at")
+    .select("id, name, slug, is_active, created_at, updated_at, published_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -824,7 +824,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
   const authReq = req as AuthenticatedRequest;
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
-    .select("id, is_active, published_at, source_upload_id")
+    .select("id, is_active, published_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -836,7 +836,9 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
   const { data: uploadRow } = await supabaseAdmin
     .from("website_template_uploads")
     .select("validation_status, validation_errors")
-    .eq("id", template.source_upload_id)
+    .eq("template_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (uploadRow?.validation_status !== "validated") {
@@ -859,7 +861,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
     actorEmail: authReq.userEmail,
     eventType: "website_template_published",
     entityId: id,
-    detail: { source_upload_id: template.source_upload_id },
+    detail: { latest_upload_validation_status: uploadRow?.validation_status || null },
   });
 
   res.json({ success: true });
