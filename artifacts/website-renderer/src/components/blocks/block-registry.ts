@@ -1,5 +1,17 @@
+const blockTypeAliases: Record<string, string> = {
+  trust_bar: "trust_badges",
+  benefits_grid: "feature_cards",
+  accreditation_logos: "accreditations",
+  process_steps: "process",
+  reviews_carousel: "reviews",
+  cta_banner: "cta_band",
+  blog_cards: "blog_index",
+  footer_cta: "cta_band",
+};
+
 export function normalizeBlockType(blockType: string): string {
-  return blockType.trim().toLowerCase();
+  const normalized = blockType.trim().toLowerCase();
+  return blockTypeAliases[normalized] || normalized;
 }
 
 const supportedBlockTypes = new Set([

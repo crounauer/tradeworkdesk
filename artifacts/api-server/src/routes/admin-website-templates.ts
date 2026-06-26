@@ -558,13 +558,15 @@ router.post(
         },
       });
 
-      const uploadId = uuidv4();
-      const storagePath = `template-packages/${uploadId}/original.zip`;
+      let uploadId = uuidv4();
+      let storagePath = `template-packages/${uploadId}/original.zip`;
       const checksumSha256 = createHash("sha256").update(req.file.buffer).digest("hex");
+      let shouldInsertUploadRow = true;
+      let shouldUploadToStorage = true;
 
       const { data: existingUpload, error: existingUploadError } = await supabaseAdmin
         .from("website_template_uploads")
-        .select("id, template_id, validation_status, validation_errors, original_zip_metadata, created_at")
+        .select("id, template_id, validation_status, validation_errors, original_zip_metadata, storage_path")
         .eq("checksum_sha256", checksumSha256)
         .maybeSingle();
 
@@ -590,56 +592,86 @@ router.post(
       }
 
       if (existingUpload) {
-        const existingValidation = (existingUpload.original_zip_metadata as { validation?: unknown } | null)?.validation || null;
+        if (existingUpload.template_id) {
+          const { data: existingTemplate } = await supabaseAdmin
+            .from("website_templates")
+            .select("id")
+            .eq("id", existingUpload.template_id)
+            .maybeSingle();
+
+          if (existingTemplate) {
+            const existingValidation = (existingUpload.original_zip_metadata as { validation?: unknown } | null)?.validation || null;
+            await insertTemplateAuditLog({
+              actorId: req.userId,
+              actorEmail: req.userEmail,
+              eventType: "website_template_upload_duplicate_detected",
+              detail: {
+                file_name: req.file.originalname,
+                upload_id: existingUpload.id,
+                template_id: existingUpload.template_id || null,
+                checksum_sha256: checksumSha256,
+              },
+            });
+            res.status(200).json({
+              success: true,
+              upload_id: existingUpload.id,
+              template_id: existingUpload.template_id || null,
+              validation: existingValidation || {
+                valid: existingUpload.validation_status === "validated",
+                templateSlug: null,
+                templateName: null,
+                pagesFound: [],
+                blocksFound: 0,
+                warnings: [],
+                errors: existingUpload.validation_errors && Array.isArray(existingUpload.validation_errors) ? (existingUpload.validation_errors as string[]) : [],
+              },
+              duplicate: true,
+            });
+            return;
+          }
+        }
+
+        uploadId = existingUpload.id;
+        shouldInsertUploadRow = false;
+        if (typeof existingUpload.storage_path === "string" && existingUpload.storage_path.length > 0) {
+          storagePath = existingUpload.storage_path;
+          shouldUploadToStorage = false;
+        }
+
         await insertTemplateAuditLog({
           actorId: req.userId,
           actorEmail: req.userEmail,
-          eventType: "website_template_upload_duplicate_detected",
+          eventType: "website_template_upload_duplicate_reimport",
           detail: {
             file_name: req.file.originalname,
             upload_id: existingUpload.id,
-            template_id: existingUpload.template_id || null,
             checksum_sha256: checksumSha256,
           },
         });
-        res.status(200).json({
-          success: true,
-          upload_id: existingUpload.id,
-          template_id: existingUpload.template_id || null,
-          validation: existingValidation || {
-            valid: existingUpload.validation_status === "validated",
-            templateSlug: null,
-            templateName: null,
-            pagesFound: [],
-            blocksFound: 0,
-            warnings: [],
-            errors: existingUpload.validation_errors && Array.isArray(existingUpload.validation_errors) ? (existingUpload.validation_errors as string[]) : [],
-          },
-          duplicate: true,
-        });
-        return;
       }
 
-      const { error: storageError } = await supabaseAdmin.storage
-        .from(TEMPLATE_PACKAGE_BUCKET)
-        .upload(storagePath, req.file.buffer, {
-          contentType: req.file.mimetype || "application/zip",
-          upsert: false,
-        });
+      if (shouldUploadToStorage) {
+        const { error: storageError } = await supabaseAdmin.storage
+          .from(TEMPLATE_PACKAGE_BUCKET)
+          .upload(storagePath, req.file.buffer, {
+            contentType: req.file.mimetype || "application/zip",
+            upsert: false,
+          });
 
-      if (storageError) {
-        await insertTemplateAuditLog({
-          actorId: req.userId,
-          actorEmail: req.userEmail,
-          eventType: "website_template_upload_failed",
-          detail: {
-            file_name: req.file.originalname,
-            code: "STORAGE_UPLOAD_FAILED",
-            storage_error: storageError.message,
-          },
-        });
-        res.status(500).json({ error: `Failed to store uploaded ZIP: ${storageError.message}`, code: "STORAGE_UPLOAD_FAILED" });
-        return;
+        if (storageError) {
+          await insertTemplateAuditLog({
+            actorId: req.userId,
+            actorEmail: req.userEmail,
+            eventType: "website_template_upload_failed",
+            detail: {
+              file_name: req.file.originalname,
+              code: "STORAGE_UPLOAD_FAILED",
+              storage_error: storageError.message,
+            },
+          });
+          res.status(500).json({ error: `Failed to store uploaded ZIP: ${storageError.message}`, code: "STORAGE_UPLOAD_FAILED" });
+          return;
+        }
       }
 
       const validation = buildValidationEnvelope(await validateTemplateZip(req.file.buffer));
@@ -656,6 +688,7 @@ router.post(
         themeJson: {},
         cmsMappingJson: {},
       };
+
       if (validation.valid) {
         try {
           importedContent = await parseImportedTemplateContent(req.file.buffer, manifestSlug);
@@ -673,53 +706,91 @@ router.post(
         }
       } else {
         importedContent = {
-            manifest: {
-              slug: manifestSlug,
-              name: validation.templateName || req.file.originalname.replace(/\.zip$/i, "") || manifestSlug,
-              description: typeof req.body?.description === "string" ? req.body.description : null,
-              category: typeof req.body?.category === "string" ? req.body.category : null,
-              version: 1,
-            },
-            pages: [] as TemplatePageManifest[],
-            themeJson: {},
-            cmsMappingJson: {},
-          };
+          manifest: {
+            slug: manifestSlug,
+            name: validation.templateName || req.file.originalname.replace(/\.zip$/i, "") || manifestSlug,
+            description: typeof req.body?.description === "string" ? req.body.description : null,
+            category: typeof req.body?.category === "string" ? req.body.category : null,
+            version: 1,
+          },
+          pages: [] as TemplatePageManifest[],
+          themeJson: {},
+          cmsMappingJson: {},
+        };
       }
 
-      const { data: uploadRow, error: uploadInsertError } = await supabaseAdmin
-        .from("website_template_uploads")
-        .insert({
-          id: uploadId,
-          file_name: req.file.originalname,
-          original_zip_metadata: {
-            original_filename: req.file.originalname,
-            validation,
-          },
-          storage_bucket: TEMPLATE_PACKAGE_BUCKET,
-          storage_path: storagePath,
-          checksum_sha256: checksumSha256,
-          file_size_bytes: req.file.size,
-          mime_type: req.file.mimetype || "application/zip",
-          validation_status: validation.valid ? "validating" : "failed",
-          validation_errors: validation.errors,
-          created_by: req.userId,
-        })
-        .select("id")
-        .single();
-
-      if (uploadInsertError || !uploadRow) {
-        await insertTemplateAuditLog({
-          actorId: req.userId,
-          actorEmail: req.userEmail,
-          eventType: "website_template_upload_failed",
-          detail: {
+      if (shouldInsertUploadRow) {
+        const { data: uploadRow, error: uploadInsertError } = await supabaseAdmin
+          .from("website_template_uploads")
+          .insert({
+            id: uploadId,
             file_name: req.file.originalname,
-            code: "DB_TRANSACTION_FAILED",
-            error: uploadInsertError?.message || "Failed to create upload record",
-          },
-        });
-        res.status(500).json({ error: uploadInsertError?.message || "Failed to create upload record", code: "DB_TRANSACTION_FAILED" });
-        return;
+            original_zip_metadata: {
+              original_filename: req.file.originalname,
+              validation,
+            },
+            storage_bucket: TEMPLATE_PACKAGE_BUCKET,
+            storage_path: storagePath,
+            checksum_sha256: checksumSha256,
+            file_size_bytes: req.file.size,
+            mime_type: req.file.mimetype || "application/zip",
+            validation_status: validation.valid ? "validating" : "failed",
+            validation_errors: validation.errors,
+            created_by: req.userId,
+          })
+          .select("id")
+          .single();
+
+        if (uploadInsertError || !uploadRow) {
+          await insertTemplateAuditLog({
+            actorId: req.userId,
+            actorEmail: req.userEmail,
+            eventType: "website_template_upload_failed",
+            detail: {
+              file_name: req.file.originalname,
+              code: "DB_TRANSACTION_FAILED",
+              error: uploadInsertError?.message || "Failed to create upload record",
+            },
+          });
+          res.status(500).json({ error: uploadInsertError?.message || "Failed to create upload record", code: "DB_TRANSACTION_FAILED" });
+          return;
+        }
+      } else {
+        const { error: uploadUpdateError } = await supabaseAdmin
+          .from("website_template_uploads")
+          .update({
+            file_name: req.file.originalname,
+            original_zip_metadata: {
+              original_filename: req.file.originalname,
+              validation,
+            },
+            storage_bucket: TEMPLATE_PACKAGE_BUCKET,
+            storage_path: storagePath,
+            checksum_sha256: checksumSha256,
+            file_size_bytes: req.file.size,
+            mime_type: req.file.mimetype || "application/zip",
+            validation_status: validation.valid ? "validating" : "failed",
+            validation_errors: validation.errors,
+            validated_at: null,
+            failed_at: validation.valid ? null : new Date().toISOString(),
+            template_id: null,
+          })
+          .eq("id", uploadId);
+
+        if (uploadUpdateError) {
+          await insertTemplateAuditLog({
+            actorId: req.userId,
+            actorEmail: req.userEmail,
+            eventType: "website_template_upload_failed",
+            detail: {
+              file_name: req.file.originalname,
+              code: "DB_TRANSACTION_FAILED",
+              error: uploadUpdateError.message,
+            },
+          });
+          res.status(500).json({ error: uploadUpdateError.message, code: "DB_TRANSACTION_FAILED" });
+          return;
+        }
       }
 
       if (!validation.valid) {
