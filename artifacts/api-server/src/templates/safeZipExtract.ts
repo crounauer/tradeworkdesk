@@ -22,7 +22,7 @@ const MAX_UNCOMPRESSED_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 /**
  * Custom error class for extraction failures
  */
-class ZipExtractionError extends Error {
+export class ZipExtractionError extends Error {
   readonly code: string;
 
   constructor(message: string, code: string) {
