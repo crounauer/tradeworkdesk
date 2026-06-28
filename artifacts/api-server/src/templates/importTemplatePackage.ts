@@ -93,7 +93,7 @@ export async function importTemplatePackage(
       version: packageData.template.version || '1.0.0',
       status, // 'draft' or 'live'
       category: packageData.template.category || 'general',
-      description: packageData.template.category || null,
+      description: packageData.template.description || null,
       is_active: publish,
       sort_order: 0,
       style: packageData.template.style || null,
@@ -164,15 +164,23 @@ export async function importTemplatePackage(
     }
 
     // Step 4: Insert website_template_pages in order from manifest
-    const pageInserts = packageData.pagesManifest.pages.map((page, index) => ({
-      template_id: templateId,
-      slug: page.slug,
-      title: page.title,
-      path: page.path,
-      block_count: packageData.pages.get(page.slug)?.blocks.length || 0,
-      page_order: index + 1,
-      seo: null,
-    }));
+    const pageInserts = packageData.pagesManifest.pages.map((page, index) => {
+      const pageFile = packageData.pages.get(page.slug);
+
+      if (!pageFile) {
+        throw new Error(`Page file not found for slug: ${page.slug}`);
+      }
+
+      return {
+        template_id: templateId,
+        slug: page.slug,
+        title: page.title,
+        path: page.path,
+        block_count: pageFile.blocks.length,
+        page_order: index + 1,
+        seo: pageFile.seo ?? {},
+      };
+    });
 
     const { data: insertedPages, error: pagesError } = await (supabaseAdmin
       .from('website_template_pages') as any)
@@ -208,11 +216,13 @@ export async function importTemplatePackage(
       }
 
       const blockInserts = pageFile.blocks.map((block, index) => ({
+        template_id: templateId,
         page_id: pageId,
         block_id: block.id,
         block_type: block.type,
         block_order: index + 1,
-        props: block.props || {},
+        sort_order: index + 1,
+        props: block.props ?? {},
       }));
 
       if (blockInserts.length > 0) {
