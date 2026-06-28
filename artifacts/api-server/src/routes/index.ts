@@ -19,6 +19,7 @@ import jobCompletionReportsRouter from "./job-completion-reports";
 import templateAdminRouter from "./template-admin";
 import templateAdminTemplatesRouter from "./template-admin/templates";
 import adminWebsiteTemplatesRouter from "./admin-website-templates";
+import superadminTemplatesRouter from "./superadmin-templates";
 import adminRouter from "./admin";
 import previewRouter from "./preview";
 import notesRouter from "./notes";
@@ -83,6 +84,7 @@ router.use(jobCompletionReportsRouter);
 router.use("/template-admin", templateAdminRouter);
 router.use("/templates", templateAdminTemplatesRouter); // legacy compatibility path
 router.use(adminWebsiteTemplatesRouter);
+router.use(superadminTemplatesRouter);
 router.use(adminRouter);
 router.use("/preview/templates", previewRouter);
 router.use(notesRouter);
