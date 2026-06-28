@@ -1,5 +1,15 @@
 import type * as JSZipTypes from "jszip";
 import { z } from "zod";
+import {
+  performEnhancedValidation,
+  formatEnhancedValidationErrors,
+  hasEnhancedValidationErrors,
+} from "./template-validation-enhanced";
+
+type TemplatePageForValidation = {
+  title?: string;
+  blocks: Array<{ type?: string; block_type?: string; id?: string }> | unknown[];
+};
 
 export type TemplateValidationReport = {
   valid: boolean;
@@ -145,8 +155,10 @@ function categorizeBlockTypes(
   const mapped = new Set<string>();
   const unsupported = new Set<string>();
   for (const page of pages) {
+    if (!Array.isArray(page.blocks)) continue;
     for (const block of page.blocks) {
-      const raw = String(block.block_type || "").trim().toLowerCase();
+      const blockObj = block as { type?: string; block_type?: string };
+      const raw = String(blockObj.block_type || blockObj.type || "").trim().toLowerCase();
       if (!raw) continue;
       if (blockTypeAliases[raw]) {
         mapped.add(raw);
@@ -410,6 +422,8 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
     }
   }
 
+  // Parse registry and collect block types
+  let registryBlockTypes = new Set<string>();
   const registryEntry = entryByPath.get("registry/block-registry.json");
   if (registryEntry) {
     try {
@@ -417,13 +431,68 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
       report.warnings.push(...registry.warnings);
       report.errors.push(...registry.errors);
       report.blocksFound += registry.blocks.length;
+      registryBlockTypes = new Set(registry.blocks.map((b) => b.type.toLowerCase()));
     } catch (error) {
       report.errors.push(`Invalid JSON in registry/block-registry.json: ${(error as Error).message}`);
     }
   }
 
+  // Run enhanced validation checks if template slug and pages are available
+  if (report.templateSlug && report.pagesFound.length > 0 && collectedPages.length > 0) {
+    // Build page structure for enhanced validation
+    const enhancedPages = collectedPages.map((page, index) => ({
+      slug: report.pagesFound[index] || `page-${index}`,
+      path: `${templateFolder}/pages/${report.pagesFound[index] || `page-${index}`}`,
+      title: page.title || `Page ${index + 1}`,
+      blocks: Array.isArray(page.blocks)
+        ? page.blocks.map((b: any) => ({
+            id: b.id,
+            type: b.type || b.block_type,
+            block_type: b.block_type || b.type,
+          }))
+        : [],
+    }));
+
+    // Collect all page files found in ZIP
+    const zipPageFiles = new Set<string>();
+    for (const entry of entries) {
+      if (entry.path.startsWith(`${templateFolder}/pages/`) && entry.path.endsWith(".json")) {
+        const fileName = entry.path.split("/").pop();
+        if (fileName) zipPageFiles.add(fileName);
+      }
+    }
+
+    const listedPageFiles = new Set(report.pagesFound);
+
+    // Perform enhanced validation
+    const enhancedErrors = performEnhancedValidation({
+      pages: enhancedPages,
+      registryBlockTypes,
+      folderSlug: templateFolder.split("/")[1] || "",
+      fileSlug: report.templateSlug,
+      listedPageFiles,
+      zipPageFiles,
+    });
+
+    // Add critical errors from enhanced validation (exclude orphaned files)
+    if (hasEnhancedValidationErrors(enhancedErrors)) {
+      const errorMessages = formatEnhancedValidationErrors(enhancedErrors);
+      // Filter out orphaned files message - those are warnings, not errors
+      const criticalErrors = errorMessages.filter((msg) => !msg.includes("Orphaned page files"));
+      report.errors.push(...criticalErrors);
+    }
+    
+    // Add orphaned files as warnings (not errors)
+    if (enhancedErrors.orphanedPageFiles.length > 0) {
+      report.warnings.push(
+        `Orphaned page files (in ZIP but not in pages.json): ${enhancedErrors.orphanedPageFiles.join(
+          ", ",
+        )}. These files will be ignored during import.`,
+      );
+    }
+  }
+
   report.valid = report.errors.length === 0;
-  
   // Categorize block types for UI feedback
   if (collectedPages.length > 0) {
     const { truly_unsupported, mapped_via_alias } = categorizeBlockTypes(collectedPages);
@@ -434,7 +503,7 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
       report.mappedBlockTypes = mapped_via_alias;
     }
   }
-  
+
   return report;
 }
 

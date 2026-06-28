@@ -9,11 +9,13 @@
     "db:migrate:baseline": "tsx ./src/migrate.ts --baseline",
     "db:migrate:status": "tsx ./src/migrate.ts --status",
     "db:migrate:dry-run": "tsx ./src/migrate.ts --dry-run",
+    "validate-template-zip": "tsx ./src/validate-template-zip.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
     "dotenv": "^17.4.2",
+    "jszip": "^3.10.1",
     "pg": "^8.20.0"
   },
   "devDependencies": {

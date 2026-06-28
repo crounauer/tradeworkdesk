@@ -375,7 +375,7 @@ router.post(
         description: importedContent.manifest.description || null,
         category: importedContent.manifest.category || "general",
         version: 1,
-        status: "validated",
+        status: "draft",
         is_active: false,
         is_featured: false,
         sort_order: 0,
@@ -472,7 +472,7 @@ router.post(
         success: true,
         templateSlug: importedContent.manifest.slug,
         templateName: importedContent.manifest.name,
-        status: "validated",
+        status: "draft",
         importedPages: importedContent.pages.length,
         importedBlocks: totalBlocksImported,
       });
