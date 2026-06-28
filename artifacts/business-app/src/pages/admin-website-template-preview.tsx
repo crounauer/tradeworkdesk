@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2, RefreshCw, TriangleAlert, Check, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,31 @@ type PreviewData = {
     blocksFound: number;
     warnings: string[];
     errors: string[];
+    unsupportedBlockTypes?: string[];
+    mappedBlockTypes?: string[];
   } | null;
 };
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
+
+// Block type support mapping
+const blockTypeAliases: Record<string, string> = {
+  trust_bar:'trust_badges', benefits_grid:'feature_cards', accreditation_logos:'accreditations', process_steps:'process', reviews_carousel:'reviews', cta_banner:'cta_band', blog_cards:'blog_index', footer_cta:'cta_band',
+  hero_centered:'hero', service_detail_intro:'service_detail', team_cards:'feature_cards', area_list:'areas_grid', map_opening_hours:'contact', gallery_grid:'gallery', before_after:'gallery', faq_accordion:'faq', contact_form_section:'contact_form', richtext_article_body:'rich_text', system_404:'text', pricing_table:'feature_cards'
+};
+
+const supportedBlockTypes = new Set(['hero','hero_split','text','rich_text','text_section','image','cta','cta_band','services','services_grid','service_detail','contact_form','contact','testimonials','reviews','gallery','accreditations','trust_badges','spacer','why_choose_us','faq','areas','areas_grid','area_detail_hero','brands','partners','features_bar','feature_cards','process','steps','how_it_works','project_showcase','case_study','projects','online_booking','booking','blog_index','blog_post','legal_content']);
+
+function getBlockTypeStatus(blockType: string): { status: 'supported' | 'mapped' | 'unsupported'; displayName: string; icon: React.ReactNode } {
+  const normalized = blockType.trim().toLowerCase();
+  if (supportedBlockTypes.has(normalized)) {
+    return { status: 'supported', displayName: 'Supported', icon: <Check className="h-3 w-3" /> };
+  }
+  if (blockTypeAliases[normalized]) {
+    return { status: 'mapped', displayName: `Mapped to ${blockTypeAliases[normalized]}`, icon: <AlertCircle className="h-3 w-3" /> };
+  }
+  return { status: 'unsupported', displayName: 'Unsupported', icon: <TriangleAlert className="h-3 w-3" /> };
+}
 
 function normalizeTemplateId(location: string): string | null {
   const path = location.split("?")[0];
@@ -312,15 +333,27 @@ export default function AdminWebsiteTemplatePreviewPage() {
                       selectedBlocks
                         .slice()
                         .sort((a, b) => a.sort_order - b.sort_order)
-                        .map((block) => (
-                          <div key={block.id} className="rounded-lg border bg-muted/20 p-3">
-                            <div className="flex items-center justify-between gap-3 text-sm font-medium">
-                              <span>{block.block_type}</span>
-                              <span className="text-xs text-muted-foreground">#{block.sort_order}</span>
+                        .map((block) => {
+                          const supportInfo = getBlockTypeStatus(block.block_type);
+                          const statusColor = supportInfo.status === 'supported' ? 'bg-emerald-50 border-emerald-200' : supportInfo.status === 'mapped' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+                          return (
+                            <div key={block.id} className={cn("rounded-lg border p-3", statusColor)}>
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{block.block_type}</span>
+                                    <Badge variant="outline" className="text-xs gap-1">
+                                      {supportInfo.icon}
+                                      {supportInfo.displayName}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1">Sort order: {block.sort_order}</div>
+                                </div>
+                              </div>
+                              <pre className="mt-2 overflow-auto text-xs text-muted-foreground">{JSON.stringify(block.content || {}, null, 2)}</pre>
                             </div>
-                            <pre className="mt-2 overflow-auto text-xs text-muted-foreground">{JSON.stringify(block.content || {}, null, 2)}</pre>
-                          </div>
-                        ))
+                          );
+                        })
                     )}
                   </CardContent>
                 </Card>

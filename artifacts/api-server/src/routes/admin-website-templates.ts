@@ -820,6 +820,20 @@ router.post(
         return;
       }
 
+      // Warn about truly unsupported block types (not mapped via aliases)
+      if (validation.unsupportedBlockTypes && validation.unsupportedBlockTypes.length > 0) {
+        validation.warnings.push(
+          `⚠️ Unsupported block types found: ${validation.unsupportedBlockTypes.join(", ")}. These blocks will not render correctly in previews.`
+        );
+      }
+
+      // Info about mapped block types
+      if (validation.mappedBlockTypes && validation.mappedBlockTypes.length > 0) {
+        validation.warnings.push(
+          `ℹ️ Block types mapped to compatible renderers: ${validation.mappedBlockTypes.join(", ")}. These may render differently than intended.`
+        );
+      }
+
       let importResult: { templateId: string };
       try {
         importResult = await upsertTemplateGraph({

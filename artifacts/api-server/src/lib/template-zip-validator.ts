@@ -9,6 +9,8 @@ export type TemplateValidationReport = {
   blocksFound: number;
   warnings: string[];
   errors: string[];
+  unsupportedBlockTypes?: string[];
+  mappedBlockTypes?: string[];
 };
 
 type ZipObject = JSZipTypes.JSZipObject;
@@ -82,6 +84,13 @@ const blockRegistrySchema = z.union([
   z.array(z.object({ type: z.string().optional(), label: z.string().optional(), key: z.string().optional(), name: z.string().optional() }).passthrough()).min(1),
 ]);
 
+const blockTypeAliases: Record<string, string> = {
+  trust_bar:'trust_badges', benefits_grid:'feature_cards', accreditation_logos:'accreditations', process_steps:'process', reviews_carousel:'reviews', cta_banner:'cta_band', blog_cards:'blog_index', footer_cta:'cta_band',
+  hero_centered:'hero', service_detail_intro:'service_detail', team_cards:'feature_cards', area_list:'areas_grid', map_opening_hours:'contact', gallery_grid:'gallery', before_after:'gallery', faq_accordion:'faq', contact_form_section:'contact_form', richtext_article_body:'rich_text', system_404:'text', pricing_table:'feature_cards'
+};
+
+const supportedBlockTypes = new Set(['hero','hero_split','text','rich_text','text_section','image','cta','cta_band','services','services_grid','service_detail','contact_form','contact','testimonials','reviews','gallery','accreditations','trust_badges','spacer','why_choose_us','faq','areas','areas_grid','area_detail_hero','brands','partners','features_bar','feature_cards','process','steps','how_it_works','project_showcase','case_study','projects','online_booking','booking','blog_index','blog_post','legal_content']);
+
 function normalizePath(rawPath: string): string | null {
   const cleaned = rawPath.replace(/\\/g, "/").trim();
   if (!cleaned) return null;
@@ -128,6 +137,29 @@ function pageCandidates(name: string): string[] {
     candidates.add(canonicalPageAliases[base]);
   }
   return Array.from(candidates);
+}
+
+function categorizeBlockTypes(
+  pages: TemplatePageForValidation[],
+): { truly_unsupported: string[]; mapped_via_alias: string[] } {
+  const mapped = new Set<string>();
+  const unsupported = new Set<string>();
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      const raw = String(block.block_type || "").trim().toLowerCase();
+      if (!raw) continue;
+      if (blockTypeAliases[raw]) {
+        mapped.add(raw);
+      } else if (!supportedBlockTypes.has(raw)) {
+        unsupported.add(raw);
+      }
+    }
+  }
+
+  return {
+    truly_unsupported: Array.from(unsupported),
+    mapped_via_alias: Array.from(mapped)
+  };
 }
 
 function parsePagesManifest(raw: unknown): { pages: string[]; warnings: string[] } {
@@ -323,6 +355,7 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
     }
   }
 
+  const collectedPages: TemplatePageForValidation[] = [];
   for (const pageName of report.pagesFound) {
     const candidates = pageCandidates(pageName).map((candidate) => `${templateFolder}/pages/${candidate}`);
     const pagePath = candidates.find((candidate) => entryByPath.has(candidate)) || candidates[0];
@@ -335,6 +368,7 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
     try {
       const parsedPage = pageSchema.parse(JSON.parse(await readText(pageEntry.file)));
       report.blocksFound += parsedPage.blocks.length;
+      collectedPages.push(parsedPage);
       if (!parsedPage.title) {
         report.warnings.push(`Page JSON '${pagePath}' is missing a title field.`);
       }
@@ -389,6 +423,18 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
   }
 
   report.valid = report.errors.length === 0;
+  
+  // Categorize block types for UI feedback
+  if (collectedPages.length > 0) {
+    const { truly_unsupported, mapped_via_alias } = categorizeBlockTypes(collectedPages);
+    if (truly_unsupported.length > 0) {
+      report.unsupportedBlockTypes = truly_unsupported;
+    }
+    if (mapped_via_alias.length > 0) {
+      report.mappedBlockTypes = mapped_via_alias;
+    }
+  }
+  
   return report;
 }
 

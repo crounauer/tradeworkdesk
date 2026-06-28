@@ -53,6 +53,8 @@ type ValidationReport = {
   blocksFound: number;
   warnings: string[];
   errors: string[];
+  unsupportedBlockTypes?: string[];
+  mappedBlockTypes?: string[];
 };
 
 type TemplateDetail = {
@@ -672,6 +674,28 @@ export default function AdminWebsiteTemplatesPage() {
                 <AlertDescription>
                   <ul className="mt-2 list-disc pl-5 text-sm">
                     {uploadResult.validation.errors.map((error, index) => <li key={index}>{error}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {uploadResult.validation.unsupportedBlockTypes && uploadResult.validation.unsupportedBlockTypes.length > 0 && (
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertTitle>Unsupported block types found</AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-2 list-disc pl-5 text-sm">
+                    {uploadResult.validation.unsupportedBlockTypes.map((type, index) => <li key={index}>{type}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {uploadResult.validation.mappedBlockTypes && uploadResult.validation.mappedBlockTypes.length > 0 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Block types mapped to renderers</AlertTitle>
+                <AlertDescription>
+                  <ul className="mt-2 list-disc pl-5 text-sm">
+                    {uploadResult.validation.mappedBlockTypes.map((type, index) => <li key={index}>{type}</li>)}
                   </ul>
                 </AlertDescription>
               </Alert>
