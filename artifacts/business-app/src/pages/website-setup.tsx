@@ -62,6 +62,11 @@ interface Template {
   category: string;
 }
 
+interface WebsitePage {
+  id: string;
+  status: "draft" | "published" | string;
+}
+
 function TemplatePreview({ template }: { template: Template }) {
   const screenshots = (template.screenshot_urls || []).filter(Boolean).slice(0, 4);
   const primaryImage = template.preview_url || template.thumbnail_url || screenshots[0] || null;
@@ -102,6 +107,7 @@ export default function WebsiteSetup() {
   const qc = useQueryClient();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPublishOptions, setShowPublishOptions] = useState(false);
   const [showTemplateSelection, setShowTemplateSelection] = useState(false);
   const [showChangeTemplate, setShowChangeTemplate] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -119,6 +125,15 @@ export default function WebsiteSetup() {
     queryKey: ["/api/website/templates"],
     queryFn: () => apiFetch("/api/website/templates"),
     enabled: !featuresLoading && hasFeature("website_builder"),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: pages = [] } = useQuery<WebsitePage[]>({
+    queryKey: ["/api/website/pages"],
+    queryFn: () => apiFetch("/api/website/pages"),
+    enabled: !!website && !featuresLoading && hasFeature("website_builder"),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -161,20 +176,39 @@ export default function WebsiteSetup() {
   });
 
   const publishMutation = useMutation({
-    mutationFn: () =>
-      apiFetch("/api/website/publish", { method: "POST" }),
-    onSuccess: () => {
+    mutationFn: async ({ publishAllPages }: { publishAllPages: boolean }) => {
+      let newlyPublished = 0;
+
+      if (publishAllPages) {
+        const draftPages = pages.filter((page) => page.status !== "published");
+        for (const page of draftPages) {
+          await apiFetch(`/api/website/pages/${page.id}/publish`, { method: "POST" });
+          newlyPublished += 1;
+        }
+      }
+
+      await apiFetch("/api/website/publish", { method: "POST" });
+      return { publishAllPages, newlyPublished };
+    },
+    onSuccess: ({ publishAllPages, newlyPublished }) => {
+      setShowPublishOptions(false);
       qc.invalidateQueries({ queryKey: ["/api/website"] });
+      qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
       const hasCustomDomain = website?.domains.some((d) => !d.is_platform_subdomain && d.is_active);
       const platformSubdomain = website?.domains.find((d) => d.is_platform_subdomain);
       toast({
-        title: "Website published!",
-        description: hasCustomDomain
-          ? "Your website is now live."
+        title: "Site is live",
+        description: publishAllPages
+          ? `Published ${newlyPublished} page${newlyPublished === 1 ? "" : "s"} and made the site live.`
+          : hasCustomDomain
+          ? "Your website is now live with currently published pages."
           : platformSubdomain
-          ? `Your site is live at ${platformSubdomain.domain}`
-          : "Your website is published. Connect a custom domain to make it findable.",
+          ? `Your site is live at ${platformSubdomain.domain} with currently published pages.`
+          : "Your site is live with currently published pages. Connect a custom domain to make it findable.",
       });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Publish failed", description: e.message, variant: "destructive" });
     },
   });
 
@@ -370,6 +404,10 @@ export default function WebsiteSetup() {
   const platformDomain = website.domains.find((d) => d.is_platform_subdomain);
   const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && (d.verification_status === "verified" || d.is_active));
   const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && d.verification_status !== "verified" && !d.is_active);
+  const publishedPagesCount = pages.filter((page) => page.status === "published").length;
+  const totalPagesCount = pages.length;
+  const draftPagesCount = totalPagesCount - publishedPagesCount;
+  const hasDraftPages = draftPagesCount > 0;
   // Always use in-app preview route from admin to avoid broken external domain links in editor flow.
   const liveUrl = website.preview_url
     ? `${website.preview_url}${website.preview_url.includes("?") ? "&" : "?"}twd_edit=1`
@@ -391,11 +429,11 @@ export default function WebsiteSetup() {
           {website.status === "draft" && (
             <Button
               size="sm"
-              onClick={() => publishMutation.mutate()}
+              onClick={() => setShowPublishOptions(true)}
               disabled={publishMutation.isPending}
             >
               {publishMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Eye className="w-4 h-4 mr-1" />}
-              Publish Site
+              Go Live
             </Button>
           )}
           <Button
@@ -414,6 +452,9 @@ export default function WebsiteSetup() {
         <Badge variant={website.status === "published" ? "default" : "secondary"}>
           {website.status === "published" ? "Published" : "Draft"}
         </Badge>
+        <Badge variant="outline">
+          Pages published: {publishedPagesCount}/{totalPagesCount}
+        </Badge>
         {liveUrl && (
           <a
             href={liveUrl}
@@ -431,6 +472,25 @@ export default function WebsiteSetup() {
           </Badge>
         )}
       </div>
+
+      {hasDraftPages && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div>
+            {website.status === "published"
+              ? `Site is live, but ${draftPagesCount} page${draftPagesCount === 1 ? " is" : "s are"} still draft.`
+              : `${draftPagesCount} page${draftPagesCount === 1 ? " is" : "s are"} still draft and not live yet.`}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => publishMutation.mutate({ publishAllPages: true })}
+            disabled={publishMutation.isPending}
+          >
+            {publishMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+            Publish remaining pages
+          </Button>
+        </div>
+      )}
 
       {/* Draft warning — no custom domain yet, show the free subdomain */}
       {website.status === "published" && !activeCustomDomain && platformDomain && (
@@ -594,6 +654,40 @@ export default function WebsiteSetup() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Deleting…</> : "Delete Website"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Go live confirmation */}
+      <AlertDialog open={showPublishOptions} onOpenChange={(o) => !publishMutation.isPending && setShowPublishOptions(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Choose how to go live</AlertDialogTitle>
+            <AlertDialogDescription>
+              The site can go live with only currently published pages, or you can publish all draft pages first.
+              You currently have {draftPagesCount} draft page{draftPagesCount === 1 ? "" : "s"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={publishMutation.isPending}>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => publishMutation.mutate({ publishAllPages: false })}
+              disabled={publishMutation.isPending}
+            >
+              {publishMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Go live with current pages
+            </Button>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                publishMutation.mutate({ publishAllPages: true });
+              }}
+              disabled={publishMutation.isPending}
+            >
+              {publishMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Publish all pages and go live
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
