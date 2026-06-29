@@ -331,7 +331,7 @@ router.get(
 
 /**
  * POST /api/superadmin/templates/:slug/publish
- * Publish a template (set status to 'live')
+ * Publish a template (set status to 'published')
  */
 router.post(
   "/api/superadmin/templates/:slug/publish",
@@ -355,21 +355,21 @@ router.post(
         });
       }
 
-      if (template.status === "live") {
+      if (template.status === "live" || template.status === "published") {
         return res.json({
           success: true,
           data: {
-            status: "live",
+            status: "published",
             updated_at: new Date().toISOString(),
           },
         });
       }
 
-      // Update status to 'live'
+      // Update status to canonical published value.
       const { error: updateError } = await supabaseAdmin
         .from("website_templates")
         .update({
-          status: "live",
+          status: "published",
           is_active: true,
           updated_at: new Date().toISOString(),
         })
@@ -387,7 +387,7 @@ router.post(
       return res.json({
         success: true,
         data: {
-          status: "live",
+          status: "published",
           updated_at: new Date().toISOString(),
         },
       });
