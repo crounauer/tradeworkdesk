@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import type { SiteBlock, SiteData, SitePage } from "@website-renderer/lib/api";
-import BlockRenderer from "@website-renderer/components/blocks/BlockRenderer";
+import { TemplatePreviewRenderer, type TemplateBlock } from "@/components/template-preview-renderer";
+import { toStorybookBlockType } from "@/twd/templates/blockTypeParity";
 
 type PreviewData = {
   template: Record<string, unknown> & { id: string; name?: string; slug?: string; status?: string };
@@ -34,23 +34,16 @@ type PreviewData = {
 
 const API_BASE = `${import.meta.env.BASE_URL}api`;
 
-// Block type support mapping
-const blockTypeAliases: Record<string, string> = {
-  trust_bar:'trust_badges', benefits_grid:'feature_cards', accreditation_logos:'accreditations', process_steps:'process', reviews_carousel:'reviews', cta_banner:'cta_band', blog_cards:'blog_index', footer_cta:'cta_band',
-  hero_centered:'hero', service_detail_intro:'service_detail', team_cards:'feature_cards', area_list:'areas_grid', map_opening_hours:'contact', gallery_grid:'gallery', before_after:'gallery', faq_accordion:'faq', contact_form_section:'contact_form', richtext_article_body:'rich_text', system_404:'text', pricing_table:'feature_cards'
-};
-
-const supportedBlockTypes = new Set(['hero','hero_split','text','rich_text','text_section','image','cta','cta_band','services','services_grid','service_detail','contact_form','contact','testimonials','reviews','gallery','accreditations','trust_badges','spacer','why_choose_us','faq','areas','areas_grid','area_detail_hero','brands','partners','features_bar','feature_cards','process','steps','how_it_works','project_showcase','case_study','projects','online_booking','booking','blog_index','blog_post','legal_content']);
-
 function getBlockTypeStatus(blockType: string): { status: 'supported' | 'mapped' | 'unsupported'; displayName: string; icon: React.ReactNode } {
-  const normalized = blockType.trim().toLowerCase();
-  if (supportedBlockTypes.has(normalized)) {
+  const raw = String(blockType || "").trim();
+  const resolved = toStorybookBlockType(raw);
+  if (!raw) {
+    return { status: 'unsupported', displayName: 'Unsupported', icon: <TriangleAlert className="h-3 w-3" /> };
+  }
+  if (resolved === raw) {
     return { status: 'supported', displayName: 'Supported', icon: <Check className="h-3 w-3" /> };
   }
-  if (blockTypeAliases[normalized]) {
-    return { status: 'mapped', displayName: `Mapped to ${blockTypeAliases[normalized]}`, icon: <AlertCircle className="h-3 w-3" /> };
-  }
-  return { status: 'unsupported', displayName: 'Unsupported', icon: <TriangleAlert className="h-3 w-3" /> };
+  return { status: 'mapped', displayName: `Mapped to ${resolved}`, icon: <AlertCircle className="h-3 w-3" /> };
 }
 
 function normalizeTemplateId(location: string): string | null {
@@ -60,7 +53,7 @@ function normalizeTemplateId(location: string): string | null {
 }
 
 function groupBlocksByPage(blocks: Array<Record<string, unknown>>) {
-  const grouped = new Map<string, SiteBlock[]>();
+  const grouped = new Map<string, TemplateBlock[]>();
   for (const block of blocks) {
     const pageId = String(block.page_id || "");
     const existing = grouped.get(pageId) || [];
@@ -116,34 +109,6 @@ export default function AdminWebsiteTemplatePreviewPage() {
   }, [selectedPage?.slug, selectedPageSlug]);
 
   const selectedBlocks = selectedPage ? blocksByPage.get(String(selectedPage.id || "")) || [] : [];
-
-  const site = useMemo<SiteData | null>(() => {
-    if (!data) return null;
-    return {
-      website: {
-        id: String(data.template.id),
-        tenant_id: "preview",
-        site_name: String(data.template.name || data.template.slug || "Template Preview"),
-        tagline: null,
-        logo_url: null,
-        favicon_url: null,
-        theme: data.theme,
-        template_id: data.template.id,
-        template_slug: String(data.template.slug || ""),
-        default_meta_title: null,
-        default_meta_description: null,
-        google_analytics_id: null,
-        social_links: null,
-        status: "draft",
-      },
-      pages: pages as unknown as SitePage[],
-      blog_posts: [],
-      testimonials: [],
-      gallery: [],
-      company: null,
-      platform_announcements: [],
-    };
-  }, [data, pages]);
 
   const updatePage = (nextSlug: string) => {
     setSelectedPageSlug(nextSlug);
@@ -293,23 +258,15 @@ export default function AdminWebsiteTemplatePreviewPage() {
                 <Card>
                   <CardContent className="p-0">
                     <div className="rounded-b-lg bg-white">
-                      {selectedPage && site ? (
+                      {selectedPage ? (
                         <main>
                           {selectedBlocks.length > 0 ? (
-                            selectedBlocks
+                            <TemplatePreviewRenderer
+                              blocks={selectedBlocks
                               .slice()
                               .sort((a, b) => a.sort_order - b.sort_order)
-                              .map((block) => (
-                                <BlockRenderer
-                                  key={block.id}
-                                  block={block}
-                                  websiteId={String(data?.template.id)}
-                                  theme={data?.theme as Record<string, string>}
-                                  site={site}
-                                  page={selectedPage as unknown as SitePage}
-                                  showFallback
-                                />
-                              ))
+                              }
+                            />
                           ) : (
                             <div className="p-10 text-center text-sm text-muted-foreground">
                               This page has no blocks.
