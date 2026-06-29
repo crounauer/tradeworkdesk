@@ -21,6 +21,7 @@ import templateAdminTemplatesRouter from "./template-admin/templates";
 import adminWebsiteTemplatesRouter from "./admin-website-templates";
 import superadminTemplatesRouter from "./superadmin-templates";
 import superadminTemplatesManagementRouter from "./superadmin-templates-management";
+import superadminTemplateImportsRouter from "./superadmin-template-imports";
 import adminRouter from "./admin";
 import previewRouter from "./preview";
 import notesRouter from "./notes";
@@ -87,6 +88,7 @@ router.use("/templates", templateAdminTemplatesRouter); // legacy compatibility 
 router.use(adminWebsiteTemplatesRouter);
 router.use(superadminTemplatesRouter);
 router.use(superadminTemplatesManagementRouter);
+router.use(superadminTemplateImportsRouter);
 router.use(adminRouter);
 router.use("/preview/templates", previewRouter);
 router.use(notesRouter);
