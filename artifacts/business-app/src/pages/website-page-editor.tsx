@@ -1049,18 +1049,10 @@ export default function WebsitePageEditor() {
   }, []);
 
   const handleSave = () => {
-    saveBlocksMutation.mutate();
-    if (
-      page && (
-        metaForm.title !== page.title ||
-        metaForm.slug !== page.slug.replace(/^\//, "") ||
-        metaForm.meta_title !== (page.meta_title ?? "") ||
-        metaForm.meta_description !== (page.meta_description ?? "") ||
-        metaForm.no_index !== page.no_index ||
-        metaForm.show_in_nav !== page.show_in_nav ||
-        metaForm.nav_label !== (page.nav_label ?? "")
-      )
-    ) {
+    if (isDirty) {
+      saveBlocksMutation.mutate();
+    }
+    if (metaDirty) {
       saveMetaMutation.mutate();
     }
   };
@@ -1082,6 +1074,20 @@ export default function WebsitePageEditor() {
     );
   }
 
+  const metaDirty =
+    page
+      ? (
+          metaForm.title !== page.title ||
+          metaForm.slug !== page.slug.replace(/^\//, "") ||
+          metaForm.meta_title !== (page.meta_title ?? "") ||
+          metaForm.meta_description !== (page.meta_description ?? "") ||
+          metaForm.no_index !== page.no_index ||
+          metaForm.show_in_nav !== page.show_in_nav ||
+          metaForm.nav_label !== (page.nav_label ?? "")
+        )
+      : false;
+
+  const hasUnsavedChanges = isDirty || metaDirty;
   const isSaving = saveBlocksMutation.isPending || saveMetaMutation.isPending;
 
   return (
@@ -1099,15 +1105,27 @@ export default function WebsitePageEditor() {
           <Badge variant={page.status === "published" ? "default" : "secondary"} className="flex-shrink-0">
             {page.status}
           </Badge>
-          {isDirty && <Badge variant="outline" className="flex-shrink-0 text-amber-600 border-amber-300">Unsaved changes</Badge>}
+          {hasUnsavedChanges && <Badge variant="outline" className="flex-shrink-0 text-amber-600 border-amber-300">Unsaved changes</Badge>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isDirty && (
-            <Button variant="ghost" size="sm" onClick={() => { setBlocks([...(page.blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)); setIsDirty(false); }}>
+          {hasUnsavedChanges && (
+            <Button variant="ghost" size="sm" onClick={() => {
+              setBlocks([...(page.blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order));
+              setMetaForm({
+                title: page.title,
+                slug: page.slug.replace(/^\//, ""),
+                meta_title: page.meta_title ?? "",
+                meta_description: page.meta_description ?? "",
+                no_index: page.no_index,
+                show_in_nav: page.show_in_nav,
+                nav_label: page.nav_label ?? "",
+              });
+              setIsDirty(false);
+            }}>
               <Undo2 className="w-3.5 h-3.5 mr-1" /> Discard
             </Button>
           )}
-          <Button onClick={handleSave} disabled={isSaving || !isDirty} size="sm">
+          <Button onClick={handleSave} disabled={isSaving || !hasUnsavedChanges} size="sm">
             {isSaving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
             Save
           </Button>
@@ -1116,8 +1134,8 @@ export default function WebsitePageEditor() {
               variant="default"
               size="sm"
               onClick={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending || isDirty}
-              title={isDirty ? "Save first before publishing" : undefined}
+              disabled={publishMutation.isPending || hasUnsavedChanges}
+              title={hasUnsavedChanges ? "Save first before publishing" : undefined}
             >
               <Globe className="w-3.5 h-3.5 mr-1.5" /> Publish
             </Button>
