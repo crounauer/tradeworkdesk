@@ -39,7 +39,7 @@ const upload = multer({
  * Always imports as draft.
  */
 router.post(
-  "/api/superadmin/template-imports/import",
+  "/superadmin/template-imports/import",
   requireSuperAdmin,
   upload.single("templateZip"),
   async (req: Request, res: Response) => {
