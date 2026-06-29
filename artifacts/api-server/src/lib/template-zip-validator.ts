@@ -337,9 +337,7 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
     }
   }
 
-  if (!entries.some((entry) => entry.path.startsWith("source-figma-prototype/"))) {
-    report.warnings.push("Optional folder not found: source-figma-prototype/. Continuing with package import.");
-  }
+  // source-figma-prototype is optional for package-based templates.
 
   const templateEntry = entryByPath.get(templateJsonPath);
   if (!templateEntry) {
@@ -409,7 +407,6 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
   let cmsEntry = entryByPath.get(cmsMappingPath);
   if (!cmsEntry && entryByPath.has(legacyCmsPath)) {
     cmsEntry = entryByPath.get(legacyCmsPath);
-    report.warnings.push("Legacy cms-mapping.json at template root normalized to styles/cms-mapping.json.");
   }
 
   if (!cmsEntry) {
@@ -482,14 +479,7 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
       report.errors.push(...criticalErrors);
     }
     
-    // Add orphaned files as warnings (not errors)
-    if (enhancedErrors.orphanedPageFiles.length > 0) {
-      report.warnings.push(
-        `Orphaned page files (in ZIP but not in pages.json): ${enhancedErrors.orphanedPageFiles.join(
-          ", ",
-        )}. These files will be ignored during import.`,
-      );
-    }
+    // Ignore orphaned page files warnings to keep validation output actionable.
   }
 
   report.valid = report.errors.length === 0;
