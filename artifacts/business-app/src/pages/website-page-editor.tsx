@@ -350,12 +350,109 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+function GenericBlockEditor({
+  blockType,
+  content,
+  onChange,
+}: {
+  blockType: string;
+  content: Record<string, unknown>;
+  onChange: (next: Record<string, unknown>) => void;
+}) {
+  const [json, setJson] = useState(() => JSON.stringify(content || {}, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setJson(JSON.stringify(content || {}, null, 2));
+    setError(null);
+  }, [content]);
+
+  const applyJson = () => {
+    try {
+      const parsed = JSON.parse(json);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setError("Block content must be a JSON object.");
+        return;
+      }
+      setError(null);
+      onChange(parsed as Record<string, unknown>);
+    } catch {
+      setError("Invalid JSON. Check commas, quotes, and brackets.");
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Editing custom block type <strong>{blockType}</strong>. Update its JSON content below.
+      </p>
+      <FieldRow label="Block Content (JSON)">
+        <Textarea
+          value={json}
+          onChange={(e) => setJson(e.target.value)}
+          rows={10}
+          className="font-mono text-xs"
+        />
+      </FieldRow>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <Button type="button" size="sm" variant="outline" onClick={applyJson}>
+        Apply JSON
+      </Button>
+    </div>
+  );
+}
+
+function resolveEditorType(blockType: string): BlockType | "generic" {
+  const t = String(blockType || "").toLowerCase();
+
+  const known: BlockType[] = [
+    "hero",
+    "text",
+    "image",
+    "cta",
+    "services",
+    "contact_form",
+    "testimonials",
+    "gallery",
+    "accreditations",
+    "features_bar",
+    "faq",
+    "process",
+    "areas",
+    "project_showcase",
+    "spacer",
+    "online_booking",
+  ];
+
+  if (known.includes(t as BlockType)) return t as BlockType;
+
+  if (t.includes("hero")) return "hero";
+  if (t.includes("text") || t.includes("intro")) return "text";
+  if (t.includes("image")) return "image";
+  if (t.includes("cta") || t.includes("call_to_action")) return "cta";
+  if (t.includes("service")) return "services";
+  if (t.includes("contact") && t.includes("form")) return "contact_form";
+  if (t.includes("review") || t.includes("testimonial")) return "testimonials";
+  if (t.includes("gallery")) return "gallery";
+  if (t.includes("accredit") || t.includes("trust_badge") || t.includes("badge")) return "accreditations";
+  if (t.includes("feature") || t.includes("benefit") || t.includes("team")) return "features_bar";
+  if (t.includes("faq")) return "faq";
+  if (t.includes("process") || t.includes("how_it_works")) return "process";
+  if (t.includes("area")) return "areas";
+  if (t.includes("project") || t.includes("case_study")) return "project_showcase";
+  if (t.includes("booking")) return "online_booking";
+  if (t.includes("spacer")) return "spacer";
+
+  return "generic";
+}
+
 function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Record<string, unknown>) => void }) {
   const c = block.content;
+  const editorType = resolveEditorType(block.block_type);
 
   const set = (key: string, value: unknown) => onChange({ ...c, [key]: value });
 
-  switch (block.block_type) {
+  switch (editorType) {
     case "hero":
       return (
         <div className="space-y-3">
@@ -809,7 +906,7 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     }
 
     default:
-      return <p className="text-xs text-muted-foreground">No editor for this block type.</p>;
+      return <GenericBlockEditor blockType={block.block_type} content={c} onChange={onChange} />;
   }
 }
 
