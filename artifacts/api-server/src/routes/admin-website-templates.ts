@@ -1062,7 +1062,11 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
 
   const { error: updateError } = await supabaseAdmin
     .from("website_templates")
-    .update({ is_active: true })
+    .update({
+      status: "published",
+      is_active: true,
+      published_at: new Date().toISOString(),
+    })
     .eq("id", id);
 
   if (updateError) {
@@ -1086,7 +1090,10 @@ router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdm
   const authReq = req as AuthenticatedRequest;
   const { error } = await supabaseAdmin
     .from("website_templates")
-    .update({ is_active: false })
+    .update({
+      status: "draft",
+      is_active: false,
+    })
     .eq("id", id);
 
   if (error) {
