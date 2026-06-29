@@ -107,7 +107,11 @@ export default defineConfig({
     fs: {
       strict: true,
       deny: ["**/.*"],
-      allow: [path.resolve(import.meta.dirname, "..", "website-renderer")]
+      allow: [
+        path.resolve(import.meta.dirname),
+        path.resolve(import.meta.dirname, "..", "website-renderer"),
+        path.resolve(import.meta.dirname, "..", "..")
+      ]
     }
   },
   preview: {

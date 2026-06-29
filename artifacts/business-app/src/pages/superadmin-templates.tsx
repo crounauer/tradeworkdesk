@@ -44,6 +44,8 @@ type UploadResponse = {
   status: string;
   importedPages: number;
   importedBlocks: number;
+  importedBlockTypes: number;
+  importId: string;
 } | {
   success: false;
   error: string;
@@ -127,7 +129,7 @@ export default function SuperadminTemplatesPage() {
           reject(new Error("Upload failed"));
         });
 
-        xhr.open("POST", `${API_BASE}/superadmin/templates/import`);
+        xhr.open("POST", `${API_BASE}/superadmin/template-imports/import`);
         xhr.withCredentials = true;
         xhr.send(formData);
       });
@@ -327,8 +329,9 @@ export default function SuperadminTemplatesPage() {
           <AlertDescription>
             <p className="font-medium">{uploadMutation.data.templateName}</p>
             <p className="text-sm">
-              {uploadMutation.data.importedPages} pages, {uploadMutation.data.importedBlocks} blocks
+              {uploadMutation.data.importedPages} pages, {uploadMutation.data.importedBlocks} blocks ({uploadMutation.data.importedBlockTypes} types)
             </p>
+            <p className="text-xs text-muted-foreground mt-1">Import ID: {uploadMutation.data.importId}</p>
           </AlertDescription>
         </Alert>
       )}

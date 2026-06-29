@@ -97,11 +97,19 @@ function statusLabel(status: TemplateStatus) {
 }
 
 function normalizeTemplateStatus(template: Pick<TemplateSummary, "status" | "is_active" | "published_at">): TemplateStatus {
-  if (template.status === "published" || template.is_active) return "published";
-  if (template.status === "validated" || template.published_at) return "validated";
-  if (template.status === "uploaded" || template.status === "draft" || template.status === "archived" || template.status === "failed") {
-    return template.status;
+  const rawStatus = String(template.status || "").toLowerCase();
+
+  // Support both legacy and current backend status values.
+  if (rawStatus === "published" || rawStatus === "live" || template.is_active || template.published_at) {
+    return "published";
   }
+
+  if (rawStatus === "validated") return "validated";
+
+  if (rawStatus === "uploaded" || rawStatus === "draft" || rawStatus === "archived" || rawStatus === "failed") {
+    return rawStatus;
+  }
+
   return "draft";
 }
 

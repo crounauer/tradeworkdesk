@@ -793,7 +793,8 @@ router.get(
     const { data, error } = await db
       .from("website_templates")
       .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, theme_json, default_theme, published_at")
-      .eq("status", "published")
+      // Support both legacy publish status and superadmin importer publish state.
+      .or("status.eq.published,status.eq.live,is_active.eq.true")
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to load templates" }); return; }
@@ -815,7 +816,7 @@ router.post(
       .from("website_templates")
       .select("id, name, slug, version, status, theme_json, default_theme")
       .eq("id", templateId)
-      .eq("status", "published")
+      .or("status.eq.published,status.eq.live,is_active.eq.true")
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
     if (templateError || !template) {
