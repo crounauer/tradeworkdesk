@@ -25,7 +25,7 @@ import BlogPostBlock from "./BlogPostBlock";
 import LegalContentBlock from "./LegalContentBlock";
 import FeatureCardsBlock from "./FeatureCardsBlock";
 import DetailSectionBlock from "./DetailSectionBlock";
-import { hasBlockRendererForType, normalizeBlockType } from "./block-registry";
+import { hasBlockRendererForType, isSkippableBlockType, normalizeBlockType } from "./block-registry";
 
 interface Props {
   block: SiteBlock;
@@ -133,6 +133,10 @@ function UnsupportedBlock({ blockType, showFallback }: { blockType: string; show
 }
 
 export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact, site, page, showFallback }: Props) {
+  if (isSkippableBlockType(block.block_type)) {
+    return null;
+  }
+
   const siteAccent = theme?.accent_color;
   const base = siteAccent ? { accent_color: siteAccent } : {};
   const companyBase = {

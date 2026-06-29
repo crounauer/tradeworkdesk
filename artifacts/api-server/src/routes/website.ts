@@ -58,6 +58,34 @@ type TemplateContentModeInfo = {
 };
 
 const STRUCTURAL_CONTENT_KEYS = new Set(["id", "slug", "href", "url", "path", "phone", "email", "ctaHref"]);
+const BLOCK_TYPE_ALIASES: Record<string, string> = {
+  "hero.standard": "hero",
+  "about.intro": "text",
+  "trust.badges": "trust_badges",
+  "services.grid": "services_grid",
+  "reviews.grid": "reviews",
+  "areas.grid": "areas_grid",
+  "gallery.grid": "gallery",
+  "cta.banner": "cta_band",
+  "contact.split": "contact",
+  "faq.accordion": "faq",
+  "process.steps": "process",
+  "features.list": "feature_cards",
+  "blog.index": "blog_index",
+  "legal.content": "legal_content",
+};
+const SKIPPED_BLOCK_TYPES = new Set(["site.header", "site.footer"]);
+
+function normalizeTenantBlockType(blockType: unknown): string {
+  const normalized = String(blockType || "").trim().toLowerCase();
+  if (!normalized) return "text";
+  return BLOCK_TYPE_ALIASES[normalized] || normalized;
+}
+
+function shouldSkipTenantBlock(blockType: unknown): boolean {
+  const normalized = String(blockType || "").trim().toLowerCase();
+  return SKIPPED_BLOCK_TYPES.has(normalized);
+}
 
 function normalizeContentMode(mode: unknown): TemplateContentMode {
   const value = String(mode || "").trim().toLowerCase();
@@ -527,9 +555,11 @@ router.post(
               : [];
 
             pageBlocks.forEach((blockDef, i) => {
-              const blockType = String(blockDef.type || blockDef.block_type || "text");
+              const rawBlockType = String(blockDef.type || blockDef.block_type || "text");
+              if (shouldSkipTenantBlock(rawBlockType)) return;
+              const blockType = normalizeTenantBlockType(rawBlockType);
               const syntheticBlock = {
-                block_type: blockType,
+                block_type: rawBlockType,
                 block_id: blockDef.id,
                 sort_order: typeof blockDef.sort_order === "number" ? blockDef.sort_order : i + 1,
                 content: (blockDef.content as Record<string, unknown>)
@@ -1102,6 +1132,7 @@ router.post(
 
     const pageIdBySlug = new Map<string, string>((insertedPages || []).map((page) => [String(page.slug), String(page.id)]));
     const blockInserts = templateBlocks.flatMap((block) => {
+      if (shouldSkipTenantBlock(block.block_type)) return [];
       const targetPage = templatePages.find((page) => String(page.id) === String(block.page_id));
       const tenantPageId = targetPage ? pageIdBySlug.get(String(targetPage.slug)) : null;
       if (!tenantPageId) return [];
@@ -1126,7 +1157,7 @@ router.post(
       return [{
         page_id: tenantPageId,
         tenant_id: req.tenantId,
-        block_type: String(block.block_type || "text"),
+        block_type: normalizeTenantBlockType(block.block_type),
         content: blockContent,
         sort_order: typeof block.sort_order === "number" ? block.sort_order : 0,
         is_visible: true,
@@ -1918,17 +1949,21 @@ router.put(
 
     // Insert new blocks
     if (blocks.length > 0) {
-      const inserts = blocks.map((b, i) => ({
-        page_id: id,
-        tenant_id: req.tenantId,
-        block_type: String(b.block_type || "text"),
-        content: b.content || {},
-        sort_order: i,
-        is_visible: b.is_visible !== false,
-      }));
+      const inserts = blocks
+        .filter((b) => !shouldSkipTenantBlock(b.block_type))
+        .map((b, i) => ({
+          page_id: id,
+          tenant_id: req.tenantId,
+          block_type: normalizeTenantBlockType(b.block_type),
+          content: b.content || {},
+          sort_order: i,
+          is_visible: b.is_visible !== false,
+        }));
 
-      const { error } = await db.from("website_blocks").insert(inserts) as { error: unknown };
-      if (error) { res.status(500).json({ error: "Failed to save blocks" }); return; }
+      if (inserts.length > 0) {
+        const { error } = await db.from("website_blocks").insert(inserts) as { error: unknown };
+        if (error) { res.status(500).json({ error: "Failed to save blocks" }); return; }
+      }
     }
 
     // Return updated blocks

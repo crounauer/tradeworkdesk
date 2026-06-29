@@ -1,6 +1,6 @@
 import { strict as assert } from "assert";
 import { test } from "node:test";
-import { hasBlockRendererForType, normalizeBlockType } from "./block-registry";
+import { hasBlockRendererForType, isSkippableBlockType, normalizeBlockType } from "./block-registry";
 
 test("normalizeBlockType trims and lowercases values", () => {
   assert.equal(normalizeBlockType(" Hero "), "hero");
@@ -27,6 +27,11 @@ test("normalizeBlockType maps known aliases", () => {
   assert.equal(normalizeBlockType("richtext_article_body"), "rich_text");
   assert.equal(normalizeBlockType("system_404"), "text");
   assert.equal(normalizeBlockType("pricing_table"), "feature_cards");
+  assert.equal(normalizeBlockType("hero.standard"), "hero");
+  assert.equal(normalizeBlockType("services.grid"), "services_grid");
+  assert.equal(normalizeBlockType("trust.badges"), "trust_badges");
+  assert.equal(normalizeBlockType("reviews.grid"), "reviews");
+  assert.equal(normalizeBlockType("areas.grid"), "areas_grid");
 });
 
 test("hasBlockRendererForType detects supported and unsupported blocks", () => {
@@ -36,4 +41,10 @@ test("hasBlockRendererForType detects supported and unsupported blocks", () => {
   assert.equal(hasBlockRendererForType("hero_centered"), true);
   assert.equal(hasBlockRendererForType("pricing_table"), true);
   assert.equal(hasBlockRendererForType("unknown_block_type"), false);
+});
+
+test("isSkippableBlockType identifies structural wrapper blocks", () => {
+  assert.equal(isSkippableBlockType("site.header"), true);
+  assert.equal(isSkippableBlockType("site.footer"), true);
+  assert.equal(isSkippableBlockType("hero.standard"), false);
 });

@@ -19,11 +19,31 @@ const blockTypeAliases: Record<string, string> = {
   richtext_article_body: "rich_text",
   system_404: "text",
   pricing_table: "feature_cards",
+  "hero.standard": "hero",
+  "about.intro": "text",
+  "trust.badges": "trust_badges",
+  "services.grid": "services_grid",
+  "reviews.grid": "reviews",
+  "areas.grid": "areas_grid",
+  "gallery.grid": "gallery",
+  "cta.banner": "cta_band",
+  "contact.split": "contact",
+  "faq.accordion": "faq",
+  "process.steps": "process",
+  "features.list": "feature_cards",
+  "blog.index": "blog_index",
+  "legal.content": "legal_content",
 };
+
+const skippableBlockTypes = new Set(["site.header", "site.footer"]);
 
 export function normalizeBlockType(blockType: string): string {
   const normalized = blockType.trim().toLowerCase();
   return blockTypeAliases[normalized] || normalized;
+}
+
+export function isSkippableBlockType(blockType: string): boolean {
+  return skippableBlockTypes.has(String(blockType || "").trim().toLowerCase());
 }
 
 const supportedBlockTypes = new Set([
