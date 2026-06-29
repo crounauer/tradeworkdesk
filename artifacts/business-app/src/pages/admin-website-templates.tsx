@@ -177,7 +177,11 @@ function TemplateDetailsDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-website-templates"] });
       queryClient.invalidateQueries({ queryKey: ["admin-website-template", templateId] });
-      toast({ title: "Template published" });
+      onOpenChange(false);
+      toast({
+        title: "Template published",
+        description: `${data?.template.name || "Template"} is now published.`,
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Publish failed", description: error.message, variant: "destructive" });
