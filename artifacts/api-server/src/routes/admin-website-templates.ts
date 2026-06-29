@@ -52,6 +52,11 @@ type ImportedTemplateContent = {
   pages: TemplatePageManifest[];
   themeJson: Record<string, unknown>;
   cmsMappingJson: Record<string, unknown>;
+  contentModes: {
+    defaultMode: string;
+    modes: Array<{ mode: string; file?: string; label?: string; description?: string }>;
+    seeds: Record<string, unknown>;
+  } | null;
 };
 
 type TemplateRow = {
@@ -292,7 +297,42 @@ async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: str
     || (await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/cms-mapping.json`))
     || {};
 
-  return { manifest, pages, themeJson, cmsMappingJson };
+  const rawContentModes = await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/content/content-modes.json`);
+  let contentModes: ImportedTemplateContent["contentModes"] = null;
+
+  if (rawContentModes) {
+    const rawModes = Array.isArray(rawContentModes.modes)
+      ? (rawContentModes.modes as Array<Record<string, unknown>>)
+      : [];
+    const modes = rawModes
+      .map((entry) => ({
+        mode: String(entry.mode || "").trim().toLowerCase(),
+        file: typeof entry.file === "string" ? entry.file : undefined,
+        label: typeof entry.label === "string" ? entry.label : undefined,
+        description: typeof entry.description === "string" ? entry.description : undefined,
+      }))
+      .filter((entry) => entry.mode === "demo" || entry.mode === "empty" || entry.mode === "ai");
+
+    const defaultModeRaw = String(rawContentModes.defaultMode || "demo").trim().toLowerCase();
+    const defaultMode = modes.some((entry) => entry.mode === defaultModeRaw)
+      ? defaultModeRaw
+      : (modes[0]?.mode || "demo");
+
+    const seeds: Record<string, unknown> = {};
+    for (const mode of modes) {
+      if (!mode.file) continue;
+      const seed = await readZipJson<Record<string, unknown>>(zip, `${templateFolder}/content/${mode.file}`);
+      if (seed) {
+        seeds[mode.mode] = seed;
+      }
+    }
+
+    if (modes.length > 0) {
+      contentModes = { defaultMode, modes, seeds };
+    }
+  }
+
+  return { manifest, pages, themeJson, cmsMappingJson, contentModes };
 }
 
 async function safeDeleteTemplateChildren(templateId: string): Promise<void> {
@@ -347,6 +387,7 @@ async function upsertTemplateGraph(opts: {
   pages: TemplatePageManifest[];
   themeJson: Record<string, unknown>;
   cmsMappingJson: Record<string, unknown>;
+  contentModes?: ImportedTemplateContent["contentModes"];
   validationReport: ReturnType<typeof buildValidationEnvelope>;
   uploadId: string;
   checksum: string;
@@ -392,6 +433,10 @@ async function upsertTemplateGraph(opts: {
     cms_mapping_json: opts.cmsMappingJson,
     default_theme: opts.themeJson,
     default_pages: opts.pages,
+    source: {
+      import_type: "admin_zip_upload",
+      ...(opts.contentModes ? { content_modes: opts.contentModes } : {}),
+    },
     design_tokens: {},
     figma_export_info: {
       import_type: "zip",
@@ -846,6 +891,7 @@ router.post(
         pages: importedContent.pages,
         themeJson: importedContent.themeJson,
         cmsMappingJson: importedContent.cmsMappingJson,
+        contentModes: importedContent.contentModes,
         validationReport: validation,
         uploadId,
         checksum: checksumSha256,
