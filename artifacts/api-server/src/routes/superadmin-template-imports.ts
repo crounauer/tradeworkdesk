@@ -33,13 +33,13 @@ const upload = multer({
 });
 
 /**
- * POST /api/superadmin/template-imports/import
+ * POST /api/template-imports/import
  *
  * Imports a TWD upload-ready template ZIP package.
  * Always imports as draft.
  */
 router.post(
-  "/superadmin/template-imports/import",
+  "/template-imports/import",
   requireSuperAdmin,
   upload.single("templateZip"),
   async (req: Request, res: Response) => {
