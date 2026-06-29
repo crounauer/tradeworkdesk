@@ -270,7 +270,7 @@ async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: str
           type: blockType,
           block_type: blockType,
           label: typeof blockRecord.label === "string" ? blockRecord.label : undefined,
-          content: normalizeJson(blockRecord.content, {}),
+          content: normalizeJson(blockRecord.content || blockRecord.props, {}),
           settings: normalizeJson(blockRecord.settings, {}),
           sort_order: typeof blockRecord.sort_order === "number" ? blockRecord.sort_order : blockIndex,
         };
@@ -332,7 +332,7 @@ function buildImportPages(manifest: unknown): TemplatePageManifest[] {
           type: blockType,
           block_type: blockType,
           label: typeof blockRecord.label === "string" ? blockRecord.label : undefined,
-          content: normalizeJson(blockRecord.content, {}),
+          content: normalizeJson(blockRecord.content || blockRecord.props, {}),
           settings: normalizeJson(blockRecord.settings, {}),
           sort_order: typeof blockRecord.sort_order === "number" ? blockRecord.sort_order : blockIndex,
         };

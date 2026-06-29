@@ -3,6 +3,8 @@
  * Admin-only component that renders template blocks by mapping block_type to imported block components
  */
 
+import { Component, type ReactNode } from "react";
+
 import {
   SiteHeaderBlock,
   SiteFooterBlock,
@@ -37,13 +39,48 @@ type BlockRendererProps = {
   block: TemplateBlock;
 };
 
+type BlockErrorBoundaryProps = {
+  block: TemplateBlock;
+  children: ReactNode;
+};
+
+type BlockErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class BlockErrorBoundary extends Component<BlockErrorBoundaryProps, BlockErrorBoundaryState> {
+  state: BlockErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): BlockErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const { block } = this.props;
+      return (
+        <div className="bg-amber-50 border border-amber-200 px-6 py-12 text-center">
+          <p className="text-sm font-medium text-amber-800">
+            Failed to render block <span className="font-mono text-xs bg-amber-100 px-2 py-1 rounded">{block.block_type}</span>
+          </p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 /**
  * Maps block_type strings to block components
  * Content is passed directly to the component
  */
 function BlockComponent({ block }: BlockRendererProps) {
   const { block_type, content = {} } = block;
-  const props = content as Record<string, unknown>;
+  const contentObj = content as Record<string, unknown>;
+  const props = (contentObj.props && typeof contentObj.props === "object"
+    ? (contentObj.props as Record<string, unknown>)
+    : contentObj) as Record<string, unknown>;
   const resolvedType = toStorybookBlockType(block_type);
 
   switch (resolvedType) {
@@ -115,7 +152,9 @@ export function TemplatePreviewRenderer({ blocks }: TemplatePreviewRendererProps
           <div className="absolute -top-8 left-0 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded pointer-events-none z-10">
             {block.block_type} {block.sort_order + 1}
           </div>
-          <BlockComponent block={block} />
+          <BlockErrorBoundary block={block}>
+            <BlockComponent block={block} />
+          </BlockErrorBoundary>
         </div>
       ))}
     </div>
