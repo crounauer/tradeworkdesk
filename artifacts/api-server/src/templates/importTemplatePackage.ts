@@ -66,6 +66,14 @@ export async function importTemplatePackage(
   const status = publish ? 'live' : 'draft';
   let templateId: string | null = null;
 
+  const contentModesPayload = packageData.contentModes
+    ? {
+        defaultMode: packageData.contentModes.defaultMode,
+        modes: packageData.contentModes.modes,
+        seeds: packageData.contentSeeds,
+      }
+    : null;
+
   try {
     // Step 1: Create template_imports tracking record
     const { error: createImportError } = await (supabaseAdmin
@@ -108,6 +116,7 @@ export async function importTemplatePackage(
         import_type: 'zip_package',
         import_id: importId,
         imported_at: new Date().toISOString(),
+        ...(contentModesPayload ? { content_modes: contentModesPayload } : {}),
         ...(sourceFilename && { source_filename: sourceFilename }),
       },
     };

@@ -338,7 +338,7 @@ export async function validateTemplateZip(input: Buffer | ArrayBuffer | Uint8Arr
   }
 
   if (!entries.some((entry) => entry.path.startsWith("source-figma-prototype/"))) {
-    report.errors.push("Missing required folder contents: source-figma-prototype/");
+    report.warnings.push("Optional folder not found: source-figma-prototype/. Continuing with package import.");
   }
 
   const templateEntry = entryByPath.get(templateJsonPath);

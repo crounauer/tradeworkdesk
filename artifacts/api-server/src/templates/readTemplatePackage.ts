@@ -7,12 +7,17 @@ import {
   TemplateThemeSchema,
   TemplateCmsMappingSchema,
   TemplateBlockRegistrySchema,
+  TemplateContentModesSchema,
+  TemplateContentSeedSchema,
   type TemplateJson,
   type TemplatePagesManifest,
   type TemplatePageFile,
   type TemplateTheme,
   type TemplateCmsMapping,
   type TemplateBlockRegistry,
+  type TemplateContentMode,
+  type TemplateContentModes,
+  type TemplateContentSeed,
 } from './templatePackageSchema';
 import { ZodError } from 'zod';
 
@@ -24,6 +29,8 @@ export interface ReadTemplatePackageResult {
   template: TemplateJson;
   pagesManifest: TemplatePagesManifest;
   pages: Map<string, TemplatePageFile>;
+  contentModes: TemplateContentModes | null;
+  contentSeeds: Partial<Record<TemplateContentMode, TemplateContentSeed>>;
   theme: TemplateTheme;
   cmsMapping: TemplateCmsMapping;
   blockRegistry: TemplateBlockRegistry;
@@ -286,6 +293,78 @@ export async function readTemplatePackage(
     }
   }
 
+  // Step 6b: Read and validate optional content mode seeds.
+  const contentModesPath = join(templateDir, 'content', 'content-modes.json');
+  let contentModes: TemplateContentModes | null = null;
+  const contentSeeds: Partial<Record<TemplateContentMode, TemplateContentSeed>> = {};
+  let hasContentModesManifest = false;
+
+  try {
+    await fs.stat(contentModesPath);
+    hasContentModesManifest = true;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('ENOENT')) {
+      throw error;
+    }
+  }
+
+  if (!hasContentModesManifest) {
+    // No optional content modes manifest present.
+  } else {
+    contentModes = await validateJsonFile(contentModesPath, TemplateContentModesSchema);
+
+    if (contentModes.template !== template.slug) {
+      throw new Error(
+        `content-modes.json template "${contentModes.template}" does not match template.json slug "${template.slug}"`
+      );
+    }
+
+    const modeNames = new Set<string>();
+    for (const modeDef of contentModes.modes) {
+      if (modeNames.has(modeDef.mode)) {
+        throw new Error(`Duplicate content mode "${modeDef.mode}" in ${contentModesPath}`);
+      }
+      modeNames.add(modeDef.mode);
+
+      const seedPath = join(templateDir, 'content', modeDef.file);
+      const seed = await validateJsonFile<TemplateContentSeed>(seedPath, TemplateContentSeedSchema);
+
+      if (seed.template !== template.slug) {
+        throw new Error(
+          `Content seed file ${seedPath} has template "${seed.template}" but expected "${template.slug}"`
+        );
+      }
+
+      if (seed.mode !== modeDef.mode) {
+        throw new Error(
+          `Content seed file ${seedPath} has mode "${seed.mode}" but content-modes.json declares "${modeDef.mode}"`
+        );
+      }
+
+      for (const [pageSlug, pageSeed] of Object.entries(seed.pages)) {
+        if (!pages.has(pageSlug)) {
+          throw new Error(
+            `Content seed file ${seedPath} contains unknown page slug "${pageSlug}"`
+          );
+        }
+
+        for (const block of pageSeed.blocks) {
+          if (!block.type) {
+            throw new Error(`Content seed file ${seedPath} has a block with missing type in page "${pageSlug}"`);
+          }
+        }
+      }
+
+      contentSeeds[modeDef.mode] = seed;
+    }
+
+    if (!modeNames.has(contentModes.defaultMode)) {
+      throw new Error(
+        `Default content mode "${contentModes.defaultMode}" is not listed in content-modes.json modes[]`
+      );
+    }
+  }
+
   // Step 7: Read and validate block-registry.json
   const registryPath = join(safeRoot, 'registry', 'block-registry.json');
   let blockRegistry: TemplateBlockRegistry;
@@ -343,6 +422,8 @@ export async function readTemplatePackage(
     template,
     pagesManifest,
     pages,
+    contentModes,
+    contentSeeds,
     theme,
     cmsMapping,
     blockRegistry,

@@ -39,6 +39,127 @@ const db = supabaseAdmin as any; // new tables not yet in generated types
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
 const WEBSITE_ANALYTICS_CACHE_TTL_MS = 60_000;
 
+type TemplateContentMode = "demo" | "empty" | "ai";
+
+type TemplateSeedBlock = {
+  id?: string;
+  type?: string;
+  props?: Record<string, unknown>;
+};
+
+type TemplateSeedPage = {
+  blocks?: TemplateSeedBlock[];
+};
+
+type TemplateContentModeInfo = {
+  defaultMode: TemplateContentMode;
+  modes: TemplateContentMode[];
+  seedsByMode: Partial<Record<TemplateContentMode, { pages?: Record<string, TemplateSeedPage> }>>;
+};
+
+const STRUCTURAL_CONTENT_KEYS = new Set(["id", "slug", "href", "url", "path", "phone", "email", "ctaHref"]);
+
+function normalizeContentMode(mode: unknown): TemplateContentMode {
+  const value = String(mode || "").trim().toLowerCase();
+  if (value === "empty" || value === "ai" || value === "demo") {
+    return value;
+  }
+  return "demo";
+}
+
+function listTemplateContentModes(template: Record<string, unknown>): TemplateContentMode[] {
+  const source = (template.source as Record<string, unknown> | undefined) || {};
+  const contentModes = (source.content_modes as Record<string, unknown> | undefined) || {};
+  const rawModes = Array.isArray(contentModes.modes) ? contentModes.modes : [];
+  const modes = rawModes
+    .map((entry) => {
+      if (typeof entry === "string") return normalizeContentMode(entry);
+      if (entry && typeof entry === "object" && "mode" in entry) {
+        return normalizeContentMode((entry as { mode?: unknown }).mode);
+      }
+      return null;
+    })
+    .filter((mode): mode is TemplateContentMode => Boolean(mode));
+
+  return modes.length > 0 ? Array.from(new Set(modes)) : ["demo"];
+}
+
+function getTemplateContentModeInfo(template: Record<string, unknown>): TemplateContentModeInfo {
+  const source = (template.source as Record<string, unknown> | undefined) || {};
+  const contentModes = (source.content_modes as Record<string, unknown> | undefined) || {};
+  const modes = listTemplateContentModes(template);
+  const defaultMode = normalizeContentMode(contentModes.defaultMode);
+  const seedsByMode = (contentModes.seeds as TemplateContentModeInfo["seedsByMode"]) || {};
+
+  return {
+    defaultMode: modes.includes(defaultMode) ? defaultMode : modes[0] || "demo",
+    modes,
+    seedsByMode,
+  };
+}
+
+function transformContentValueForMode(value: unknown, mode: TemplateContentMode, keyHint = ""): unknown {
+  if (mode === "demo") return value;
+  if (value === null || value === undefined) return value;
+
+  if (typeof value === "string") {
+    if (STRUCTURAL_CONTENT_KEYS.has(keyHint) || /href|url|path|slug|id/i.test(keyHint)) {
+      return value;
+    }
+    return mode === "empty" ? "" : `[[ai:${keyHint || "text"}]]`;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") return value;
+
+  if (Array.isArray(value)) {
+    return value.map((item) => transformContentValueForMode(item, mode, keyHint));
+  }
+
+  if (typeof value === "object") {
+    const sourceObj = value as Record<string, unknown>;
+    const nextObj: Record<string, unknown> = {};
+
+    for (const [key, nestedValue] of Object.entries(sourceObj)) {
+      nextObj[key] = transformContentValueForMode(nestedValue, mode, key);
+    }
+
+    return nextObj;
+  }
+
+  return value;
+}
+
+function resolveModeBlockProps(
+  mode: TemplateContentMode,
+  template: Record<string, unknown>,
+  pageSlug: string,
+  block: { block_type?: unknown; block_id?: unknown; sort_order?: unknown; content?: unknown },
+): Record<string, unknown> {
+  const baseContent = (block.content as Record<string, unknown>) || {};
+  if (mode === "demo") return baseContent;
+
+  const modeInfo = getTemplateContentModeInfo(template);
+  const seedPages = modeInfo.seedsByMode[mode]?.pages || {};
+  const pageSeed = seedPages[pageSlug];
+  const seededBlocks = pageSeed?.blocks || [];
+
+  const sortOrder = typeof block.sort_order === "number" ? block.sort_order : 1;
+  const fallbackIndex = Math.max(0, sortOrder - 1);
+  const blockId = String(block.block_id || "");
+  const blockType = String(block.block_type || "");
+
+  const seeded =
+    seededBlocks.find((seededBlock) => blockId && seededBlock.id === blockId)
+    || seededBlocks.find((seededBlock) => blockType && seededBlock.type === blockType)
+    || seededBlocks[fallbackIndex];
+
+  if (seeded?.props && typeof seeded.props === "object") {
+    return seeded.props;
+  }
+
+  return transformContentValueForMode(baseContent, mode) as Record<string, unknown>;
+}
+
 function pct1(numerator: number, denominator: number): number {
   if (denominator <= 0) return 0;
   return Math.round((numerator / denominator) * 1000) / 10;
@@ -247,19 +368,21 @@ router.post(
       site_name?: string;
       tagline?: string;
       template_id?: string;
+      content_mode?: string;
     };
+    const requestedContentMode = normalizeContentMode((req.body as { content_mode?: string } | undefined)?.content_mode);
 
     let resolvedTemplateId: string | null = template_id || null;
-    let resolvedTemplate: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown> } | null = null;
+    let resolvedTemplate: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown>; source?: Record<string, unknown> } | null = null;
 
     // If template_id provided, fetch and validate it
     if (resolvedTemplateId) {
       const { data: template } = await db
         .from("website_templates")
-        .select("slug, default_pages, default_theme, design_tokens, figma_export_info")
+        .select("slug, default_pages, default_theme, design_tokens, figma_export_info, source")
         .eq("id", resolvedTemplateId)
         .eq("is_active", true)
-        .maybeSingle() as { data: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown> } | null };
+        .maybeSingle() as { data: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown>; source?: Record<string, unknown> } | null };
 
       if (!template) {
         res.status(400).json({ error: "Selected template is not available or not live." });
@@ -309,6 +432,10 @@ router.post(
     if (resolvedTemplate) {
       let createdPages: Array<{ id: string; slug: string; page_type: string }> = [];
       const templateSlug = String(resolvedTemplate.slug || "") || "modern";
+      const contentModeInfo = getTemplateContentModeInfo(resolvedTemplate as unknown as Record<string, unknown>);
+      const selectedContentMode = contentModeInfo.modes.includes(requestedContentMode)
+        ? requestedContentMode
+        : contentModeInfo.defaultMode;
       let defaultPages = resolvedTemplate.default_pages?.length
         ? (resolvedTemplate.default_pages as Array<Record<string, unknown>>)
         : [];
@@ -401,11 +528,27 @@ router.post(
 
             pageBlocks.forEach((blockDef, i) => {
               const blockType = String(blockDef.type || blockDef.block_type || "text");
+              const syntheticBlock = {
+                block_type: blockType,
+                block_id: blockDef.id,
+                sort_order: typeof blockDef.sort_order === "number" ? blockDef.sort_order : i + 1,
+                content: (blockDef.content as Record<string, unknown>)
+                  || (blockDef.props as Record<string, unknown>)
+                  || {},
+              };
+
+              const modeBlockContent = resolveModeBlockProps(
+                selectedContentMode,
+                resolvedTemplate as unknown as Record<string, unknown>,
+                pageSlug,
+                syntheticBlock,
+              );
+
               blockInserts.push({
                 page_id: pageId,
                 tenant_id: req.tenantId,
                 block_type: blockType,
-                content: (blockDef.content as Record<string, unknown>) || {},
+                content: modeBlockContent,
                 sort_order: typeof blockDef.sort_order === "number" ? blockDef.sort_order : i,
                 is_visible: blockDef.is_visible !== false,
               });
@@ -792,13 +935,18 @@ router.get(
   async (_req: AuthenticatedRequest, res): Promise<void> => {
     const { data, error } = await db
       .from("website_templates")
-      .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, theme_json, default_theme, published_at")
+      .select("id, name, slug, description, thumbnail_url, preview_url, category, sort_order, theme_json, default_theme, published_at, source")
       // Support both legacy publish status and superadmin importer publish state.
       .or("status.eq.published,status.eq.live,is_active.eq.true")
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to load templates" }); return; }
-    res.json(data || []);
+    const templates = (data || []).map((template) => ({
+      ...template,
+      content_modes: listTemplateContentModes(template),
+      source: undefined,
+    }));
+    res.json(templates);
   }
 );
 
@@ -811,10 +959,11 @@ router.post(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { templateId } = req.params;
     const confirmReplace = Boolean((req.body as { confirmReplace?: boolean } | undefined)?.confirmReplace);
+    const requestedContentMode = normalizeContentMode((req.body as { contentMode?: string } | undefined)?.contentMode);
 
     const { data: template, error: templateError } = await db
       .from("website_templates")
-      .select("id, name, slug, version, status, theme_json, default_theme")
+      .select("id, name, slug, version, status, theme_json, default_theme, source")
       .eq("id", templateId)
       .or("status.eq.published,status.eq.live,is_active.eq.true")
       .single() as { data: Record<string, unknown> | null; error: unknown };
@@ -905,7 +1054,7 @@ router.post(
 
     const { data: templateBlocks, error: blocksError } = await db
       .from("website_template_blocks")
-      .select("id, page_id, block_type, sort_order, content, settings")
+      .select("id, page_id, block_id, block_type, sort_order, content, settings")
       .eq("template_id", template.id)
       .order("sort_order", { ascending: true }) as { data: Array<Record<string, unknown>> | null; error: unknown };
 
@@ -913,6 +1062,11 @@ router.post(
       res.status(500).json({ error: "Failed to load template blocks", code: "TEMPLATE_BLOCKS_LOAD_FAILED" });
       return;
     }
+
+    const contentModeInfo = getTemplateContentModeInfo(template);
+    const selectedContentMode = contentModeInfo.modes.includes(requestedContentMode)
+      ? requestedContentMode
+      : contentModeInfo.defaultMode;
 
     const pageInserts = templatePages.map((page, index) => {
       const seo = (page.seo as Record<string, unknown>) || {};
@@ -952,8 +1106,20 @@ router.post(
       const tenantPageId = targetPage ? pageIdBySlug.get(String(targetPage.slug)) : null;
       if (!tenantPageId) return [];
 
+      const modeBlockContent = resolveModeBlockProps(
+        selectedContentMode,
+        template,
+        String(targetPage?.slug || ""),
+        {
+          block_type: block.block_type,
+          block_id: block.block_id,
+          sort_order: block.sort_order,
+          content: (block.content as Record<string, unknown>) || {},
+        },
+      );
+
       const blockContent = mergeTemplateBlockContent(
-        (block.content as Record<string, unknown>) || {},
+        modeBlockContent,
         (block.settings as Record<string, unknown>) || {},
       );
 

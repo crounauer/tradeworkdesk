@@ -106,6 +106,39 @@ export type TemplatePageFile = z.infer<typeof TemplatePageFileSchema>;
 export type PageBlock = z.infer<typeof PageBlockSchema>;
 
 // ============================================================================
+// Content Modes (content/*.json)
+// ============================================================================
+
+export const TemplateContentModeSchema = z.enum(["demo", "empty", "ai"]);
+export type TemplateContentMode = z.infer<typeof TemplateContentModeSchema>;
+
+const TemplateContentModeDescriptorSchema = z.object({
+  mode: TemplateContentModeSchema,
+  file: z.string().min(1, "Content mode file is required"),
+  label: z.string().optional(),
+  description: z.string().optional(),
+}).strict();
+
+export const TemplateContentModesSchema = z.object({
+  template: z.string().min(1, "Template slug is required for content modes"),
+  defaultMode: TemplateContentModeSchema,
+  modes: z.array(TemplateContentModeDescriptorSchema).min(1, "At least one content mode is required"),
+}).strict();
+
+const TemplateContentPageSchema = z.object({
+  blocks: z.array(PageBlockSchema).default([]),
+}).strict();
+
+export const TemplateContentSeedSchema = z.object({
+  template: z.string().min(1, "Template slug is required for content seed file"),
+  mode: TemplateContentModeSchema,
+  pages: z.record(z.string(), TemplateContentPageSchema),
+}).strict();
+
+export type TemplateContentModes = z.infer<typeof TemplateContentModesSchema>;
+export type TemplateContentSeed = z.infer<typeof TemplateContentSeedSchema>;
+
+// ============================================================================
 // Theme (styles/theme.json)
 // ============================================================================
 
@@ -178,6 +211,12 @@ export const TemplatePackageSchema = z.object({
   template: TemplateJsonSchema,
   pagesManifest: TemplatePagesManifestSchema,
   pages: z.record(z.string(), TemplatePageFileSchema),
+  contentModes: TemplateContentModesSchema.optional(),
+  contentSeeds: z.object({
+    demo: TemplateContentSeedSchema.optional(),
+    empty: TemplateContentSeedSchema.optional(),
+    ai: TemplateContentSeedSchema.optional(),
+  }).optional(),
   theme: TemplateThemeSchema,
   cmsMapping: TemplateCmsMappingSchema,
   blockRegistry: TemplateBlockRegistrySchema,

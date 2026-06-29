@@ -32,6 +32,7 @@ type TemplateListItem = {
   name: string;
   status: string;
   category?: string;
+  content_modes?: string[];
   version?: number;
   page_count: number;
   updated_at?: string;
@@ -360,6 +361,7 @@ export default function SuperadminTemplatesPage() {
                     <TableHead>Slug</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Modes</TableHead>
                     <TableHead className="text-center">Pages</TableHead>
                     <TableHead>Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -377,6 +379,9 @@ export default function SuperadminTemplatesPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {template.category || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {template.content_modes?.length ? template.content_modes.join(", ") : "demo"}
                       </TableCell>
                       <TableCell className="text-center text-sm">{template.page_count}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 import { modernTradePages } from '../src/twd/templates/modernTrade.pages';
+import { modernTradeContentModesManifest, modernTradeContentSeeds } from '../src/twd/content/modernTradeContentModes';
 import { twdBlockRegistry } from '../src/twd/registry/blockRegistry';
 
 const root = process.cwd();
@@ -146,6 +147,21 @@ function exportPages() {
   );
 }
 
+function exportContentSeeds() {
+  writeJson(
+    path.join(packageDir, 'templates', templateSlug, 'content', 'content-modes.json'),
+    modernTradeContentModesManifest
+  );
+
+  for (const modeEntry of modernTradeContentModesManifest.modes) {
+    const seed = modernTradeContentSeeds[modeEntry.mode];
+    writeJson(
+      path.join(packageDir, 'templates', templateSlug, 'content', modeEntry.file),
+      seed
+    );
+  }
+}
+
 function exportTemplateJson() {
   writeJson(path.join(packageDir, 'templates', templateSlug, 'template.json'), {
     id: templateSlug,
@@ -287,6 +303,8 @@ const root = process.cwd();
 const requiredFiles = [
   'templates/${templateSlug}/template.json',
   'templates/${templateSlug}/pages/pages.json',
+  'templates/${templateSlug}/content/content-modes.json',
+  ${modernTradeContentModesManifest.modes.map((mode) => `'templates/${templateSlug}/content/${mode.file}'`).join(',\n  ')},
   'templates/${templateSlug}/styles/theme.json',
   'templates/${templateSlug}/cms-mapping.json',
   'registry/block-registry.json',
@@ -354,6 +372,8 @@ This package was generated from the TWD Storybook block recipes.
 - \`templates/${templateSlug}/pages/pages.json\`
 - \`templates/${templateSlug}/pages/*.json\`
 - \`templates/${templateSlug}/styles/theme.json\`
+- \`templates/${templateSlug}/content/content-modes.json\`
+- \`templates/${templateSlug}/content/*.json\`
 - \`templates/${templateSlug}/cms-mapping.json\`
 - \`registry/block-registry.json\`
 - \`scripts/validate-template.ts\`
@@ -401,6 +421,7 @@ function main() {
 
   exportTemplateJson();
   exportPages();
+  exportContentSeeds();
   exportThemeJson();
   exportCmsMapping();
   exportBlockRegistry();

@@ -25,6 +25,7 @@ type TemplateListItem = {
   category?: string;
   version?: number;
   page_count: number;
+  content_modes?: string[];
   updated_at?: string;
 };
 
@@ -42,6 +43,7 @@ type TemplateDetail = {
   theme?: Record<string, unknown>;
   cms_mapping?: Record<string, unknown>;
   template_json?: Record<string, unknown>;
+  content_modes?: string[];
 };
 
 type PageDetail = {
@@ -80,6 +82,30 @@ type ApiResponse<T> = {
   details?: Record<string, unknown>;
 };
 
+function getContentModesFromTemplateSource(source: unknown): string[] {
+  if (!source || typeof source !== "object") return ["demo"];
+
+  const contentModes = (source as Record<string, unknown>).content_modes;
+  if (!contentModes || typeof contentModes !== "object") return ["demo"];
+
+  const rawModes = Array.isArray((contentModes as Record<string, unknown>).modes)
+    ? ((contentModes as Record<string, unknown>).modes as unknown[])
+    : [];
+
+  const modes = rawModes
+    .map((entry) => {
+      if (typeof entry === "string") return entry;
+      if (entry && typeof entry === "object") {
+        return String((entry as { mode?: unknown }).mode || "");
+      }
+      return "";
+    })
+    .map((mode) => mode.trim().toLowerCase())
+    .filter((mode) => mode === "demo" || mode === "empty" || mode === "ai");
+
+  return modes.length > 0 ? Array.from(new Set(modes)) : ["demo"];
+}
+
 /**
  * GET /api/superadmin/templates
  * List all templates with basic metadata
@@ -92,7 +118,7 @@ router.get(
       // Get templates with page count
       const { data: templates, error: templatesError } = await supabaseAdmin
         .from("website_templates")
-        .select("id, slug, name, status, category, version, updated_at")
+        .select("id, slug, name, status, category, version, updated_at, source")
         .order("updated_at", { ascending: false });
 
       if (templatesError) {
@@ -120,6 +146,7 @@ router.get(
             category: template.category,
             version: template.version,
             page_count: count || 0,
+            content_modes: getContentModesFromTemplateSource(template.source),
             updated_at: template.updated_at,
           };
         }),
@@ -223,6 +250,7 @@ router.get(
             theme: template.theme || template.theme_json,
             cms_mapping: template.cms_mapping || template.cms_mapping_json,
             template_json: template.template_json,
+            content_modes: getContentModesFromTemplateSource(template.source),
           },
           pages: pages || [],
           blockRegistry,

@@ -3,7 +3,7 @@
  * Shows if the tenant has a website, lets them create one, and shows quick stats.
  * Entry point for the website builder section.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +60,10 @@ interface Template {
   preview_url: string | null;
   screenshot_urls?: string[];
   category: string;
+  content_modes?: Array<"demo" | "empty" | "ai">;
 }
+
+type ContentMode = "demo" | "empty" | "ai";
 
 interface WebsitePage {
   id: string;
@@ -111,6 +114,7 @@ export default function WebsiteSetup() {
   const [showTemplateSelection, setShowTemplateSelection] = useState(false);
   const [showChangeTemplate, setShowChangeTemplate] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedContentMode, setSelectedContentMode] = useState<ContentMode>("demo");
 
   const { data: website, isLoading: websiteLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -139,6 +143,17 @@ export default function WebsiteSetup() {
     refetchOnWindowFocus: true,
   });
 
+  const selectedTemplate = templates?.find((template) => template.id === selectedTemplateId) || null;
+  const availableContentModes: ContentMode[] = selectedTemplate?.content_modes?.length
+    ? selectedTemplate.content_modes
+    : ["demo"];
+
+  useEffect(() => {
+    if (!availableContentModes.includes(selectedContentMode)) {
+      setSelectedContentMode(availableContentModes[0]);
+    }
+  }, [availableContentModes, selectedContentMode]);
+
   const buildMutation = useMutation({
     mutationFn: async () => {
       if (!selectedTemplateId) {
@@ -147,7 +162,7 @@ export default function WebsiteSetup() {
       await apiFetch("/api/website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: selectedTemplateId }),
+        body: JSON.stringify({ template_id: selectedTemplateId, content_mode: selectedContentMode }),
       });
     },
     onSuccess: () => {
@@ -310,6 +325,7 @@ export default function WebsiteSetup() {
               });
               return;
             }
+            setSelectedContentMode("demo");
             setShowTemplateSelection(true);
           }}
           disabled={busy || templatesLoading}
@@ -346,7 +362,11 @@ export default function WebsiteSetup() {
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       }`}
-                      onClick={() => setSelectedTemplateId(template.id)}
+                      onClick={() => {
+                        setSelectedTemplateId(template.id);
+                        const modes = template.content_modes?.length ? template.content_modes : (["demo"] as ContentMode[]);
+                        setSelectedContentMode((modes[0] || "demo") as ContentMode);
+                      }}
                     >
                       <TemplatePreview template={template} />
 
@@ -364,9 +384,39 @@ export default function WebsiteSetup() {
                         {template.category && (
                           <Badge variant="outline" className="mt-2 text-xs">{template.category}</Badge>
                         )}
+                        {template.content_modes?.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {template.content_modes.map((mode) => (
+                              <Badge key={`${template.id}-${mode}`} variant="outline" className="uppercase text-[10px] tracking-wide">
+                                {mode}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}
+                </div>
+
+                <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+                  <div className="text-sm font-medium">Content mode</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {availableContentModes.map((mode) => (
+                      <Button
+                        key={`build-mode-${mode}`}
+                        type="button"
+                        size="sm"
+                        variant={selectedContentMode === mode ? "default" : "outline"}
+                        onClick={() => setSelectedContentMode(mode)}
+                        className="uppercase text-xs"
+                      >
+                        {mode}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Demo keeps sample content, Empty clears editable text, and AI scaffold inserts generation placeholders.
+                  </p>
                 </div>
 
                 {/* Action Buttons */}
@@ -521,6 +571,9 @@ export default function WebsiteSetup() {
                 size="sm"
                 onClick={() => {
                   setSelectedTemplateId(website.template_id);
+                  const currentTemplate = templates?.find((template) => template.id === website.template_id);
+                  const currentModes = currentTemplate?.content_modes?.length ? currentTemplate.content_modes : (["demo"] as ContentMode[]);
+                  setSelectedContentMode((currentModes[0] || "demo") as ContentMode);
                   setShowChangeTemplate(true);
                 }}
               >
@@ -571,6 +624,15 @@ export default function WebsiteSetup() {
                       {template.category && (
                         <Badge variant="outline" className="mt-2 text-xs">{template.category}</Badge>
                       )}
+                      {template.content_modes?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {template.content_modes.map((mode) => (
+                            <Badge key={`${template.id}-change-${mode}`} variant="outline" className="uppercase text-[10px] tracking-wide">
+                              {mode}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ))}

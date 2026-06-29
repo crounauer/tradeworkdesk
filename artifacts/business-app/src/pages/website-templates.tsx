@@ -51,8 +51,11 @@ type Template = {
   thumbnail_url: string | null;
   preview_url: string | null;
   category: string | null;
+  content_modes?: Array<"demo" | "empty" | "ai">;
   theme_json?: Record<string, unknown>;
 };
+
+type ContentMode = "demo" | "empty" | "ai";
 
 class ApiRequestError extends Error {
   readonly code?: string;
@@ -102,6 +105,11 @@ function TemplateTile({ template, active }: { template: Template; active: boolea
         </div>
         <div className="flex flex-wrap gap-2">
           {template.category && <Badge variant="outline">{template.category}</Badge>}
+          {template.content_modes?.map((mode) => (
+            <Badge key={`${template.id}-${mode}`} variant="outline" className="uppercase text-[10px] tracking-wide">
+              {mode}
+            </Badge>
+          ))}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -127,6 +135,7 @@ export default function WebsiteTemplatesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedContentMode, setSelectedContentMode] = useState<ContentMode>("demo");
   const [statusMessage, setStatusMessage] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
 
@@ -161,7 +170,16 @@ export default function WebsiteTemplatesPage() {
   }, [templates, selectedTemplateId]);
 
   const selectedTemplate = useMemo(() => templates.find((template) => template.id === selectedTemplateId) || null, [templates, selectedTemplateId]);
+  const availableContentModes: ContentMode[] = selectedTemplate?.content_modes?.length
+    ? selectedTemplate.content_modes
+    : ["demo"];
   const hasExistingPages = pages.length > 0;
+
+  useEffect(() => {
+    if (!availableContentModes.includes(selectedContentMode)) {
+      setSelectedContentMode(availableContentModes[0]);
+    }
+  }, [availableContentModes, selectedContentMode]);
 
   const applyMutation = useMutation({
     mutationFn: async ({ templateId, confirm }: { templateId: string; confirm: boolean }) => {
@@ -169,7 +187,7 @@ export default function WebsiteTemplatesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ confirmReplace: confirm }),
+        body: JSON.stringify({ confirmReplace: confirm, contentMode: selectedContentMode }),
       });
     },
     onSuccess: () => {
@@ -297,6 +315,27 @@ export default function WebsiteTemplatesPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Content mode</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {availableContentModes.map((mode) => (
+                    <Button
+                      key={`mode-${mode}`}
+                      type="button"
+                      size="sm"
+                      variant={selectedContentMode === mode ? "default" : "outline"}
+                      onClick={() => setSelectedContentMode(mode)}
+                      className="uppercase text-xs"
+                    >
+                      {mode}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Demo keeps sample content, Empty clears editable text, and AI scaffold inserts generation placeholders.
+                </p>
+              </div>
+
               <Button
                 className="w-full"
                 disabled={!selectedTemplate || applyMutation.isPending || !canApply}
@@ -321,6 +360,11 @@ export default function WebsiteTemplatesPage() {
                     </a>
                   </Button>
                   {selectedTemplate.category && <Badge variant="outline">{selectedTemplate.category}</Badge>}
+                  {availableContentModes.map((mode) => (
+                    <Badge key={`selected-${mode}`} variant="outline" className="uppercase text-[10px] tracking-wide">
+                      {mode}
+                    </Badge>
+                  ))}
                 </div>
               )}
             </CardContent>
