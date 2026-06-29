@@ -16,8 +16,11 @@ interface Props {
     form_id?: string;
     form_kind?: string;
     heading?: string;
+    title?: string;
     label?: string;
+    eyebrow?: string;
     subheading?: string;
+    subtitle?: string;
     submit_label?: string;
     success_message?: string;
     accent_color?: string;
@@ -28,12 +31,13 @@ interface Props {
 }
 
 export default function ContactFormBlock({ content }: Props) {
+  const heading = (content.heading || content.title || "Get in Touch") as string;
+  const label = (content.label || content.eyebrow) as string | undefined;
+  const subheading = (content.subheading || content.subtitle) as string | undefined;
+
   const {
     form_id,
     form_kind,
-    heading = "Get in Touch",
-    label,
-    subheading,
     submit_label = "Send Message",
     success_message = "Thank you! We'll be in touch soon.",
     accent_color = "#0d9488",

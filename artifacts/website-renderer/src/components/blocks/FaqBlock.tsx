@@ -10,8 +10,11 @@ interface FaqItem {
 interface Props {
   content: {
     heading?: string;
+    title?: string;
     subheading?: string;
+    subtitle?: string;
     label?: string;
+    eyebrow?: string;
     items?: FaqItem[];
     faqs?: FaqItem[];
     accent_color?: string;
@@ -41,12 +44,12 @@ function FaqRow({ item, accent }: { item: FaqItem; accent: string }) {
 
 export default function FaqBlock({ content }: Props) {
   const {
-    heading = "Frequently Asked Questions",
-    subheading,
-    label,
     accent_color = "#f97316",
     background_color = "#f9fafb",
   } = content;
+  const heading = (content.heading || content.title || "Frequently Asked Questions") as string;
+  const subheading = (content.subheading || content.subtitle) as string | undefined;
+  const label = (content.label || content.eyebrow) as string | undefined;
   const items = (Array.isArray(content.faqs) ? content.faqs : Array.isArray(content.items) ? content.items : []) as FaqItem[];
   if (!items.length) return null;
 

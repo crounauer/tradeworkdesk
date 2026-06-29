@@ -18,12 +18,19 @@ interface TrustItem {
 interface Props {
   content: {
     heading?: string;
+    title?: string;
+    eyebrow?: string;
     heading_accent?: string;
     subheading?: string;
+    subtitle?: string;
     cta_text?: string;
+    primaryCtaLabel?: string;
+    primaryCtaHref?: string;
     cta_url?: string;
     cta_phone?: string;
     secondary_cta_text?: string;
+    secondaryCtaLabel?: string;
+    secondaryCtaHref?: string;
     secondary_cta_url?: string;
     background_image_url?: string;
     background_color?: string;
@@ -43,15 +50,16 @@ interface Props {
 }
 
 export default function HeroBlock({ content }: Props) {
+  const heading = (content.heading || content.title) as string | undefined;
+  const subheading = (content.subheading || content.subtitle) as string | undefined;
+  const ctaText = (content.cta_text || content.primaryCtaLabel) as string | undefined;
+  const ctaUrl = (content.cta_url || content.primaryCtaHref) as string | undefined;
+  const secondaryCtaText = (content.secondary_cta_text || content.secondaryCtaLabel) as string | undefined;
+  const secondaryCtaUrl = (content.secondary_cta_url || content.secondaryCtaHref) as string | undefined;
+
   const {
-    heading,
     heading_accent,
-    subheading,
-    cta_text,
-    cta_url,
     cta_phone,
-    secondary_cta_text,
-    secondary_cta_url,
     background_image_url,
     background_color,
     text_color,
@@ -79,11 +87,11 @@ export default function HeroBlock({ content }: Props) {
     ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${background_image_url}) center/cover no-repeat` }
     : { backgroundColor: bgColor };
 
-  const isPostcodeCta = (cta_text || "").toLowerCase().includes("postcode");
+  const isPostcodeCta = (ctaText || "").toLowerCase().includes("postcode");
   const primaryHref = cta_phone
     ? `tel:${cta_phone.replace(/\s/g, "")}`
-    : (isPostcodeCta ? "#postcode-checker" : (cta_url || "#contact"));
-  const primaryLabel = cta_text || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
+    : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
+  const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
   const textAlign = align === "center" ? "center" : "left";
   const isDark = !isSplit;
 
@@ -111,6 +119,11 @@ export default function HeroBlock({ content }: Props) {
   const contentBlock = (
     <div style={{ flex: 1, minWidth: 0, textAlign: isSplit ? "left" : textAlign }}>
       {/* Badges */}
+      {content.eyebrow && (
+        <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
+          {content.eyebrow}
+        </p>
+      )}
       {(badges as Badge[]).length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22, justifyContent: !isSplit && align === "center" ? "center" : "flex-start" }}>
           {(badges as Badge[]).map((badge, i) => (
@@ -134,9 +147,9 @@ export default function HeroBlock({ content }: Props) {
         <a href={primaryHref} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: accent_color, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem" }}>
           {primaryLabel}
         </a>
-        {secondary_cta_text && (secondary_cta_url || cta_url) && (
-          <a href={secondary_cta_url || cta_url || "#"} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: "transparent", color: txtColor, border: `2px solid ${secondaryBorderColor}`, borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.9375rem" }}>
-            {secondary_cta_text}
+        {secondaryCtaText && (secondaryCtaUrl || ctaUrl) && (
+          <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: "transparent", color: txtColor, border: `2px solid ${secondaryBorderColor}`, borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.9375rem" }}>
+            {secondaryCtaText}
           </a>
         )}
       </div>

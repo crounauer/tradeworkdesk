@@ -2,7 +2,9 @@
 
 interface Badge {
   name: string;
+  label?: string;
   logo_url?: string;
+  description?: string;
   number?: string;
 }
 
@@ -17,15 +19,19 @@ interface Props {
 }
 
 export default function AccreditationsBlock({ content }: Props) {
+  const normalizedBadges = (content.badges || []).map((badge) => ({
+    ...badge,
+    name: badge.name || badge.label || "Badge",
+  }));
+
   const {
     heading = "Accreditations",
-    badges = [],
     background_color = "#f9fafb",
     text_color,
     show_heading = true,
   } = content;
 
-  if (!badges.length) return null;
+  if (!normalizedBadges.length) return null;
 
   const isDark = background_color === "dark" || (background_color && background_color !== "#f9fafb" && background_color.startsWith("#0") || background_color?.startsWith("#1"));
   const resolvedBg = background_color === "dark" ? "#111827" : background_color;
@@ -42,7 +48,7 @@ export default function AccreditationsBlock({ content }: Props) {
           </h3>
         )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 32, alignItems: "center", justifyContent: "center" }}>
-          {(badges as Badge[]).map((badge, i) => (
+          {(normalizedBadges as Badge[]).map((badge, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
               {badge.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element

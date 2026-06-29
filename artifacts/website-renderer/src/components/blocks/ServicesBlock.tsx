@@ -6,14 +6,18 @@ interface Service {
   icon?: string;
   cta_text?: string;
   cta_url?: string;
+  href?: string;
   badge?: string;
 }
 
 interface Props {
   content: {
     heading?: string;
+    title?: string;
     subheading?: string;
+    subtitle?: string;
     label?: string;
+    eyebrow?: string;
     services?: Service[];
     items?: Service[];
     columns?: 2 | 3 | 4;
@@ -23,7 +27,10 @@ interface Props {
 
 export default function ServicesBlock({ content }: Props) {
   const services = (Array.isArray(content.services) ? content.services : Array.isArray(content.items) ? content.items : []) as Service[];
-  const { heading, subheading, label, columns = 3, accent_color = "#f97316" } = content;
+  const heading = (content.heading || content.title) as string | undefined;
+  const subheading = (content.subheading || content.subtitle) as string | undefined;
+  const label = (content.label || content.eyebrow) as string | undefined;
+  const { columns = 3, accent_color = "#f97316" } = content;
 
   return (
     <section style={{ padding: "72px 24px", backgroundColor: "#ffffff" }}>
@@ -41,7 +48,10 @@ export default function ServicesBlock({ content }: Props) {
           </div>
         )}
         <div className="svc-grid">
-          {services.map((service, i) => (
+          {services.map((service, i) => {
+            const serviceHref = service.href;
+
+            return (
             <div key={i} style={{ backgroundColor: "#fff", borderRadius: 10, padding: "28px 24px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column" }}>
               {service.badge && (
                 <span style={{ display: "inline-block", backgroundColor: "#fef3c7", color: "#92400e", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", borderRadius: 4, padding: "2px 8px", marginBottom: 14, alignSelf: "flex-start" }}>
@@ -55,13 +65,14 @@ export default function ServicesBlock({ content }: Props) {
               )}
               <h3 style={{ margin: "0 0 10px", fontSize: "1.0625rem", fontWeight: 700, color: "#111827" }}>{service.title}</h3>
               {service.description && <p style={{ margin: "0 0 20px", color: "#6b7280", fontSize: "0.9375rem", lineHeight: 1.65, flex: 1 }}>{service.description}</p>}
-              {service.cta_url && (
-                <a href={service.cta_url} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: accent_color, fontWeight: 600, fontSize: "0.9rem", textDecoration: "none", marginTop: "auto" }}>
+              {(service.cta_url || serviceHref) && (
+                <a href={service.cta_url || serviceHref || "#"} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: accent_color, fontWeight: 600, fontSize: "0.9rem", textDecoration: "none", marginTop: "auto" }}>
                   {service.cta_text || "Get a quote"} <span style={{ fontSize: "1rem" }}>›</span>
                 </a>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

@@ -3,24 +3,25 @@
 interface Props {
   content: {
     heading?: string;
+    title?: string;
     subheading?: string;
+    subtitle?: string;
     cta_text?: string;
+    primaryCtaLabel?: string;
     cta_url?: string;
+    primaryCtaHref?: string;
     background_color?: string;
     text_color?: string;
   } & Record<string, unknown>;
 }
 
 export default function CtaBlock({ content }: Props) {
-  const {
-    heading,
-    subheading,
-    background_color = "#f97316",
-    text_color = "#ffffff",
-  } = content;
+  const { background_color = "#f97316", text_color = "#ffffff" } = content;
+  const heading = (content.heading || content.title) as string | undefined;
+  const subheading = (content.subheading || content.subtitle) as string | undefined;
   // Support both field names: cta_text/cta_url (current) and button_text/button_url (legacy)
-  const cta_text = (content.cta_text || content.button_text) as string | undefined;
-  const cta_url = (content.cta_url || content.button_url) as string | undefined;
+  const cta_text = (content.cta_text || content.primaryCtaLabel || content.button_text) as string | undefined;
+  const cta_url = (content.cta_url || content.primaryCtaHref || content.button_url) as string | undefined;
 
   return (
     <section

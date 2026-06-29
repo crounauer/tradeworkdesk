@@ -15,9 +15,13 @@ interface Testimonial {
 interface Props {
   content: {
     heading?: string;
+    title?: string;
     subheading?: string;
+    subtitle?: string;
     label?: string;
+    eyebrow?: string;
     testimonials?: Testimonial[];
+    reviews?: Array<Record<string, unknown>>;
     accent_color?: string;
     background_color?: string;
     aggregate_rating?: string;
@@ -36,7 +40,21 @@ function Stars({ count }: { count: number }) {
 }
 
 export default function TestimonialsBlock({ content }: Props) {
-  const { heading = "What Our Customers Say", subheading, label, testimonials = [], accent_color = "#0d9488", background_color = "#f9fafb", aggregate_rating, review_count } = content;
+  const heading = (content.heading || content.title || "What Our Customers Say") as string;
+  const subheading = (content.subheading || content.subtitle) as string | undefined;
+  const label = (content.label || content.eyebrow) as string | undefined;
+  const testimonials = (Array.isArray(content.testimonials) ? content.testimonials : Array.isArray(content.reviews)
+    ? content.reviews.map((r) => ({
+      author_name: (r.name as string | undefined) || (r.author_name as string | undefined),
+      author: r.author as string | undefined,
+      location: r.location as string | undefined,
+      rating: typeof r.rating === "number" ? r.rating : undefined,
+      body: (r.quote as string | undefined) || (r.body as string | undefined),
+      text: r.text as string | undefined,
+      source: r.source as string | undefined,
+      source_url: r.source_url as string | undefined,
+    })) : []) as Testimonial[];
+  const { accent_color = "#0d9488", background_color = "#f9fafb", aggregate_rating, review_count } = content;
   if (!testimonials.length) return null;
 
   return (
