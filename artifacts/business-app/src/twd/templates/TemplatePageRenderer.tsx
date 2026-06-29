@@ -35,10 +35,13 @@ import {
   type TrustBadgesBlockProps,
 } from '../blocks';
 import type { TwdBlockType } from '../registry/blockRegistry';
+import { toStorybookBlockType } from './blockTypeParity';
 
 export type TemplatePageBlock = {
-  type: TwdBlockType;
-  props: Record<string, unknown>;
+  type?: TwdBlockType | string;
+  block_type?: string;
+  props?: Record<string, unknown>;
+  content?: Record<string, unknown>;
 };
 
 export type TemplatePage = {
@@ -50,41 +53,44 @@ export function TemplatePageRenderer({ page }: { page: TemplatePage }) {
   return (
     <main>
       {page.blocks.map((block, index) => {
-        switch (block.type) {
+        const blockType = toStorybookBlockType(block.type || block.block_type || "");
+        const blockProps = (block.props || block.content || {}) as Record<string, unknown>;
+
+        switch (blockType) {
           case 'site.header':
-            return <SiteHeaderBlock key={index} {...(block.props as SiteHeaderBlockProps)} />;
+            return <SiteHeaderBlock key={index} {...(blockProps as SiteHeaderBlockProps)} />;
           case 'hero.standard':
-            return <HeroBlock key={index} {...(block.props as HeroBlockProps)} />;
+            return <HeroBlock key={index} {...(blockProps as HeroBlockProps)} />;
           case 'trust.badges':
-            return <TrustBadgesBlock key={index} {...(block.props as TrustBadgesBlockProps)} />;
+            return <TrustBadgesBlock key={index} {...(blockProps as TrustBadgesBlockProps)} />;
           case 'services.grid':
-            return <ServicesGridBlock key={index} {...(block.props as ServicesGridBlockProps)} />;
+            return <ServicesGridBlock key={index} {...(blockProps as ServicesGridBlockProps)} />;
           case 'features.list':
-            return <FeatureListBlock key={index} {...(block.props as FeatureListBlockProps)} />;
+            return <FeatureListBlock key={index} {...(blockProps as FeatureListBlockProps)} />;
           case 'about.intro':
-            return <AboutIntroBlock key={index} {...(block.props as AboutIntroBlockProps)} />;
+            return <AboutIntroBlock key={index} {...(blockProps as AboutIntroBlockProps)} />;
           case 'process.steps':
-            return <ProcessStepsBlock key={index} {...(block.props as ProcessStepsBlockProps)} />;
+            return <ProcessStepsBlock key={index} {...(blockProps as ProcessStepsBlockProps)} />;
           case 'reviews.grid':
-            return <ReviewsBlock key={index} {...(block.props as ReviewsBlockProps)} />;
+            return <ReviewsBlock key={index} {...(blockProps as ReviewsBlockProps)} />;
           case 'areas.grid':
-            return <AreasCoveredBlock key={index} {...(block.props as AreasCoveredBlockProps)} />;
+            return <AreasCoveredBlock key={index} {...(blockProps as AreasCoveredBlockProps)} />;
           case 'faq.accordion':
-            return <FaqBlock key={index} {...(block.props as FaqBlockProps)} />;
+            return <FaqBlock key={index} {...(blockProps as FaqBlockProps)} />;
           case 'cta.banner':
-            return <CtaBannerBlock key={index} {...(block.props as CtaBannerBlockProps)} />;
+            return <CtaBannerBlock key={index} {...(blockProps as CtaBannerBlockProps)} />;
           case 'contact.split':
-            return <ContactBlock key={index} {...(block.props as ContactBlockProps)} />;
+            return <ContactBlock key={index} {...(blockProps as ContactBlockProps)} />;
           case 'gallery.grid':
-            return <GalleryBlock key={index} {...(block.props as GalleryBlockProps)} />;
+            return <GalleryBlock key={index} {...(blockProps as GalleryBlockProps)} />;
           case 'blog.index':
-            return <BlogIndexBlock key={index} {...(block.props as BlogIndexBlockProps)} />;
+            return <BlogIndexBlock key={index} {...(blockProps as BlogIndexBlockProps)} />;
           case 'legal.content':
-            return <LegalContentBlock key={index} {...(block.props as LegalContentBlockProps)} />;
+            return <LegalContentBlock key={index} {...(blockProps as LegalContentBlockProps)} />;
           case 'system.notFound':
-            return <NotFoundBlock key={index} {...(block.props as NotFoundBlockProps)} />;
+            return <NotFoundBlock key={index} {...(blockProps as NotFoundBlockProps)} />;
           case 'site.footer':
-            return <SiteFooterBlock key={index} {...(block.props as SiteFooterBlockProps)} />;
+            return <SiteFooterBlock key={index} {...(blockProps as SiteFooterBlockProps)} />;
           default:
             return null;
         }

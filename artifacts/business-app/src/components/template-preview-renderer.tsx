@@ -22,6 +22,7 @@ import {
   LegalContentBlock,
   NotFoundBlock,
 } from '@/twd/blocks';
+import { toStorybookBlockType } from '@/twd/templates/blockTypeParity';
 
 export type TemplateBlock = {
   id: string;
@@ -43,8 +44,9 @@ type BlockRendererProps = {
 function BlockComponent({ block }: BlockRendererProps) {
   const { block_type, content = {} } = block;
   const props = content as Record<string, unknown>;
+  const resolvedType = toStorybookBlockType(block_type);
 
-  switch (block_type) {
+  switch (resolvedType) {
     case 'site.header':
       return <SiteHeaderBlock {...(props as any)} />;
     case 'site.footer':
