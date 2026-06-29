@@ -468,6 +468,7 @@ export default function AdminWebsiteTemplatesPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, TemplateStatus>>({});
 
   const templatesQuery = useQuery<TemplateSummary[]>({
     queryKey: ["admin-website-templates"],
@@ -480,6 +481,10 @@ export default function AdminWebsiteTemplatesPage() {
   });
 
   const selectedTemplate = templatesQuery.data?.find((template) => template.id === selectedTemplateId) || null;
+
+  const getTemplateStatus = (template: TemplateSummary): TemplateStatus => {
+    return statusOverrides[template.id] || normalizeTemplateStatus(template);
+  };
 
   const openDetails = (templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -552,7 +557,8 @@ export default function AdminWebsiteTemplatesPage() {
       if (!res.ok) throw new Error(body.error || "Failed to publish template");
       return body;
     },
-    onSuccess: () => {
+    onSuccess: (_data, templateId) => {
+      setStatusOverrides((prev) => ({ ...prev, [templateId]: "published" }));
       queryClient.invalidateQueries({ queryKey: ["admin-website-templates"] });
       toast({ title: "Template published" });
     },
@@ -571,7 +577,8 @@ export default function AdminWebsiteTemplatesPage() {
       if (!res.ok) throw new Error(body.error || "Failed to archive template");
       return body;
     },
-    onSuccess: () => {
+    onSuccess: (_data, templateId) => {
+      setStatusOverrides((prev) => ({ ...prev, [templateId]: "archived" }));
       queryClient.invalidateQueries({ queryKey: ["admin-website-templates"] });
       toast({ title: "Template archived" });
     },
@@ -592,6 +599,11 @@ export default function AdminWebsiteTemplatesPage() {
     },
     onSuccess: ({ templateId }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-website-templates"] });
+      setStatusOverrides((prev) => {
+        const next = { ...prev };
+        delete next[templateId];
+        return next;
+      });
       if (selectedTemplateId === templateId) {
         setSelectedTemplateId(null);
         setDetailsOpen(false);
@@ -736,12 +748,16 @@ export default function AdminWebsiteTemplatesPage() {
               </Alert>
             ) : templatesQuery.data?.length ? (
               templatesQuery.data.map((template) => (
+                (() => {
+                  const templateStatus = getTemplateStatus(template);
+
+                  return (
                 <div key={template.id} className={cn("rounded-xl border p-4 shadow-sm", selectedTemplate?.id === template.id && "border-primary bg-primary/5")}>
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-semibold">{template.name}</h3>
-                        <Badge variant={statusVariant(normalizeTemplateStatus(template))}>{statusLabel(normalizeTemplateStatus(template))}</Badge>
+                        <Badge variant={statusVariant(templateStatus)}>{statusLabel(templateStatus)}</Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">{template.slug}</div>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -762,7 +778,6 @@ export default function AdminWebsiteTemplatesPage() {
                         </Link>
                       </Button>
                       {(() => {
-                        const templateStatus = normalizeTemplateStatus(template);
                         return (templateStatus === "validated" || templateStatus === "draft") && (
                         <Button onClick={() => publishMutation.mutate(template.id)} disabled={publishMutation.isPending}>
                           {publishMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-2 h-4 w-4" />}
@@ -770,7 +785,7 @@ export default function AdminWebsiteTemplatesPage() {
                         </Button>
                         );
                       })()}
-                      {normalizeTemplateStatus(template) === "published" && (
+                      {templateStatus === "published" && (
                         <Button variant="outline" onClick={() => archiveMutation.mutate(template.id)} disabled={archiveMutation.isPending}>
                           {archiveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
                           Archive
@@ -791,6 +806,8 @@ export default function AdminWebsiteTemplatesPage() {
                     </div>
                   </div>
                 </div>
+                  );
+                })()
               ))
             ) : (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No templates uploaded yet.</div>
@@ -813,7 +830,7 @@ export default function AdminWebsiteTemplatesPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Status</div>
-                    <div className="mt-1 font-medium capitalize">{normalizeTemplateStatus(selectedTemplate).replace(/_/g, " ")}</div>
+                    <div className="mt-1 font-medium capitalize">{getTemplateStatus(selectedTemplate).replace(/_/g, " ")}</div>
                   </div>
                   <div className="rounded-lg border p-3">
                     <div className="text-xs text-muted-foreground">Pages</div>
