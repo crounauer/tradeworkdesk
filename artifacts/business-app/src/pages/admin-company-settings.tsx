@@ -23,6 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { MapContainer, TileLayer, Marker, Circle } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 import BillingPage from "@/pages/billing";
 import { JobTypesManagement } from "@/pages/admin-job-types";
@@ -468,6 +471,27 @@ type BookingSettingsProfile = {
   working_hours: BookingWorkingHour[];
 };
 
+type GeoResult = {
+  latitude: number;
+  longitude: number;
+  display_name?: string;
+};
+
+const coverageMapIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
+    <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#2563eb" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="14" cy="14" r="6" fill="#fff"/>
+  </svg>`,
+  className: "",
+  iconSize: [28, 40],
+  iconAnchor: [14, 40],
+  popupAnchor: [0, -40],
+});
+
+function milesToMeters(miles: number): number {
+  return miles * 1609.34;
+}
+
 const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DEFAULT_BOOKING_WORKING_HOURS: BookingWorkingHour[] = [
   { day: 1, start: "08:00", end: "17:00" },
@@ -520,6 +544,9 @@ export default function AdminCompanySettings() {
   const [bookingHoursLoading, setBookingHoursLoading] = useState(false);
   const [bookingHoursSaving, setBookingHoursSaving] = useState(false);
   const bookingHoursLoadedRef = useRef(false);
+  const [coverageCenter, setCoverageCenter] = useState<GeoResult | null>(null);
+  const [coverageLookupLoading, setCoverageLookupLoading] = useState(false);
+  const [coverageLookupError, setCoverageLookupError] = useState<string | null>(null);
 
   // Handle GoCardless OAuth callbacks redirected back here
   useEffect(() => {
@@ -798,6 +825,61 @@ export default function AdminCompanySettings() {
       setBookingHoursSaving(false);
     }
   }, [bookingSettingsProfile, toast]);
+
+  const watchedPostcode = String(watch("postcode") || "").trim();
+  const watchedCoverageRadiusRaw = watch("coverage_radius_miles");
+  const watchedCoverageRadiusMiles = Number(watchedCoverageRadiusRaw ?? 0);
+
+  useEffect(() => {
+    if (activeTab !== "profile") return;
+
+    const postcode = watchedPostcode;
+    if (!postcode) {
+      setCoverageCenter(null);
+      setCoverageLookupError(null);
+      setCoverageLookupLoading(false);
+      return;
+    }
+
+    const addressParts = [
+      String(getValues("address_line1") || "").trim(),
+      String(getValues("city") || "").trim(),
+      String(getValues("county") || "").trim(),
+      postcode,
+    ].filter(Boolean);
+    const address = addressParts.join(", ");
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setCoverageLookupLoading(true);
+      setCoverageLookupError(null);
+      try {
+        const res = await fetch("/api/geocode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || "Could not locate business postcode");
+        }
+        const geo = await res.json() as GeoResult;
+        setCoverageCenter(geo);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setCoverageCenter(null);
+        setCoverageLookupError((err as Error).message);
+      } finally {
+        if (!controller.signal.aborted) setCoverageLookupLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [activeTab, watchedPostcode, getValues]);
 
 
 
@@ -1222,6 +1304,49 @@ export default function AdminCompanySettings() {
             </div>
             <div className="text-xs text-muted-foreground self-end">
               Radius checks are measured from your business postcode in Company Settings.
+            </div>
+
+            <div className="sm:col-span-2 space-y-2">
+              <Label>Radius preview map</Label>
+              <div className="rounded-lg overflow-hidden border border-border" style={{ height: 220 }}>
+                {coverageLookupLoading ? (
+                  <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading map preview...
+                  </div>
+                ) : coverageCenter ? (
+                  <MapContainer
+                    center={[coverageCenter.latitude, coverageCenter.longitude]}
+                    zoom={watchedCoverageRadiusMiles > 0 ? 11 : 13}
+                    style={{ height: "100%", width: "100%" }}
+                    scrollWheelZoom={false}
+                    dragging={true}
+                    zoomControl={true}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker position={[coverageCenter.latitude, coverageCenter.longitude]} icon={coverageMapIcon} />
+                    {watchedCoverageRadiusMiles > 0 && (
+                      <Circle
+                        center={[coverageCenter.latitude, coverageCenter.longitude]}
+                        radius={milesToMeters(watchedCoverageRadiusMiles)}
+                        pathOptions={{ color: "#2563eb", weight: 2, fillColor: "#60a5fa", fillOpacity: 0.2 }}
+                      />
+                    )}
+                  </MapContainer>
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center px-4 text-sm text-muted-foreground text-center">
+                    {coverageLookupError || "Enter a valid business postcode to preview your service radius on the map."}
+                  </div>
+                )}
+              </div>
+              {coverageCenter && watchedCoverageRadiusMiles > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Showing approximately {watchedCoverageRadiusMiles} miles from your business location.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
