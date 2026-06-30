@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save, Plus, Trash2, Calendar, Clock, Settings } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Plus, Trash2, Settings } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -43,8 +43,6 @@ async function apiFetch(url: string, opts?: RequestInit) {
   if (res.status === 204) return null;
   return res.json();
 }
-
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 interface WorkingHour { day: number; start: string; end: string }
 interface BookingService {
@@ -162,25 +160,6 @@ export default function BookingSetup() {
     },
   });
 
-  const toggleDay = (day: number) => {
-    const exists = settings.working_hours.find((w) => w.day === day);
-    if (exists) {
-      setSettings((s) => ({ ...s, working_hours: s.working_hours.filter((w) => w.day !== day) }));
-    } else {
-      setSettings((s) => ({
-        ...s,
-        working_hours: [...s.working_hours, { day, start: "08:00", end: "17:00" }].sort((a, b) => a.day - b.day),
-      }));
-    }
-  };
-
-  const updateDayHours = (day: number, field: "start" | "end", value: string) => {
-    setSettings((s) => ({
-      ...s,
-      working_hours: s.working_hours.map((w) => w.day === day ? { ...w, [field]: value } : w),
-    }));
-  };
-
   if (settingsLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -198,7 +177,6 @@ export default function BookingSetup() {
       <Tabs defaultValue="settings">
         <TabsList>
           <TabsTrigger value="settings"><Settings className="w-3.5 h-3.5 mr-1.5" />Settings</TabsTrigger>
-          <TabsTrigger value="hours"><Calendar className="w-3.5 h-3.5 mr-1.5" />Working Hours</TabsTrigger>
         </TabsList>
 
         {/* ── Settings tab ── */}
@@ -300,36 +278,6 @@ export default function BookingSetup() {
           </Button>
         </TabsContent>
 
-        {/* ── Working hours tab ── */}
-        <TabsContent value="hours" className="space-y-4 mt-4">
-          <p className="text-sm text-muted-foreground">Select days and set hours when customers can book</p>
-          <div className="space-y-3">
-            {DAYS.map((name, day) => {
-              const wh = settings.working_hours.find((w) => w.day === day);
-              return (
-                <div key={day} className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 w-32">
-                    <Switch checked={!!wh} onCheckedChange={() => toggleDay(day)} />
-                    <Label className={wh ? "" : "text-muted-foreground"}>{name}</Label>
-                  </div>
-                  {wh ? (
-                    <div className="flex items-center gap-2">
-                      <Input type="time" value={wh.start} onChange={(e) => updateDayHours(day, "start", e.target.value)} className="w-28" />
-                      <span className="text-muted-foreground text-sm">to</span>
-                      <Input type="time" value={wh.end} onChange={(e) => updateDayHours(day, "end", e.target.value)} className="w-28" />
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Closed</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
-            {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Hours
-          </Button>
-        </TabsContent>
       </Tabs>
 
       {/* Add service dialog */}

@@ -463,6 +463,19 @@ function PushPreferenceMatrix() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "logo_storage_path" | "created_at" | "updated_at">;
+type BookingWorkingHour = { day: number; start: string; end: string };
+type BookingSettingsProfile = {
+  working_hours: BookingWorkingHour[];
+};
+
+const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DEFAULT_BOOKING_WORKING_HOURS: BookingWorkingHour[] = [
+  { day: 1, start: "08:00", end: "17:00" },
+  { day: 2, start: "08:00", end: "17:00" },
+  { day: 3, start: "08:00", end: "17:00" },
+  { day: 4, start: "08:00", end: "17:00" },
+  { day: 5, start: "08:00", end: "17:00" },
+];
 
 export default function AdminCompanySettings() {
   const { data: settings, isLoading } = useCompanySettings();
@@ -503,6 +516,10 @@ export default function AdminCompanySettings() {
     if (legacy === "plans" || legacy === "addons" || legacy === "billing" || legacy === "invoicing" || legacy === "payments") return legacy;
     return "plans";
   });
+  const [bookingSettingsProfile, setBookingSettingsProfile] = useState<BookingSettingsProfile | null>(null);
+  const [bookingHoursLoading, setBookingHoursLoading] = useState(false);
+  const [bookingHoursSaving, setBookingHoursSaving] = useState(false);
+  const bookingHoursLoadedRef = useRef(false);
 
   // Handle GoCardless OAuth callbacks redirected back here
   useEffect(() => {
@@ -684,6 +701,101 @@ export default function AdminCompanySettings() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "profile") return;
+    if (bookingHoursLoadedRef.current) return;
+
+    let cancelled = false;
+    setBookingHoursLoading(true);
+    fetch("/api/booking/settings")
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || "Failed to load booking settings");
+        }
+        return res.json() as Promise<Record<string, unknown>>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const workingHours = Array.isArray(data?.working_hours)
+          ? (data.working_hours as BookingWorkingHour[])
+          : DEFAULT_BOOKING_WORKING_HOURS;
+        setBookingSettingsProfile({
+          working_hours: [...workingHours].sort((a, b) => a.day - b.day),
+        });
+        bookingHoursLoadedRef.current = true;
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setBookingSettingsProfile({ working_hours: DEFAULT_BOOKING_WORKING_HOURS });
+        toast({ title: "Could not load working hours", description: err.message, variant: "destructive" });
+      })
+      .finally(() => {
+        if (!cancelled) setBookingHoursLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, toast]);
+
+  const toggleBookingDay = useCallback((day: number) => {
+    setBookingSettingsProfile((current) => {
+      const prev = current ?? { working_hours: DEFAULT_BOOKING_WORKING_HOURS };
+      const exists = prev.working_hours.find((w) => w.day === day);
+      if (exists) {
+        return { ...prev, working_hours: prev.working_hours.filter((w) => w.day !== day) };
+      }
+      return {
+        ...prev,
+        working_hours: [...prev.working_hours, { day, start: "08:00", end: "17:00" }].sort((a, b) => a.day - b.day),
+      };
+    });
+  }, []);
+
+  const updateBookingDayHours = useCallback((day: number, field: "start" | "end", value: string) => {
+    setBookingSettingsProfile((current) => {
+      const prev = current ?? { working_hours: DEFAULT_BOOKING_WORKING_HOURS };
+      return {
+        ...prev,
+        working_hours: prev.working_hours.map((w) => (w.day === day ? { ...w, [field]: value } : w)),
+      };
+    });
+  }, []);
+
+  const saveBookingWorkingHours = useCallback(async () => {
+    if (!bookingSettingsProfile) return;
+    setBookingHoursSaving(true);
+    try {
+      const currentRes = await fetch("/api/booking/settings");
+      if (!currentRes.ok) {
+        const err = await currentRes.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to load booking settings");
+      }
+      const current = await currentRes.json() as Record<string, unknown>;
+
+      const payload = {
+        ...current,
+        working_hours: [...bookingSettingsProfile.working_hours].sort((a, b) => a.day - b.day),
+      };
+
+      const saveRes = await fetch("/api/booking/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to save working hours");
+      }
+      toast({ title: "Working hours saved" });
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBookingHoursSaving(false);
+    }
+  }, [bookingSettingsProfile, toast]);
 
 
 
@@ -1209,6 +1321,66 @@ export default function AdminCompanySettings() {
               <Label htmlFor="trading_terms_url">Trading Terms URL</Label>
               <Input id="trading_terms_url" type="url" placeholder="e.g. https://www.example.com/terms" {...register("trading_terms_url")} />
               <p className="text-xs text-muted-foreground">Link to your terms and conditions.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarSync className="w-4 h-4" />
+              Online Booking Working Hours
+            </CardTitle>
+            <CardDescription>
+              Configure the days and times customers can book online. This was moved from Online Booking settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {bookingHoursLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading working hours...
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {WEEK_DAYS.map((name, day) => {
+                  const wh = bookingSettingsProfile?.working_hours.find((w) => w.day === day);
+                  return (
+                    <div key={day} className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 w-32">
+                        <Switch checked={!!wh} onCheckedChange={() => toggleBookingDay(day)} />
+                        <Label className={wh ? "" : "text-muted-foreground"}>{name}</Label>
+                      </div>
+                      {wh ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={wh.start}
+                            onChange={(e) => updateBookingDayHours(day, "start", e.target.value)}
+                            className="w-28"
+                          />
+                          <span className="text-muted-foreground text-sm">to</span>
+                          <Input
+                            type="time"
+                            value={wh.end}
+                            onChange={(e) => updateBookingDayHours(day, "end", e.target.value)}
+                            className="w-28"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Closed</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button type="button" size="sm" onClick={() => void saveBookingWorkingHours()} disabled={bookingHoursLoading || bookingHoursSaving}>
+                {bookingHoursSaving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+                Save Working Hours
+              </Button>
             </div>
           </CardContent>
         </Card>
