@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { notifyUsersForEvent } from "../lib/push-events";
+import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 
 const router: IRouter = Router();
 
@@ -243,6 +244,17 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     description: descriptionParts,
     job_ref: generatedJobRef,
   };
+
+  const followUpConflict = await findTechnicianLeaveConflict({
+    tenantId,
+    technicianId: assigned_technician_id || null,
+    scheduledDate: String(jobInsert.scheduled_date),
+    scheduledEndDate: null,
+  });
+  if (followUpConflict) {
+    sendTechnicianLeaveConflict(res, followUpConflict);
+    return;
+  }
 
   const { data: newJob, error: jobErr } = await supabaseAdmin.from("jobs").insert(jobInsert).select("id, job_ref").single();
   if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }

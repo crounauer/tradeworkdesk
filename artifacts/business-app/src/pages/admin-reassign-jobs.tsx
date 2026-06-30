@@ -6,7 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Loader2, Users, Filter, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Loader2, Users, Filter, CheckCircle2, AlertCircle } from "lucide-react";
+
+type LeaveConflict = {
+  technician_id: string;
+  technician_name: string | null;
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick";
+  holiday_name: string;
+  start_date: string;
+  end_date: string;
+};
+
+class TechnicianLeaveConflictError extends Error {
+  readonly code = "TECHNICIAN_LEAVE_CONFLICT";
+}
+
+function formatLeaveConflict(conflict: LeaveConflict): string {
+  const typeLabel = conflict.holiday_type.replace("technician_", "").replace(/_/g, " ");
+  const start = new Date(`${conflict.start_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const end = new Date(`${conflict.end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${conflict.technician_name || "Selected technician"} is unavailable for ${conflict.holiday_name} (${typeLabel}) from ${start} to ${end}.`;
+}
 
 interface AssignableUser {
   id: string;
@@ -29,6 +49,8 @@ export default function AdminReassignJobs() {
   const [dateTo, setDateTo] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["scheduled", "in_progress", "requires_follow_up"]);
   const [lastResult, setLastResult] = useState<{ count: number } | null>(null);
+  const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
+  const [affectedJobCount, setAffectedJobCount] = useState<number | null>(null);
 
   const { data: users = [], isLoading: usersLoading, isError: usersError } = useQuery<AssignableUser[]>({
     queryKey: ["assignable-users"],
@@ -52,6 +74,8 @@ export default function AdminReassignJobs() {
 
   const reassignMutation = useMutation({
     mutationFn: async () => {
+      setLeaveConflict(null);
+      setAffectedJobCount(null);
       const res = await fetch("/api/admin/jobs/bulk-reassign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,13 +88,20 @@ export default function AdminReassignJobs() {
         }),
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({})) as { error?: string; code?: string; conflict?: LeaveConflict; affected_job_count?: number };
+        if (data.code === "TECHNICIAN_LEAVE_CONFLICT" && data.conflict) {
+          setLeaveConflict(data.conflict);
+          setAffectedJobCount(typeof data.affected_job_count === "number" ? data.affected_job_count : null);
+          throw new TechnicianLeaveConflictError(data.error || "Reassignment blocked by technician leave");
+        }
         throw new Error(data.error || "Reassignment failed");
       }
       return res.json();
     },
     onSuccess: (data) => {
       setLastResult({ count: data.reassigned_count });
+      setLeaveConflict(null);
+      setAffectedJobCount(null);
       if (data.reassigned_count > 0) {
         toast({ title: "Jobs reassigned", description: `${data.reassigned_count} job${data.reassigned_count !== 1 ? "s" : ""} reassigned successfully.` });
       } else {
@@ -78,6 +109,7 @@ export default function AdminReassignJobs() {
       }
     },
     onError: (e: Error) => {
+      if (e instanceof TechnicianLeaveConflictError) return;
       toast({ title: "Error", description: e.message, variant: "destructive" });
     },
   });
@@ -125,6 +157,19 @@ export default function AdminReassignJobs() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading users...
+            </div>
+          )}
+
+          {leaveConflict && (
+            <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+              <div>
+                <p className="font-medium">Target technician is on leave</p>
+                <p className="mt-1 text-rose-800">{formatLeaveConflict(leaveConflict)}</p>
+                {affectedJobCount != null && (
+                  <p className="mt-1 text-rose-800">This reassignment was blocked for {affectedJobCount} matching job{affectedJobCount !== 1 ? "s" : ""}.</p>
+                )}
+              </div>
             </div>
           )}
 

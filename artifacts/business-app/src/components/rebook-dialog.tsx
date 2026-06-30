@@ -32,6 +32,15 @@ interface RebookDialogProps {
   originalTime?: string | null;
 }
 
+type LeaveConflict = {
+  technician_id: string;
+  technician_name: string | null;
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick";
+  holiday_name: string;
+  start_date: string;
+  end_date: string;
+};
+
 function addOneYear(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setFullYear(d.getFullYear() + 1);
@@ -67,6 +76,13 @@ function formatTime(t: string): string {
   return `${hour % 12 || 12}:${m}${hour >= 12 ? "pm" : "am"}`;
 }
 
+function formatLeaveConflict(conflict: LeaveConflict): string {
+  const typeLabel = conflict.holiday_type.replace("technician_", "").replace(/_/g, " ");
+  const start = new Date(`${conflict.start_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const end = new Date(`${conflict.end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${conflict.technician_name || "Assigned technician"} is unavailable for ${conflict.holiday_name} (${typeLabel}) from ${start} to ${end}.`;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   scheduled: "bg-blue-100 text-blue-700",
   in_progress: "bg-amber-100 text-amber-700",
@@ -83,6 +99,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
   const [selectedTime, setSelectedTime] = useState(originalTime ? originalTime.slice(0, 5) : "");
   const [confirming, setConfirming] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   // After rebook succeeds, hold the new job and show email prompt
   const [newJob, setNewJob] = useState<{ id: string; job_ref?: string | null } | null>(null);
   const { toast } = useToast();
@@ -95,6 +112,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       setSelectedDate(addOneYear(originalDate));
       setSelectedTime(originalTime ? originalTime.slice(0, 5) : "");
       setNewJob(null);
+      setLeaveConflict(null);
     }
   }, [open, originalDate, originalTime]);
 
@@ -118,6 +136,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
 
   const handleConfirm = async () => {
     setConfirming(true);
+    setLeaveConflict(null);
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/duplicate`, {
         method: "POST",
@@ -129,7 +148,11 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
         }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch(() => ({})) as { error?: string; code?: string; conflict?: LeaveConflict };
+        if (body.code === "TECHNICIAN_LEAVE_CONFLICT" && body.conflict) {
+          setLeaveConflict(body.conflict);
+          return;
+        }
         throw new Error(body.error || "Failed to rebook job");
       }
       const created = await res.json();
@@ -242,6 +265,16 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
           /* ── Step 1: date/time + availability ── */
           <>
             <div className="space-y-4">
+              {leaveConflict && (
+                <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                  <div>
+                    <p className="font-medium">Assigned technician is on leave</p>
+                    <p className="mt-1 text-rose-800">{formatLeaveConflict(leaveConflict)}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Date + Time row */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

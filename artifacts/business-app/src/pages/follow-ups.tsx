@@ -11,9 +11,25 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
 import {
   Package, CheckCircle2, CalendarPlus, XCircle, Clock,
-  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase, CheckCheck
+  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase, CheckCheck, AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type LeaveConflict = {
+  technician_id: string;
+  technician_name: string | null;
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick";
+  holiday_name: string;
+  start_date: string;
+  end_date: string;
+};
+
+function formatLeaveConflict(conflict: LeaveConflict): string {
+  const typeLabel = conflict.holiday_type.replace("technician_", "").replace(/_/g, " ");
+  const start = new Date(`${conflict.start_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const end = new Date(`${conflict.end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${conflict.technician_name || "Selected technician"} is unavailable for ${conflict.holiday_name} (${typeLabel}) from ${start} to ${end}.`;
+}
 
 interface FollowUp {
   id: string;
@@ -351,8 +367,17 @@ function BookJobDialog({
   const todayStr = new Date().toISOString().split("T")[0];
   const [scheduledDate, setScheduledDate] = useState(todayStr);
   const [scheduledTime, setScheduledTime] = useState("");
+  const [assignedTechnicianId, setAssignedTechnicianId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   const { toast } = useToast();
+
+  const { data: technicians = [] } = useQuery<Array<{ id: string; full_name: string }>>({
+    queryKey: ["/api/admin/assignable-users"],
+    queryFn: () => fetch("/api/admin/assignable-users").then((r) => r.json()),
+    enabled: open,
+    staleTime: 60_000,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,6 +385,7 @@ function BookJobDialog({
       toast({ title: "Missing date", description: "Please select a date for the job.", variant: "destructive" });
       return;
     }
+    setLeaveConflict(null);
     setSubmitting(true);
     try {
       const res = await fetch(`/api/follow-ups/${followUp.id}/convert-to-job`, {
@@ -368,10 +394,15 @@ function BookJobDialog({
         body: JSON.stringify({
           scheduled_date: scheduledDate,
           scheduled_time: scheduledTime || null,
+          assigned_technician_id: assignedTechnicianId || null,
         }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch(() => ({})) as { error?: string; code?: string; conflict?: LeaveConflict };
+        if (body.code === "TECHNICIAN_LEAVE_CONFLICT" && body.conflict) {
+          setLeaveConflict(body.conflict);
+          return;
+        }
         throw new Error(body.error || "Failed to book job");
       }
       const data = await res.json();
@@ -397,6 +428,15 @@ function BookJobDialog({
             {followUp.parts_description && <p><span className="font-medium">Parts:</span> {followUp.parts_description}</p>}
             {followUp.work_description && <p><span className="font-medium">Work:</span> {followUp.work_description}</p>}
           </div>
+          {leaveConflict && (
+            <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+              <div>
+                <p className="font-medium">Selected technician is on leave</p>
+                <p className="mt-1 text-rose-800">{formatLeaveConflict(leaveConflict)}</p>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Scheduled Date *</Label>
@@ -406,6 +446,19 @@ function BookJobDialog({
               <Label>Time</Label>
               <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Technician</Label>
+            <select
+              value={assignedTechnicianId}
+              onChange={(e) => setAssignedTechnicianId(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Leave unassigned</option>
+              {technicians.map((tech) => (
+                <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="submit" className="flex-1 gap-2" disabled={submitting}>

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Home, Mail, Send } from "lucide-react";
+import { Plus, Home, Mail, Send, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
@@ -31,6 +31,22 @@ interface JobType {
   color: string;
   default_duration_minutes: number | null;
   is_active: boolean;
+}
+
+type LeaveConflict = {
+  technician_id: string;
+  technician_name: string | null;
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick";
+  holiday_name: string;
+  start_date: string;
+  end_date: string;
+};
+
+function formatLeaveConflict(conflict: LeaveConflict): string {
+  const typeLabel = conflict.holiday_type.replace("technician_", "").replace(/_/g, " ");
+  const start = new Date(`${conflict.start_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const end = new Date(`${conflict.end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `${conflict.technician_name || "Selected technician"} is unavailable for ${conflict.holiday_name} (${typeLabel}) from ${start} to ${end}.`;
 }
 
 type BookJobFormData = {
@@ -183,6 +199,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
     customerName: string;
   } | null>(null);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
 
   // Once the newly created property appears in the list, select it in the dropdown
   useEffect(() => {
@@ -196,6 +213,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
 
   const handleClose = () => {
     setConfirmationState(null);
+    setLeaveConflict(null);
     setShowAddProperty(false);
     setNewPropAddress("");
     setNewPropCity("");
@@ -305,6 +323,7 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
 
   const onSubmit = async (data: BookJobFormData) => {
     setSubmitting(true);
+    setLeaveConflict(null);
     try {
       let customerId = data.customer_id;
       let propertyId = data.property_id;
@@ -443,6 +462,11 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
         handleClose();
       }
     } catch (err) {
+      const conflict = (err as { data?: { code?: string; conflict?: LeaveConflict } })?.data;
+      if (conflict?.code === "TECHNICIAN_LEAVE_CONFLICT" && conflict.conflict) {
+        setLeaveConflict(conflict.conflict);
+        return;
+      }
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
@@ -491,6 +515,16 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
             {!isOnline && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
                 Offline — job will sync automatically when back online
+              </div>
+            )}
+
+            {leaveConflict && (
+              <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                <div>
+                  <p className="font-medium">Selected technician is on leave</p>
+                  <p className="mt-1 text-rose-800">{formatLeaveConflict(leaveConflict)}</p>
+                </div>
               </div>
             )}
 

@@ -31,6 +31,7 @@ import { invalidateCalendarCache } from "./calendar";
 import { invalidateHomepageCache } from "./homepage";
 import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
+import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 
 interface SupabaseJobRow {
   id: string;
@@ -433,6 +434,17 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     ...(fuelCategory ? { fuel_category: fuelCategory } : {}),
   };
 
+  const createConflict = await findTechnicianLeaveConflict({
+    tenantId: req.tenantId!,
+    technicianId: insertPayload.assigned_technician_id,
+    scheduledDate: String(insertPayload.scheduled_date),
+    scheduledEndDate: insertPayload.scheduled_end_date ?? null,
+  });
+  if (createConflict) {
+    sendTechnicianLeaveConflict(res, createConflict);
+    return;
+  }
+
   const { data, error } = await supabaseAdmin.from("jobs").insert(insertPayload).select().single();
   if (error) {
     if (error.code === "23514") {
@@ -708,6 +720,17 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
     }
   }
 
+  const duplicateConflict = await findTechnicianLeaveConflict({
+    tenantId: req.tenantId!,
+    technicianId: original.assigned_technician_id ?? null,
+    scheduledDate: newScheduledDate,
+    scheduledEndDate: newScheduledEndDate,
+  });
+  if (duplicateConflict) {
+    sendTechnicianLeaveConflict(res, duplicateConflict);
+    return;
+  }
+
   const { data: newJob, error: insertErr } = await supabaseAdmin
     .from("jobs")
     .insert({
@@ -897,6 +920,45 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     }
     if (updateCoreData.scheduled_end_date < effectiveStartDate) {
       res.status(400).json({ error: "End date cannot be before start date" }); return;
+    }
+  }
+
+  const assignmentOrScheduleChanging =
+    updateCoreData.assigned_technician_id !== undefined
+    || updateCoreData.scheduled_date !== undefined
+    || updateCoreData.scheduled_end_date !== undefined;
+
+  if (assignmentOrScheduleChanging) {
+    let currentJobQ = supabaseAdmin
+      .from("jobs")
+      .select("assigned_technician_id, scheduled_date, scheduled_end_date")
+      .eq("id", params.data.id);
+    if (req.tenantId) currentJobQ = currentJobQ.eq("tenant_id", req.tenantId);
+    const { data: currentJob, error: currentJobErr } = await currentJobQ.maybeSingle();
+    if (currentJobErr || !currentJob) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+
+    const effectiveTechnicianId = updateCoreData.assigned_technician_id !== undefined
+      ? updateCoreData.assigned_technician_id
+      : currentJob.assigned_technician_id;
+    const effectiveScheduledDate = updateCoreData.scheduled_date !== undefined
+      ? String(updateCoreData.scheduled_date)
+      : currentJob.scheduled_date;
+    const effectiveScheduledEndDate = updateCoreData.scheduled_end_date !== undefined
+      ? updateCoreData.scheduled_end_date
+      : currentJob.scheduled_end_date;
+
+    const updateConflict = await findTechnicianLeaveConflict({
+      tenantId: req.tenantId!,
+      technicianId: effectiveTechnicianId,
+      scheduledDate: effectiveScheduledDate,
+      scheduledEndDate: effectiveScheduledEndDate,
+    });
+    if (updateConflict) {
+      sendTechnicianLeaveConflict(res, updateConflict);
+      return;
     }
   }
 

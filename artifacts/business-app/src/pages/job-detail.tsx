@@ -140,29 +140,23 @@ export default function JobDetail() {
       });
     }
   }, [isOnline, onlineJob, isLoading, id]);
-
-  if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
-
   const effectiveJob = onlineJob || cachedJob;
   const isFromCache = !onlineJob && !!cachedJob;
-
-  if (!effectiveJob) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
-
-  const job = effectiveJob as unknown as JobDetailType;
+  const job = effectiveJob ? (effectiveJob as unknown as JobDetailType) : null;
 
   const jobHasPendingSync = [...pendingMutations, ...failedMutations].some(
     (m) => (m.type === "update-job" || m.type === "create-job-note" || m.type === "create-time-entry" || m.type === "create-job-part") && m.payload.jobId === id
   );
 
-  const customerEmail = (job.customer as unknown as Record<string, unknown>)?.email as string || "";
-  const jobRecord = job as unknown as Record<string, unknown>;
+  const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
+  const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
 
   const handleSendConfirmationDirect = async () => {
     setSendingConfirmation(true);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/send-confirmation`, { method: "POST" });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/send-confirmation`, { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to send confirmation email");
@@ -190,17 +184,17 @@ export default function JobDetail() {
   const handleStatusChange = async (newStatus: string, label: string) => {
     try {
       if (!isOnline) {
-        await queueJobUpdate(job.id, { status: newStatus });
+        await queueJobUpdate(job!.id, { status: newStatus });
         toast({ title: "Queued offline", description: `Status change to "${label}" will sync when online.` });
         return;
       }
       await updateJob.mutateAsync({
-        id: job.id,
+        id: job!.id,
         data: {
           status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
         },
       });
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job!.id}`] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Status Updated", description: `Job marked as ${label}` });
     } catch (e: unknown) {
@@ -213,13 +207,13 @@ export default function JobDetail() {
     const now = new Date().toISOString();
     try {
       if (!isOnline) {
-        await queueJobUpdate(job.id, { departure_time: now });
+        await queueJobUpdate(job!.id, { departure_time: now });
         toast({ title: "Queued offline", description: "Departure time recorded — will sync when online." });
         return;
       }
       setFinishingJob(true);
-      await updateJob.mutateAsync({ id: job.id, data: { departure_time: now } as Parameters<typeof updateJob.mutateAsync>[0]["data"] });
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      await updateJob.mutateAsync({ id: job!.id, data: { departure_time: now } as Parameters<typeof updateJob.mutateAsync>[0]["data"] });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job!.id}`] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Job finished", description: "Departure time recorded." });
     } catch (e: unknown) {
@@ -237,7 +231,7 @@ export default function JobDetail() {
     }
     setSendingCertificate(true);
     try {
-      const res = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/email-certificate`, { method: "POST" }) as { success: boolean; message: string; forms_sent: string[] };
+      const res = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/email-certificate`, { method: "POST" }) as { success: boolean; message: string; forms_sent: string[] };
       toast({ title: "Certificate sent", description: res.message || "Certificate emailed to customer." });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to send certificate";
@@ -252,7 +246,7 @@ export default function JobDetail() {
     if (!srForm) return;
     setDownloadingCp12(true);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/forms/service_record/${srForm.form_id}/pdf`, { credentials: "include" });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/forms/service_record/${srForm.form_id}/pdf`, { credentials: "include" });
       if (!res.ok) throw new Error("PDF generation failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -260,7 +254,7 @@ export default function JobDetail() {
       a.href = url;
       const fuelCat = (job as unknown as { fuel_category?: string | null }).fuel_category;
       const label = (fuelCat === "gas" || fuelCat === "lpg") ? "cp12" : "service-record";
-      a.download = `${label}-${jobRef || job.id.slice(0, 8)}.pdf`;
+      a.download = `${label}-${jobRef || job!.id.slice(0, 8)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: unknown) {
@@ -273,28 +267,30 @@ export default function JobDetail() {
 
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
-  const canComplete = job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled";
-  const canInvoice = job.status === "completed";
-  const canCreateFollowUp = isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
+  const canComplete = job ? job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled" : false;
+  const canInvoice = job?.status === "completed";
+  const canCreateFollowUp = !!job && isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
 
   const expectedRebookDate = (() => {
-    const raw = String(job.scheduled_date || "").slice(0, 10);
+    const raw = String(job?.scheduled_date || "").slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "";
     const d = new Date(`${raw}T00:00:00`);
     d.setFullYear(d.getFullYear() + 1);
     return d.toISOString().slice(0, 10);
   })();
 
+  const customerId = typeof jobRecord.customer_id === "string" ? jobRecord.customer_id : "";
+  const propertyId = typeof jobRecord.property_id === "string" ? jobRecord.property_id : "";
+
   const { data: hasYearRebookScheduled = false } = useQuery({
-    queryKey: ["job-rebook-indicator", job.id, expectedRebookDate],
+    queryKey: ["job-rebook-indicator", job?.id ?? id ?? "", expectedRebookDate],
     enabled: isAdmin
+      && !!job?.id
       && !!expectedRebookDate
-      && !!(job as unknown as { customer_id?: string | null }).customer_id
-      && !!(job as unknown as { property_id?: string | null }).property_id,
+      && !!customerId
+      && !!propertyId,
     queryFn: async () => {
       try {
-        const customerId = String((job as unknown as { customer_id?: string | null }).customer_id || "");
-        const propertyId = String((job as unknown as { property_id?: string | null }).property_id || "");
         const params = new URLSearchParams({
           customer_id: customerId,
           property_id: propertyId,
@@ -305,13 +301,17 @@ export default function JobDetail() {
         const data = await customFetch(
           `${import.meta.env.BASE_URL}api/jobs?${params.toString()}`
         ) as { jobs?: Array<{ id: string; status: string }> };
-        return (data.jobs || []).some((j) => j.id !== job.id && j.status !== "cancelled");
+        return (data.jobs || []).some((j) => j.id !== job?.id && j.status !== "cancelled");
       } catch {
         return false;
       }
     },
     staleTime: 60_000,
   });
+
+  if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
+
+  if (!job) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">

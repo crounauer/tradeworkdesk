@@ -11,6 +11,7 @@ import { syncSeats } from "./billing";
 import { runServiceDueReminders, previewServiceDueReminders } from "../lib/service-reminders";
 import { supabaseAdmin } from "../lib/supabase";
 import { grantTrialUsageCredits, syncUserAddonSeats } from "../lib/tenant-limits";
+import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 
 const router: IRouter = Router();
 
@@ -1148,7 +1149,7 @@ router.post('/admin/jobs/bulk-reassign', requireAuth, requireTenant, requireRole
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id")
+    .select("id, scheduled_date, scheduled_end_date")
     .eq("tenant_id", req.tenantId!)
     .eq("is_active", true);
 
@@ -1172,6 +1173,19 @@ router.post('/admin/jobs/bulk-reassign', requireAuth, requireTenant, requireRole
 
   if (!matchingJobs || matchingJobs.length === 0) {
     res.json({ success: true, reassigned_count: 0 }); return;
+  }
+
+  for (const job of matchingJobs as Array<{ id: string; scheduled_date: string; scheduled_end_date: string | null }>) {
+    const conflict = await findTechnicianLeaveConflict({
+      tenantId: req.tenantId!,
+      technicianId: to_user_id,
+      scheduledDate: job.scheduled_date,
+      scheduledEndDate: job.scheduled_end_date,
+    });
+    if (conflict) {
+      sendTechnicianLeaveConflict(res, conflict, { affected_job_count: matchingJobs.length, job_id: job.id });
+      return;
+    }
   }
 
   const jobIds = matchingJobs.map((j: { id: string }) => j.id);
