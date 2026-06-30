@@ -2525,13 +2525,20 @@ function PublicDirectoryCard() {
   const [serviceArea, setServiceArea] = useState("");
   const [coverageRadius, setCoverageRadius] = useState("");
   const [coverageRadiusSupported, setCoverageRadiusSupported] = useState(true);
+  const [businessPostcode, setBusinessPostcode] = useState("");
+  const [coverageCenter, setCoverageCenter] = useState<GeoResult | null>(null);
+  const [coverageLookupLoading, setCoverageLookupLoading] = useState(false);
+  const [coverageLookupError, setCoverageLookupError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
   const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    customFetch("/api/admin/directory-listing")
-      .then((data: Record<string, unknown>) => {
+    Promise.all([
+      customFetch("/api/admin/directory-listing"),
+      customFetch("/api/admin/company-settings").catch(() => ({} as Record<string, unknown>)),
+    ])
+      .then(([data, companyData]: [Record<string, unknown>, Record<string, unknown>]) => {
         setIsListed(!!data.is_publicly_listed);
         setSlug((data.listing_slug as string) ?? "");
         setDescription((data.public_description as string) ?? "");
@@ -2539,10 +2546,48 @@ function PublicDirectoryCard() {
         setServiceArea((data.service_area as string) ?? "");
         setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
         setCoverageRadiusSupported(data.coverage_radius_supported !== false);
+        setBusinessPostcode(String(companyData.postcode || "").trim());
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    const postcode = businessPostcode.trim();
+    if (!postcode) {
+      setCoverageCenter(null);
+      setCoverageLookupError("Add your business postcode in Company Settings to preview radius coverage.");
+      return;
+    }
+
+    const controller = new AbortController();
+    setCoverageLookupLoading(true);
+    setCoverageLookupError(null);
+    fetch("/api/geocode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: postcode }),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as { error?: string }).error || "Could not geocode business postcode");
+        }
+        return res.json() as Promise<GeoResult>;
+      })
+      .then((geo) => setCoverageCenter(geo))
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setCoverageCenter(null);
+        setCoverageLookupError((err as Error).message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCoverageLookupLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [businessPostcode]);
 
   const handleSlugChange = (val: string) => {
     setSlug(val);
@@ -2579,6 +2624,7 @@ function PublicDirectoryCard() {
 
   const normalisedSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   const previewUrl = normalisedSlug ? `tradeworkdesk.co.uk/find/${normalisedSlug}` : "tradeworkdesk.co.uk/find/your-slug";
+  const radiusMiles = Number(coverageRadius || 0);
 
   return (
     <Card>
@@ -2670,6 +2716,46 @@ function PublicDirectoryCard() {
             <p className="text-xs text-muted-foreground">Used by the website postcode checker. Leave blank to keep the checker text-only.</p>
           ) : (
             <p className="text-xs text-amber-700">Postcode radius is not available on this database yet. Run patch-052-website-coverage.sql to enable it.</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Radius map preview</Label>
+          <div className="rounded-lg overflow-hidden border border-border" style={{ height: 220 }}>
+            {coverageLookupLoading ? (
+              <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading map preview...
+              </div>
+            ) : coverageCenter ? (
+              <MapContainer
+                center={[coverageCenter.latitude, coverageCenter.longitude]}
+                zoom={radiusMiles > 0 ? 10 : 13}
+                style={{ height: "100%", width: "100%" }}
+                scrollWheelZoom={false}
+                dragging={true}
+                zoomControl={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <Marker position={[coverageCenter.latitude, coverageCenter.longitude]} icon={coverageMapIcon} />
+                {radiusMiles > 0 && (
+                  <Circle
+                    center={[coverageCenter.latitude, coverageCenter.longitude]}
+                    radius={milesToMeters(radiusMiles)}
+                    pathOptions={{ color: "#2563eb", weight: 2, fillColor: "#60a5fa", fillOpacity: 0.2 }}
+                  />
+                )}
+              </MapContainer>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center px-4 text-sm text-muted-foreground text-center">
+                {coverageLookupError || "Set your business postcode to preview coverage radius."}
+              </div>
+            )}
+          </div>
+          {coverageCenter && radiusMiles > 0 && (
+            <p className="text-xs text-muted-foreground">Showing approximately {radiusMiles} miles from your business postcode.</p>
           )}
         </div>
 
