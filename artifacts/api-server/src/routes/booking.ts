@@ -785,7 +785,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
   // Validate settings exist and booking is enabled
   const { data: settings } = await db.from("booking_settings")
-    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id").eq("tenant_id", req.params.tenantId).maybeSingle();
+    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id, working_hours").eq("tenant_id", req.params.tenantId).maybeSingle();
   if (!settings?.is_enabled) {
     return res.status(403).json({ error: "Online booking is not enabled" });
   }
@@ -860,6 +860,26 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
     const scheduledEnd = new Date(normalizedScheduledStart);
     scheduledEnd.setUTCMinutes(scheduledEnd.getUTCMinutes() + duration);
+
+    // Hard guard: ensure selected slot stays inside configured working hours for that day.
+    const bookingDate = normalizedScheduledStart.slice(0, 10);
+    const dayOfWeek = new Date(`${bookingDate}T00:00:00.000Z`).getUTCDay();
+    const workingHours = Array.isArray((settings as { working_hours?: unknown[] }).working_hours)
+      ? (settings as { working_hours: Array<{ day: number; start: string; end: string }> }).working_hours
+      : [];
+    const dayHours = workingHours.find((w) => Number(w.day) === dayOfWeek);
+    if (!dayHours) {
+      return res.status(409).json({ error: "Selected time is outside working hours. Please choose another slot." });
+    }
+    const workDayStart = new Date(`${bookingDate}T${dayHours.start}:00.000Z`);
+    const workDayEnd = new Date(`${bookingDate}T${dayHours.end}:00.000Z`);
+    if (Number.isNaN(workDayStart.getTime()) || Number.isNaN(workDayEnd.getTime())) {
+      return res.status(500).json({ error: "Working hours configuration is invalid" });
+    }
+    const normalizedStartDate = new Date(normalizedScheduledStart);
+    if (normalizedStartDate < workDayStart || scheduledEnd > workDayEnd) {
+      return res.status(409).json({ error: "Selected time exceeds working hours for this service duration. Please choose another slot." });
+    }
 
     const bookingStatus = settings.auto_confirm ? "confirmed" : "pending";
     const { data, error } = await db.from("bookings").insert({

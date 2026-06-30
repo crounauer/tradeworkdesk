@@ -704,6 +704,7 @@ export default function OnlineBookingBlock({ content }: Props) {
 
               <div style={{ background: "#f8fafc", borderRadius: 10, padding: "16px 18px", marginBottom: 20, fontSize: 14, lineHeight: 1.6 }}>
                 <div><strong>Service:</strong> {selectedService.name}</div>
+                <div><strong>Service duration:</strong> {selectedService.duration_minutes} minutes</div>
                 <div><strong>Date &amp; Time:</strong> {formatDate(selectedSlot.start)} at {formatTime(selectedSlot.start)}</div>
                 <div><strong>Name:</strong> {name}</div>
                 <div><strong>Email:</strong> {email}</div>
