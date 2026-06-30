@@ -10,6 +10,7 @@ import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
 import { ToolsPublicLayout } from "@/components/tools-public-layout";
 import { OfflineProvider } from "@/contexts/offline-context";
+import { toast } from "@/hooks/use-toast";
 
 const CHUNK_RELOAD_ATTEMPTS_KEY = "chunk_reload_attempts";
 
@@ -707,6 +708,37 @@ function MarketingSiteTracker() {
   return null;
 }
 
+function ServiceWorkerPushBridge() {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      const msg = event.data as {
+        type?: string;
+        payload?: { title?: string; body?: string; url?: string };
+      };
+
+      if (msg?.type === "PUSH_IN_APP") {
+        toast({
+          title: msg.payload?.title || "TradeWorkDesk",
+          description: msg.payload?.body || "You have a new notification.",
+        });
+      }
+
+      if (msg?.type === "PUSH_NAVIGATE" && msg.payload?.url) {
+        window.location.assign(msg.payload.url);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleMessage);
+    };
+  }, []);
+
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -716,6 +748,7 @@ function App() {
             <ChunkErrorBoundary>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <MarketingSiteTracker />
+                <ServiceWorkerPushBridge />
                 <AppRouter />
               </WouterRouter>
             </ChunkErrorBoundary>

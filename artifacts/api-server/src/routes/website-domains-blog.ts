@@ -48,6 +48,7 @@ import { resolveCname, resolve4 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 import { sendSimpleNotification } from "../lib/email";
+import { sendPushToTenant } from "../lib/push-notifications";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
@@ -2100,6 +2101,20 @@ async function sendFormSubmissionNotifications(
         console.error("[website-form] SMS notification failed:", (smsErr as Error).message);
       }
     }
+
+    const submitterName = String(data.name || data.full_name || "Someone").trim() || "Someone";
+    await sendPushToTenant(tenantId, {
+      title: "New Website Enquiry",
+      body: `${submitterName} submitted a ${formType} form`,
+      url: enquiryId ? `/enquiries/${enquiryId}` : "/enquiries",
+      tag: `website-enquiry-${submissionId}`,
+      data: {
+        type: "website_form_submission",
+        submissionId,
+        enquiryId,
+        formType,
+      },
+    });
   } catch (err) {
     console.error("[website-form] Failed to send notifications:", (err as Error).message);
   }

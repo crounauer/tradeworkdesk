@@ -33,6 +33,7 @@
     "twitter-api-v2": "^1.29.0",
     "unzipper": "^0.10.14",
     "uuid": "^9.0.0",
+    "web-push": "^3.6.7",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -42,6 +43,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "@types/node": "catalog:",
+    "@types/web-push": "^3.6.4",
     "@types/unzipper": "^0.10.11",
     "@types/pg": "^8.18.0",
     "esbuild": "^0.27.3",

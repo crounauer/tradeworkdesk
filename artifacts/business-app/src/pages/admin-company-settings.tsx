@@ -27,10 +27,13 @@ import { AccountingIntegrations } from "@/components/accounting-integrations";
 import BillingPage from "@/pages/billing";
 import { JobTypesManagement } from "@/pages/admin-job-types";
 import AdminUsers from "@/pages/admin-users";
+import { getExistingPushSubscription, subscribeToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 
 // ─── GoCardless section (embedded in Payments tab) ───────────────────────────
 
 interface GcStatus { available: boolean; connected: boolean; organisation_id?: string }
+
+type PushPermissionState = "default" | "denied" | "granted";
 
 function GoCardlessSection({ enabled, onToggle }: { enabled: boolean; onToggle: (v: boolean) => void }) {
   const { toast } = useToast();
@@ -141,6 +144,170 @@ function GoCardlessSection({ enabled, onToggle }: { enabled: boolean; onToggle: 
         </p>
       </details>
     </div>
+  );
+}
+
+function PushNotificationsSection() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const [permission, setPermission] = useState<PushPermissionState>("default");
+  const [subscribed, setSubscribed] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      const hasSupport =
+        "Notification" in window &&
+        "serviceWorker" in navigator &&
+        "PushManager" in window;
+
+      if (!mounted) return;
+      setSupported(hasSupport);
+
+      if (!hasSupport) {
+        setLoading(false);
+        return;
+      }
+
+      setPermission(Notification.permission as PushPermissionState);
+      const existing = await getExistingPushSubscription();
+      if (!mounted) return;
+      setSubscribed(Boolean(existing));
+      setLoading(false);
+    };
+
+    load().catch(() => {
+      if (!mounted) return;
+      setLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const enablePush = async () => {
+    try {
+      setWorking(true);
+
+      const requested = await Notification.requestPermission();
+      setPermission(requested as PushPermissionState);
+      if (requested !== "granted") {
+        toast({ title: "Permission blocked", description: "Please allow notifications in your browser settings.", variant: "destructive" });
+        return;
+      }
+
+      const keyRes = await fetch("/api/push/vapid-public-key");
+      if (!keyRes.ok) throw new Error("Failed to load push configuration");
+      const keyData = await keyRes.json() as { publicKey?: string };
+      if (!keyData.publicKey) throw new Error("Missing push public key");
+
+      const subscription = await subscribeToPush(keyData.publicKey);
+
+      const saveRes = await fetch("/api/push/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: subscription.toJSON() }),
+      });
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to save push subscription");
+      }
+
+      setSubscribed(true);
+      toast({ title: "Push notifications enabled", description: "This device will receive website enquiry alerts." });
+    } catch (err) {
+      toast({ title: "Failed to enable push", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const disablePush = async () => {
+    try {
+      setWorking(true);
+      const endpoint = await unsubscribeFromPush();
+
+      if (endpoint) {
+        await fetch("/api/push/subscriptions", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint }),
+        });
+      }
+
+      setSubscribed(false);
+      toast({ title: "Push notifications disabled" });
+    } catch (err) {
+      toast({ title: "Failed to disable push", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const sendTest = async () => {
+    try {
+      setWorking(true);
+      const res = await fetch("/api/push/test", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to send test push");
+      toast({ title: "Test sent", description: "You should receive a test push notification shortly." });
+    } catch (err) {
+      toast({ title: "Failed to send test", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="h-20 rounded-lg border bg-slate-50 animate-pulse" />;
+  }
+
+  if (!supported) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Bell className="w-4 h-4" /> Device Push Notifications</CardTitle>
+          <CardDescription>
+            This browser does not support push notifications.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><Bell className="w-4 h-4" /> Device Push Notifications</CardTitle>
+        <CardDescription>
+          Send instant alerts to mobiles, tablets, and desktops when new website enquiries arrive.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Status: {subscribed ? "Subscribed" : "Not subscribed"} • Browser permission: {permission}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {!subscribed ? (
+            <Button type="button" onClick={enablePush} disabled={working || permission === "denied"}>
+              {working ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+              Enable on this device
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" onClick={disablePush} disabled={working}>
+              {working ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+              Disable on this device
+            </Button>
+          )}
+          <Button type="button" variant="secondary" onClick={sendTest} disabled={working || !subscribed}>
+            Send test notification
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1212,6 +1379,8 @@ export default function AdminCompanySettings() {
                 )}
               </CardContent>
             </Card>
+
+            <PushNotificationsSection />
 
             {renderSectionSaveButton("Save notification changes")}
           </TabsContent>
