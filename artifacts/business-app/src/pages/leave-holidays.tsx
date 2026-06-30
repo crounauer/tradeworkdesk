@@ -109,7 +109,7 @@ export default function LeaveHolidaysPage() {
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Leave & Holidays</h1>
           <p className="text-muted-foreground mt-1">
-            Manage technician leave blocks, public holidays, and UK bank holiday imports.
+            Manage technician holiday, away, and sick blocks, plus public holidays and UK bank holiday imports.
           </p>
         </div>
       </div>

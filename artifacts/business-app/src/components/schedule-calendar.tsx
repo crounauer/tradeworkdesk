@@ -32,7 +32,7 @@ type CalendarHoliday = {
   name: string;
   start_date: string;
   end_date: string;
-  holiday_type: "technician_leave" | "public_holiday" | "bank_holiday";
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes?: string | null;
 };
 
@@ -123,6 +123,8 @@ const PRIORITY_DOT: Record<string, string> = {
 
 const HOLIDAY_STYLES: Record<CalendarHoliday["holiday_type"], string> = {
   technician_leave: "bg-rose-100 text-rose-700 border-rose-200",
+  technician_away: "bg-amber-100 text-amber-700 border-amber-200",
+  technician_sick: "bg-orange-100 text-orange-800 border-orange-200",
   public_holiday: "bg-indigo-100 text-indigo-700 border-indigo-200",
   bank_holiday: "bg-violet-100 text-violet-700 border-violet-200",
 };

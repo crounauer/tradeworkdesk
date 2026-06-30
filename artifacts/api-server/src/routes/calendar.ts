@@ -39,7 +39,7 @@ interface CalendarHolidayRow {
   name: string;
   start_date: string;
   end_date: string;
-  holiday_type: "technician_leave" | "public_holiday" | "bank_holiday";
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes: string | null;
   source: string;
   created_at: string;
@@ -359,7 +359,7 @@ router.post(
       start_date?: string;
       end_date?: string;
       technician_id?: string | null;
-      holiday_type?: "technician_leave" | "public_holiday" | "bank_holiday";
+      holiday_type?: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
       notes?: string;
     };
 

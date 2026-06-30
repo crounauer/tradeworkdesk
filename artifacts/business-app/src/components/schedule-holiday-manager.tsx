@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useListProfiles } from "@workspace/api-client-react";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +14,27 @@ interface HolidayItem {
   name: string;
   start_date: string;
   end_date: string;
-  holiday_type: "technician_leave" | "public_holiday" | "bank_holiday";
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes?: string | null;
   source?: string;
 }
+
+type TechnicianLeaveType = "technician_leave" | "technician_away" | "technician_sick";
+
+type LeaveTypeOption = {
+  id: string;
+  label: string;
+  holidayType: TechnicianLeaveType;
+  defaultName: string;
+};
+
+const HOLIDAY_TYPE_LABELS: Record<HolidayItem["holiday_type"], string> = {
+  technician_leave: "Holiday",
+  technician_away: "Away",
+  technician_sick: "Sick",
+  public_holiday: "Public holiday",
+  bank_holiday: "Bank holiday",
+};
 
 interface TeamProfile {
   id: string;
@@ -43,7 +61,9 @@ function todayIso(): string {
 export default function ScheduleHolidayManager() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [leaveName, setLeaveName] = useState("Annual Leave");
+  const { data: companySettings } = useCompanySettings();
+  const [leaveName, setLeaveName] = useState("");
+  const [leaveTypeId, setLeaveTypeId] = useState("technician_leave");
   const [leaveTech, setLeaveTech] = useState("");
   const [leaveStart, setLeaveStart] = useState(todayIso());
   const [leaveEnd, setLeaveEnd] = useState(todayIso());
@@ -75,6 +95,30 @@ export default function ScheduleHolidayManager() {
     return assignable;
   }, [profiles]);
 
+  const leaveTypeOptions = useMemo<LeaveTypeOption[]>(() => {
+    const customLabels = (companySettings?.custom_leave_types ?? [])
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    return [
+      { id: "technician_leave", label: "Holiday", holidayType: "technician_leave", defaultName: "Holiday Leave" },
+      { id: "technician_away", label: "Away", holidayType: "technician_away", defaultName: "Away" },
+      { id: "technician_sick", label: "Sick", holidayType: "technician_sick", defaultName: "Sick Leave" },
+      ...customLabels.map((label, idx) => ({
+        id: `custom:${idx}`,
+        label,
+        holidayType: "technician_leave" as const,
+        defaultName: label,
+      })),
+    ];
+  }, [companySettings?.custom_leave_types]);
+
+  const selectedLeaveType =
+    leaveTypeOptions.find((option) => option.id === leaveTypeId) ??
+    leaveTypeOptions[0] ??
+    { id: "technician_leave", label: "Holiday", holidayType: "technician_leave" as const, defaultName: "Holiday Leave" };
+
   async function refreshAll() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["calendar-holidays"] }),
@@ -97,11 +141,11 @@ export default function ScheduleHolidayManager() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: leaveName.trim() || "Annual Leave",
+          name: leaveName.trim() || selectedLeaveType.defaultName,
           technician_id: leaveTech,
           start_date: leaveStart,
           end_date: leaveEnd,
-          holiday_type: "technician_leave",
+          holiday_type: selectedLeaveType.holidayType,
         }),
       });
       await refreshAll();
@@ -180,7 +224,7 @@ export default function ScheduleHolidayManager() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-3 rounded-lg border border-border p-3">
-          <p className="text-sm font-medium">Block Days Per Technician</p>
+          <p className="text-sm font-medium">Block Days Per Technician (Holiday, Away, Sick)</p>
           <div className="space-y-1.5">
             <Label>Technician</Label>
             <select
@@ -195,8 +239,20 @@ export default function ScheduleHolidayManager() {
             </select>
           </div>
           <div className="space-y-1.5">
+            <Label>Type</Label>
+            <select
+              value={leaveTypeId}
+              onChange={(e) => setLeaveTypeId(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {leaveTypeOptions.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <Label>Label</Label>
-            <Input value={leaveName} onChange={(e) => setLeaveName(e.target.value)} placeholder="Annual Leave" />
+            <Input value={leaveName} onChange={(e) => setLeaveName(e.target.value)} placeholder={selectedLeaveType.defaultName} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
@@ -250,7 +306,7 @@ export default function ScheduleHolidayManager() {
                   <div>
                     <p className="text-sm font-medium">{h.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {h.start_date}{h.end_date !== h.start_date ? ` to ${h.end_date}` : ""} · {h.holiday_type.replace("_", " ")}
+                      {h.start_date}{h.end_date !== h.start_date ? ` to ${h.end_date}` : ""} · {HOLIDAY_TYPE_LABELS[h.holiday_type]}
                       {h.technician_id ? ` · ${technicians.find((t) => t.id === h.technician_id)?.full_name || "Technician"}` : ""}
                     </p>
                   </div>

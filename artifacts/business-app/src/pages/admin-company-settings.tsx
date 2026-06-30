@@ -601,6 +601,7 @@ export default function AdminCompanySettings() {
       // Notifications
       website_enquiry_email_notify: settings.website_enquiry_email_notify ?? true,
       website_enquiry_sms_notify: settings.website_enquiry_sms_notify ?? false,
+      custom_leave_types: settings.custom_leave_types ?? [],
     });
     setLogoPreview(settings.logo_url ?? null);
   }, [settings, reset]);
@@ -614,7 +615,7 @@ export default function AdminCompanySettings() {
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
   const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "white_label_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
-  const arrayFields = new Set(["notification_emails"]);
+  const arrayFields = new Set(["notification_emails", "custom_leave_types"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
     const res = await fetch("/api/admin/company-settings", {
@@ -1156,6 +1157,38 @@ export default function AdminCompanySettings() {
               </Label>
               <Input id="oftec_number" placeholder="e.g. C12345" {...register("oftec_number")} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ListTree className="w-4 h-4" />
+              Leave Type Labels
+            </CardTitle>
+            <CardDescription>
+              Define custom leave labels shown in Leave & Holidays. One label per line (for example: Training, Compassionate Leave, Jury Service).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label htmlFor="custom_leave_types">Custom leave types</Label>
+            <Textarea
+              id="custom_leave_types"
+              rows={4}
+              placeholder={"Training\nCompassionate Leave\nJury Service"}
+              value={(watch("custom_leave_types") ?? []).join("\n")}
+              onChange={(e) => {
+                const types = e.target.value
+                  .split(/[\n,;]/)
+                  .map((x) => x.trim())
+                  .filter(Boolean)
+                  .slice(0, 20);
+                setValue("custom_leave_types", Array.from(new Set(types)), { shouldDirty: true });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              These are added in addition to Holiday, Away, and Sick. Custom labels are stored per tenant.
+            </p>
           </CardContent>
         </Card>
 

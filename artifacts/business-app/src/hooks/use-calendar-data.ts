@@ -36,7 +36,7 @@ interface CalendarHoliday {
   name: string;
   start_date: string;
   end_date: string;
-  holiday_type: "technician_leave" | "public_holiday" | "bank_holiday";
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes?: string | null;
   source?: string;
 }

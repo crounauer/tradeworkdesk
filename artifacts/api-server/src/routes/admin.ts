@@ -528,6 +528,8 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "website_closure_notice_enabled", "website_closure_notice_message",
     "website_closure_notice_start_date", "website_closure_notice_end_date",
     "website_closure_notice_auto_from_holidays",
+    // Leave scheduling
+    "custom_leave_types",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };
@@ -569,6 +571,20 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     }
 
     updates.notification_emails = normalized.length > 0 ? Array.from(new Set(normalized)) : null;
+  }
+
+  if ("custom_leave_types" in updates) {
+    const raw = updates.custom_leave_types;
+    const normalized = (Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+      ? raw.split(/[\n,;]/)
+      : [])
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    updates.custom_leave_types = normalized.length > 0 ? Array.from(new Set(normalized)) : null;
   }
 
   // Validate hex colour format
