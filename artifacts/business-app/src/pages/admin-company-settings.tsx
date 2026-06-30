@@ -497,14 +497,19 @@ function CoverageRadiusAutoFit({ latitude, longitude, radiusMiles }: { latitude:
 
   useEffect(() => {
     const center = L.latLng(latitude, longitude);
+    map.invalidateSize();
+
     if (radiusMiles > 0) {
-      const diameterMeters = milesToMeters(radiusMiles) * 2;
-      const bounds = center.toBounds(diameterMeters);
-      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+      const circleBounds = L.circle(center, { radius: milesToMeters(radiusMiles) }).getBounds();
+      map.fitBounds(circleBounds, {
+        padding: [8, 8],
+        maxZoom: 18,
+        animate: false,
+      });
       return;
     }
 
-    map.setView([latitude, longitude], 13);
+    map.setView([latitude, longitude], 13, { animate: false });
   }, [map, latitude, longitude, radiusMiles]);
 
   return null;
