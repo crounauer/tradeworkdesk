@@ -83,6 +83,15 @@ export default function HeroBlock({ content }: Props) {
     : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
   const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
 
+  const modernImageStyle: React.CSSProperties | undefined = background_image_url
+    ? {
+        backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.18)), url(${background_image_url})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }
+    : undefined;
+
   if (isModernTradePayload) {
     return (
       <section style={{ backgroundColor: "#020617", color: "#ffffff" }}>
@@ -120,8 +129,8 @@ export default function HeroBlock({ content }: Props) {
             )}
           </div>
           <div style={{ borderRadius: 16, backgroundColor: "#1e293b", padding: 24, boxShadow: "0 20px 45px rgba(2,6,23,0.35)" }}>
-            <div style={{ borderRadius: 12, backgroundColor: "#334155", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#cbd5e1", fontSize: "0.95rem", padding: 20 }}>
-              {typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder"}
+            <div style={{ borderRadius: 12, backgroundColor: "#334155", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#cbd5e1", fontSize: "0.95rem", padding: 20, overflow: "hidden", ...modernImageStyle }}>
+              {!background_image_url && (typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder")}
             </div>
           </div>
         </div>
