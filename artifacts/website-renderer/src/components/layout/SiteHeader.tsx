@@ -19,16 +19,18 @@ interface Props {
   logoUrl: string | null;
   pages: SitePage[];
   theme: Record<string, string>;
+  templateSlug?: string;
   company?: CompanyInfo | null;
   basePath?: string;
   previewToken?: string;
   showTopBar?: boolean;
 }
 
-export default function SiteHeader({ siteName, logoUrl, pages, theme, company, basePath, previewToken, showTopBar = true }: Props) {
-  const navBg = theme?.nav_background || "#1c2942";
-  const navText = theme?.nav_text || "#ffffff";
-  const accent = theme?.accent_color || "#f97316";
+export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSlug, company, basePath, previewToken, showTopBar = true }: Props) {
+  const isModernTrade = String(templateSlug || "").toLowerCase() === "modern-trade";
+  const navBg = theme?.nav_background || (isModernTrade ? "#ffffff" : "#1c2942");
+  const navText = theme?.nav_text || (isModernTrade ? "#0f172a" : "#ffffff");
+  const accent = theme?.accent_color || (isModernTrade ? "#fbbf24" : "#f97316");
   const [menuOpen, setMenuOpen] = useState(false);
 
   function pageHref(page: SitePage): string {
@@ -48,10 +50,10 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
   // Slightly darker shade for top bar
   const topBarBg = navBg + "dd";
 
-  const hasTopBar = showTopBar && !!(company?.phone || company?.email || company?.gas_safe_number || company?.oftec_number);
+  const hasTopBar = !isModernTrade && showTopBar && !!(company?.phone || company?.email || company?.gas_safe_number || company?.oftec_number);
 
   return (
-    <header style={{ position: "sticky", top: 0, zIndex: 50 }}>
+    <header style={{ position: isModernTrade ? "relative" : "sticky", top: 0, zIndex: 50 }}>
       <style>{`
         .snav-desktop { display: flex !important; }
         .snav-phone { display: flex !important; }
@@ -91,7 +93,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
       )}
 
       {/* Main nav */}
-      <div style={{ backgroundColor: navBg, color: navText, boxShadow: "0 2px 10px rgba(0,0,0,0.25)" }}>
+      <div style={{ backgroundColor: navBg, color: navText, boxShadow: isModernTrade ? "0 1px 0 rgba(15,23,42,0.08)" : "0 2px 10px rgba(0,0,0,0.25)", borderBottom: isModernTrade ? "1px solid #e2e8f0" : "none" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68 }}>
 
           {/* Logo */}
@@ -100,7 +102,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt={siteName} style={{ height: 44, objectFit: "contain" }} />
             ) : (
-              <div style={{ width: 36, height: 36, backgroundColor: accent, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.125rem" }}>🔧</div>
+              <div style={{ width: 36, height: 36, backgroundColor: accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.125rem", color: isModernTrade ? "#0f172a" : "#fff" }}>🔧</div>
             )}
             <span style={{ fontWeight: 700, fontSize: "1.0625rem", lineHeight: 1.2, maxWidth: 200 }}>{siteName}</span>
           </Link>
@@ -125,7 +127,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, company, b
                 {company.phone}
               </a>
             )}
-            <a href={ctaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
+            <a href={ctaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: isModernTrade ? "#0f172a" : "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
               Request a Quote
             </a>
           </div>

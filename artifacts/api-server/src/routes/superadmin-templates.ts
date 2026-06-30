@@ -181,21 +181,6 @@ async function readTemplatePackage(zip: JSZip, manifestSlug: string): Promise<Im
       ? rawPages.pages
       : [];
 
-  // Get supported block types from registry if available
-  let supportedBlockTypes = new Set<string>();
-  const registry = await readZipJson<{ blocks?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
-    zip,
-    "registry/block-registry.json",
-  );
-  if (registry) {
-    const entries = Array.isArray(registry) ? registry : Array.isArray(registry.blocks) ? registry.blocks : [];
-    supportedBlockTypes = new Set(
-      entries
-        .map((entry) => String(entry.type || entry.key || entry.name || "").trim().toLowerCase())
-        .filter(Boolean),
-    );
-  }
-
   // Parse pages
   const pages: TemplatePageManifest[] = [];
   for (let index = 0; index < pageEntries.length; index += 1) {
@@ -246,7 +231,7 @@ async function readTemplatePackage(zip: JSZip, manifestSlug: string): Promise<Im
   }
 
   // Check for unsupported block types
-  const unsupportedBlockTypes = findUnsupportedBlockTypes(pages, supportedBlockTypes);
+  const unsupportedBlockTypes = findUnsupportedBlockTypes(pages);
   if (unsupportedBlockTypes.length > 0) {
     throw new TemplateImportError(`Unsupported block type(s): ${unsupportedBlockTypes.join(", ")}`, {
       status: 400,

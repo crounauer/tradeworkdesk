@@ -47,6 +47,7 @@ export default function SiteLayout({ site, children, basePath, previewToken }: P
         logoUrl={website.logo_url}
         pages={navPages}
         company={company}
+        templateSlug={website.template_slug || undefined}
         theme={website.theme as Record<string, string>}
         basePath={basePath}
         previewToken={previewToken}

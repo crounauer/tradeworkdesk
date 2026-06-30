@@ -20,6 +20,7 @@ import {
   type TemplateContentSeed,
 } from './templatePackageSchema';
 import { ZodError } from 'zod';
+import { findUnsupportedBlockTypes } from '../lib/template-import-safeguards';
 
 /**
  * Result of successfully reading and validating a template package.
@@ -408,6 +409,18 @@ export async function readTemplatePackage(
   let totalBlockCount = 0;
   for (const pageFile of pages.values()) {
     totalBlockCount += pageFile.blocks.length;
+  }
+
+  const unsupportedBlockTypes = findUnsupportedBlockTypes(
+    Array.from(pages.values()).map((pageFile) => ({
+      blocks: pageFile.blocks.map((block) => ({ block_type: block.type })),
+    })),
+  );
+
+  if (unsupportedBlockTypes.length > 0) {
+    throw new Error(
+      `Unsupported block type(s) for tenant renderer: ${unsupportedBlockTypes.join(', ')}`
+    );
   }
 
   const stats = {

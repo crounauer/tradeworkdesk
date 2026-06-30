@@ -231,17 +231,6 @@ async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: str
       ? rawPages.pages
       : [];
 
-  let supportedBlockTypes = new Set<string>();
-  const registry = await readZipJson<{ blocks?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(zip, "registry/block-registry.json");
-  if (registry) {
-    const entries = Array.isArray(registry) ? registry : Array.isArray(registry.blocks) ? registry.blocks : [];
-    supportedBlockTypes = new Set(
-      entries
-        .map((entry) => String(entry.type || entry.key || entry.name || "").trim().toLowerCase())
-        .filter(Boolean),
-    );
-  }
-
   const pages: TemplatePageManifest[] = [];
   for (let index = 0; index < pageEntries.length; index += 1) {
     const pageEntry = pageEntries[index];
@@ -283,7 +272,7 @@ async function parseImportedTemplateContent(zipBuffer: Buffer, manifestSlug: str
     });
   }
 
-  const unsupportedBlockTypes = findUnsupportedBlockTypes(pages, supportedBlockTypes);
+  const unsupportedBlockTypes = findUnsupportedBlockTypes(pages);
 
   if (unsupportedBlockTypes.length > 0) {
     throw new TemplateImportError(

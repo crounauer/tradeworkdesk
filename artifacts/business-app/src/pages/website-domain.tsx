@@ -100,6 +100,65 @@ function DnsRow({ record }: { record: DnsRecord }) {
   );
 }
 
+function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRecord[] }) {
+  const apexDomain = domain.replace(/^www\./, "");
+
+  return (
+    <div className="space-y-3 text-sm">
+      <p className="font-medium">Follow these steps exactly, in order:</p>
+      <ol className="list-decimal pl-5 space-y-2">
+        <li>Open your DNS provider for <strong>{apexDomain}</strong> (GoDaddy, Cloudflare, 123-Reg, Namecheap, etc.).</li>
+        <li>Remove old records for the same hostnames if they point somewhere else (for example old Vercel, Wix, Squarespace, Shopify, or another host).</li>
+        <li>Add the DNS records below exactly as shown.</li>
+        <li>Save DNS changes in your registrar panel.</li>
+        <li>Wait for DNS propagation. Most updates are quick, but some registrars can take up to 24-48 hours.</li>
+        <li>Return here and click <strong>Check Status</strong>.</li>
+        <li>When verification and SSL are active, your custom domain is live.</li>
+      </ol>
+      <p className="text-xs text-muted-foreground">
+        Tip: If your provider asks for “Host”, use the values in the <strong>Name</strong> column below (for example <code className="text-xs bg-muted px-1 rounded">@</code> or <code className="text-xs bg-muted px-1 rounded">www</code>).
+      </p>
+      {records.length > 0 && (
+        <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+          Add exactly {records.length} record{records.length > 1 ? "s" : ""} for this domain setup.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProviderWalkthroughs({ records }: { records: DnsRecord[] }) {
+  const hasApexA = records.some((r) => r.type.toUpperCase() === "A" && r.name === "@");
+  const hasWwwCname = records.some((r) => r.type.toUpperCase() === "CNAME" && (r.name === "www" || r.name.startsWith("www.")));
+
+  return (
+    <div className="mt-4 rounded-md border p-3">
+      <p className="text-sm font-medium mb-2">Registrar-specific quick steps</p>
+      <div className="space-y-2 text-xs text-muted-foreground">
+        <details>
+          <summary className="cursor-pointer font-medium text-foreground">Cloudflare</summary>
+          <p className="mt-1">Open DNS, delete conflicting records, then add each record from the table exactly. Keep Proxy set to DNS only until verification is active.</p>
+        </details>
+        <details>
+          <summary className="cursor-pointer font-medium text-foreground">GoDaddy</summary>
+          <p className="mt-1">Go to Manage DNS, remove old A/CNAME for the same host, then add records from the table. Use Host @ for apex A record and Host www for www CNAME.</p>
+        </details>
+        <details>
+          <summary className="cursor-pointer font-medium text-foreground">123-Reg</summary>
+          <p className="mt-1">Go to Manage DNS and Advanced DNS, replace conflicting records, add exact Type/Name/Value rows from the table, then save.</p>
+        </details>
+        <details>
+          <summary className="cursor-pointer font-medium text-foreground">Namecheap</summary>
+          <p className="mt-1">Open Domain List and Advanced DNS, then in Host Records add table values exactly. Use @ for root and www for subdomain where listed.</p>
+        </details>
+      </div>
+      <p className="text-xs text-muted-foreground mt-3">
+        Expected setup for this domain: {hasApexA ? "A @ record" : "no apex A record"}{hasWwwCname ? " + www CNAME" : ""}.
+      </p>
+    </div>
+  );
+}
+
 export default function WebsiteDomain() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -225,7 +284,16 @@ export default function WebsiteDomain() {
 
               {d.dns_instructions && !d.is_active && (
                 <CardContent>
-                  <p className="text-sm font-medium mb-3">DNS Records to add at your domain registrar:</p>
+                  {(() => {
+                    const records = (d.dns_instructions.records ?? [d.dns_instructions.cname, d.dns_instructions.www]).filter(Boolean);
+                    return (
+                      <>
+                  <DomainSetupSteps
+                    domain={d.domain}
+                    records={records}
+                  />
+                  <ProviderWalkthroughs records={records} />
+                  <p className="text-sm font-medium mt-4 mb-3">DNS records to add:</p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -237,15 +305,15 @@ export default function WebsiteDomain() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(d.dns_instructions.records ?? [d.dns_instructions.cname, d.dns_instructions.www]).map((rec, i) => (
+                        {records.map((rec, i) => (
                           <DnsRow key={i} record={rec} />
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    DNS changes can take up to 24–48 hours to propagate. Click "Check Status" once you've added the records.
-                  </p>
+                      </>
+                    );
+                  })()}
                 </CardContent>
               )}
 

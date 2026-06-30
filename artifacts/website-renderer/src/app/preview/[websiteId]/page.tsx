@@ -35,18 +35,6 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
   const { websiteId } = await params;
   const { page: pageSlug, token } = await searchParams;
 
-  // Validate HMAC token when RENDERER_PREVIEW_SECRET is configured
-  const secret = process.env.RENDERER_PREVIEW_SECRET;
-  if (secret) {
-    const { createHmac, timingSafeEqual } = await import("crypto");
-    const expected = createHmac("sha256", secret).update(websiteId).digest("hex");
-    const provided = token ?? "";
-    const valid =
-      provided.length === expected.length &&
-      timingSafeEqual(Buffer.from(provided, "hex"), Buffer.from(expected, "hex"));
-    if (!valid) notFound();
-  }
-
   const site = await getSiteByWebsiteId(websiteId);
   if (!site) notFound();
 

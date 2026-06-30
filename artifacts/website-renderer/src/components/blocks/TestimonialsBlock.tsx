@@ -55,7 +55,39 @@ export default function TestimonialsBlock({ content }: Props) {
       source_url: r.source_url as string | undefined,
     })) : []) as Testimonial[];
   const { accent_color = "#0d9488", background_color = "#f9fafb", aggregate_rating, review_count } = content;
+  const isModernTradePayload = Boolean(content.reviews || content.eyebrow);
   if (!testimonials.length) return null;
+
+  if (isModernTradePayload) {
+    return (
+      <section style={{ padding: "80px 24px", backgroundColor: "#ffffff" }}>
+        <style>{`
+          .test-modern-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+          @media (min-width: 900px) { .test-modern-grid { grid-template-columns: repeat(3, 1fr); } }
+        `}</style>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          {label && <p style={{ color: "#d97706", fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px" }}>{label}</p>}
+          <h2 style={{ fontSize: "clamp(1.85rem, 3.2vw, 2.5rem)", fontWeight: 800, margin: "0 0 16px", color: "#0f172a" }}>{heading}</h2>
+          <div className="test-modern-grid" style={{ marginTop: 28 }}>
+            {testimonials.map((t, i) => {
+              const authorName = t.author_name || t.author || "";
+              const bodyText = t.body || t.text || "";
+              return (
+                <figure key={i} style={{ backgroundColor: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", padding: "24px" }}>
+                  {typeof t.rating === "number" && <p style={{ margin: "0 0 10px", color: "#d97706", fontWeight: 700, fontSize: "0.875rem" }}>{t.rating}/5 rating</p>}
+                  <blockquote style={{ margin: "0 0 14px", color: "#334155", lineHeight: 1.7 }}>&ldquo;{bodyText}&rdquo;</blockquote>
+                  <figcaption style={{ color: "#0f172a", fontWeight: 700, fontSize: "0.95rem" }}>
+                    {authorName}
+                    {t.location ? <span style={{ color: "#64748b", fontWeight: 400 }}>, {t.location}</span> : null}
+                  </figcaption>
+                </figure>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section style={{ padding: "72px 24px", backgroundColor: background_color }}>

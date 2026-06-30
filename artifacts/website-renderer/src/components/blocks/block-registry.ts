@@ -18,6 +18,7 @@ const blockTypeAliases: Record<string, string> = {
   contact_form_section: "contact_form",
   richtext_article_body: "rich_text",
   system_404: "text",
+  "system.notfound": "text",
   pricing_table: "feature_cards",
   "hero.standard": "hero",
   "about.intro": "text",

@@ -34,6 +34,11 @@ export default function ContactFormBlock({ content }: Props) {
   const heading = (content.heading || content.title || "Get in Touch") as string;
   const label = (content.label || content.eyebrow) as string | undefined;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
+  const rootPhone = content.phone as string | undefined;
+  const rootEmail = content.email as string | undefined;
+  const rootAddress = content.address as string | undefined;
+  const rootOpeningHours = content.openingHours as string | undefined;
+  const isModernTradePayload = Boolean(content.title || content.eyebrow || rootOpeningHours || rootAddress);
 
   const {
     form_id,
@@ -50,6 +55,31 @@ export default function ContactFormBlock({ content }: Props) {
       { name: "message", label: "Message", type: "textarea" },
     ],
   } = content;
+
+  if (isModernTradePayload && !form_id) {
+    return (
+      <section id="contact" style={{ backgroundColor: "#020617", color: "#ffffff", padding: "80px 24px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gap: 40, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+          <div>
+            {label && <p style={{ color: "#fbbf24", fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>}
+            <h2 style={{ margin: "0 0 12px", fontSize: "clamp(1.9rem, 3.2vw, 2.6rem)", fontWeight: 800 }}>{heading}</h2>
+            {subheading && <p style={{ margin: "0 0 24px", color: "#cbd5e1", lineHeight: 1.7 }}>{subheading}</p>}
+            <div style={{ display: "grid", gap: 14, color: "#cbd5e1" }}>
+              {rootPhone && <div><strong style={{ color: "#fff" }}>Phone</strong><br /><a href={`tel:${rootPhone.replace(/\s/g, "")}`} style={{ color: "#cbd5e1", textDecoration: "none" }}>{rootPhone}</a></div>}
+              {rootEmail && <div><strong style={{ color: "#fff" }}>Email</strong><br /><a href={`mailto:${rootEmail}`} style={{ color: "#cbd5e1", textDecoration: "none" }}>{rootEmail}</a></div>}
+              {rootAddress && <div><strong style={{ color: "#fff" }}>Address</strong><br />{rootAddress}</div>}
+              {rootOpeningHours && <div><strong style={{ color: "#fff" }}>Opening hours</strong><br />{rootOpeningHours}</div>}
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: "#ffffff", color: "#0f172a", borderRadius: 14, padding: "24px" }}>
+            <p style={{ margin: "0 0 8px", fontSize: "1.125rem", fontWeight: 700 }}>Enquiry form placeholder</p>
+            <p style={{ margin: 0, color: "#475569", lineHeight: 1.6 }}>This block is ready for your website builder form fields later.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const [values, setValues] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<File[]>([]);

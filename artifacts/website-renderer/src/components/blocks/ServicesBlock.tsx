@@ -31,6 +31,41 @@ export default function ServicesBlock({ content }: Props) {
   const subheading = (content.subheading || content.subtitle) as string | undefined;
   const label = (content.label || content.eyebrow) as string | undefined;
   const { columns = 3, accent_color = "#f97316" } = content;
+  const isModernTradePayload = Boolean(content.title || content.eyebrow);
+
+  if (isModernTradePayload) {
+    return (
+      <section style={{ padding: "80px 24px", backgroundColor: "#ffffff" }}>
+        <style>{`
+          .svc-modern-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+          @media (min-width: 900px) { .svc-modern-grid { grid-template-columns: repeat(3, 1fr); } }
+        `}</style>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ maxWidth: 740 }}>
+            {label && <p style={{ color: "#d97706", fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px" }}>{label}</p>}
+            {heading && <h2 style={{ fontSize: "clamp(1.85rem, 3.2vw, 2.5rem)", fontWeight: 800, margin: "0 0 14px", color: "#0f172a" }}>{heading}</h2>}
+            {subheading && <p style={{ color: "#475569", fontSize: "1.0625rem", margin: 0 }}>{subheading}</p>}
+          </div>
+          <div className="svc-modern-grid" style={{ marginTop: 36 }}>
+            {services.map((service, i) => {
+              const serviceHref = service.href || service.cta_url;
+              return (
+                <article key={i} style={{ backgroundColor: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", padding: "24px" }}>
+                  <h3 style={{ margin: "0 0 10px", fontSize: "1.2rem", fontWeight: 700, color: "#0f172a" }}>{service.title}</h3>
+                  {service.description && <p style={{ margin: "0 0 14px", color: "#475569", lineHeight: 1.6 }}>{service.description}</p>}
+                  {serviceHref && (
+                    <a href={serviceHref} style={{ color: "#0f172a", fontWeight: 700, textDecoration: "none", fontSize: "0.95rem" }}>
+                      Learn more →
+                    </a>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section style={{ padding: "72px 24px", backgroundColor: "#ffffff" }}>

@@ -50,6 +50,7 @@ export default function FaqBlock({ content }: Props) {
   const heading = (content.heading || content.title || "Frequently Asked Questions") as string;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
   const label = (content.label || content.eyebrow) as string | undefined;
+  const isModernTradePayload = Boolean(content.title || content.eyebrow);
   const items = (Array.isArray(content.faqs) ? content.faqs : Array.isArray(content.items) ? content.items : []) as FaqItem[];
   if (!items.length) return null;
 
@@ -72,17 +73,28 @@ export default function FaqBlock({ content }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
+      <div style={{ maxWidth: isModernTradePayload ? 960 : 800, margin: "0 auto" }}>
+        <div style={{ textAlign: isModernTradePayload ? "left" : "center", marginBottom: 48 }}>
           {label && <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>}
           <h2 style={{ fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, margin: "0 0 12px", color: "#111827" }}>{heading}</h2>
           {subheading && <p style={{ color: "#6b7280", fontSize: "1.0625rem" }}>{subheading}</p>}
         </div>
-        <div style={{ backgroundColor: "#fff", borderRadius: 10, border: "1px solid #e5e7eb", padding: "0 28px" }}>
-          {items.map((item, i) => (
-            <FaqRow key={i} item={item} accent={accent_color} />
-          ))}
-        </div>
+        {isModernTradePayload ? (
+          <div style={{ backgroundColor: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            {items.map((item, i) => (
+              <details key={i} style={{ borderTop: i === 0 ? "none" : "1px solid #e2e8f0", padding: "20px 24px" }}>
+                <summary style={{ cursor: "pointer", listStyle: "none", fontWeight: 700, color: "#0f172a" }}>{item.question}</summary>
+                <p style={{ margin: "10px 0 0", color: "#475569", lineHeight: 1.7 }}>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        ) : (
+          <div style={{ backgroundColor: "#fff", borderRadius: 10, border: "1px solid #e5e7eb", padding: "0 28px" }}>
+            {items.map((item, i) => (
+              <FaqRow key={i} item={item} accent={accent_color} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

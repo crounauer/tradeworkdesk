@@ -78,14 +78,12 @@ artifacts/website-renderer/
         BlogPostContent.tsx
 ```
 
-## Deployment (Vercel)
+## Deployment (Fly)
 
-Deploy the `artifacts/website-renderer` directory as a Vercel project.
+Deploy the renderer with the Fly config in `artifacts/website-renderer/fly.toml`.
 
-- **Framework**: Next.js (auto-detected)
-- **Root directory**: `artifacts/website-renderer`
-- **Project name**: `tradeworkdesk-renderer` (or similar)
+- **App name**: `tradeworkdesk-renderer`
+- **Base URL**: `https://tradeworkdesk-renderer.fly.dev`
+- **API base**: `https://tradeworkdesk-api.fly.dev`
 
-After deploying, add `sites.tradeworkdesk.co.uk` as a custom domain on the Vercel project and point a DNS CNAME/ALIAS at Vercel's assigned hostname (e.g. `cname.vercel-dns.com`).
-
-Get the **Project ID** from Project Settings → General, and add it as `VERCEL_RENDERER_PROJECT_ID` on the api-server.
+After deploying, set `RENDERER_BASE_URL` on the API app to the renderer Fly URL so preview links point at the correct host.

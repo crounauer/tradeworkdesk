@@ -13,7 +13,6 @@
 
 # Other apps not needed by api-server
 artifacts/business-app
-artifacts/website-renderer
 
 # Misc
 **/*.md

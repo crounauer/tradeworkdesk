@@ -21,9 +21,32 @@ interface Props {
 export default function FeatureCardsBlock({ content }: Props) {
   const cards = (Array.isArray(content.cards) ? content.cards : Array.isArray(content.features) ? content.features : Array.isArray(content.items) ? content.items : []) as FeatureCard[];
   const heading = content.heading || "Features";
+  const subheading = content.subheading as string | undefined;
+  const label = content.label as string | undefined;
   const accent = content.accent_color || "#0d9488";
+  const isModernTradePayload = Boolean(content.title || content.eyebrow || label);
 
   if (!cards.length) return null;
+
+  if (isModernTradePayload) {
+    return (
+      <section style={{ padding: "80px 24px", backgroundColor: "#f8fafc" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          {label && <p style={{ color: "#d97706", fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px" }}>{label}</p>}
+          <h2 style={{ margin: "0 0 14px", color: "#0f172a", fontWeight: 800, fontSize: "clamp(1.85rem, 3.2vw, 2.5rem)" }}>{heading}</h2>
+          {subheading && <p style={{ margin: "0 0 24px", color: "#475569" }}>{subheading}</p>}
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            {cards.map((card, index) => (
+              <article key={index} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px" }}>
+                <h3 style={{ margin: "0 0 8px", color: "#0f172a", fontSize: "1rem", fontWeight: 700 }}>{card.title}</h3>
+                {card.description && <p style={{ margin: 0, color: "#475569", fontSize: "0.92rem", lineHeight: 1.6 }}>{card.description}</p>}
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section style={{ padding: "72px 24px" }}>

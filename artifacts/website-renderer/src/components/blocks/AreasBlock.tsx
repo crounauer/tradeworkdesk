@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const API_BASE =
   typeof process !== "undefined"
     ? process.env.NEXT_PUBLIC_API_BASE_URL || "https://tradeworkdesk-api.fly.dev"
     : "https://tradeworkdesk-api.fly.dev";
 
+type AreaItem = string | { href?: string; name?: string; label?: string };
+
 interface Props {
   content: {
     heading?: string;
     subheading?: string;
     label?: string;
-    areas?: string[];
+    areas?: AreaItem[];
     body_text?: string;
     phone?: string;
     email?: string;
@@ -61,28 +63,8 @@ export default function AreasBlock({ content }: Props) {
   const pillText = isTealCard ? "#ffffff" : "#374151";
   const ctaBg = isTealCard ? "#ffffff" : accent_color;
   const ctaColor = isTealCard ? accent_color : "#ffffff";
-
-  const hasChecker = useMemo(() => Boolean(website_id), [website_id]);
-    const originLat = typeof (coverage as Record<string, unknown> | null)?.origin_latitude === "number"
-      ? ((coverage as Record<string, unknown>).origin_latitude as number)
-      : null;
-    const originLng = typeof (coverage as Record<string, unknown> | null)?.origin_longitude === "number"
-      ? ((coverage as Record<string, unknown>).origin_longitude as number)
-      : null;
-
-    const mapSrc = useMemo(() => {
-      if (originLat == null || originLng == null || typeof coverage?.radius_miles !== "number") return null;
-
-      const radius = Math.max(1, coverage.radius_miles);
-      const latDelta = Math.max(radius / 69, 0.02);
-      const lonDelta = Math.max(radius / (69 * Math.max(Math.cos((originLat * Math.PI) / 180), 0.2)), 0.02);
-      const minLon = originLng - lonDelta;
-      const minLat = originLat - latDelta;
-      const maxLon = originLng + lonDelta;
-      const maxLat = originLat + latDelta;
-
-      return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(`${minLon},${minLat},${maxLon},${maxLat}`)}&layer=mapnik&marker=${originLat},${originLng}`;
-    }, [originLat, originLng, coverage?.radius_miles]);
+  const areaItems = Array.isArray(areas) ? areas : [];
+  const isModernTradePayload = Boolean(content.title || content.eyebrow);
 
   const canShowCoveredActions = Boolean(coverage?.covered);
   const contactHref = contact_url || cta_url || "#contact";
@@ -146,6 +128,45 @@ export default function AreasBlock({ content }: Props) {
     }
   };
 
+  if (isModernTradePayload) {
+    return (
+      <section style={{ padding: "80px 24px", backgroundColor: "#f8fafc" }}>
+        <style>{`
+          .areas-modern-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+          @media (min-width: 640px) { .areas-modern-grid { grid-template-columns: repeat(2, 1fr); } }
+          @media (min-width: 1024px) { .areas-modern-grid { grid-template-columns: repeat(4, 1fr); } }
+        `}</style>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ maxWidth: 760 }}>
+            {label && <p style={{ color: "#d97706", fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px" }}>{label}</p>}
+            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(1.85rem, 3.2vw, 2.5rem)", color: "#0f172a", fontWeight: 800 }}>{heading}</h2>
+            {subheading && <p style={{ margin: 0, color: "#475569", fontSize: "1.0625rem" }}>{subheading}</p>}
+          </div>
+
+          <div className="areas-modern-grid" style={{ marginTop: 36 }}>
+            {areaItems.map((area, i) => {
+              const areaLabel = typeof area === "string" ? area : area.name || area.label || "";
+              const areaHref = typeof area === "string" ? undefined : area.href;
+              const tile = (
+                <span style={{ display: "block", borderRadius: 10, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", padding: "12px 14px", color: "#1e293b", fontWeight: 700, fontSize: "0.95rem" }}>
+                  {areaLabel}
+                </span>
+              );
+
+              return areaHref ? (
+                <a key={i} href={areaHref} style={{ textDecoration: "none" }}>
+                  {tile}
+                </a>
+              ) : (
+                <div key={i}>{tile}</div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={{ padding: "72px 24px", backgroundColor: outer_background }}>
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
@@ -159,13 +180,26 @@ export default function AreasBlock({ content }: Props) {
           {subheading && <p style={{ color: cardSubText, fontSize: "1.0625rem", marginBottom: 8, maxWidth: 560, margin: "0 auto 16px" }}>{subheading}</p>}
           {body_text && <p style={{ color: cardSubText, lineHeight: 1.7, fontSize: "0.9375rem", marginBottom: 28, maxWidth: 560, margin: "0 auto 28px" }}>{body_text}</p>}
 
-          {(areas as string[]).length > 0 && (
+          {areaItems.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 32 }}>
-              {(areas as string[]).map((area, i) => (
-                <span key={i} style={{ display: "inline-block", backgroundColor: pillBg, borderRadius: 20, padding: "6px 18px", fontSize: "0.9rem", color: pillText, fontWeight: 500 }}>
-                  {area}
-                </span>
-              ))}
+              {areaItems.map((area, i) => {
+                const areaLabel = typeof area === "string" ? area : area.name || area.label || "";
+                const areaHref = typeof area === "string" ? undefined : area.href;
+
+                return areaHref ? (
+                  <a
+                    key={i}
+                    href={areaHref}
+                    style={{ display: "inline-block", backgroundColor: pillBg, borderRadius: 20, padding: "6px 18px", fontSize: "0.9rem", color: pillText, fontWeight: 500, textDecoration: "none" }}
+                  >
+                    {areaLabel}
+                  </a>
+                ) : (
+                  <span key={i} style={{ display: "inline-block", backgroundColor: pillBg, borderRadius: 20, padding: "6px 18px", fontSize: "0.9rem", color: pillText, fontWeight: 500 }}>
+                    {areaLabel}
+                  </span>
+                );
+              })}
             </div>
           )}
 
@@ -265,21 +299,6 @@ export default function AreasBlock({ content }: Props) {
                       Email us
                     </a>
                   )}
-                  <a
-                    href={contactHref}
-                    style={{
-                      display: "inline-block",
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      textDecoration: "none",
-                      fontWeight: 700,
-                      fontSize: "0.86rem",
-                      background: ctaBg,
-                      color: ctaColor,
-                    }}
-                  >
-                    Contact form
-                  </a>
                   {bookingAvailable && (
                     <a
                       href={bookingHref}
@@ -297,48 +316,25 @@ export default function AreasBlock({ content }: Props) {
                       Book online
                     </a>
                   )}
+                  {!bookingAvailable && contactHref && (
+                    <a
+                      href={contactHref}
+                      style={{
+                        display: "inline-block",
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        textDecoration: "none",
+                        fontWeight: 700,
+                        fontSize: "0.86rem",
+                        background: ctaBg,
+                        color: ctaColor,
+                      }}
+                    >
+                      {cta_text || "Contact us"}
+                    </a>
+                  )}
                 </div>
               </div>
-            )}
-
-            {coverage && coverage.covered === null && coverage.reason && (
-              <p style={{ marginTop: 12, color: cardSubText, fontSize: "0.9375rem" }}>{coverage.reason}</p>
-            )}
-
-            {mapSrc && typeof coverage?.radius_miles === "number" && (
-              <div style={{ marginTop: 14, textAlign: "left" }}>
-                <p style={{ margin: "0 0 8px", color: cardSubText, fontSize: "0.875rem", textAlign: "center" }}>
-                  Coverage map: approximately {coverage.radius_miles} mile radius from base location.
-                </p>
-                <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: isTealCard ? "1px solid rgba(255,255,255,0.18)" : "1px solid #d1d5db" }}>
-                  <iframe
-                    title="Coverage radius map"
-                    src={mapSrc}
-                    style={{ width: "100%", height: 220, border: 0, display: "block" }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                  <div
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: "50%",
-                      width: "48%",
-                      aspectRatio: "1 / 1",
-                      transform: "translate(-50%, -50%)",
-                      borderRadius: "50%",
-                      background: "rgba(16,185,129,0.18)",
-                      border: "2px solid rgba(16,185,129,0.8)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {!hasChecker && !coverage && (
-              <p style={{ marginTop: 12, color: cardSubText, fontSize: "0.9375rem" }}>Add a postcode radius in admin to enable live postcode checks.</p>
             )}
           </div>
         </div>

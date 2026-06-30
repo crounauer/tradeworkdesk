@@ -50,6 +50,7 @@ interface Props {
 }
 
 export default function HeroBlock({ content }: Props) {
+  const isModernTradePayload = Boolean(content.title || content.eyebrow || content.primaryCtaLabel);
   const heading = (content.heading || content.title) as string | undefined;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
   const ctaText = (content.cta_text || content.primaryCtaLabel) as string | undefined;
@@ -76,6 +77,58 @@ export default function HeroBlock({ content }: Props) {
     overlay_opacity = 0.55,
   } = content;
 
+  const isPostcodeCta = (ctaText || "").toLowerCase().includes("postcode");
+  const primaryHref = cta_phone
+    ? `tel:${cta_phone.replace(/\s/g, "")}`
+    : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
+  const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
+
+  if (isModernTradePayload) {
+    return (
+      <section style={{ backgroundColor: "#020617", color: "#ffffff" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 24px", display: "grid", gap: 40, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", alignItems: "center" }}>
+          <div>
+            {content.eyebrow && (
+              <p style={{ margin: "0 0 16px", fontSize: "0.875rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, color: "#fbbf24" }}>
+                {content.eyebrow}
+              </p>
+            )}
+            {heading && (
+              <h1 style={{ margin: "0 0 20px", fontSize: "clamp(2rem, 4.8vw, 3.5rem)", lineHeight: 1.08, fontWeight: 800 }}>
+                {heading}
+              </h1>
+            )}
+            {subheading && (
+              <p style={{ margin: "0 0 28px", maxWidth: 640, fontSize: "1.125rem", color: "#cbd5e1", lineHeight: 1.7 }}>
+                {subheading}
+              </p>
+            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+              <a href={primaryHref} style={{ display: "inline-block", backgroundColor: "#fbbf24", color: "#0f172a", borderRadius: 8, padding: "12px 20px", textDecoration: "none", fontWeight: 700 }}>
+                {primaryLabel}
+              </a>
+              {secondaryCtaText && (
+                <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-block", border: "1px solid rgba(255,255,255,0.35)", color: "#ffffff", borderRadius: 8, padding: "12px 20px", textDecoration: "none", fontWeight: 700 }}>
+                  {secondaryCtaText}
+                </a>
+              )}
+            </div>
+            {cta_phone && (
+              <p style={{ marginTop: 20, color: "#cbd5e1", fontSize: "0.95rem" }}>
+                Prefer to call? <strong style={{ color: "#fff" }}>{cta_phone}</strong>
+              </p>
+            )}
+          </div>
+          <div style={{ borderRadius: 16, backgroundColor: "#1e293b", padding: 24, boxShadow: "0 20px 45px rgba(2,6,23,0.35)" }}>
+            <div style={{ borderRadius: 12, backgroundColor: "#334155", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#cbd5e1", fontSize: "0.95rem", padding: 20 }}>
+              {typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder"}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const isSplit = layout === "split";
 
   // Split layout defaults to light background
@@ -87,11 +140,6 @@ export default function HeroBlock({ content }: Props) {
     ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${background_image_url}) center/cover no-repeat` }
     : { backgroundColor: bgColor };
 
-  const isPostcodeCta = (ctaText || "").toLowerCase().includes("postcode");
-  const primaryHref = cta_phone
-    ? `tel:${cta_phone.replace(/\s/g, "")}`
-    : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
-  const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
   const textAlign = align === "center" ? "center" : "left";
   const isDark = !isSplit;
 

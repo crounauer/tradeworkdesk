@@ -23,6 +23,7 @@ export default function AccreditationsBlock({ content }: Props) {
     ...badge,
     name: badge.name || badge.label || "Badge",
   }));
+  const hasDescriptions = normalizedBadges.some((badge) => Boolean(badge.description));
 
   const {
     heading = "Accreditations",
@@ -37,6 +38,23 @@ export default function AccreditationsBlock({ content }: Props) {
   const resolvedBg = background_color === "dark" ? "#111827" : background_color;
   const resolvedText = text_color ?? (isDark ? "#9ca3af" : "#374151");
   const headingColor = isDark ? "#ffffff" : "#374151";
+
+  if (hasDescriptions) {
+    return (
+      <section style={{ backgroundColor: "#f8fafc", padding: "40px 24px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            {normalizedBadges.map((badge, i) => (
+              <div key={i} style={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "18px 16px" }}>
+                <p style={{ margin: "0 0 8px", fontWeight: 700, color: "#0f172a", fontSize: "0.95rem" }}>{badge.name}</p>
+                {badge.description && <p style={{ margin: 0, color: "#475569", fontSize: "0.875rem", lineHeight: 1.6 }}>{badge.description}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section style={{ padding: "40px 24px", backgroundColor: "transparent" }}>
