@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { MapContainer, TileLayer, Marker, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
@@ -490,6 +490,24 @@ const coverageMapIcon = L.divIcon({
 
 function milesToMeters(miles: number): number {
   return miles * 1609.34;
+}
+
+function CoverageRadiusAutoFit({ latitude, longitude, radiusMiles }: { latitude: number; longitude: number; radiusMiles: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const center = L.latLng(latitude, longitude);
+    if (radiusMiles > 0) {
+      const diameterMeters = milesToMeters(radiusMiles) * 2;
+      const bounds = center.toBounds(diameterMeters);
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+      return;
+    }
+
+    map.setView([latitude, longitude], 13);
+  }, [map, latitude, longitude, radiusMiles]);
+
+  return null;
 }
 
 const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -1317,12 +1335,17 @@ export default function AdminCompanySettings() {
                 ) : coverageCenter ? (
                   <MapContainer
                     center={[coverageCenter.latitude, coverageCenter.longitude]}
-                    zoom={watchedCoverageRadiusMiles > 0 ? 11 : 13}
+                    zoom={13}
                     style={{ height: "100%", width: "100%" }}
                     scrollWheelZoom={false}
                     dragging={true}
                     zoomControl={true}
                   >
+                    <CoverageRadiusAutoFit
+                      latitude={coverageCenter.latitude}
+                      longitude={coverageCenter.longitude}
+                      radiusMiles={watchedCoverageRadiusMiles}
+                    />
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -2729,12 +2752,17 @@ function PublicDirectoryCard() {
             ) : coverageCenter ? (
               <MapContainer
                 center={[coverageCenter.latitude, coverageCenter.longitude]}
-                zoom={radiusMiles > 0 ? 10 : 13}
+                zoom={13}
                 style={{ height: "100%", width: "100%" }}
                 scrollWheelZoom={false}
                 dragging={true}
                 zoomControl={true}
               >
+                <CoverageRadiusAutoFit
+                  latitude={coverageCenter.latitude}
+                  longitude={coverageCenter.longitude}
+                  radiusMiles={radiusMiles}
+                />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
