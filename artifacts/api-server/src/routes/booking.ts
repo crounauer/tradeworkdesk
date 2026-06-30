@@ -181,7 +181,7 @@ async function getAvailableSlots(
 
         const durationMinutes = Number(j.estimated_duration || serviceDurationMinutes || slotDuration || 60);
         const jStart = new Date(`${j.scheduled_date}T${j.scheduled_time}`).getTime() - buffer * 60000;
-        const jEnd = jStart + (durationMinutes + buffer) * 60000;
+        const jEnd = jStart + (durationMinutes + (buffer * 2)) * 60000;
         return slotStart.getTime() < jEnd && slotEnd.getTime() > jStart;
       });
 
