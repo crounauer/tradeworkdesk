@@ -112,6 +112,7 @@ const BLOCK_PALETTE: { type: BlockType; label: string; icon: React.ComponentType
     icon: Layout,
     description: "Full-width hero section with heading, subheading and CTA button",
     defaultContent: {
+      eyebrow: "",
       heading: "Your Heading Here",
       subheading: "A short description of your services or offer.",
       cta_text: "Get a Free Quote",
@@ -456,6 +457,9 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     case "hero":
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Preheading">
+            <Input value={String(c.eyebrow ?? "")} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
+          </FieldRow>
           <FieldRow label="Layout">
             <Select value={String(c.layout ?? "full")} onValueChange={(v) => set("layout", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
