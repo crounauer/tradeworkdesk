@@ -103,6 +103,104 @@ function buildBookingPayloadHash(payload: {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+function splitContactName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return { firstName: parts[0] || "Customer", lastName: "Online" };
+  }
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+async function ensureBookingCustomerAndProperty(args: {
+  tenantId: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerPostcode?: string;
+}): Promise<{ customerId: string; propertyId: string }> {
+  const {
+    tenantId,
+    customerName,
+    customerEmail,
+    customerPhone,
+    customerAddress,
+    customerPostcode,
+  } = args;
+
+  const email = (customerEmail || "").trim().toLowerCase() || null;
+  const phone = (customerPhone || "").trim() || null;
+  const addressLine1 = (customerAddress || "").trim() || "Online Booking Address";
+  const postcode = (customerPostcode || "").trim() || null;
+
+  let customerId: string | null = null;
+  if (email) {
+    const { data: existingByEmail } = await db.from("customers")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("email", email)
+      .eq("is_active", true)
+      .limit(1);
+    customerId = (existingByEmail?.[0] as { id: string } | undefined)?.id || null;
+  }
+
+  if (!customerId && phone) {
+    const { data: existingByPhone } = await db.from("customers")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("phone", phone)
+      .eq("is_active", true)
+      .limit(1);
+    customerId = (existingByPhone?.[0] as { id: string } | undefined)?.id || null;
+  }
+
+  if (!customerId) {
+    const { firstName, lastName } = splitContactName(customerName);
+    const { data: createdCustomer, error: customerErr } = await db.from("customers").insert({
+      tenant_id: tenantId,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      phone,
+      address_line1: addressLine1,
+      postcode,
+      is_active: true,
+    }).select("id").single();
+    if (customerErr || !createdCustomer?.id) {
+      throw new Error(customerErr?.message || "Failed to create customer for booking");
+    }
+    customerId = createdCustomer.id as string;
+  }
+
+  const { data: existingProperty } = await db.from("properties")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("customer_id", customerId)
+    .eq("address_line1", addressLine1)
+    .eq("is_active", true)
+    .limit(1);
+
+  let propertyId = (existingProperty?.[0] as { id: string } | undefined)?.id || null;
+  if (!propertyId) {
+    const { data: createdProperty, error: propertyErr } = await db.from("properties").insert({
+      tenant_id: tenantId,
+      customer_id: customerId,
+      address_line1: addressLine1,
+      postcode,
+      is_active: true,
+    }).select("id").single();
+    if (propertyErr || !createdProperty?.id) {
+      throw new Error(propertyErr?.message || "Failed to create property for booking");
+    }
+    propertyId = createdProperty.id as string;
+  }
+
+  return { customerId, propertyId };
+}
+
 async function isRequestedSlotStillAvailable(args: {
   tenantId: string;
   scheduledStartIso: string;
@@ -785,7 +883,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
   // Validate settings exist and booking is enabled
   const { data: settings } = await db.from("booking_settings")
-    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id, working_hours").eq("tenant_id", req.params.tenantId).maybeSingle();
+    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id, working_hours, confirmation_email_enabled").eq("tenant_id", req.params.tenantId).maybeSingle();
   if (!settings?.is_enabled) {
     return res.status(403).json({ error: "Online booking is not enabled" });
   }
@@ -900,13 +998,25 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
     if (error) return res.status(500).json({ error: error.message });
 
+    let createdJobRef: string | null = null;
     if (settings.auto_create_job) {
       const utcSchedule = extractUtcDateAndTime(normalizedScheduledStart);
       const title = `${selectedService?.name || "Online Booking"} — ${customer_name}`;
       const description = buildOnlineBookingDescription(notes);
 
+      const { customerId, propertyId } = await ensureBookingCustomerAndProperty({
+        tenantId: req.params.tenantId,
+        customerName: customer_name,
+        customerEmail: customer_email,
+        customerPhone: customer_phone,
+        customerAddress: customer_address,
+        customerPostcode: customer_postcode,
+      });
+
       const { data: job, error: jobError } = await db.from("jobs").insert({
         tenant_id: req.params.tenantId,
+        customer_id: customerId,
+        property_id: propertyId,
         title,
         description,
         notes: description,
@@ -918,7 +1028,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
         scheduled_time: utcSchedule.time,
         estimated_duration: duration,
         created_by: null,
-      }).select("id").single();
+      }).select("id, job_ref").single();
 
       if (jobError) {
         console.error("[booking] failed to create calendar job:", jobError.message);
@@ -933,7 +1043,39 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
           data: { bookingId: data.id },
         }).catch((err) => console.error("[push-events] online_booking_job_create_failed failed:", err));
       } else if (job?.id) {
+        createdJobRef = (job as { id?: string; job_ref?: string | null }).job_ref || null;
         await db.from("bookings").update({ job_id: job.id }).eq("id", data.id).eq("tenant_id", req.params.tenantId);
+      }
+    }
+
+    if ((settings as { confirmation_email_enabled?: boolean }).confirmation_email_enabled !== false && customer_email) {
+      try {
+        const { companyName, details } = await loadBookingEmailCompanyDetails(req.params.tenantId);
+        const utcSchedule = extractUtcDateAndTime(normalizedScheduledStart);
+        const confirmationDetails: JobConfirmationDetails = {
+          jobRef: createdJobRef || `BOOK-${String(data.id).slice(0, 8).toUpperCase()}`,
+          jobType: selectedService?.name || "Online Booking",
+          scheduledDate: utcSchedule.date,
+          scheduledTime: utcSchedule.time,
+          propertyAddress: [customer_address, customer_postcode].filter(Boolean).join(", ") || "Customer address",
+          description: settings.auto_confirm
+            ? (notes || null)
+            : (buildOnlineBookingDescription(notes) || "Subject to confirmation"),
+        };
+        await sendJobConfirmationEmail(
+          customer_email,
+          customer_name || "Customer",
+          companyName,
+          confirmationDetails,
+          details,
+        );
+
+        await db.from("bookings")
+          .update({ confirmation_sent_at: new Date().toISOString() })
+          .eq("id", data.id)
+          .eq("tenant_id", req.params.tenantId);
+      } catch (mailErr) {
+        console.error("[booking] submit confirmation email failed:", mailErr);
       }
     }
 
@@ -944,7 +1086,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
       body: `${customer_name} submitted an online booking for ${selectedService?.name || "a service"}.`,
       url: "/bookings",
       eventKey: `online_booking:${data.id}`,
-      targetRoles: ["admin", "office_staff"],
+      targetRoles: ["admin", "office_staff", "super_admin"],
       data: { bookingId: data.id },
     }).catch((err) => console.error("[push-events] online_booking failed:", err));
 
