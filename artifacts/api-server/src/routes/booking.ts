@@ -79,7 +79,7 @@ async function getAvailableSlots(
   toDate: string,
   serviceDurationMinutes = 60
 ): Promise<{ start: string; end: string }[]> {
-  const [settingsResult, bookingsResult, overridesResult] = await Promise.all([
+  const [settingsResult, bookingsResult, overridesResult, jobsResult] = await Promise.all([
     db.from("booking_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
     db.from("bookings")
       .select("scheduled_start, scheduled_end")
@@ -92,6 +92,12 @@ async function getAvailableSlots(
       .eq("tenant_id", tenantId)
       .gte("date", fromDate)
       .lte("date", toDate),
+    db.from("jobs")
+      .select("scheduled_date, scheduled_time, estimated_duration, status")
+      .eq("tenant_id", tenantId)
+      .gte("scheduled_date", fromDate)
+      .lte("scheduled_date", toDate)
+      .not("scheduled_time", "is", null),
   ]);
 
   const settings = settingsResult.data;
@@ -104,6 +110,7 @@ async function getAvailableSlots(
   const maxAdvanceDays: number = settings.max_advance_days || 60;
 
   const existingBookings: { scheduled_start: string; scheduled_end: string }[] = bookingsResult.data || [];
+  const existingJobs: { scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null }[] = jobsResult.data || [];
   const overrides: { date: string; start_time: string | null; end_time: string | null; type: string }[] = overridesResult.data || [];
 
   const slots: { start: string; end: string }[] = [];
@@ -160,13 +167,25 @@ async function getAvailableSlots(
       }
 
       // Check existing bookings overlap (with buffer)
-      const hasConflict = existingBookings.some((b) => {
+      const bookingConflict = existingBookings.some((b) => {
         const bStart = new Date(b.scheduled_start).getTime() - buffer * 60000;
         const bEnd = new Date(b.scheduled_end).getTime() + buffer * 60000;
         return slotStart.getTime() < bEnd && slotEnd.getTime() > bStart;
       });
 
-      if (!hasConflict) {
+      // Also block slots that overlap scheduled jobs from the main calendar.
+      const jobConflict = existingJobs.some((j) => {
+        if (!j.scheduled_time) return false;
+        const status = (j.status || "").toLowerCase();
+        if (status === "cancelled" || status === "completed") return false;
+
+        const durationMinutes = Number(j.estimated_duration || serviceDurationMinutes || slotDuration || 60);
+        const jStart = new Date(`${j.scheduled_date}T${j.scheduled_time}`).getTime() - buffer * 60000;
+        const jEnd = jStart + (durationMinutes + buffer) * 60000;
+        return slotStart.getTime() < jEnd && slotEnd.getTime() > jStart;
+      });
+
+      if (!bookingConflict && !jobConflict) {
         slots.push({
           start: slotStart.toISOString(),
           end: slotEnd.toISOString(),
