@@ -36,7 +36,7 @@ interface Props {
     background_color?: string;
     text_color?: string;
     align?: "left" | "center" | "right";
-    layout?: "full" | "split";
+    layout?: "full" | "centered" | "split";
     hero_image_url?: string;
     accent_color?: string;
     badges?: Badge[];
@@ -83,9 +83,10 @@ export default function HeroBlock({ content }: Props) {
     : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
   const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
 
-  const modernImageStyle: React.CSSProperties | undefined = background_image_url
+  const modernHeroImageUrl = hero_image_url || background_image_url;
+  const modernImageStyle: React.CSSProperties | undefined = modernHeroImageUrl
     ? {
-        backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.18)), url(${background_image_url})`,
+        backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.18)), url(${modernHeroImageUrl})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -130,7 +131,7 @@ export default function HeroBlock({ content }: Props) {
           </div>
           <div style={{ borderRadius: 16, backgroundColor: "#1e293b", padding: 24, boxShadow: "0 20px 45px rgba(2,6,23,0.35)" }}>
             <div style={{ borderRadius: 12, backgroundColor: "#334155", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#cbd5e1", fontSize: "0.95rem", padding: 20, overflow: "hidden", ...modernImageStyle }}>
-              {!background_image_url && (typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder")}
+              {!modernHeroImageUrl && (typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder")}
             </div>
           </div>
         </div>
@@ -139,6 +140,7 @@ export default function HeroBlock({ content }: Props) {
   }
 
   const isSplit = layout === "split";
+  const isCentered = layout === "centered";
 
   // Split layout defaults to light background
   const bgColor = background_color ?? (isSplit ? "#ffffff" : "#1c2942");
@@ -149,7 +151,7 @@ export default function HeroBlock({ content }: Props) {
     ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${background_image_url}) center/cover no-repeat` }
     : { backgroundColor: bgColor };
 
-  const textAlign = align === "center" ? "center" : "left";
+  const textAlign = isSplit || isCentered || align === "center" ? "center" : "left";
   const isDark = !isSplit;
 
   // Render heading with optional accent word highlighted
@@ -174,7 +176,7 @@ export default function HeroBlock({ content }: Props) {
   const secondaryBorderColor = isDark ? "rgba(255,255,255,0.65)" : "#d1d5db";
 
   const contentBlock = (
-    <div style={{ flex: 1, minWidth: 0, textAlign: isSplit ? "left" : textAlign }}>
+    <div style={{ flex: 1, minWidth: 0, maxWidth: isCentered ? 760 : undefined, margin: isCentered ? "0 auto" : undefined, textAlign }}>
       {/* Badges */}
       {content.eyebrow && (
         <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
@@ -182,7 +184,7 @@ export default function HeroBlock({ content }: Props) {
         </p>
       )}
       {(badges as Badge[]).length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22, justifyContent: !isSplit && align === "center" ? "center" : "flex-start" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22, justifyContent: isSplit || (!isCentered && align !== "center") ? "flex-start" : "center" }}>
           {(badges as Badge[]).map((badge, i) => (
             <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: badgeBg, border: badgeBorder, borderRadius: 20, padding: "4px 14px", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: badgeTxt }}>
               {badge.icon && <span>{badge.icon}</span>}{badge.label}
@@ -200,7 +202,7 @@ export default function HeroBlock({ content }: Props) {
       )}
 
       {/* CTA buttons */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: (trust_items as TrustItem[]).length || (stats as Stat[]).length ? 36 : 0 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start", marginBottom: (trust_items as TrustItem[]).length || (stats as Stat[]).length ? 36 : 0 }}>
         <a href={primaryHref} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: accent_color, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem" }}>
           {primaryLabel}
         </a>
@@ -213,7 +215,7 @@ export default function HeroBlock({ content }: Props) {
 
       {/* Stats row */}
       {(stats as Stat[]).length > 0 && (
-        <div style={{ display: "flex", gap: 0, flexWrap: "wrap", marginBottom: (trust_items as TrustItem[]).length ? 24 : 0 }}>
+        <div style={{ display: "flex", gap: 0, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start", marginBottom: (trust_items as TrustItem[]).length ? 24 : 0 }}>
           {(stats as Stat[]).map((s, i) => (
             <div key={i} style={{ paddingRight: 28, marginRight: 28, borderRight: i < (stats as Stat[]).length - 1 ? `2px solid ${isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb"}` : "none" }}>
               <div style={{ fontSize: "1.75rem", fontWeight: 800, color: isDark ? "#fff" : "#111827", lineHeight: 1 }}>{s.value}</div>
@@ -225,7 +227,7 @@ export default function HeroBlock({ content }: Props) {
 
       {/* Trust items */}
       {(trust_items as TrustItem[]).length > 0 && (
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start" }}>
           {(trust_items as TrustItem[]).map((item, i) => (
             <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: isDark ? "rgba(255,255,255,0.8)" : "#4b5563" }}>
               <span style={{ color: accent_color }}>{item.icon || "✓"}</span> {item.text}
@@ -256,6 +258,10 @@ export default function HeroBlock({ content }: Props) {
                   <img src={hero_image_url} alt="" className="hero-split-img" />
                 </div>
               )}
+            </div>
+          ) : isCentered ? (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              {contentBlock}
             </div>
           ) : (
             contentBlock

@@ -880,7 +880,8 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           </FieldRow>
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
             <strong>Booking settings</strong> — services, working hours and auto-confirm are managed in{" "}
-            <a href="/booking/setup" className="underline font-medium">Online Booking → Setup</a>.
+            <a href="/booking/setup" className="underline font-medium">Online Booking → Setup</a>. For a full walkthrough of the block and publishing flow, see the{" "}
+            <a href="/help#online-booking" className="underline font-medium">User Guide → Online Booking</a> section.
           </div>
           <FieldRow label="Show prices on services">
             <Switch checked={Boolean(c.show_price ?? true)} onCheckedChange={(v) => set("show_price", v)} />

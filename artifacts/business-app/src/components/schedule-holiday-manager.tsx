@@ -63,7 +63,7 @@ export default function ScheduleHolidayManager() {
   const qc = useQueryClient();
   const { data: companySettings } = useCompanySettings();
   const [leaveName, setLeaveName] = useState("");
-  const [leaveTypeId, setLeaveTypeId] = useState("technician_leave");
+  const [leaveTypeId, setLeaveTypeId] = useState("");
   const [leaveTech, setLeaveTech] = useState("");
   const [leaveStart, setLeaveStart] = useState(todayIso());
   const [leaveEnd, setLeaveEnd] = useState(todayIso());
@@ -101,23 +101,18 @@ export default function ScheduleHolidayManager() {
       .filter(Boolean)
       .slice(0, 20);
 
-    return [
-      { id: "technician_leave", label: "Holiday", holidayType: "technician_leave", defaultName: "Holiday Leave" },
-      { id: "technician_away", label: "Away", holidayType: "technician_away", defaultName: "Away" },
-      { id: "technician_sick", label: "Sick", holidayType: "technician_sick", defaultName: "Sick Leave" },
-      ...customLabels.map((label, idx) => ({
-        id: `custom:${idx}`,
-        label,
-        holidayType: "technician_leave" as const,
-        defaultName: label,
-      })),
-    ];
+    return customLabels.map((label, idx) => ({
+      id: `custom:${idx}`,
+      label,
+      holidayType: "technician_leave" as const,
+      defaultName: label,
+    }));
   }, [companySettings?.custom_leave_types]);
 
   const selectedLeaveType =
     leaveTypeOptions.find((option) => option.id === leaveTypeId) ??
     leaveTypeOptions[0] ??
-    { id: "technician_leave", label: "Holiday", holidayType: "technician_leave" as const, defaultName: "Holiday Leave" };
+    null;
 
   async function refreshAll() {
     await Promise.all([
@@ -133,6 +128,14 @@ export default function ScheduleHolidayManager() {
     }
     if (!leaveStart || !leaveEnd) {
       toast({ title: "Missing dates", description: "Please provide start and end dates.", variant: "destructive" });
+      return;
+    }
+    if (!selectedLeaveType) {
+      toast({
+        title: "No leave types configured",
+        description: "Add at least one custom leave type in Company Settings before creating leave blocks.",
+        variant: "destructive",
+      });
       return;
     }
     setSubmitting("leave");
@@ -224,7 +227,7 @@ export default function ScheduleHolidayManager() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-3 rounded-lg border border-border p-3">
-          <p className="text-sm font-medium">Block Days Per Technician (Holiday, Away, Sick)</p>
+          <p className="text-sm font-medium">Block Days Per Technician</p>
           <div className="space-y-1.5">
             <Label>Technician</Label>
             <select
@@ -244,7 +247,11 @@ export default function ScheduleHolidayManager() {
               value={leaveTypeId}
               onChange={(e) => setLeaveTypeId(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              disabled={leaveTypeOptions.length === 0}
             >
+              {leaveTypeOptions.length === 0 ? (
+                <option value="">No custom leave types configured</option>
+              ) : null}
               {leaveTypeOptions.map((option) => (
                 <option key={option.id} value={option.id}>{option.label}</option>
               ))}
@@ -252,7 +259,12 @@ export default function ScheduleHolidayManager() {
           </div>
           <div className="space-y-1.5">
             <Label>Label</Label>
-            <Input value={leaveName} onChange={(e) => setLeaveName(e.target.value)} placeholder={selectedLeaveType.defaultName} />
+            <Input
+              value={leaveName}
+              onChange={(e) => setLeaveName(e.target.value)}
+              placeholder={selectedLeaveType?.defaultName ?? "Configure custom leave types in Company Settings"}
+              disabled={leaveTypeOptions.length === 0}
+            />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
@@ -264,9 +276,14 @@ export default function ScheduleHolidayManager() {
               <Input type="date" value={leaveEnd} onChange={(e) => setLeaveEnd(e.target.value)} />
             </div>
           </div>
-          <Button onClick={addTechnicianLeave} disabled={submitting !== null} className="w-full">
+          <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0} className="w-full">
             {submitting === "leave" ? "Saving..." : "Add Technician Leave Block"}
           </Button>
+          {leaveTypeOptions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Add custom leave types in Admin - Company Settings - Profile - Leave Type Labels.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-3 rounded-lg border border-border p-3">

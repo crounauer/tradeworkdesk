@@ -1184,7 +1184,7 @@ export default function AdminCompanySettings() {
               }}
             />
             <p className="text-xs text-muted-foreground">
-              These are added in addition to Holiday, Away, and Sick. Custom labels are stored per tenant.
+              These labels are used as the leave type options in Leave & Holidays. Stored per tenant.
             </p>
           </CardContent>
         </Card>

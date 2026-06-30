@@ -286,6 +286,50 @@ const sections: HelpSection[] = [
     ],
   },
   {
+    id: "online-booking",
+    title: "Online Booking",
+    icon: CalendarDays,
+    color: "text-indigo-700 bg-indigo-50",
+    roles: ["admin", "office_staff", "super_admin"],
+    items: [
+      {
+        q: "How do I set up online booking end to end?",
+        a: (
+          <div className="space-y-3 text-muted-foreground">
+            <p>Use this flow when you want customers to book appointments from your public website page.</p>
+            <ol className="list-decimal list-inside space-y-1.5">
+              <li>Open <strong>Booking → Booking Setup</strong> and switch on <strong>Enable online booking</strong>.</li>
+              <li>Set your <strong>working hours</strong>, slot duration, buffer time, minimum notice and maximum advance window.</li>
+              <li>Add your <strong>services</strong> with clear names, descriptions, durations and prices. These are the options customers pick from.</li>
+              <li>Choose whether bookings are <strong>auto-confirmed</strong> or sent to the office for review first.</li>
+              <li>Decide whether a confirmed booking should <strong>create a job automatically</strong> in TradeWorkDesk.</li>
+              <li>Open <strong>Website → Pages</strong>, edit the page with the <strong>Online Booking</strong> block, and add a heading and subheading that match your brand.
+              </li>
+              <li>Use the block settings to decide whether to show prices, require a postcode, require a job description, and mark complex work as pending approval.</li>
+              <li>Save the page, publish it, and test the booking journey from the live website.</li>
+            </ol>
+          </div>
+        ),
+      },
+      {
+        q: "What should a customer see when the booking block is working?",
+        a: "Customers should see a list of services first, then the job details form, available dates and times, contact details, and a final confirmation step. If auto-confirm is on they get an immediate confirmation; otherwise the booking stays pending for office review.",
+      },
+      {
+        q: "How do I make sure bookings turn into jobs properly?",
+        a: "In Booking Setup, keep Auto-create job in TradeWorkDesk enabled if you want confirmed bookings to enter the job pipeline automatically. If you prefer manual control, switch it off and create jobs yourself after review.",
+      },
+      {
+        q: "Why might a booking not appear on the website?",
+        a: "Check that online booking is enabled, the page contains the Online Booking block, the page is published, and at least one active service plus working hours are configured. The block also needs the tenant/site to be connected correctly so it can load services and available slots.",
+      },
+      {
+        q: "How should I handle complex or emergency jobs?",
+        a: "Use the complex keywords field to flag urgent or complex requests such as breakdown or no hot water. Those bookings are marked as needing approval so the office can call the customer before confirming a time.",
+      },
+    ],
+  },
+  {
     id: "account",
     title: "Account & Settings",
     icon: UserCog,
