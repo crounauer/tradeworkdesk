@@ -1326,7 +1326,7 @@ export default function AdminCompanySettings() {
 
             <div className="sm:col-span-2 space-y-2">
               <Label>Radius preview map</Label>
-              <div className="rounded-lg overflow-hidden border border-border" style={{ height: 220 }}>
+              <div className="rounded-lg overflow-hidden border border-border w-full max-w-md aspect-square">
                 {coverageLookupLoading ? (
                   <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -2744,7 +2744,7 @@ function PublicDirectoryCard() {
 
         <div className="space-y-1.5">
           <Label>Radius map preview</Label>
-          <div className="rounded-lg overflow-hidden border border-border" style={{ height: 220 }}>
+          <div className="rounded-lg overflow-hidden border border-border w-full max-w-md aspect-square">
             {coverageLookupLoading ? (
               <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading map preview...
