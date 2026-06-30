@@ -1178,12 +1178,9 @@ export default function AdminCompanySettings() {
               placeholder={"Training\nCompassionate Leave\nJury Service"}
               value={(watch("custom_leave_types") ?? []).join("\n")}
               onChange={(e) => {
-                const types = e.target.value
-                  .split(/[\n,;]/)
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-                  .slice(0, 20);
-                setValue("custom_leave_types", Array.from(new Set(types)), { shouldDirty: true });
+                // Keep raw line editing behavior intact (spaces/new lines while typing).
+                // Final normalization (trim/filter/dedupe) happens in autosave payload cleanup.
+                setValue("custom_leave_types", e.target.value.split("\n").slice(0, 20), { shouldDirty: true });
               }}
             />
             <p className="text-xs text-muted-foreground">
