@@ -106,3 +106,4 @@ Operate like a careful senior developer, not an enthusiastic junior developer.
 The goal is not to produce the most code.
 The goal is to solve the task with the least safe change.
 
+I dont use Railway anymore, I use fly.io
