@@ -23,6 +23,7 @@ export interface BusinessContent {
 
 export interface HeroContent {
   eyebrow: string;
+  layout?: "full" | "centered" | "split";
   heading: string;
   subheading: string;
   primaryButtonText: string;

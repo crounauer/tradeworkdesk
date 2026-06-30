@@ -35,6 +35,18 @@ interface Slot {
   end: string;
 }
 
+interface AddressResult {
+  line_1: string;
+  line_2: string;
+  line_3: string;
+  post_town: string;
+  county: string;
+  postcode: string;
+  latitude: number;
+  longitude: number;
+  display: string;
+}
+
 interface Props {
   content: {
     tenant_id?: string;
@@ -96,7 +108,16 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [isComplex, setIsComplex] = useState(false);
   const [description, setDescription] = useState("");
   const [postcode, setPostcode] = useState("");
+  const [addressLookupLoading, setAddressLookupLoading] = useState(false);
+  const [addressLookupResults, setAddressLookupResults] = useState<AddressResult[]>([]);
+  const [addressLookupSearched, setAddressLookupSearched] = useState(false);
+  const [addressLookupMessage, setAddressLookupMessage] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  const [propertyType, setPropertyType] = useState("house");
+  const [jobUrgency, setJobUrgency] = useState("standard");
+  const [applianceType, setApplianceType] = useState("");
+  const [hasNoHeatOrHotWater, setHasNoHeatOrHotWater] = useState("no");
+  const [parkingAccess, setParkingAccess] = useState("");
 
   // Slot state
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -152,6 +173,63 @@ export default function OnlineBookingBlock({ content }: Props) {
     if (step === "slots") loadSlots();
   }, [step, loadSlots]);
 
+  const handleAddressLookup = useCallback(async () => {
+    if (!tenant_id) return;
+    const pc = postcode.trim();
+    if (!pc) {
+      setAddressLookupMessage("Enter a postcode first.");
+      return;
+    }
+
+    setAddressLookupLoading(true);
+    setAddressLookupResults([]);
+    setAddressLookupSearched(false);
+    setAddressLookupMessage(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/public/booking/${tenant_id}/postcode-lookup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postcode: pc }),
+      });
+
+      if (res.status === 402) {
+        const data = await res.json() as { error?: string };
+        setAddressLookupMessage(data.error || "UK Address Lookup add-on is required for this feature.");
+        return;
+      }
+
+      if (res.status === 404) {
+        const data = await res.json() as { error?: string };
+        setAddressLookupMessage(data.error || "No addresses found for this postcode.");
+        setAddressLookupSearched(true);
+        return;
+      }
+
+      if (!res.ok) throw new Error("Lookup failed");
+
+      const data = await res.json() as { addresses?: AddressResult[]; credits_remaining?: number | null; bundle_size?: number | null };
+      setAddressLookupResults(Array.isArray(data.addresses) ? data.addresses : []);
+      setAddressLookupSearched(true);
+      if (data.credits_remaining != null && data.credits_remaining > 0 && data.credits_remaining < (data.bundle_size ?? 1000) * 0.1) {
+        setAddressLookupMessage(`Address lookup credits are running low: ${data.credits_remaining.toLocaleString()} remaining.`);
+      }
+    } catch {
+      setAddressLookupMessage("Failed to look up addresses. Please try again.");
+    } finally {
+      setAddressLookupLoading(false);
+    }
+  }, [tenant_id, postcode]);
+
+  const handleSelectAddress = useCallback((addr: AddressResult) => {
+    const line = [addr.line_1, addr.line_2, addr.line_3].filter(Boolean).join(", ");
+    setAddress(line);
+    setPostcode(addr.postcode);
+    setAddressLookupResults([]);
+    setAddressLookupSearched(false);
+    setAddressLookupMessage(`Selected address: ${addr.display}`);
+  }, []);
+
   async function handleSubmit() {
     if (!tenant_id || !selectedSlot || !selectedService) return;
     setSubmitting(true);
@@ -166,6 +244,12 @@ export default function OnlineBookingBlock({ content }: Props) {
         service_catalogue_id: selectedService.id,
         scheduled_start: selectedSlot.start,
         notes: [
+          "Booking triage:",
+          `- Property type: ${propertyType}`,
+          `- Urgency: ${jobUrgency}`,
+          applianceType.trim() ? `- Appliance/system: ${applianceType.trim()}` : "",
+          `- No heat/hot water: ${hasNoHeatOrHotWater}`,
+          parkingAccess.trim() ? `- Access/parking: ${parkingAccess.trim()}` : "",
           description ? "Job details: " + description : "",
           notes ? "Additional notes: " + notes : "",
           isComplex ? "(Flagged as complex — awaiting confirmation)" : "",
@@ -254,6 +338,29 @@ export default function OnlineBookingBlock({ content }: Props) {
         rows={opts?.rows || 3}
         style={{ width: "100%", padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 7, fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
       />
+    </label>
+  );
+
+  const selectField = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    options: Array<{ value: string; label: string }>,
+    required = false,
+  ) => (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
+        {label}{required && <span style={{ color: "#ef4444" }}> *</span>}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: 7, fontSize: 14, boxSizing: "border-box", background: "#fff" }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
     </label>
   );
 
@@ -384,10 +491,91 @@ export default function OnlineBookingBlock({ content }: Props) {
 
               {require_postcode && input("Postcode", postcode, setPostcode, { required: true, placeholder: "NE1 1AA" })}
 
+              {require_postcode && (
+                <div style={{ marginTop: -4, marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    onClick={handleAddressLookup}
+                    disabled={addressLookupLoading}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: addressLookupLoading ? "not-allowed" : "pointer",
+                      border: `1px solid ${accent_color}`,
+                      background: addressLookupLoading ? "#f3f4f6" : "transparent",
+                      color: accent_color,
+                    }}
+                  >
+                    {addressLookupLoading ? "Looking up..." : "Find address"}
+                  </button>
+                  {(addressLookupResults.length > 0 || addressLookupMessage) && (
+                    <div style={{ marginTop: 10, padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" }}>
+                      {addressLookupMessage && (
+                        <p style={{ margin: 0, fontSize: 12, color: addressLookupMessage.toLowerCase().includes("low") ? "#b45309" : "#6b7280" }}>
+                          {addressLookupMessage}
+                        </p>
+                      )}
+                      {addressLookupResults.length > 0 && (
+                        <div style={{ marginTop: 10, display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+                          {addressLookupResults.map((addr, i) => (
+                            <button
+                              key={`${addr.postcode}-${i}`}
+                              type="button"
+                              onClick={() => handleSelectAddress(addr)}
+                              style={{
+                                textAlign: "left",
+                                padding: "10px 12px",
+                                borderRadius: 8,
+                                border: "1px solid #e5e7eb",
+                                background: "#f8fafc",
+                                color: "#111827",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{addr.display}</div>
+                              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{addr.post_town}, {addr.postcode}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {addressLookupSearched && addressLookupResults.length === 0 && !addressLookupLoading && !addressLookupMessage?.toLowerCase().includes("low") && (
+                        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6b7280" }}>No addresses found for that postcode.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {textarea("Anything else we should know? (optional)", notes, setNotes, {
                 placeholder: "Access codes, parking info, best time to call…",
                 rows: 2,
               })}
+
+              <div style={{ marginTop: 8, marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e5e7eb" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
+                  Quick booking questions (helps us assign the right engineer)
+                </div>
+                {selectField("Property type", propertyType, setPropertyType, [
+                  { value: "house", label: "House" },
+                  { value: "flat", label: "Flat" },
+                  { value: "bungalow", label: "Bungalow" },
+                  { value: "commercial", label: "Commercial" },
+                  { value: "other", label: "Other" },
+                ], true)}
+                {selectField("Urgency", jobUrgency, setJobUrgency, [
+                  { value: "standard", label: "Standard" },
+                  { value: "soon", label: "Soon (within a few days)" },
+                  { value: "urgent", label: "Urgent (as soon as possible)" },
+                ], true)}
+                {input("Appliance / system type (optional)", applianceType, setApplianceType, { placeholder: "e.g. Combi boiler, heat pump, unvented cylinder" })}
+                {selectField("Do you currently have no heat or no hot water?", hasNoHeatOrHotWater, setHasNoHeatOrHotWater, [
+                  { value: "no", label: "No" },
+                  { value: "yes", label: "Yes" },
+                ], true)}
+                {input("Access / parking notes (optional)", parkingAccess, setParkingAccess, { placeholder: "Permit required, rear alley access, gated drive..." })}
+              </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 {btn("Back", () => setStep("service"), false, "outline")}
@@ -494,6 +682,10 @@ export default function OnlineBookingBlock({ content }: Props) {
               {stepBar("confirm")}
               <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "#1f2937" }}>Review your booking</h3>
 
+              <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412", fontSize: 13 }}>
+                <strong>Subject to confirmation.</strong> Your booking will be reviewed by our team before it is fully confirmed.
+              </div>
+
               {isComplex && (
                 <div style={{ padding: "12px 16px", background: "#fef9c3", borderRadius: 8, borderLeft: `4px solid #d97706`, marginBottom: 16, fontSize: 13, color: "#92400e" }}>
                   <strong>Complex job — pending approval.</strong> We'll contact you to confirm this appointment before it's locked in.
@@ -506,6 +698,11 @@ export default function OnlineBookingBlock({ content }: Props) {
                 <div><strong>Name:</strong> {name}</div>
                 <div><strong>Email:</strong> {email}</div>
                 <div><strong>Phone:</strong> {phone}</div>
+                <div><strong>Property type:</strong> {propertyType}</div>
+                <div><strong>Urgency:</strong> {jobUrgency}</div>
+                <div><strong>No heat/hot water:</strong> {hasNoHeatOrHotWater}</div>
+                {applianceType && <div><strong>Appliance/system:</strong> {applianceType}</div>}
+                {parkingAccess && <div><strong>Access/parking:</strong> {parkingAccess}</div>}
                 {postcode && <div><strong>Postcode:</strong> {postcode}</div>}
                 {description && <div><strong>Details:</strong> {description}</div>}
                 {notes && <div><strong>Notes:</strong> {notes}</div>}
@@ -538,7 +735,7 @@ export default function OnlineBookingBlock({ content }: Props) {
                 </>
               ) : (
                 <>
-                  <h3 style={{ fontSize: 20, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Request received!</h3>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Subject to confirmation</h3>
                   <p style={{ color: "#374151", marginBottom: 4 }}>
                     We've received your {isComplex ? "request" : "booking request"} for <strong>{selectedService?.name}</strong>.
                   </p>
@@ -553,6 +750,7 @@ export default function OnlineBookingBlock({ content }: Props) {
                 onClick={() => {
                   setStep("service"); setSelectedService(null); setSelectedSlot(null);
                   setDescription(""); setPostcode(""); setNotes(""); setName(""); setEmail(""); setPhone(""); setAddress("");
+                  setPropertyType("house"); setJobUrgency("standard"); setApplianceType(""); setHasNoHeatOrHotWater("no"); setParkingAccess("");
                   setResultStatus(null); setResultError(null);
                 }}
                 style={{ marginTop: 20, background: "none", border: "none", color: accent_color, fontWeight: 600, cursor: "pointer", fontSize: 14 }}

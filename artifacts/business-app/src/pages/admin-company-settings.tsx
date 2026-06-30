@@ -1886,7 +1886,7 @@ function ProductCatalogueSection() {
               Pre-defined parts and materials. Technicians can select these when adding parts to a job.
             </CardDescription>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(true); } }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Product</>}
           </Button>
         </div>
@@ -2069,7 +2069,7 @@ function ServiceCatalogueSection() {
               Service Catalogue
             </CardTitle>
             <CardDescription>
-              Pre-defined services such as boiler services and gas safety checks with fixed prices. Tick online booking for any service customers should be able to choose on your website.
+              Pre-defined services such as boiler services and gas safety checks with fixed prices. Set booking duration so online bookings reserve the correct appointment length.
             </CardDescription>
           </div>
           <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(true); } }}>
@@ -2093,6 +2093,7 @@ function ServiceCatalogueSection() {
                   <div className="space-y-1">
                     <Label className="text-xs">Booking Duration (minutes)</Label>
                     <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} placeholder="60" />
+                    <p className="text-[11px] text-muted-foreground">Used by online booking to calculate slot length.</p>
                   </div>
                   <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
                     <div>
@@ -2125,6 +2126,18 @@ function ServiceCatalogueSection() {
                         <div className="space-y-1">
                           <Label className="text-xs">Default Price (optional)</Label>
                           <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Booking Duration (minutes)</Label>
+                          <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} placeholder="60" />
+                          <p className="text-[11px] text-muted-foreground">Used by online booking to calculate slot length.</p>
+                        </div>
+                        <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                          <div>
+                            <Label className="text-xs">Use in online booking</Label>
+                            <p className="text-[11px] text-muted-foreground">Show this service on the public booking form</p>
+                          </div>
+                          <Switch checked={form.online_booking_enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, online_booking_enabled: v }))} />
                         </div>
                       </div>
                       <div className="flex gap-2">

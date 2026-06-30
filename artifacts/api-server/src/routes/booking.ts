@@ -26,6 +26,10 @@
 
 import { Router, type IRouter, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { notifyUsersForEvent } from "../lib/push-events";
+import { getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
+import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
 import {
   requireAuth,
   requireTenant,
@@ -45,6 +49,18 @@ type BookableService = {
   price: number | null;
   price_type: "fixed" | "from" | "free" | "tbc";
   source: "catalogue" | "legacy";
+};
+
+type PublicAddressResult = {
+  line_1: string;
+  line_2: string;
+  line_3: string;
+  post_town: string;
+  county: string;
+  postcode: string;
+  latitude: number;
+  longitude: number;
+  display: string;
 };
 
 function requireBooking() {
@@ -235,6 +251,57 @@ async function getPublicBookableServices(tenantId: string): Promise<BookableServ
   }));
 }
 
+function buildOnlineBookingDescription(notes: string | null | undefined): string | null {
+  const lines = ["Subject to confirmation"];
+  if (notes && notes.trim()) lines.push(notes.trim());
+  return lines.join("\n");
+}
+
+function stripOnlineBookingDescriptionPrefix(description: string | null | undefined): string | null {
+  if (!description) return null;
+  return description.replace(/^Subject to confirmation\n?/i, "").trim() || null;
+}
+
+async function loadBookingEmailCompanyDetails(tenantId: string): Promise<{ companyName: string; details: EmailCompanyDetails }> {
+  const [{ data: companySettings }, { data: tenant }] = await Promise.all([
+    db.from("company_settings")
+      .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url")
+      .eq("tenant_id", tenantId)
+      .eq("singleton_id", "default")
+      .maybeSingle(),
+    db.from("tenants")
+      .select("company_name")
+      .eq("id", tenantId)
+      .maybeSingle(),
+  ]);
+
+  const cs = companySettings as Record<string, unknown> | null;
+  const companyName = (cs?.name as string) || (cs?.trading_name as string) || (tenant?.company_name as string) || "Your Service Provider";
+
+  return {
+    companyName,
+    details: {
+      name: (cs?.name as string | null) || (tenant?.company_name as string | null) || null,
+      trading_name: (cs?.trading_name as string | null) || null,
+      logo_url: (cs?.logo_url as string | null) || null,
+      address_line1: (cs?.address_line1 as string | null) || null,
+      address_line2: (cs?.address_line2 as string | null) || null,
+      city: (cs?.city as string | null) || null,
+      county: (cs?.county as string | null) || null,
+      postcode: (cs?.postcode as string | null) || null,
+      phone: (cs?.phone as string | null) || null,
+      email: (cs?.email as string | null) || null,
+      notification_emails: (cs?.notification_emails as string[] | null) || null,
+      website: (cs?.website as string | null) || null,
+      gas_safe_number: (cs?.gas_safe_number as string | null) || null,
+      oftec_number: (cs?.oftec_number as string | null) || null,
+      vat_number: (cs?.vat_number as string | null) || null,
+      rates_url: (cs?.rates_url as string | null) || null,
+      trading_terms_url: (cs?.trading_terms_url as string | null) || null,
+    },
+  };
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 router.get("/booking/settings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
@@ -331,81 +398,142 @@ router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking
 });
 
 router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  // 1. Confirm the booking
+  const nowIso = new Date().toISOString();
+
   const { data: booking, error } = await db.from("bookings")
-    .update({ status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: req.userId })
+    .update({ status: "confirmed", confirmed_at: nowIso, confirmed_by: req.userId })
     .eq("id", req.params.id).eq("tenant_id", req.tenantId)
     .select().single();
   if (error) return res.status(500).json({ error: error.message });
   if (!booking) return res.status(404).json({ error: "Not found" });
 
-  // 2. Auto-create job if setting enabled
-  try {
-    const { data: settings } = await db.from("booking_settings")
-      .select("auto_create_job, default_job_type_id")
-      .eq("tenant_id", req.tenantId)
-      .maybeSingle();
+  const bookingRecord = booking as {
+    id: string;
+    job_id?: string | null;
+    customer_name: string | null;
+    customer_email: string | null;
+    customer_phone: string | null;
+    customer_address: string | null;
+    customer_postcode: string | null;
+    notes: string | null;
+    scheduled_start: string;
+  };
 
-    if (settings?.auto_create_job) {
-      const { data: bookingWithService } = await db.from("bookings")
-        .select("*, booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
+  try {
+    const [{ data: settings }, serviceRes] = await Promise.all([
+      db.from("booking_settings")
+        .select("auto_create_job, default_job_type_id, confirmation_email_enabled")
+        .eq("tenant_id", req.tenantId)
+        .maybeSingle(),
+      db.from("bookings")
+        .select("booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
         .eq("id", req.params.id)
         .eq("tenant_id", req.tenantId)
-        .maybeSingle();
+        .maybeSingle(),
+    ]);
 
-      const serviceLabel = bookingWithService?.service_catalogue?.name || bookingWithService?.booking_services?.name || "Online Booking";
-      const scheduledDate = booking.scheduled_start
-        ? new Date(booking.scheduled_start).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
-      const scheduledTime = booking.scheduled_start
-        ? new Date(booking.scheduled_start).toTimeString().slice(0, 5)
-        : null;
+    const serviceLabel = (serviceRes.data as { booking_services?: { name?: string | null } | null; service_catalogue?: { name?: string | null } | null } | null)?.service_catalogue?.name
+      || (serviceRes.data as { booking_services?: { name?: string | null } | null; service_catalogue?: { name?: string | null } | null } | null)?.booking_services?.name
+      || "Online Booking";
 
+    let jobId = bookingRecord.job_id || null;
+    let jobRef: string | null = null;
+    const scheduledDate = bookingRecord.scheduled_start ? new Date(bookingRecord.scheduled_start).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const scheduledTime = bookingRecord.scheduled_start ? new Date(bookingRecord.scheduled_start).toTimeString().slice(0, 5) : null;
+    const pendingDescription = buildOnlineBookingDescription(bookingRecord.notes);
+    let confirmationDescription = stripOnlineBookingDescriptionPrefix(pendingDescription);
+
+    if (!jobId && settings?.auto_create_job) {
       const { data: job } = await db.from("jobs").insert({
         tenant_id: req.tenantId,
-        title: serviceLabel + " — " + (booking.customer_name || "Customer"),
-        description: booking.notes || null,
+        title: `${serviceLabel} — ${bookingRecord.customer_name || "Customer"}`,
+        description: pendingDescription,
+        notes: pendingDescription,
         status: "scheduled",
         job_type_id: settings.default_job_type_id || null,
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime,
         created_by: req.userId,
-      }).select("id").single();
+      }).select("id, job_ref").single();
 
-      if (job?.id) {
-        // Link booking to job and create/link enquiry
-        await db.from("bookings")
-          .update({ job_id: job.id })
-          .eq("id", req.params.id);
+      jobId = (job as { id?: string | null; job_ref?: string | null } | null)?.id || null;
+      jobRef = (job as { id?: string | null; job_ref?: string | null } | null)?.job_ref || null;
 
-        // Also create an enquiry so the job shows in the inbox
+      if (jobId) {
+        await db.from("bookings").update({ job_id: jobId }).eq("id", req.params.id).eq("tenant_id", req.tenantId);
+
         const { data: enquiry } = await db.from("enquiries").insert({
           tenant_id: req.tenantId,
-          contact_name: booking.customer_name,
-          contact_email: booking.customer_email || null,
-          contact_phone: booking.customer_phone || null,
-          address: [booking.customer_address, booking.customer_postcode].filter(Boolean).join(", ") || null,
+          contact_name: bookingRecord.customer_name,
+          contact_email: bookingRecord.customer_email || null,
+          contact_phone: bookingRecord.customer_phone || null,
+          address: [bookingRecord.customer_address, bookingRecord.customer_postcode].filter(Boolean).join(", ") || null,
           source: "website",
-          description: [
-            serviceLabel,
-            booking.notes,
-          ].filter(Boolean).join("\n") || null,
+          description: [serviceLabel, bookingRecord.notes].filter(Boolean).join("\n") || null,
           status: "converted",
-          notes: "Auto-created from confirmed online booking (ID: " + req.params.id + ")",
-          linked_job_id: job.id,
+          notes: `Auto-created from confirmed online booking (ID: ${req.params.id})`,
+          linked_job_id: jobId,
         }).select("id").single();
 
         if (enquiry?.id) {
           await db.from("bookings").update({ enquiry_id: enquiry.id }).eq("id", req.params.id);
         }
       }
+    } else if (jobId) {
+      const { data: existingJob } = await db.from("jobs")
+        .select("job_ref, scheduled_date, scheduled_time, description")
+        .eq("id", jobId)
+        .eq("tenant_id", req.tenantId)
+        .maybeSingle();
+
+      jobRef = (existingJob as { job_ref?: string | null } | null)?.job_ref || null;
+      confirmationDescription = stripOnlineBookingDescriptionPrefix((existingJob as { description?: string | null } | null)?.description || pendingDescription);
+    }
+
+    if (settings?.confirmation_email_enabled !== false && bookingRecord.customer_email) {
+      const { companyName, details } = await loadBookingEmailCompanyDetails(req.tenantId!);
+      const confirmationDetails: JobConfirmationDetails = {
+        jobRef: jobRef || `BOOK-${req.params.id.slice(0, 8).toUpperCase()}`,
+        jobType: serviceLabel,
+        scheduledDate,
+        scheduledTime,
+        propertyAddress: [bookingRecord.customer_address, bookingRecord.customer_postcode].filter(Boolean).join(", ") || "Customer address",
+        description: confirmationDescription,
+      };
+
+      try {
+        await sendJobConfirmationEmail(
+          bookingRecord.customer_email,
+          bookingRecord.customer_name || "Customer",
+          companyName,
+          confirmationDetails,
+          details,
+        );
+
+        await db.from("bookings")
+          .update({ confirmation_sent_at: nowIso })
+          .eq("id", req.params.id)
+          .eq("tenant_id", req.tenantId);
+      } catch (mailErr) {
+        console.error("[booking] confirmation email failed:", mailErr);
+      }
     }
   } catch (autoErr) {
-    // Non-fatal — log but don't fail the confirm response
-    console.error("[booking] auto-create job failed:", (autoErr as Error).message);
+    console.error("[booking] booking confirm processing failed:", autoErr);
   }
 
   res.json(booking);
+});
+
+router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+  const { reason } = req.body as { reason?: string };
+  const { data, error } = await db.from("bookings")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null })
+    .eq("id", req.params.id).eq("tenant_id", req.tenantId)
+    .select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: "Not found" });
+  res.json(data);
 });
 
 router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
@@ -461,6 +589,68 @@ publicRouter.get("/public/booking/:tenantId/services", async (req: Request, res:
   }
 });
 
+publicRouter.post("/public/booking/:tenantId/postcode-lookup", async (req: Request, res: Response) => {
+  const { postcode } = req.body as { postcode?: string };
+  if (!postcode || typeof postcode !== "string") {
+    res.status(400).json({ error: "Postcode is required" });
+    return;
+  }
+
+  const addonActive = await hasActiveAddon(req.params.tenantId, "uk_address_lookup");
+  if (!addonActive) {
+    res.status(402).json({ error: "UK Address Lookup add-on required. Contact your administrator to activate this feature." });
+    return;
+  }
+
+  const creditInfo = await getAddonCredits(req.params.tenantId, "uk_address_lookup");
+  if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
+    res.status(402).json({
+      error: "No Address Lookup credits remaining. Purchase more credits on the Billing page.",
+      credits_remaining: 0,
+      bundle_size: creditInfo.bundle_size,
+      bundle_price: creditInfo.bundle_price,
+    });
+    return;
+  }
+
+  try {
+    const apiKey = await getIdealPostcodesKey();
+    if (!apiKey) {
+      res.status(404).json({ error: "Address lookup not configured" });
+      return;
+    }
+
+    const addresses = await idealPostcodesLookup(postcode.trim(), apiKey);
+    if (addresses.length === 0) {
+      res.status(404).json({ error: "No addresses found for this postcode" });
+      return;
+    }
+
+    const results = addresses.map((a) => ({
+      line_1: a.line_1,
+      line_2: a.line_2,
+      line_3: a.line_3,
+      post_town: a.post_town,
+      county: a.county,
+      postcode: a.postcode,
+      latitude: a.latitude,
+      longitude: a.longitude,
+      display: [a.line_1, a.line_2, a.line_3].filter(Boolean).join(", "),
+    }));
+
+    res.json({
+      addresses: results,
+      credits_remaining: creditInfo ? creditInfo.credits_remaining - 1 : null,
+      bundle_size: creditInfo?.bundle_size ?? null,
+    });
+
+    await deductAddonCredit(req.params.tenantId, "uk_address_lookup");
+  } catch (err) {
+    console.error("[booking] postcode lookup failed:", err);
+    res.status(500).json({ error: "Postcode lookup failed" });
+  }
+});
+
 publicRouter.get("/public/booking/:tenantId/slots", async (req: Request, res: Response) => {
   const { from, to, service_id, service_catalogue_id } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
@@ -500,6 +690,7 @@ publicRouter.post("/public/booking/:tenantId", async (req: Request, res: Respons
   }
   const scheduledEnd = new Date(new Date(scheduled_start).getTime() + duration * 60000).toISOString();
 
+  const bookingStatus = settings.auto_confirm ? "confirmed" : "pending";
   const { data, error } = await db.from("bookings").insert({
     tenant_id: req.params.tenantId,
     booking_service_id: selectedService?.source === "legacy" ? selectedService.id : null,
@@ -512,11 +703,51 @@ publicRouter.post("/public/booking/:tenantId", async (req: Request, res: Respons
     customer_address: customer_address || null,
     customer_postcode: customer_postcode || null,
     notes: notes || null,
-    status: settings.auto_confirm ? "confirmed" : "pending",
+    status: bookingStatus,
     source: "website",
   }).select().single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  if (settings.auto_create_job) {
+    const bookingDate = new Date(scheduled_start);
+    const scheduledDate = bookingDate.toISOString().slice(0, 10);
+    const scheduledTime = bookingDate.toTimeString().slice(0, 5);
+    const title = `${selectedService?.name || "Online Booking"} — ${customer_name}`;
+    const description = buildOnlineBookingDescription(notes);
+
+    const { data: job, error: jobError } = await db.from("jobs").insert({
+      tenant_id: req.params.tenantId,
+      title,
+      description,
+      notes: description,
+      status: "scheduled",
+      job_type: "service",
+      job_type_id: settings.default_job_type_id || null,
+      priority: "medium",
+      scheduled_date: scheduledDate,
+      scheduled_time: scheduledTime,
+      created_by: null,
+    }).select("id").single();
+
+    if (jobError) {
+      console.error("[booking] failed to create calendar job:", jobError.message);
+    } else if (job?.id) {
+      await db.from("bookings").update({ job_id: job.id }).eq("id", data.id).eq("tenant_id", req.params.tenantId);
+    }
+  }
+
+  void notifyUsersForEvent({
+    tenantId: req.params.tenantId,
+    eventType: "customer_communications",
+    title: "New Online Booking",
+    body: `${customer_name} submitted an online booking for ${selectedService?.name || "a service"}.`,
+    url: "/bookings",
+    eventKey: `online_booking:${data.id}`,
+    targetRoles: ["admin", "office_staff"],
+    data: { bookingId: data.id },
+  }).catch((err) => console.error("[push-events] online_booking failed:", err));
+
   res.status(201).json({ id: data.id, status: data.status, scheduled_start: data.scheduled_start });
 });
 

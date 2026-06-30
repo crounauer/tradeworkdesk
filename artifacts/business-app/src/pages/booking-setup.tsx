@@ -198,7 +198,6 @@ export default function BookingSetup() {
       <Tabs defaultValue="settings">
         <TabsList>
           <TabsTrigger value="settings"><Settings className="w-3.5 h-3.5 mr-1.5" />Settings</TabsTrigger>
-          <TabsTrigger value="services"><Clock className="w-3.5 h-3.5 mr-1.5" />Catalogue</TabsTrigger>
           <TabsTrigger value="hours"><Calendar className="w-3.5 h-3.5 mr-1.5" />Working Hours</TabsTrigger>
         </TabsList>
 
@@ -299,17 +298,6 @@ export default function BookingSetup() {
             {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Settings
           </Button>
-        </TabsContent>
-
-        {/* ── Services tab ── */}
-        <TabsContent value="services" className="space-y-4 mt-4">
-          <Card>
-            <CardContent className="p-6 space-y-3 text-sm text-muted-foreground">
-              <p>Online booking now reads services from the Company Settings catalogue.</p>
-              <p>Use <Link href="/admin/company-settings?tab=catalogue" className="underline font-medium text-foreground">Company Settings → Catalogue</Link> to name the service, set its price and duration, and tick <strong>Use in online booking</strong>.</p>
-              <p>This page now focuses on booking rules and opening hours only.</p>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* ── Working hours tab ── */}

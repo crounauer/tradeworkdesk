@@ -22,6 +22,7 @@ type CalendarJob = {
   scheduled_date: string | Date;
   scheduled_time?: string | null;
   scheduled_end_date?: string | null;
+  description?: string | null;
 };
 
 type CalendarHoliday = {
@@ -142,6 +143,10 @@ function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+function isSubjectToConfirmation(job: CalendarJob): boolean {
+  return Boolean(job.description && job.description.toLowerCase().startsWith("subject to confirmation"));
 }
 
 interface ScheduleCalendarProps {
@@ -641,6 +646,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             {job.property_address && (
                               <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
                             )}
+                            {isSubjectToConfirmation(job) && (
+                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
+                                Subject to confirmation
+                              </span>
+                            )}
                             <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                           </div>
                         </div>
@@ -691,6 +701,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             )}
                             {job.property_address && (
                               <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
+                            )}
+                            {isSubjectToConfirmation(job) && (
+                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
+                                Subject to confirmation
+                              </span>
                             )}
                             <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                           </div>
@@ -822,6 +837,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         <span className="font-medium truncate">
                           {job.customer_name || "Unknown"}
                         </span>
+                        {isSubjectToConfirmation(job) && (
+                          <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 ml-1 shrink-0">
+                            Subject to confirmation
+                          </span>
+                        )}
                         <span className="text-[10px] font-semibold opacity-70 ml-auto shrink-0">
                           {STATUS_LABELS[job.status] ?? job.status}
                         </span>
