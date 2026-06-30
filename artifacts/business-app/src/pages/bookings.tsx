@@ -47,6 +47,7 @@ interface Booking {
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: string;
   booking_services?: { name: string; duration_minutes: number } | null;
+  service_catalogue?: { name: string; booking_duration_minutes: number } | null;
   created_at: string;
 }
 
@@ -135,8 +136,8 @@ export default function Bookings() {
                       <Badge className={`text-xs px-1.5 py-0.5 border ${STATUS_COLOURS[b.status]}`} variant="outline">
                         {b.status}
                       </Badge>
-                      {b.booking_services && (
-                        <Badge variant="secondary" className="text-xs">{b.booking_services.name}</Badge>
+                      {(b.service_catalogue || b.booking_services) && (
+                        <Badge variant="secondary" className="text-xs">{(b.service_catalogue || b.booking_services)?.name}</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">

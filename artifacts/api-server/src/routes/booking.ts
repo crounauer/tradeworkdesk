@@ -37,6 +37,16 @@ const router: IRouter = Router();
 const publicRouter: IRouter = Router();
 const db = supabaseAdmin as any;
 
+type BookableService = {
+  id: string;
+  name: string;
+  description?: string | null;
+  duration_minutes: number;
+  price: number | null;
+  price_type: "fixed" | "from" | "free" | "tbc";
+  source: "catalogue" | "legacy";
+};
+
 function requireBooking() {
   return requirePlanFeature("job_management");  // booking is part of job management module
 }
@@ -154,6 +164,77 @@ async function getAvailableSlots(
   return slots;
 }
 
+function mapCatalogueService(row: {
+  id: string;
+  name: string;
+  default_price: number | null;
+  booking_duration_minutes: number | null;
+}): BookableService {
+  const price = row.default_price == null ? null : Number(row.default_price);
+  return {
+    id: row.id,
+    name: row.name,
+    duration_minutes: Number(row.booking_duration_minutes || 60),
+    price,
+    price_type: price == null ? "tbc" : (price === 0 ? "free" : "fixed"),
+    source: "catalogue",
+  };
+}
+
+async function resolveServiceForBooking(tenantId: string, serviceId: string): Promise<BookableService | null> {
+  try {
+    const { data: catalogue } = await db.from("service_catalogue")
+      .select("id, name, default_price, booking_duration_minutes")
+      .eq("tenant_id", tenantId)
+      .eq("id", serviceId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (catalogue) return mapCatalogueService(catalogue as { id: string; name: string; default_price: number | null; booking_duration_minutes: number | null; });
+  } catch {
+    // Fall back to legacy booking services if the catalogue booking fields are not yet available.
+  }
+
+  const { data: legacy } = await db.from("booking_services")
+    .select("id, name, description, duration_minutes, price, price_type")
+    .eq("tenant_id", tenantId)
+    .eq("id", serviceId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!legacy) return null;
+  return {
+    ...(legacy as { id: string; name: string; description: string | null; duration_minutes: number; price: number | null; price_type: "fixed" | "from" | "free" | "tbc"; }),
+    source: "legacy",
+  };
+}
+
+async function getPublicBookableServices(tenantId: string): Promise<BookableService[]> {
+  try {
+    const { data: catalogue, error: catalogueError } = await db.from("service_catalogue")
+      .select("id, name, default_price, booking_duration_minutes")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .eq("online_booking_enabled", true)
+      .order("name");
+
+    if (catalogueError) throw catalogueError;
+    if ((catalogue || []).length > 0) return (catalogue || []).map((row: any) => mapCatalogueService(row));
+  } catch {
+    // If the catalogue booking fields haven't been applied yet, fall through to legacy booking services.
+  }
+
+  const { data: legacy, error: legacyError } = await db.from("booking_services")
+    .select("id, name, description, duration_minutes, price, price_type")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("sort_order").order("created_at");
+
+  if (legacyError) throw new Error(legacyError.message);
+  return ((legacy || []) as Array<{ id: string; name: string; description: string | null; duration_minutes: number; price: number | null; price_type: "fixed" | "from" | "free" | "tbc"; }>).map((row) => ({
+    ...row,
+    source: "legacy",
+  }));
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 router.get("/booking/settings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
@@ -210,7 +291,7 @@ router.delete("/booking/services/:id", requireAuth, requireTenant, requireBookin
 
 router.get("/booking/bookings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
   const { status, from, to, limit = "50" } = req.query as Record<string, string>;
-  let q = db.from("bookings").select("*, booking_services(name, duration_minutes)")
+  let q = db.from("bookings").select("*, booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
     .eq("tenant_id", req.tenantId)
     .order("scheduled_start", { ascending: false })
     .limit(parseInt(limit));
@@ -224,7 +305,7 @@ router.get("/booking/bookings", requireAuth, requireTenant, requireBooking(), as
 
 router.get("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
   const { data, error } = await db.from("bookings")
-    .select("*, booking_services(name, duration_minutes, price)")
+    .select("*, booking_services(name, duration_minutes, price), service_catalogue(name, booking_duration_minutes, default_price)")
     .eq("id", req.params.id).eq("tenant_id", req.tenantId).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
   if (!data) return res.status(404).json({ error: "Not found" });
@@ -266,12 +347,13 @@ router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, require
       .maybeSingle();
 
     if (settings?.auto_create_job) {
-      const { data: svc } = await db.from("booking_services")
-        .select("name, duration_minutes")
-        .eq("id", booking.booking_service_id)
+      const { data: bookingWithService } = await db.from("bookings")
+        .select("*, booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
+        .eq("id", req.params.id)
+        .eq("tenant_id", req.tenantId)
         .maybeSingle();
 
-      const serviceLabel = svc?.name || "Online Booking";
+      const serviceLabel = bookingWithService?.service_catalogue?.name || bookingWithService?.booking_services?.name || "Online Booking";
       const scheduledDate = booking.scheduled_start
         ? new Date(booking.scheduled_start).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0];
@@ -340,13 +422,13 @@ router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireB
 // ─── Slots ────────────────────────────────────────────────────────────────────
 
 router.get("/booking/slots", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  const { from, to, service_id } = req.query as Record<string, string>;
+  const { from, to, service_id, service_catalogue_id } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
   let duration = 60;
-  if (service_id) {
-    const { data: svc } = await db.from("booking_services")
-      .select("duration_minutes").eq("id", service_id).eq("tenant_id", req.tenantId).maybeSingle();
+  const selectedServiceId = service_catalogue_id || service_id;
+  if (selectedServiceId) {
+    const svc = await resolveServiceForBooking(req.tenantId!, selectedServiceId);
     if (svc) duration = svc.duration_minutes;
   }
 
@@ -372,20 +454,21 @@ router.delete("/booking/slot-overrides/:id", requireAuth, requireTenant, require
 // ─── Public booking routes (no auth) ─────────────────────────────────────────
 
 publicRouter.get("/public/booking/:tenantId/services", async (req: Request, res: Response) => {
-  const { data, error } = await db.from("booking_services").select("id, name, description, duration_minutes, price, price_type")
-    .eq("tenant_id", req.params.tenantId).eq("is_active", true).order("sort_order");
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  try {
+    res.json(await getPublicBookableServices(req.params.tenantId));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 publicRouter.get("/public/booking/:tenantId/slots", async (req: Request, res: Response) => {
-  const { from, to, service_id } = req.query as Record<string, string>;
+  const { from, to, service_id, service_catalogue_id } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
   let duration = 60;
-  if (service_id) {
-    const { data: svc } = await db.from("booking_services")
-      .select("duration_minutes").eq("id", service_id).eq("tenant_id", req.params.tenantId).maybeSingle();
+  const selectedServiceId = service_catalogue_id || service_id;
+  if (selectedServiceId) {
+    const svc = await resolveServiceForBooking(req.params.tenantId, selectedServiceId);
     if (svc) duration = svc.duration_minutes;
   }
 
@@ -401,23 +484,26 @@ publicRouter.post("/public/booking/:tenantId", async (req: Request, res: Respons
     return res.status(403).json({ error: "Online booking is not enabled" });
   }
 
-  const { customer_name, customer_email, customer_phone, scheduled_start, booking_service_id, notes, customer_address, customer_postcode } = req.body as Record<string, string>;
+  const { customer_name, customer_email, customer_phone, scheduled_start, booking_service_id, service_catalogue_id, notes, customer_address, customer_postcode } = req.body as Record<string, string>;
   if (!customer_name || !customer_email || !scheduled_start) {
     return res.status(400).json({ error: "customer_name, customer_email and scheduled_start are required" });
   }
 
   // Calculate end time from service duration
   let duration = 60;
-  if (booking_service_id) {
-    const { data: svc } = await db.from("booking_services")
-      .select("duration_minutes").eq("id", booking_service_id).eq("tenant_id", req.params.tenantId).maybeSingle();
-    if (svc) duration = svc.duration_minutes;
+  const selectedServiceId = service_catalogue_id || booking_service_id;
+  const selectedService = selectedServiceId ? await resolveServiceForBooking(req.params.tenantId, selectedServiceId) : null;
+  if (selectedService) {
+    duration = selectedService.duration_minutes;
+  } else if (selectedServiceId) {
+    return res.status(400).json({ error: "Selected service is not available for online booking" });
   }
   const scheduledEnd = new Date(new Date(scheduled_start).getTime() + duration * 60000).toISOString();
 
   const { data, error } = await db.from("bookings").insert({
     tenant_id: req.params.tenantId,
-    booking_service_id: booking_service_id || null,
+    booking_service_id: selectedService?.source === "legacy" ? selectedService.id : null,
+    service_catalogue_id: selectedService?.source === "catalogue" ? selectedService.id : null,
     scheduled_start,
     scheduled_end: scheduledEnd,
     customer_name,

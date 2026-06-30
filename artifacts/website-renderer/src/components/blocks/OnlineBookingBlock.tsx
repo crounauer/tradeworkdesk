@@ -163,7 +163,7 @@ export default function OnlineBookingBlock({ content }: Props) {
         customer_phone: phone.trim() || undefined,
         customer_address: address.trim() || undefined,
         customer_postcode: postcode.trim() || undefined,
-        booking_service_id: selectedService.id,
+        service_catalogue_id: selectedService.id,
         scheduled_start: selectedSlot.start,
         notes: [
           description ? "Job details: " + description : "",

@@ -1886,7 +1886,7 @@ function ProductCatalogueSection() {
               Pre-defined parts and materials. Technicians can select these when adding parts to a job.
             </CardDescription>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(true); } }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Product</>}
           </Button>
         </div>
@@ -1971,6 +1971,8 @@ type ServiceItem = {
   id: string;
   name: string;
   default_price: number | null;
+  booking_duration_minutes: number;
+  online_booking_enabled: boolean;
   is_active: boolean;
 };
 
@@ -1981,7 +1983,7 @@ function ServiceCatalogueSection() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", default_price: "" });
+  const [form, setForm] = useState({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchServices = useCallback(async () => {
@@ -1994,13 +1996,18 @@ function ServiceCatalogueSection() {
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  const resetForm = () => { setForm({ name: "", default_price: "" }); setShowAdd(false); setEditingId(null); };
+  const resetForm = () => { setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(false); setEditingId(null); };
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
     setSubmitting(true);
     try {
-      const body = { name: form.name.trim(), default_price: form.default_price ? Number(form.default_price) : null };
+      const body = {
+        name: form.name.trim(),
+        default_price: form.default_price ? Number(form.default_price) : null,
+        booking_duration_minutes: form.booking_duration_minutes ? Number(form.booking_duration_minutes) : 60,
+        online_booking_enabled: form.online_booking_enabled,
+      };
       if (editingId) {
         await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue/${editingId}`, {
           method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -2020,7 +2027,12 @@ function ServiceCatalogueSection() {
   };
 
   const handleEdit = (s: ServiceItem) => {
-    setForm({ name: s.name, default_price: s.default_price != null ? String(s.default_price) : "" });
+    setForm({
+      name: s.name,
+      default_price: s.default_price != null ? String(s.default_price) : "",
+      booking_duration_minutes: String(s.booking_duration_minutes || 60),
+      online_booking_enabled: s.online_booking_enabled,
+    });
     setEditingId(s.id);
     setShowAdd(false);
   };
@@ -2057,10 +2069,10 @@ function ServiceCatalogueSection() {
               Service Catalogue
             </CardTitle>
             <CardDescription>
-              Pre-defined services such as boiler services and gas safety checks with fixed prices. Technicians can select these when recording services on a job.
+              Pre-defined services such as boiler services and gas safety checks with fixed prices. Tick online booking for any service customers should be able to choose on your website.
             </CardDescription>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "" }); setShowAdd(true); } }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(true); } }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
           </Button>
         </div>
@@ -2077,6 +2089,17 @@ function ServiceCatalogueSection() {
                   <div className="space-y-1">
                     <Label className="text-xs">Default Price (optional)</Label>
                     <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Booking Duration (minutes)</Label>
+                    <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} placeholder="60" />
+                  </div>
+                  <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <div>
+                      <Label className="text-xs">Use in online booking</Label>
+                      <p className="text-[11px] text-muted-foreground">Show this service on the public booking form</p>
+                    </div>
+                    <Switch checked={form.online_booking_enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, online_booking_enabled: v }))} />
                   </div>
                 </div>
                 <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2116,8 +2139,10 @@ function ServiceCatalogueSection() {
                       <div>
                         <span className="font-medium text-sm">{s.name}</span>
                         {!s.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
+                        {s.online_booking_enabled && <span className="ml-2 text-xs rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Online booking</span>}
                       </div>
                       <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">{s.booking_duration_minutes}min</span>
                         {s.default_price != null && <span className="text-sm text-muted-foreground">&pound;{Number(s.default_price).toFixed(2)}</span>}
                         <Button type="button" size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button

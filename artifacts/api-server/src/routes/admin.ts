@@ -1371,25 +1371,37 @@ router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("
 });
 
 router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, default_price } = req.body;
+  const { name, default_price, booking_duration_minutes, online_booking_enabled } = req.body;
   if (!name) { res.status(400).json({ error: "name is required" }); return; }
   if (default_price != null && (!Number.isFinite(Number(default_price)) || Number(default_price) < 0)) {
     res.status(400).json({ error: "default_price must be a valid non-negative number" }); return;
+  }
+  if (booking_duration_minutes != null && (!Number.isFinite(Number(booking_duration_minutes)) || Number(booking_duration_minutes) < 1)) {
+    res.status(400).json({ error: "booking_duration_minutes must be a positive number" }); return;
   }
   const { data, error } = await supabaseAdmin.from("service_catalogue").insert({
     tenant_id: req.tenantId!,
     name,
     default_price: default_price != null ? Number(default_price) : null,
+    booking_duration_minutes: booking_duration_minutes != null ? Number(booking_duration_minutes) : 60,
+    online_booking_enabled: Boolean(online_booking_enabled),
   }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data);
 });
 
 router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, default_price, is_active } = req.body;
+  const { name, default_price, booking_duration_minutes, online_booking_enabled, is_active } = req.body;
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (name !== undefined) updates.name = name;
   if (default_price !== undefined) updates.default_price = default_price != null ? Number(default_price) : null;
+  if (booking_duration_minutes !== undefined) {
+    if (booking_duration_minutes != null && (!Number.isFinite(Number(booking_duration_minutes)) || Number(booking_duration_minutes) < 1)) {
+      res.status(400).json({ error: "booking_duration_minutes must be a positive number" }); return;
+    }
+    updates.booking_duration_minutes = booking_duration_minutes != null ? Number(booking_duration_minutes) : 60;
+  }
+  if (online_booking_enabled !== undefined) updates.online_booking_enabled = Boolean(online_booking_enabled);
   if (is_active !== undefined) updates.is_active = is_active;
 
   const { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();

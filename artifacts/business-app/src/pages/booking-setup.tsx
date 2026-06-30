@@ -198,7 +198,7 @@ export default function BookingSetup() {
       <Tabs defaultValue="settings">
         <TabsList>
           <TabsTrigger value="settings"><Settings className="w-3.5 h-3.5 mr-1.5" />Settings</TabsTrigger>
-          <TabsTrigger value="services"><Clock className="w-3.5 h-3.5 mr-1.5" />Services</TabsTrigger>
+          <TabsTrigger value="services"><Clock className="w-3.5 h-3.5 mr-1.5" />Catalogue</TabsTrigger>
           <TabsTrigger value="hours"><Calendar className="w-3.5 h-3.5 mr-1.5" />Working Hours</TabsTrigger>
         </TabsList>
 
@@ -258,6 +258,9 @@ export default function BookingSetup() {
                   onChange={(e) => setSettings((s) => ({ ...s, notify_email: e.target.value || null }))}
                   placeholder="bookings@yourcompany.com" />
               </div>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                <strong>Services</strong> are now managed in <Link href="/admin/company-settings?tab=catalogue" className="underline font-medium">Company Settings → Catalogue</Link>. Tick <em>Use in online booking</em> on any service you want customers to see.
+              </div>
             </CardContent>
           </Card>
 
@@ -300,41 +303,13 @@ export default function BookingSetup() {
 
         {/* ── Services tab ── */}
         <TabsContent value="services" className="space-y-4 mt-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">Bookable services customers can choose from</p>
-            <Button size="sm" onClick={() => setShowServiceDialog(true)}>
-              <Plus className="w-3.5 h-3.5 mr-1" /> Add Service
-            </Button>
-          </div>
-          {servicesLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-          ) : services.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">No services yet. Add one to get started.</CardContent></Card>
-          ) : (
-            <div className="space-y-2">
-              {services.map((svc) => (
-                <Card key={svc.id}>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{svc.name}</p>
-                      {svc.description && <p className="text-xs text-muted-foreground truncate">{svc.description}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0">
-                      <span>{svc.duration_minutes}min</span>
-                      {svc.price != null && <span>·</span>}
-                      {svc.price != null && (
-                        <span>{svc.price_type === "from" ? "From " : ""}{svc.price_type !== "free" && svc.price_type !== "tbc" ? `£${svc.price}` : svc.price_type}</span>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"
-                      onClick={() => setDeletingService(svc)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <Card>
+            <CardContent className="p-6 space-y-3 text-sm text-muted-foreground">
+              <p>Online booking now reads services from the Company Settings catalogue.</p>
+              <p>Use <Link href="/admin/company-settings?tab=catalogue" className="underline font-medium text-foreground">Company Settings → Catalogue</Link> to name the service, set its price and duration, and tick <strong>Use in online booking</strong>.</p>
+              <p>This page now focuses on booking rules and opening hours only.</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── Working hours tab ── */}
