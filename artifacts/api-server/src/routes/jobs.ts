@@ -30,6 +30,7 @@ import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
 import { invalidateHomepageCache } from "./homepage";
 import { triggerReviewRequestAutomation } from "../lib/review-request-service";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 interface SupabaseJobRow {
   id: string;
@@ -443,6 +444,34 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   invalidateJobsCache(req.tenantId);
   invalidateCalendarCache(req.tenantId);
   invalidateHomepageCache(req.tenantId);
+
+  const createdJob = data as { id: string; job_ref?: string | null; assigned_technician_id?: string | null; priority?: string | null };
+  if (createdJob.assigned_technician_id) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "assignment_changes",
+      title: "New Job Assignment",
+      body: `You were assigned job ${createdJob.job_ref || createdJob.id}.`,
+      url: `/jobs/${createdJob.id}`,
+      eventKey: `job_assigned:${createdJob.id}:${createdJob.assigned_technician_id}`,
+      targetUserIds: [createdJob.assigned_technician_id],
+      data: { jobId: createdJob.id },
+    }).catch((err) => console.error("[push-events] job assignment failed:", err));
+  }
+
+  if (["high", "urgent"].includes(String(createdJob.priority || "")) && !createdJob.assigned_technician_id) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "sla_breach_risk",
+      title: "Unassigned High Priority Job",
+      body: `Job ${createdJob.job_ref || createdJob.id} is high priority and unassigned.`,
+      url: `/jobs/${createdJob.id}`,
+      eventKey: `job_sla_unassigned:${createdJob.id}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { jobId: createdJob.id },
+    }).catch((err) => console.error("[push-events] job sla failed:", err));
+  }
+
   res.status(201).json(data);
 });
 
@@ -846,13 +875,13 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const updateCoreData = body.data;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
-  let previousJobMeta: { status: string | null; customer_id: string | null } | null = null;
+  let previousJobMeta: { status: string | null; customer_id: string | null; assigned_technician_id: string | null; job_ref: string | null } | null = null;
 
-  if (body.data.status !== undefined) {
-    let prevQ = supabaseAdmin.from("jobs").select("status, customer_id").eq("id", params.data.id);
+  if (body.data.status !== undefined || updateCoreData.assigned_technician_id !== undefined) {
+    let prevQ = supabaseAdmin.from("jobs").select("status, customer_id, assigned_technician_id, job_ref").eq("id", params.data.id);
     if (req.tenantId) prevQ = prevQ.eq("tenant_id", req.tenantId);
     const { data: prevJob } = await prevQ.maybeSingle();
-    previousJobMeta = (prevJob as { status: string | null; customer_id: string | null } | null) ?? null;
+    previousJobMeta = (prevJob as { status: string | null; customer_id: string | null; assigned_technician_id: string | null; job_ref: string | null } | null) ?? null;
   }
 
   if (updateCoreData.scheduled_end_date != null) {
@@ -967,6 +996,84 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
         },
       }).catch((err) => console.error("[review-requests] Failed to schedule job completion review request:", err));
     }
+  }
+
+  const updatedJob = data as {
+    id: string;
+    status?: string | null;
+    assigned_technician_id?: string | null;
+    job_ref?: string | null;
+    priority?: string | null;
+  };
+
+  if (
+    previousJobMeta
+    && updatedJob.assigned_technician_id
+    && previousJobMeta.assigned_technician_id !== updatedJob.assigned_technician_id
+  ) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "assignment_changes",
+      title: "Job Reassigned",
+      body: `You were assigned job ${updatedJob.job_ref || updatedJob.id}.`,
+      url: `/jobs/${updatedJob.id}`,
+      eventKey: `job_reassigned:${updatedJob.id}:${updatedJob.assigned_technician_id}`,
+      targetUserIds: [updatedJob.assigned_technician_id],
+      data: { jobId: updatedJob.id },
+    }).catch((err) => console.error("[push-events] job_reassigned failed:", err));
+  }
+
+  if (
+    previousJobMeta
+    && updatedJob.status
+    && previousJobMeta.status !== updatedJob.status
+    && ["awaiting_parts", "requires_follow_up", "cancelled"].includes(updatedJob.status)
+  ) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "blocking_status_changes",
+      title: "Job Status Needs Attention",
+      body: `Job ${updatedJob.job_ref || updatedJob.id} moved to ${updatedJob.status}.`,
+      url: `/jobs/${updatedJob.id}`,
+      eventKey: `job_blocking_status:${updatedJob.id}:${updatedJob.status}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { jobId: updatedJob.id, status: updatedJob.status },
+    }).catch((err) => console.error("[push-events] job_blocking_status failed:", err));
+  }
+
+  if (
+    previousJobMeta
+    && updatedJob.status
+    && previousJobMeta.status !== updatedJob.status
+    && updatedJob.status === "requires_follow_up"
+  ) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "operational_exceptions",
+      title: "Operational Exception",
+      body: `Job ${updatedJob.job_ref || updatedJob.id} now requires follow-up.`,
+      url: `/jobs/${updatedJob.id}`,
+      eventKey: `job_operational_exception:${updatedJob.id}:requires_follow_up`,
+      targetRoles: ["admin", "office_staff"],
+      data: { jobId: updatedJob.id },
+    }).catch((err) => console.error("[push-events] job_operational_exception failed:", err));
+  }
+
+  if (
+    ["high", "urgent"].includes(String(updatedJob.priority || ""))
+    && !updatedJob.assigned_technician_id
+    && updatedJob.status === "scheduled"
+  ) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "sla_breach_risk",
+      title: "SLA Risk",
+      body: `High priority job ${updatedJob.job_ref || updatedJob.id} is unassigned.`,
+      url: `/jobs/${updatedJob.id}`,
+      eventKey: `job_sla_risk:${updatedJob.id}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { jobId: updatedJob.id },
+    }).catch((err) => console.error("[push-events] job_sla_risk failed:", err));
   }
 
   res.json(UpdateJobResponse.parse(data));

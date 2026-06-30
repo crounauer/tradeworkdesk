@@ -277,6 +277,42 @@ export default function JobDetail() {
   const canInvoice = job.status === "completed";
   const canCreateFollowUp = isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
 
+  const expectedRebookDate = (() => {
+    const raw = String(job.scheduled_date || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "";
+    const d = new Date(`${raw}T00:00:00`);
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const { data: hasYearRebookScheduled = false } = useQuery({
+    queryKey: ["job-rebook-indicator", job.id, expectedRebookDate],
+    enabled: isAdmin
+      && !!expectedRebookDate
+      && !!(job as unknown as { customer_id?: string | null }).customer_id
+      && !!(job as unknown as { property_id?: string | null }).property_id,
+    queryFn: async () => {
+      try {
+        const customerId = String((job as unknown as { customer_id?: string | null }).customer_id || "");
+        const propertyId = String((job as unknown as { property_id?: string | null }).property_id || "");
+        const params = new URLSearchParams({
+          customer_id: customerId,
+          property_id: propertyId,
+          date_from: expectedRebookDate,
+          date_to: expectedRebookDate,
+          limit: "50",
+        });
+        const data = await customFetch(
+          `${import.meta.env.BASE_URL}api/jobs?${params.toString()}`
+        ) as { jobs?: Array<{ id: string; status: string }> };
+        return (data.jobs || []).some((j) => j.id !== job.id && j.status !== "cancelled");
+      } catch {
+        return false;
+      }
+    },
+    staleTime: 60_000,
+  });
+
   return (
     <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
       <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -381,8 +417,8 @@ export default function JobDetail() {
           )}
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setShowRebook(true)} disabled={!isOnline}>
-              <Copy className="w-4 h-4 mr-2" />
-              Rebook (1yr)
+              {hasYearRebookScheduled ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> : <Copy className="w-4 h-4 mr-2" />}
+              {hasYearRebookScheduled ? "Rebooked (1yr)" : "Rebook (1yr)"}
             </Button>
           )}
           {isAdmin && job.scheduled_date && (

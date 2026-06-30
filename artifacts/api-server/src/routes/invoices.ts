@@ -12,6 +12,7 @@ import { getPayPalAccessToken, PP_BASE } from "./paypal-payments";
 import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
 import { getPlatformSetting } from "../lib/geocode";
 import { triggerReviewRequestAutomation } from "../lib/review-request-service";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 
@@ -1129,6 +1130,18 @@ router.post("/invoices/:id/mark-sent", ...protect, async (req: AuthenticatedRequ
     .single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  void notifyUsersForEvent({
+    tenantId: req.tenantId!,
+    eventType: "payment_alerts",
+    title: "Invoice Marked Sent",
+    body: `Invoice ${updated.invoice_number || updated.id} was marked as sent.`,
+    url: `/invoices/${updated.id}`,
+    eventKey: `invoice_sent:${updated.id}:${updated.updated_at}`,
+    targetRoles: ["admin", "office_staff"],
+    data: { invoiceId: updated.id },
+  }).catch((err) => console.error("[push-events] invoice_sent failed:", err));
+
   res.json(updated);
 });
 
@@ -1170,6 +1183,18 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
     .single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  void notifyUsersForEvent({
+    tenantId: req.tenantId!,
+    eventType: "payment_alerts",
+    title: "Invoice Paid",
+    body: `Invoice ${updated.invoice_number || updated.id} has been marked as paid.`,
+    url: `/invoices/${updated.id}`,
+    eventKey: `invoice_paid:${updated.id}:${updated.payment_date}`,
+    targetRoles: ["admin", "office_staff"],
+    data: { invoiceId: updated.id },
+  }).catch((err) => console.error("[push-events] invoice_paid failed:", err));
+
   res.json(updated);
 });
 

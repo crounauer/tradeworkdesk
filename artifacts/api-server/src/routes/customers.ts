@@ -483,7 +483,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
   // Step 2: email logs for those jobs
   const { data: logs, error } = await supabaseAdmin
     .from("job_email_logs")
-    .select("id, job_id, sent_to, subject, forms_included, created_at, profiles!sent_by(full_name)")
+    .select("id, job_id, sent_to, subject, forms_included, body_text, created_at, profiles!sent_by(full_name)")
     .in("job_id", jobIds)
     .eq("tenant_id", req.tenantId!)
     .order("created_at", { ascending: false })
@@ -498,6 +498,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     sent_to: log.sent_to,
     subject: log.subject,
     forms_included: log.forms_included,
+    body_text: log.body_text,
     sent_by_name: (log.profiles as Record<string, unknown> | null)?.full_name ?? null,
     created_at: log.created_at,
   }));

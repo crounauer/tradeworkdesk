@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { hasActiveAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
 import { supabaseAdmin } from "../lib/supabase";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 
@@ -149,6 +150,17 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
   }
 
   if (status === "failed") {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "system_reliability",
+      title: "SMS Delivery Failure",
+      body: `Failed to send SMS to ${destination.trim()}.`,
+      url: "/admin/company-settings?tab=notifications",
+      eventKey: `sms_failed:${record.id}`,
+      targetRoles: ["admin"],
+      data: { smsRecordId: record.id, reason: sendError ?? "send_failed" },
+    }).catch((err) => console.error("[push-events] sms failure alert failed:", err));
+
     res.status(502).json({ error: sendError ?? "Send failed", record });
     return;
   }

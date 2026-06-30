@@ -36,6 +36,7 @@ import {
   requireTenant,
   type AuthenticatedRequest,
 } from "../middlewares/auth";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 const publicRouter: IRouter = Router();
@@ -226,6 +227,18 @@ router.post("/maintenance/reminders/:id/send", requireAuth, requireTenant, async
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
+
+  void notifyUsersForEvent({
+    tenantId: req.tenantId!,
+    eventType: "maintenance_lifecycle",
+    title: "Maintenance Reminder Sent",
+    body: `A service reminder has been sent${reminder?.customer?.first_name ? ` to ${reminder.customer.first_name}` : ""}.`,
+    url: "/maintenance",
+    eventKey: `maintenance_sent:${req.params.id}:${data.sent_at}`,
+    targetRoles: ["admin", "office_staff"],
+    data: { reminderId: req.params.id },
+  }).catch((err) => console.error("[push-events] maintenance_sent failed:", err));
+
   res.json(data);
 });
 
@@ -276,6 +289,19 @@ router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async
       scheduled_for: new Date().toISOString(),
     });
     created++;
+  }
+
+  if (created > 0) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "maintenance_lifecycle",
+      title: "Maintenance Reminders Generated",
+      body: `${created} reminder${created === 1 ? "" : "s"} generated for upcoming services.`,
+      url: "/maintenance",
+      eventKey: `maintenance_generated:${req.tenantId}:${cutoffStr}:${created}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { created },
+    }).catch((err) => console.error("[push-events] maintenance_generated failed:", err));
   }
 
   res.json({ created });

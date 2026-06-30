@@ -7,6 +7,7 @@ import { startSocialScheduler } from "./lib/social-scheduler";
 import { startDailySuggestionsCron } from "./lib/social-daily-cron";
 import { seedAllTenantsJobTypes } from "./lib/job-types-seed";
 import { runStartupMigrations } from "./lib/migrations";
+import { startPushEventScheduler } from "./lib/push-events";
 
 const rawPort = process.env["PORT"] ?? "3001";
 
@@ -33,6 +34,7 @@ if (Number.isNaN(port) || port <= 0) {
       startSocialScheduler();
       startDailySuggestionsCron();
       startReviewRequestScheduler();
+      startPushEventScheduler();
       seedAllTenantsJobTypes().catch((err) =>
         console.error("[job-types] Startup seeding failed:", err)
       );

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 
@@ -114,6 +115,20 @@ router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "off
 
   const { data, error } = await supabaseAdmin.from("follow_ups").insert(insertPayload).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  if (expected_parts_date) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "appointment_due",
+      title: "Follow-up Created",
+      body: `Follow-up ${data.id} is expected on ${expected_parts_date}.`,
+      url: "/follow-ups",
+      eventKey: `followup_created:${data.id}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { followUpId: data.id },
+    }).catch((err) => console.error("[push-events] followup_created failed:", err));
+  }
+
   res.status(201).json(data);
 });
 
@@ -132,8 +147,44 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
   let q = supabaseAdmin.from("follow_ups").update(updatePayload).eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
+  const { data: before } = await supabaseAdmin
+    .from("follow_ups")
+    .select("status")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
   const { data, error } = await q.select().single();
   if (error) { res.status(error.code === "PGRST116" ? 404 : 500).json({ error: error.message }); return; }
+
+  const previousStatus = (before as { status?: string } | null)?.status;
+  const nextStatus = (data as { status?: string }).status;
+  if (nextStatus && previousStatus !== nextStatus && ["parts_arrived", "booked", "cancelled"].includes(nextStatus)) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "blocking_status_changes",
+      title: "Follow-up Status Updated",
+      body: `Follow-up ${id} moved to ${nextStatus}.`,
+      url: "/follow-ups",
+      eventKey: `followup_status:${id}:${nextStatus}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { followUpId: id, status: nextStatus },
+    }).catch((err) => console.error("[push-events] followup_status failed:", err));
+  }
+
+  if (nextStatus === "cancelled") {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "operational_exceptions",
+      title: "Operational Exception",
+      body: `Follow-up ${id} was cancelled.`,
+      url: "/follow-ups",
+      eventKey: `followup_cancelled:${id}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { followUpId: id },
+    }).catch((err) => console.error("[push-events] followup_cancelled failed:", err));
+  }
+
   res.json(data);
 });
 
@@ -206,6 +257,19 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   if (updateErr) {
     await supabaseAdmin.from("jobs").delete().eq("id", newJob.id);
     res.status(500).json({ error: "Failed to link follow-up to new job" }); return;
+  }
+
+  if (assigned_technician_id) {
+    void notifyUsersForEvent({
+      tenantId,
+      eventType: "assignment_changes",
+      title: "New Job Assignment",
+      body: `You were assigned job ${newJob.job_ref || newJob.id} from follow-up ${id}.`,
+      url: `/jobs/${newJob.id}`,
+      eventKey: `followup_converted_assignment:${id}:${assigned_technician_id}`,
+      targetUserIds: [assigned_technician_id],
+      data: { followUpId: id, jobId: newJob.id },
+    }).catch((err) => console.error("[push-events] followup conversion assignment failed:", err));
   }
 
   res.status(201).json({ follow_up_id: id, job_id: newJob.id, job_ref: newJob.job_ref });

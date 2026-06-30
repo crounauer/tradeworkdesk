@@ -35,6 +35,31 @@ interface GcStatus { available: boolean; connected: boolean; organisation_id?: s
 
 type PushPermissionState = "default" | "denied" | "granted";
 
+type PushEventMeta = {
+  key:
+    | "appointment_due"
+    | "appointment_overdue"
+    | "assignment_changes"
+    | "blocking_status_changes"
+    | "customer_communications"
+    | "payment_alerts"
+    | "sla_breach_risk"
+    | "maintenance_lifecycle"
+    | "operational_exceptions"
+    | "system_reliability";
+  label: string;
+  description: string;
+};
+
+type PushUserPreferenceRow = {
+  userId: string;
+  fullName: string | null;
+  email: string | null;
+  role: string | null;
+  isActive: boolean;
+  preferences: Record<PushEventMeta["key"], boolean>;
+};
+
 function GoCardlessSection({ enabled, onToggle }: { enabled: boolean; onToggle: (v: boolean) => void }) {
   const { toast } = useToast();
   const [status, setStatus] = useState<GcStatus | null>(null);
@@ -306,6 +331,130 @@ function PushNotificationsSection() {
             Send test notification
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PushPreferenceMatrix() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [events, setEvents] = useState<PushEventMeta[]>([]);
+  const [rows, setRows] = useState<PushUserPreferenceRow[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [metaRes, usersRes] = await Promise.all([
+          fetch("/api/push/preferences/meta"),
+          fetch("/api/push/preferences/users"),
+        ]);
+
+        if (!metaRes.ok) throw new Error("Failed to load push event metadata");
+        if (!usersRes.ok) throw new Error("Failed to load user push preferences");
+
+        const metaData = await metaRes.json() as { events: PushEventMeta[] };
+        const userData = await usersRes.json() as PushUserPreferenceRow[];
+
+        if (!mounted) return;
+        setEvents(metaData.events || []);
+        setRows(Array.isArray(userData) ? userData : []);
+      } catch (err) {
+        if (!mounted) return;
+        toast({ title: "Failed to load push preferences", description: (err as Error).message, variant: "destructive" });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load().catch(() => {
+      if (mounted) setLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [toast]);
+
+  const updatePreference = async (userId: string, key: PushEventMeta["key"], nextValue: boolean) => {
+    const rowKey = `${userId}:${key}`;
+    const prevRows = rows;
+    setSavingKey(rowKey);
+    setRows((curr) => curr.map((r) => r.userId === userId
+      ? { ...r, preferences: { ...r.preferences, [key]: nextValue } }
+      : r));
+
+    try {
+      const res = await fetch(`/api/push/preferences/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: nextValue }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to save preference");
+      }
+    } catch (err) {
+      setRows(prevRows);
+      toast({ title: "Failed to save preference", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><Users className="w-4 h-4" /> Push Event Preferences By User</CardTitle>
+        <CardDescription>
+          Tenant admins can enable or disable each push alert scenario per user.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="h-24 rounded-lg border bg-slate-50 animate-pulse" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No users found for this tenant.</p>
+        ) : (
+          <div className="space-y-4">
+            {rows.map((row) => (
+              <div key={row.userId} className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{row.fullName || row.email || "Unknown user"}</p>
+                    <p className="text-xs text-muted-foreground">{row.email || "No email"} • {row.role || "unknown"}</p>
+                  </div>
+                  {!row.isActive && <Badge variant="outline">Inactive</Badge>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {events.map((event) => {
+                    const eventKey = `${row.userId}:${event.key}`;
+                    const checked = !!row.preferences[event.key];
+                    return (
+                      <div key={event.key} className="flex items-start justify-between gap-4 rounded-md border p-2.5">
+                        <div>
+                          <p className="text-sm font-medium leading-tight">{event.label}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{event.description}</p>
+                        </div>
+                        <Switch
+                          checked={checked}
+                          disabled={savingKey === eventKey || !row.isActive}
+                          onCheckedChange={(value) => {
+                            void updatePreference(row.userId, event.key, value);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1381,6 +1530,8 @@ export default function AdminCompanySettings() {
             </Card>
 
             <PushNotificationsSection />
+
+            {isAdmin && <PushPreferenceMatrix />}
 
             {renderSectionSaveButton("Save notification changes")}
           </TabsContent>

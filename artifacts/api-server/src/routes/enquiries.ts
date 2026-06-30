@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 
@@ -297,6 +298,33 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     },
   });
 
+  void notifyUsersForEvent({
+    tenantId: req.tenantId!,
+    eventType: "customer_communications",
+    title: "New Enquiry",
+    body: `${contact_name.trim()} created a new enquiry.`,
+    url: `/enquiries/${(data as { id: string }).id}`,
+    eventKey: `enquiry_created:${(data as { id: string }).id}`,
+    targetRoles: ["admin", "office_staff"],
+    data: {
+      enquiryId: (data as { id: string }).id,
+      source: validSources.includes(source) ? source : "phone",
+    },
+  }).catch((err) => console.error("[push-events] enquiry_created failed:", err));
+
+  if (["high", "urgent"].includes(validPriorities.includes(priority) ? priority : "medium")) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "sla_breach_risk",
+      title: "Urgent Enquiry",
+      body: `${contact_name.trim()} enquiry is high priority.`,
+      url: `/enquiries/${(data as { id: string }).id}`,
+      eventKey: `enquiry_priority:${(data as { id: string }).id}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { enquiryId: (data as { id: string }).id },
+    }).catch((err) => console.error("[push-events] enquiry_priority failed:", err));
+  }
+
   res.status(201).json(data);
 });
 
@@ -378,6 +406,34 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
       status: (data as Record<string, unknown>).status,
     },
   });
+
+  const updatedStatus = (data as { status?: string }).status;
+  if (updatedStatus && ["lost", "quoted"].includes(updatedStatus)) {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "blocking_status_changes",
+      title: "Enquiry Status Updated",
+      body: `Enquiry ${id} moved to ${updatedStatus}.`,
+      url: `/enquiries/${id}`,
+      eventKey: `enquiry_status:${id}:${updatedStatus}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { enquiryId: id, status: updatedStatus },
+    }).catch((err) => console.error("[push-events] enquiry_status failed:", err));
+  }
+
+  const updatedPriority = (data as { priority?: string }).priority;
+  if (updatedPriority && ["high", "urgent"].includes(updatedPriority) && updatedStatus === "new") {
+    void notifyUsersForEvent({
+      tenantId: req.tenantId!,
+      eventType: "sla_breach_risk",
+      title: "Urgent Enquiry SLA Risk",
+      body: `Enquiry ${id} is ${updatedPriority} priority and still new.`,
+      url: `/enquiries/${id}`,
+      eventKey: `enquiry_sla:${id}:${updatedPriority}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { enquiryId: id, priority: updatedPriority },
+    }).catch((err) => console.error("[push-events] enquiry_sla failed:", err));
+  }
 
   res.json(data);
 });

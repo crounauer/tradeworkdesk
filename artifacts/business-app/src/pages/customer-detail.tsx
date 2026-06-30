@@ -510,6 +510,7 @@ interface EmailLogEntry {
   sent_to: string;
   subject: string;
   forms_included: { form_type: string; form_label: string; form_id: string }[];
+  body_text?: string | null;
   sent_by_name: string | null;
   created_at: string;
 }
@@ -560,6 +561,16 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </div>
               </div>
+              {log.body_text && (
+                <details className="mt-3 rounded-md border border-border/50 bg-muted/30 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
+                    View email content
+                  </summary>
+                  <pre className="mt-2 whitespace-pre-wrap text-xs text-foreground font-sans leading-relaxed">
+                    {log.body_text}
+                  </pre>
+                </details>
+              )}
             </Card>
           </Link>
         ))}

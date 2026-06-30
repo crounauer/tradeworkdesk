@@ -26,6 +26,7 @@ import {
   requireTenant,
   type AuthenticatedRequest,
 } from "../middlewares/auth";
+import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 const publicRouter: IRouter = Router();
@@ -230,6 +231,30 @@ publicRouter.post("/public/missed-call/webhook", async (req: Request, res: Respo
     suppressed: false,
     customer_id: customer?.id ?? null,
   });
+
+  if (sendError) {
+    void notifyUsersForEvent({
+      tenantId: settings.tenant_id,
+      eventType: "system_reliability",
+      title: "Missed-Call SMS Failure",
+      body: `Auto-reply to ${callerNumber} failed to send.`,
+      url: "/missed-call",
+      eventKey: `missed_call_sms_failed:${settings.tenant_id}:${callerNumber}:${new Date().toISOString().slice(0, 10)}`,
+      targetRoles: ["admin"],
+      data: { callerNumber, provider, reason: sendError },
+    }).catch((err) => console.error("[push-events] missed call reliability alert failed:", err));
+  } else {
+    void notifyUsersForEvent({
+      tenantId: settings.tenant_id,
+      eventType: "customer_communications",
+      title: "Missed Call Captured",
+      body: `New missed call from ${callerNumber}.`,
+      url: "/missed-call",
+      eventKey: `missed_call_captured:${settings.tenant_id}:${callerNumber}:${new Date().toISOString().slice(0, 10)}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { callerNumber, provider },
+    }).catch((err) => console.error("[push-events] missed call communication alert failed:", err));
+  }
 });
 
 export { router as missedCallRouter, publicRouter as missedCallPublicRouter };

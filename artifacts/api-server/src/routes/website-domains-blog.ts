@@ -48,7 +48,7 @@ import { resolveCname, resolve4 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 import { sendSimpleNotification } from "../lib/email";
-import { sendPushToTenant } from "../lib/push-notifications";
+import { notifyUsersForEvent } from "../lib/push-events";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
@@ -2103,11 +2103,14 @@ async function sendFormSubmissionNotifications(
     }
 
     const submitterName = String(data.name || data.full_name || "Someone").trim() || "Someone";
-    await sendPushToTenant(tenantId, {
+    await notifyUsersForEvent({
+      tenantId,
+      eventType: "customer_communications",
       title: "New Website Enquiry",
       body: `${submitterName} submitted a ${formType} form`,
       url: enquiryId ? `/enquiries/${enquiryId}` : "/enquiries",
-      tag: `website-enquiry-${submissionId}`,
+      eventKey: `website_enquiry:${submissionId}`,
+      targetRoles: ["admin", "office_staff"],
       data: {
         type: "website_form_submission",
         submissionId,
