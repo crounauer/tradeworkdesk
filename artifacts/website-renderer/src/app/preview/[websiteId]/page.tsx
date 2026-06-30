@@ -55,7 +55,14 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
       <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
       <main>
         {blocks.map((block) => (
-          <BlockRenderer key={block.id} block={block} websiteId={websiteId} site={site} showFallback />
+          <BlockRenderer
+            key={block.id}
+            block={block}
+            websiteId={websiteId}
+            site={site}
+            tenantId={site.website.tenant_id}
+            showFallback
+          />
         ))}
         {blocks.length === 0 && (
           <div
