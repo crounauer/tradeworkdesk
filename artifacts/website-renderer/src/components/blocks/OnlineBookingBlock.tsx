@@ -158,8 +158,9 @@ export default function OnlineBookingBlock({ content }: Props) {
     const to = new Date(from);
     to.setDate(to.getDate() + 6);
     const fmt = (d: Date) => d.toISOString().split("T")[0];
+    const durationParam = Math.max(1, Math.round(Number(selectedService.duration_minutes || 60)));
     fetch(
-      `${API_BASE}/api/public/booking/${tenant_id}/slots?from=${fmt(from)}&to=${fmt(to)}&service_id=${selectedService.id}`
+      `${API_BASE}/api/public/booking/${tenant_id}/slots?from=${fmt(from)}&to=${fmt(to)}&service_catalogue_id=${selectedService.id}&duration_minutes=${durationParam}`
     )
       .then((r) => r.json())
       .then((data: Slot[]) => {

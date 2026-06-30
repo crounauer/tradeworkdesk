@@ -569,7 +569,7 @@ router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireB
 // ─── Slots ────────────────────────────────────────────────────────────────────
 
 router.get("/booking/slots", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  const { from, to, service_id, service_catalogue_id } = req.query as Record<string, string>;
+  const { from, to, service_id, service_catalogue_id, duration_minutes } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
   let duration = 60;
@@ -577,6 +577,17 @@ router.get("/booking/slots", requireAuth, requireTenant, requireBooking(), async
   if (selectedServiceId) {
     const svc = await resolveServiceForBooking(req.tenantId!, selectedServiceId);
     if (svc) duration = svc.duration_minutes;
+    else if (duration_minutes) {
+      const parsedDuration = Number(duration_minutes);
+      if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+        duration = Math.round(parsedDuration);
+      }
+    }
+  } else if (duration_minutes) {
+    const parsedDuration = Number(duration_minutes);
+    if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+      duration = Math.round(parsedDuration);
+    }
   }
 
   const slots = await getAvailableSlots(req.tenantId!, from, to, duration);
@@ -671,7 +682,7 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", async (req: Reque
 });
 
 publicRouter.get("/public/booking/:tenantId/slots", async (req: Request, res: Response) => {
-  const { from, to, service_id, service_catalogue_id } = req.query as Record<string, string>;
+  const { from, to, service_id, service_catalogue_id, duration_minutes } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
   let duration = 60;
@@ -679,6 +690,17 @@ publicRouter.get("/public/booking/:tenantId/slots", async (req: Request, res: Re
   if (selectedServiceId) {
     const svc = await resolveServiceForBooking(req.params.tenantId, selectedServiceId);
     if (svc) duration = svc.duration_minutes;
+    else if (duration_minutes) {
+      const parsedDuration = Number(duration_minutes);
+      if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+        duration = Math.round(parsedDuration);
+      }
+    }
+  } else if (duration_minutes) {
+    const parsedDuration = Number(duration_minutes);
+    if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+      duration = Math.round(parsedDuration);
+    }
   }
 
   const slots = await getAvailableSlots(req.params.tenantId, from, to, duration);
