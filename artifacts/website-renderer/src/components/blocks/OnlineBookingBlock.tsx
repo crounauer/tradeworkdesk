@@ -13,7 +13,7 @@
  *           — auto_confirm=false → "Request received, we'll be in touch" message
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const API_BASE =
   typeof process !== "undefined"
@@ -135,6 +135,7 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [resultStatus, setResultStatus] = useState<"confirmed" | "pending" | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
+  const submitIdempotencyKeyRef = useRef<string | null>(null);
 
   // Load services
   useEffect(() => {
@@ -236,6 +237,11 @@ export default function OnlineBookingBlock({ content }: Props) {
     setSubmitting(true);
     setResultError(null);
     try {
+      if (!submitIdempotencyKeyRef.current) {
+        submitIdempotencyKeyRef.current = typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
       const body = {
         customer_name: name.trim(),
         customer_email: email.trim(),
@@ -259,7 +265,10 @@ export default function OnlineBookingBlock({ content }: Props) {
       };
       const res = await fetch(`${API_BASE}/api/public/booking/${tenant_id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": submitIdempotencyKeyRef.current,
+        },
         body: JSON.stringify(body),
       });
       const data = await res.json() as { status?: string; error?: string };

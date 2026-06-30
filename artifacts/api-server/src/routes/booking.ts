@@ -25,6 +25,8 @@
  */
 
 import { Router, type IRouter, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
+import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
@@ -40,6 +42,77 @@ import {
 const router: IRouter = Router();
 const publicRouter: IRouter = Router();
 const db = supabaseAdmin as any;
+
+const bookingSubmitLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many booking attempts. Please wait a few minutes and try again." },
+  keyGenerator: (req) => `booking-submit:${req.params.tenantId || "unknown"}:${req.ip || "unknown"}`,
+});
+
+const bookingSlotsLimiter = rateLimit({
+  windowMs: 2 * 60 * 1000,
+  max: 180,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many slot requests. Please slow down and try again." },
+  keyGenerator: (req) => `booking-slots:${req.params.tenantId || "unknown"}:${req.ip || "unknown"}`,
+});
+
+const postcodeLookupLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many postcode lookups. Please wait a few minutes and try again." },
+  keyGenerator: (req) => `booking-postcode:${req.params.tenantId || "unknown"}:${req.ip || "unknown"}`,
+});
+
+const idempotencyCache = new Map<string, { payloadHash: string; response: { id: string; status: string; scheduled_start: string }; createdAt: number }>();
+const inFlightSlotLocks = new Set<string>();
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+
+function cleanupPublicBookingCaches(): void {
+  const cutoff = Date.now() - IDEMPOTENCY_TTL_MS;
+  for (const [k, v] of idempotencyCache) {
+    if (v.createdAt < cutoff) idempotencyCache.delete(k);
+  }
+}
+
+function extractUtcDateAndTime(isoDateTime: string): { date: string; time: string } {
+  const d = new Date(isoDateTime);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return { date: `${y}-${m}-${day}`, time: `${hh}:${mm}` };
+}
+
+function buildBookingPayloadHash(payload: {
+  customer_name: string;
+  customer_email: string;
+  customer_phone?: string;
+  scheduled_start: string;
+  selected_service_id: string;
+  customer_address?: string;
+  customer_postcode?: string;
+}): string {
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
+
+async function isRequestedSlotStillAvailable(args: {
+  tenantId: string;
+  scheduledStartIso: string;
+  durationMinutes: number;
+}): Promise<boolean> {
+  const { tenantId, scheduledStartIso, durationMinutes } = args;
+  const date = scheduledStartIso.slice(0, 10);
+  const slots = await getAvailableSlots(tenantId, date, date, durationMinutes);
+  return slots.some((slot) => slot.start === scheduledStartIso);
+}
 
 type BookableService = {
   id: string;
@@ -619,7 +692,7 @@ publicRouter.get("/public/booking/:tenantId/services", async (req: Request, res:
   }
 });
 
-publicRouter.post("/public/booking/:tenantId/postcode-lookup", async (req: Request, res: Response) => {
+publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLimiter, async (req: Request, res: Response) => {
   const { postcode } = req.body as { postcode?: string };
   if (!postcode || typeof postcode !== "string") {
     res.status(400).json({ error: "Postcode is required" });
@@ -681,7 +754,7 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", async (req: Reque
   }
 });
 
-publicRouter.get("/public/booking/:tenantId/slots", async (req: Request, res: Response) => {
+publicRouter.get("/public/booking/:tenantId/slots", bookingSlotsLimiter, async (req: Request, res: Response) => {
   const { from, to, service_id, service_catalogue_id, duration_minutes } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
@@ -707,10 +780,12 @@ publicRouter.get("/public/booking/:tenantId/slots", async (req: Request, res: Re
   res.json(slots);
 });
 
-publicRouter.post("/public/booking/:tenantId", async (req: Request, res: Response) => {
+publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req: Request, res: Response) => {
+  cleanupPublicBookingCaches();
+
   // Validate settings exist and booking is enabled
   const { data: settings } = await db.from("booking_settings")
-    .select("is_enabled, auto_confirm").eq("tenant_id", req.params.tenantId).maybeSingle();
+    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id").eq("tenant_id", req.params.tenantId).maybeSingle();
   if (!settings?.is_enabled) {
     return res.status(403).json({ error: "Online booking is not enabled" });
   }
@@ -720,76 +795,148 @@ publicRouter.post("/public/booking/:tenantId", async (req: Request, res: Respons
     return res.status(400).json({ error: "customer_name, customer_email and scheduled_start are required" });
   }
 
+  // Simple honeypot field for bots. Real clients should never send this.
+  if (typeof (req.body as Record<string, unknown>)?.website_url === "string" && ((req.body as Record<string, unknown>).website_url as string).trim()) {
+    return res.status(400).json({ error: "Invalid booking payload" });
+  }
+
+  const scheduledStart = new Date(scheduled_start);
+  if (Number.isNaN(scheduledStart.getTime())) {
+    return res.status(400).json({ error: "scheduled_start must be a valid ISO datetime" });
+  }
+
+  const selectedServiceId = service_catalogue_id || booking_service_id;
+  if (!selectedServiceId) {
+    return res.status(400).json({ error: "A valid service must be selected" });
+  }
+
   // Calculate end time from service duration
   let duration = 60;
-  const selectedServiceId = service_catalogue_id || booking_service_id;
   const selectedService = selectedServiceId ? await resolveServiceForBooking(req.params.tenantId, selectedServiceId) : null;
   if (selectedService) {
     duration = selectedService.duration_minutes;
   } else if (selectedServiceId) {
     return res.status(400).json({ error: "Selected service is not available for online booking" });
   }
-  const scheduledEnd = new Date(new Date(scheduled_start).getTime() + duration * 60000).toISOString();
 
-  const bookingStatus = settings.auto_confirm ? "confirmed" : "pending";
-  const { data, error } = await db.from("bookings").insert({
-    tenant_id: req.params.tenantId,
-    booking_service_id: selectedService?.source === "legacy" ? selectedService.id : null,
-    service_catalogue_id: selectedService?.source === "catalogue" ? selectedService.id : null,
-    scheduled_start,
-    scheduled_end: scheduledEnd,
-    customer_name,
-    customer_email,
-    customer_phone: customer_phone || null,
-    customer_address: customer_address || null,
-    customer_postcode: customer_postcode || null,
-    notes: notes || null,
-    status: bookingStatus,
-    source: "website",
-  }).select().single();
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  if (settings.auto_create_job) {
-    const bookingDate = new Date(scheduled_start);
-    const scheduledDate = bookingDate.toISOString().slice(0, 10);
-    const scheduledTime = bookingDate.toTimeString().slice(0, 5);
-    const title = `${selectedService?.name || "Online Booking"} — ${customer_name}`;
-    const description = buildOnlineBookingDescription(notes);
-
-    const { data: job, error: jobError } = await db.from("jobs").insert({
-      tenant_id: req.params.tenantId,
-      title,
-      description,
-      notes: description,
-      status: "scheduled",
-      job_type: "service",
-      job_type_id: settings.default_job_type_id || null,
-      priority: "medium",
-      scheduled_date: scheduledDate,
-      scheduled_time: scheduledTime,
-      created_by: null,
-    }).select("id").single();
-
-    if (jobError) {
-      console.error("[booking] failed to create calendar job:", jobError.message);
-    } else if (job?.id) {
-      await db.from("bookings").update({ job_id: job.id }).eq("id", data.id).eq("tenant_id", req.params.tenantId);
-    }
+  const normalizedScheduledStart = scheduledStart.toISOString();
+  const slotStillAvailable = await isRequestedSlotStillAvailable({
+    tenantId: req.params.tenantId,
+    scheduledStartIso: normalizedScheduledStart,
+    durationMinutes: duration,
+  });
+  if (!slotStillAvailable) {
+    return res.status(409).json({ error: "That slot is no longer available. Please choose another time." });
   }
 
-  void notifyUsersForEvent({
-    tenantId: req.params.tenantId,
-    eventType: "customer_communications",
-    title: "New Online Booking",
-    body: `${customer_name} submitted an online booking for ${selectedService?.name || "a service"}.`,
-    url: "/bookings",
-    eventKey: `online_booking:${data.id}`,
-    targetRoles: ["admin", "office_staff"],
-    data: { bookingId: data.id },
-  }).catch((err) => console.error("[push-events] online_booking failed:", err));
+  const lockKey = `${req.params.tenantId}:${selectedService.id}:${normalizedScheduledStart}`;
+  if (inFlightSlotLocks.has(lockKey)) {
+    return res.status(409).json({ error: "This slot is currently being booked. Please retry in a moment." });
+  }
+  inFlightSlotLocks.add(lockKey);
 
-  res.status(201).json({ id: data.id, status: data.status, scheduled_start: data.scheduled_start });
+  try {
+    const idempotencyKeyHeader = (req.header("x-idempotency-key") || req.header("X-Idempotency-Key") || "").trim();
+    const idemKey = idempotencyKeyHeader ? `${req.params.tenantId}:${idempotencyKeyHeader}` : null;
+    const payloadHash = buildBookingPayloadHash({
+      customer_name,
+      customer_email,
+      customer_phone,
+      scheduled_start: normalizedScheduledStart,
+      selected_service_id: selectedServiceId,
+      customer_address,
+      customer_postcode,
+    });
+
+    if (idempotencyKeyHeader) {
+      const existing = idempotencyCache.get(idemKey!);
+      if (existing) {
+        if (existing.payloadHash !== payloadHash) {
+          return res.status(409).json({ error: "Idempotency key was already used with a different booking payload" });
+        }
+        return res.status(201).json(existing.response);
+      }
+    }
+
+    const scheduledEnd = new Date(normalizedScheduledStart);
+    scheduledEnd.setUTCMinutes(scheduledEnd.getUTCMinutes() + duration);
+
+    const bookingStatus = settings.auto_confirm ? "confirmed" : "pending";
+    const { data, error } = await db.from("bookings").insert({
+      tenant_id: req.params.tenantId,
+      booking_service_id: selectedService?.source === "legacy" ? selectedService.id : null,
+      service_catalogue_id: selectedService?.source === "catalogue" ? selectedService.id : null,
+      scheduled_start: normalizedScheduledStart,
+      scheduled_end: scheduledEnd.toISOString(),
+      customer_name,
+      customer_email,
+      customer_phone: customer_phone || null,
+      customer_address: customer_address || null,
+      customer_postcode: customer_postcode || null,
+      notes: notes || null,
+      status: bookingStatus,
+      source: "website",
+    }).select().single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (settings.auto_create_job) {
+      const utcSchedule = extractUtcDateAndTime(normalizedScheduledStart);
+      const title = `${selectedService?.name || "Online Booking"} — ${customer_name}`;
+      const description = buildOnlineBookingDescription(notes);
+
+      const { data: job, error: jobError } = await db.from("jobs").insert({
+        tenant_id: req.params.tenantId,
+        title,
+        description,
+        notes: description,
+        status: "scheduled",
+        job_type: "service",
+        job_type_id: settings.default_job_type_id || null,
+        priority: "medium",
+        scheduled_date: utcSchedule.date,
+        scheduled_time: utcSchedule.time,
+        estimated_duration: duration,
+        created_by: null,
+      }).select("id").single();
+
+      if (jobError) {
+        console.error("[booking] failed to create calendar job:", jobError.message);
+        void notifyUsersForEvent({
+          tenantId: req.params.tenantId,
+          eventType: "operational_exceptions",
+          title: "Online Booking Created Without Job",
+          body: `Booking ${data.id} was created but calendar job creation failed: ${jobError.message}`,
+          url: "/bookings",
+          eventKey: `online_booking_job_create_failed:${data.id}`,
+          targetRoles: ["admin", "office_staff"],
+          data: { bookingId: data.id },
+        }).catch((err) => console.error("[push-events] online_booking_job_create_failed failed:", err));
+      } else if (job?.id) {
+        await db.from("bookings").update({ job_id: job.id }).eq("id", data.id).eq("tenant_id", req.params.tenantId);
+      }
+    }
+
+    void notifyUsersForEvent({
+      tenantId: req.params.tenantId,
+      eventType: "customer_communications",
+      title: "New Online Booking",
+      body: `${customer_name} submitted an online booking for ${selectedService?.name || "a service"}.`,
+      url: "/bookings",
+      eventKey: `online_booking:${data.id}`,
+      targetRoles: ["admin", "office_staff"],
+      data: { bookingId: data.id },
+    }).catch((err) => console.error("[push-events] online_booking failed:", err));
+
+    const responseBody = { id: data.id, status: data.status, scheduled_start: data.scheduled_start };
+    if (idemKey) {
+      idempotencyCache.set(idemKey, { payloadHash, response: responseBody, createdAt: Date.now() });
+    }
+
+    res.status(201).json(responseBody);
+  } finally {
+    inFlightSlotLocks.delete(lockKey);
+  }
 });
 
 export { router as bookingRouter, publicRouter as bookingPublicRouter };
