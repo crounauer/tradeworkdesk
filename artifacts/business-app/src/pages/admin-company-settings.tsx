@@ -496,20 +496,39 @@ function CoverageRadiusAutoFit({ latitude, longitude, radiusMiles }: { latitude:
   const map = useMap();
 
   useEffect(() => {
-    const center = L.latLng(latitude, longitude);
-    map.invalidateSize();
+    let cancelled = false;
 
-    if (radiusMiles > 0) {
-      const circleBounds = L.circle(center, { radius: milesToMeters(radiusMiles) }).getBounds();
-      map.fitBounds(circleBounds, {
-        padding: [8, 8],
-        maxZoom: 18,
-        animate: false,
+    const applyViewport = () => {
+      if (cancelled) return;
+
+      const container = map.getContainer();
+      if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) return;
+
+      const center = L.latLng(latitude, longitude);
+      map.invalidateSize({ animate: false });
+
+      if (radiusMiles > 0) {
+        const circleBounds = L.circle(center, { radius: milesToMeters(radiusMiles) }).getBounds();
+        map.fitBounds(circleBounds, {
+          padding: [8, 8],
+          maxZoom: 18,
+          animate: false,
+        });
+        return;
+      }
+
+      map.setView([latitude, longitude], 13, { animate: false });
+    };
+
+    map.whenReady(() => {
+      requestAnimationFrame(() => {
+        applyViewport();
       });
-      return;
-    }
+    });
 
-    map.setView([latitude, longitude], 13, { animate: false });
+    return () => {
+      cancelled = true;
+    };
   }, [map, latitude, longitude, radiusMiles]);
 
   return null;
