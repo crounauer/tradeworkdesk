@@ -492,42 +492,75 @@ function milesToMeters(miles: number): number {
   return miles * 1609.34;
 }
 
+function parseRadiusMiles(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(String(value ?? "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function calculateZoomForRadius(latitude: number, radiusMeters: number, containerWidth: number, containerHeight: number): number {
+  const minDimension = Math.max(1, Math.min(containerWidth, containerHeight));
+  const drawableRadiusPx = Math.max(1, minDimension / 2 - 16);
+  const metersPerPixelAtZoom0 = 156543.03392 * Math.cos((latitude * Math.PI) / 180);
+  const desiredMetersPerPixel = radiusMeters / drawableRadiusPx;
+  const rawZoom = Math.log2(metersPerPixelAtZoom0 / desiredMetersPerPixel);
+  const safeZoom = Number.isFinite(rawZoom) ? rawZoom : 13;
+  return Math.max(1, Math.min(18, Math.floor(safeZoom)));
+}
+
 function CoverageRadiusAutoFit({ latitude, longitude, radiusMiles }: { latitude: number; longitude: number; radiusMiles: number }) {
   const map = useMap();
 
   useEffect(() => {
     let cancelled = false;
+    const maxSizeRetries = 20;
+    let sizeRetryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const delayedRefitTimers: ReturnType<typeof setTimeout>[] = [];
 
     const applyViewport = () => {
       if (cancelled) return;
 
       const container = map.getContainer();
-      if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) return;
+      if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+        if (sizeRetryCount < maxSizeRetries) {
+          sizeRetryCount += 1;
+          retryTimer = setTimeout(applyViewport, 100);
+        }
+        return;
+      }
 
       const center = L.latLng(latitude, longitude);
       map.invalidateSize({ animate: false });
 
       if (radiusMiles > 0) {
-        const circleBounds = L.circle(center, { radius: milesToMeters(radiusMiles) }).getBounds();
-        map.fitBounds(circleBounds, {
-          padding: [8, 8],
-          maxZoom: 18,
-          animate: false,
-        });
-        return;
+        const radiusMeters = milesToMeters(radiusMiles);
+        const zoom = calculateZoomForRadius(latitude, radiusMeters, container.offsetWidth, container.offsetHeight);
+        map.setView(center, zoom, { animate: false });
+      } else {
+        map.setView([latitude, longitude], 13, { animate: false });
       }
+    };
 
-      map.setView([latitude, longitude], 13, { animate: false });
+    const onResize = () => {
+      applyViewport();
+    };
+
+    const scheduleDelayedRefits = () => {
+      delayedRefitTimers.push(setTimeout(applyViewport, 150));
+      delayedRefitTimers.push(setTimeout(applyViewport, 450));
     };
 
     map.whenReady(() => {
-      requestAnimationFrame(() => {
-        applyViewport();
-      });
+      requestAnimationFrame(applyViewport);
+      scheduleDelayedRefits();
     });
+    map.on("resize", onResize);
 
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      for (const timer of delayedRefitTimers) clearTimeout(timer);
+      map.off("resize", onResize);
     };
   }, [map, latitude, longitude, radiusMiles]);
 
@@ -887,7 +920,7 @@ export default function AdminCompanySettings() {
 
   const watchedPostcode = String(watch("postcode") || "").trim();
   const watchedCoverageRadiusRaw = watch("coverage_radius_miles");
-  const watchedCoverageRadiusMiles = Number(watchedCoverageRadiusRaw ?? 0);
+  const watchedCoverageRadiusMiles = parseRadiusMiles(watchedCoverageRadiusRaw);
 
   useEffect(() => {
     if (activeTab !== "profile") return;
@@ -2688,7 +2721,7 @@ function PublicDirectoryCard() {
 
   const normalisedSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   const previewUrl = normalisedSlug ? `tradeworkdesk.co.uk/find/${normalisedSlug}` : "tradeworkdesk.co.uk/find/your-slug";
-  const radiusMiles = Number(coverageRadius || 0);
+  const radiusMiles = parseRadiusMiles(coverageRadius);
 
   return (
     <Card>

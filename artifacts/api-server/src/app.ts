@@ -27,6 +27,8 @@ const corsOptions: cors.CorsOptions = {
     const allowed =
       origin === (process.env.APP_URL || "http://localhost:3000") ||
       origin === "http://localhost:3000" ||
+      origin === "http://localhost:3002" ||
+      origin === "http://localhost:3003" ||
       origin === "http://localhost:5173" ||
       /^https?:\/\/([a-z0-9-]+\.)*tradeworkdesk\.co\.uk$/.test(origin) ||
       /^https?:\/\/([a-z0-9-]+\.)*vercel\.app$/.test(origin);
