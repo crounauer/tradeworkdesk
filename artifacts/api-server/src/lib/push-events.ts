@@ -133,7 +133,12 @@ export async function listTenantUsersWithPushPreferences(tenantId: string): Prom
     .eq("tenant_id", tenantId);
 
   if (prefError) {
-    throw new Error(prefError.message);
+    // If the preferences table has not been provisioned yet, still show the
+    // tenant's users with default preferences instead of breaking the whole UI.
+    if ((prefError as { code?: string }).code !== "42P01") {
+      throw new Error(prefError.message);
+    }
+    console.warn("[push-events] tenant_user_push_preferences missing; falling back to defaults");
   }
 
   const prefMap = new Map<string, TenantUserPrefRow>();
