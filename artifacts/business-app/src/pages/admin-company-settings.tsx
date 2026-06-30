@@ -583,6 +583,8 @@ export default function AdminCompanySettings() {
       email: settings.email ?? "",
       notification_emails: settings.notification_emails ?? [],
       website: settings.website ?? "",
+      service_area: settings.service_area ?? "",
+      coverage_radius_miles: settings.coverage_radius_miles != null ? Number(settings.coverage_radius_miles) : null,
       gas_safe_number: settings.gas_safe_number ?? "",
       oftec_number: settings.oftec_number ?? "",
       vat_number: settings.vat_number ?? "",
@@ -630,7 +632,7 @@ export default function AdminCompanySettings() {
     }
   }, [settings?.logo_url, uploadLogo.isPending]);
 
-  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days"]);
+  const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days", "coverage_radius_miles"]);
   const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "white_label_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
   const arrayFields = new Set(["notification_emails", "custom_leave_types"]);
 
@@ -1188,6 +1190,38 @@ export default function AdminCompanySettings() {
             <div className="space-y-1.5">
               <Label htmlFor="country">Country</Label>
               <Input id="country" placeholder="United Kingdom" {...register("country")} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Service Coverage
+            </CardTitle>
+            <CardDescription>
+              Define your operating area for online bookings. If a work radius is set, customer postcodes outside this radius are rejected.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="service_area">Service area description</Label>
+              <Input id="service_area" placeholder="e.g. Aberdeen & surrounding areas" {...register("service_area")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="coverage_radius_miles">Work radius (miles)</Label>
+              <Input
+                id="coverage_radius_miles"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 20"
+                {...register("coverage_radius_miles")}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground self-end">
+              Radius checks are measured from your business postcode in Company Settings.
             </div>
           </CardContent>
         </Card>

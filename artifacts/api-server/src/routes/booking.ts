@@ -30,7 +30,7 @@ import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
-import { getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
+import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
 import {
   requireAuth,
@@ -210,6 +210,69 @@ async function isRequestedSlotStillAvailable(args: {
   const date = scheduledStartIso.slice(0, 10);
   const slots = await getAvailableSlots(tenantId, date, date, durationMinutes);
   return slots.some((slot) => slot.start === scheduledStartIso);
+}
+
+function normalizePostcode(value: string | null | undefined): string {
+  return (value || "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function calculateDistanceMiles(origin: { latitude: number; longitude: number }, target: { latitude: number; longitude: number }): number {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRad(target.latitude - origin.latitude);
+  const dLon = toRad(target.longitude - origin.longitude);
+  const lat1 = toRad(origin.latitude);
+  const lat2 = toRad(target.latitude);
+  const a = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function vetBookingCoverage(args: {
+  tenantId: string;
+  customerPostcode?: string;
+}): Promise<{ allowed: boolean; reason?: string }> {
+  const { tenantId, customerPostcode } = args;
+
+  const { data: company } = await db.from("company_settings")
+    .select("postcode, coverage_radius_miles, service_area")
+    .eq("tenant_id", tenantId)
+    .eq("singleton_id", "default")
+    .maybeSingle() as { data: { postcode: string | null; coverage_radius_miles: number | null; service_area: string | null } | null };
+
+  const radius = Number(company?.coverage_radius_miles ?? 0);
+  if (!Number.isFinite(radius) || radius <= 0) {
+    // Coverage radius not configured: allow booking flow unchanged.
+    return { allowed: true };
+  }
+
+  const originPostcode = normalizePostcode(company?.postcode || "");
+  if (!originPostcode) {
+    return { allowed: false, reason: "Online booking radius check is enabled but business postcode is missing in Company Settings." };
+  }
+
+  const targetPostcode = normalizePostcode(customerPostcode);
+  if (!targetPostcode) {
+    return { allowed: false, reason: "Please enter a valid postcode so we can confirm your address is within our service area." };
+  }
+
+  const [origin, target] = await Promise.all([
+    geocodeAddress(originPostcode),
+    geocodeAddress(targetPostcode),
+  ]);
+
+  if (!origin || !target) {
+    return { allowed: false, reason: "We could not verify this postcode right now. Please try again shortly." };
+  }
+
+  const distanceMiles = calculateDistanceMiles(origin, target);
+  if (distanceMiles > radius) {
+    return {
+      allowed: false,
+      reason: `This address is outside our service area (${distanceMiles.toFixed(1)} miles away, limit ${radius} miles).`,
+    };
+  }
+
+  return { allowed: true };
 }
 
 type BookableService = {
@@ -906,6 +969,14 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
   const selectedServiceId = service_catalogue_id || booking_service_id;
   if (!selectedServiceId) {
     return res.status(400).json({ error: "A valid service must be selected" });
+  }
+
+  const coverageCheck = await vetBookingCoverage({
+    tenantId: req.params.tenantId,
+    customerPostcode: customer_postcode,
+  });
+  if (!coverageCheck.allowed) {
+    return res.status(422).json({ error: coverageCheck.reason || "This address is outside our service area." });
   }
 
   // Calculate end time from service duration
