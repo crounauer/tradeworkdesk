@@ -723,7 +723,23 @@ export default function AdminCompanySettings() {
     if (autoSaveTimerRef.current) { clearTimeout(autoSaveTimerRef.current); autoSaveTimerRef.current = null; }
     const values = getValues();
     const clean: Record<string, string | number | boolean | string[] | null> = {};
+    const dirtyKeySet = new Set(
+      Object.entries(dirtyFields as Record<string, unknown>)
+        .filter(([, isDirtyField]) => Boolean(isDirtyField))
+        .map(([key]) => key),
+    );
+
+    if (dirtyKeySet.size === 0) {
+      isSavingRef.current = false;
+      if (showToast) {
+        toast({ title: "No changes to save" });
+      }
+      return;
+    }
+
     for (const [k, v] of Object.entries(values)) {
+      if (!dirtyKeySet.has(k)) continue;
+
       if (booleanFields.has(k)) {
         clean[k] = Boolean(v);
       } else if (numericFields.has(k)) {
@@ -741,6 +757,7 @@ export default function AdminCompanySettings() {
       await saveToServer(clean);
       if (!isMountedRef.current) return;
       setAutoSaveStatus("saved");
+      reset(values);
       setLastSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       if (showToast) {
         toast({ title: "Settings saved", description: "Company information has been updated." });
@@ -753,7 +770,7 @@ export default function AdminCompanySettings() {
     } finally {
       isSavingRef.current = false;
     }
-  }, [getValues, saveToServer, toast]);
+  }, [dirtyFields, getValues, reset, saveToServer, toast]);
 
   useEffect(() => {
     const subscription = watch(() => {
