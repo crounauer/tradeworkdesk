@@ -184,6 +184,24 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search || "");
+    const view = params.get("view");
+    const date = params.get("date");
+
+    if (view === "day" || view === "week" || view === "month") {
+      setViewMode(view);
+    }
+
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const parsed = new Date(`${date}T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) {
+        setAnchorDate(parsed);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (!popoverDate) return;
     const handler = (e: Event) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {

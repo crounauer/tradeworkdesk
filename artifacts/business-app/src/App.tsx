@@ -165,8 +165,8 @@ const WebsiteAnalytics = lazyRetry(() => import("@/pages/website-analytics"));
 const WebsiteIndexNow = lazyRetry(() => import("@/pages/website-indexnow"));
 const WebsiteBuilderEditor = lazyRetry(() => import("@/pages/website-builder"));
 
-const Bookings = lazyRetry(() => import("@/pages/bookings"));
 const BookingSetup = lazyRetry(() => import("@/pages/booking-setup"));
+const Bookings = lazyRetry(() => import("@/pages/bookings"));
 const ReviewRequests = lazyRetry(() => import("@/pages/review-requests"));
 const MaintenancePlans = lazyRetry(() => import("@/pages/maintenance-plans"));
 const EmailCampaigns = lazyRetry(() => import("@/pages/email-campaigns"));
@@ -451,8 +451,8 @@ const WebsitePreviewRoute = protectFeature(WebsitePreview, "website_builder");
 const WebsiteAnalyticsRoute = protectFeature(WebsiteAnalytics, "website_builder");
 const WebsiteIndexNowRoute = protectFeature(WebsiteIndexNow, "website_builder");
 const WebsiteBuilderEditorRoute = protectFeature(WebsiteBuilderEditor, "website_builder");
-const BookingsRoute = protectFeature(Bookings, "website_builder");
 const BookingSetupRoute = protect(BookingSetup, ["admin", "super_admin"]);
+const BookingReviewRoute = protect(Bookings, ["admin", "office_staff", "super_admin"]);
 const ReviewRequestsRoute = protectFeature(ReviewRequests, "website_builder");
 const MaintenancePlansRoute = protectFeature(MaintenancePlans, "website_builder");
 const EmailCampaignsRoute = protectFeature(EmailCampaigns, "website_builder");
@@ -619,8 +619,9 @@ function AppRouter() {
         <Route path="/website/blog/:id" component={WebsiteBlogEditorRoute} />
         <Route path="/website/indexnow" component={WebsiteIndexNowRoute} />
 
-        <Route path="/booking" component={BookingsRoute} />
+        <Route path="/booking" component={BookingSetupRoute} />
         <Route path="/booking/setup" component={BookingSetupRoute} />
+        <Route path="/booking/review" component={BookingReviewRoute} />
         <Route path="/review-requests" component={ReviewRequestsRoute} />
 
         <Route path="/maintenance" component={MaintenancePlansRoute} />

@@ -112,6 +112,7 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [addressLookupResults, setAddressLookupResults] = useState<AddressResult[]>([]);
   const [addressLookupSearched, setAddressLookupSearched] = useState(false);
   const [addressLookupMessage, setAddressLookupMessage] = useState<string | null>(null);
+  const [selectedAddressCoords, setSelectedAddressCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [coverageCheckLoading, setCoverageCheckLoading] = useState(false);
   const [coverageCheckError, setCoverageCheckError] = useState<string | null>(null);
   const [coverageCheckPassed, setCoverageCheckPassed] = useState(false);
@@ -280,6 +281,7 @@ export default function OnlineBookingBlock({ content }: Props) {
     const line = [addr.line_1, addr.line_2, addr.line_3].filter(Boolean).join(", ");
     setAddress(line);
     setPostcode(addr.postcode);
+    setSelectedAddressCoords({ latitude: addr.latitude, longitude: addr.longitude });
     setAddressLookupResults([]);
     setAddressLookupSearched(false);
     setAddressLookupMessage(`Selected address: ${addr.display}`);
@@ -302,6 +304,8 @@ export default function OnlineBookingBlock({ content }: Props) {
         customer_phone: phone.trim() || undefined,
         customer_address: address.trim() || undefined,
         customer_postcode: postcode.trim() || undefined,
+        customer_latitude: selectedAddressCoords?.latitude,
+        customer_longitude: selectedAddressCoords?.longitude,
         service_catalogue_id: selectedService.id,
         scheduled_start: selectedSlot.start,
         notes: [
@@ -542,6 +546,7 @@ export default function OnlineBookingBlock({ content }: Props) {
 
               {require_postcode && input("Postcode", postcode, (value) => {
                 setPostcode(value);
+                setSelectedAddressCoords(null);
                 setCoverageCheckPassed(false);
                 setCoverageCheckError(null);
               }, { required: true, placeholder: "NE1 1AA" })}
@@ -828,7 +833,7 @@ export default function OnlineBookingBlock({ content }: Props) {
               <button
                 onClick={() => {
                   setStep("service"); setSelectedService(null); setSelectedSlot(null);
-                  setDescription(""); setPostcode(""); setNotes(""); setName(""); setEmail(""); setPhone(""); setAddress("");
+                  setDescription(""); setPostcode(""); setNotes(""); setName(""); setEmail(""); setPhone(""); setAddress(""); setSelectedAddressCoords(null);
                   setPropertyType("house"); setJobUrgency("standard"); setApplianceType(""); setHasNoHeatOrHotWater("no"); setParkingAccess("");
                   setResultStatus(null); setResultError(null);
                 }}

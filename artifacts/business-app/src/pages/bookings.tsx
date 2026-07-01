@@ -1,5 +1,5 @@
 /**
- * Bookings list — shows all customer bookings with status management
+ * Booking review queue — online booking requests pending office approval.
  */
 import { useState } from "react";
 import { Link } from "wouter";
@@ -67,10 +67,12 @@ export default function Bookings() {
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/booking/bookings", statusFilter],
-    queryFn: () => apiFetch(`/api/booking/bookings${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`)
+    queryFn: () => {
+      const params = new URLSearchParams({ source: "website" });
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      return apiFetch(`/api/booking/bookings?${params.toString()}`);
+    }
   });
-
-  const visibleBookings = bookings.filter((b) => b.source !== "website");
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/confirm`, { method: "POST" }),
@@ -94,7 +96,7 @@ export default function Bookings() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Bookings</h1>
+        <h1 className="text-2xl font-bold">Online Booking Review</h1>
         <Link href="/booking/setup">
           <Button variant="outline" size="sm"><Settings className="w-3.5 h-3.5 mr-1.5" />Booking Setup</Button>
         </Link>
@@ -116,19 +118,19 @@ export default function Bookings() {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : visibleBookings.length === 0 ? (
+      ) : bookings.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-muted-foreground">No manual bookings to review.</p>
+            <p className="text-muted-foreground">No online bookings pending review.</p>
             <p className="text-sm text-muted-foreground mt-1">
-              <Link href="/booking/setup" className="underline">Set up online booking</Link> to start receiving customer appointments.
+              New website bookings will appear here before they are converted into jobs.
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {visibleBookings.map((b) => (
+          {bookings.map((b) => (
             <Card key={b.id}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
@@ -159,6 +161,9 @@ export default function Bookings() {
                     {b.notes && <p className="text-xs text-muted-foreground italic">{b.notes}</p>}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    <Link href={`/schedule?view=day&date=${new Date(b.scheduled_start).toISOString().slice(0, 10)}`}>
+                      <Button size="sm" variant="outline">View Day</Button>
+                    </Link>
                     {b.status === "pending" && (
                       <Button size="sm" variant="outline"
                         onClick={() => confirmMutation.mutate(b.id)}
