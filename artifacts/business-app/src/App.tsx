@@ -600,7 +600,7 @@ function AppRouter() {
         <Route path="/admin/social" component={AdminSocialRoute} />
         <Route path="/admin/sms-templates" component={AdminSmsTemplatesRoute} />
         <Route path="/admin/reassign-jobs" component={AdminReassignJobsRoute} />
-        <Route path="/admin/job-types">{() => <Redirect to="/admin/company-settings?tab=team&teamTab=job-types" />}</Route>
+        <Route path="/admin/job-types">{() => <Redirect to="/admin/company-settings?tab=catalogue" />}</Route>
         <Route path="/admin/invoice-log" component={AdminInvoiceLogRoute} />
         <Route path="/admin/stripe-connect" component={AdminStripeConnectRoute} />
         <Route path="/admin/payment-providers" component={AdminPaymentProvidersRoute} />

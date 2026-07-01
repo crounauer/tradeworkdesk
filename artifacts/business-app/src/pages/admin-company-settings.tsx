@@ -28,7 +28,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { AccountingIntegrations } from "@/components/accounting-integrations";
 import BillingPage from "@/pages/billing";
-import { JobTypesManagement } from "@/pages/admin-job-types";
 import AdminUsers from "@/pages/admin-users";
 import { getExistingPushSubscription, subscribeToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 
@@ -611,16 +610,9 @@ export default function AdminCompanySettings() {
   const [activeTab, setActiveTab] = useState(() => {
     const p = new URLSearchParams(searchString);
     const tab = p.get("tab") ?? "profile";
-    if (tab === "job-types") return "team";
+    if (tab === "job-types") return "catalogue";
     if (["plans", "addons", "billing", "invoicing", "payments"].includes(tab)) return "finance";
     return tab;
-  });
-  const [teamTab, setTeamTab] = useState<"team" | "job-types">(() => {
-    const p = new URLSearchParams(searchString);
-    const tab = p.get("tab");
-    const sub = p.get("teamTab");
-    if (sub === "job-types" || tab === "job-types") return "job-types";
-    return "team";
   });
   const [financeTab, setFinanceTab] = useState<"plans" | "addons" | "billing" | "invoicing" | "payments">(() => {
     const p = new URLSearchParams(searchString);
@@ -1257,65 +1249,47 @@ export default function AdminCompanySettings() {
           </TabsContent>
 
           <TabsContent value="team" className="space-y-6 pt-4">
-            <Tabs value={teamTab} onValueChange={(value) => setTeamTab(value as "team" | "job-types") }>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-2">
-                  <TabsTrigger value="team" className="flex-1">Team</TabsTrigger>
-                  <TabsTrigger value="job-types" className="flex-1 gap-2">
-                    <ListTree className="w-4 h-4" />
-                    Job Types
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+            {isAdmin && !companyTypeLoading && !companyTypeError && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Team Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Team behavior is based on active users and your plan. With one active user, jobs auto-assign to you. With multiple active users, assignment can be shared.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeUserCount <= 1 ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{activeUserCount <= 1 ? "Single User Mode" : "Team Mode"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activeUserCount <= 1
+                          ? "Jobs auto-assign to your user by default"
+                          : `${activeUserCount} active users can be assigned to jobs`}
+                      </p>
+                    </div>
+                  </div>
 
-              <TabsContent value="team" className="space-y-6 pt-4">
-                {isAdmin && !companyTypeLoading && !companyTypeError && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        Team Settings
-                      </CardTitle>
-                      <CardDescription>
-                        Team behavior is based on active users and your plan. With one active user, jobs auto-assign to you. With multiple active users, assignment can be shared.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-3 p-3 rounded-lg border bg-slate-50">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeUserCount <= 1 ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}>
-                          <Users className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-sm">{activeUserCount <= 1 ? "Single User Mode" : "Team Mode"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {activeUserCount <= 1
-                              ? "Jobs auto-assign to your user by default"
-                              : `${activeUserCount} active users can be assigned to jobs`}
-                          </p>
-                        </div>
+                  {activeUserCount <= 1 && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-800">Need multi-user assignment?</p>
+                        <p className="text-amber-700 mt-1">Invite at least one more user to enable technician assignment across multiple users.</p>
                       </div>
+                    </div>
+                  )}
 
-                      {activeUserCount <= 1 && (
-                        <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
-                          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="text-sm">
-                            <p className="font-medium text-amber-800">Need multi-user assignment?</p>
-                            <p className="text-amber-700 mt-1">Invite at least one more user to enable technician assignment across multiple users.</p>
-                          </div>
-                        </div>
-                      )}
+                </CardContent>
+              </Card>
+            )}
 
-                    </CardContent>
-                  </Card>
-                )}
-
-                <AdminUsers embedded />
-              </TabsContent>
-
-              <TabsContent value="job-types" className="pt-4">
-                <JobTypesManagement />
-              </TabsContent>
-            </Tabs>
+            <AdminUsers embedded />
           </TabsContent>
 
           <TabsContent value="profile" className="space-y-6 pt-0">
@@ -2416,6 +2390,7 @@ type ServiceItem = {
   default_price: number | null;
   booking_duration_minutes: number;
   online_booking_enabled: boolean;
+  show_in_job_type_dropdown: boolean;
   is_active: boolean;
 };
 
@@ -2426,7 +2401,7 @@ function ServiceCatalogueSection() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false });
+  const [form, setForm] = useState({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false, show_in_job_type_dropdown: false });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchServices = useCallback(async () => {
@@ -2439,7 +2414,7 @@ function ServiceCatalogueSection() {
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  const resetForm = () => { setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(false); setEditingId(null); };
+  const resetForm = () => { setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false, show_in_job_type_dropdown: false }); setShowAdd(false); setEditingId(null); };
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
@@ -2450,6 +2425,7 @@ function ServiceCatalogueSection() {
         default_price: form.default_price ? Number(form.default_price) : null,
         booking_duration_minutes: form.booking_duration_minutes ? Number(form.booking_duration_minutes) : 60,
         online_booking_enabled: form.online_booking_enabled,
+        show_in_job_type_dropdown: form.show_in_job_type_dropdown,
       };
       if (editingId) {
         await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue/${editingId}`, {
@@ -2475,6 +2451,7 @@ function ServiceCatalogueSection() {
       default_price: s.default_price != null ? String(s.default_price) : "",
       booking_duration_minutes: String(s.booking_duration_minutes || 60),
       online_booking_enabled: s.online_booking_enabled,
+      show_in_job_type_dropdown: s.show_in_job_type_dropdown,
     });
     setEditingId(s.id);
     setShowAdd(false);
@@ -2515,7 +2492,7 @@ function ServiceCatalogueSection() {
               Pre-defined services such as boiler services and gas safety checks with fixed prices. Set booking duration so online bookings reserve the correct appointment length.
             </CardDescription>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false }); setShowAdd(true); } }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false, show_in_job_type_dropdown: false }); setShowAdd(true); } }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
           </Button>
         </div>
@@ -2544,6 +2521,13 @@ function ServiceCatalogueSection() {
                       <p className="text-[11px] text-muted-foreground">Show this service on the public booking form</p>
                     </div>
                     <Switch checked={form.online_booking_enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, online_booking_enabled: v }))} />
+                  </div>
+                  <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <div>
+                      <Label className="text-xs">Use in job type dropdown</Label>
+                      <p className="text-[11px] text-muted-foreground">Show this service as a selectable job type when creating jobs</p>
+                    </div>
+                    <Switch checked={form.show_in_job_type_dropdown} onCheckedChange={(v) => setForm((f) => ({ ...f, show_in_job_type_dropdown: v }))} />
                   </div>
                 </div>
                 <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2582,6 +2566,13 @@ function ServiceCatalogueSection() {
                           </div>
                           <Switch checked={form.online_booking_enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, online_booking_enabled: v }))} />
                         </div>
+                        <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                          <div>
+                            <Label className="text-xs">Use in job type dropdown</Label>
+                            <p className="text-[11px] text-muted-foreground">Show this service as a selectable job type when creating jobs</p>
+                          </div>
+                          <Switch checked={form.show_in_job_type_dropdown} onCheckedChange={(v) => setForm((f) => ({ ...f, show_in_job_type_dropdown: v }))} />
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2596,6 +2587,7 @@ function ServiceCatalogueSection() {
                         <span className="font-medium text-sm">{s.name}</span>
                         {!s.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
                         {s.online_booking_enabled && <span className="ml-2 text-xs rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Online booking</span>}
+                        {s.show_in_job_type_dropdown && <span className="ml-2 text-xs rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">Job type</span>}
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground">{s.booking_duration_minutes}min</span>

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 
 const CALENDAR_JOB_FIELDS =
-  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
+  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
 
 const PROFILE_FIELDS =
   "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
@@ -16,6 +16,7 @@ interface CalendarJobRow {
   assigned_technician_id: string | null;
   job_type: string;
   job_type_id: number | null;
+  service_catalogue_id: string | null;
   status: string;
   priority: string;
   description: string | null;
@@ -248,9 +249,9 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
     .order("full_name");
   if (req.tenantId) profilesQ = profilesQ.eq("tenant_id", req.tenantId);
 
-  let jobTypesQ = req.tenantId
-    ? supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", req.tenantId)
-    : supabaseAdmin.from("job_types").select("id, name");
+  const serviceCatalogueQ = req.tenantId
+    ? supabaseAdmin.from("service_catalogue").select("id, name").eq("tenant_id", req.tenantId).eq("is_active", true)
+    : supabaseAdmin.from("service_catalogue").select("id, name").eq("is_active", true);
 
   let holidaysQ = supabaseAdmin
     .from("calendar_holidays")
@@ -266,23 +267,25 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
     holidaysQ = holidaysQ.or(`technician_id.is.null,technician_id.eq.${techFilter}`);
   }
 
-  const [jobsRes, profilesRes, jobTypesRes, holidaysRes, tenantFeatures] = await Promise.all([
+  const [jobsRes, profilesRes, serviceCatalogueRes, holidaysRes, tenantFeatures] = await Promise.all([
     jobsQ,
     profilesQ,
-    jobTypesQ,
+    serviceCatalogueQ,
     holidaysQ,
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
 
   const hasGeoMapping = !!(tenantFeatures as Record<string, unknown> | null)?.geo_mapping;
-  const typeMap = new Map(((jobTypesRes as { data?: Array<{ id: number; name: string }> }).data || []).map((t) => [t.id, t.name]));
+  const serviceMap = new Map(((serviceCatalogueRes as { data?: Array<{ id: string; name: string }> }).data || []).map((s) => [s.id, s.name]));
 
   const jobs = ((jobsRes.data as CalendarJobRow[] || [])).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
-    job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
+    job_type_name:
+      (j.service_catalogue_id ? (serviceMap.get(j.service_catalogue_id) ?? null) : null)
+      ?? (j.job_type?.replace(/_/g, " ") ?? null),
     property_latitude: hasGeoMapping ? (j.properties?.latitude ?? null) : null,
     property_longitude: hasGeoMapping ? (j.properties?.longitude ?? null) : null,
     property_postcode: hasGeoMapping ? (j.properties?.postcode ?? null) : null,

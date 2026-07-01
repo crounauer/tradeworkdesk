@@ -5,7 +5,6 @@ import app from "./app";
 import { submitIndexNowOnStartup } from "./lib/indexnow-startup";
 import { startSocialScheduler } from "./lib/social-scheduler";
 import { startDailySuggestionsCron } from "./lib/social-daily-cron";
-import { seedAllTenantsJobTypes } from "./lib/job-types-seed";
 import { runStartupMigrations } from "./lib/migrations";
 import { startPushEventScheduler } from "./lib/push-events";
 
@@ -39,9 +38,6 @@ if (Number.isNaN(port) || port <= 0) {
       startDailySuggestionsCron();
       startReviewRequestScheduler();
       startPushEventScheduler();
-      seedAllTenantsJobTypes().catch((err) =>
-        console.error("[job-types] Startup seeding failed:", err)
-      );
       runStartupMigrations().catch((err) =>
         console.error("[migrations] Startup check failed:", err)
       );

@@ -3382,16 +3382,16 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedJobTypeId, setSelectedJobTypeId] = useState<string>(
-    job.job_type_id != null ? String(job.job_type_id) : ""
+    (job as unknown as { service_catalogue_id?: string | null }).service_catalogue_id || ""
   );
   const [selectedFuelCategory, setSelectedFuelCategory] = useState<string>(
     (job as unknown as { fuel_category?: string | null }).fuel_category || "general"
   );
 
-  const { data: jobTypesData } = useQuery<Array<{ id: number; name: string; is_active: boolean }>>({
+  const { data: jobTypesData } = useQuery<Array<{ id: string; name: string; is_active: boolean }>>({
     queryKey: ["job-types"],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/job-types`);
+      const res = await fetch(`${import.meta.env.BASE_URL}api/job-type-options`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -3447,7 +3447,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
       description: data.description || undefined,
     };
     if (selectedJobTypeId) {
-      updatePayload.job_type_id = Number(selectedJobTypeId);
+      updatePayload.service_catalogue_id = selectedJobTypeId;
     }
     if (selectedFuelCategory) {
       updatePayload.fuel_category = selectedFuelCategory;
@@ -3531,7 +3531,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
                 <option key={jt.id} value={String(jt.id)}>{jt.name}</option>
               ))}
             </select>
-            {selectedJobTypeId && String(job.job_type_id) !== selectedJobTypeId && (
+            {selectedJobTypeId && String((job as unknown as { service_catalogue_id?: string | null }).service_catalogue_id || "") !== selectedJobTypeId && (
               <p className="text-xs text-amber-600">Changing job type will update the forms available for this job.</p>
             )}
           </div>

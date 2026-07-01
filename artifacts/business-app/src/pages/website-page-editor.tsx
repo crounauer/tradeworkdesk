@@ -63,6 +63,7 @@ type BlockType =
   | "image"
   | "cta"
   | "services"
+  | "contact"
   | "contact_form"
   | "testimonials"
   | "gallery"
@@ -169,6 +170,21 @@ const BLOCK_PALETTE: { type: BlockType; label: string; icon: React.ComponentType
     defaultContent: {
       heading: "What Our Customers Say",
       show_rating: true,
+    },
+  },
+  {
+    type: "contact",
+    label: "Contact Details",
+    icon: Phone,
+    description: "Business contact details shown beside the enquiry form",
+    defaultContent: {
+      eyebrow: "Contact",
+      title: "Request a quote or ask a question",
+      subtitle: "Tell us what you need help with and we will get back to you.",
+      phone: "",
+      email: "",
+      address: "",
+      openingHours: "",
     },
   },
   {
@@ -385,7 +401,7 @@ function GenericBlockEditor({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Editing custom block type <strong>{blockType}</strong>. Update its JSON content below.
+        Advanced mode for custom block type <strong>{blockType}</strong>. Most block types now have simple form fields above; use this only for uncommon settings.
       </p>
       <FieldRow label="Block Content (JSON)">
         <Textarea
@@ -412,6 +428,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
     "image",
     "cta",
     "services",
+    "contact",
     "contact_form",
     "testimonials",
     "gallery",
@@ -432,6 +449,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
   if (t.includes("image")) return "image";
   if (t.includes("cta") || t.includes("call_to_action")) return "cta";
   if (t.includes("service")) return "services";
+  if (t === "contact" || t.includes("contact.split") || t.includes("map_opening_hours")) return "contact";
   if (t.includes("contact") && t.includes("form")) return "contact_form";
   if (t.includes("review") || t.includes("testimonial")) return "testimonials";
   if (t.includes("gallery")) return "gallery";
@@ -564,7 +582,15 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       );
 
     case "services": {
-      const items = Array.isArray(c.services) ? c.services as Array<{ title: string; description: string; icon: string }> : [];
+      const serviceFieldKey = Array.isArray(c.items) ? "items" : "services";
+      const items = (Array.isArray(c.services) ? c.services : Array.isArray(c.items) ? c.items : []) as Array<{ title: string; description: string; icon: string }>;
+      const updateItems = (next: Array<{ title: string; description: string; icon: string }>) => {
+        if (serviceFieldKey === "items") {
+          onChange({ ...c, items: next, services: next });
+          return;
+        }
+        onChange({ ...c, services: next, items: next });
+      };
       return (
         <div className="space-y-3">
           <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
@@ -573,22 +599,52 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
             {items.map((item, i) => (
               <Card key={i} className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; set("services", n); }} placeholder="🔥" className="w-16 text-center" />
-                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; set("services", n); }} placeholder="Service name" className="flex-1" />
-                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("services", items.filter((_, j) => j !== i))}>
+                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; updateItems(n); }} placeholder="🔥" className="w-16 text-center" />
+                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; updateItems(n); }} placeholder="Service name" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => updateItems(items.filter((_, j) => j !== i))}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; set("services", n); }} placeholder="Short description..." rows={2} />
+                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; updateItems(n); }} placeholder="Short description..." rows={2} />
               </Card>
             ))}
-            <Button variant="outline" size="sm" onClick={() => set("services", [...items, { title: "", description: "", icon: "⚙️" }])}>
+            <Button variant="outline" size="sm" onClick={() => updateItems([...items, { title: "", description: "", icon: "⚙️" }])}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Service
             </Button>
           </div>
         </div>
       );
     }
+
+    case "contact":
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Small heading (optional)">
+            <Input value={String(c.eyebrow ?? "")} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Contact" />
+          </FieldRow>
+          <FieldRow label="Main title">
+            <Input value={String(c.title ?? c.heading ?? "")} onChange={(e) => onChange({ ...c, title: e.target.value, heading: e.target.value })} placeholder="Request a quote or ask a question" />
+          </FieldRow>
+          <FieldRow label="Intro text">
+            <Textarea value={String(c.subtitle ?? c.subheading ?? "")} onChange={(e) => onChange({ ...c, subtitle: e.target.value, subheading: e.target.value })} rows={2} placeholder="Tell customers what happens after they contact you." />
+          </FieldRow>
+          <FieldRow label="Phone number">
+            <Input value={String(c.phone ?? "")} onChange={(e) => set("phone", e.target.value)} placeholder="01224 000000" />
+          </FieldRow>
+          <FieldRow label="Email address">
+            <Input value={String(c.email ?? "")} onChange={(e) => set("email", e.target.value)} placeholder="hello@yourbusiness.co.uk" />
+          </FieldRow>
+          <FieldRow label="Address">
+            <Input value={String(c.address ?? "")} onChange={(e) => set("address", e.target.value)} placeholder="Aberdeenshire, Scotland" />
+          </FieldRow>
+          <FieldRow label="Opening hours">
+            <Input value={String(c.openingHours ?? c.hours ?? "")} onChange={(e) => onChange({ ...c, openingHours: e.target.value, hours: e.target.value })} placeholder="Monday to Friday, 8am to 5pm" />
+          </FieldRow>
+          <p className="text-xs text-muted-foreground">
+            Tip: this block now uses simple fields. You usually do not need to edit JSON.
+          </p>
+        </div>
+      );
 
     case "testimonials":
       return (

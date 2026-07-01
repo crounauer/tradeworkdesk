@@ -68,7 +68,7 @@ function formatEnquiryAddressMultiline(enquiry: Record<string, unknown>): string
 }
 
 interface JobType {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   category: string;
@@ -1023,7 +1023,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const { data: jobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
     queryFn: async () => {
-      const res = await fetch("/api/job-types");
+      const res = await fetch("/api/job-type-options");
       if (!res.ok) return [];
       return res.json();
     },
@@ -1042,10 +1042,10 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
         description: description || undefined,
       };
 
-      const selectedType = jobTypes.find(t => t.id === parseInt(jobTypeId, 10));
+      const selectedType = jobTypes.find(t => t.id === jobTypeId);
       if (selectedType) {
-        body.job_type = selectedType.category || "service";
-        body.job_type_id = selectedType.id;
+        body.job_type = "service";
+        body.service_catalogue_id = selectedType.id;
       } else {
         body.job_type = "service";
       }

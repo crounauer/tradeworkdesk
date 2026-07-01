@@ -1426,14 +1426,14 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
     property_id,
     scheduled_date,
     scheduled_time,
-    job_type_id,
+    service_catalogue_id,
     assigned_technician_id,
     description,
   } = req.body as {
     property_id?: string;
     scheduled_date?: string;
     scheduled_time?: string;
-    job_type_id?: number;
+    service_catalogue_id?: string;
     assigned_technician_id?: string;
     description?: string;
   };
@@ -1458,25 +1458,20 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
     .eq("tenant_id", req.tenantId!)
     .order("sort_order");
 
-  // Resolve job type enum from custom job type
+  // Resolve job type enum from service catalogue selection
   let resolvedJobType: string = "service";
-  let verifiedJobTypeId: number | undefined;
-  if (job_type_id && req.tenantId) {
-    const { data: jt } = await supabaseAdmin
-      .from("job_types")
-      .select("*")
-      .eq("id", job_type_id)
+  let verifiedServiceCatalogueId: string | undefined;
+
+  if (service_catalogue_id && req.tenantId) {
+    const { data: svc } = await supabaseAdmin
+      .from("service_catalogue")
+      .select("id, is_active")
+      .eq("id", service_catalogue_id)
       .eq("tenant_id", req.tenantId)
       .single();
-    if (jt?.is_active) {
-      verifiedJobTypeId = jt.id as number;
-      const slug = jt.slug as string;
-      const cat = jt.category as string;
-      if (["breakdown", "installation", "inspection", "follow_up"].includes(slug)) resolvedJobType = slug;
-      else if (cat === "breakdown") resolvedJobType = "breakdown";
-      else if (cat === "installation") resolvedJobType = "installation";
-      else if (cat === "inspection") resolvedJobType = "inspection";
-      else resolvedJobType = "service";
+    if (svc?.is_active) {
+      verifiedServiceCatalogueId = svc.id as string;
+      resolvedJobType = "service";
     }
   }
 
@@ -1526,7 +1521,7 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
     tenant_id: req.tenantId,
     from_quote_id: req.params.id,
   };
-  if (verifiedJobTypeId) jobInsert.job_type_id = verifiedJobTypeId;
+  if (verifiedServiceCatalogueId) jobInsert.service_catalogue_id = verifiedServiceCatalogueId;
   if (jobRef) jobInsert.job_ref = jobRef;
 
   const { data: newJob, error: jobErr } = await supabaseAdmin

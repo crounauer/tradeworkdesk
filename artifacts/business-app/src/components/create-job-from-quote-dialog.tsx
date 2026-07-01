@@ -15,11 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { InvoiceLineItem } from "@/hooks/use-invoices";
 
 interface JobType {
-  id: number;
+  id: string;
   name: string;
-  slug: string;
-  category: string;
-  color: string;
   is_active: boolean;
 }
 
@@ -103,7 +100,7 @@ export function CreateJobFromQuoteDialog({
   const { data: jobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
     queryFn: async () => {
-      const r = await fetch(`${import.meta.env.BASE_URL}api/job-types`);
+      const r = await fetch(`${import.meta.env.BASE_URL}api/job-type-options`);
       if (!r.ok) return [];
       return r.json();
     },
@@ -159,7 +156,7 @@ export function CreateJobFromQuoteDialog({
         scheduled_date: data.scheduled_date,
       };
       if (data.scheduled_time) body.scheduled_time = data.scheduled_time;
-      if (data.job_type_id) body.job_type_id = parseInt(data.job_type_id, 10);
+      if (data.job_type_id) body.service_catalogue_id = data.job_type_id;
       if (data.assigned_technician_id) body.assigned_technician_id = data.assigned_technician_id;
       if (data.description?.trim()) body.description = data.description.trim();
 

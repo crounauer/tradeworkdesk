@@ -6,7 +6,6 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendBetaInviteCodeEmail, sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
-import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth, grantTrialUsageCredits } from "../lib/tenant-limits";
 import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
 
@@ -463,10 +462,6 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     name: company_name,
     invoices_enabled: true,
   });
-
-  seedDefaultJobTypesForTenant(tenant.id).catch((e) =>
-    console.error("[seed] Default job types failed for tenant", tenant.id, e)
-  );
 
   await grantTrialUsageCredits(tenant.id).catch((e) =>
     console.error("[trial-credits] Failed to grant initial trial credits", tenant.id, e)

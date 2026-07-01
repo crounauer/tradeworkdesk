@@ -24,12 +24,8 @@ const PostcodeAddressFinder = lazy(() =>
 );
 
 interface JobType {
-  id: number;
+  id: string;
   name: string;
-  slug: string;
-  category: string;
-  color: string;
-  default_duration_minutes: number | null;
   is_active: boolean;
 }
 
@@ -173,7 +169,7 @@ export function BookJobDialog({
   const { data: onlineJobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
     queryFn: async () => {
-      const res = await fetch("/api/job-types");
+      const res = await fetch("/api/job-type-options");
       if (!res.ok) return [];
       return res.json();
     },
@@ -448,8 +444,7 @@ export function BookJobDialog({
         return;
       }
 
-      const selectedType = jobTypes.find((t) => t.id === parseInt(data.job_type_id, 10));
-      const jobTypeCategory = (selectedType?.category ?? "service") as "service" | "breakdown" | "installation" | "inspection" | "follow_up";
+      const selectedType = jobTypes.find((t) => t.id === data.job_type_id);
       const technicianId = autoAssign && profile?.id
         ? profile.id
         : (isAdminOrOffice ? data.assigned_technician_id || undefined : undefined);
@@ -457,8 +452,8 @@ export function BookJobDialog({
       const jobPayload = {
         customer_id: customerId,
         property_id: propertyId,
-        job_type: jobTypeCategory,
-        job_type_id: selectedType ? selectedType.id : undefined,
+        job_type: "service",
+        service_catalogue_id: selectedType ? selectedType.id : undefined,
         fuel_category: data.fuel_category || undefined,
         priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
         scheduled_date: data.scheduled_date,
@@ -475,7 +470,7 @@ export function BookJobDialog({
         return;
       }
 
-      const jobRes = await createJob.mutateAsync({ data: jobPayload });
+      const jobRes = await createJob.mutateAsync({ data: jobPayload as unknown as Parameters<typeof createJob.mutateAsync>[0]["data"] });
 
       qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });

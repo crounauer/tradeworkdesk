@@ -6,7 +6,6 @@ import { bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
 import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
-import { seedDefaultJobTypesForTenant } from "../lib/job-types-seed";
 import { syncSeats } from "./billing";
 import { runServiceDueReminders, previewServiceDueReminders } from "../lib/service-reminders";
 import { supabaseAdmin } from "../lib/supabase";
@@ -977,10 +976,6 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     name: resolvedCompanyName,
   });
 
-  seedDefaultJobTypesForTenant(tenant.id).catch((e) =>
-    console.error("[seed] Default job types failed for tenant", tenant.id, e)
-  );
-
   await grantTrialUsageCredits(tenant.id).catch((e) =>
     console.error("[trial-credits] Failed to grant initial trial credits", tenant.id, e)
   );
@@ -1360,6 +1355,14 @@ router.delete("/admin/products/:id", requireAuth, requireTenant, requireRole("ad
 
 // ─── Service Catalogue Admin CRUD ────────────────────────────────────────────
 
+type ServiceCatalogueSyncRow = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  is_active: boolean | null;
+  show_in_job_type_dropdown: boolean | null;
+};
+
 router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("service_catalogue")
@@ -1371,7 +1374,7 @@ router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("
 });
 
 router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, default_price, booking_duration_minutes, online_booking_enabled } = req.body;
+  const { name, default_price, booking_duration_minutes, online_booking_enabled, show_in_job_type_dropdown } = req.body;
   if (!name) { res.status(400).json({ error: "name is required" }); return; }
   if (default_price != null && (!Number.isFinite(Number(default_price)) || Number(default_price) < 0)) {
     res.status(400).json({ error: "default_price must be a valid non-negative number" }); return;
@@ -1385,13 +1388,15 @@ router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole(
     default_price: default_price != null ? Number(default_price) : null,
     booking_duration_minutes: booking_duration_minutes != null ? Number(booking_duration_minutes) : 60,
     online_booking_enabled: Boolean(online_booking_enabled),
+    show_in_job_type_dropdown: Boolean(show_in_job_type_dropdown),
   }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+
   res.json(data);
 });
 
 router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, default_price, booking_duration_minutes, online_booking_enabled, is_active } = req.body;
+  const { name, default_price, booking_duration_minutes, online_booking_enabled, show_in_job_type_dropdown, is_active } = req.body;
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (name !== undefined) updates.name = name;
   if (default_price !== undefined) updates.default_price = default_price != null ? Number(default_price) : null;
@@ -1402,10 +1407,12 @@ router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRo
     updates.booking_duration_minutes = booking_duration_minutes != null ? Number(booking_duration_minutes) : 60;
   }
   if (online_booking_enabled !== undefined) updates.online_booking_enabled = Boolean(online_booking_enabled);
+  if (show_in_job_type_dropdown !== undefined) updates.show_in_job_type_dropdown = Boolean(show_in_job_type_dropdown);
   if (is_active !== undefined) updates.is_active = is_active;
 
   const { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+
   res.json(data);
 });
 

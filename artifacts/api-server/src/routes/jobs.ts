@@ -42,6 +42,7 @@ interface SupabaseJobRow {
   assigned_technician_id: string | null;
   job_type: string;
   job_type_id: number | null;
+  service_catalogue_id: string | null;
   fuel_category: string | null;
   status: string;
   priority: string;
@@ -61,6 +62,24 @@ interface SupabaseJobRow {
   profiles?: { full_name: string } | null;
 }
 
+type ServiceCatalogueRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
+};
+
+async function getActiveServiceCatalogueById(tenantId: string, serviceCatalogueId: string): Promise<ServiceCatalogueRow | null> {
+  const { data } = await supabaseAdmin
+    .from("service_catalogue")
+    .select("id, name, is_active")
+    .eq("id", serviceCatalogueId)
+    .eq("tenant_id", tenantId)
+    .single();
+
+  if (!data || data.is_active === false) return null;
+  return data as ServiceCatalogueRow;
+}
+
 async function verifyTechnicianOwnership(
   jobId: string,
   userId: string | undefined,
@@ -77,19 +96,19 @@ async function enrichJobsWithTypeNames(
 ): Promise<(SupabaseJobRow & { job_type_name: string | null })[]> {
   if (!jobs.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
 
-  const typeIds = [...new Set(jobs.map((j) => j.job_type_id).filter((id): id is number => id != null))];
-  if (!typeIds.length) return jobs.map((j) => ({ ...j, job_type_name: null }));
+  const serviceIds = [...new Set(jobs.map((j) => j.service_catalogue_id).filter((id): id is string => !!id))];
+  if (!serviceIds.length) return jobs.map((j) => ({ ...j, job_type_name: j.job_type?.replace(/_/g, " ") ?? null }));
 
-  const { data: types } = await supabaseAdmin
-    .from("job_types")
+  const { data: services } = await supabaseAdmin
+    .from("service_catalogue")
     .select("id, name")
-    .in("id", typeIds);
+    .in("id", serviceIds);
 
-  const typeMap = new Map((types || []).map((t: { id: number; name: string }) => [t.id, t.name]));
+  const serviceMap = new Map((services || []).map((s: { id: string; name: string }) => [s.id, s.name]));
 
   return jobs.map((j) => ({
     ...j,
-    job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
+    job_type_name: (j.service_catalogue_id ? (serviceMap.get(j.service_catalogue_id) ?? null) : null) ?? (j.job_type?.replace(/_/g, " ") ?? null),
   }));
 }
 
@@ -361,26 +380,6 @@ function buildJobFormsEmailBodyText(opts: {
 const jobsListCache = new Map<string, { data: unknown; ts: number }>();
 const JOBS_CACHE_TTL_MS = 30_000;
 
-// job_types change very rarely (admin creates them manually); cache per tenant for 5 minutes
-const jobTypesCache = new Map<string, { data: Array<{ id: number; name: string }>; ts: number }>();
-const JOB_TYPES_CACHE_TTL_MS = 5 * 60_000;
-
-async function getJobTypesForTenant(tenantId: string | undefined): Promise<Array<{ id: number; name: string }>> {
-  const key = tenantId ?? "__all__";
-  const cached = jobTypesCache.get(key);
-  if (cached && Date.now() - cached.ts < JOB_TYPES_CACHE_TTL_MS) return cached.data;
-  const { data } = tenantId
-    ? await supabaseAdmin.from("job_types").select("id, name").eq("tenant_id", tenantId)
-    : await supabaseAdmin.from("job_types").select("id, name");
-  const result = (data as Array<{ id: number; name: string }>) || [];
-  jobTypesCache.set(key, { data: result, ts: Date.now() });
-  return result;
-}
-
-function invalidateJobTypesCache(tenantId?: string | null) {
-  jobTypesCache.delete(tenantId ?? "__all__");
-}
-
 function invalidateJobsCache(tenantId?: string | null) {
   if (!tenantId) { jobsListCache.clear(); return; }
   for (const key of jobsListCache.keys()) {
@@ -403,7 +402,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, fuel_category, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, fuel_category, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: true, nullsFirst: false })
     .order("scheduled_time", { ascending: true, nullsFirst: true })
@@ -456,24 +455,22 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     return;
   }
 
-  const [{ data, error }, { count: totalCount }, allTypes, tenantFeatures] = await Promise.all([
+  const [{ data, error }, { count: totalCount }, tenantFeatures] = await Promise.all([
     q,
     countQ,
-    getJobTypesForTenant(req.tenantId),
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const hasGeoMapping = !!(tenantFeatures?.geo_mapping);
 
-  const typeMap = new Map((allTypes || []).map((t: { id: number; name: string }) => [t.id, t.name]));
-  const rawMapped = (data as SupabaseJobRow[] || []).map((j) => ({
+  const withTypeNames = await enrichJobsWithTypeNames((data as SupabaseJobRow[] || []));
+  const rawMapped = withTypeNames.map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     customer_is_active: j.customers?.is_active ?? true,
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
-    job_type_name: j.job_type_id != null ? (typeMap.get(j.job_type_id) ?? null) : null,
     property_latitude: hasGeoMapping ? (j.properties?.latitude ?? null) : null,
     property_longitude: hasGeoMapping ? (j.properties?.longitude ?? null) : null,
     property_postcode: hasGeoMapping ? (j.properties?.postcode ?? null) : null,
@@ -529,7 +526,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const { job_type_id: rawJobTypeId, fuel_category: parsedFuelCategory, ...jobCoreData } = parsed.data as typeof parsed.data & { fuel_category?: string | null };
+  const { fuel_category: parsedFuelCategory, ...jobCoreData } = parsed.data as typeof parsed.data & { fuel_category?: string | null };
+  const rawServiceCatalogueId = req.body.service_catalogue_id as string | undefined;
 
   const validFuelCategories = ["gas", "oil", "heat_pump", "general"];
   const fuelCategory = parsedFuelCategory && validFuelCategories.includes(parsedFuelCategory) ? parsedFuelCategory : null;
@@ -539,26 +537,16 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     res.status(400).json({ error: "End date cannot be before start date" }); return;
   }
 
-  const jobTypeId = typeof rawJobTypeId === "number" && Number.isInteger(rawJobTypeId) && rawJobTypeId > 0
-    ? rawJobTypeId : undefined;
-
-  let verifiedJobTypeId: number | undefined;
+  let verifiedServiceCatalogueId: string | undefined;
   let resolvedJobType: "service" | "breakdown" | "installation" | "inspection" | "follow_up" =
     jobCoreData.job_type ?? "service";
 
-  if (jobTypeId && req.tenantId) {
-    const { data: jtArr } = await supabaseAdmin
-      .from("job_types")
-      .select("*")
-      .eq("id", jobTypeId)
-      .limit(1);
-    const jt = jtArr?.[0];
-    if (jt && jt.tenant_id === req.tenantId && jt.is_active) {
-      verifiedJobTypeId = jt.id;
-      resolvedJobType = deriveJobTypeEnum(jt.category, jt.slug);
-    } else {
-      resolvedJobType = "service";
+  if (rawServiceCatalogueId && req.tenantId) {
+    const svc = await getActiveServiceCatalogueById(req.tenantId, rawServiceCatalogueId);
+    if (!svc) {
+      res.status(400).json({ error: "Invalid or inactive service catalogue selection for this company" }); return;
     }
+    verifiedServiceCatalogueId = svc.id;
   }
 
   let autoAssignedTechnicianId = jobCoreData.assigned_technician_id;
@@ -617,7 +605,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
     tenant_id: req.tenantId,
-    ...(verifiedJobTypeId ? { job_type_id: verifiedJobTypeId } : {}),
+    ...(verifiedServiceCatalogueId ? { service_catalogue_id: verifiedServiceCatalogueId } : {}),
     ...(generatedJobRef ? { job_ref: generatedJobRef } : {}),
     ...(fuelCategory ? { fuel_category: fuelCategory } : {}),
   };
@@ -719,13 +707,13 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
   }
 
   let jobTypeName = job.job_type || "Service";
-  if (job.job_type_id) {
-    const { data: jtArr } = await supabaseAdmin
-      .from("job_types")
+  if (job.service_catalogue_id) {
+    const { data: svcArr } = await supabaseAdmin
+      .from("service_catalogue")
       .select("name")
-      .eq("id", job.job_type_id)
+      .eq("id", job.service_catalogue_id)
       .limit(1);
-    if (jtArr?.[0]) jobTypeName = jtArr[0].name;
+    if (svcArr?.[0]) jobTypeName = svcArr[0].name;
   }
 
   const [{ data: companySettings }, { data: tenant }] = await Promise.all([
@@ -976,6 +964,7 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
       assigned_technician_id: original.assigned_technician_id ?? null,
       job_type: original.job_type,
       job_type_id: original.job_type_id ?? null,
+      service_catalogue_id: original.service_catalogue_id ?? null,
       fuel_category: original.fuel_category ?? null,
       priority: original.priority,
       status: "scheduled",
@@ -1128,8 +1117,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const { valid, failedTable } = await verifyMultipleTenantOwnership(fkChecks, req.tenantId);
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  // job_type_id is not in the Zod schema (which strips unknown fields), so read directly from req.body
-  const rawUpdateJobTypeId = req.body.job_type_id as number | undefined;
+  const rawUpdateServiceCatalogueId = req.body.service_catalogue_id as string | null | undefined;
   const updateCoreData = body.data;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
@@ -1211,18 +1199,16 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     }
   }
 
-  if (rawUpdateJobTypeId != null && req.tenantId) {
-    const { data: jtArr } = await supabaseAdmin
-      .from("job_types")
-      .select("*")
-      .eq("id", rawUpdateJobTypeId)
-      .limit(1);
-    const jt = jtArr?.[0];
-    if (!jt || jt.tenant_id !== req.tenantId || !jt.is_active) {
-      res.status(400).json({ error: "Invalid or inactive job type for this company" }); return;
+  if (rawUpdateServiceCatalogueId !== undefined && req.tenantId) {
+    if (rawUpdateServiceCatalogueId === null || rawUpdateServiceCatalogueId === "") {
+      updatePayload.service_catalogue_id = null;
+    } else {
+      const svc = await getActiveServiceCatalogueById(req.tenantId, rawUpdateServiceCatalogueId);
+      if (!svc) {
+        res.status(400).json({ error: "Invalid or inactive service catalogue selection for this company" }); return;
+      }
+      updatePayload.service_catalogue_id = svc.id;
     }
-    updatePayload.job_type_id = jt.id;
-    updatePayload.job_type = deriveJobTypeEnum(jt.category, jt.slug);
   }
 
   const dateOrTimeChanging = updatePayload.scheduled_date !== undefined || updatePayload.scheduled_time !== undefined;
@@ -1654,6 +1640,29 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
 });
 
 // ─── Service Catalogue Search ───────────────────────────────────────────────
+
+router.get("/job-type-options", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("service_catalogue")
+    .select("id, name")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .eq("show_in_job_type_dropdown", true)
+    .order("name", { ascending: true });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const options = (data || [])
+    .map((row: { id: string; name: string }) => ({
+      id: row.id,
+      name: row.name,
+      category: "service",
+      is_active: true,
+    }))
+    .filter((row: { id: string | null }) => typeof row.id === "string");
+
+  res.json(options);
+});
 
 router.get("/services/search", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const q = (req.query.q as string || "").trim();

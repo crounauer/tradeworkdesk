@@ -51,7 +51,7 @@ export function useOfflineReferenceDataSync() {
   const { data: jobTypes } = useQuery<Array<Record<string, unknown>>>({
     queryKey: ["job-types"],
     queryFn: async () => {
-      const res = await fetch("/api/job-types");
+      const res = await fetch("/api/job-type-options");
       if (!res.ok) return [];
       return res.json();
     },

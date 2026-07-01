@@ -138,7 +138,7 @@ const phases: Phase[] = [
       {
         title: "Refine team and job types",
         detail: "Adjust roles, assignability, and job type catalog to match real work patterns.",
-        href: "/admin/company-settings?tab=team&teamTab=job-types",
+        href: "/admin/company-settings?tab=catalogue",
         label: "Open Job Types",
       },
       {

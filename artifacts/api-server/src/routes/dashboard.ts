@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { GetDashboardResponse } from "@workspace/api-zod";
 
-const DASHBOARD_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, status, priority, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, description, notes, is_active, created_at, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
+const DASHBOARD_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, status, priority, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, description, notes, is_active, created_at, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
 
 interface DashboardJobRow {
   id: string;
@@ -128,7 +128,6 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     customer_id: a.properties?.customers?.id || null,
     property_id: a.properties?.id || null,
   }));
-
   const responseBody = GetDashboardResponse.parse({
     todays_jobs: (todaysRes.data as DashboardJobRow[] || []).map(mapJob),
     upcoming_jobs: (upcomingRes.data as DashboardJobRow[] || []).map(mapJob),

@@ -535,7 +535,7 @@ router.delete("/enquiries/:id/notes/:noteId", requireAuth, requireTenant, requir
 
 router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { customer_id, new_customer, property_id, new_property, job_type, job_type_id, priority, scheduled_date, scheduled_time, description } = req.body;
+  const { customer_id, new_customer, property_id, new_property, job_type, service_catalogue_id, priority, scheduled_date, scheduled_time, description } = req.body;
 
   let enqQ = supabaseAdmin.from("enquiries").select("*").eq("id", id);
   if (req.tenantId) enqQ = enqQ.eq("tenant_id", req.tenantId);
@@ -554,15 +554,22 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
     }
   }
 
-  if (job_type_id && req.tenantId) {
-    const { data: jtRows } = await supabaseAdmin
-      .from("job_types")
-      .select("id")
-      .eq("id", Number(job_type_id))
-      .eq("tenant_id", req.tenantId);
-    if (!jtRows || jtRows.length === 0) {
-      res.status(403).json({ error: "Invalid reference: job_types does not belong to your organisation" }); return;
+  let resolvedServiceCatalogueId: string | null = typeof service_catalogue_id === "string" && service_catalogue_id ? service_catalogue_id : null;
+
+  let resolvedJobType = validJobTypes.includes(job_type) ? job_type : "service";
+
+  if (resolvedServiceCatalogueId && req.tenantId) {
+    const { data: svcRows } = await supabaseAdmin
+      .from("service_catalogue")
+      .select("id, name, is_active")
+      .eq("id", resolvedServiceCatalogueId)
+      .eq("tenant_id", req.tenantId)
+      .limit(1);
+    const svc = svcRows?.[0];
+    if (!svc || svc.is_active === false) {
+      res.status(403).json({ error: "Invalid reference: service_catalogue does not belong to your organisation" }); return;
     }
+    resolvedJobType = "service";
   }
 
   if (!customer_id && !new_customer) {
@@ -632,8 +639,8 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
       .insert({
         customer_id: finalCustomerId,
         property_id: finalPropertyId,
-        job_type: validJobTypes.includes(job_type) ? job_type : "service",
-        job_type_id: job_type_id || null,
+        job_type: resolvedJobType,
+        service_catalogue_id: resolvedServiceCatalogueId,
         priority: validPriorities.includes(priority) ? priority : enquiry.priority || "medium",
         scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
         scheduled_time: scheduled_time || null,

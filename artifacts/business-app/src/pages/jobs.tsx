@@ -25,7 +25,7 @@ const JobMapView = lazy(() => import("@/components/job-map-view"));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 
 interface JobType {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   category: string;
@@ -148,7 +148,7 @@ function JobsContent() {
   const { data: jobTypes = [] } = useQuery<JobType[]>({
     queryKey: ["job-types"],
     queryFn: async () => {
-      const res = await fetch("/api/job-types");
+      const res = await fetch("/api/job-type-options");
       if (!res.ok) return [];
       return res.json();
     },
@@ -159,10 +159,10 @@ function JobsContent() {
 
   const filteredJobs = jobTypeIdFilter
     ? jobs?.filter((j) => {
-        const selectedType = jobTypes.find((t) => t.id === parseInt(jobTypeIdFilter, 10));
+        const selectedType = jobTypes.find((t) => t.id === jobTypeIdFilter);
         if (!selectedType) return true;
         if (j.job_type_name) return j.job_type_name === selectedType.name;
-        return j.job_type === selectedType.category;
+        return false;
       })
     : jobs;
 
