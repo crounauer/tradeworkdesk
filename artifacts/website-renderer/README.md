@@ -14,6 +14,34 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 8. Pages call `getSiteByDomain()` which hits the platform API to get all site data
 9. Live pages are cached with ISR and on-demand revalidation
 
+## Tenant DNS Scenarios
+
+### 1) Free platform subdomain (default)
+
+- Every tenant website has a free platform subdomain managed by TradeWorkDesk.
+- No tenant DNS changes are required for this scenario.
+- This is the fastest path to go live.
+
+### 2) Custom domain (tenant-owned)
+
+Default path (recommended):
+
+- Use `www` and add one CNAME record:
+  - `CNAME www -> <PLATFORM_CNAME_TARGET>`
+- Example current target: `wlemk58.tradeworkdesk-renderer.fly.dev`
+
+Optional advanced path (apex/root domain):
+
+- If a tenant needs the bare domain (for example `example.co.uk`) to resolve directly, use A/AAAA records:
+  - `A @ -> <FLY_PUBLIC_IPV4>`
+  - `AAAA @ -> <FLY_PUBLIC_IPV6>`
+- Keep this as advanced guidance only.
+
+Notes:
+
+- `PLATFORM_CNAME_TARGET` must resolve to Fly before using it in tenant instructions.
+- If a tenant enters an apex domain, onboarding may normalize it to `www.<domain>` for a simpler one-record setup.
+
 ## Environment variables
 
 | Variable | Description |
