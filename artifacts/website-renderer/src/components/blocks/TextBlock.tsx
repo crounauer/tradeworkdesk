@@ -1,5 +1,7 @@
 "use client";
 
+import { sanitizeTenantHtml } from "@/lib/sanitize-html";
+
 interface Props {
   content: {
     html?: string;
@@ -11,6 +13,7 @@ interface Props {
 export default function TextBlock({ content }: Props) {
   // Support both field names: 'html' (current) and 'body' (legacy editor name)
   const html = (content.html || content.body) as string | undefined;
+  const safeHtml = sanitizeTenantHtml(html);
   const text = content.text as string | undefined;
   const align = (content.align as "left" | "center" | "right") ?? "left";
   const title = content.title as string | undefined;
@@ -25,20 +28,19 @@ export default function TextBlock({ content }: Props) {
           {eyebrow && <p style={{ color: "#d97706", fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px" }}>{eyebrow}</p>}
           {title && <h2 style={{ margin: "0 0 14px", color: "#0f172a", fontWeight: 800, fontSize: "clamp(1.85rem, 3.2vw, 2.5rem)" }}>{title}</h2>}
           {subtitle && <p style={{ margin: "0 0 20px", color: "#475569", lineHeight: 1.7 }}>{subtitle}</p>}
-          {html && <div style={{ color: "#334155", lineHeight: 1.9 }} dangerouslySetInnerHTML={{ __html: html }} />}
-          {!html && text && <p style={{ color: "#334155", lineHeight: 1.9, whiteSpace: "pre-wrap" }}>{text}</p>}
+          {safeHtml && <div style={{ color: "#334155", lineHeight: 1.9 }} dangerouslySetInnerHTML={{ __html: safeHtml }} />}
+          {!safeHtml && text && <p style={{ color: "#334155", lineHeight: 1.9, whiteSpace: "pre-wrap" }}>{text}</p>}
         </div>
       </section>
     );
   }
 
-  if (html) {
+  if (safeHtml) {
     return (
       <section style={{ padding: "48px 24px" }}>
         <div
           style={{ maxWidth: 800, margin: "0 auto", textAlign: align }}
-          // Safe: html content is authored by the tenant via the CMS, not user-submitted
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
         />
       </section>
     );

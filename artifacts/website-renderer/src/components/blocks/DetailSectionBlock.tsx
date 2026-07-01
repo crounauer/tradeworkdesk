@@ -1,3 +1,5 @@
+import { sanitizeTenantHtml } from "@/lib/sanitize-html";
+
 interface Props {
   content: {
     heading?: string;
@@ -18,6 +20,7 @@ interface Props {
 export default function DetailSectionBlock({ content }: Props) {
   const heading = content.heading || "Details";
   const body = (content.html || content.body || content.text) as string | undefined;
+  const safeBody = sanitizeTenantHtml(body);
   const accent = content.accent_color || "#f97316";
   const background = content.background_color || "#ffffff";
   const textColor = content.text_color || "#111827";
@@ -29,7 +32,7 @@ export default function DetailSectionBlock({ content }: Props) {
           {content.label && <p style={{ color: accent, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{content.label}</p>}
           <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", fontWeight: 800, margin: "0 0 14px", lineHeight: 1.15 }}>{heading}</h2>
           {content.subheading && <p style={{ color: "#6b7280", fontSize: "1.0625rem", lineHeight: 1.75, margin: "0 0 20px" }}>{content.subheading}</p>}
-          {body && <div style={{ color: "#374151", lineHeight: 1.85, marginBottom: 24 }} dangerouslySetInnerHTML={{ __html: body }} />}
+          {safeBody && <div style={{ color: "#374151", lineHeight: 1.85, marginBottom: 24 }} dangerouslySetInnerHTML={{ __html: safeBody }} />}
           {content.cta_text && content.cta_url && (
             <a href={content.cta_url} style={{ display: "inline-block", padding: "12px 24px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700 }}>
               {content.cta_text}

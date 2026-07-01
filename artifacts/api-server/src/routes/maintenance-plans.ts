@@ -259,25 +259,34 @@ router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async
   if (appErr) return res.status(500).json({ error: appErr.message });
   if (!appliances?.length) return res.json({ created: 0 });
 
-  // For each, check if a pending reminder already exists
-  let created = 0;
-  for (const app of appliances) {
+  const applianceIds = (appliances as Array<{ id: string }>).map((app) => app.id);
+  const { data: existingReminders, error: existingErr } = await db.from("service_reminders")
+    .select("appliance_id")
+    .eq("tenant_id", req.tenantId)
+    .in("status", ["pending", "sent"])
+    .in("appliance_id", applianceIds);
+
+  if (existingErr) return res.status(500).json({ error: existingErr.message });
+
+  const alreadyReminderApplianceIds = new Set(
+    ((existingReminders ?? []) as Array<{ appliance_id: string | null }>)
+      .map((row) => row.appliance_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  const nowIso = new Date().toISOString();
+  const rowsToInsert: Array<Record<string, unknown>> = [];
+
+  for (const app of appliances as Array<{ id: string; property_id: string; fuel_type: string | null; next_service_due: string; properties?: { customer_id?: string | null } }>) {
     const customerId = app.properties?.customer_id;
     if (!customerId) continue;
-
-    const { count } = await db.from("service_reminders")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", req.tenantId)
-      .eq("appliance_id", app.id)
-      .in("status", ["pending", "sent"]);
-
-    if ((count ?? 0) > 0) continue;
+    if (alreadyReminderApplianceIds.has(app.id)) continue;
 
     const reminderType = app.fuel_type === "heat_pump"
       ? "heat_pump_service"
       : app.fuel_type === "oil" ? "oil_service" : "annual_service";
 
-    await db.from("service_reminders").insert({
+    rowsToInsert.push({
       tenant_id: req.tenantId,
       customer_id: customerId,
       property_id: app.property_id,
@@ -286,10 +295,16 @@ router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async
       due_date: app.next_service_due,
       status: "pending",
       channel: "email",
-      scheduled_for: new Date().toISOString(),
+      scheduled_for: nowIso,
     });
-    created++;
   }
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertErr } = await db.from("service_reminders").insert(rowsToInsert);
+    if (insertErr) return res.status(500).json({ error: insertErr.message });
+  }
+
+  const created = rowsToInsert.length;
 
   if (created > 0) {
     void notifyUsersForEvent({
