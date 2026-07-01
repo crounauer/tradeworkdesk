@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
+import crypto from "crypto";
 
 const SINGLETON_ID = "default";
 import {
@@ -111,6 +112,67 @@ function deriveJobTypeEnum(
 
 const router: IRouter = Router();
 
+type CustomerConfirmationAction = "confirm" | "request_change";
+
+function escHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function hashConfirmationToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function buildConfirmationActionUrl(token: string, action: CustomerConfirmationAction): string {
+  const appUrl = (process.env.APP_URL || "https://www.tradeworkdesk.co.uk").replace(/\/+$/, "");
+  return `${appUrl}/api/jobs/confirmation/respond?token=${encodeURIComponent(token)}&action=${encodeURIComponent(action)}`;
+}
+
+function renderConfirmationResponsePage(opts: {
+  title: string;
+  message: string;
+  status: "success" | "warning" | "error";
+  companyName?: string | null;
+}): string {
+  const colors = opts.status === "success"
+    ? { bg: "#ecfdf5", border: "#34d399", text: "#065f46" }
+    : opts.status === "warning"
+      ? { bg: "#fffbeb", border: "#f59e0b", text: "#92400e" }
+      : { bg: "#fef2f2", border: "#f87171", text: "#991b1b" };
+  const companyLabel = opts.companyName ? ` for ${escHtml(opts.companyName)}` : "";
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escHtml(opts.title)}</title>
+    <style>
+      body { margin: 0; background: #f8fafc; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .wrap { max-width: 680px; margin: 32px auto; padding: 0 16px; }
+      .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08); }
+      .status { border-left: 4px solid ${colors.border}; background: ${colors.bg}; color: ${colors.text}; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+      h1 { margin: 0 0 10px; font-size: 22px; }
+      p { margin: 0 0 12px; line-height: 1.55; }
+      .muted { color: #64748b; font-size: 13px; margin-top: 18px; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card">
+        <h1>${escHtml(opts.title)}</h1>
+        <div class="status">${escHtml(opts.message)}</div>
+        <p>Your response has been recorded${companyLabel}. If you need anything else, please reply to the original email.</p>
+        <p class="muted">Customer portal access is invite-only and managed by your service provider.</p>
+      </section>
+    </main>
+  </body>
+</html>`;
+}
+
 function buildJobConfirmationEmailBodyText(opts: {
   customerName: string;
   companyName: string;
@@ -120,6 +182,8 @@ function buildJobConfirmationEmailBodyText(opts: {
   scheduledTime?: string | null;
   propertyAddress?: string | null;
   description?: string | null;
+  confirmUrl?: string;
+  requestChangeUrl?: string;
 }): string {
   const lines = [
     `Dear ${opts.customerName},`,
@@ -141,9 +205,133 @@ function buildJobConfirmationEmailBodyText(opts: {
     lines.push(opts.description);
   }
 
+  if (opts.confirmUrl || opts.requestChangeUrl) {
+    lines.push("");
+    lines.push("Please let us know if this appointment still works for you:");
+    if (opts.confirmUrl) lines.push(`Confirm appointment: ${opts.confirmUrl}`);
+    if (opts.requestChangeUrl) lines.push(`Request a date change: ${opts.requestChangeUrl}`);
+  }
+
   lines.push("", `Kind regards,`, opts.companyName);
   return lines.join("\n");
 }
+
+router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
+  const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
+  const action = typeof req.query.action === "string" ? req.query.action.trim() : "";
+
+  if (!token || (action !== "confirm" && action !== "request_change")) {
+    res.status(400).send(renderConfirmationResponsePage({
+      title: "Invalid confirmation link",
+      message: "This link is missing required information.",
+      status: "error",
+    }));
+    return;
+  }
+
+  const tokenHash = hashConfirmationToken(token);
+  const { data: responseRow, error: responseErr } = await supabaseAdmin
+    .from("job_confirmation_responses")
+    .select("id, tenant_id, job_id, status, token_expires_at, responded_at, jobs(job_ref), tenants(company_name)")
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+
+  if (responseErr || !responseRow) {
+    res.status(404).send(renderConfirmationResponsePage({
+      title: "Confirmation link not found",
+      message: "This confirmation link is invalid or has already been replaced.",
+      status: "error",
+    }));
+    return;
+  }
+
+  const tenantName = (responseRow as { tenants?: { company_name?: string | null } | null }).tenants?.company_name ?? null;
+  const expiresAt = new Date((responseRow as { token_expires_at: string }).token_expires_at).getTime();
+  if (Number.isNaN(expiresAt) || expiresAt < Date.now()) {
+    res.status(410).send(renderConfirmationResponsePage({
+      title: "Confirmation link expired",
+      message: "This link has expired. Please contact your service provider if you still need to respond.",
+      status: "warning",
+      companyName: tenantName,
+    }));
+    return;
+  }
+
+  const nextStatus = action === "confirm" ? "confirmed" : "change_requested";
+  const currentStatus = (responseRow as { status: string }).status;
+
+  if (currentStatus === nextStatus) {
+    res.status(200).send(renderConfirmationResponsePage({
+      title: action === "confirm" ? "Appointment already confirmed" : "Change request already received",
+      message: action === "confirm" ? "You have already confirmed this appointment." : "Your request to change this appointment was already submitted.",
+      status: "success",
+      companyName: tenantName,
+    }));
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error: updateErr } = await supabaseAdmin
+    .from("job_confirmation_responses")
+    .update({ status: nextStatus, responded_at: nowIso, responded_via: "email_link", updated_at: nowIso })
+    .eq("id", (responseRow as { id: string }).id);
+
+  if (updateErr) {
+    res.status(500).send(renderConfirmationResponsePage({
+      title: "Unable to record response",
+      message: "We could not save your response right now. Please try again later.",
+      status: "error",
+      companyName: tenantName,
+    }));
+    return;
+  }
+
+  const jobId = (responseRow as { job_id: string }).job_id;
+  if (nextStatus === "confirmed") {
+    await supabaseAdmin
+      .from("jobs")
+      .update({
+        customer_confirmation_status: "confirmed",
+        customer_confirmed_at: nowIso,
+        customer_change_requested_at: null,
+        updated_at: nowIso,
+      })
+      .eq("id", jobId);
+  } else {
+    await supabaseAdmin
+      .from("jobs")
+      .update({
+        customer_confirmation_status: "change_requested",
+        customer_change_requested_at: nowIso,
+        customer_confirmed_at: null,
+        updated_at: nowIso,
+      })
+      .eq("id", jobId);
+  }
+
+  const jobRef = (responseRow as { jobs?: { job_ref?: string | null } | null }).jobs?.job_ref || jobId.slice(0, 8).toUpperCase();
+  void notifyUsersForEvent({
+    tenantId: (responseRow as { tenant_id: string }).tenant_id,
+    eventType: "customer_communications",
+    title: nextStatus === "confirmed" ? "Customer confirmed appointment" : "Customer requested appointment change",
+    body: nextStatus === "confirmed"
+      ? `Customer confirmed appointment for ${jobRef}.`
+      : `Customer requested a date change for ${jobRef}.`,
+    url: `/jobs/${jobId}`,
+    eventKey: `job_confirmation_response:${(responseRow as { id: string }).id}:${nextStatus}`,
+    targetRoles: ["admin", "office_staff"],
+    data: { jobId, customerConfirmationStatus: nextStatus },
+  }).catch((err) => console.error("[jobs] confirmation response notification failed:", err));
+
+  res.status(200).send(renderConfirmationResponsePage({
+    title: nextStatus === "confirmed" ? "Appointment confirmed" : "Change request received",
+    message: nextStatus === "confirmed"
+      ? "Thanks - your appointment has been confirmed."
+      : "Thanks - your request to change this appointment has been sent.",
+    status: "success",
+    companyName: tenantName,
+  }));
+});
 
 function buildJobFormsEmailBodyText(opts: {
   customerName: string;
@@ -589,6 +777,50 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     description: job.description || null,
   };
 
+  const rawToken = crypto.randomBytes(24).toString("hex");
+  const tokenHash = hashConfirmationToken(rawToken);
+  const tokenExpiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  const confirmUrl = buildConfirmationActionUrl(rawToken, "confirm");
+  const requestChangeUrl = buildConfirmationActionUrl(rawToken, "request_change");
+
+  const { error: cleanupResponseErr } = await supabaseAdmin
+    .from("job_confirmation_responses")
+    .delete()
+    .eq("tenant_id", req.tenantId)
+    .eq("job_id", jobId)
+    .eq("customer_id", job.customer_id)
+    .eq("status", "pending");
+
+  if (cleanupResponseErr) {
+    res.status(500).json({ error: cleanupResponseErr.message });
+    return;
+  }
+
+  const { error: responseInsertErr } = await supabaseAdmin
+    .from("job_confirmation_responses")
+    .insert({
+      tenant_id: req.tenantId,
+      job_id: jobId,
+      customer_id: job.customer_id,
+      sent_to_email: customer.email,
+      token_hash: tokenHash,
+      token_expires_at: tokenExpiresAt,
+      status: "pending",
+      sent_by: req.userId,
+      sent_at: new Date().toISOString(),
+    });
+
+  if (responseInsertErr) {
+    res.status(500).json({ error: responseInsertErr.message });
+    return;
+  }
+
+  await supabaseAdmin
+    .from("jobs")
+    .update({ customer_confirmation_status: "pending", updated_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .eq("tenant_id", req.tenantId);
+
   const customerFullName = `${customer.first_name} ${customer.last_name}`;
   const confirmationBodyText = buildJobConfirmationEmailBodyText({
     customerName: customerFullName,
@@ -599,6 +831,8 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     scheduledTime: job.scheduled_time || null,
     propertyAddress,
     description: job.description || null,
+    confirmUrl,
+    requestChangeUrl,
   });
 
   try {
@@ -608,6 +842,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
       companyName,
       confirmationDetails,
       emailCompany,
+      { confirmUrl, requestChangeUrl },
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send confirmation email";

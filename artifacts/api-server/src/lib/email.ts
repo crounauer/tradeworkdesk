@@ -422,11 +422,17 @@ export interface JobConfirmationDetails {
   description?: string | null;
 }
 
+export interface JobConfirmationResponseLinks {
+  confirmUrl: string;
+  requestChangeUrl: string;
+}
+
 export function renderJobConfirmationHtml(
   customerName: string,
   companyName: string,
   jobDetails: JobConfirmationDetails,
   companyDetails?: EmailCompanyDetails,
+  responseLinks?: JobConfirmationResponseLinks,
 ): string {
   const dateStr = new Date(jobDetails.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -459,6 +465,19 @@ export function renderJobConfirmationHtml(
       ${contactAddressParts.length > 0 ? `<p style="margin:4px 0;font-size:13px;color:#64748b;">📍 ${escHtml(contactAddressParts.join(", "))}</p>` : ""}
     </div>` : "";
 
+  const responseActions = responseLinks ? `
+    <div class="info-box" style="margin-top:16px;">
+      <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#1e293b;">Please confirm this appointment</p>
+      <p style="margin:0 0 14px;font-size:13px;color:#475569;">Use one of the options below so the office can plan your visit accurately.</p>
+      <p style="margin:0 0 10px;">
+        <a href="${escHtml(responseLinks.confirmUrl)}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;border-radius:8px;padding:10px 16px;font-weight:600;font-size:13px;">Confirm appointment</a>
+      </p>
+      <p style="margin:0;">
+        <a href="${escHtml(responseLinks.requestChangeUrl)}" style="display:inline-block;background:#b45309;color:#fff;text-decoration:none;border-radius:8px;padding:10px 16px;font-weight:600;font-size:13px;">Request date change</a>
+      </p>
+    </div>
+  ` : "";
+
   return baseHtml(subject, `
     <h2>Appointment Confirmation</h2>
     <p>Dear ${escHtml(customerName)},</p>
@@ -470,6 +489,7 @@ export function renderJobConfirmationHtml(
       <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
       ${jobDetails.technicianName ? `<p><strong>Engineer:</strong> ${escHtml(jobDetails.technicianName)}</p>` : ""}
     </div>
+    ${responseActions}
     ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
     <p>Please ensure there is access to the property at the scheduled time. If you need to reschedule or have any questions, ${contactLine}</p>
     ${renderDocumentLinks(companyDetails)}
@@ -485,8 +505,9 @@ export async function sendJobConfirmationEmail(
   companyName: string,
   jobDetails: JobConfirmationDetails,
   companyDetails?: EmailCompanyDetails,
+  responseLinks?: JobConfirmationResponseLinks,
 ): Promise<void> {
-  const html = renderJobConfirmationHtml(customerName, companyName, jobDetails, companyDetails);
+  const html = renderJobConfirmationHtml(customerName, companyName, jobDetails, companyDetails, responseLinks);
 
   if (!resend) {
     throw new Error("Email service is not configured (RESEND_API_KEY missing)");
