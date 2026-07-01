@@ -458,10 +458,11 @@ export default function WebsiteSetup() {
   const totalPagesCount = pages.length;
   const draftPagesCount = totalPagesCount - publishedPagesCount;
   const hasDraftPages = draftPagesCount > 0;
-  // Always use in-app preview route from admin to avoid broken external domain links in editor flow.
-  const liveUrl = website.preview_url
-    ? `${website.preview_url}${website.preview_url.includes("?") ? "&" : "?"}twd_edit=1`
-    : "/website/preview";
+  const liveUrl = platformDomain?.domain
+    ? `https://${platformDomain.domain}?twd_edit=1`
+    : website.preview_url
+      ? `${website.preview_url}${website.preview_url.includes("?") ? "&" : "?"}twd_edit=1`
+      : "/website/preview";
 
   return (
     <div className="p-6 space-y-6">
