@@ -32,10 +32,40 @@ export default function ServicesBlock({ content }: Props) {
   const label = (content.label || content.eyebrow) as string | undefined;
   const { columns = 3, accent_color = "#f97316" } = content;
   const isModernTradePayload = Boolean(content.title || content.eyebrow);
+  const schemaServices = services
+    .filter((service) => Boolean(service.title))
+    .map((service) => {
+      const next: Record<string, unknown> = {
+        "@type": "Service",
+        name: service.title,
+      };
+
+      if (service.description) next.description = service.description;
+      const href = service.cta_url || service.href;
+      if (href && /^https?:\/\//i.test(href)) next.url = href;
+      return next;
+    });
+  const servicesSchema = schemaServices.length > 0
+    ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        itemListElement: schemaServices.map((service, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          item: service,
+        })),
+      }
+    : null;
 
   if (isModernTradePayload) {
     return (
       <section style={{ padding: "80px 24px", backgroundColor: "#ffffff" }}>
+        {servicesSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(servicesSchema) }}
+          />
+        )}
         <style>{`
           .svc-modern-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
           @media (min-width: 900px) { .svc-modern-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -69,6 +99,12 @@ export default function ServicesBlock({ content }: Props) {
 
   return (
     <section style={{ padding: "72px 24px", backgroundColor: "#ffffff" }}>
+      {servicesSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(servicesSchema) }}
+        />
+      )}
       <style>{`
         .svc-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
         @media (min-width: 600px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }

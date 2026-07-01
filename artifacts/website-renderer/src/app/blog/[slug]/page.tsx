@@ -53,15 +53,23 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
   if (!post) notFound();
 
   const siteUrl = `https://${domain}`;
+  const displayName = site.company?.trading_name || site.company?.name || site.website.site_name;
+  const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    "@id": `${siteUrl}/blog/${post.slug}`,
+    "@id": canonicalUrl,
     headline: post.title,
     ...(post.excerpt ? { description: post.excerpt } : {}),
-    ...(post.featured_image_url ? { image: post.featured_image_url } : {}),
+    ...(post.featured_image_url ? { image: [post.featured_image_url] } : {}),
     ...(post.published_at ? { datePublished: post.published_at } : {}),
-    url: `${siteUrl}/blog/${post.slug}`,
+    ...(post.published_at ? { dateModified: post.published_at } : {}),
+    mainEntityOfPage: canonicalUrl,
+    author: {
+      "@type": "Organization",
+      name: displayName,
+    },
+    url: canonicalUrl,
     publisher: { "@id": `${siteUrl}/#business` },
   };
 

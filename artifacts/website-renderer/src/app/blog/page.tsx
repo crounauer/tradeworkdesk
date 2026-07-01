@@ -26,10 +26,32 @@ export default async function BlogIndexPage() {
   const site = await getSiteByDomain(domain);
   if (!site) notFound();
 
+  const siteUrl = `https://${domain}`;
+  const blogSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${siteUrl}/blog#collection`,
+    url: `${siteUrl}/blog`,
+    name: `Blog | ${site.website.site_name}`,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: site.blog_posts.map((post, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `${siteUrl}/blog/${post.slug}`,
+        name: post.title,
+      })),
+    },
+  };
+
   return (
     <TemplateLayout site={site}>
       <WebsiteClosureNotice company={site.company} />
       <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
+      />
       <BlogList posts={site.blog_posts} siteName={site.website.site_name} />
     </TemplateLayout>
   );

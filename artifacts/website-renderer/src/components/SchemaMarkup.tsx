@@ -18,6 +18,7 @@ export default function SchemaMarkup({ site, domain, pageType = "inner", breadcr
   const { website, company } = site;
   const siteUrl = `https://${domain}`;
   const displayName = company?.trading_name || company?.name || website.site_name;
+  const testimonials = Array.isArray(site.testimonials) ? site.testimonials : [];
 
   const schemas: object[] = [];
 
@@ -52,6 +53,45 @@ export default function SchemaMarkup({ site, domain, pageType = "inner", breadcr
   if (website.social_links) {
     const sameAs = Object.values(website.social_links).filter(Boolean);
     if (sameAs.length > 0) localBusiness.sameAs = sameAs;
+  }
+
+  if (testimonials.length > 0) {
+    const ratedTestimonials = testimonials.filter((item) => typeof item.rating === "number" && Number.isFinite(item.rating));
+
+    if (ratedTestimonials.length > 0) {
+      const ratingSum = ratedTestimonials.reduce((sum, item) => sum + Number(item.rating), 0);
+      localBusiness.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: Number((ratingSum / ratedTestimonials.length).toFixed(1)),
+        reviewCount: ratedTestimonials.length,
+      };
+    }
+
+    const mappedReviews = testimonials
+      .filter((item) => Boolean(item.body) && Boolean(item.author_name))
+      .slice(0, 10)
+      .map((item) => ({
+        "@type": "Review",
+        author: {
+          "@type": "Person",
+          name: item.author_name,
+        },
+        reviewBody: item.body,
+        ...(typeof item.rating === "number" && Number.isFinite(item.rating)
+          ? {
+              reviewRating: {
+                "@type": "Rating",
+                ratingValue: item.rating,
+                bestRating: 5,
+                worstRating: 1,
+              },
+            }
+          : {}),
+      }));
+
+    if (mappedReviews.length > 0) {
+      localBusiness.review = mappedReviews;
+    }
   }
 
   schemas.push(localBusiness);
