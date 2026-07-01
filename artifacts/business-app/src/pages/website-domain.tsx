@@ -302,6 +302,7 @@ export default function WebsiteDomain() {
                   {(() => {
                     const records = (d.dns_instructions.records ?? [d.dns_instructions.cname, d.dns_instructions.www]).filter(Boolean);
                     const advancedRecords = (d.dns_instructions.advanced_records ?? []).filter(Boolean);
+                    const apexDomain = d.domain.replace(/^www\./, "");
                     return (
                       <details className="rounded-md border bg-muted/20 p-3">
                         <summary className="cursor-pointer text-sm font-semibold text-foreground">
@@ -332,6 +333,9 @@ export default function WebsiteDomain() {
                                 </tbody>
                               </table>
                             </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                              Optional: if you also want people to reach your site by typing <strong>{apexDomain}</strong> without <strong>www</strong>, set up a domain forward in your provider account from <strong>{apexDomain}</strong> to <strong>https://www.{apexDomain}</strong>.
+                            </p>
                           </div>
                           {advancedRecords.length > 0 && (
                             <details className="rounded-md border p-3">
