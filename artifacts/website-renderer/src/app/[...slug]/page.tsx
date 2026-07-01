@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
 import { getRequestDomain } from "@/lib/request-domain";
+import { buildPageDescription } from "@/lib/seo";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!page) return {};
 
   const title = page.meta_title || `${page.title} | ${site.website.site_name}`;
-  const description = page.meta_description || site.website.default_meta_description || undefined;
+  const description = page.meta_description || buildPageDescription(site, page.title);
   const canonicalUrl = page.canonical_url || `https://${domain}/${slugStr}`;
 
   return {

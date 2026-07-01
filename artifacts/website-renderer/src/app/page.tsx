@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
 import { getRequestDomain } from "@/lib/request-domain";
+import { buildDefaultSiteDescription } from "@/lib/seo";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
@@ -18,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const { website } = site;
   const title = website.default_meta_title || website.site_name;
-  const description = website.default_meta_description || website.tagline || undefined;
+  const description = buildDefaultSiteDescription(site);
   const canonicalUrl = `https://${domain}`;
 
   return {

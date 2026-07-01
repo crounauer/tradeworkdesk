@@ -61,9 +61,9 @@ export default function AccreditationsBlock({ content }: Props) {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ backgroundColor: resolvedBg, borderRadius: 16, padding: "34px 28px", textAlign: "center" }}>
         {show_heading && heading && (
-          <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 28, color: headingColor, letterSpacing: "0.04em" }}>
+          <p style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 28, color: headingColor, letterSpacing: "0.04em" }}>
             {heading}
-          </h3>
+          </p>
         )}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 32, alignItems: "center", justifyContent: "center" }}>
           {(normalizedBadges as Badge[]).map((badge, i) => (

@@ -4,6 +4,7 @@
 import { useState } from "react";
 import type { SitePage } from "@/lib/api";
 import Link from "next/link";
+import { ensureAccessibleTextColor } from "@/lib/theme";
 
 interface CompanyInfo {
   phone?: string | null;
@@ -29,7 +30,7 @@ interface Props {
 export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSlug, company, basePath, previewToken, showTopBar = true }: Props) {
   const isModernTrade = String(templateSlug || "").toLowerCase() === "modern-trade";
   const navBg = theme?.nav_background || (isModernTrade ? "#ffffff" : "#1c2942");
-  const navText = theme?.nav_text || (isModernTrade ? "#0f172a" : "#ffffff");
+  const navText = ensureAccessibleTextColor(navBg, theme?.nav_text || (isModernTrade ? "#0f172a" : "#ffffff"));
   const accent = theme?.accent_color || (isModernTrade ? "#fbbf24" : "#f97316");
   const [menuOpen, setMenuOpen] = useState(false);
 

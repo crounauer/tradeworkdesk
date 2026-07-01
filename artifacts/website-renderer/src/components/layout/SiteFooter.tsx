@@ -1,4 +1,5 @@
 import type { CompanySettings, SitePage } from "@/lib/api";
+import { ensureAccessibleTextColor } from "@/lib/theme";
 
 interface Props {
   siteName: string;
@@ -17,7 +18,7 @@ const SOCIAL_ICONS: Record<string, string> = {
 
 export default function SiteFooter({ siteName, company, socialLinks, theme, pages = [], tagline, logoUrl }: Props) {
   const footerBg = theme?.footer_background || "#111827";
-  const footerText = theme?.footer_text || "#9ca3af";
+  const footerText = ensureAccessibleTextColor(footerBg, theme?.footer_text || "#9ca3af");
   const accent = theme?.accent_color || "#f97316";
   const year = new Date().getFullYear();
   const displayName = company?.trading_name || company?.name || siteName;
@@ -51,6 +52,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
                   <a key={platform} href={url} target="_blank" rel="noopener noreferrer"
                     style={{ width: 34, height: 34, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", textDecoration: "none", fontSize: "0.75rem", fontWeight: 700 }}
                     title={platform}
+                    aria-label={`${platform.charAt(0).toUpperCase()}${platform.slice(1)} profile`}
                   >
                     {SOCIAL_ICONS[platform] || platform.slice(0, 2).toUpperCase()}
                   </a>
@@ -62,7 +64,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
           {/* Col 2: Quick Links */}
           {quickLinks.length > 0 && (
             <div>
-              <h4 style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Quick Links</h4>
+              <p style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Quick Links</p>
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {quickLinks.map((link) => (
                   <li key={link.key}>
@@ -78,7 +80,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
           {/* Col 3: Accreditations */}
           {(company?.gas_safe_number || company?.oftec_number) && (
             <div>
-              <h4 style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Accreditations</h4>
+              <p style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Accreditations</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {company.gas_safe_number && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem" }}>
@@ -96,7 +98,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
 
           {/* Col 4: Contact */}
           <div>
-            <h4 style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Contact Us</h4>
+            <p style={{ color: "#fff", fontWeight: 700, marginBottom: 16, fontSize: "0.9375rem" }}>Contact Us</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: "0.9rem" }}>
               {company?.phone && (
                 <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: footerText, textDecoration: "none", display: "flex", alignItems: "flex-start", gap: 8 }}>

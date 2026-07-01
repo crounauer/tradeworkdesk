@@ -130,8 +130,20 @@ export default function HeroBlock({ content }: Props) {
             )}
           </div>
           <div style={{ borderRadius: 16, backgroundColor: "#1e293b", padding: 24, boxShadow: "0 20px 45px rgba(2,6,23,0.35)" }}>
-            <div style={{ borderRadius: 12, backgroundColor: "#334155", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#cbd5e1", fontSize: "0.95rem", padding: 20, overflow: "hidden", ...modernImageStyle }}>
-              {!modernHeroImageUrl && (typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder")}
+            <div style={{ borderRadius: 12, backgroundColor: "#334155", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#cbd5e1", fontSize: "0.95rem", padding: modernHeroImageUrl ? 0 : 20, overflow: "hidden" }}>
+              {modernHeroImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={modernHeroImageUrl}
+                  alt={typeof content.imageAlt === "string" ? content.imageAlt : ""}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  style={{ width: "100%", minHeight: 280, display: "block", objectFit: "cover", ...modernImageStyle }}
+                />
+              ) : (
+                typeof content.imageAlt === "string" ? content.imageAlt : "Trade business image placeholder"
+              )}
             </div>
           </div>
         </div>
@@ -255,7 +267,7 @@ export default function HeroBlock({ content }: Props) {
               {hero_image_url && (
                 <div style={{ flex: "0 0 auto", width: "100%", maxWidth: 520 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={hero_image_url} alt="" className="hero-split-img" />
+                  <img src={hero_image_url} alt="" className="hero-split-img" loading="eager" decoding="async" fetchPriority="high" />
                 </div>
               )}
             </div>

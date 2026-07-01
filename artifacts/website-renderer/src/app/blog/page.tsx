@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getSiteByDomain, getPageBySlug } from "@/lib/api";
+import { getSiteByDomain } from "@/lib/api";
 import { getRequestDomain } from "@/lib/request-domain";
+import { buildBlogDescription } from "@/lib/seo";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogList from "@/components/blog/BlogList";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
@@ -16,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: `Blog | ${site.website.site_name}`,
-    description: site.website.default_meta_description || undefined,
+    description: buildBlogDescription(site),
   };
 }
 

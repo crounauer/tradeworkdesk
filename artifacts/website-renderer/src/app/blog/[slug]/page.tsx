@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
 import { getRequestDomain } from "@/lib/request-domain";
+import { buildBlogDescription } from "@/lib/seo";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogPostContent from "@/components/blog/BlogPostContent";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: BlogPostProps): Promise<Metad
 
   const canonicalUrl = `https://${domain}/blog/${slug}`;
   const title = post.meta_title || `${post.title} | ${site.website.site_name}`;
-  const description = post.meta_description || post.excerpt || undefined;
+  const description = post.meta_description || buildBlogDescription(site, post);
 
   return {
     title,

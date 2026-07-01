@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, Save, Inbox, Eye, EyeOff, Trash2, Plus, CircleHelp } from "lucide-react";
+import { getAccessibleTextColor, getContrastRatio, hasAccessibleContrast, sanitizeThemeColors } from "@/lib/color-contrast";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -62,6 +63,23 @@ interface WebsiteTestimonial {
   sort_order: number;
   created_at: string;
 }
+
+const themeColorPairs = [
+  {
+    label: "Navigation",
+    backgroundKey: "nav_background",
+    backgroundLabel: "Navigation Background",
+    textKey: "nav_text",
+    textLabel: "Navigation Text",
+  },
+  {
+    label: "Footer",
+    backgroundKey: "footer_background",
+    backgroundLabel: "Footer Background",
+    textKey: "footer_text",
+    textLabel: "Footer Text",
+  },
+] as const;
 
 export default function WebsiteSettings() {
   const { toast } = useToast();
@@ -233,6 +251,23 @@ export default function WebsiteSettings() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateThemeColor = (key: string, value: string) => {
+    setForm((current) => {
+      const nextTheme = { ...current.theme, [key]: value };
+      const pair = themeColorPairs.find((item) => item.backgroundKey === key);
+      if (pair && !hasAccessibleContrast(nextTheme[pair.backgroundKey] || "#000000", nextTheme[pair.textKey] || "#ffffff")) {
+        nextTheme[pair.textKey] = getAccessibleTextColor(nextTheme[pair.backgroundKey] || "#000000", nextTheme[pair.textKey] || "#ffffff");
+      }
+      return { ...current, theme: nextTheme };
+    });
+  };
+
+  const handleSave = () => {
+    const nextForm = { ...form, theme: sanitizeThemeColors(form.theme) };
+    setForm(nextForm);
+    saveMutation.mutate(nextForm);
+  };
+
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -266,7 +301,7 @@ export default function WebsiteSettings() {
           </Link>
           <h1 className="text-2xl font-bold">Website Settings</h1>
         </div>
-        <Button onClick={() => saveMutation.mutate(form)} disabled={saveMutation.isPending}>
+        <Button onClick={handleSave} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Save Changes
         </Button>
@@ -382,27 +417,72 @@ export default function WebsiteSettings() {
         </TabsContent>
 
         <TabsContent value="theme" className="space-y-4 pt-4">
-          <p className="text-sm text-muted-foreground">Customise the colours of your site navigation and footer.</p>
-          {(["nav_background", "nav_text", "footer_background", "footer_text"] as const).map((key) => {
-            const labels: Record<string, string> = {
-              nav_background: "Navigation Background",
-              nav_text: "Navigation Text",
-              footer_background: "Footer Background",
-              footer_text: "Footer Text",
-            };
+          <p className="text-sm text-muted-foreground">Customise the colours of your site navigation and footer. We automatically protect text contrast so links and labels stay readable.</p>
+          {themeColorPairs.map((pair) => {
+            const background = form.theme[pair.backgroundKey] || "#000000";
+            const text = form.theme[pair.textKey] || "#ffffff";
+            const ratio = getContrastRatio(background, text);
+            const passes = hasAccessibleContrast(background, text);
+            const recommendedText = getAccessibleTextColor(background, text);
+
             return (
-              <div key={key} className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={form.theme[key] || "#000000"}
-                  onChange={(e) => setForm((f) => ({ ...f, theme: { ...f.theme, [key]: e.target.value } }))}
-                  className="h-10 w-12 cursor-pointer rounded border"
-                />
-                <div>
-                  <Label>{labels[key]}</Label>
-                  <div className="text-xs text-muted-foreground font-mono">{form.theme[key]}</div>
-                </div>
-              </div>
+              <Card key={pair.label}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-base">{pair.label}</CardTitle>
+                    <Badge variant={passes ? "default" : "destructive"} className={passes ? "bg-green-600" : ""}>
+                      {ratio ? `Contrast ${ratio.toFixed(2)}:1` : "Check colours"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={background}
+                        onChange={(e) => updateThemeColor(pair.backgroundKey, e.target.value)}
+                        className="h-10 w-12 cursor-pointer rounded border"
+                      />
+                      <div>
+                        <Label>{pair.backgroundLabel}</Label>
+                        <div className="text-xs text-muted-foreground font-mono">{background}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={text}
+                        onChange={(e) => setForm((f) => ({ ...f, theme: { ...f.theme, [pair.textKey]: e.target.value } }))}
+                        className="h-10 w-12 cursor-pointer rounded border"
+                      />
+                      <div>
+                        <Label>{pair.textLabel}</Label>
+                        <div className="text-xs text-muted-foreground font-mono">{text}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border p-4" style={{ backgroundColor: background, color: text }}>
+                    <div className="text-sm font-semibold">Preview</div>
+                    <div className="mt-1 text-sm opacity-90">Sample navigation and footer text with your current colours.</div>
+                  </div>
+
+                  {!passes && (
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      <span>This colour pair is hard to read. Use the recommended text colour to pass contrast checks.</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setForm((f) => ({ ...f, theme: { ...f.theme, [pair.textKey]: recommendedText } }))}
+                      >
+                        Use {recommendedText}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             );
           })}
         </TabsContent>

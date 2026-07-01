@@ -52,7 +52,7 @@ export default function FeaturesBarBlock({ content }: Props) {
                 </div>
               )}
               <div>
-                <h3 style={{ margin: "0 0 5px", fontSize: "0.9375rem", fontWeight: 700, color: text_color }}>{f.title}</h3>
+                <p style={{ margin: "0 0 5px", fontSize: "0.9375rem", fontWeight: 700, color: text_color }}>{f.title}</p>
                 {f.description && (
                   <p style={{ margin: 0, fontSize: "0.85rem", lineHeight: 1.55, color: text_color, opacity: 0.82 }}>
                     {f.description}
