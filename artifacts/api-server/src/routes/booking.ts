@@ -73,6 +73,7 @@ const postcodeLookupLimiter = rateLimit({
 const idempotencyCache = new Map<string, { payloadHash: string; response: { id: string; status: string; scheduled_start: string }; createdAt: number }>();
 const inFlightSlotLocks = new Set<string>();
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+const BUSINESS_TIMEZONE = "Europe/London";
 
 function cleanupPublicBookingCaches(): void {
   const cutoff = Date.now() - IDEMPOTENCY_TTL_MS;
@@ -89,6 +90,77 @@ function extractUtcDateAndTime(isoDateTime: string): { date: string; time: strin
   const hh = String(d.getUTCHours()).padStart(2, "0");
   const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return { date: `${y}-${m}-${day}`, time: `${hh}:${mm}` };
+}
+
+function parseWeekdayIndex(value: string): number {
+  const normalized = value.toLowerCase();
+  if (normalized.startsWith("sun")) return 0;
+  if (normalized.startsWith("mon")) return 1;
+  if (normalized.startsWith("tue")) return 2;
+  if (normalized.startsWith("wed")) return 3;
+  if (normalized.startsWith("thu")) return 4;
+  if (normalized.startsWith("fri")) return 5;
+  return 6;
+}
+
+function getLocalDateString(date: Date, timeZone = BUSINESS_TIMEZONE): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!year || !month || !day) {
+    throw new Error("Unable to format local date string");
+  }
+  return `${year}-${month}-${day}`;
+}
+
+function getLocalWeekdayIndex(date: Date, timeZone = BUSINESS_TIMEZONE): number {
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+  }).format(date);
+  return parseWeekdayIndex(weekday);
+}
+
+function parseTimezoneOffsetMinutes(offsetLabel: string): number {
+  if (offsetLabel === "GMT" || offsetLabel === "UTC") return 0;
+  const match = offsetLabel.match(/^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * ((hours * 60) + minutes);
+}
+
+function getTimezoneOffsetMinutes(date: Date, timeZone = BUSINESS_TIMEZONE): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "shortOffset",
+  }).formatToParts(date);
+  const label = parts.find((p) => p.type === "timeZoneName")?.value || "GMT";
+  return parseTimezoneOffsetMinutes(label);
+}
+
+function parseHourMinute(value: string): { hour: number; minute: number } {
+  const [hourRaw = "0", minuteRaw = "0"] = value.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  return {
+    hour: Number.isFinite(hour) ? hour : 0,
+    minute: Number.isFinite(minute) ? minute : 0,
+  };
+}
+
+function localDateTimeToUtc(dateStr: string, timeStr: string, timeZone = BUSINESS_TIMEZONE): Date {
+  const { hour, minute } = parseHourMinute(timeStr);
+  const baselineUtc = new Date(`${dateStr}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00.000Z`);
+  const offset = getTimezoneOffsetMinutes(baselineUtc, timeZone);
+  return new Date(baselineUtc.getTime() - (offset * 60000));
 }
 
 function buildBookingPayloadHash(payload: {
@@ -357,8 +429,8 @@ async function getAvailableSlots(
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     if (d > maxDate) break;
-    const dayOfWeek = d.getDay();
     const dateStr = d.toISOString().split("T")[0];
+    const dayOfWeek = getLocalWeekdayIndex(new Date(`${dateStr}T12:00:00.000Z`));
 
     // Check whole-day block override
     const wholeDayBlock = overrides.find(
@@ -370,13 +442,8 @@ async function getAvailableSlots(
     const wh = workingHours.find((w) => w.day === dayOfWeek);
     if (!wh) continue;
 
-    const [startH, startM] = wh.start.split(":").map(Number);
-    const [endH, endM] = wh.end.split(":").map(Number);
-
-    let slotStart = new Date(d);
-    slotStart.setHours(startH, startM, 0, 0);
-    const dayEnd = new Date(d);
-    dayEnd.setHours(endH, endM, 0, 0);
+    let slotStart = localDateTimeToUtc(dateStr, wh.start);
+    const dayEnd = localDateTimeToUtc(dateStr, wh.end);
 
     while (slotStart < dayEnd) {
       const slotEnd = new Date(slotStart.getTime() + serviceDurationMinutes * 60000);
@@ -391,8 +458,8 @@ async function getAvailableSlots(
       // Check time-based block overrides
       const timeBlocked = overrides.some((o) => {
         if (o.date !== dateStr || o.type !== "blocked" || !o.start_time) return false;
-        const oStart = new Date(`${dateStr}T${o.start_time}`);
-        const oEnd = new Date(`${dateStr}T${o.end_time || o.start_time}`);
+        const oStart = localDateTimeToUtc(dateStr, o.start_time);
+        const oEnd = localDateTimeToUtc(dateStr, o.end_time || o.start_time);
         return slotStart < oEnd && slotEnd > oStart;
       });
       if (timeBlocked) {
@@ -414,7 +481,7 @@ async function getAvailableSlots(
         if (status === "cancelled" || status === "completed") return false;
 
         const durationMinutes = Number(j.estimated_duration || serviceDurationMinutes || slotDuration || 60);
-        const jStart = new Date(`${j.scheduled_date}T${j.scheduled_time}`).getTime() - buffer * 60000;
+        const jStart = localDateTimeToUtc(j.scheduled_date, j.scheduled_time).getTime() - buffer * 60000;
         const jEnd = jStart + (durationMinutes + (buffer * 2)) * 60000;
         return slotStart.getTime() < jEnd && slotEnd.getTime() > jStart;
       });
@@ -1057,8 +1124,9 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     scheduledEnd.setUTCMinutes(scheduledEnd.getUTCMinutes() + duration);
 
     // Hard guard: ensure selected slot stays inside configured working hours for that day.
-    const bookingDate = normalizedScheduledStart.slice(0, 10);
-    const dayOfWeek = new Date(`${bookingDate}T00:00:00.000Z`).getUTCDay();
+    const normalizedStartDate = new Date(normalizedScheduledStart);
+    const bookingDate = getLocalDateString(normalizedStartDate);
+    const dayOfWeek = getLocalWeekdayIndex(normalizedStartDate);
     const workingHours = Array.isArray((settings as { working_hours?: unknown[] }).working_hours)
       ? (settings as { working_hours: Array<{ day: number; start: string; end: string }> }).working_hours
       : [];
@@ -1066,12 +1134,11 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     if (!dayHours) {
       return res.status(409).json({ error: "Selected time is outside working hours. Please choose another slot." });
     }
-    const workDayStart = new Date(`${bookingDate}T${dayHours.start}:00.000Z`);
-    const workDayEnd = new Date(`${bookingDate}T${dayHours.end}:00.000Z`);
+    const workDayStart = localDateTimeToUtc(bookingDate, dayHours.start);
+    const workDayEnd = localDateTimeToUtc(bookingDate, dayHours.end);
     if (Number.isNaN(workDayStart.getTime()) || Number.isNaN(workDayEnd.getTime())) {
       return res.status(500).json({ error: "Working hours configuration is invalid" });
     }
-    const normalizedStartDate = new Date(normalizedScheduledStart);
     if (normalizedStartDate < workDayStart || scheduledEnd > workDayEnd) {
       return res.status(409).json({ error: "Selected time exceeds working hours for this service duration. Please choose another slot." });
     }
