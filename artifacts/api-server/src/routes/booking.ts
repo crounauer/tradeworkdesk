@@ -778,11 +778,26 @@ router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking
   res.json(data);
 });
 
-const convertBookingToJobHandler = async (req: AuthenticatedRequest, res: Response) => {
+const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => async (req: AuthenticatedRequest, res: Response) => {
   const nowIso = new Date().toISOString();
+  const requestedJobIdRaw = (req.body as { job_id?: unknown } | undefined)?.job_id;
+  const requestedJobId = typeof requestedJobIdRaw === "string" && requestedJobIdRaw.trim()
+    ? requestedJobIdRaw.trim()
+    : null;
+
+  if (options?.requireJobId && !requestedJobId) {
+    return res.status(400).json({ error: "job_id is required to convert a booking" });
+  }
+
+  const bookingUpdatePayload: Record<string, unknown> = {
+    status: "confirmed",
+    confirmed_at: nowIso,
+    confirmed_by: req.userId,
+  };
+  if (requestedJobId) bookingUpdatePayload.job_id = requestedJobId;
 
   const { data: booking, error } = await db.from("bookings")
-    .update({ status: "confirmed", confirmed_at: nowIso, confirmed_by: req.userId })
+    .update(bookingUpdatePayload)
     .eq("id", req.params.id).eq("tenant_id", req.tenantId)
     .select().single();
   if (error) return res.status(500).json({ error: error.message });
@@ -930,11 +945,11 @@ const convertBookingToJobHandler = async (req: AuthenticatedRequest, res: Respon
   res.json(booking);
 };
 
-router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler);
-router.post("/booking/bookings/:id/convert-to-job", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler);
+router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler());
+router.post("/booking/bookings/:id/convert-to-job", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler({ requireJobId: true }));
 
 router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  const { reason } = req.body as { reason?: string };
+  const { reason } = (req.body ?? {}) as { reason?: string };
   const { data, error } = await db.from("bookings")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null })
     .eq("id", req.params.id).eq("tenant_id", req.tenantId)
@@ -945,7 +960,7 @@ router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireB
 });
 
 router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  const { reason } = req.body as { reason?: string };
+  const { reason } = (req.body ?? {}) as { reason?: string };
   const { data, error } = await db.from("bookings")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null })
     .eq("id", req.params.id).eq("tenant_id", req.tenantId)

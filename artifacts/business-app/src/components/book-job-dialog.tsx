@@ -107,9 +107,29 @@ interface BookJobDialogProps {
   initialPropertyId?: string;
   initialCustomerAddress?: { address_line1?: string; city?: string; postcode?: string };
   invoiceId?: string;
+  onJobCreated?: (jobId: string) => Promise<void> | void;
+  initialBookingPrefill?: {
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    customer_address?: string | null;
+    customer_postcode?: string | null;
+    notes?: string | null;
+    scheduled_start?: string | null;
+  };
 }
 
-export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomerId, initialPropertyId, initialCustomerAddress, invoiceId }: BookJobDialogProps) {
+export function BookJobDialog({
+  open,
+  onOpenChange,
+  initialDate,
+  initialCustomerId,
+  initialPropertyId,
+  initialCustomerAddress,
+  invoiceId,
+  onJobCreated,
+  initialBookingPrefill,
+}: BookJobDialogProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { profile } = useAuth();
@@ -257,6 +277,35 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
       setShowAddProperty(true);
     }
   }, [open, initialCustomerId, initialPropertyId, initialCustomerAddress, properties, customers]);
+
+  useEffect(() => {
+    if (!open || !initialBookingPrefill || initialCustomerId) return;
+
+    const splitName = (fullName: string) => {
+      const parts = fullName.trim().split(/\s+/).filter(Boolean);
+      if (parts.length <= 1) {
+        return { firstName: parts[0] || "", lastName: "" };
+      }
+      return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+    };
+
+    const { firstName, lastName } = splitName(initialBookingPrefill.customer_name || "");
+    const cleanNotes = String(initialBookingPrefill.notes || "").replace(/\n?\[BOOKING_GEO\][^\n]+/g, "").trim();
+    const scheduled = initialBookingPrefill.scheduled_start ? new Date(initialBookingPrefill.scheduled_start) : null;
+    const dateStr = scheduled && !Number.isNaN(scheduled.getTime()) ? scheduled.toISOString().slice(0, 10) : undefined;
+    const timeStr = scheduled && !Number.isNaN(scheduled.getTime()) ? scheduled.toISOString().slice(11, 16) : undefined;
+
+    setValue("customer_mode", "new");
+    setValue("new_first_name", firstName);
+    setValue("new_last_name", lastName);
+    setValue("new_email", initialBookingPrefill.customer_email || "");
+    setValue("new_phone", initialBookingPrefill.customer_phone || "");
+    setValue("new_address_line1", initialBookingPrefill.customer_address || "");
+    setValue("new_postcode", initialBookingPrefill.customer_postcode || "");
+    if (cleanNotes) setValue("description", cleanNotes);
+    if (dateStr) setValue("scheduled_date", dateStr);
+    if (timeStr) setValue("scheduled_time", timeStr);
+  }, [open, initialBookingPrefill, initialCustomerId, setValue]);
 
   const prefillPropertyFromCustomer = () => {
     if (selectedCustomer) {
@@ -440,6 +489,10 @@ export function BookJobDialog({ open, onOpenChange, initialDate, initialCustomer
       toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
 
       const createdJobId = (jobRes as { id: string }).id;
+
+      if (onJobCreated) {
+        await onJobCreated(createdJobId);
+      }
 
       // Link the source invoice/quote to the new job if one was provided
       if (invoiceId) {

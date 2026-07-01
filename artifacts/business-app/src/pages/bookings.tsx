@@ -74,17 +74,12 @@ export default function Bookings() {
     }
   });
 
-  const convertMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/convert-to-job`, { method: "POST" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
-      toast({ title: "Booking converted to job" });
-    },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/cancel`, { method: "POST" }),
+    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
       setCancellingId(null);
@@ -165,11 +160,11 @@ export default function Bookings() {
                       <Button size="sm" variant="outline">View Day</Button>
                     </Link>
                     {b.status === "pending" && (
-                      <Button size="sm" variant="outline"
-                        onClick={() => convertMutation.mutate(b.id)}
-                        disabled={convertMutation.isPending}>
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Convert to Job
-                      </Button>
+                      <Link href={`/booking/review/${b.id}/convert`}>
+                        <Button size="sm" variant="outline">
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Convert to Job
+                        </Button>
+                      </Link>
                     )}
                     {(b.status === "pending" || b.status === "confirmed") && (
                       <Button size="sm" variant="outline"

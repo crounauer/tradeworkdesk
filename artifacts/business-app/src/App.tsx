@@ -167,6 +167,7 @@ const WebsiteBuilderEditor = lazyRetry(() => import("@/pages/website-builder"));
 
 const BookingSetup = lazyRetry(() => import("@/pages/booking-setup"));
 const Bookings = lazyRetry(() => import("@/pages/bookings"));
+const BookingConvertPage = lazyRetry(() => import("@/pages/booking-convert"));
 const ReviewRequests = lazyRetry(() => import("@/pages/review-requests"));
 const MaintenancePlans = lazyRetry(() => import("@/pages/maintenance-plans"));
 const EmailCampaigns = lazyRetry(() => import("@/pages/email-campaigns"));
@@ -453,6 +454,7 @@ const WebsiteIndexNowRoute = protectFeature(WebsiteIndexNow, "website_builder");
 const WebsiteBuilderEditorRoute = protectFeature(WebsiteBuilderEditor, "website_builder");
 const BookingSetupRoute = protect(BookingSetup, ["admin", "super_admin"]);
 const BookingReviewRoute = protect(Bookings, ["admin", "office_staff", "super_admin"]);
+const BookingConvertRoute = protect(BookingConvertPage, ["admin", "office_staff", "super_admin"]);
 const ReviewRequestsRoute = protectFeature(ReviewRequests, "website_builder");
 const MaintenancePlansRoute = protectFeature(MaintenancePlans, "website_builder");
 const EmailCampaignsRoute = protectFeature(EmailCampaigns, "website_builder");
@@ -621,6 +623,7 @@ function AppRouter() {
 
         <Route path="/booking" component={BookingReviewRoute} />
         <Route path="/booking/review" component={BookingReviewRoute} />
+        <Route path="/booking/review/:id/convert" component={BookingConvertRoute} />
         <Route path="/booking/setup" component={BookingSetupRoute} />
         <Route path="/review-requests" component={ReviewRequestsRoute} />
 
