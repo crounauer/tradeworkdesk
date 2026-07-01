@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,8 @@ async function apiFetch(url: string, opts?: RequestInit) {
 export default function BookingConvertPage(props: { params?: { id?: string } }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const bookingId = props?.params?.id || "";
+  const [, routeParams] = useRoute("/booking/review/:id/convert");
+  const bookingId = routeParams?.id || props?.params?.id || "";
   const [showDialog, setShowDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
