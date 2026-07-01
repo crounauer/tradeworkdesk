@@ -7,7 +7,7 @@ import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../mi
 import { sendBetaInviteCodeEmail, sendWelcomeEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth, grantTrialUsageCredits } from "../lib/tenant-limits";
-import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
+import { addDomainToFly, removeDomainFromFly } from "../lib/fly-certs";
 
 function sha256hex(data: string): string {
   return crypto.createHash("sha256").update(data).digest("hex");
@@ -2575,7 +2575,7 @@ router.delete("/platform/template-assets/:templateId/:filename", requireAuth, re
   res.sendStatus(204);
 });
 
-// POST /platform/domains/sync-vercel — force-add or remove a domain from Vercel renderer
+// POST /platform/domains/sync-renderer — force-add or remove a domain from Fly renderer
 // POST /platform/tenants/:id/reprovision-subdomain
 // Creates (or re-activates) the platform subdomain record for a tenant whose
 // website was created before subdomain provisioning ran, or whose subdomain
@@ -2606,11 +2606,11 @@ router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireS
     .maybeSingle() as { data: { id: string; domain: string; is_active: boolean } | null };
 
   if (existing) {
-    // Re-activate if inactive and re-register with Vercel
+    // Re-activate if inactive and re-register with Fly
     if (!existing.is_active) {
       await db.from("website_domains").update({ is_active: true, activated_at: new Date().toISOString() }).eq("id", existing.id);
     }
-    await addDomainToVercel(existing.domain);
+    await addDomainToFly(existing.domain);
     res.json({ ok: true, domain: existing.domain, action: existing.is_active ? "re-synced" : "reactivated" });
     return;
   }
@@ -2659,7 +2659,7 @@ router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireS
     activated_at: new Date().toISOString(),
   });
 
-  await addDomainToVercel(domain);
+  await addDomainToFly(domain);
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
@@ -2673,27 +2673,27 @@ router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireS
   res.json({ ok: true, domain, action: "created" });
 });
 
-router.post("/platform/domains/sync-vercel", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/platform/domains/sync-renderer", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { domain, action = "add" } = req.body as { domain?: string; action?: "add" | "remove" };
   if (!domain) { res.status(400).json({ error: "domain is required" }); return; }
 
   try {
     if (action === "remove") {
-      await removeDomainFromVercel(domain);
+      await removeDomainFromFly(domain);
     } else {
-      await addDomainToVercel(domain);
+      await addDomainToFly(domain);
     }
     await supabaseAdmin.from("platform_audit_log").insert({
       actor_id: req.userId,
       actor_email: req.userEmail,
-      event_type: "domain_vercel_synced",
+      event_type: "domain_renderer_synced",
       entity_type: "website_domain",
       entity_id: null,
       detail: { domain, action },
     });
     res.json({ ok: true, domain, action });
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : "Vercel sync failed" });
+    res.status(500).json({ error: e instanceof Error ? e.message : "Renderer sync failed" });
   }
 });
 

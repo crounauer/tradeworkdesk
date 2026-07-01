@@ -12,14 +12,15 @@ primary_region = "lhr"
   PORT = "8080"
   HOSTNAME = "0.0.0.0"
   API_BASE_URL = "https://tradeworkdesk-api.fly.dev"
+  PUBLIC_SITE_CACHE_TTL_SECONDS = "60"
 
 [http_service]
   internal_port = 8080
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
-  max_machines_running = 2
+  min_machines_running = 1
+  max_machines_running = 4
 
   [http_service.concurrency]
     type = "requests"

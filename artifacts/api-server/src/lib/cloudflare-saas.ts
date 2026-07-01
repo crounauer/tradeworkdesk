@@ -247,8 +247,8 @@ export async function syncDomainStatus(domainId: string): Promise<void> {
  * Returns the DNS records the tenant needs to configure for their domain.
  *
  * Apex domains (e.g. example.co.uk) cannot use CNAME at @ on most registrars,
- * so we instruct them to set an A record to Vercel's anycast IP instead.
- * www subdomains always use CNAME.
+ * so we instruct them to set A/AAAA records to the Fly anycast IPs instead.
+ * www subdomains always use CNAME to the shared platform hostname.
  */
 export function getDnsInstructions(domain: string, _verificationToken?: string): {
   records: Array<{ type: string; name: string; value: string; ttl: string; note?: string }>;
@@ -258,24 +258,26 @@ export function getDnsInstructions(domain: string, _verificationToken?: string):
   www: { type: string; name: string; value: string; ttl: string };
 } {
   const PLATFORM_DOMAIN = process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk";
-  // Vercel's anycast IP — used for A records on apex domains
-  const VERCEL_APEX_IP = "76.76.21.21";
+  // Fly anycast IPs — used for apex domains
+  const FLY_APEX_IPV4 = "66.241.125.253";
+  const FLY_APEX_IPV6 = "2a09:8280:1::139:7e95:0";
 
   const isApex = !domain.startsWith("www.");
   const apexDomain = domain.replace(/^www\./, "");
 
   const records = isApex
     ? [
-        { type: "A",     name: "@",               value: VERCEL_APEX_IP,  ttl: "Auto", note: "Points your root domain to Vercel" },
-        { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points www to TradeWorkDesk" },
+        { type: "A",     name: "@",               value: FLY_APEX_IPV4,  ttl: "Auto", note: "Points your root domain to the Fly renderer" },
+        { type: "AAAA",  name: "@",               value: FLY_APEX_IPV6,  ttl: "Auto", note: "IPv6 for the root domain" },
+        { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points www to the shared platform hostname" },
       ]
     : [
-        { type: "CNAME", name: domain, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points your domain to TradeWorkDesk" },
+        { type: "CNAME", name: domain, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points your domain to the shared platform hostname" },
       ];
 
   // Legacy shape (kept for backward compat with existing UI code)
   const legacyCname = isApex
-    ? { type: "A",     name: "@",               value: VERCEL_APEX_IP,  ttl: "Auto" }
+    ? { type: "A",     name: "@",               value: FLY_APEX_IPV4,  ttl: "Auto" }
     : { type: "CNAME", name: domain,             value: PLATFORM_DOMAIN, ttl: "Auto" };
   const legacyWww   = { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto" };
 

@@ -1,7 +1,7 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
+import { getRequestDomain } from "@/lib/request-domain";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
@@ -15,7 +15,7 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const domain = await getRequestDomain();
   const { slug } = await params;
   const slugStr = slug.join("/");
 
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function DynamicPage({ params }: PageProps) {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const domain = await getRequestDomain();
   const { slug } = await params;
   const slugStr = slug.join("/");
 

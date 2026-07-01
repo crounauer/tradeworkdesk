@@ -21,7 +21,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
-import { addDomainToVercel } from "../lib/vercel";
+import { addDomainToFly } from "../lib/fly-certs";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
 import { triggerRendererRevalidate } from "../lib/renderer-revalidate";
 import { generatePagesFromFigma, validateGeneratedPages } from "../lib/figma-page-generator";
@@ -296,9 +296,9 @@ async function provisionPlatformSubdomain(websiteId: string, tenantId: string, c
     activated_at: new Date().toISOString(),
   });
 
-  // Register with Vercel so the renderer serves traffic for this subdomain
-  addDomainToVercel(`${slug}.${base}`).catch((e) =>
-    console.error(`[vercel] addDomainToVercel(${slug}.${base}) failed:`, e)
+  // Register with Fly so the renderer serves traffic for this subdomain
+  addDomainToFly(`${slug}.${base}`).catch((e) =>
+    console.error(`[fly-certs] addDomainToFly(${slug}.${base}) failed:`, e)
   );
 }
 

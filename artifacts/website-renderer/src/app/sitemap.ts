@@ -1,12 +1,9 @@
-import { headers } from "next/headers";
 import { getSiteByDomain } from "@/lib/api";
+import { getRequestDomain } from "@/lib/request-domain";
 import type { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const h = await headers();
-  const domain =
-    h.get("x-tenant-domain") ||
-    (h.get("host") || "localhost").replace(/:\d+$/, "");
+  const domain = await getRequestDomain();
   const site = await getSiteByDomain(domain);
 
   if (!site) return [];

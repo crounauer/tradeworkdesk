@@ -1267,7 +1267,12 @@ function BlockCard({
   onContentChange: (id: string, content: Record<string, unknown>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const palette = BLOCK_PALETTE.find((p) => p.type === block.block_type);
+  const normalizedType = normalizeTemplateBlockType(block.block_type);
+  const palette = BLOCK_PALETTE.find((p) => p.type === normalizedType);
+  const displayLabel = palette?.label
+    ?? String(block.block_type || "")
+      .replace(/[._]+/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   const Icon = palette?.icon ?? Layout;
 
   return (
@@ -1278,7 +1283,7 @@ function BlockCard({
             <div className="flex items-center gap-3">
               <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-sm">{palette?.label ?? block.block_type}</span>
+                <span className="font-medium text-sm">{displayLabel}</span>
                 {Boolean(block.content.heading ?? block.content.title) && (
                   <span className="text-muted-foreground text-xs ml-2 truncate">— {String(block.content.heading ?? block.content.title)}</span>
                 )}

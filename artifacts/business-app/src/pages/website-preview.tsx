@@ -6,12 +6,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Monitor, Tablet, Smartphone, ExternalLink, RefreshCw, Globe } from "lucide-react";
+import { ArrowLeft, Monitor, Tablet, Smartphone, ExternalLink, RefreshCw, Globe, Pencil } from "lucide-react";
 
 interface Page {
   id: string;
@@ -42,6 +43,7 @@ const DEVICES = [
 ] as const;
 
 export default function WebsitePreview() {
+  const { profile } = useAuth();
   const [location] = useLocation();
   const params = new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
   const initialPage = params.get("page") ?? "";
@@ -62,6 +64,10 @@ export default function WebsitePreview() {
   });
 
   const currentDevice = DEVICES.find(d => d.id === device) ?? DEVICES[0];
+  const currentPage = selectedPage
+    ? pages.find((p) => p.slug === selectedPage)
+    : pages.find((p) => p.page_type === "home");
+  const canQuickEditPage = profile?.role === "admin" && !!currentPage;
 
   // Only use renderer preview URLs here so draft/editor preview never points at
   // external domains that may not be reachable in local/dev environments.
@@ -147,6 +153,15 @@ export default function WebsitePreview() {
               <ExternalLink className="w-4 h-4" />
             </a>
           </Button>
+        )}
+
+        {canQuickEditPage && (
+          <Link href={`/website/pages/${currentPage.id}`}>
+            <Button variant="outline" size="sm" className="h-8">
+              <Pencil className="w-3.5 h-3.5 mr-1" />
+              Edit Page
+            </Button>
+          </Link>
         )}
       </div>
 

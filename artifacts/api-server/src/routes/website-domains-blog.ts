@@ -44,14 +44,15 @@ import {
   requirePlanFeature,
   type AuthenticatedRequest,
 } from "../middlewares/auth";
-import { resolveCname, resolve4 } from "node:dns/promises";
+import { resolveCname, resolve4, resolve6 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
-import { addDomainToVercel, removeDomainFromVercel } from "../lib/vercel";
+import { addDomainToFly, removeDomainFromFly } from "../lib/fly-certs";
 import { sendSimpleNotification } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
+import { triggerRendererRevalidate } from "../lib/renderer-revalidate";
 
 const router: IRouter = Router();
 const db = supabaseAdmin as any;
@@ -93,6 +94,21 @@ const trafficTrackLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many tracking events. Please try again later." },
 });
+
+function parseCacheSeconds(raw: string | undefined, fallback: number, min = 0, max = 3600): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+const LIVE_CACHE_MAX_AGE_SECONDS = parseCacheSeconds(process.env.PUBLIC_SITE_API_CACHE_MAX_AGE_SECONDS, 30, 0, 600);
+const LIVE_CACHE_SWR_SECONDS = parseCacheSeconds(process.env.PUBLIC_SITE_API_CACHE_SWR_SECONDS, 120, 0, 3600);
+const CANONICAL_CACHE_MAX_AGE_SECONDS = parseCacheSeconds(process.env.CANONICAL_DOMAIN_CACHE_MAX_AGE_SECONDS, 60, 0, 600);
+const CANONICAL_CACHE_SWR_SECONDS = parseCacheSeconds(process.env.CANONICAL_DOMAIN_CACHE_SWR_SECONDS, 300, 0, 3600);
+
+function publicCacheControl(maxAgeSeconds: number, staleWhileRevalidateSeconds: number): string {
+  return `public, max-age=${maxAgeSeconds}, s-maxage=${maxAgeSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`;
+}
 
 // ─── Public: upload form photos ───────────────────────────────────────────────
 // Called client-side from ContactFormBlock before submitting.
@@ -284,7 +300,8 @@ function isValidDomainFormat(domain: string): boolean {
 
 async function checkDomainPointsToPlatform(domain: string): Promise<boolean> {
   const PLATFORM_TARGET = (process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk").toLowerCase();
-  const VERCEL_APEX_IP = process.env.VERCEL_APEX_IP || "76.76.21.21";
+  const FLY_APEX_IPV4 = process.env.FLY_PUBLIC_IPV4 || "66.241.125.253";
+  const FLY_APEX_IPV6 = process.env.FLY_PUBLIC_IPV6 || "2a09:8280:1::139:7e95:0";
 
   let dnsOk = false;
   try {
@@ -297,9 +314,18 @@ async function checkDomainPointsToPlatform(domain: string): Promise<boolean> {
   if (!dnsOk) {
     try {
       const aRecords = await resolve4(domain).catch(() => [] as string[]);
-      dnsOk = aRecords.includes(VERCEL_APEX_IP);
+      dnsOk = aRecords.includes(FLY_APEX_IPV4);
     } catch {
       // ignore A record lookup failures
+    }
+  }
+
+  if (!dnsOk) {
+    try {
+      const aaaaRecords = await resolve6(domain).catch(() => [] as string[]);
+      dnsOk = aaaaRecords.some((record) => record.toLowerCase() === FLY_APEX_IPV6.toLowerCase());
+    } catch {
+      // ignore AAAA record lookup failures
     }
   }
 
@@ -349,8 +375,24 @@ async function ensurePlatformFallbackDomain(websiteId: string, tenantId: string)
     activated_at: new Date().toISOString(),
   });
 
-  await addDomainToVercel(fallbackDomain);
+  await addDomainToFly(fallbackDomain);
   return { domain: fallbackDomain, created: true };
+}
+
+async function getActiveDomainsForWebsite(websiteId: string): Promise<string[]> {
+  const { data } = await db
+    .from("website_domains")
+    .select("domain")
+    .eq("website_id", websiteId)
+    .eq("is_active", true) as { data: Array<{ domain: string }> | null };
+
+  return (data || []).map((row) => String(row.domain || "")).filter(Boolean);
+}
+
+async function revalidateWebsiteDomains(websiteId: string, reason: string, extraDomains: string[] = []): Promise<void> {
+  if (!websiteId) return;
+  const activeDomains = await getActiveDomainsForWebsite(websiteId);
+  void triggerRendererRevalidate({ domains: [...activeDomains, ...extraDomains], websiteIds: [websiteId], reason });
 }
 
 async function activateCustomDomain(opts: { domainId: string; websiteId: string; domain: string; setPrimary: boolean }): Promise<void> {
@@ -373,7 +415,8 @@ async function activateCustomDomain(opts: { domainId: string; websiteId: string;
       .neq("id", opts.domainId);
   }
 
-  await addDomainToVercel(opts.domain);
+  await addDomainToFly(opts.domain);
+  await revalidateWebsiteDomains(opts.websiteId, "domain_activated", [opts.domain]);
 }
 
 // ─── Domains ──────────────────────────────────────────────────────────────────
@@ -594,22 +637,25 @@ router.delete(
   requireWebsiteBuilder(),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
 
     const { data: domain } = await db
       .from("website_domains")
-      .select("id, domain")
+      .select("id, website_id, domain")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string; domain: string } | null };
+      .single() as { data: { id: string; website_id: string; domain: string } | null };
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
 
-    // Remove from Vercel (releases the SSL cert)
-    removeDomainFromVercel(domain.domain).catch((e) =>
-      console.error("[vercel] removeDomainFromVercel failed:", e)
+    // Remove from Fly renderer (releases the SSL cert)
+    removeDomainFromFly(domain.domain).catch((e) =>
+      console.error("[fly-certs] removeDomainFromFly failed:", e)
     );
 
     await db.from("website_domains").delete().eq("id", id);
+    await revalidateWebsiteDomains(String(website.id), "domain_deleted", [domain.domain]);
     res.sendStatus(204);
   }
 );
@@ -658,7 +704,9 @@ router.post(
         .eq("id", domain.id);
     }
 
-    const vercelResult = await removeDomainFromVercel(domain.domain);
+    const rendererResult = await removeDomainFromFly(domain.domain);
+
+    await revalidateWebsiteDomains(domain.website_id, "domain_offboarded", [domain.domain, fallback.domain]);
 
     res.json({
       ok: true,
@@ -666,7 +714,7 @@ router.post(
       deleted_record: Boolean(delete_record),
       fallback_domain: fallback.domain,
       fallback_created: fallback.created,
-      vercel: vercelResult,
+      renderer: rendererResult,
     });
   }
 );
@@ -693,7 +741,8 @@ router.post(
     //   • A     → 76.76.21.21                 (needed for apex domains — most registrars
     //                                          won't allow CNAME at @)
     const PLATFORM_TARGET = (process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk").toLowerCase();
-    const VERCEL_APEX_IP = process.env.VERCEL_APEX_IP || "76.76.21.21";
+    const FLY_APEX_IPV4 = process.env.FLY_PUBLIC_IPV4 || "66.241.125.253";
+    const FLY_APEX_IPV6 = process.env.FLY_PUBLIC_IPV6 || "2a09:8280:1::139:7e95:0";
     let dnsOk = false;
     try {
       const cnameAddresses = await resolveCname(domain.domain).catch(() => [] as string[]);
@@ -703,7 +752,14 @@ router.post(
     if (!dnsOk) {
       try {
         const aRecords = await resolve4(domain.domain).catch(() => [] as string[]);
-        dnsOk = aRecords.includes(VERCEL_APEX_IP);
+        dnsOk = aRecords.includes(FLY_APEX_IPV4);
+      } catch { /* ignore */ }
+    }
+
+    if (!dnsOk) {
+      try {
+        const aaaaRecords = await resolve6(domain.domain).catch(() => [] as string[]);
+        dnsOk = aaaaRecords.some((record) => record.toLowerCase() === FLY_APEX_IPV6.toLowerCase());
       } catch { /* ignore */ }
     }
 
@@ -716,9 +772,9 @@ router.post(
       updates.ssl_status = "active";  // SSL handled by Railway/platform
       updates.is_active = true;
       updates.activated_at = new Date().toISOString();
-      // Provision SSL cert on Vercel renderer
-      addDomainToVercel(domain.domain).catch((e) =>
-        console.error("[vercel] addDomainToVercel failed:", e)
+      // Provision SSL cert on Fly renderer
+      addDomainToFly(domain.domain).catch((e) =>
+        console.error("[fly-certs] addDomainToFly failed:", e)
       );
     } else {
       updates.verification_status = "pending";
@@ -731,6 +787,10 @@ router.post(
       .select("id, domain, verification_status, ssl_status, is_active")
       .eq("id", id)
       .single() as { data: Record<string, unknown> | null };
+
+    if (dnsOk) {
+      await revalidateWebsiteDomains(domain.website_id, "domain_verified", [domain.domain]);
+    }
 
     res.json(updated);
   }
@@ -796,6 +856,8 @@ router.post(
     }
 
     const selectedPrimary = activeCustomDomains.find((d) => d.is_primary)?.domain || null;
+
+    await revalidateWebsiteDomains(String(website.id), "domains_reconciled");
 
     res.json({
       ok: true,
@@ -1075,6 +1137,10 @@ router.patch(
       triggerTenantIndexNowAutoSubmit(req.tenantId!, "blog_slug_change");
     }
 
+    if (data.status === "published") {
+      await revalidateWebsiteDomains(String(data.website_id || ""), "blog_update");
+    }
+
     res.json(data);
   }
 );
@@ -1097,6 +1163,7 @@ router.post(
     if (error || !data) { res.status(404).json({ error: "Post not found" }); return; }
 
     triggerTenantIndexNowAutoSubmit(req.tenantId!, "blog_publish");
+    await revalidateWebsiteDomains(String(data.website_id || ""), "blog_publish");
 
     res.json(data);
   }
@@ -1109,7 +1176,19 @@ router.delete(
   requireRole("admin"),
   requireWebsiteBuilder(),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { data: existing } = await db
+      .from("website_blog_posts")
+      .select("website_id, status")
+      .eq("id", req.params.id)
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle() as { data: { website_id: string; status: string } | null };
+
     await db.from("website_blog_posts").delete().eq("id", req.params.id).eq("tenant_id", req.tenantId);
+
+    if (existing?.status === "published") {
+      await revalidateWebsiteDomains(existing.website_id, "blog_delete");
+    }
+
     res.sendStatus(204);
   }
 );
@@ -1630,6 +1709,7 @@ const RENDERER_SECRET = process.env.RENDERER_SECRET;
 router.get(
   "/public/website/by-domain/:domain",
   async (req, res): Promise<void> => {
+    res.set("Cache-Control", publicCacheControl(LIVE_CACHE_MAX_AGE_SECONDS, LIVE_CACHE_SWR_SECONDS));
     // Verify internal renderer secret if configured
     if (RENDERER_SECRET) {
       const secret = req.headers["x-renderer-secret"];
@@ -1808,6 +1888,7 @@ router.post(
 router.get(
   "/public/website/preview-data/:websiteId",
   async (req, res): Promise<void> => {
+    res.set("Cache-Control", "no-store");
     if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
       res.status(401).json({ error: "Unauthorized" });
       return;
@@ -2006,6 +2087,7 @@ router.post(
 router.get(
   "/public/website/canonical-domain/:domain",
   async (req, res): Promise<void> => {
+    res.set("Cache-Control", publicCacheControl(CANONICAL_CACHE_MAX_AGE_SECONDS, CANONICAL_CACHE_SWR_SECONDS));
     if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
       res.status(401).json({ error: "Unauthorized" });
       return;
@@ -2046,6 +2128,7 @@ router.get(
 router.get(
   "/public/website/preview-blocks/:pageId",
   async (req, res): Promise<void> => {
+    res.set("Cache-Control", "no-store");
     if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
       res.status(401).json({ error: "Unauthorized" });
       return;
@@ -2077,6 +2160,7 @@ router.get(
 router.get(
   "/public/website/pages/:websiteId/:slug",
   async (req, res): Promise<void> => {
+    res.set("Cache-Control", publicCacheControl(LIVE_CACHE_MAX_AGE_SECONDS, LIVE_CACHE_SWR_SECONDS));
     if (RENDERER_SECRET && req.headers["x-renderer-secret"] !== RENDERER_SECRET) {
       res.status(401).json({ error: "Unauthorized" });
       return;

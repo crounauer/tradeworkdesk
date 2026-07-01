@@ -129,6 +129,7 @@ function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRec
 
 function ProviderWalkthroughs({ records }: { records: DnsRecord[] }) {
   const hasApexA = records.some((r) => r.type.toUpperCase() === "A" && r.name === "@");
+  const hasApexAAAA = records.some((r) => r.type.toUpperCase() === "AAAA" && r.name === "@");
   const hasWwwCname = records.some((r) => r.type.toUpperCase() === "CNAME" && (r.name === "www" || r.name.startsWith("www.")));
 
   return (
@@ -153,7 +154,7 @@ function ProviderWalkthroughs({ records }: { records: DnsRecord[] }) {
         </details>
       </div>
       <p className="text-xs text-muted-foreground mt-3">
-        Expected setup for this domain: {hasApexA ? "A @ record" : "no apex A record"}{hasWwwCname ? " + www CNAME" : ""}.
+        Expected setup for this domain: {hasApexA ? "A @ record" : "no apex A record"}{hasApexAAAA ? " + AAAA @ record" : ""}{hasWwwCname ? " + www CNAME" : ""}.
       </p>
     </div>
   );
@@ -244,15 +245,10 @@ export default function WebsiteDomain() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <a
-              href={`https://${platformDomain.domain}?twd_edit=1`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-green-700 underline"
-            >
-              Open live site (edit mode)
-            </a>
-            <p className="text-xs text-green-700 mt-1">This address is always active — no setup needed.</p>
+            <Link href="/website/preview" className="text-sm text-green-700 underline">
+              Open preview (edit mode)
+            </Link>
+            <p className="text-xs text-green-700 mt-1">Use preview mode to edit safely before sharing the free site address.</p>
           </CardContent>
         </Card>
       ) : null}
@@ -287,47 +283,49 @@ export default function WebsiteDomain() {
                 </div>
               </CardHeader>
 
-              {d.dns_instructions && !d.is_active && (
-                <CardContent>
+              {d.dns_instructions && (
+                <CardContent className="space-y-3">
+                  {d.is_active && (
+                    <p className="text-sm text-green-700 flex items-center gap-1">
+                      <CheckCircle className="w-4 h-4" />
+                      Your site is live at <a href={`https://${d.domain}?twd_edit=1`} target="_blank" rel="noopener noreferrer" className="underline ml-1">{d.domain}</a>
+                    </p>
+                  )}
+
                   {(() => {
                     const records = (d.dns_instructions.records ?? [d.dns_instructions.cname, d.dns_instructions.www]).filter(Boolean);
                     return (
-                      <>
-                  <DomainSetupSteps
-                    domain={d.domain}
-                    records={records}
-                  />
-                  <ProviderWalkthroughs records={records} />
-                  <p className="text-sm font-medium mt-4 mb-3">DNS records to add:</p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-muted-foreground text-xs uppercase border-b">
-                          <th className="py-1 pr-4 text-left">Type</th>
-                          <th className="py-1 pr-4 text-left">Name</th>
-                          <th className="py-1 pr-4 text-left">Value</th>
-                          <th className="py-1" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {records.map((rec, i) => (
-                          <DnsRow key={i} record={rec} />
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                      </>
+                      <details className="rounded-md border bg-muted/20 p-3">
+                        <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                          DNS advice {d.is_active ? "(expand to review)" : "(expand to set up)"}
+                        </summary>
+                        <div className="mt-4 space-y-4">
+                          <DomainSetupSteps domain={d.domain} records={records} />
+                          <ProviderWalkthroughs records={records} />
+                          <div>
+                            <p className="text-sm font-medium mt-1 mb-3">DNS records to add:</p>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-muted-foreground text-xs uppercase border-b">
+                                    <th className="py-1 pr-4 text-left">Type</th>
+                                    <th className="py-1 pr-4 text-left">Name</th>
+                                    <th className="py-1 pr-4 text-left">Value</th>
+                                    <th className="py-1" />
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {records.map((rec, i) => (
+                                    <DnsRow key={i} record={rec} />
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </details>
                     );
                   })()}
-                </CardContent>
-              )}
-
-              {d.is_active && (
-                <CardContent>
-                  <p className="text-sm text-green-700 flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" />
-                    Your site is live at <a href={`https://${d.domain}?twd_edit=1`} target="_blank" rel="noopener noreferrer" className="underline ml-1">{d.domain}</a>
-                  </p>
                 </CardContent>
               )}
             </Card>

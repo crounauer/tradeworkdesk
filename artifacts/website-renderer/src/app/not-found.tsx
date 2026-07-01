@@ -1,11 +1,11 @@
-import { headers } from "next/headers";
 import { getSiteByDomain } from "@/lib/api";
+import { getRequestDomain } from "@/lib/request-domain";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import type { ReactNode } from "react";
 
 export default async function NotFound(): Promise<ReactNode> {
-  const domain = (await headers()).get("x-tenant-domain") || "";
+  const domain = await getRequestDomain("");
   const site = domain ? await getSiteByDomain(domain) : null;
 
   const notFoundPage = site?.pages.find((page) => page.page_type === "404" || page.slug === "/404" || page.slug === "404");

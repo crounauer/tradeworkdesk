@@ -1,7 +1,7 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
+import { getRequestDomain } from "@/lib/request-domain";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import BlogPostContent from "@/components/blog/BlogPostContent";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
@@ -14,7 +14,7 @@ interface BlogPostProps {
 }
 
 export async function generateMetadata({ params }: BlogPostProps): Promise<Metadata> {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const domain = await getRequestDomain();
   const { slug } = await params;
   const site = await getSiteByDomain(domain);
   if (!site) return {};
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: BlogPostProps): Promise<Metad
 }
 
 export default async function BlogPostPage({ params }: BlogPostProps) {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const domain = await getRequestDomain();
   const { slug } = await params;
   const site = await getSiteByDomain(domain);
   if (!site) notFound();

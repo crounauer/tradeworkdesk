@@ -1,7 +1,7 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByDomain } from "@/lib/api";
+import { getRequestDomain } from "@/lib/request-domain";
 import TemplateLayout from "@/components/layout/TemplateLayout";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
@@ -12,7 +12,7 @@ import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotic
 export const revalidate = 5;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const domain = await getRequestDomain();
   const site = await getSiteByDomain(domain);
   if (!site) return {};
 
@@ -38,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const domain = (await headers()).get("x-tenant-domain") || "localhost";
+  const domain = await getRequestDomain();
   const site = await getSiteByDomain(domain);
 
   if (!site) notFound();

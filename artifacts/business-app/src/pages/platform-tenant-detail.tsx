@@ -139,17 +139,17 @@ export default function PlatformTenantDetail() {
 
   const [reprovisioningSubdomain, setReprovisioningSubdomain] = useState(false);
 
-  const syncDomainToVercel = async (domain: string) => {
+  const syncDomainToRenderer = async (domain: string) => {
     setSyncingDomain(domain);
     try {
-      const res = await fetch("/api/platform/domains/sync-vercel", {
+      const res = await fetch("/api/platform/domains/sync-renderer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Sync failed");
-      toast({ title: "Domain synced", description: `${domain} added to Vercel` });
+      toast({ title: "Domain synced", description: `${domain} added to the Fly renderer` });
     } catch (e) {
       toast({ title: "Sync failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     } finally {
@@ -812,7 +812,7 @@ export default function PlatformTenantDetail() {
                     size="sm"
                     variant="outline"
                     disabled={syncingDomain === d.domain}
-                    onClick={() => syncDomainToVercel(d.domain)}
+                              onClick={() => syncDomainToRenderer(d.domain)}
                     title="Force-add this domain to Vercel renderer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncingDomain === d.domain ? "animate-spin" : ""}`} />

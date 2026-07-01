@@ -6,6 +6,12 @@
 const API_BASE = process.env.API_BASE_URL || "https://tradeworkdesk-api.fly.dev";
 const RENDERER_SECRET = process.env.RENDERER_SECRET || "";
 
+function liveRevalidateSeconds(): number {
+  const parsed = Number(process.env.PUBLIC_SITE_CACHE_TTL_SECONDS || "60");
+  if (!Number.isFinite(parsed)) return 60;
+  return Math.min(600, Math.max(5, Math.floor(parsed)));
+}
+
 
 export interface SiteBlock {
   id: string;
@@ -163,18 +169,21 @@ export async function getSiteByWebsiteId(websiteId: string): Promise<SiteData | 
  */
 export async function getSiteByDomain(domain: string): Promise<SiteData | null> {
   try {
+    const normalizedDomain = String(domain || "").toLowerCase();
     const res = await fetch(
-      `${API_BASE}/api/public/website/by-domain/${encodeURIComponent(domain)}`,
+      `${API_BASE}/api/public/website/by-domain/${encodeURIComponent(normalizedDomain)}`,
       {
         headers: apiHeaders(),
-        // Keep website closure notices and contact changes instantly visible.
-        cache: "no-store",
+        next: {
+          revalidate: liveRevalidateSeconds(),
+          tags: [`site-domain:${normalizedDomain}`],
+        },
       },
     );
 
     if (res.status === 404) return null;
     if (!res.ok) {
-      console.error(`[renderer] getSiteByDomain(${domain}) → ${res.status}`);
+      console.error(`[renderer] getSiteByDomain(${normalizedDomain}) → ${res.status}`);
       return null;
     }
 
@@ -214,12 +223,16 @@ export async function getPageBySlug(
   slug: string,
 ): Promise<(SitePage & { blocks: SiteBlock[] }) | null> {
   try {
+    const normalizedWebsiteId = String(websiteId || "");
+    const normalizedSlug = String(slug || "");
     const res = await fetch(
-      `${API_BASE}/api/public/website/pages/${encodeURIComponent(websiteId)}/${encodeURIComponent(slug)}`,
+      `${API_BASE}/api/public/website/pages/${encodeURIComponent(normalizedWebsiteId)}/${encodeURIComponent(normalizedSlug)}`,
       {
         headers: apiHeaders(),
-        // Keep page content in sync with immediate admin edits.
-        cache: "no-store",
+        next: {
+          revalidate: liveRevalidateSeconds(),
+          tags: [`site-website:${normalizedWebsiteId}`],
+        },
       },
     );
 
