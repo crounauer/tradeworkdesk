@@ -114,6 +114,7 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [addressLookupMessage, setAddressLookupMessage] = useState<string | null>(null);
   const [coverageCheckLoading, setCoverageCheckLoading] = useState(false);
   const [coverageCheckError, setCoverageCheckError] = useState<string | null>(null);
+  const [coverageCheckPassed, setCoverageCheckPassed] = useState(false);
   const [notes, setNotes] = useState("");
   const [propertyType, setPropertyType] = useState("house");
   const [jobUrgency, setJobUrgency] = useState("standard");
@@ -230,6 +231,7 @@ export default function OnlineBookingBlock({ content }: Props) {
     if (!tenant_id) return false;
     const pc = inputPostcode.trim();
     if (!pc) {
+      setCoverageCheckPassed(false);
       setCoverageCheckError("Please enter a valid postcode so we can confirm your address is within our service area.");
       return false;
     }
@@ -245,13 +247,16 @@ export default function OnlineBookingBlock({ content }: Props) {
 
       const data = await res.json() as { allowed?: boolean; error?: string };
       if (!res.ok || data.allowed === false) {
+        setCoverageCheckPassed(false);
         setCoverageCheckError(data.error || "This address is outside our service area.");
         return false;
       }
 
+      setCoverageCheckPassed(true);
       setCoverageCheckError(null);
       return true;
     } catch {
+      setCoverageCheckPassed(false);
       setCoverageCheckError("We could not verify this postcode right now. Please try again.");
       return false;
     } finally {
@@ -535,20 +540,11 @@ export default function OnlineBookingBlock({ content }: Props) {
                 )}
               </div>
 
-              {require_description && textarea(
-                isComplex ? "Describe the problem *" : "Describe the work needed (optional)",
-                description,
-                setDescription,
-                {
-                  required: isComplex,
-                  placeholder: isComplex
-                    ? "E.g. Boiler not firing, no hot water since yesterday. Make/model if known…"
-                    : "E.g. Annual boiler service, Worcester Bosch Greenstar 30i…",
-                  rows: 4,
-                }
-              )}
-
-              {require_postcode && input("Postcode", postcode, setPostcode, { required: true, placeholder: "NE1 1AA" })}
+              {require_postcode && input("Postcode", postcode, (value) => {
+                setPostcode(value);
+                setCoverageCheckPassed(false);
+                setCoverageCheckError(null);
+              }, { required: true, placeholder: "NE1 1AA" })}
 
               {require_postcode && (
                 <div style={{ marginTop: -4, marginBottom: 14 }}>
@@ -607,48 +603,66 @@ export default function OnlineBookingBlock({ content }: Props) {
                 </div>
               )}
 
-              {textarea("Anything else we should know? (optional)", notes, setNotes, {
-                placeholder: "Access codes, parking info, best time to call…",
-                rows: 2,
-              })}
-
-              <div style={{ marginTop: 8, marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e5e7eb" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
-                  Quick booking questions (helps us assign the right engineer)
+              {coverageCheckError && (
+                <div style={{ marginTop: -4, marginBottom: 14, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 13 }}>
+                  {coverageCheckError}
                 </div>
-                {selectField("Property type", propertyType, setPropertyType, [
-                  { value: "house", label: "House" },
-                  { value: "flat", label: "Flat" },
-                  { value: "bungalow", label: "Bungalow" },
-                  { value: "commercial", label: "Commercial" },
-                  { value: "other", label: "Other" },
-                ], true)}
-                {selectField("Urgency", jobUrgency, setJobUrgency, [
-                  { value: "standard", label: "Standard" },
-                  { value: "soon", label: "Soon (within a few days)" },
-                  { value: "urgent", label: "Urgent (as soon as possible)" },
-                ], true)}
-                {input("Appliance / system type (optional)", applianceType, setApplianceType, { placeholder: "e.g. Combi boiler, heat pump, unvented cylinder" })}
-                {selectField("Do you currently have no heat or no hot water?", hasNoHeatOrHotWater, setHasNoHeatOrHotWater, [
-                  { value: "no", label: "No" },
-                  { value: "yes", label: "Yes" },
-                ], true)}
-                {input("Access / parking notes (optional)", parkingAccess, setParkingAccess, { placeholder: "Permit required, rear alley access, gated drive..." })}
-              </div>
+              )}
+
+              {require_postcode && !coverageCheckPassed ? null : (
+                <>
+                  {require_description && textarea(
+                    isComplex ? "Describe the problem *" : "Describe the work needed (optional)",
+                    description,
+                    setDescription,
+                    {
+                      required: isComplex,
+                      placeholder: isComplex
+                        ? "E.g. Boiler not firing, no hot water since yesterday. Make/model if known…"
+                        : "E.g. Annual boiler service, Worcester Bosch Greenstar 30i…",
+                      rows: 4,
+                    }
+                  )}
+
+                  {textarea("Anything else we should know? (optional)", notes, setNotes, {
+                    placeholder: "Access codes, parking info, best time to call…",
+                    rows: 2,
+                  })}
+
+                  <div style={{ marginTop: 8, marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e5e7eb" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
+                      Quick booking questions (helps us assign the right engineer)
+                    </div>
+                    {selectField("Property type", propertyType, setPropertyType, [
+                      { value: "house", label: "House" },
+                      { value: "flat", label: "Flat" },
+                      { value: "bungalow", label: "Bungalow" },
+                      { value: "commercial", label: "Commercial" },
+                      { value: "other", label: "Other" },
+                    ], true)}
+                    {selectField("Urgency", jobUrgency, setJobUrgency, [
+                      { value: "standard", label: "Standard" },
+                      { value: "soon", label: "Soon (within a few days)" },
+                      { value: "urgent", label: "Urgent (as soon as possible)" },
+                    ], true)}
+                    {input("Appliance / system type (optional)", applianceType, setApplianceType, { placeholder: "e.g. Combi boiler, heat pump, unvented cylinder" })}
+                    {selectField("Do you currently have no heat or no hot water?", hasNoHeatOrHotWater, setHasNoHeatOrHotWater, [
+                      { value: "no", label: "No" },
+                      { value: "yes", label: "Yes" },
+                    ], true)}
+                    {input("Access / parking notes (optional)", parkingAccess, setParkingAccess, { placeholder: "Permit required, rear alley access, gated drive..." })}
+                  </div>
+                </>
+              )}
 
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 {btn("Back", () => setStep("service"), false, "outline")}
                 {btn(
                   "Next: Choose a time",
                   () => { void handleProceedToSlots(); },
-                  coverageCheckLoading || !!(require_description && isComplex && !description.trim()) || !!(require_postcode && !postcode.trim())
+                  (require_postcode && !coverageCheckPassed) || coverageCheckLoading || !!(require_description && isComplex && !description.trim()) || !!(require_postcode && !postcode.trim())
                 )}
               </div>
-              {coverageCheckError && (
-                <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 13 }}>
-                  {coverageCheckError}
-                </div>
-              )}
             </>
           )}
 
