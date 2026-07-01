@@ -33,7 +33,7 @@ router.get(
   "/push/preferences/users",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "office_staff"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const users = await listTenantUsersWithPushPreferences(req.tenantId!);
@@ -48,7 +48,7 @@ router.patch(
   "/push/preferences/users/:userId",
   requireAuth,
   requireTenant,
-  requireRole("admin"),
+  requireRole("admin", "office_staff"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const userId = String(req.params.userId || "").trim();
     if (!userId) {

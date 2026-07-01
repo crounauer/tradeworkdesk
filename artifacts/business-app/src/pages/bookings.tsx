@@ -22,8 +22,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Loader2, CheckCircle2, XCircle, Phone, Mail, Calendar, Clock } from "lucide-react";
+import { Settings, Loader2, CheckCircle2, XCircle, Phone, Mail, Calendar, Clock, RotateCcw, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { BookJobDialog } from "@/components/book-job-dialog";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -43,6 +44,7 @@ interface Booking {
   customer_email: string;
   customer_phone: string | null;
   customer_address: string | null;
+  customer_postcode: string | null;
   notes: string | null;
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: string;
@@ -64,6 +66,9 @@ export default function Bookings() {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [convertingBooking, setConvertingBooking] = useState<Booking | null>(null);
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/booking/bookings", statusFilter],
@@ -87,6 +92,38 @@ export default function Bookings() {
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const reopenMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/reopen`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
+      setReopeningId(null);
+      toast({ title: "Booking re-opened" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
+      setDeletingId(null);
+      toast({ title: "Booking deleted" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const handleFinalizeConvert = async (jobId: string) => {
+    if (!convertingBooking) return;
+    await apiFetch(`/api/booking/bookings/${convertingBooking.id}/convert-to-job`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId }),
+    });
+    qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
+    toast({ title: "Booking converted", description: "Job created and linked successfully." });
+    setConvertingBooking(null);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -160,11 +197,9 @@ export default function Bookings() {
                       <Button size="sm" variant="outline">View Day</Button>
                     </Link>
                     {b.status === "pending" && (
-                      <Link href={`/booking/review/${b.id}/convert`}>
-                        <Button size="sm" variant="outline">
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Convert to Job
-                        </Button>
-                      </Link>
+                      <Button size="sm" variant="outline" onClick={() => setConvertingBooking(b)}>
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Convert to Job
+                      </Button>
                     )}
                     {(b.status === "pending" || b.status === "confirmed") && (
                       <Button size="sm" variant="outline"
@@ -173,6 +208,19 @@ export default function Bookings() {
                         <XCircle className="w-3.5 h-3.5 mr-1" /> Cancel
                       </Button>
                     )}
+                    {b.status === "cancelled" && (
+                      <Button size="sm" variant="outline" onClick={() => setReopeningId(b.id)}>
+                        <RotateCcw className="w-3.5 h-3.5 mr-1" /> Re-open
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setDeletingId(b.id)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -196,6 +244,59 @@ export default function Bookings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!reopeningId} onOpenChange={(o) => !o && setReopeningId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Re-open booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the booking back to pending so it can be reviewed and converted again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Cancelled</AlertDialogCancel>
+            <AlertDialogAction onClick={() => reopeningId && reopenMutation.mutate(reopeningId)}>
+              Re-open Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete booking permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will fully remove the booking record and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deletingId && deleteMutation.mutate(deletingId)}
+            >
+              Delete Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <BookJobDialog
+        open={!!convertingBooking}
+        onOpenChange={(open) => { if (!open) setConvertingBooking(null); }}
+        initialDate={convertingBooking?.scheduled_start?.slice(0, 10)}
+        initialBookingPrefill={convertingBooking ? {
+          customer_name: convertingBooking.customer_name,
+          customer_email: convertingBooking.customer_email,
+          customer_phone: convertingBooking.customer_phone,
+          customer_address: convertingBooking.customer_address,
+          customer_postcode: convertingBooking.customer_postcode,
+          notes: String(convertingBooking.notes || "").replace(/\n?\[BOOKING_GEO\][^\n]+/g, "").trim() || null,
+          scheduled_start: convertingBooking.scheduled_start,
+        } : undefined}
+        onJobCreated={handleFinalizeConvert}
+      />
     </div>
   );
 }

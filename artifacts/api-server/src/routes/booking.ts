@@ -959,15 +959,32 @@ router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireB
   res.json(data);
 });
 
-router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
-  const { reason } = (req.body ?? {}) as { reason?: string };
+router.post("/booking/bookings/:id/reopen", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
   const { data, error } = await db.from("bookings")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null })
-    .eq("id", req.params.id).eq("tenant_id", req.tenantId)
-    .select().single();
+    .update({
+      status: "pending",
+      cancelled_at: null,
+      cancellation_reason: null,
+    })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId)
+    .select()
+    .single();
   if (error) return res.status(500).json({ error: error.message });
   if (!data) return res.status(404).json({ error: "Not found" });
   res.json(data);
+});
+
+router.delete("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+  const { data, error } = await db.from("bookings")
+    .delete()
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId)
+    .select("id")
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: "Not found" });
+  res.status(204).end();
 });
 
 // ─── Slots ────────────────────────────────────────────────────────────────────

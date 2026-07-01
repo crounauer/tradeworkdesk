@@ -120,8 +120,7 @@ export async function listTenantUsersWithPushPreferences(tenantId: string): Prom
   const { data: users, error: usersError } = await supabaseAdmin
     .from("profiles")
     .select("id, full_name, email, role, is_active")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: true });
+    .eq("tenant_id", tenantId);
 
   if (usersError) {
     throw new Error(usersError.message);
@@ -146,7 +145,13 @@ export async function listTenantUsersWithPushPreferences(tenantId: string): Prom
     prefMap.set(row.user_id, row);
   }
 
-  return ((users ?? []) as TenantUser[]).map((u) => ({
+  const sortedUsers = [ ...((users ?? []) as TenantUser[]) ].sort((a, b) => {
+    const aName = (a.full_name || a.email || "").toLowerCase();
+    const bName = (b.full_name || b.email || "").toLowerCase();
+    return aName.localeCompare(bName);
+  });
+
+  return sortedUsers.map((u) => ({
     userId: u.id,
     fullName: u.full_name,
     email: u.email,

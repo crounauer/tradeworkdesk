@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { OfflineBanner } from "./offline-indicator";
 import { useOffline } from "@/contexts/offline-context";
 import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
@@ -126,7 +127,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
     ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
-      ? [{ href: "/booking", label: "Booking Review", icon: CalendarCheck }]
+      ? [{ href: "/booking", label: "Online Bookings", icon: CalendarCheck }]
       : []),
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
@@ -193,6 +194,18 @@ export function Layout({ children }: { children: ReactNode }) {
   ];
 
   const openEnquiryCount = enquiryCountData?.count || 0;
+  const canSeeOnlineBookings = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
+  const { data: pendingOnlineBookings = 0 } = useQuery<number>({
+    queryKey: ["/api/booking/bookings", "pending-online-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/booking/bookings?source=website&status=pending&limit=200");
+      if (!res.ok) return 0;
+      const rows = await res.json() as unknown;
+      return Array.isArray(rows) ? rows.length : 0;
+    },
+    enabled: canSeeOnlineBookings,
+    refetchInterval: 60_000,
+  });
 
   const renderNavLink = (item: { href: string; label: string; icon: React.ElementType }, onClick?: () => void, mobile?: boolean) => {
     const isActive = item.href === "/" 
@@ -201,7 +214,8 @@ export function Layout({ children }: { children: ReactNode }) {
     const enquiryBadge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
     const followUpBadge = item.href === "/follow-ups" && activeFollowUpsCount > 0 ? activeFollowUpsCount : null;
     const todoBadge = item.href === "/todos" && todosCount > 0 ? todosCount : null;
-    const badge = enquiryBadge || followUpBadge || todoBadge;
+    const onlineBookingBadge = item.href === "/booking" && pendingOnlineBookings > 0 ? pendingOnlineBookings : null;
+    const badge = enquiryBadge || followUpBadge || todoBadge || onlineBookingBadge;
     return (
       <Link key={item.href} href={item.href} onClick={onClick} className={cn(
         "flex items-center gap-3 rounded-xl text-sm font-medium transition-colors",
@@ -215,7 +229,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {badge !== null && (
           <span className={cn(
             "ml-auto px-1.5 py-0.5 text-xs font-bold rounded-full text-white min-w-[20px] text-center",
-            followUpBadge ? "bg-red-500" : todoBadge ? "bg-orange-500" : "bg-orange-500"
+            followUpBadge ? "bg-red-500" : todoBadge ? "bg-orange-500" : onlineBookingBadge ? "bg-blue-600" : "bg-orange-500"
           )}>
             {badge > 99 ? "99+" : badge}
           </span>

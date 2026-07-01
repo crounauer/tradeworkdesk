@@ -34,9 +34,13 @@ async function apiFetch(url: string, opts?: RequestInit) {
 
 export default function BookingConvertPage(props: { params?: { id?: string } }) {
   const { toast } = useToast();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [, routeParams] = useRoute("/booking/review/:id/convert");
-  const bookingId = routeParams?.id || props?.params?.id || "";
+  const idFromPath = (() => {
+    const match = location.match(/^\/booking\/review\/([^/]+)\/convert(?:$|\?)/);
+    return match?.[1] || "";
+  })();
+  const bookingId = routeParams?.id || props?.params?.id || idFromPath;
   const [showDialog, setShowDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
