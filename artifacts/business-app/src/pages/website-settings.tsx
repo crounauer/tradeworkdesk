@@ -11,9 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save, Inbox, Eye, EyeOff, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Inbox, Eye, EyeOff, Trash2, Plus, CircleHelp } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -436,9 +437,27 @@ export default function WebsiteSettings() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor={`form-${wf.id}`} className="text-sm text-muted-foreground">
-                          Auto-create enquiry
-                        </Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor={`form-${wf.id}`} className="text-sm text-muted-foreground">
+                            Auto-create enquiry
+                          </Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                                  aria-label="What does auto-create enquiry do?"
+                                >
+                                  <CircleHelp className="h-4 w-4" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                When enabled, each new form submission is automatically created as a new enquiry in your inbox.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Switch
                           id={`form-${wf.id}`}
                           checked={wf.auto_create_enquiry}
