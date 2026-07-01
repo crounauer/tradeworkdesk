@@ -198,26 +198,35 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   // ── Storage stats — served from a separate long-lived cache ──────────────
   let storage = storageCache.get(cacheKey)?.data;
   if (!storage) {
-    const buildStorageUsageQuery = () => {
-      let q = supabaseAdmin.from("file_attachments").select("file_size", { count: "exact" });
-      if (tenantId) q = q.eq("tenant_id", tenantId).not("file_size", "is", null);
-      return q;
-    };
-    const buildSignatureCountQuery = () => {
-      let q = supabaseAdmin.from("signatures").select("id", { count: "exact", head: true });
-      if (tenantId) q = q.eq("tenant_id", tenantId);
-      return q;
-    };
-    const [storageRes, signatureCountRes] = await Promise.all([
-      buildStorageUsageQuery(),
-      buildSignatureCountQuery(),
-    ]);
-    const storageAgg = (storageRes.data ?? []) as { file_size: number }[];
-    storage = {
-      used_bytes: storageAgg.reduce((sum, row) => sum + (row.file_size || 0), 0),
-      file_count: storageRes.count ?? 0,
-      signature_count: signatureCountRes.count || 0,
-    };
+    try {
+      const buildStorageUsageQuery = () => {
+        let q = supabaseAdmin.from("file_attachments").select("file_size", { count: "exact" });
+        if (tenantId) q = q.eq("tenant_id", tenantId).not("file_size", "is", null);
+        return q;
+      };
+      const buildSignatureCountQuery = () => {
+        let q = supabaseAdmin.from("signatures").select("id", { count: "exact", head: true });
+        if (tenantId) q = q.eq("tenant_id", tenantId);
+        return q;
+      };
+      const [storageRes, signatureCountRes] = await Promise.all([
+        buildStorageUsageQuery(),
+        buildSignatureCountQuery(),
+      ]);
+      const storageAgg = (storageRes.data ?? []) as { file_size: number }[];
+      storage = {
+        used_bytes: storageAgg.reduce((sum, row) => sum + (row.file_size || 0), 0),
+        file_count: storageRes.count ?? 0,
+        signature_count: signatureCountRes.count || 0,
+      };
+    } catch (error) {
+      console.warn("[homepage] storage stats unavailable", error);
+      storage = {
+        used_bytes: 0,
+        file_count: 0,
+        signature_count: 0,
+      };
+    }
     storageCache.set(cacheKey, { data: storage, ts: Date.now() });
   }
 
