@@ -53,6 +53,12 @@ function addOneYear(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function isIsoDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const d = new Date(dateStr + "T00:00:00");
+  return !Number.isNaN(d.getTime());
+}
+
 function getWeekRange(dateStr: string): { from: string; to: string } {
   const base = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
     ? new Date(dateStr + "T00:00:00")
@@ -107,6 +113,7 @@ const STATUS_COLORS: Record<string, string> = {
 export function RebookDialog({ open, onOpenChange, jobId, originalDate, originalTime }: RebookDialogProps) {
   const defaultDate = addOneYear(originalDate);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
+  const [dateInputValue, setDateInputValue] = useState(defaultDate);
   const [selectedTime, setSelectedTime] = useState(originalTime ? originalTime.slice(0, 5) : "");
   const [confirming, setConfirming] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -120,7 +127,9 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
   // Reset each time dialog opens
   useEffect(() => {
     if (open) {
-      setSelectedDate(addOneYear(originalDate));
+      const nextDefaultDate = addOneYear(originalDate);
+      setSelectedDate(nextDefaultDate);
+      setDateInputValue(nextDefaultDate);
       setSelectedTime(originalTime ? originalTime.slice(0, 5) : "");
       setNewJob(null);
       setLeaveConflict(null);
@@ -135,7 +144,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       customFetch(
         `${import.meta.env.BASE_URL}api/calendar?date_from=${from}&date_to=${to}`
       ) as Promise<{ jobs: CalendarJob[] }>,
-    enabled: open && !newJob && !!selectedDate,
+    enabled: open && !newJob && isIsoDate(selectedDate),
     staleTime: 60_000,
   });
 
@@ -293,8 +302,12 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
                   <input
                     id="rebook-date"
                     type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value || defaultDate)}
+                    value={dateInputValue}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setDateInputValue(next);
+                      if (isIsoDate(next)) setSelectedDate(next);
+                    }}
                     className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
