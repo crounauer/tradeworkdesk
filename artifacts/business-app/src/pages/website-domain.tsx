@@ -105,12 +105,15 @@ function DnsRow({ record }: { record: DnsRecord }) {
 
 function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRecord[] }) {
   const apexDomain = domain.replace(/^www\./, "");
+  const primaryCnameTarget = records.find((r) => r.type.toUpperCase() === "CNAME")?.value;
 
   return (
     <div className="space-y-3 text-sm">
       <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-        <p><strong>Scenario 1 (free subdomain):</strong> your TradeWorkDesk site address is already live and needs no DNS setup.</p>
-        <p className="mt-1"><strong>Scenario 2 (custom domain):</strong> follow the steps below to connect your own domain.</p>
+        <p><strong>Scenario 1 (free subdomain):</strong> your TradeWorkDesk site address is already live and needs no tenant DNS setup.</p>
+        <p className="mt-1"><strong>Scenario 2 (custom domain):</strong> tenant adds one DNS record only: <strong>CNAME www</strong> to the value shown below.</p>
+        <p className="mt-1"><strong>Platform one-time setup:</strong> in the <strong>tradeworkdesk.co.uk</strong> zone, keep <strong>CNAME sites</strong> and <strong>CNAME *</strong> pointing to {primaryCnameTarget || "the Fly renderer target"}.</p>
+        <p className="mt-1"><strong>Optional apex/root:</strong> forward the root domain to <strong>www</strong> at the registrar if needed.</p>
       </div>
       <p className="font-medium">Follow these steps exactly, in order:</p>
       <ol className="list-decimal pl-5 space-y-2">
