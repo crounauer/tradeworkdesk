@@ -510,6 +510,70 @@ export async function sendJobConfirmationEmail(
   }
 }
 
+export async function sendBookingPendingApprovalEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  jobDetails: JobConfirmationDetails,
+  companyDetails?: EmailCompanyDetails,
+): Promise<void> {
+  const dateStr = new Date(jobDetails.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  let timeStr = "";
+  if (jobDetails.scheduledTime) {
+    const [hh, mm] = jobDetails.scheduledTime.split(":");
+    const h = parseInt(hh, 10);
+    const ampm = h >= 12 ? "pm" : "am";
+    const h12 = h % 12 || 12;
+    timeStr = ` at ${h12}:${mm}${ampm}`;
+  }
+
+  const contactLine = companyDetails?.phone
+    ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
+    : `please contact <strong>${escHtml(companyName)}</strong> directly.`;
+
+  const subject = `Booking Request Received — Pending Approval (${escHtml(jobDetails.jobRef)})`;
+  const html = baseHtml(subject, `
+    <h2>Booking Request Received</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p>Thank you for your booking request with <strong>${escHtml(companyName)}</strong>. Your request is currently <strong>pending approval</strong>.</p>
+    <div class="warning-box">
+      <p style="margin:0;"><strong>This is not yet a confirmed appointment.</strong> Our team will review your request and contact you to confirm.</p>
+    </div>
+    <div class="info-box">
+      <p><strong>Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
+      <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
+      <p><strong>Requested Date:</strong> ${escHtml(dateStr)}${escHtml(timeStr)}</p>
+      <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
+    </div>
+    ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
+    <p>If you need to update anything about this request, ${contactLine}</p>
+    ${renderDocumentLinks(companyDetails)}
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+  `, companyDetails);
+
+  if (!resend) {
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+
+  const replyTo = companyDetails?.email ?? undefined;
+  const from = buildTenantFrom(companyDetails);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
+  const { error } = await resend.emails.send({
+    from,
+    to,
+    subject,
+    html,
+    ...(replyTo ? { replyTo } : {}),
+    ...(cc.length > 0 ? { cc } : {}),
+  } as Parameters<typeof resend.emails.send>[0]);
+  if (error) {
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
+    throw new Error(`Email send failed: ${error.message}`);
+  }
+}
+
 export async function sendNewRegistrationNotification(
   to: string,
   newCompanyName: string,

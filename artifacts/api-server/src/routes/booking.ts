@@ -28,7 +28,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
-import { sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
@@ -1143,7 +1143,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
       return res.status(409).json({ error: "Selected time exceeds working hours for this service duration. Please choose another slot." });
     }
 
-    const bookingStatus = settings.auto_confirm ? "confirmed" : "pending";
+    const bookingStatus = "pending";
     const { data, error } = await db.from("bookings").insert({
       tenant_id: req.params.tenantId,
       booking_service_id: selectedService?.source === "legacy" ? selectedService.id : null,
@@ -1163,7 +1163,8 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     if (error) return res.status(500).json({ error: error.message });
 
     let createdJobRef: string | null = null;
-    if (settings.auto_create_job) {
+    const shouldAutoCreateJob = true;
+    if (shouldAutoCreateJob) {
       const utcSchedule = extractUtcDateAndTime(normalizedScheduledStart);
       const title = `${selectedService?.name || "Online Booking"} — ${customer_name}`;
       const description = buildOnlineBookingDescription(notes);
@@ -1222,11 +1223,9 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
           scheduledDate: utcSchedule.date,
           scheduledTime: utcSchedule.time,
           propertyAddress: [customer_address, customer_postcode].filter(Boolean).join(", ") || "Customer address",
-          description: settings.auto_confirm
-            ? (notes || null)
-            : (buildOnlineBookingDescription(notes) || "Subject to confirmation"),
+          description: buildOnlineBookingDescription(notes) || "Subject to confirmation",
         };
-        await sendJobConfirmationEmail(
+        await sendBookingPendingApprovalEmail(
           customer_email,
           customer_name || "Customer",
           companyName,
