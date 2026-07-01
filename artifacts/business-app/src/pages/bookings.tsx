@@ -74,11 +74,11 @@ export default function Bookings() {
     }
   });
 
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/confirm`, { method: "POST" }),
+  const convertMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/convert-to-job`, { method: "POST" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
-      toast({ title: "Booking confirmed" });
+      toast({ title: "Booking converted to job" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -166,9 +166,9 @@ export default function Bookings() {
                     </Link>
                     {b.status === "pending" && (
                       <Button size="sm" variant="outline"
-                        onClick={() => confirmMutation.mutate(b.id)}
-                        disabled={confirmMutation.isPending}>
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Confirm
+                        onClick={() => convertMutation.mutate(b.id)}
+                        disabled={convertMutation.isPending}>
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Convert to Job
                       </Button>
                     )}
                     {(b.status === "pending" || b.status === "confirmed") && (

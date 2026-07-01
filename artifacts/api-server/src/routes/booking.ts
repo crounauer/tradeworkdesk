@@ -778,7 +778,7 @@ router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking
   res.json(data);
 });
 
-router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+const convertBookingToJobHandler = async (req: AuthenticatedRequest, res: Response) => {
   const nowIso = new Date().toISOString();
 
   const { data: booking, error } = await db.from("bookings")
@@ -928,7 +928,10 @@ router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, require
   }
 
   res.json(booking);
-});
+};
+
+router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler);
+router.post("/booking/bookings/:id/convert-to-job", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler);
 
 router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
   const { reason } = req.body as { reason?: string };
