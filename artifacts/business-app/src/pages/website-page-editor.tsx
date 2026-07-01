@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ImagePickerField } from "@/components/image-picker-field";
+import { modernTradePages } from "@/twd/templates/modernTrade.pages";
 import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
@@ -395,6 +396,65 @@ function syncBlockContent(
   }
 
   return next;
+}
+
+function isBlankValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value as Record<string, unknown>).length === 0;
+  return false;
+}
+
+function mergeTemplateSeed(content: unknown, templateSeed: unknown): unknown {
+  if (isBlankValue(content)) {
+    return templateSeed;
+  }
+
+  if (Array.isArray(content) && Array.isArray(templateSeed)) {
+    const merged = content.map((item, index) => mergeTemplateSeed(item, templateSeed[index]));
+    if (templateSeed.length > merged.length) {
+      merged.push(...templateSeed.slice(merged.length));
+    }
+    return merged;
+  }
+
+  if (
+    typeof content === "object" && content !== null &&
+    typeof templateSeed === "object" && templateSeed !== null &&
+    !Array.isArray(templateSeed)
+  ) {
+    const contentObj = content as Record<string, unknown>;
+    const templateObj = templateSeed as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...contentObj };
+
+    for (const [key, templateValue] of Object.entries(templateObj)) {
+      merged[key] = mergeTemplateSeed(contentObj[key], templateValue);
+    }
+
+    return merged;
+  }
+
+  return content;
+}
+
+function hydrateEditorBlocks(page: Page): Block[] {
+  const pageKey = page.slug.replace(/^\/+/, "");
+  const templatePage = modernTradePages[pageKey as keyof typeof modernTradePages];
+  const templateBlocks = templatePage?.blocks ?? [];
+
+  return [...(page.blocks ?? [])]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((block, index) => {
+      const templateBlock = templateBlocks[index];
+      const templateProps = templateBlock?.props ?? {};
+      return {
+        ...block,
+        content: templateBlock?.type === block.block_type
+          ? (mergeTemplateSeed(block.content, templateProps) as Record<string, unknown>)
+          : block.content,
+      };
+    });
 }
 
 function GenericBlockEditor({
@@ -1171,9 +1231,7 @@ export default function WebsitePageEditor() {
   // Populate local state when page loads
   useEffect(() => {
     if (page) {
-      setBlocks(
-        [...(page.blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-      );
+      setBlocks(hydrateEditorBlocks(page));
       setMetaForm({
         title: page.title,
         slug: page.slug.replace(/^\//, ""),
@@ -1347,7 +1405,7 @@ export default function WebsitePageEditor() {
         <div className="flex items-center gap-2 flex-shrink-0">
           {hasUnsavedChanges && (
             <Button variant="ghost" size="sm" onClick={() => {
-              setBlocks([...(page.blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order));
+              setBlocks(hydrateEditorBlocks(page));
               setMetaForm({
                 title: page.title,
                 slug: page.slug.replace(/^\//, ""),
