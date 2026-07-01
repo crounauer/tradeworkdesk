@@ -335,6 +335,25 @@ const BLOCK_PALETTE: { type: BlockType; label: string; icon: React.ComponentType
   },
 ];
 
+const TEMPLATE_BLOCK_TYPE_ALIASES: Record<string, string> = {
+  "hero.standard": "hero",
+  "about.intro": "text",
+  "trust.badges": "trust_badges",
+  "services.grid": "services_grid",
+  "reviews.grid": "reviews",
+  "areas.grid": "areas_grid",
+  "gallery.grid": "gallery",
+  "cta.banner": "cta_band",
+  "contact.split": "contact",
+  "faq.accordion": "faq",
+  "process.steps": "process",
+  "features.list": "feature_cards",
+  "blog.index": "blog_index",
+  "legal.content": "legal_content",
+};
+
+const TEMPLATE_SKIPPED_BLOCK_TYPES = new Set(["site.header", "site.footer"]);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -438,19 +457,38 @@ function mergeTemplateSeed(content: unknown, templateSeed: unknown): unknown {
   return content;
 }
 
+function normalizeTemplateBlockType(blockType: unknown): string {
+  const normalized = String(blockType || "").trim().toLowerCase();
+  if (!normalized) return "text";
+  return TEMPLATE_BLOCK_TYPE_ALIASES[normalized] || normalized;
+}
+
+function shouldSkipTemplateBlock(blockType: unknown): boolean {
+  const normalized = String(blockType || "").trim().toLowerCase();
+  return TEMPLATE_SKIPPED_BLOCK_TYPES.has(normalized);
+}
+
 function hydrateEditorBlocks(page: Page): Block[] {
   const pageKey = page.slug.replace(/^\/+/, "");
   const templatePage = modernTradePages[pageKey as keyof typeof modernTradePages];
-  const templateBlocks = templatePage?.blocks ?? [];
+  const templateBlocks = (templatePage?.blocks ?? [])
+    .filter((templateBlock) => !shouldSkipTemplateBlock(templateBlock.type))
+    .map((templateBlock) => ({
+      type: normalizeTemplateBlockType(templateBlock.type),
+      props: (templateBlock.props && typeof templateBlock.props === "object")
+        ? templateBlock.props as Record<string, unknown>
+        : {},
+    }));
 
   return [...(page.blocks ?? [])]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((block, index) => {
       const templateBlock = templateBlocks[index];
       const templateProps = templateBlock?.props ?? {};
+      const normalizedBlockType = normalizeTemplateBlockType(block.block_type);
       return {
         ...block,
-        content: templateBlock?.type === block.block_type
+        content: templateBlock?.type === normalizedBlockType
           ? (mergeTemplateSeed(block.content, templateProps) as Record<string, unknown>)
           : block.content,
       };
