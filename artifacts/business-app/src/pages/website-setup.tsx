@@ -458,7 +458,9 @@ export default function WebsiteSetup() {
   const totalPagesCount = pages.length;
   const draftPagesCount = totalPagesCount - publishedPagesCount;
   const hasDraftPages = draftPagesCount > 0;
-  const liveUrl = platformDomain?.domain
+  const liveUrl = activeCustomDomain?.domain
+    ? `https://${activeCustomDomain.domain}?twd_edit=1`
+    : platformDomain?.domain
     ? `https://${platformDomain.domain}?twd_edit=1`
     : website.preview_url
       ? `${website.preview_url}${website.preview_url.includes("?") ? "&" : "?"}twd_edit=1`
