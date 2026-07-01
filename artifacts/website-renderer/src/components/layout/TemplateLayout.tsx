@@ -8,16 +8,7 @@ import SiteLayout from "./SiteLayout";
 import type { TemplateLayoutProps } from "./templates/types";
 
 export default function TemplateLayout(props: TemplateLayoutProps) {
-  const templateSlug = props.site.website.template_slug;
-
-  console.log("[TemplateLayout] template_slug:", templateSlug);
-
   // Template-specific layout mappings can be added here later.
-  if (templateSlug) {
-    console.log("[TemplateLayout] No specific template component found, using generic SiteLayout:", templateSlug);
-  } else {
-    console.log("[TemplateLayout] No template configured, using generic SiteLayout");
-  }
 
   return (
     <SiteLayout site={props.site} basePath={props.basePath} previewToken={props.previewToken}>
