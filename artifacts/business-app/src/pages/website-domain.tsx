@@ -105,22 +105,17 @@ function DnsRow({ record }: { record: DnsRecord }) {
 
 function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRecord[] }) {
   const apexDomain = domain.replace(/^www\./, "");
-  const primaryCnameTarget = records.find((r) => r.type.toUpperCase() === "CNAME")?.value;
 
   return (
     <div className="space-y-3 text-sm">
       <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-        <p><strong>Scenario 1 (free subdomain):</strong> your TradeWorkDesk site address is already live and needs no tenant DNS setup.</p>
-        <p className="mt-1"><strong>Scenario 2 (custom domain):</strong> tenant adds one DNS record only: <strong>CNAME www</strong> to the value shown below.</p>
-        <p className="mt-1"><strong>Platform one-time setup:</strong> in the <strong>tradeworkdesk.co.uk</strong> zone, keep <strong>CNAME sites</strong> and <strong>CNAME *</strong> pointing to {primaryCnameTarget || "the Fly renderer target"}.</p>
-        <p className="mt-1"><strong>Optional apex/root:</strong> forward the root domain to <strong>www</strong> at the registrar if needed.</p>
+        Add the single DNS record shown below. Once it has propagated, click <strong>Check Status</strong>.
       </div>
       <p className="font-medium">Follow these steps exactly, in order:</p>
       <ol className="list-decimal pl-5 space-y-2">
         <li>Open your DNS provider for <strong>{apexDomain}</strong> (GoDaddy, Cloudflare, 123-Reg, Namecheap, etc.).</li>
         <li>Remove old records for the same hostnames if they point somewhere else (for example old Vercel, Wix, Squarespace, Shopify, or another host).</li>
-        <li>Add the DNS records below exactly as shown.</li>
-        <li>For the easiest setup, connect <strong>www</strong> first with a single CNAME record.</li>
+        <li>Add the DNS record below exactly as shown.</li>
         <li>Save DNS changes in your registrar panel.</li>
         <li>Wait for DNS propagation. Most updates are quick, but some registrars can take up to 24-48 hours.</li>
         <li>Return here and click <strong>Check Status</strong>.</li>
@@ -131,7 +126,7 @@ function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRec
       </p>
       {records.length > 0 && (
         <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-          Recommended setup: add exactly {records.length} record{records.length > 1 ? "s" : ""}.
+          Add exactly 1 record.
         </div>
       )}
     </div>
@@ -164,9 +159,7 @@ function ProviderWalkthroughs({ records }: { records: DnsRecord[] }) {
           <p className="mt-1">Open Domain List and Advanced DNS, then in Host Records add table values exactly. Use @ for root and www for subdomain where listed.</p>
         </details>
       </div>
-      <p className="text-xs text-muted-foreground mt-3">
-        Custom-domain expected setup: {hasWwwCname ? "www CNAME" : "CNAME"}{hasApexA || hasApexAAAA ? " (apex records are configured via advanced setup)" : ""}.
-      </p>
+      <p className="text-xs text-muted-foreground mt-3">Custom-domain expected setup: {hasWwwCname ? "www CNAME" : "CNAME"}.</p>
     </div>
   );
 }
