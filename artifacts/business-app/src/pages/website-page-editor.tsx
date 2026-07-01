@@ -78,18 +78,16 @@ type BlockType =
 
 interface Block {
   id: string;
-  block_type: BlockType;
+  block_type: string;
   content: Record<string, unknown>;
   sort_order: number;
   is_visible: boolean;
 }
 
 interface Page {
-  id: string;
-  website_id: string;
+  title: string;
   slug: string;
   page_type: string;
-  title: string;
   status: "draft" | "published" | "archived";
   meta_title: string | null;
   meta_description: string | null;
@@ -367,6 +365,38 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+function readString(content: Record<string, unknown>, keys: string[], fallback = ""): string {
+  for (const key of keys) {
+    const value = content[key];
+    if (typeof value === "string") return value;
+  }
+  return fallback;
+}
+
+function readArray<T>(content: Record<string, unknown>, keys: string[], fallback: T[] = []): T[] {
+  for (const key of keys) {
+    const value = content[key];
+    if (Array.isArray(value)) return value as T[];
+  }
+  return fallback;
+}
+
+function syncBlockContent(
+  content: Record<string, unknown>,
+  updates: Record<string, unknown>,
+  aliases: Record<string, string[]>
+): Record<string, unknown> {
+  const next = { ...content, ...updates };
+
+  for (const [key, value] of Object.entries(updates)) {
+    for (const alias of aliases[key] || []) {
+      next[alias] = value;
+    }
+  }
+
+  return next;
+}
+
 function GenericBlockEditor({
   blockType,
   content,
@@ -472,11 +502,23 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
   const set = (key: string, value: unknown) => onChange({ ...c, [key]: value });
 
   switch (editorType) {
-    case "hero":
+    case "hero": {
+      const eyebrow = readString(c, ["eyebrow"]);
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const primaryText = readString(c, ["cta_text", "primaryCtaLabel", "primaryButtonText"]);
+      const primaryUrl = readString(c, ["cta_url", "primaryCtaHref", "primaryButtonUrl"]);
+      const secondaryText = readString(c, ["secondary_cta_text", "secondaryCtaLabel", "secondaryButtonText"]);
+      const secondaryUrl = readString(c, ["secondary_cta_url", "secondaryCtaHref", "secondaryButtonUrl"]);
+      const backgroundImage = readString(c, ["background_image_url", "backgroundImageUrl"]);
+      const heroImage = readString(c, ["hero_image_url", "heroImageUrl"]);
+      const backgroundColor = readString(c, ["background_color", "backgroundColor"], "#1e40af");
+      const textColor = readString(c, ["text_color", "textColor"], "#ffffff");
+
       return (
         <div className="space-y-3">
           <FieldRow label="Eyebrow / Preheading">
-            <Input value={String(c.eyebrow ?? "")} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
+            <Input value={eyebrow} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
           </FieldRow>
           <FieldRow label="Layout">
             <Select value={String(c.layout ?? "full")} onValueChange={(v) => set("layout", v)}>
@@ -488,40 +530,40 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
               </SelectContent>
             </Select>
           </FieldRow>
-          <FieldRow label="Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Heading Accent Word">
             <Input value={String(c.heading_accent ?? "")} onChange={(e) => set("heading_accent", e.target.value)} placeholder="One word from the heading to highlight in colour" />
           </FieldRow>
-          <FieldRow label="Subheading"><Textarea value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} rows={2} /></FieldRow>
-          <FieldRow label="Primary Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
-          <FieldRow label="Primary Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
-          <FieldRow label="Secondary Button Text (optional)"><Input value={String(c.secondary_cta_text ?? "")} onChange={(e) => set("secondary_cta_text", e.target.value)} /></FieldRow>
-          <FieldRow label="Secondary Button URL"><Input value={String(c.secondary_cta_url ?? "")} onChange={(e) => set("secondary_cta_url", e.target.value)} placeholder="/services" /></FieldRow>
+          <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
+          <FieldRow label="Primary Button Text"><Input value={primaryText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
+          <FieldRow label="Primary Button URL"><Input value={primaryUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
+          <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
+          <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
           <ImagePickerField
             label="Background Image URL (full/centered layouts)"
-            value={String(c.background_image_url ?? "")}
-            onChange={(url) => set("background_image_url", url)}
+            value={backgroundImage}
+            onChange={(url) => onChange(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }))}
             hint="Recommended: 1920 × 1080 px (landscape). Used as the hero background."
             fieldName="hero_background"
           />
           <ImagePickerField
             label="Hero Image URL (split layout only)"
-            value={String(c.hero_image_url ?? "")}
-            onChange={(url) => set("hero_image_url", url)}
+            value={heroImage}
+            onChange={(url) => onChange(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }))}
             hint="Recommended: 900 × 700 px (portrait or square works best)."
             fieldName="hero_image"
           />
           <div className="flex gap-3">
             <FieldRow label="Background Colour">
               <div className="flex items-center gap-2">
-                <input type="color" value={String(c.background_color ?? "#1e40af")} onChange={(e) => set("background_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                <Input value={String(c.background_color ?? "")} onChange={(e) => set("background_color", e.target.value)} className="flex-1" />
+                <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
               </div>
             </FieldRow>
             <FieldRow label="Text Colour">
               <div className="flex items-center gap-2">
-                <input type="color" value={String(c.text_color ?? "#ffffff")} onChange={(e) => set("text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                <Input value={String(c.text_color ?? "")} onChange={(e) => set("text_color", e.target.value)} className="flex-1" />
+                <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                <Input value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="flex-1" />
               </div>
             </FieldRow>
           </div>
@@ -537,6 +579,7 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           </FieldRow>
         </div>
       );
+    }
 
     case "text":
       return (
@@ -557,33 +600,41 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
         </div>
       );
 
-    case "cta":
+    case "cta": {
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const buttonText = readString(c, ["cta_text", "primaryCtaLabel", "primaryButtonText"]);
+      const buttonUrl = readString(c, ["cta_url", "primaryCtaHref", "primaryButtonUrl"]);
+      const backgroundColor = readString(c, ["background_color", "backgroundColor"], "#f97316");
+      const textColor = readString(c, ["text_color", "textColor"], "#ffffff");
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
-          <FieldRow label="Subheading"><Input value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} /></FieldRow>
-          <FieldRow label="Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
-          <FieldRow label="Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading"><Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} /></FieldRow>
+          <FieldRow label="Button Text"><Input value={buttonText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
+          <FieldRow label="Button URL"><Input value={buttonUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
           <div className="flex gap-3">
             <FieldRow label="Background">
               <div className="flex items-center gap-2">
-                <input type="color" value={String(c.background_color ?? "#f97316")} onChange={(e) => set("background_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                <Input value={String(c.background_color ?? "")} onChange={(e) => set("background_color", e.target.value)} className="flex-1" />
+                <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
               </div>
             </FieldRow>
             <FieldRow label="Text">
               <div className="flex items-center gap-2">
-                <input type="color" value={String(c.text_color ?? "#ffffff")} onChange={(e) => set("text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                <Input value={String(c.text_color ?? "")} onChange={(e) => set("text_color", e.target.value)} className="flex-1" />
+                <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                <Input value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="flex-1" />
               </div>
             </FieldRow>
           </div>
         </div>
       );
+    }
 
     case "services": {
       const serviceFieldKey = Array.isArray(c.items) ? "items" : "services";
-      const items = (Array.isArray(c.services) ? c.services : Array.isArray(c.items) ? c.items : []) as Array<{ title: string; description: string; icon: string }>;
+      const items = readArray<{ title: string; description: string; icon: string }>(c, ["services", "items"]);
       const updateItems = (next: Array<{ title: string; description: string; icon: string }>) => {
         if (serviceFieldKey === "items") {
           onChange({ ...c, items: next, services: next });
@@ -591,9 +642,12 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
         }
         onChange({ ...c, services: next, items: next });
       };
+      const heading = readString(c, ["heading", "title"]);
+      const subtitle = readString(c, ["subtitle", "subheading"]);
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading"><Textarea value={subtitle} onChange={(e) => onChange(syncBlockContent(c, { subtitle: e.target.value, subheading: e.target.value }, { subtitle: ["subheading"], subheading: ["subtitle"] }))} rows={2} /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Service Items</Label>
             {items.map((item, i) => (
@@ -646,19 +700,25 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
         </div>
       );
 
-    case "testimonials":
+    case "testimonials": {
+      const heading = readString(c, ["heading", "title"]);
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <p className="text-xs text-muted-foreground">Testimonials are pulled from your website testimonials database. Add them via the Testimonials section.</p>
         </div>
       );
+    }
 
-    case "contact_form":
+    case "contact_form": {
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
-          <FieldRow label="Subheading"><Input value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading"><Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} /></FieldRow>
           <FieldRow label="Form Type">
             <Select value={String(c.form_type ?? "contact")} onValueChange={(v) => set("form_type", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -684,11 +744,14 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           </FieldRow>
         </div>
       );
+    }
 
-    case "gallery":
+    case "gallery": {
+      const heading = readString(c, ["heading", "title"]);
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Columns">
             <Select value={String(c.columns ?? "3")} onValueChange={(v) => set("columns", Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -702,12 +765,14 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           <p className="text-xs text-muted-foreground">Gallery images are pulled from your website gallery. Add them via the Gallery section.</p>
         </div>
       );
+    }
 
     case "accreditations": {
       const accs = Array.isArray(c.items) ? c.items as Array<{ name: string; logo_url: string }> : [];
+      const heading = readString(c, ["heading", "title"]);
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Accreditations</Label>
             {accs.map((item, i) => (
@@ -809,10 +874,12 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
 
     case "faq": {
       const faqs = Array.isArray(c.items) ? c.items as Array<{ question: string; answer: string }> : [];
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
-          <FieldRow label="Subheading (optional)"><Input value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading (optional)"><Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">FAQ Items</Label>
             {faqs.map((item, i) => (
@@ -836,12 +903,17 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
 
     case "process": {
       const steps = Array.isArray(c.steps) ? c.steps as Array<{ icon: string; title: string; description: string }> : [];
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const ctaText = readString(c, ["cta_text", "primaryCtaLabel", "primaryButtonText"]);
+      const ctaUrl = readString(c, ["cta_url", "primaryCtaHref", "primaryButtonUrl"]);
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
-          <FieldRow label="Subheading"><Textarea value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} rows={2} /></FieldRow>
-          <FieldRow label="CTA Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
-          <FieldRow label="CTA Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
+          <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
+          <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Steps</Label>
             {steps.map((step, i) => (
@@ -866,12 +938,17 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
 
     case "areas": {
       const areaList = Array.isArray(c.areas) ? (c.areas as string[]) : [];
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const ctaText = readString(c, ["cta_text", "primaryCtaLabel", "primaryButtonText"]);
+      const ctaUrl = readString(c, ["cta_url", "primaryCtaHref", "primaryButtonUrl"]);
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
-          <FieldRow label="Subheading"><Textarea value={String(c.subheading ?? "")} onChange={(e) => set("subheading", e.target.value)} rows={2} /></FieldRow>
-          <FieldRow label="CTA Button Text"><Input value={String(c.cta_text ?? "")} onChange={(e) => set("cta_text", e.target.value)} /></FieldRow>
-          <FieldRow label="CTA Button URL"><Input value={String(c.cta_url ?? "")} onChange={(e) => set("cta_url", e.target.value)} placeholder="/contact" /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
+          <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
+          <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Areas Covered</Label>
             {areaList.map((area, i) => (
@@ -893,9 +970,11 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     case "project_showcase": {
       type ProjectItem = { title: string; location: string; image_url: string; description: string; cta_text: string; cta_url: string };
       const projects = Array.isArray(c.projects) ? c.projects as ProjectItem[] : [];
+      const heading = readString(c, ["heading", "title"]);
+
       return (
         <div className="space-y-3">
-          <FieldRow label="Section Heading"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Projects</Label>
             {projects.map((proj, i) => (
@@ -1005,8 +1084,8 @@ function BlockCard({
               <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-sm">{palette?.label ?? block.block_type}</span>
-                {Boolean(block.content.heading) && (
-                  <span className="text-muted-foreground text-xs ml-2 truncate">— {String(block.content.heading)}</span>
+                {Boolean(block.content.heading ?? block.content.title) && (
+                  <span className="text-muted-foreground text-xs ml-2 truncate">— {String(block.content.heading ?? block.content.title)}</span>
                 )}
               </div>
               <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
