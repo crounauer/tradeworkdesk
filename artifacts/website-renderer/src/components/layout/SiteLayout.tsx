@@ -3,6 +3,7 @@ import type { SiteData } from "@/lib/api";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import GoogleAnalytics from "./GoogleAnalytics";
+import AdminEditPageButton from "@/components/AdminEditPageButton";
 
 interface Props {
   site: SiteData;
@@ -13,6 +14,7 @@ interface Props {
 
 export default function SiteLayout({ site, children, basePath, previewToken }: Props) {
   const { website, company } = site;
+  const appBaseUrl = process.env.NEXT_PUBLIC_BUSINESS_APP_URL || process.env.BUSINESS_APP_URL || "https://tradeworkdesk.co.uk";
 
   const navPages = site.pages.filter((p) => p.show_in_nav);
 
@@ -62,6 +64,7 @@ export default function SiteLayout({ site, children, basePath, previewToken }: P
         tagline={website.tagline}
         logoUrl={website.logo_url}
       />
+      <AdminEditPageButton pages={site.pages} appBaseUrl={appBaseUrl} />
     </>
   );
 }

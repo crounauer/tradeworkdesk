@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { SitePage } from "@/lib/api";
 
-const ADMIN_SESSION_COOKIE = "twd_admin_session=1";
-
 function normalizeSlug(value: string): string {
   if (!value || value === "/") return "/";
   const withSlash = value.startsWith("/") ? value : `/${value}`;
@@ -28,8 +26,9 @@ export default function AdminEditPageButton({ pages, appBaseUrl }: { pages: Site
 
   useEffect(() => {
     const mode = searchParams.get("twd_edit");
-    const hasAdminSession = document.cookie.includes(ADMIN_SESSION_COOKIE);
-    setEditModeEnabled(mode === "1" && hasAdminSession);
+    // Custom domains cannot read the tradeworkdesk.co.uk auth cookie.
+    // twd_edit=1 is an explicit user action from the dashboard and only reveals a link.
+    setEditModeEnabled(mode === "1");
   }, [searchParams]);
 
   const page = useMemo(() => resolvePageForPath(pathname || "/", pages), [pathname, pages]);
