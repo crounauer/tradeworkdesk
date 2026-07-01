@@ -173,12 +173,15 @@ export async function listTenantUsersWithPushPreferences(tenantId: string): Prom
     .eq("tenant_id", tenantId);
 
   if (prefError) {
-    // If the preferences table has not been provisioned yet, still show the
-    // tenant's users with default preferences instead of breaking the whole UI.
-    if ((prefError as { code?: string }).code !== "42P01") {
+    // Backward compatibility:
+    // - 42P01 => table missing
+    // - 42703 => one or more columns missing on older schemas
+    // In both cases, show tenant users with default preferences.
+    const code = (prefError as { code?: string }).code;
+    if (code !== "42P01" && code !== "42703") {
       throw new Error(prefError.message);
     }
-    console.warn("[push-events] tenant_user_push_preferences missing; falling back to defaults");
+    console.warn(`[push-events] preferences schema incomplete (${code}); falling back to defaults`);
   }
 
   const prefMap = new Map<string, TenantUserPrefRow>();
