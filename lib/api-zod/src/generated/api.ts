@@ -1014,6 +1014,11 @@ export const GetJobResponse = zod
     description: zod.string().nullish(),
     arrival_time: zod.string().nullish(),
     departure_time: zod.string().nullish(),
+    customer_confirmation_status: zod
+      .enum(["pending", "confirmed", "change_requested"])
+      .nullish(),
+    customer_confirmed_at: zod.string().nullish(),
+    customer_change_requested_at: zod.string().nullish(),
     is_active: zod.boolean(),
     external_invoice_id: zod.string().nullish(),
     external_invoice_provider: zod.string().nullish(),

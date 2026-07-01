@@ -152,6 +152,45 @@ export default function JobDetail() {
   const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
+  const customerConfirmationStatus =
+    typeof jobRecord.customer_confirmation_status === "string"
+      ? jobRecord.customer_confirmation_status
+      : null;
+  const customerConfirmedAt =
+    typeof jobRecord.customer_confirmed_at === "string"
+      ? jobRecord.customer_confirmed_at
+      : null;
+  const customerChangeRequestedAt =
+    typeof jobRecord.customer_change_requested_at === "string"
+      ? jobRecord.customer_change_requested_at
+      : null;
+
+  const customerConfirmationUi = (() => {
+    switch (customerConfirmationStatus) {
+      case "confirmed":
+        return {
+          label: "Customer Confirmed",
+          classes: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          timestamp: customerConfirmedAt,
+          timestampLabel: "Confirmed",
+        };
+      case "change_requested":
+        return {
+          label: "Customer Requested Change",
+          classes: "bg-amber-100 text-amber-800 border-amber-200",
+          timestamp: customerChangeRequestedAt,
+          timestampLabel: "Requested",
+        };
+      case "pending":
+      default:
+        return {
+          label: "Awaiting Customer Response",
+          classes: "bg-slate-100 text-slate-700 border-slate-200",
+          timestamp: null,
+          timestampLabel: "",
+        };
+    }
+  })();
 
   const handleSendConfirmationDirect = async () => {
     setSendingConfirmation(true);
@@ -350,6 +389,16 @@ export default function JobDetail() {
             </button>
           )}
           <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+            <span className={`inline-flex items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
+              {customerConfirmationUi.label}
+            </span>
+            {customerConfirmationUi.timestamp && (
+              <span className="text-muted-foreground">
+                {customerConfirmationUi.timestampLabel}: {formatDateTime(customerConfirmationUi.timestamp)}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 flex-wrap">
           {job.status === "in_progress" && !((job as unknown as Record<string, unknown>).departure_time) && (
