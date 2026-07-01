@@ -58,6 +58,24 @@ function render(
   return <BlockComponent content={context.content} />;
 }
 
+function renderGallery(context: BlockRenderContext): ReactElement | null {
+  const existingImages = Array.isArray(context.content.images)
+    ? (context.content.images as Array<Record<string, unknown>>)
+    : [];
+
+  const siteGallery = (context.site?.gallery || []).map((item) => ({
+    url: item.image_url,
+    alt: item.alt_text || undefined,
+    caption: item.caption || undefined,
+  }));
+
+  const content = existingImages.length > 0
+    ? context.content
+    : { ...context.content, images: siteGallery };
+
+  return <GalleryBlock content={content} />;
+}
+
 function renderBlogIndex(context: BlockRenderContext): ReactElement | null {
   return <BlogIndexBlock content={context.content} site={context.site} />;
 }
@@ -94,7 +112,7 @@ const blockRegistry: Record<string, BlockRendererFn> = {
   contact: (context) => render(ContactFormBlock, context),
   testimonials: (context) => render(TestimonialsBlock, context),
   reviews: (context) => render(TestimonialsBlock, context),
-  gallery: (context) => render(GalleryBlock, context),
+  gallery: renderGallery,
   accreditations: (context) => render(AccreditationsBlock, context),
   trust_badges: (context) => render(AccreditationsBlock, context),
   spacer: (context) => render(SpacerBlock, context),

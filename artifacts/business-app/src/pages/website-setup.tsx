@@ -678,6 +678,7 @@ export default function WebsiteSetup() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <QuickCard href="/website/pages" icon={<Layout className="w-5 h-5" />} title="Pages" description="Edit your website pages and content" />
         <QuickCard href="/website/blog" icon={<FileText className="w-5 h-5" />} title="Blog" description="Write and publish blog posts" />
+        <QuickCard href="/website/gallery" icon={<Image className="w-5 h-5" />} title="Gallery" description="Manage gallery images and import from jobs" />
         <QuickCard href="/website/analytics" icon={<MessageSquare className="w-5 h-5" />} title="Analytics" description="Track leads, forms and conversion trends" />
         <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your custom domain" />
         <QuickCard href="/website/templates" icon={<LayoutTemplate className="w-5 h-5" />} title="Website Template" description="Choose a published global template" />
@@ -706,6 +707,8 @@ export default function WebsiteSetup() {
             <AlertDialogDescription>
               This will permanently delete <strong>{website.site_name}</strong> including all pages,
               content blocks, blog posts, and connected domains. This cannot be undone.
+              <br />
+              <strong>Media library note:</strong> deleting a website does not delete your media library images.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

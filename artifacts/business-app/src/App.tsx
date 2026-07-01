@@ -168,6 +168,7 @@ const WebsiteDomain = lazyRetry(() => import("@/pages/website-domain"));
 const WebsiteSettings = lazyRetry(() => import("@/pages/website-settings"));
 const WebsiteBlog = lazyRetry(() => import("@/pages/website-blog"));
 const WebsiteBlogEditor = lazyRetry(() => import("@/pages/website-blog-editor"));
+const WebsiteGallery = lazyRetry(() => import("@/pages/website-gallery"));
 const WebsitePreview = lazyRetry(() => import("@/pages/website-preview"));
 const WebsiteAnalytics = lazyRetry(() => import("@/pages/website-analytics"));
 const WebsiteIndexNow = lazyRetry(() => import("@/pages/website-indexnow"));
@@ -456,6 +457,7 @@ const WebsiteDomainRoute = protectFeature(WebsiteDomain, "website_builder");
 const WebsiteSettingsRoute = protectFeature(WebsiteSettings, "website_builder");
 const WebsiteBlogRoute = protectFeature(WebsiteBlog, "website_builder");
 const WebsiteBlogEditorRoute = protectFeature(WebsiteBlogEditor, "website_builder");
+const WebsiteGalleryRoute = protectFeature(WebsiteGallery, "website_builder");
 const WebsitePreviewRoute = protectFeature(WebsitePreview, "website_builder");
 const WebsiteAnalyticsRoute = protectFeature(WebsiteAnalytics, "website_builder");
 const WebsiteIndexNowRoute = protectFeature(WebsiteIndexNow, "website_builder");
@@ -623,6 +625,7 @@ function AppRouter() {
         <Route path="/website/builder" component={WebsiteBuilderEditorRoute} />
         <Route path="/website/domain" component={WebsiteDomainRoute} />
         <Route path="/website/settings" component={WebsiteSettingsRoute} />
+        <Route path="/website/gallery" component={WebsiteGalleryRoute} />
         <Route path="/website/analytics">{() => <Redirect to="/reporting?tab=analytics" />}</Route>
         <Route path="/website/forms">{() => { window.location.replace("/website/settings?tab=forms"); return null; }}</Route>
         <Route path="/website/blog" component={WebsiteBlogRoute} />

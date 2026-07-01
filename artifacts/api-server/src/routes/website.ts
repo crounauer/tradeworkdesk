@@ -23,8 +23,10 @@ import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
 import { addDomainToVercel } from "../lib/vercel";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
+import { triggerRendererRevalidate } from "../lib/renderer-revalidate";
 import { generatePagesFromFigma, validateGeneratedPages } from "../lib/figma-page-generator";
 import { mergeTemplateBlockContent } from "../lib/template-clone";
+import { WEBSITE_DELETE_TABLE_ORDER, retainsMediaLibraryOnWebsiteDelete } from "../lib/website-delete-policy";
 import {
   requireAuth,
   requireTenant,
@@ -38,6 +40,16 @@ const router: IRouter = Router();
 const db = supabaseAdmin as any; // new tables not yet in generated types
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
 const WEBSITE_ANALYTICS_CACHE_TTL_MS = 60_000;
+
+async function getActiveDomainsForWebsite(websiteId: string): Promise<string[]> {
+  const { data } = await db
+    .from("website_domains")
+    .select("domain")
+    .eq("website_id", websiteId)
+    .eq("is_active", true) as { data: Array<{ domain: string }> | null };
+
+  return (data || []).map((row) => String(row.domain || "")).filter(Boolean);
+}
 
 type TemplateContentMode = "demo" | "empty" | "ai";
 
@@ -316,7 +328,7 @@ async function insertTenantTemplateAuditLog(opts: {
   detail?: Record<string, unknown>;
 }) {
   if (!opts.tenantId) return;
-  await supabaseAdmin.from("tenant_audit_log").insert({
+  await (supabaseAdmin.from("tenant_audit_log") as any).insert({
     tenant_id: opts.tenantId,
     actor_id: opts.actorId || null,
     actor_email: opts.actorEmail || null,
@@ -947,12 +959,23 @@ router.delete(
     const website = await getWebsiteForTenant(req.tenantId!);
     if (!website) { res.status(404).json({ error: "Website not found" }); return; }
 
-    // Delete in dependency order: blocks → page versions → pages → domains → website
-    await db.from("website_blocks").delete().eq("tenant_id", req.tenantId);
-    await db.from("website_page_versions").delete().eq("tenant_id", req.tenantId);
-    await db.from("website_pages").delete().eq("website_id", website.id);
-    await db.from("website_domains").delete().eq("website_id", website.id);
-    await db.from("websites").delete().eq("id", website.id);
+    // Delete in dependency order, while intentionally retaining website media.
+    if (!retainsMediaLibraryOnWebsiteDelete()) {
+      res.status(500).json({ error: "Delete policy violation: website media must be retained" });
+      return;
+    }
+
+    for (const table of WEBSITE_DELETE_TABLE_ORDER) {
+      let query = db.from(table).delete();
+      if (table === "website_blocks" || table === "website_page_versions") {
+        query = query.eq("tenant_id", req.tenantId);
+      } else if (table === "website_pages" || table === "website_domains") {
+        query = query.eq("website_id", website.id);
+      } else {
+        query = query.eq("id", website.id);
+      }
+      await query;
+    }
 
     res.sendStatus(204);
   }
@@ -978,6 +1001,8 @@ router.post(
     if (error) { res.status(500).json({ error: "Failed to publish website" }); return; }
 
     triggerTenantIndexNowAutoSubmit(req.tenantId!, "website_publish");
+    const activeDomains = await getActiveDomainsForWebsite(String(website.id));
+    void triggerRendererRevalidate({ domains: activeDomains, websiteIds: [String(website.id)], reason: "website_publish" });
 
     res.json(data);
   }
@@ -1158,10 +1183,11 @@ router.post(
       return;
     }
 
-    const pageIdBySlug = new Map<string, string>((insertedPages || []).map((page) => [String(page.slug), String(page.id)]));
-    const blockInserts = templateBlocks.flatMap((block) => {
+    const pageIdBySlug = new Map<string, string>((insertedPages || []).map((page: Record<string, unknown>) => [String(page.slug), String(page.id)]));
+    const templateBlocksList = templateBlocks || [];
+    const blockInserts = templateBlocksList.flatMap((block) => {
       if (shouldSkipTenantBlock(block.block_type)) return [];
-      const targetPage = templatePages.find((page) => String(page.id) === String(block.page_id));
+      const targetPage = templatePages.find((page: Record<string, unknown>) => String(page.id) === String(block.page_id));
       const tenantPageId = targetPage ? pageIdBySlug.get(String(targetPage.slug)) : null;
       if (!tenantPageId) return [];
 
@@ -1829,7 +1855,7 @@ router.post(
     // Snapshot current blocks as a version before publishing
     const { data: page } = await db
       .from("website_pages")
-      .select("id, title, meta_title, meta_description")
+      .select("id, website_id, title, meta_title, meta_description")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
       .single() as { data: Record<string, unknown> | null };
@@ -1875,6 +1901,11 @@ router.post(
     if (error) { res.status(500).json({ error: "Failed to publish page" }); return; }
 
     triggerTenantIndexNowAutoSubmit(req.tenantId!, "page_publish");
+    const websiteId = String(page.website_id || "");
+    if (websiteId) {
+      const activeDomains = await getActiveDomainsForWebsite(websiteId);
+      void triggerRendererRevalidate({ domains: activeDomains, websiteIds: [websiteId], reason: "page_publish" });
+    }
 
     res.json({ ...data, version: nextVersion });
   }
@@ -2026,6 +2057,18 @@ const MEDIA_BUCKET = "website-images";
 const MEDIA_MAX_DIMENSION = 2400;
 const MEDIA_JPEG_QUALITY = 82;
 
+function sanitizeFileName(input: string): string {
+  const base = input.replace(/\.[^.]+$/, "");
+  return base.replace(/[^a-z0-9_-]/gi, "_").slice(0, 60) || "image";
+}
+
+function bucketForAttachment(file: { file_type?: unknown; storage_path?: unknown }): string {
+  const storagePath = String(file.storage_path || "");
+  if (storagePath.startsWith("form-submissions/")) return "public-uploads";
+  const fileType = String(file.file_type || "").toLowerCase();
+  return fileType.startsWith("image/") ? "service-photos" : "service-documents";
+}
+
 const mediaUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB raw input limit
@@ -2153,6 +2196,327 @@ router.delete(
     await db.from("website_media").delete().eq("id", id).eq("tenant_id", req.tenantId);
 
     res.sendStatus(204);
+  }
+);
+
+router.delete(
+  "/website/media/purge",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const confirm = String((req.body as { confirm?: unknown } | undefined)?.confirm || "").trim();
+    if (confirm !== "PURGE_MEDIA") {
+      res.status(400).json({ error: "Confirmation phrase required: PURGE_MEDIA" });
+      return;
+    }
+
+    const { data: mediaRows } = await db
+      .from("website_media")
+      .select("storage_path")
+      .eq("website_id", website.id) as { data: Array<{ storage_path: string }> | null };
+
+    const paths = (mediaRows || []).map((row) => row.storage_path).filter(Boolean);
+    if (paths.length > 0) {
+      await supabaseAdmin.storage.from(MEDIA_BUCKET).remove(paths);
+    }
+
+    await db.from("website_media").delete().eq("website_id", website.id);
+    await db.from("website_gallery_items").delete().eq("website_id", website.id);
+
+    res.json({ purged: paths.length });
+  }
+);
+
+router.get(
+  "/website/gallery-items",
+  requireAuth,
+  requireTenant,
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const { data, error } = await db
+      .from("website_gallery_items")
+      .select("id, image_url, caption, alt_text, category, sort_order, is_visible, created_at")
+      .eq("website_id", website.id)
+      .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
+
+    if (error) { res.status(500).json({ error: "Failed to fetch gallery items" }); return; }
+    res.json(data || []);
+  }
+);
+
+router.post(
+  "/website/gallery-items",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const image_url = String((req.body as { image_url?: unknown }).image_url || "").trim();
+    if (!image_url) { res.status(400).json({ error: "image_url is required" }); return; }
+
+    const { data: maxSort } = await db
+      .from("website_gallery_items")
+      .select("sort_order")
+      .eq("website_id", website.id)
+      .order("sort_order", { ascending: false })
+      .limit(1) as { data: Array<{ sort_order: number }> | null };
+
+    const nextSort = typeof maxSort?.[0]?.sort_order === "number" ? maxSort[0].sort_order + 1 : 0;
+
+    const payload = {
+      tenant_id: req.tenantId,
+      website_id: website.id,
+      image_url,
+      caption: String((req.body as { caption?: unknown }).caption || "").trim() || null,
+      alt_text: String((req.body as { alt_text?: unknown }).alt_text || "").trim() || null,
+      category: String((req.body as { category?: unknown }).category || "").trim() || null,
+      is_visible: (req.body as { is_visible?: unknown }).is_visible !== false,
+      sort_order: typeof (req.body as { sort_order?: unknown }).sort_order === "number"
+        ? Number((req.body as { sort_order?: unknown }).sort_order)
+        : nextSort,
+    };
+
+    const { data, error } = await db
+      .from("website_gallery_items")
+      .insert(payload)
+      .select("id, image_url, caption, alt_text, category, sort_order, is_visible, created_at")
+      .single() as { data: Record<string, unknown> | null; error: unknown };
+
+    if (error || !data) { res.status(500).json({ error: "Failed to create gallery item" }); return; }
+    res.status(201).json(data);
+  }
+);
+
+router.patch(
+  "/website/gallery-items/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const allowed = ["image_url", "caption", "alt_text", "category", "sort_order", "is_visible"];
+    const updates: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in req.body) updates[key] = (req.body as Record<string, unknown>)[key];
+    }
+
+    const { data, error } = await db
+      .from("website_gallery_items")
+      .update(updates)
+      .eq("id", req.params.id)
+      .eq("website_id", website.id)
+      .select("id, image_url, caption, alt_text, category, sort_order, is_visible, created_at")
+      .single() as { data: Record<string, unknown> | null; error: unknown };
+
+    if (error || !data) { res.status(404).json({ error: "Gallery item not found" }); return; }
+    res.json(data);
+  }
+);
+
+router.delete(
+  "/website/gallery-items/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    await db
+      .from("website_gallery_items")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("website_id", website.id);
+
+    res.sendStatus(204);
+  }
+);
+
+router.get(
+  "/website/gallery-items/importable-job-images",
+  requireAuth,
+  requireTenant,
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const limit = Math.min(120, Math.max(1, Number(req.query.limit || 60)));
+
+    const { data: attachments, error } = await db
+      .from("file_attachments")
+      .select("id, entity_id, file_name, file_type, storage_path, description, created_at")
+      .eq("tenant_id", req.tenantId)
+      .eq("entity_type", "job")
+      .ilike("file_type", "image/%")
+      .order("created_at", { ascending: false })
+      .limit(limit) as { data: Array<Record<string, unknown>> | null; error: unknown };
+
+    if (error) { res.status(500).json({ error: "Failed to fetch job images" }); return; }
+
+    const rows = attachments || [];
+    const jobIds = Array.from(new Set(rows.map((row) => String(row.entity_id || "")).filter(Boolean)));
+
+    const { data: jobs } = jobIds.length > 0
+      ? await db
+          .from("jobs")
+          .select("id, job_ref, description")
+          .in("id", jobIds)
+          .eq("tenant_id", req.tenantId) as { data: Array<{ id: string; job_ref: string | null; description: string | null }> | null }
+      : { data: [] as Array<{ id: string; job_ref: string | null; description: string | null }> };
+
+    const jobMap = new Map((jobs || []).map((job) => [job.id, job]));
+
+    const withUrls = await Promise.all(rows.map(async (row) => {
+      const bucket = bucketForAttachment({ file_type: row.file_type, storage_path: row.storage_path });
+      const { data: urlData } = await supabaseAdmin.storage
+        .from(bucket)
+        .createSignedUrl(String(row.storage_path || ""), 3600);
+      const job = jobMap.get(String(row.entity_id || ""));
+      return {
+        id: row.id,
+        file_name: row.file_name,
+        signed_url: urlData?.signedUrl || null,
+        created_at: row.created_at,
+        description: row.description,
+        job_id: row.entity_id,
+        job_ref: job?.job_ref || null,
+        job_description: job?.description || null,
+      };
+    }));
+
+    res.json(withUrls.filter((row) => Boolean(row.signed_url)));
+  }
+);
+
+router.post(
+  "/website/gallery-items/import-from-jobs",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const attachmentIds = Array.isArray((req.body as { attachment_ids?: unknown }).attachment_ids)
+      ? ((req.body as { attachment_ids?: unknown[] }).attachment_ids || []).map((id) => String(id)).filter(Boolean)
+      : [];
+
+    if (attachmentIds.length === 0) { res.status(400).json({ error: "attachment_ids is required" }); return; }
+    if (attachmentIds.length > 30) { res.status(400).json({ error: "You can import up to 30 images at once" }); return; }
+
+    const { data: rows, error } = await db
+      .from("file_attachments")
+      .select("id, file_name, file_type, storage_path, description")
+      .in("id", attachmentIds)
+      .eq("tenant_id", req.tenantId)
+      .eq("entity_type", "job")
+      .ilike("file_type", "image/%") as { data: Array<Record<string, unknown>> | null; error: unknown };
+
+    if (error) { res.status(500).json({ error: "Failed to load selected attachments" }); return; }
+    if (!rows || rows.length === 0) { res.status(404).json({ error: "No matching job images found" }); return; }
+
+    const { data: maxSort } = await db
+      .from("website_gallery_items")
+      .select("sort_order")
+      .eq("website_id", website.id)
+      .order("sort_order", { ascending: false })
+      .limit(1) as { data: Array<{ sort_order: number }> | null };
+
+    let nextSort = typeof maxSort?.[0]?.sort_order === "number" ? maxSort[0].sort_order + 1 : 0;
+    const importedMediaRows: Array<Record<string, unknown>> = [];
+    const importedGalleryRows: Array<Record<string, unknown>> = [];
+
+    for (const row of rows) {
+      const sourceBucket = bucketForAttachment({ file_type: row.file_type, storage_path: row.storage_path });
+      const sourcePath = String(row.storage_path || "");
+
+      const { data: downloaded, error: downloadError } = await supabaseAdmin.storage
+        .from(sourceBucket)
+        .download(sourcePath);
+
+      if (downloadError || !downloaded) continue;
+
+      const sourceBuffer = Buffer.from(await downloaded.arrayBuffer()) as Buffer<ArrayBufferLike>;
+
+      let processedBuffer: Buffer<ArrayBufferLike> = sourceBuffer;
+      let width: number | null = null;
+      let height: number | null = null;
+      try {
+        const image = sharp(sourceBuffer).rotate();
+        const meta = await image.metadata();
+        const w = meta.width || 0;
+        const h = meta.height || 0;
+        let pipeline = image;
+        if (w > MEDIA_MAX_DIMENSION || h > MEDIA_MAX_DIMENSION) {
+          pipeline = pipeline.resize(MEDIA_MAX_DIMENSION, MEDIA_MAX_DIMENSION, { fit: "inside", withoutEnlargement: true });
+        }
+        const webp = await pipeline.webp({ quality: MEDIA_JPEG_QUALITY }).toBuffer({ resolveWithObject: true });
+        processedBuffer = webp.data;
+        width = webp.info.width || null;
+        height = webp.info.height || null;
+      } catch {
+        // keep original buffer
+      }
+
+      const safeBase = sanitizeFileName(String(row.file_name || "job_image"));
+      const storagePath = `${req.tenantId}/${website.id}/import-${Date.now()}-${safeBase}.webp`;
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(MEDIA_BUCKET)
+        .upload(storagePath, processedBuffer, { contentType: "image/webp", upsert: false });
+
+      if (uploadError) continue;
+
+      const { data: publicUrlData } = supabaseAdmin.storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
+      const publicUrl = publicUrlData.publicUrl;
+      const altText = String(row.description || row.file_name || "Imported job image").trim();
+
+      importedMediaRows.push({
+        tenant_id: req.tenantId,
+        website_id: website.id,
+        file_name: String(row.file_name || "job-image"),
+        storage_path: storagePath,
+        public_url: publicUrl,
+        width,
+        height,
+        file_size: processedBuffer.length,
+        mime_type: "image/webp",
+        alt_text: altText,
+      });
+
+      importedGalleryRows.push({
+        tenant_id: req.tenantId,
+        website_id: website.id,
+        image_url: publicUrl,
+        caption: null,
+        alt_text: altText,
+        category: "Imported from jobs",
+        sort_order: nextSort++,
+        is_visible: true,
+      });
+    }
+
+    if (importedMediaRows.length > 0) {
+      await db.from("website_media").insert(importedMediaRows);
+    }
+    if (importedGalleryRows.length > 0) {
+      await db.from("website_gallery_items").insert(importedGalleryRows);
+    }
+
+    res.json({ imported: importedGalleryRows.length });
   }
 );
 

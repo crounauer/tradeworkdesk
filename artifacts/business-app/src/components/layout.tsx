@@ -11,7 +11,7 @@ import {
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2,
   Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye, Rocket,
-  BarChart3
+  BarChart3, Image
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -184,6 +184,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const topMenuItems = [
     ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
     ...(hasWebsiteBuilder ? [{ href: "/website", label: "My Website", icon: Globe2 }] : []),
+    ...(hasWebsiteBuilder ? [{ href: "/website/gallery", label: "Gallery", icon: Image }] : []),
     ...((hasWebsiteBuilder || profile?.role === "admin" || profile?.role === "office_staff") ? [{ href: "/reporting", label: "Reporting", icon: FileBarChart }] : []),
     ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin") && hasJobManagement
       ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
