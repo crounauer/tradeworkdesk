@@ -20,6 +20,21 @@ type IncomingPushSubscription = {
 
 const router: IRouter = Router();
 
+function buildDefaultPreferences(): Record<PushEventType, boolean> {
+  return {
+    appointment_due: true,
+    appointment_overdue: true,
+    assignment_changes: true,
+    blocking_status_changes: true,
+    customer_communications: true,
+    payment_alerts: true,
+    sla_breach_risk: true,
+    maintenance_lifecycle: true,
+    operational_exceptions: true,
+    system_reliability: true,
+  };
+}
+
 router.get(
   "/push/preferences/meta",
   requireAuth,
@@ -39,7 +54,42 @@ router.get(
       const users = await listTenantUsersWithPushPreferences(req.tenantId!);
       res.json(users);
     } catch (err) {
-      res.status(500).json({ error: (err as Error).message });
+      console.error("[push/preferences/users] primary query failed:", (err as Error).message);
+      try {
+        const tenantId = req.tenantId;
+        if (!tenantId) {
+          res.json([]);
+          return;
+        }
+
+        // Compatibility fallback for legacy profile schemas/environments.
+        const { data: rows, error: rowsErr } = await supabaseAdmin
+          .from("profiles")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: true });
+
+        if (rowsErr) {
+          throw rowsErr;
+        }
+
+        const users = (rows ?? []).map((row) => {
+          const r = row as Record<string, unknown>;
+          return {
+            userId: String(r.id || ""),
+            fullName: (r.full_name as string | null) ?? null,
+            email: (r.email as string | null) ?? null,
+            role: (r.role as string | null) ?? null,
+            isActive: r.is_active !== false,
+            preferences: buildDefaultPreferences(),
+          };
+        }).filter((u) => !!u.userId);
+
+        res.json(users);
+      } catch (fallbackErr) {
+        console.error("[push/preferences/users] fallback query failed:", (fallbackErr as Error).message);
+        res.status(500).json({ error: (fallbackErr as Error).message });
+      }
     }
   }
 );
