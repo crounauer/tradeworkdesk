@@ -198,35 +198,57 @@ async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unk
   return data;
 }
 
-async function getContactFormServiceOptions(websiteId: string): Promise<string[]> {
+type ActiveContactFormMeta = {
+  id: string | null;
+  serviceOptions: string[];
+};
+
+async function getActiveContactFormMeta(websiteId: string): Promise<ActiveContactFormMeta> {
   const { data: form } = await db
     .from("website_forms")
-    .select("fields")
+    .select("id, fields")
     .eq("website_id", websiteId)
     .eq("form_type", "contact")
     .eq("is_active", true)
     .order("created_at", { ascending: true })
     .limit(1)
-    .maybeSingle() as { data: { fields: unknown } | null };
+    .maybeSingle() as { data: { id: string; fields: unknown } | null };
 
   const fields = Array.isArray(form?.fields) ? (form!.fields as Array<Record<string, unknown>>) : [];
   const serviceField = fields.find((field) => field?.name === "service" && field?.type === "select");
   const options = Array.isArray(serviceField?.options) ? (serviceField!.options as unknown[]) : [];
 
-  return options
-    .map((option) => String(option || "").trim())
-    .filter(Boolean);
+  return {
+    id: form?.id ?? null,
+    serviceOptions: options
+      .map((option) => String(option || "").trim())
+      .filter(Boolean),
+  };
 }
 
-function applyServiceOptionsToBlocks(blocks: Record<string, unknown>[], serviceOptions: string[]): Record<string, unknown>[] {
-  if (!serviceOptions.length) return blocks;
+function isContactLikeBlockType(blockType: unknown): boolean {
+  if (typeof blockType !== "string") return false;
+  return ["contact", "contact_form", "contact_form_section", "map_opening_hours"].includes(blockType);
+}
+
+function applyContactFormMetaToBlocks(blocks: Record<string, unknown>[], formMeta: ActiveContactFormMeta): Record<string, unknown>[] {
+  const { id: formId, serviceOptions } = formMeta;
+  if (!formId && !serviceOptions.length) return blocks;
 
   return blocks.map((block) => {
-    if (block.block_type !== "contact_form") return block;
+    if (!isContactLikeBlockType(block.block_type)) return block;
 
     const content = (block.content || {}) as Record<string, unknown>;
-    const fields = Array.isArray(content.fields) ? (content.fields as Record<string, unknown>[]) : null;
-    if (!fields) return block;
+    const withFormId = formId && !content.form_id
+      ? { ...content, form_id: formId, form_kind: content.form_kind || "contact" }
+      : content;
+
+    if (!serviceOptions.length) {
+      return { ...block, content: withFormId };
+    }
+
+    const fields = Array.isArray(withFormId.fields) ? (withFormId.fields as Record<string, unknown>[]) : null;
+    if (!fields) return { ...block, content: withFormId };
 
     const nextFields = fields.map((field) => {
       if (field.name !== "service" || field.type !== "select") return field;
@@ -244,7 +266,7 @@ function applyServiceOptionsToBlocks(blocks: Record<string, unknown>[], serviceO
       });
     }
 
-    return { ...block, content: { ...content, fields: nextFields } };
+    return { ...block, content: { ...withFormId, fields: nextFields } };
   });
 }
 
@@ -1288,7 +1310,7 @@ router.post(
     const website = await getWebsiteForTenant(req.tenantId!);
     if (!website) { res.status(404).json({ error: "Website not found" }); return; }
 
-    const { name, form_type = "contact", fields = [], notify_email, auto_create_enquiry = false } = req.body as Record<string, unknown>;
+    const { name, form_type = "contact", fields = [], notify_email, auto_create_enquiry = true } = req.body as Record<string, unknown>;
 
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
 
@@ -1459,11 +1481,13 @@ router.post(
     // If auto_create_enquiry is enabled, create enquiry first so notifications
     // can include a direct deep-link URL.
     let enquiryId: string | null = null;
-    if (form.auto_create_enquiry) {
+    const effectiveFormType = String(form.form_type || "contact");
+    const shouldCreateEnquiry = Boolean(form.auto_create_enquiry) || effectiveFormType === "contact";
+    if (shouldCreateEnquiry) {
       enquiryId = await createEnquiryFromFormSubmission(
         String(form.tenant_id),
         submission!.id,
-        form.form_type as string,
+        effectiveFormType,
         submissionData,
       );
     }
@@ -1472,7 +1496,7 @@ router.post(
     void sendFormSubmissionNotifications(
       String(form.tenant_id),
       String(form.notify_email || ""),
-      String(form.form_type || "contact"),
+      effectiveFormType,
       submissionData,
       submission!.id,
       enquiryId,
@@ -1942,9 +1966,9 @@ router.get(
       .eq("id", pageId)
       .maybeSingle() as { data: { website_id: string } | null };
 
-    const serviceOptions = page?.website_id
-      ? await getContactFormServiceOptions(page.website_id)
-      : [];
+    const formMeta = page?.website_id
+      ? await getActiveContactFormMeta(page.website_id)
+      : { id: null, serviceOptions: [] };
 
     const { data: blocks } = await db
       .from("website_blocks")
@@ -1953,7 +1977,7 @@ router.get(
       .eq("is_visible", true)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json(applyServiceOptionsToBlocks(blocks || [], serviceOptions));
+    res.json(applyContactFormMetaToBlocks(blocks || [], formMeta));
   }
 );
 
@@ -1977,9 +2001,9 @@ router.get(
 
     if (!page) { res.status(404).json({ error: "Page not found" }); return; }
 
-    const serviceOptions = websiteId
-      ? await getContactFormServiceOptions(websiteId)
-      : [];
+    const formMeta = websiteId
+      ? await getActiveContactFormMeta(websiteId)
+      : { id: null, serviceOptions: [] };
 
     const { data: blocks } = await db
       .from("website_blocks")
@@ -1988,7 +2012,7 @@ router.get(
       .eq("is_visible", true)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json({ ...page, blocks: applyServiceOptionsToBlocks(blocks || [], serviceOptions) });
+    res.json({ ...page, blocks: applyContactFormMetaToBlocks(blocks || [], formMeta) });
   }
 );
 

@@ -56,6 +56,15 @@ export default function ContactFormBlock({ content }: Props) {
     ],
   } = content;
 
+  const mergedContactInfo: ContactInfo | undefined = contact_info || (rootPhone || rootEmail || rootAddress || rootOpeningHours
+    ? {
+        phone: rootPhone,
+        email: rootEmail,
+        address: rootAddress,
+        hours: rootOpeningHours,
+      }
+    : undefined);
+
   if (isModernTradePayload && !form_id) {
     return (
       <section id="contact" style={{ backgroundColor: "#020617", color: "#ffffff", padding: "80px 24px" }}>
@@ -140,7 +149,7 @@ export default function ContactFormBlock({ content }: Props) {
     );
   }
 
-  const hasSplit = !!(contact_info && (contact_info.phone || contact_info.email || contact_info.address));
+  const hasSplit = !!(mergedContactInfo && (mergedContactInfo.phone || mergedContactInfo.email || mergedContactInfo.address || mergedContactInfo.hours || mergedContactInfo.service_area));
 
   return (
     <section id="contact" style={{ padding: "72px 24px", backgroundColor: "#f9fafb" }}>
@@ -155,36 +164,36 @@ export default function ContactFormBlock({ content }: Props) {
             {label && <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>}
             {heading && <h2 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, margin: "0 0 12px", color: "#111827" }}>{heading}</h2>}
             {subheading && <p style={{ color: "#6b7280", marginBottom: 32, lineHeight: 1.7 }}>{subheading}</p>}
-            {contact_info && (
+            {mergedContactInfo && (
               <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 28 }}>
-                {contact_info.phone && (
-                  <a href={`tel:${contact_info.phone.replace(/\s/g, "")}`} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+                {mergedContactInfo.phone && (
+                  <a href={`tel:${mergedContactInfo.phone.replace(/\s/g, "")}`} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
                     <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>📞</span>
-                    <span style={{ fontWeight: 700, fontSize: "1.125rem", color: "#111827" }}>{contact_info.phone}</span>
+                    <span style={{ fontWeight: 700, fontSize: "1.125rem", color: "#111827" }}>{mergedContactInfo.phone}</span>
                   </a>
                 )}
-                {contact_info.email && (
-                  <a href={`mailto:${contact_info.email}`} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+                {mergedContactInfo.email && (
+                  <a href={`mailto:${mergedContactInfo.email}`} style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
                     <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>✉️</span>
-                    <span style={{ color: "#374151", fontSize: "1rem" }}>{contact_info.email}</span>
+                    <span style={{ color: "#374151", fontSize: "1rem" }}>{mergedContactInfo.email}</span>
                   </a>
                 )}
-                {contact_info.address && (
+                {mergedContactInfo.address && (
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                     <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>📍</span>
-                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{contact_info.address}</span>
+                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{mergedContactInfo.address}</span>
                   </div>
                 )}
-                {contact_info.service_area && (
+                {mergedContactInfo.service_area && (
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                     <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>🗺️</span>
-                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{contact_info.service_area}</span>
+                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{mergedContactInfo.service_area}</span>
                   </div>
                 )}
-                {contact_info.hours && (
+                {mergedContactInfo.hours && (
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                     <span style={{ width: 44, height: 44, backgroundColor: `${accent_color}15`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>🕐</span>
-                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{contact_info.hours}</span>
+                    <span style={{ color: "#374151", fontSize: "1rem", lineHeight: 1.5 }}>{mergedContactInfo.hours}</span>
                   </div>
                 )}
               </div>
