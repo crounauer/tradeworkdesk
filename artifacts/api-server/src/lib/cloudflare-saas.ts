@@ -252,6 +252,8 @@ export async function syncDomainStatus(domainId: string): Promise<void> {
  */
 export function getDnsInstructions(domain: string, _verificationToken?: string): {
   records: Array<{ type: string; name: string; value: string; ttl: string; note?: string }>;
+  advanced_records?: Array<{ type: string; name: string; value: string; ttl: string; note?: string }>;
+  strategy?: "simple_cname" | "apex_advanced";
   /** @deprecated use records[] */
   cname: { type: string; name: string; value: string; ttl: string };
   /** @deprecated use records[] */
@@ -265,15 +267,34 @@ export function getDnsInstructions(domain: string, _verificationToken?: string):
   const isApex = !domain.startsWith("www.");
   const apexDomain = domain.replace(/^www\./, "");
 
-  const records = isApex
+  const getSubdomainHostLabel = (fullDomain: string, apex: string): string => {
+    if (fullDomain === apex) return "@";
+    if (fullDomain.endsWith(`.${apex}`)) {
+      return fullDomain.slice(0, -(apex.length + 1));
+    }
+    return fullDomain;
+  };
+
+  const hostLabel = getSubdomainHostLabel(domain, apexDomain);
+
+  // Default to the simplest onboarding flow: one CNAME record.
+  // Apex domains keep advanced records so existing setups still work.
+  const simpleRecords = [
+    {
+      type: "CNAME",
+      name: hostLabel === "@" ? "www" : hostLabel,
+      value: PLATFORM_DOMAIN,
+      ttl: "Auto",
+      note: "Recommended: one-record setup",
+    },
+  ];
+
+  const advancedRecords = isApex
     ? [
-        { type: "A",     name: "@",               value: FLY_APEX_IPV4,  ttl: "Auto", note: "Points your root domain to the Fly renderer" },
-        { type: "AAAA",  name: "@",               value: FLY_APEX_IPV6,  ttl: "Auto", note: "IPv6 for the root domain" },
-        { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points www to the shared platform hostname" },
+        { type: "A",     name: "@", value: FLY_APEX_IPV4, ttl: "Auto", note: "Advanced: point root domain directly to Fly" },
+        { type: "AAAA",  name: "@", value: FLY_APEX_IPV6, ttl: "Auto", note: "Advanced: IPv6 for root domain" },
       ]
-    : [
-        { type: "CNAME", name: domain, value: PLATFORM_DOMAIN, ttl: "Auto", note: "Points your domain to the shared platform hostname" },
-      ];
+    : undefined;
 
   // Legacy shape (kept for backward compat with existing UI code)
   const legacyCname = isApex
@@ -281,5 +302,11 @@ export function getDnsInstructions(domain: string, _verificationToken?: string):
     : { type: "CNAME", name: domain,             value: PLATFORM_DOMAIN, ttl: "Auto" };
   const legacyWww   = { type: "CNAME", name: `www.${apexDomain}`, value: PLATFORM_DOMAIN, ttl: "Auto" };
 
-  return { records, cname: legacyCname, www: legacyWww };
+  return {
+    records: simpleRecords,
+    advanced_records: advancedRecords,
+    strategy: isApex ? "apex_advanced" : "simple_cname",
+    cname: legacyCname,
+    www: legacyWww,
+  };
 }

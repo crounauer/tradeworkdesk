@@ -42,6 +42,7 @@ interface DnsRecord {
   name: string;
   value: string;
   ttl: string;
+  note?: string;
 }
 
 interface Domain {
@@ -54,6 +55,8 @@ interface Domain {
   verification_token: string | null;
   dns_instructions?: {
     records?: DnsRecord[];
+    advanced_records?: DnsRecord[];
+    strategy?: "simple_cname" | "apex_advanced";
     /** @deprecated */ cname: DnsRecord;
     /** @deprecated */ www: DnsRecord;
   } | null;
@@ -110,6 +113,7 @@ function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRec
         <li>Open your DNS provider for <strong>{apexDomain}</strong> (GoDaddy, Cloudflare, 123-Reg, Namecheap, etc.).</li>
         <li>Remove old records for the same hostnames if they point somewhere else (for example old Vercel, Wix, Squarespace, Shopify, or another host).</li>
         <li>Add the DNS records below exactly as shown.</li>
+        <li>For the easiest setup, connect <strong>www</strong> first with a single CNAME record.</li>
         <li>Save DNS changes in your registrar panel.</li>
         <li>Wait for DNS propagation. Most updates are quick, but some registrars can take up to 24-48 hours.</li>
         <li>Return here and click <strong>Check Status</strong>.</li>
@@ -120,7 +124,7 @@ function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRec
       </p>
       {records.length > 0 && (
         <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-          Add exactly {records.length} record{records.length > 1 ? "s" : ""} for this domain setup.
+          Recommended setup: add exactly {records.length} record{records.length > 1 ? "s" : ""}.
         </div>
       )}
     </div>
@@ -182,11 +186,14 @@ export default function WebsiteDomain() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain }),
       }),
-    onSuccess: () => {
+    onSuccess: (data: { setup_hint?: string | null }) => {
       qc.invalidateQueries({ queryKey: ["/api/website/domains"] });
       setAdding(false);
       setNewDomain("");
-      toast({ title: "Domain added", description: "Follow the DNS instructions below to verify your domain." });
+      toast({
+        title: "Domain added",
+        description: data?.setup_hint || "Follow the DNS instructions below to verify your domain.",
+      });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -294,12 +301,16 @@ export default function WebsiteDomain() {
 
                   {(() => {
                     const records = (d.dns_instructions.records ?? [d.dns_instructions.cname, d.dns_instructions.www]).filter(Boolean);
+                    const advancedRecords = (d.dns_instructions.advanced_records ?? []).filter(Boolean);
                     return (
                       <details className="rounded-md border bg-muted/20 p-3">
                         <summary className="cursor-pointer text-sm font-semibold text-foreground">
                           DNS advice {d.is_active ? "(expand to review)" : "(expand to set up)"}
                         </summary>
                         <div className="mt-4 space-y-4">
+                          <div className="rounded-md border bg-green-50 p-3 text-xs text-green-800">
+                            Recommended: connect <strong>www</strong> first using one CNAME record.
+                          </div>
                           <DomainSetupSteps domain={d.domain} records={records} />
                           <ProviderWalkthroughs records={records} />
                           <div>
@@ -322,6 +333,31 @@ export default function WebsiteDomain() {
                               </table>
                             </div>
                           </div>
+                          {advancedRecords.length > 0 && (
+                            <details className="rounded-md border p-3">
+                              <summary className="cursor-pointer text-sm font-medium">Advanced: root domain (apex) setup</summary>
+                              <p className="text-xs text-muted-foreground mt-2 mb-3">
+                                Only use this if you need the bare domain (for example <strong>example.co.uk</strong>) to resolve directly.
+                              </p>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="text-muted-foreground text-xs uppercase border-b">
+                                      <th className="py-1 pr-4 text-left">Type</th>
+                                      <th className="py-1 pr-4 text-left">Name</th>
+                                      <th className="py-1 pr-4 text-left">Value</th>
+                                      <th className="py-1" />
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {advancedRecords.map((rec, i) => (
+                                      <DnsRow key={`advanced-${i}`} record={rec} />
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </details>
+                          )}
                         </div>
                       </details>
                     );

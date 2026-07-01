@@ -298,6 +298,23 @@ function isValidDomainFormat(domain: string): boolean {
   return /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/.test(domain);
 }
 
+function isLikelyApexDomain(domain: string): boolean {
+  if (domain.startsWith("www.")) return false;
+  const parts = domain.split(".");
+  if (parts.length === 2) return true;
+  if (parts.length !== 3) return false;
+
+  // Common second-level labels for ccTLDs (e.g. example.co.uk).
+  const secondLevel = parts[1];
+  return new Set(["co", "com", "org", "net", "gov", "ac", "ltd", "plc", "me"]).has(secondLevel);
+}
+
+function normalizePreferredCustomDomain(inputDomain: string): { normalized: string; transformedToWww: boolean } {
+  const normalized = normalizeDomainInput(inputDomain);
+  if (!isLikelyApexDomain(normalized)) return { normalized, transformedToWww: false };
+  return { normalized: `www.${normalized}`, transformedToWww: true };
+}
+
 async function checkDomainPointsToPlatform(domain: string): Promise<boolean> {
   const PLATFORM_TARGET = (process.env.PLATFORM_CNAME_TARGET || "sites.tradeworkdesk.co.uk").toLowerCase();
   const FLY_APEX_IPV4 = process.env.FLY_PUBLIC_IPV4 || "66.241.125.253";
@@ -461,12 +478,8 @@ router.post(
 
     if (!domain) { res.status(400).json({ error: "domain is required" }); return; }
 
-    // Normalise — strip protocol and trailing slash
-    const normDomain = domain
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/\/.*$/, "")
-      .trim();
+    // Normalize and shift likely apex domains to www for one-record onboarding.
+    const { normalized: normDomain, transformedToWww } = normalizePreferredCustomDomain(domain);
 
     if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/.test(normDomain)) {
       res.status(400).json({ error: "Invalid domain format" });
@@ -514,7 +527,13 @@ router.post(
 
     const instructions = getDnsInstructions(normDomain);
 
-    res.status(201).json({ ...domainRecord, dns_instructions: instructions });
+    res.status(201).json({
+      ...domainRecord,
+      dns_instructions: instructions,
+      setup_hint: transformedToWww
+        ? `We saved this as ${normDomain} for simpler one-record DNS setup.`
+        : null,
+    });
   }
 );
 
@@ -533,7 +552,7 @@ router.post(
 
     if (!domain) { res.status(400).json({ error: "domain is required" }); return; }
 
-    const normDomain = normalizeDomainInput(domain);
+    const { normalized: normDomain, transformedToWww } = normalizePreferredCustomDomain(domain);
     if (!isValidDomainFormat(normDomain)) {
       res.status(400).json({ error: "Invalid domain format" });
       return;
@@ -589,6 +608,9 @@ router.post(
         domain_id: domainId,
         domain: normDomain,
         dns_instructions: instructions,
+        setup_hint: transformedToWww
+          ? `We saved this as ${normDomain} for simpler one-record DNS setup.`
+          : null,
       });
       return;
     }
@@ -625,6 +647,9 @@ router.post(
       dns_ok: dnsOk,
       domain: updated,
       dns_instructions: dnsOk ? null : getDnsInstructions(normDomain),
+      setup_hint: transformedToWww
+        ? `We saved this as ${normDomain} for simpler one-record DNS setup.`
+        : null,
     });
   }
 );
