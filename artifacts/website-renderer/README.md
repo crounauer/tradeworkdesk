@@ -5,12 +5,14 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 ## How it works
 
 1. A custom domain is added by the tenant in the business app
-2. The tenant points their domain at the Fly renderer target (`sites.tradeworkdesk.co.uk` for www or the Fly anycast IPs for apex domains)
-3. When DNS propagates, the tenant clicks "Check Status" — the API server verifies the DNS records and requests a Fly ACME certificate for the domain
-4. Fly provisions an SSL certificate automatically
-5. The middleware reads the `Host` header and forwards it as `x-tenant-domain`
-6. Pages call `getSiteByDomain()` which hits the platform API to get all site data
-7. Live pages are cached with ISR and on-demand revalidation
+2. The API normalizes likely apex submissions (for example `example.co.uk`) to `www.example.co.uk` for simpler onboarding
+3. The tenant follows the default one-record setup: add a CNAME for `www` to the configured platform target
+4. Apex root setup (A/AAAA) is treated as an advanced option only when needed
+5. When DNS propagates, the tenant clicks "Check Status"; the API verifies DNS and requests a Fly ACME certificate for the domain
+6. Fly provisions an SSL certificate automatically
+7. The middleware reads the `Host` header and forwards it as `x-tenant-domain`
+8. Pages call `getSiteByDomain()` which hits the platform API to get all site data
+9. Live pages are cached with ISR and on-demand revalidation
 
 ## Environment variables
 
@@ -19,7 +21,7 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 | `API_BASE_URL` | Platform API base URL (e.g. `https://api.tradeworkdesk.co.uk`) |
 | `RENDERER_SECRET` | Shared secret for renderer → API server calls |
 | `PUBLIC_SITE_CACHE_TTL_SECONDS` | Renderer fetch cache TTL for live website data (default `60`, min `5`, max `600`) |
-| `PLATFORM_CNAME_TARGET` | Hostname tenants should CNAME their domain to (e.g. `sites.tradeworkdesk.co.uk`) |
+| `PLATFORM_CNAME_TARGET` | Hostname used for default tenant CNAME onboarding (recommended: a Fly-served hostname). |
 
 ### API server env vars (for domain provisioning)
 
@@ -28,7 +30,7 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 | `FLY_API_TOKEN` | Fly API token with access to the renderer app |
 | `FLY_RENDERER_APP_NAME` | Fly app name of the website renderer (default `tradeworkdesk-renderer`) |
 | `RENDERER_BASE_URL` | Public URL of this renderer used by API server for preview links and revalidation calls |
-| `PLATFORM_CNAME_TARGET` | Shared hostname tenants should CNAME `www` to (for example `sites.tradeworkdesk.co.uk`) |
+| `PLATFORM_CNAME_TARGET` | Shared hostname tenants should CNAME `www` to (must currently resolve to Fly). |
 | `FLY_PUBLIC_IPV4` | Fly IPv4 address used for apex-domain A records |
 | `FLY_PUBLIC_IPV6` | Fly IPv6 address used for apex-domain AAAA records |
 | `PUBLIC_SITE_API_CACHE_MAX_AGE_SECONDS` | API cache TTL for live public site data (default `30`) |
@@ -38,9 +40,10 @@ A Next.js 15 app that serves tenant websites built with the TradeWorkDesk websit
 
 Fly renderer domain setup:
 
-- Add `sites.tradeworkdesk.co.uk` to the Fly renderer app.
-- Add each tenant domain you want served by Fly (for example `gasboilersuk.co.uk` or `www.gasboilersuk.co.uk`).
-- Keep tenant `www` records as CNAMEs to `sites.tradeworkdesk.co.uk`.
+- Default onboarding: ask tenants for `www` and provide a single CNAME record.
+- Ensure `PLATFORM_CNAME_TARGET` points to a Fly-served hostname before using it in tenant instructions.
+- Transitional safety: if your shared hostname is not yet migrated, point tenant `www` directly to the renderer Fly hostname returned by `fly certs setup` (for example `wlemk58.tradeworkdesk-renderer.fly.dev`).
+- Keep apex/root A+AAAA instructions in an advanced section only.
 
 ## Cache and Revalidation Ops
 
