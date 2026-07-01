@@ -108,6 +108,10 @@ function DomainSetupSteps({ domain, records }: { domain: string; records: DnsRec
 
   return (
     <div className="space-y-3 text-sm">
+      <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+        <p><strong>Scenario 1 (free subdomain):</strong> your TradeWorkDesk site address is already live and needs no DNS setup.</p>
+        <p className="mt-1"><strong>Scenario 2 (custom domain):</strong> follow the steps below to connect your own domain.</p>
+      </div>
       <p className="font-medium">Follow these steps exactly, in order:</p>
       <ol className="list-decimal pl-5 space-y-2">
         <li>Open your DNS provider for <strong>{apexDomain}</strong> (GoDaddy, Cloudflare, 123-Reg, Namecheap, etc.).</li>
@@ -158,7 +162,7 @@ function ProviderWalkthroughs({ records }: { records: DnsRecord[] }) {
         </details>
       </div>
       <p className="text-xs text-muted-foreground mt-3">
-        Expected setup for this domain: {hasApexA ? "A @ record" : "no apex A record"}{hasApexAAAA ? " + AAAA @ record" : ""}{hasWwwCname ? " + www CNAME" : ""}.
+        Custom-domain expected setup: {hasWwwCname ? "www CNAME" : "CNAME"}{hasApexA || hasApexAAAA ? " (apex records are configured via advanced setup)" : ""}.
       </p>
     </div>
   );
