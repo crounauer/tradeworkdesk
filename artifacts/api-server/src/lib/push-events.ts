@@ -58,6 +58,54 @@ type TenantUser = {
   is_active: boolean | null;
 };
 
+async function listTenantUsersSafe(tenantId: string): Promise<TenantUser[]> {
+  const fullFields = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name, email, role, is_active")
+    .eq("tenant_id", tenantId);
+
+  if (!fullFields.error) {
+    return (fullFields.data ?? []) as TenantUser[];
+  }
+
+  if ((fullFields.error as { code?: string }).code !== "42703") {
+    throw new Error(fullFields.error.message);
+  }
+
+  // Backward compatibility: some older profile schemas may not include is_active.
+  const withoutActive = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name, email, role")
+    .eq("tenant_id", tenantId);
+
+  if (!withoutActive.error) {
+    return ((withoutActive.data ?? []) as Array<Omit<TenantUser, "is_active">>).map((u) => ({
+      ...u,
+      is_active: true,
+    }));
+  }
+
+  if ((withoutActive.error as { code?: string }).code !== "42703") {
+    throw new Error(withoutActive.error.message);
+  }
+
+  // Fallback again if email is absent from legacy profile schemas.
+  const minimal = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name, role")
+    .eq("tenant_id", tenantId);
+
+  if (minimal.error) {
+    throw new Error(minimal.error.message);
+  }
+
+  return ((minimal.data ?? []) as Array<{ id: string; full_name: string | null; role: string | null }>).map((u) => ({
+    ...u,
+    email: null,
+    is_active: true,
+  }));
+}
+
 type TenantUserPrefRow = {
   user_id: string;
   appointment_due_enabled?: boolean | null;
@@ -117,14 +165,7 @@ export async function listTenantUsersWithPushPreferences(tenantId: string): Prom
   isActive: boolean;
   preferences: PushPreferenceRecord;
 }>> {
-  const { data: users, error: usersError } = await supabaseAdmin
-    .from("profiles")
-    .select("id, full_name, email, role, is_active")
-    .eq("tenant_id", tenantId);
-
-  if (usersError) {
-    throw new Error(usersError.message);
-  }
+  const users = await listTenantUsersSafe(tenantId);
 
   const { data: prefRows, error: prefError } = await supabaseAdmin
     .from("tenant_user_push_preferences")
@@ -145,7 +186,7 @@ export async function listTenantUsersWithPushPreferences(tenantId: string): Prom
     prefMap.set(row.user_id, row);
   }
 
-  const sortedUsers = [ ...((users ?? []) as TenantUser[]) ].sort((a, b) => {
+  const sortedUsers = [ ...(users as TenantUser[]) ].sort((a, b) => {
     const aName = (a.full_name || a.email || "").toLowerCase();
     const bName = (b.full_name || b.email || "").toLowerCase();
     return aName.localeCompare(bName);
