@@ -680,11 +680,30 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     }
 
     case "text":
+      {
+      const heading = readString(c, ["heading", "title"]);
+      const eyebrow = readString(c, ["eyebrow", "label"]);
+      const subtitle = readString(c, ["subtitle", "subheading"]);
+      const body = readString(c, ["html", "body", "text"]);
       return (
         <div className="space-y-3">
-          <FieldRow label="Heading (optional)"><Input value={String(c.heading ?? "")} onChange={(e) => set("heading", e.target.value)} placeholder="Section heading..." /></FieldRow>
+          <FieldRow label="Eyebrow / Label (optional)">
+            <Input
+              value={eyebrow}
+              onChange={(e) => onChange(syncBlockContent(c, { eyebrow: e.target.value, label: e.target.value }, { eyebrow: ["label"], label: ["eyebrow"] }))}
+              placeholder="Why Choose Us"
+            />
+          </FieldRow>
+          <FieldRow label="Heading (optional)"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} placeholder="Section heading..." /></FieldRow>
+          <FieldRow label="Subtitle (optional)">
+            <Input
+              value={subtitle}
+              onChange={(e) => onChange(syncBlockContent(c, { subtitle: e.target.value, subheading: e.target.value }, { subtitle: ["subheading"], subheading: ["subtitle"] }))}
+              placeholder="A short supporting line"
+            />
+          </FieldRow>
           <FieldRow label="Content">
-            <Textarea value={String(c.html ?? "")} onChange={(e) => set("html", e.target.value)} rows={6} placeholder="Enter your content here..." />
+            <Textarea value={body} onChange={(e) => onChange(syncBlockContent(c, { html: e.target.value, body: e.target.value, text: e.target.value }, { html: ["body", "text"], body: ["html", "text"], text: ["html", "body"] }))} rows={6} placeholder="Enter your content here..." />
           </FieldRow>
           <FieldRow label="Alignment">
             <Select value={String(c.align ?? "left")} onValueChange={(v) => set("align", v)}>
@@ -697,6 +716,7 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           </FieldRow>
         </div>
       );
+      }
 
     case "cta": {
       const heading = readString(c, ["heading", "title"]);
@@ -742,8 +762,10 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       };
       const heading = readString(c, ["heading", "title"]);
       const subtitle = readString(c, ["subtitle", "subheading"]);
+      const label = readString(c, ["label", "eyebrow"]);
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Subheading"><Textarea value={subtitle} onChange={(e) => onChange(syncBlockContent(c, { subtitle: e.target.value, subheading: e.target.value }, { subtitle: ["subheading"], subheading: ["subtitle"] }))} rows={2} /></FieldRow>
           <div className="space-y-2">
@@ -800,10 +822,14 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
 
     case "testimonials": {
       const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const label = readString(c, ["label", "eyebrow"]);
 
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading (optional)"><Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} /></FieldRow>
           <p className="text-xs text-muted-foreground">Testimonials are pulled from your website testimonials database. Add them via the Testimonials section.</p>
         </div>
       );
@@ -846,10 +872,14 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
 
     case "gallery": {
       const heading = readString(c, ["heading", "title"]);
+      const subtitle = readString(c, ["subtitle", "subheading"]);
+      const label = readString(c, ["label", "eyebrow"]);
 
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading (optional)"><Input value={subtitle} onChange={(e) => onChange(syncBlockContent(c, { subtitle: e.target.value, subheading: e.target.value }, { subtitle: ["subheading"], subheading: ["subtitle"] }))} /></FieldRow>
           <FieldRow label="Columns">
             <Select value={String(c.columns ?? "3")} onValueChange={(v) => set("columns", Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -892,6 +922,13 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
+                <ImagePickerField
+                  label="Logo"
+                  value={item.logo_url}
+                  onChange={(url) => { const n = [...accs]; n[i] = { ...n[i], logo_url: url }; updateBadges(n); }}
+                  hint="Recommended logo size: 240 x 120 px (or 2:1 ratio), PNG with transparent background."
+                  fieldName={`${isTrustBadges ? "trust_badge" : "accreditation"}_${i}_logo`}
+                />
                 <Input value={item.logo_url} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], logo_url: e.target.value }; updateBadges(n); }} placeholder="Logo URL (optional)" />
                 <Input value={item.description ?? ""} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], description: e.target.value }; updateBadges(n); }} placeholder="Description (optional)" />
                 <Input value={item.number ?? ""} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], number: e.target.value }; updateBadges(n); }} placeholder="Registration number (optional)" />
@@ -946,9 +983,24 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       );
 
     case "features_bar": {
-      const items = Array.isArray(c.items) ? c.items as Array<{ icon: string; title: string; description: string }> : [];
+      const itemFieldKey = Array.isArray(c.items) ? "items" : "features";
+      const items = readArray<{ icon?: string; title: string; description: string }>(c, ["items", "features"])
+        .map((item) => ({ icon: item.icon ?? "✅", title: item.title, description: item.description }));
+      const updateItems = (next: Array<{ icon: string; title: string; description: string }>) => {
+        if (itemFieldKey === "items") {
+          onChange({ ...c, items: next, features: next });
+          return;
+        }
+        onChange({ ...c, features: next, items: next });
+      };
+      const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const label = readString(c, ["label", "eyebrow"]);
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
+          <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
           <div className="flex gap-3">
             <FieldRow label="Background Colour">
               <div className="flex items-center gap-2">
@@ -968,16 +1020,16 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
             {items.map((item, i) => (
               <Card key={i} className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; set("items", n); }} placeholder="⚡" className="w-16 text-center" />
-                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; set("items", n); }} placeholder="Feature title" className="flex-1" />
-                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("items", items.filter((_, j) => j !== i))}>
+                  <Input value={item.icon} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], icon: e.target.value }; updateItems(n); }} placeholder="⚡" className="w-16 text-center" />
+                  <Input value={item.title} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], title: e.target.value }; updateItems(n); }} placeholder="Feature title" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => updateItems(items.filter((_, j) => j !== i))}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; set("items", n); }} placeholder="Short description..." rows={2} />
+                <Textarea value={item.description} onChange={(e) => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; updateItems(n); }} placeholder="Short description..." rows={2} />
               </Card>
             ))}
-            <Button variant="outline" size="sm" onClick={() => set("items", [...items, { icon: "✅", title: "", description: "" }])}>
+            <Button variant="outline" size="sm" onClick={() => updateItems([...items, { icon: "✅", title: "", description: "" }])}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Feature
             </Button>
           </div>
@@ -986,11 +1038,21 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     }
 
     case "faq": {
-      const faqs = Array.isArray(c.items) ? c.items as Array<{ question: string; answer: string }> : [];
+      const faqFieldKey = Array.isArray(c.items) ? "items" : "faqs";
+      const faqs = readArray<{ question: string; answer: string }>(c, ["items", "faqs"]);
+      const updateFaqs = (next: Array<{ question: string; answer: string }>) => {
+        if (faqFieldKey === "items") {
+          onChange({ ...c, items: next, faqs: next });
+          return;
+        }
+        onChange({ ...c, faqs: next, items: next });
+      };
       const heading = readString(c, ["heading", "title"]);
       const subheading = readString(c, ["subheading", "subtitle"]);
+      const label = readString(c, ["label", "eyebrow"]);
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Subheading (optional)"><Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} /></FieldRow>
           <div className="space-y-2">
@@ -998,15 +1060,15 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
             {faqs.map((item, i) => (
               <Card key={i} className="p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <Input value={item.question} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], question: e.target.value }; set("items", n); }} placeholder="Question..." className="flex-1" />
-                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive mt-0.5" onClick={() => set("items", faqs.filter((_, j) => j !== i))}>
+                  <Input value={item.question} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], question: e.target.value }; updateFaqs(n); }} placeholder="Question..." className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive mt-0.5" onClick={() => updateFaqs(faqs.filter((_, j) => j !== i))}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <Textarea value={item.answer} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], answer: e.target.value }; set("items", n); }} placeholder="Answer..." rows={3} />
+                <Textarea value={item.answer} onChange={(e) => { const n = [...faqs]; n[i] = { ...n[i], answer: e.target.value }; updateFaqs(n); }} placeholder="Answer..." rows={3} />
               </Card>
             ))}
-            <Button variant="outline" size="sm" onClick={() => set("items", [...faqs, { question: "", answer: "" }])}>
+            <Button variant="outline" size="sm" onClick={() => updateFaqs([...faqs, { question: "", answer: "" }])}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add FAQ
             </Button>
           </div>
@@ -1018,11 +1080,13 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       const steps = Array.isArray(c.steps) ? c.steps as Array<{ icon: string; title: string; description: string }> : [];
       const heading = readString(c, ["heading", "title"]);
       const subheading = readString(c, ["subheading", "subtitle"]);
+      const label = readString(c, ["label", "eyebrow"]);
       const ctaText = readString(c, ["cta_text", "primaryCtaLabel", "primaryButtonText"]);
       const ctaUrl = readString(c, ["cta_url", "primaryCtaHref", "primaryButtonUrl"]);
 
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
           <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
@@ -1050,14 +1114,25 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     }
 
     case "areas": {
-      const areaList = Array.isArray(c.areas) ? (c.areas as string[]) : [];
+      type AreaItem = string | { name?: string; label?: string; href?: string };
+      const rawAreas = Array.isArray(c.areas) ? (c.areas as AreaItem[]) : [];
+      const areaList = rawAreas.map((area) => {
+        if (typeof area === "string") return { name: area, href: "" };
+        return { name: String(area.name ?? area.label ?? ""), href: String(area.href ?? "") };
+      });
       const heading = readString(c, ["heading", "title"]);
       const subheading = readString(c, ["subheading", "subtitle"]);
       const ctaText = readString(c, ["cta_text", "primaryCtaLabel", "primaryButtonText"]);
       const ctaUrl = readString(c, ["cta_url", "primaryCtaHref", "primaryButtonUrl"]);
+      const label = readString(c, ["label", "eyebrow"]);
+
+      const updateAreas = (next: Array<{ name: string; href: string }>) => {
+        onChange({ ...c, areas: next });
+      };
 
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
           <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
@@ -1065,14 +1140,17 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Areas Covered</Label>
             {areaList.map((area, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Input value={area} onChange={(e) => { const n = [...areaList]; n[i] = e.target.value; set("areas", n); }} placeholder="Town or county" className="flex-1" />
-                <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("areas", areaList.filter((_, j) => j !== i))}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+              <div key={i} className="rounded border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input value={area.name} onChange={(e) => { const n = [...areaList]; n[i] = { ...n[i], name: e.target.value }; updateAreas(n); }} placeholder="Town or county" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => updateAreas(areaList.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Input value={area.href} onChange={(e) => { const n = [...areaList]; n[i] = { ...n[i], href: e.target.value }; updateAreas(n); }} placeholder="Area page URL (optional), e.g. /areas/ellon" />
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => set("areas", [...areaList, ""])}>
+            <Button variant="outline" size="sm" onClick={() => updateAreas([...areaList, { name: "", href: "" }])}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Area
             </Button>
           </div>
@@ -1084,10 +1162,14 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       type ProjectItem = { title: string; location: string; image_url: string; description: string; cta_text: string; cta_url: string };
       const projects = Array.isArray(c.projects) ? c.projects as ProjectItem[] : [];
       const heading = readString(c, ["heading", "title"]);
+      const subheading = readString(c, ["subheading", "subtitle"]);
+      const label = readString(c, ["label", "eyebrow"]);
 
       return (
         <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+          <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Projects</Label>
             {projects.map((proj, i) => (
