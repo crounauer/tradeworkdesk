@@ -642,14 +642,14 @@ router.patch("/customers/:id/portal-toggle", requireAuth, requireTenant, require
 });
 
 // ─── GET /customers/:id/email-log ─────────────────────────────────────────────
-// All email logs for jobs/invoices belonging to this customer, newest first.
+// All email logs for this customer, newest first.
 router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
   // Verify customer belongs to this tenant
   const { data: customer } = await supabaseAdmin
     .from("customers")
-    .select("id")
+    .select("id, email")
     .eq("id", id)
     .eq("tenant_id", req.tenantId!)
     .maybeSingle();
@@ -663,26 +663,26 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     .eq("customer_id", id)
     .eq("tenant_id", req.tenantId!);
 
-  if (!jobs || jobs.length === 0) { res.json([]); return; }
-
-  const jobIds = jobs.map((j: { id: string }) => j.id);
+  const jobIds = (jobs || []).map((j: { id: string }) => j.id);
   const jobRefMap: Record<string, string | null> = {};
   for (const j of jobs as { id: string; job_ref: string | null }[]) {
     jobRefMap[j.id] = j.job_ref;
   }
 
   // Step 2: email logs for those jobs
-  const { data: logs, error } = await supabaseAdmin
-    .from("job_email_logs")
-    .select("id, job_id, sent_to, subject, forms_included, body_text, created_at, profiles!sent_by(full_name)")
-    .in("job_id", jobIds)
-    .eq("tenant_id", req.tenantId!)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const { data: logs, error } = jobIds.length > 0
+    ? await supabaseAdmin
+        .from("job_email_logs")
+        .select("id, job_id, sent_to, subject, forms_included, body_text, created_at, profiles!sent_by(full_name)")
+        .in("job_id", jobIds)
+        .eq("tenant_id", req.tenantId!)
+        .order("created_at", { ascending: false })
+        .limit(200)
+    : { data: [], error: null };
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (logs || []).map((log: Record<string, unknown>) => ({
+  const mappedJobEmails = (logs || []).map((log: Record<string, unknown>) => ({
     id: log.id,
     job_id: log.job_id,
     job_ref: jobRefMap[log.job_id as string] ?? null,
@@ -694,7 +694,60 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     created_at: log.created_at,
   }));
 
-  res.json(mapped);
+  const reviewRequestsById = new Map<string, Record<string, unknown>>();
+
+  if (jobIds.length > 0) {
+    const { data: jobLinkedRequests, error: jobLinkedRequestsError } = await supabaseAdmin
+      .from("review_requests")
+      .select("id, job_id, customer_email, sent_at, created_at, status, channel")
+      .eq("tenant_id", req.tenantId!)
+      .eq("channel", "email")
+      .in("status", ["sent", "opened", "clicked"])
+      .in("job_id", jobIds)
+      .order("sent_at", { ascending: false })
+      .limit(200);
+
+    if (jobLinkedRequestsError) { res.status(500).json({ error: jobLinkedRequestsError.message }); return; }
+    for (const request of jobLinkedRequests || []) {
+      reviewRequestsById.set(String((request as Record<string, unknown>).id), request as Record<string, unknown>);
+    }
+  }
+
+  const customerEmail = String((customer as { email?: string | null })?.email || "").trim();
+  if (customerEmail) {
+    const { data: emailLinkedRequests, error: emailLinkedRequestsError } = await supabaseAdmin
+      .from("review_requests")
+      .select("id, job_id, customer_email, sent_at, created_at, status, channel")
+      .eq("tenant_id", req.tenantId!)
+      .eq("channel", "email")
+      .in("status", ["sent", "opened", "clicked"])
+      .eq("customer_email", customerEmail)
+      .order("sent_at", { ascending: false })
+      .limit(200);
+
+    if (emailLinkedRequestsError) { res.status(500).json({ error: emailLinkedRequestsError.message }); return; }
+    for (const request of emailLinkedRequests || []) {
+      reviewRequestsById.set(String((request as Record<string, unknown>).id), request as Record<string, unknown>);
+    }
+  }
+
+  const mappedReviewEmails = Array.from(reviewRequestsById.values()).map((request) => ({
+    id: `review-${request.id}`,
+    job_id: request.job_id,
+    job_ref: request.job_id ? (jobRefMap[String(request.job_id)] ?? null) : null,
+    sent_to: request.customer_email,
+    subject: "Review request email",
+    forms_included: [],
+    body_text: null,
+    sent_by_name: null,
+    created_at: request.sent_at || request.created_at,
+  }));
+
+  const combined = [...mappedJobEmails, ...mappedReviewEmails]
+    .sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
+    .slice(0, 200);
+
+  res.json(combined);
 });
 
 export default router;

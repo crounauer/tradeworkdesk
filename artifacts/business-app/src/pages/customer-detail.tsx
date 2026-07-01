@@ -505,7 +505,7 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
 
 interface EmailLogEntry {
   id: string;
-  job_id: string;
+  job_id: string | null;
   job_ref: string | null;
   sent_to: string;
   subject: string;
@@ -531,9 +531,9 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
         <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{logs.length}</span>
       </h2>
       <div className="space-y-2">
-        {logs.map(log => (
-          <Link key={log.id} href={`/jobs/${log.job_id}`}>
-            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+        {logs.map(log => {
+          const card = (
+            <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md cursor-pointer" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -572,8 +572,16 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                 </details>
               )}
             </Card>
-          </Link>
-        ))}
+          );
+
+          return log.job_id ? (
+            <Link key={log.id} href={`/jobs/${log.job_id}`}>
+              {card}
+            </Link>
+          ) : (
+            <div key={log.id}>{card}</div>
+          );
+        })}
       </div>
     </div>
   );
