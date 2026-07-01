@@ -96,8 +96,9 @@ function JobsContent() {
   }, {
     query: { staleTime: 30_000 },  // server cache is 30s; avoid redundant refetches on tab-switch
   } as any);
-  const onlineJobs = jobsResponse?.jobs;
-  const pagination = jobsResponse?.pagination;
+  const jobsResponseData = jobsResponse as unknown as { jobs?: Record<string, unknown>[]; pagination?: { page: number; totalPages: number; total: number; limit: number } } | Record<string, unknown>[] | undefined;
+  const onlineJobs = Array.isArray(jobsResponseData) ? jobsResponseData : jobsResponseData?.jobs;
+  const pagination = Array.isArray(jobsResponseData) ? undefined : jobsResponseData?.pagination;
 
   const { isOnline, pendingMutations, failedMutations } = useOffline();
 
@@ -107,7 +108,8 @@ function JobsContent() {
   useEffect(() => {
     if (onlineJobs && onlineJobs.length > 0) {
       for (const j of onlineJobs) {
-        cacheJob(j.id, j as unknown as Record<string, unknown>);
+        const jobRecord = j as Record<string, unknown> & { id: string };
+        cacheJob(jobRecord.id, jobRecord);
       }
     }
   }, [onlineJobs]);
