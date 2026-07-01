@@ -112,6 +112,8 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [addressLookupResults, setAddressLookupResults] = useState<AddressResult[]>([]);
   const [addressLookupSearched, setAddressLookupSearched] = useState(false);
   const [addressLookupMessage, setAddressLookupMessage] = useState<string | null>(null);
+  const [coverageCheckLoading, setCoverageCheckLoading] = useState(false);
+  const [coverageCheckError, setCoverageCheckError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [propertyType, setPropertyType] = useState("house");
   const [jobUrgency, setJobUrgency] = useState("standard");
@@ -187,6 +189,7 @@ export default function OnlineBookingBlock({ content }: Props) {
     setAddressLookupResults([]);
     setAddressLookupSearched(false);
     setAddressLookupMessage(null);
+    setCoverageCheckError(null);
 
     try {
       const res = await fetch(`${API_BASE}/api/public/booking/${tenant_id}/postcode-lookup`, {
@@ -223,6 +226,51 @@ export default function OnlineBookingBlock({ content }: Props) {
     }
   }, [tenant_id, postcode]);
 
+  const runCoverageCheck = useCallback(async (inputPostcode: string): Promise<boolean> => {
+    if (!tenant_id) return false;
+    const pc = inputPostcode.trim();
+    if (!pc) {
+      setCoverageCheckError("Please enter a valid postcode so we can confirm your address is within our service area.");
+      return false;
+    }
+
+    setCoverageCheckLoading(true);
+    setCoverageCheckError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/public/booking/${tenant_id}/coverage-check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_postcode: pc }),
+      });
+
+      const data = await res.json() as { allowed?: boolean; error?: string };
+      if (!res.ok || data.allowed === false) {
+        setCoverageCheckError(data.error || "This address is outside our service area.");
+        return false;
+      }
+
+      setCoverageCheckError(null);
+      return true;
+    } catch {
+      setCoverageCheckError("We could not verify this postcode right now. Please try again.");
+      return false;
+    } finally {
+      setCoverageCheckLoading(false);
+    }
+  }, [tenant_id]);
+
+  const handleProceedToSlots = useCallback(async () => {
+    if (require_description && isComplex && !description.trim()) return;
+    if (require_postcode && !postcode.trim()) return;
+
+    if (require_postcode) {
+      const ok = await runCoverageCheck(postcode);
+      if (!ok) return;
+    }
+
+    setStep("slots");
+  }, [require_description, isComplex, description, require_postcode, postcode, runCoverageCheck]);
+
   const handleSelectAddress = useCallback((addr: AddressResult) => {
     const line = [addr.line_1, addr.line_2, addr.line_3].filter(Boolean).join(", ");
     setAddress(line);
@@ -230,7 +278,8 @@ export default function OnlineBookingBlock({ content }: Props) {
     setAddressLookupResults([]);
     setAddressLookupSearched(false);
     setAddressLookupMessage(`Selected address: ${addr.display}`);
-  }, []);
+    void runCoverageCheck(addr.postcode);
+  }, [runCoverageCheck]);
 
   async function handleSubmit() {
     if (!tenant_id || !selectedSlot || !selectedService) return;
@@ -591,10 +640,15 @@ export default function OnlineBookingBlock({ content }: Props) {
                 {btn("Back", () => setStep("service"), false, "outline")}
                 {btn(
                   "Next: Choose a time",
-                  () => setStep("slots"),
-                  !!(require_description && isComplex && !description.trim()) || !!(require_postcode && !postcode.trim())
+                  () => { void handleProceedToSlots(); },
+                  coverageCheckLoading || !!(require_description && isComplex && !description.trim()) || !!(require_postcode && !postcode.trim())
                 )}
               </div>
+              {coverageCheckError && (
+                <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 13 }}>
+                  {coverageCheckError}
+                </div>
+              )}
             </>
           )}
 

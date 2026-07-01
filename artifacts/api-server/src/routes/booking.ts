@@ -915,6 +915,32 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
   }
 });
 
+publicRouter.post("/public/booking/:tenantId/coverage-check", bookingSlotsLimiter, async (req: Request, res: Response) => {
+  const { customer_postcode } = req.body as { customer_postcode?: string };
+
+  try {
+    const coverageCheck = await vetBookingCoverage({
+      tenantId: req.params.tenantId,
+      customerPostcode: customer_postcode,
+    });
+
+    if (!coverageCheck.allowed) {
+      return res.status(422).json({
+        allowed: false,
+        error: coverageCheck.reason || "This address is outside our service area.",
+      });
+    }
+
+    return res.json({ allowed: true });
+  } catch (err) {
+    console.error("[booking] coverage-check failed:", err);
+    return res.status(500).json({
+      allowed: false,
+      error: "Unable to verify service coverage right now. Please try again.",
+    });
+  }
+});
+
 publicRouter.get("/public/booking/:tenantId/slots", bookingSlotsLimiter, async (req: Request, res: Response) => {
   const { from, to, service_id, service_catalogue_id, duration_minutes } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
