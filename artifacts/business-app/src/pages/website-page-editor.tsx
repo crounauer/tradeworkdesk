@@ -866,24 +866,39 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
     }
 
     case "accreditations": {
-      const accs = Array.isArray(c.items) ? c.items as Array<{ name: string; logo_url: string }> : [];
+      type BadgeItem = { name: string; logo_url: string; description?: string; number?: string };
+      const isTrustBadges = String(block.block_type || "").toLowerCase().includes("trust_badge");
+      const sourceBadges = readArray<Record<string, unknown>>(c, ["badges", "items"]);
+      const accs: BadgeItem[] = sourceBadges.map((item) => ({
+        name: String(item.name ?? item.label ?? ""),
+        logo_url: String(item.logo_url ?? ""),
+        description: String(item.description ?? ""),
+        number: String(item.number ?? ""),
+      }));
+      const updateBadges = (next: BadgeItem[]) => {
+        onChange({ ...c, badges: next, items: next });
+      };
       const heading = readString(c, ["heading", "title"]);
       return (
         <div className="space-y-3">
           <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Accreditations</Label>
+            <Label className="text-xs text-muted-foreground">{isTrustBadges ? "Trust Badges" : "Accreditations"}</Label>
             {accs.map((item, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Input value={item.name} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], name: e.target.value }; set("items", n); }} placeholder="Gas Safe Registered" className="flex-1" />
-                <Input value={item.logo_url} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], logo_url: e.target.value }; set("items", n); }} placeholder="Logo URL" className="flex-1" />
-                <Button variant="ghost" size="icon" className="text-destructive flex-shrink-0" onClick={() => set("items", accs.filter((_, j) => j !== i))}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+              <div key={i} className="rounded border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input value={item.name} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], name: e.target.value }; updateBadges(n); }} placeholder="Gas Safe Registered" className="flex-1" />
+                  <Button variant="ghost" size="icon" className="text-destructive flex-shrink-0" onClick={() => updateBadges(accs.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Input value={item.logo_url} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], logo_url: e.target.value }; updateBadges(n); }} placeholder="Logo URL (optional)" />
+                <Input value={item.description ?? ""} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], description: e.target.value }; updateBadges(n); }} placeholder="Description (optional)" />
+                <Input value={item.number ?? ""} onChange={(e) => { const n = [...accs]; n[i] = { ...n[i], number: e.target.value }; updateBadges(n); }} placeholder="Registration number (optional)" />
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => set("items", [...accs, { name: "", logo_url: "" }])}>
-              <Plus className="w-3.5 h-3.5 mr-1" /> Add Accreditation
+            <Button variant="outline" size="sm" onClick={() => updateBadges([...accs, { name: "", logo_url: "", description: "", number: "" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add {isTrustBadges ? "Badge" : "Accreditation"}
             </Button>
           </div>
         </div>
