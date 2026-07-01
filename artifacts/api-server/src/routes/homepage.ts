@@ -136,7 +136,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
     customerCountRes, todayCountRes, completedCountRes,
-    tenantFeatures, jobTypesRes, unpaidInvoicesRes,
+    tenantFeatures, unpaidInvoicesRes,
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
