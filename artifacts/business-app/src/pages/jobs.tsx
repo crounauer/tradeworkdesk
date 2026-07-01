@@ -52,6 +52,18 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function isOnlineBookingAwaitingAdminConfirmation(job: Record<string, any>): boolean {
+  const description = String(job.description || "").toLowerCase();
+  const notes = String(job.notes || "").toLowerCase();
+  const title = String(job.title || "").toLowerCase();
+  const source = String(job.source || "").toLowerCase();
+
+  return description.startsWith("subject to confirmation")
+    || notes.includes("admin confirmation required")
+    || title.includes("online booking - admin confirm")
+    || source === "website";
+}
+
 export default function Jobs() {
   const { hasFeature } = usePlanFeatures();
   if (!hasFeature("job_management")) {
@@ -530,6 +542,11 @@ function JobCard({
               {job.customer_is_active === false && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-500 border border-slate-200">
                   <XCircle className="w-3 h-3" /> Customer deactivated
+                </span>
+              )}
+              {isOnlineBookingAwaitingAdminConfirmation(job) && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  TBC
                 </span>
               )}
             </div>

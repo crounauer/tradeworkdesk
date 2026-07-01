@@ -680,6 +680,7 @@ router.get("/booking/bookings", requireAuth, requireTenant, requireBooking(), as
   const { status, from, to, limit = "50" } = req.query as Record<string, string>;
   let q = db.from("bookings").select("*, booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
     .eq("tenant_id", req.tenantId)
+    .neq("source", "website")
     .order("scheduled_start", { ascending: false })
     .limit(parseInt(limit));
   if (status) q = q.eq("status", status);
@@ -1250,11 +1251,22 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
       eventType: "customer_communications",
       title: "New Online Booking",
       body: `${customer_name} submitted an online booking for ${selectedService?.name || "a service"}.`,
-      url: "/bookings",
+      url: "/jobs",
       eventKey: `online_booking:${data.id}`,
       targetRoles: ["admin", "office_staff", "super_admin"],
       data: { bookingId: data.id },
     }).catch((err) => console.error("[push-events] online_booking failed:", err));
+
+    void notifyUsersForEvent({
+      tenantId: req.params.tenantId,
+      eventType: "operational_exceptions",
+      title: "Online Booking Received - TBC",
+      body: `A new online booking from ${customer_name} requires tenant admin confirmation (TBC).`,
+      url: "/jobs",
+      eventKey: `online_booking_tbc:${data.id}`,
+      targetRoles: ["admin", "super_admin"],
+      data: { bookingId: data.id },
+    }).catch((err) => console.error("[push-events] online_booking_tbc failed:", err));
 
     const responseBody = { id: data.id, status: data.status, scheduled_start: data.scheduled_start };
     if (idemKey) {

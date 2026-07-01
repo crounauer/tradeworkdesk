@@ -149,6 +149,20 @@ function isSubjectToConfirmation(job: CalendarJob): boolean {
   return Boolean(job.description && job.description.toLowerCase().startsWith("subject to confirmation"));
 }
 
+function isOnlineBookingAwaitingAdminConfirmation(job: CalendarJob): boolean {
+  const description = String(job.description || "").toLowerCase();
+  if (description.startsWith("subject to confirmation")) return true;
+
+  const anyJob = job as unknown as Record<string, unknown>;
+  const title = String(anyJob.title || "").toLowerCase();
+  const notes = String(anyJob.notes || "").toLowerCase();
+  const source = String(anyJob.source || "").toLowerCase();
+
+  return title.includes("online booking - admin confirm")
+    || notes.includes("admin confirmation required")
+    || source === "website";
+}
+
 interface ScheduleCalendarProps {
   onDayAction?: (date: string, action: "enquiry" | "job") => void;
 }
@@ -651,6 +665,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 Subject to confirmation
                               </span>
                             )}
+                            {isOnlineBookingAwaitingAdminConfirmation(job) && (
+                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
+                                TBC
+                              </span>
+                            )}
                             <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                           </div>
                         </div>
@@ -705,6 +724,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             {isSubjectToConfirmation(job) && (
                               <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
                                 Subject to confirmation
+                              </span>
+                            )}
+                            {isOnlineBookingAwaitingAdminConfirmation(job) && (
+                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
+                                TBC
                               </span>
                             )}
                             <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
@@ -1027,6 +1051,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         )}
                         {job.technician_name && (
                           <span>{job.technician_name}</span>
+                        )}
+                        {isOnlineBookingAwaitingAdminConfirmation(job) && (
+                          <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 opacity-100">
+                            TBC
+                          </span>
                         )}
                         <span className="font-medium ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                       </div>
