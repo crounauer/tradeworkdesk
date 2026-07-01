@@ -35,10 +35,13 @@ function buildDefaultPreferences(): Record<PushEventType, boolean> {
   };
 }
 
+function canManagePushPreferences(req: AuthenticatedRequest): boolean {
+  return req.userRole === "admin" || req.userRole === "office_staff" || req.userRole === "super_admin";
+}
+
 router.get(
   "/push/preferences/meta",
   requireAuth,
-  requireTenant,
   async (_req: AuthenticatedRequest, res): Promise<void> => {
     res.json({ events: getPushEventMeta() });
   }
@@ -47,9 +50,12 @@ router.get(
 router.get(
   "/push/preferences/users",
   requireAuth,
-  requireTenant,
-  requireRole("admin", "office_staff"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!canManagePushPreferences(req) || !req.tenantId) {
+      res.json([]);
+      return;
+    }
+
     try {
       const users = await listTenantUsersWithPushPreferences(req.tenantId!);
       res.json(users);
