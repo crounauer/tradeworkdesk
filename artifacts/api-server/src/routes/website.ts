@@ -75,6 +75,7 @@ const BLOCK_TYPE_ALIASES: Record<string, string> = {
   "legal.content": "legal_content",
 };
 const SKIPPED_BLOCK_TYPES = new Set(["site.header", "site.footer"]);
+const SHARED_BLOCK_TYPES = new Set(["contact", "services_grid"]);
 
 function normalizeTenantBlockType(blockType: unknown): string {
   const normalized = String(blockType || "").trim().toLowerCase();
@@ -85,6 +86,33 @@ function normalizeTenantBlockType(blockType: unknown): string {
 function shouldSkipTenantBlock(blockType: unknown): boolean {
   const normalized = String(blockType || "").trim().toLowerCase();
   return SKIPPED_BLOCK_TYPES.has(normalized);
+}
+
+async function syncSharedBlockTypesAcrossWebsite(args: {
+  tenantId: string;
+  websiteId: string;
+  sharedContentByType: Map<string, Record<string, unknown>>;
+}): Promise<void> {
+  const { tenantId, websiteId, sharedContentByType } = args;
+  if (sharedContentByType.size === 0) return;
+
+  const { data: pages } = await db
+    .from("website_pages")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("website_id", websiteId) as { data: Array<{ id: string }> | null };
+
+  const pageIds = (pages || []).map((p) => p.id).filter(Boolean);
+  if (pageIds.length === 0) return;
+
+  for (const [blockType, content] of sharedContentByType.entries()) {
+    await db
+      .from("website_blocks")
+      .update({ content })
+      .eq("tenant_id", tenantId)
+      .in("page_id", pageIds)
+      .eq("block_type", blockType);
+  }
 }
 
 function normalizeContentMode(mode: unknown): TemplateContentMode {
@@ -1937,10 +1965,10 @@ router.put(
     // Verify page belongs to tenant
     const { data: page } = await db
       .from("website_pages")
-      .select("id")
+      .select("id, website_id")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string } | null };
+      .single() as { data: { id: string; website_id: string | null } | null };
 
     if (!page) { res.status(404).json({ error: "Page not found" }); return; }
 
@@ -1963,6 +1991,20 @@ router.put(
       if (inserts.length > 0) {
         const { error } = await db.from("website_blocks").insert(inserts) as { error: unknown };
         if (error) { res.status(500).json({ error: "Failed to save blocks" }); return; }
+
+        const sharedContentByType = new Map<string, Record<string, unknown>>();
+        for (const row of inserts) {
+          if (!SHARED_BLOCK_TYPES.has(row.block_type)) continue;
+          sharedContentByType.set(row.block_type, row.content as Record<string, unknown>);
+        }
+
+        if (page?.website_id && req.tenantId && sharedContentByType.size > 0) {
+          await syncSharedBlockTypesAcrossWebsite({
+            tenantId: req.tenantId,
+            websiteId: page.website_id,
+            sharedContentByType,
+          });
+        }
       }
     }
 
