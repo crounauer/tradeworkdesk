@@ -34,7 +34,8 @@ export async function middleware(req: NextRequest) {
         const { canonical } = await checkRes.json() as { canonical: string | null };
         if (canonical) {
           const redirectUrl = new URL(req.url);
-          redirectUrl.host = canonical;
+          redirectUrl.hostname = canonical;
+          redirectUrl.port = "";
           return NextResponse.redirect(redirectUrl.toString(), { status: 301 });
         }
       }
