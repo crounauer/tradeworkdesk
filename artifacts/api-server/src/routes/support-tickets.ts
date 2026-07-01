@@ -231,6 +231,7 @@ router.post("/support/tickets", requireAuth, requireTenant, uploadImages, async 
   });
 
   void notifySuperAdminsTicketRaised({
+    ticketId: (ticket as SupportTicketRow).id,
     tenantId: req.tenantId!,
     companyName: (tenantSettings as { company_name?: string | null } | null)?.company_name ?? null,
     subject: subject.trim(),

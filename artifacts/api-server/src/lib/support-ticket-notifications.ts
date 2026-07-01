@@ -100,6 +100,7 @@ async function sendEmail(recipients: string[], payload: TicketEmailPayload): Pro
 }
 
 export async function notifySuperAdminsTicketRaised(opts: {
+  ticketId: string;
   tenantId: string;
   companyName: string | null;
   subject: string;
@@ -118,8 +119,10 @@ export async function notifySuperAdminsTicketRaised(opts: {
   const phones = dedupe((admins || []).map((admin) => (admin as { phone?: string | null }).phone));
 
   const title = `New support ticket from ${opts.companyName || "tenant"}`;
-  const text = `${title}\nSubject: ${opts.subject}\nCategory: ${opts.category}\nPriority: ${opts.priority}\nRequester: ${opts.requesterName || "Unknown"} (${opts.requesterEmail || "no email"})`;
-  const html = `<p>${title}</p><p><strong>Subject:</strong> ${opts.subject}</p><p><strong>Category:</strong> ${opts.category}</p><p><strong>Priority:</strong> ${opts.priority}</p><p><strong>Requester:</strong> ${opts.requesterName || "Unknown"} (${opts.requesterEmail || "no email"})</p>`;
+  const appUrl = process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const ticketUrl = `${appUrl}/platform/support-tickets?ticketId=${encodeURIComponent(opts.ticketId)}`;
+  const text = `${title}\nSubject: ${opts.subject}\nCategory: ${opts.category}\nPriority: ${opts.priority}\nRequester: ${opts.requesterName || "Unknown"} (${opts.requesterEmail || "no email"})\nOpen ticket: ${ticketUrl}`;
+  const html = `<p>${title}</p><p><strong>Subject:</strong> ${opts.subject}</p><p><strong>Category:</strong> ${opts.category}</p><p><strong>Priority:</strong> ${opts.priority}</p><p><strong>Requester:</strong> ${opts.requesterName || "Unknown"} (${opts.requesterEmail || "no email"})</p><p><a href="${ticketUrl}" target="_blank" rel="noreferrer">Open support ticket</a></p>`;
 
   await Promise.allSettled([
     sendEmail(emails, { subject: title, text, html }),
@@ -145,8 +148,10 @@ export async function notifyTenantTicketUpdated(opts: {
 
   const subject = `Support ticket updated: ${opts.ticketSubject}`;
   const statusLabel = opts.status.replace(/_/g, " ");
-  const text = `Your support ticket has been updated.\nSubject: ${opts.ticketSubject}\nStatus: ${statusLabel}\nUpdated by: ${opts.actorName || "TradeWorkDesk"}${opts.messageBody ? `\n\nMessage:\n${opts.messageBody}` : ""}`;
-  const html = `<p>Your support ticket has been updated.</p><p><strong>Subject:</strong> ${opts.ticketSubject}<br/><strong>Status:</strong> ${statusLabel}<br/><strong>Updated by:</strong> ${opts.actorName || "TradeWorkDesk"}</p>${opts.messageBody ? `<p><strong>Message:</strong><br/>${opts.messageBody.replace(/\n/g, "<br/>")}</p>` : ""}`;
+  const appUrl = process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const ticketUrl = `${appUrl}/support?ticketId=${encodeURIComponent(opts.ticketId)}`;
+  const text = `Your support ticket has been updated.\nSubject: ${opts.ticketSubject}\nStatus: ${statusLabel}\nUpdated by: ${opts.actorName || "TradeWorkDesk"}\nOpen ticket: ${ticketUrl}${opts.messageBody ? `\n\nMessage:\n${opts.messageBody}` : ""}`;
+  const html = `<p>Your support ticket has been updated.</p><p><strong>Subject:</strong> ${opts.ticketSubject}<br/><strong>Status:</strong> ${statusLabel}<br/><strong>Updated by:</strong> ${opts.actorName || "TradeWorkDesk"}</p><p><a href="${ticketUrl}" target="_blank" rel="noreferrer">Open support ticket</a></p>${opts.messageBody ? `<p><strong>Message:</strong><br/>${opts.messageBody.replace(/\n/g, "<br/>")}</p>` : ""}`;
 
   await Promise.allSettled([
     sendEmail(emails, { subject, text, html }),

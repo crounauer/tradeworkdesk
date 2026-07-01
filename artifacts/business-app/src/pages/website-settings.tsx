@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save, Inbox } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Inbox, Eye, EyeOff, Trash2 } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -51,6 +51,17 @@ interface WebsiteForm {
   created_at: string;
 }
 
+interface WebsiteTestimonial {
+  id: string;
+  author_name: string;
+  location: string | null;
+  rating: number | null;
+  body: string;
+  is_visible: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 export default function WebsiteSettings() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -66,6 +77,35 @@ export default function WebsiteSettings() {
     queryKey: ["/api/website/forms"],
     queryFn: () => apiFetch("/api/website/forms").catch(() => []),
     enabled: !!website,
+  });
+
+  const { data: testimonials = [] } = useQuery<WebsiteTestimonial[]>({
+    queryKey: ["/api/website/testimonials"],
+    queryFn: () => apiFetch("/api/website/testimonials?status=all").catch(() => []),
+    enabled: !!website,
+  });
+
+  const updateTestimonialMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      apiFetch(`/api/website/testimonials/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website/testimonials"] });
+      toast({ title: "Testimonial updated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteTestimonialMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/website/testimonials/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website/testimonials"] });
+      toast({ title: "Testimonial deleted" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const toggleEnquiryMutation = useMutation({
@@ -209,6 +249,7 @@ export default function WebsiteSettings() {
           <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="forms">Forms</TabsTrigger>
           <TabsTrigger value="contact-form-services">Contact Form Services</TabsTrigger>
+          <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         </TabsList>
 
         <TabsContent value="branding" className="space-y-4 pt-4">
@@ -487,6 +528,71 @@ export default function WebsiteSettings() {
                     </CardContent>
                   </Card>
                 ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="testimonials" className="space-y-4 pt-4">
+          <p className="text-sm text-muted-foreground">
+            Review testimonials collected from feedback journeys before publishing on your website.
+            Draft testimonials are hidden until approved.
+          </p>
+
+          {testimonials.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No testimonials yet.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {testimonials.map((testimonial) => (
+                <Card key={testimonial.id}>
+                  <CardContent className="py-4 px-5 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-sm">{testimonial.author_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {testimonial.location ? `${testimonial.location} · ` : ""}
+                          {testimonial.rating ? `${testimonial.rating}/5` : "No rating"}
+                          {" · "}
+                          {testimonial.is_visible ? "Published" : "Draft"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {testimonial.is_visible ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updateTestimonialMutation.isPending}
+                            onClick={() => updateTestimonialMutation.mutate({ id: testimonial.id, payload: { is_visible: false } })}
+                          >
+                            <EyeOff className="w-3.5 h-3.5 mr-1" /> Hide
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            disabled={updateTestimonialMutation.isPending}
+                            onClick={() => updateTestimonialMutation.mutate({ id: testimonial.id, payload: { is_visible: true } })}
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" /> Publish
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteTestimonialMutation.isPending}
+                          onClick={() => deleteTestimonialMutation.mutate(testimonial.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{testimonial.body}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>

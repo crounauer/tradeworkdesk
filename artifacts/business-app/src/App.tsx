@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component as ReactComponent, useEffect, useRef } from "react";
+import { lazy, Suspense, Component as ReactComponent, useEffect, useRef, useState } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
@@ -68,12 +68,20 @@ class ChunkErrorBoundary extends ReactComponent<{ children: ReactNode }, { hasEr
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="text-center space-y-3">
-            <p className="text-muted-foreground">Something went wrong loading this page.</p>
-            <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm" onClick={() => {
-              incrementChunkReloadAttempts();
-              clearSwAndReload();
-            }}>Reload Page</button>
+          <div className="text-center space-y-4 max-w-md px-4">
+            <p className="text-foreground font-semibold">App update required</p>
+            <p className="text-muted-foreground text-sm">We could not load the latest app files. Refresh now, or clear cached data if this keeps happening.</p>
+            <div className="flex items-center justify-center gap-2">
+              <button className="px-4 py-2 border border-border bg-white rounded-lg text-sm" onClick={() => window.location.reload()}>
+                Refresh Now
+              </button>
+              <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm" onClick={() => {
+                incrementChunkReloadAttempts();
+                clearSwAndReload();
+              }}>
+                Clear Cached Data
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -743,6 +751,131 @@ function ServiceWorkerPushBridge() {
   return null;
 }
 
+function AppUpdatePrompt() {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    let isMounted = true;
+    const currentVersion = localStorage.getItem("sw-version") || "unknown";
+    const dismissedKey = `app_update_prompt_dismissed_${currentVersion}`;
+
+    if (sessionStorage.getItem(dismissedKey) === "1") {
+      setDismissed(true);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const markUpdateAvailable = () => {
+      if (isMounted) setUpdateAvailable(true);
+    };
+
+    const inspectRegistration = (reg: ServiceWorkerRegistration | undefined) => {
+      if (!reg) return;
+
+      if (reg.waiting) markUpdateAvailable();
+
+      reg.addEventListener("updatefound", () => {
+        const installing = reg.installing;
+        if (!installing) return;
+
+        installing.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller) {
+            markUpdateAvailable();
+          }
+        });
+      });
+    };
+
+    navigator.serviceWorker.getRegistration()
+      .then((reg) => inspectRegistration(reg))
+      .catch(() => {});
+
+    const onControllerChange = () => {
+      markUpdateAvailable();
+    };
+
+    const refreshRegistration = () => {
+      navigator.serviceWorker.getRegistration()
+        .then((reg) => reg?.update())
+        .catch(() => {});
+    };
+
+    const intervalId = window.setInterval(() => {
+      refreshRegistration();
+    }, 60_000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshRegistration();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  if (!updateAvailable || dismissed) return null;
+
+  const dismissForSession = () => {
+    const currentVersion = localStorage.getItem("sw-version") || "unknown";
+    const dismissedKey = `app_update_prompt_dismissed_${currentVersion}`;
+    sessionStorage.setItem(dismissedKey, "1");
+    setDismissed(true);
+  };
+
+  return (
+    <div className="fixed top-3 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 rounded-xl border border-blue-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-700">A new version of TradeWorkDesk is available.</p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-md border border-transparent px-3 py-1.5 text-xs text-slate-600 hover:border-border disabled:opacity-50"
+            disabled={working}
+            onClick={dismissForSession}
+          >
+            Later
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-slate-700 disabled:opacity-50"
+            disabled={working}
+            onClick={() => {
+              setWorking(true);
+              clearSwAndReload();
+            }}
+          >
+            Clear Cached Data
+          </button>
+          <button
+            type="button"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
+            disabled={working}
+            onClick={() => {
+              setWorking(true);
+              window.location.reload();
+            }}
+          >
+            Refresh Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -753,6 +886,7 @@ function App() {
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <MarketingSiteTracker />
                 <ServiceWorkerPushBridge />
+                <AppUpdatePrompt />
                 <AppRouter />
               </WouterRouter>
             </ChunkErrorBoundary>

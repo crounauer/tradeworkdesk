@@ -91,6 +91,7 @@ export async function sendPushToTenant(tenantId: string, payload: PushPayload): 
           {
             TTL: 60,
             urgency: "high",
+            timeout: 10_000,
           }
         );
       } catch (err) {
@@ -147,6 +148,7 @@ export async function sendPushToUser(tenantId: string, userId: string, payload: 
           {
             TTL: 60,
             urgency: "high",
+            timeout: 10_000,
           }
         );
       } catch (err) {

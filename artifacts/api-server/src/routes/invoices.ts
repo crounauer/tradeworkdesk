@@ -1085,29 +1085,6 @@ router.post("/invoices/:id/unsend", ...protect, async (req: AuthenticatedRequest
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  if (req.tenantId && updated.customer_id) {
-    const { data: customer } = await supabaseAdmin
-      .from("customers")
-      .select("first_name, last_name, email, phone")
-      .eq("id", updated.customer_id)
-      .eq("tenant_id", req.tenantId)
-      .maybeSingle();
-
-    if (customer?.email) {
-      void triggerReviewRequestAutomation({
-        tenantId: req.tenantId,
-        event: "invoice.paid",
-        entityId: req.params.id,
-        entityType: "invoice",
-        metadata: {
-          customer_name: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
-          customer_email: customer.email,
-          customer_phone: customer.phone || null,
-        },
-      }).catch((err) => console.error("[review-requests] Failed to schedule paid invoice review request:", err));
-    }
-  }
-
   res.json(updated);
 });
 
@@ -1194,6 +1171,29 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
     targetRoles: ["admin", "office_staff"],
     data: { invoiceId: updated.id },
   }).catch((err) => console.error("[push-events] invoice_paid failed:", err));
+
+  if (req.tenantId && updated.customer_id) {
+    const { data: customer } = await supabaseAdmin
+      .from("customers")
+      .select("first_name, last_name, email, phone")
+      .eq("id", updated.customer_id)
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle();
+
+    if (customer?.email) {
+      void triggerReviewRequestAutomation({
+        tenantId: req.tenantId,
+        event: "invoice.paid",
+        entityId: req.params.id,
+        entityType: "invoice",
+        metadata: {
+          customer_name: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
+          customer_email: customer.email,
+          customer_phone: customer.phone || null,
+        },
+      }).catch((err) => console.error("[review-requests] Failed to schedule paid invoice review request:", err));
+    }
+  }
 
   res.json(updated);
 });

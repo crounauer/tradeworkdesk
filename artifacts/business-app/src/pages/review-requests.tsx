@@ -61,6 +61,26 @@ interface ReviewRequest {
   error_message: string | null;
 }
 
+interface ReviewStats {
+  window_days: number;
+  totals: {
+    total: number;
+    sent: number;
+    opened: number;
+    clicked: number;
+    failed: number;
+    suppressed: number;
+  };
+  rates: {
+    send_rate: number;
+    open_rate: number;
+    click_rate: number;
+    click_to_open_rate: number;
+  };
+  by_channel: Record<string, number>;
+  by_trigger: Record<string, number>;
+}
+
 interface CustomerOption {
   id: string;
   first_name: string;
@@ -113,6 +133,11 @@ export default function ReviewRequests() {
   const { data: requests = [], isLoading: requestsLoading } = useQuery<ReviewRequest[]>({
     queryKey: ["/api/review-requests"],
     queryFn: () => apiFetch("/api/review-requests"),
+  });
+
+  const { data: stats } = useQuery<ReviewStats>({
+    queryKey: ["/api/review-requests/stats", 30],
+    queryFn: () => apiFetch("/api/review-requests/stats?days=30"),
   });
 
   const { data: customers = [] } = useQuery<CustomerOption[]>({
@@ -215,6 +240,45 @@ export default function ReviewRequests() {
           <TabsTrigger value="template">Email Template</TabsTrigger>
           <TabsTrigger value="history">Audit Log</TabsTrigger>
         </TabsList>
+
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mt-4">
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-[11px] text-muted-foreground">30d Total</p>
+              <p className="text-lg font-semibold">{stats?.totals.total ?? 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-[11px] text-muted-foreground">Sent</p>
+              <p className="text-lg font-semibold">{stats?.totals.sent ?? 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-[11px] text-muted-foreground">Opened</p>
+              <p className="text-lg font-semibold">{stats?.totals.opened ?? 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-[11px] text-muted-foreground">Clicked</p>
+              <p className="text-lg font-semibold">{stats?.totals.clicked ?? 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-[11px] text-muted-foreground">Open Rate</p>
+              <p className="text-lg font-semibold">{stats?.rates.open_rate?.toFixed(1) ?? "0.0"}%</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-[11px] text-muted-foreground">Click Rate</p>
+              <p className="text-lg font-semibold">{stats?.rates.click_rate?.toFixed(1) ?? "0.0"}%</p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* ── Settings ── */}
         <TabsContent value="settings" className="space-y-4 mt-4">

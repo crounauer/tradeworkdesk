@@ -141,7 +141,7 @@ async function sendSmsReviewRequest(rr: ReviewRequestRow, settings: ReviewSettin
   }
 
   const senderName = companyName.replace(/[^A-Za-z0-9]/g, "").slice(0, 11) || "TradeWork";
-  const reviewLink = `${APP_URL}/api/public/review/${rr.tracking_token}/click`;
+  const reviewLink = `${APP_URL}/api/public/review/${rr.tracking_token}/start`;
   const body = template(
     settings.sms_body || "Hi {{customer_name}}, we'd love your feedback. Leave a review here: {{review_link}} - {{company_name}}",
     {
@@ -181,7 +181,7 @@ async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSett
     throw new ReviewRequestError("Email service is not configured (RESEND_API_KEY missing)", 503);
   }
 
-  const reviewLink = `${APP_URL}/api/public/review/${rr.tracking_token}/click`;
+  const reviewLink = `${APP_URL}/api/public/review/${rr.tracking_token}/start`;
   const openPixel = `${APP_URL}/api/public/review/${rr.tracking_token}`;
   const subject = template(settings.email_subject || "How did we do? Leave us a review", {
     customer_name: rr.customer_name,

@@ -1,10 +1,10 @@
 import { useState, lazy, Suspense } from "react";
-import { useListCustomers, useCreateCustomer } from "@workspace/api-client-react";
+import { useListCustomers, useCreateCustomer, customFetch } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "wouter";
-import { Search, Plus, MapPin, Phone, Mail, Upload } from "lucide-react";
+import { Search, Plus, MapPin, Phone, Mail, Upload, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
@@ -19,8 +19,44 @@ export default function Customers() {
   const { data: customers, isLoading } = useListCustomers({ search: search || undefined });
   const [isAdding, setIsAdding] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [isBulkPortalEnabling, setIsBulkPortalEnabling] = useState(false);
   const { profile } = useAuth();
   const canImport = profile?.role === "admin" || profile?.role === "office_staff";
+  const canBulkEnablePortal = profile?.role === "admin";
+  const { toast } = useToast();
+
+  const enablePortalForAll = async () => {
+    const confirmed = window.confirm("Enable customer portal access for all active customers with an email address?");
+    if (!confirmed) return;
+
+    try {
+      setIsBulkPortalEnabling(true);
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/customers/portal-invite/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }) as {
+        total_customers: number;
+        eligible_with_email: number;
+        invited: number;
+        reenabled: number;
+        already_active: number;
+        email_failed: number;
+        failed: number;
+        skipped_no_email: number;
+      };
+
+      toast({
+        title: "Bulk portal update complete",
+        description: `Invited ${result.invited}, re-enabled ${result.reenabled}, already active ${result.already_active}, no email ${result.skipped_no_email}, failures ${result.failed + result.email_failed}.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to enable portal access in bulk";
+      toast({ title: "Bulk portal update failed", description: message, variant: "destructive" });
+    } finally {
+      setIsBulkPortalEnabling(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -30,6 +66,12 @@ export default function Customers() {
           <p className="text-muted-foreground mt-1">Manage your customer database</p>
         </div>
         <div className="flex gap-2">
+          {canBulkEnablePortal && (
+            <Button variant="outline" onClick={enablePortalForAll} disabled={isBulkPortalEnabling}>
+              {isBulkPortalEnabling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {isBulkPortalEnabling ? "Enabling Portal..." : "Enable Portal For All"}
+            </Button>
+          )}
           {canImport && (
             <Button variant="outline" onClick={() => setShowImport(true)}>
               <Upload className="w-4 h-4 mr-2" /> Import CSV

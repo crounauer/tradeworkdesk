@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,8 +46,12 @@ function statusClass(status: string) {
 export default function PlatformSupportTicketsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const initialTicketId = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("ticketId");
+  }, []);
   const [statusFilter, setStatusFilter] = useState("open");
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicketId);
   const [replyBody, setReplyBody] = useState("");
   const [nextStatus, setNextStatus] = useState("in_progress");
   const [images, setImages] = useState<File[]>([]);

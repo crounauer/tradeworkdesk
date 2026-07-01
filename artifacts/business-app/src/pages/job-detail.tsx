@@ -173,6 +173,7 @@ export default function JobDetail() {
           classes: "bg-emerald-100 text-emerald-800 border-emerald-200",
           timestamp: customerConfirmedAt,
           timestampLabel: "Confirmed",
+          icon: CheckCircle2,
         };
       case "change_requested":
         return {
@@ -180,6 +181,7 @@ export default function JobDetail() {
           classes: "bg-amber-100 text-amber-800 border-amber-200",
           timestamp: customerChangeRequestedAt,
           timestampLabel: "Requested",
+          icon: RefreshCw,
         };
       case "pending":
       default:
@@ -188,6 +190,7 @@ export default function JobDetail() {
           classes: "bg-slate-100 text-slate-700 border-slate-200",
           timestamp: null,
           timestampLabel: "",
+          icon: Clock,
         };
     }
   })();
@@ -389,13 +392,22 @@ export default function JobDetail() {
             </button>
           )}
           <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+          <div className="mt-2 flex flex-col items-start gap-1 text-xs sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
             <span className={`inline-flex items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
-              {customerConfirmationUi.label}
+              <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />
+              <span>{customerConfirmationUi.label}</span>
             </span>
             {customerConfirmationUi.timestamp && (
-              <span className="text-muted-foreground">
-                {customerConfirmationUi.timestampLabel}: {formatDateTime(customerConfirmationUi.timestamp)}
+              <span className="inline-flex items-start gap-1 text-muted-foreground leading-tight sm:items-center">
+                <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 sm:mt-0" />
+                <span className="break-words">
+                  <span className="sm:hidden">
+                    {customerConfirmationUi.timestampLabel}: {timeAgo(customerConfirmationUi.timestamp)}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {customerConfirmationUi.timestampLabel}: {formatDateTime(customerConfirmationUi.timestamp)}
+                  </span>
+                </span>
               </span>
             )}
           </div>

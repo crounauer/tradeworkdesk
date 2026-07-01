@@ -42,7 +42,11 @@ function statusClass(status: string) {
 export default function SupportTicketsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const initialTicketId = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("ticketId");
+  }, []);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicketId);
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState("support_issue");
   const [priority, setPriority] = useState("normal");

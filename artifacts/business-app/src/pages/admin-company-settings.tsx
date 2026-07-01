@@ -279,11 +279,26 @@ function PushNotificationsSection() {
   const sendTest = async () => {
     try {
       setWorking(true);
-      const res = await fetch("/api/push/test", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to send test push");
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch("/api/push/test", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to send test push");
+      }
+
       toast({ title: "Test sent", description: "You should receive a test push notification shortly." });
     } catch (err) {
-      toast({ title: "Failed to send test", description: (err as Error).message, variant: "destructive" });
+      const message = err instanceof DOMException && err.name === "AbortError"
+        ? "Test notification timed out. Please try again."
+        : (err as Error).message;
+      toast({ title: "Failed to send test", description: message, variant: "destructive" });
     } finally {
       setWorking(false);
     }

@@ -1333,6 +1333,99 @@ router.post(
   }
 );
 
+// ─── Testimonials (moderation) ──────────────────────────────────────────────
+
+router.get(
+  "/website/testimonials",
+  requireAuth,
+  requireTenant,
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const status = String((req.query as Record<string, string>)?.status || "all").toLowerCase();
+    let q = db
+      .from("website_testimonials")
+      .select("id, author_name, location, rating, body, is_visible, sort_order, created_at, updated_at")
+      .eq("website_id", website.id)
+      .eq("tenant_id", req.tenantId)
+      .order("is_visible", { ascending: true })
+      .order("created_at", { ascending: false });
+
+    if (status === "draft") q = q.eq("is_visible", false);
+    if (status === "published") q = q.eq("is_visible", true);
+
+    const { data, error } = await q as { data: Record<string, unknown>[] | null; error: { message?: string } | null };
+    if (error) { res.status(500).json({ error: error.message || "Failed to load testimonials" }); return; }
+    res.json(data || []);
+  }
+);
+
+router.patch(
+  "/website/testimonials/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+    const { author_name, location, rating, body, is_visible, sort_order } = req.body as Record<string, unknown>;
+
+    const updates: Record<string, unknown> = {};
+    if (author_name !== undefined) updates.author_name = String(author_name || "").trim();
+    if (location !== undefined) updates.location = String(location || "").trim() || null;
+    if (body !== undefined) updates.body = String(body || "").trim();
+    if (rating !== undefined) {
+      const parsed = Number(rating);
+      if (!Number.isFinite(parsed) || parsed < 1 || parsed > 5) {
+        res.status(400).json({ error: "rating must be between 1 and 5" });
+        return;
+      }
+      updates.rating = Math.round(parsed);
+    }
+    if (typeof is_visible === "boolean") updates.is_visible = is_visible;
+    if (sort_order !== undefined) {
+      const parsedOrder = Number(sort_order);
+      if (!Number.isFinite(parsedOrder)) {
+        res.status(400).json({ error: "sort_order must be a number" });
+        return;
+      }
+      updates.sort_order = Math.round(parsedOrder);
+    }
+
+    const { data, error } = await db
+      .from("website_testimonials")
+      .update(updates)
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId)
+      .select("id, author_name, location, rating, body, is_visible, sort_order, created_at, updated_at")
+      .single() as { data: Record<string, unknown> | null; error: { message?: string } | null };
+
+    if (error || !data) { res.status(404).json({ error: "Testimonial not found" }); return; }
+    res.json(data);
+  }
+);
+
+router.delete(
+  "/website/testimonials/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+    const { error } = await db
+      .from("website_testimonials")
+      .delete()
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId);
+
+    if (error) { res.status(500).json({ error: error.message || "Failed to delete testimonial" }); return; }
+    res.status(204).end();
+  }
+);
+
 router.patch(
   "/website/forms/:id",
   requireAuth,

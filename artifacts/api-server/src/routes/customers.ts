@@ -288,6 +288,197 @@ router.post("/customers/check-duplicates", requireAuth, requireTenant, requireRo
   res.json({ duplicates });
 });
 
+router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const body = z.object({ dry_run: z.boolean().optional() }).safeParse(req.body || {});
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const dryRun = !!body.data.dry_run;
+
+  const { data: customers, error: customerErr } = await supabaseAdmin
+    .from("customers")
+    .select("id, first_name, last_name, email")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true);
+
+  if (customerErr) {
+    res.status(500).json({ error: customerErr.message });
+    return;
+  }
+
+  const allCustomers = (customers || []) as Array<{ id: string; first_name: string; last_name: string; email: string | null }>;
+  const eligible = allCustomers.filter((c) => !!c.email?.trim());
+  const skippedNoEmail = allCustomers.length - eligible.length;
+
+  if (eligible.length === 0) {
+    res.json({
+      success: true,
+      dry_run: dryRun,
+      total_customers: allCustomers.length,
+      eligible_with_email: 0,
+      invited: 0,
+      reenabled: 0,
+      already_active: 0,
+      email_failed: 0,
+      failed: 0,
+      skipped_no_email: skippedNoEmail,
+    });
+    return;
+  }
+
+  const eligibleIds = eligible.map((c) => c.id);
+  const { data: existingPortalUsers, error: portalErr } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, customer_id, auth_user_id, is_active")
+    .eq("tenant_id", req.tenantId!)
+    .in("customer_id", eligibleIds);
+
+  if (portalErr) {
+    res.status(500).json({ error: portalErr.message });
+    return;
+  }
+
+  const portalByCustomer = new Map<string, { id: string; auth_user_id: string | null; is_active: boolean }>();
+  for (const row of (existingPortalUsers || []) as Array<{ id: string; customer_id: string; auth_user_id: string | null; is_active: boolean }>) {
+    portalByCustomer.set(row.customer_id, {
+      id: row.id,
+      auth_user_id: row.auth_user_id,
+      is_active: row.is_active,
+    });
+  }
+
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("company_name")
+    .eq("id", req.tenantId!)
+    .single();
+
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name, phone, email, notification_emails, website, logo_url")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const companyName = (cs as { name?: string; trading_name?: string } | null)?.name
+    || (cs as { name?: string; trading_name?: string } | null)?.trading_name
+    || (tenant as { company_name?: string } | null)?.company_name
+    || "Your Service Provider";
+
+  const baseUrl = process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://tradeworkdesk.co.uk");
+
+  let invited = 0;
+  let reenabled = 0;
+  let alreadyActive = 0;
+  let emailFailed = 0;
+  let failed = 0;
+
+  for (const customer of eligible) {
+    const email = customer.email?.toLowerCase().trim();
+    if (!email) continue;
+
+    const existing = portalByCustomer.get(customer.id);
+
+    if (existing?.auth_user_id && existing.is_active) {
+      alreadyActive += 1;
+      continue;
+    }
+
+    if (existing?.auth_user_id && !existing.is_active) {
+      if (!dryRun) {
+        const { error: reenableErr } = await supabaseAdmin
+          .from("customer_portal_users")
+          .update({ is_active: true, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+
+        if (reenableErr) {
+          failed += 1;
+          continue;
+        }
+
+        portalUserCache.delete(existing.auth_user_id);
+      }
+
+      reenabled += 1;
+      continue;
+    }
+
+    const token = generateInviteToken();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    if (!dryRun) {
+      if (existing) {
+        const { error: updateErr } = await supabaseAdmin
+          .from("customer_portal_users")
+          .update({
+            invite_token: token,
+            invite_email: email,
+            invite_expires_at: expiresAt,
+            is_active: true,
+            auth_user_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        if (updateErr) {
+          failed += 1;
+          continue;
+        }
+      } else {
+        const { error: insertErr } = await supabaseAdmin
+          .from("customer_portal_users")
+          .insert({
+            customer_id: customer.id,
+            tenant_id: req.tenantId!,
+            invite_token: token,
+            invite_email: email,
+            invite_expires_at: expiresAt,
+          });
+
+        if (insertErr) {
+          failed += 1;
+          continue;
+        }
+      }
+
+      const registerUrl = `${baseUrl}/portal/register?token=${token}`;
+      const customerName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer";
+      try {
+        await sendPortalInviteEmail(customer.email!, customerName, companyName, registerUrl, {
+          name: (cs as { name?: string } | null)?.name,
+          trading_name: (cs as { trading_name?: string } | null)?.trading_name,
+          email: (cs as { email?: string } | null)?.email,
+          notification_emails: (cs as { notification_emails?: string[] } | null)?.notification_emails,
+          logo_url: (cs as { logo_url?: string } | null)?.logo_url,
+          phone: (cs as { phone?: string } | null)?.phone,
+          website: (cs as { website?: string } | null)?.website,
+        });
+      } catch (e) {
+        emailFailed += 1;
+        console.error("[portal] Bulk invite email failed:", e);
+      }
+    }
+
+    invited += 1;
+  }
+
+  res.json({
+    success: true,
+    dry_run: dryRun,
+    total_customers: allCustomers.length,
+    eligible_with_email: eligible.length,
+    invited,
+    reenabled,
+    already_active: alreadyActive,
+    email_failed: emailFailed,
+    failed,
+    skipped_no_email: skippedNoEmail,
+  });
+});
+
 router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
