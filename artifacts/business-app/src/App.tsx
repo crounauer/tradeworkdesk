@@ -619,9 +619,9 @@ function AppRouter() {
         <Route path="/website/blog/:id" component={WebsiteBlogEditorRoute} />
         <Route path="/website/indexnow" component={WebsiteIndexNowRoute} />
 
-        <Route path="/booking" component={BookingSetupRoute} />
-        <Route path="/booking/setup" component={BookingSetupRoute} />
+        <Route path="/booking" component={BookingReviewRoute} />
         <Route path="/booking/review" component={BookingReviewRoute} />
+        <Route path="/booking/setup" component={BookingSetupRoute} />
         <Route path="/review-requests" component={ReviewRequestsRoute} />
 
         <Route path="/maintenance" component={MaintenancePlansRoute} />

@@ -125,6 +125,9 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
+    ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
+      ? [{ href: "/booking", label: "Booking Review", icon: CalendarCheck }]
+      : []),
     { href: "/jobs", label: "Jobs", icon: Briefcase },
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
     { href: "/customers", label: "Customers", icon: Users },
