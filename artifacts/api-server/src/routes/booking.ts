@@ -1166,8 +1166,11 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     const shouldAutoCreateJob = true;
     if (shouldAutoCreateJob) {
       const utcSchedule = extractUtcDateAndTime(normalizedScheduledStart);
-      const title = `${selectedService?.name || "Online Booking"} — ${customer_name}`;
+      const serviceName = selectedService?.name || "Online Booking";
+      const title = `[Online Booking - Admin Confirm] ${serviceName} — ${customer_name}`;
       const description = buildOnlineBookingDescription(notes);
+      const adminPendingMarker = "ONLINE BOOKING REQUEST - ADMIN CONFIRMATION REQUIRED";
+      const jobNotes = [adminPendingMarker, description].filter(Boolean).join("\n");
 
       const { customerId, propertyId } = await ensureBookingCustomerAndProperty({
         tenantId: req.params.tenantId,
@@ -1184,7 +1187,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
         property_id: propertyId,
         title,
         description,
-        notes: description,
+        notes: jobNotes,
         status: "scheduled",
         job_type: "service",
         job_type_id: settings.default_job_type_id || null,

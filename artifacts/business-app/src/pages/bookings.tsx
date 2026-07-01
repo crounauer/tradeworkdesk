@@ -70,6 +70,8 @@ export default function Bookings() {
     queryFn: () => apiFetch(`/api/booking/bookings${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`)
   });
 
+  const visibleBookings = bookings.filter((b) => b.source !== "website");
+
   const confirmMutation = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/booking/bookings/${id}/confirm`, { method: "POST" }),
     onSuccess: () => {
@@ -114,11 +116,11 @@ export default function Bookings() {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : bookings.length === 0 ? (
+      ) : visibleBookings.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-muted-foreground">No bookings yet.</p>
+            <p className="text-muted-foreground">No manual bookings to review.</p>
             <p className="text-sm text-muted-foreground mt-1">
               <Link href="/booking/setup" className="underline">Set up online booking</Link> to start receiving customer appointments.
             </p>
@@ -126,7 +128,7 @@ export default function Bookings() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {bookings.map((b) => (
+          {visibleBookings.map((b) => (
             <Card key={b.id}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
