@@ -42,13 +42,22 @@ type LeaveConflict = {
 };
 
 function addOneYear(dateStr: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date().toISOString().slice(0, 10);
+  }
   const d = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(d.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
   d.setFullYear(d.getFullYear() + 1);
   return d.toISOString().slice(0, 10);
 }
 
 function getWeekRange(dateStr: string): { from: string; to: string } {
-  const d = new Date(dateStr + "T00:00:00");
+  const base = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+    ? new Date(dateStr + "T00:00:00")
+    : new Date();
+  const d = Number.isNaN(base.getTime()) ? new Date() : base;
   const day = d.getDay();
   const mondayOffset = day === 0 ? -6 : 1 - day;
   const mon = new Date(d);
@@ -62,7 +71,9 @@ function getWeekRange(dateStr: string): { from: string; to: string } {
 }
 
 function formatDateDisplay(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", {
+  const d = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return "Invalid date";
+  return d.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -124,7 +135,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       customFetch(
         `${import.meta.env.BASE_URL}api/calendar?date_from=${from}&date_to=${to}`
       ) as Promise<{ jobs: CalendarJob[] }>,
-    enabled: open && !newJob,
+    enabled: open && !newJob && !!selectedDate,
     staleTime: 60_000,
   });
 
@@ -283,7 +294,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
                     id="rebook-date"
                     type="date"
                     value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
+                    onChange={(e) => setSelectedDate(e.target.value || defaultDate)}
                     className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
@@ -306,7 +317,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="px-3 py-2 bg-muted/50 flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Schedule on {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                    Schedule on {formatDateDisplay(selectedDate)}
                   </span>
                   {isFetching && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                 </div>
