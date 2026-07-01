@@ -22,11 +22,15 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 (async () => {
-  // Initialise Sentry before the server starts so all errors are captured
-  await initSentry();
-
-  app.listen(port, () => {
+  app.listen(port, "0.0.0.0", () => {
     console.log(`Server listening on port ${port}`);
+
+    initSentry()
+      .then(() => {
+        // Sentry is optional at runtime; startup should not block on it.
+      })
+      .catch((err) => console.error("[sentry] Startup init failed:", err));
+
     setTimeout(() => {
       submitIndexNowOnStartup().catch((err) =>
         console.error("[indexnow] Startup submission failed:", err)
