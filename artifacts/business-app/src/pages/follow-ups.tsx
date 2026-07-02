@@ -291,15 +291,25 @@ function FollowUpCard({
   onDelete: () => void;
   updating: boolean;
 }) {
-  const overdue = isOverdue(fu.expected_parts_date, fu.status);
   const hasPartsRequirement = Boolean(fu.parts_description && fu.parts_description.trim());
-  const canBookNow = fu.status === "parts_arrived";
-  const statusLabel = !hasPartsRequirement && fu.status === "parts_arrived"
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expectedDate = fu.expected_parts_date ? new Date(`${fu.expected_parts_date}T00:00:00`) : null;
+  const treatAsAwaitingParts = Boolean(
+    expectedDate
+      && hasPartsRequirement
+      && fu.status === "parts_arrived"
+      && expectedDate.getTime() > today.getTime(),
+  );
+  const effectiveStatus = treatAsAwaitingParts ? "awaiting_parts" : fu.status;
+  const overdue = isOverdue(fu.expected_parts_date, effectiveStatus);
+  const canBookNow = effectiveStatus === "parts_arrived" || !hasPartsRequirement;
+  const statusLabel = !hasPartsRequirement && effectiveStatus === "parts_arrived"
     ? "follow-up"
-    : fu.status.replace(/_/g, " ");
-  const statusClass = !hasPartsRequirement && fu.status === "parts_arrived"
+    : effectiveStatus.replace(/_/g, " ");
+  const statusClass = !hasPartsRequirement && effectiveStatus === "parts_arrived"
     ? "bg-indigo-100 text-indigo-700"
-    : (statusColors[fu.status] || "bg-slate-100 text-slate-600");
+    : (statusColors[effectiveStatus] || "bg-slate-100 text-slate-600");
 
   return (
     <Card className={cn("p-4 border shadow-sm transition-colors", overdue && "border-orange-300 bg-orange-50/50")}>
@@ -354,17 +364,17 @@ function FollowUpCard({
           )}
         </div>
 
-        {isAdmin && fu.status !== "cancelled" && fu.status !== "booked" && fu.status !== "completed" && (
+        {isAdmin && effectiveStatus !== "cancelled" && effectiveStatus !== "booked" && effectiveStatus !== "completed" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5" onClick={onBookJob} disabled={updating || !canBookNow}>
               <Briefcase className="w-4 h-4" /> Book Job
             </Button>
-            {fu.status === "awaiting_parts" && (
+            {effectiveStatus === "awaiting_parts" && (
               <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => onStatusChange("parts_arrived")} disabled={updating}>
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Parts Arrived
               </Button>
             )}
-            {fu.status === "parts_arrived" && hasPartsRequirement && (
+            {effectiveStatus === "parts_arrived" && hasPartsRequirement && (
               <Button
                 size="sm"
                 variant="outline"
@@ -387,7 +397,7 @@ function FollowUpCard({
             </Button>
           </div>
         )}
-        {isAdmin && fu.status === "booked" && (
+        {isAdmin && effectiveStatus === "booked" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
             <Button size="sm" variant="secondary" className="gap-1.5" disabled>
               <Briefcase className="w-4 h-4" /> Booked
