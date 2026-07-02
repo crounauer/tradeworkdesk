@@ -1231,15 +1231,35 @@ router.post(
       }
     }
 
-    const { error: websiteUpdateError } = await db
+    const fullWebsiteTemplateUpdate = {
+      template_id: template.id,
+      applied_template_version: typeof template.version === "number" ? template.version : null,
+      applied_at: new Date().toISOString(),
+      theme,
+    };
+
+    let { error: websiteUpdateError } = await db
       .from("websites")
-      .update({
-        template_id: template.id,
-        applied_template_version: typeof template.version === "number" ? template.version : null,
-        applied_at: new Date().toISOString(),
-        theme,
-      })
+      .update(fullWebsiteTemplateUpdate)
       .eq("id", website.id);
+
+    if (websiteUpdateError) {
+      const message = String((websiteUpdateError as { message?: string })?.message || "");
+      const missingTrackingColumn = /applied_template_version|applied_at|column|schema cache|does not exist/i.test(message);
+
+      if (missingTrackingColumn) {
+        // Backward compatibility for environments that have not yet applied tracking columns.
+        const fallback = await db
+          .from("websites")
+          .update({
+            template_id: template.id,
+            theme,
+          })
+          .eq("id", website.id);
+
+        websiteUpdateError = fallback.error;
+      }
+    }
 
     if (websiteUpdateError) {
       res.status(500).json({ error: "Failed to update website template settings", code: "WEBSITE_UPDATE_FAILED" });
