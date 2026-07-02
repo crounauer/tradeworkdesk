@@ -191,7 +191,11 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
 
 router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { scheduled_date, scheduled_time, assigned_technician_id } = req.body;
+  const { scheduled_date, scheduled_time, assigned_technician_id, carry_forward_parts, carry_forward_services, carry_forward_time_entries } = req.body;
+
+  const copyParts = carry_forward_parts === true;
+  const copyServices = carry_forward_services === true;
+  const copyTimeEntries = carry_forward_time_entries === true;
 
   let fuQ = supabaseAdmin.from("follow_ups").select("*, original_job:jobs!follow_ups_original_job_id_fkey(id, job_ref)").eq("id", id);
   if (req.tenantId) fuQ = fuQ.eq("tenant_id", req.tenantId);
@@ -259,6 +263,79 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   const { data: newJob, error: jobErr } = await supabaseAdmin.from("jobs").insert(jobInsert).select("id, job_ref").single();
   if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
 
+  if (copyParts || copyServices || copyTimeEntries) {
+    try {
+      if (copyParts) {
+        let partsQ = supabaseAdmin.from("job_parts").select("part_name, quantity, serial_number, unit_price, catalogue_item_id, status").eq("job_id", followUp.original_job_id);
+        if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
+        const { data: sourceParts, error: sourcePartsErr } = await partsQ;
+        if (sourcePartsErr) throw sourcePartsErr;
+
+        if (sourceParts && sourceParts.length > 0) {
+          const partRows = sourceParts.map((p: Record<string, unknown>) => ({
+            job_id: newJob.id,
+            tenant_id: tenantId,
+            part_name: p.part_name,
+            quantity: p.quantity,
+            serial_number: p.serial_number,
+            unit_price: p.unit_price,
+            catalogue_item_id: p.catalogue_item_id,
+            status: p.status || "fitted",
+          }));
+          const { error: insertPartsErr } = await supabaseAdmin.from("job_parts").insert(partRows);
+          if (insertPartsErr) throw insertPartsErr;
+        }
+      }
+
+      if (copyServices) {
+        let servicesQ = supabaseAdmin.from("job_services").select("service_name, quantity, unit_price, catalogue_item_id").eq("job_id", followUp.original_job_id);
+        if (tenantId) servicesQ = servicesQ.eq("tenant_id", tenantId);
+        const { data: sourceServices, error: sourceServicesErr } = await servicesQ;
+        if (sourceServicesErr) throw sourceServicesErr;
+
+        if (sourceServices && sourceServices.length > 0) {
+          const serviceRows = sourceServices.map((s: Record<string, unknown>) => ({
+            job_id: newJob.id,
+            tenant_id: tenantId,
+            service_name: s.service_name,
+            quantity: s.quantity,
+            unit_price: s.unit_price,
+            catalogue_item_id: s.catalogue_item_id,
+          }));
+          const { error: insertServicesErr } = await supabaseAdmin.from("job_services").insert(serviceRows);
+          if (insertServicesErr) throw insertServicesErr;
+        }
+      }
+
+      if (copyTimeEntries) {
+        let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, notes, hourly_rate, callout_fee, created_by").eq("job_id", followUp.original_job_id);
+        if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
+        const { data: sourceEntries, error: sourceEntriesErr } = await timeQ;
+        if (sourceEntriesErr) throw sourceEntriesErr;
+
+        if (sourceEntries && sourceEntries.length > 0) {
+          const timeRows = sourceEntries.map((t: Record<string, unknown>) => ({
+            job_id: newJob.id,
+            tenant_id: tenantId,
+            arrival_time: t.arrival_time,
+            departure_time: t.departure_time,
+            notes: t.notes,
+            hourly_rate: t.hourly_rate,
+            callout_fee: t.callout_fee,
+            created_by: t.created_by,
+          }));
+          const { error: insertTimeErr } = await supabaseAdmin.from("job_time_entries").insert(timeRows);
+          if (insertTimeErr) throw insertTimeErr;
+        }
+      }
+    } catch (copyErr) {
+      await supabaseAdmin.from("jobs").delete().eq("id", newJob.id);
+      const msg = copyErr instanceof Error ? copyErr.message : "Failed to carry forward job data";
+      res.status(500).json({ error: msg });
+      return;
+    }
+  }
+
   let updateQ = supabaseAdmin.from("follow_ups").update({
     status: "booked",
     new_job_id: newJob.id,
@@ -284,7 +361,16 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     }).catch((err) => console.error("[push-events] followup conversion assignment failed:", err));
   }
 
-  res.status(201).json({ follow_up_id: id, job_id: newJob.id, job_ref: newJob.job_ref });
+  res.status(201).json({
+    follow_up_id: id,
+    job_id: newJob.id,
+    job_ref: newJob.job_ref,
+    copied: {
+      parts: copyParts,
+      services: copyServices,
+      time_entries: copyTimeEntries,
+    },
+  });
 });
 
 router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

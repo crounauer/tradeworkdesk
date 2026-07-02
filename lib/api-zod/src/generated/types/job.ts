@@ -19,6 +19,8 @@ export interface Job {
   assigned_technician_id?: string | null;
   job_type: JobJobType;
   status: JobStatus;
+  is_in_progress?: boolean | null;
+  is_awaiting_parts?: boolean | null;
   priority: JobPriority;
   scheduled_date: Date;
   /** @nullable */

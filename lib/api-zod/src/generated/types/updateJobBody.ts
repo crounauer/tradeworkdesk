@@ -18,6 +18,8 @@ export interface UpdateJobBody {
   assigned_technician_id?: string | null;
   job_type?: UpdateJobBodyJobType;
   status?: UpdateJobBodyStatus;
+  is_in_progress?: boolean;
+  is_awaiting_parts?: boolean;
   priority?: UpdateJobBodyPriority;
   scheduled_date?: Date;
   /** @nullable */

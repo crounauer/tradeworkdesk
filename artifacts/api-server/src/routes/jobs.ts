@@ -45,6 +45,8 @@ interface SupabaseJobRow {
   service_catalogue_id: string | null;
   fuel_category: string | null;
   status: string;
+  is_in_progress?: boolean | null;
+  is_awaiting_parts?: boolean | null;
   priority: string;
   description: string | null;
   notes: string | null;
@@ -402,7 +404,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, fuel_category, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: true, nullsFirst: false })
     .order("scheduled_time", { ascending: true, nullsFirst: true })
@@ -1085,7 +1087,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const body = UpdateJobBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const TECH_ALLOWED_FIELDS = new Set(["arrival_time", "departure_time", "status"]);
+  const TECH_ALLOWED_FIELDS = new Set(["arrival_time", "departure_time", "status", "is_in_progress", "is_awaiting_parts"]);
   if (req.userRole === "technician") {
     const bodyKeys = Object.keys(req.body).filter((k) => req.body[k] !== undefined);
     const forbidden = bodyKeys.filter((k) => !TECH_ALLOWED_FIELDS.has(k));
@@ -1121,6 +1123,18 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const updateCoreData = body.data;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
+  const rawIsInProgress = req.body.is_in_progress as boolean | undefined;
+  const rawIsAwaitingParts = req.body.is_awaiting_parts as boolean | undefined;
+
+  if (rawIsInProgress !== undefined && typeof rawIsInProgress !== "boolean") {
+    res.status(400).json({ error: "is_in_progress must be a boolean" });
+    return;
+  }
+  if (rawIsAwaitingParts !== undefined && typeof rawIsAwaitingParts !== "boolean") {
+    res.status(400).json({ error: "is_awaiting_parts must be a boolean" });
+    return;
+  }
+
   let previousJobMeta: { status: string | null; customer_id: string | null; assigned_technician_id: string | null; job_ref: string | null } | null = null;
 
   if (body.data.status !== undefined || updateCoreData.assigned_technician_id !== undefined) {
@@ -1186,6 +1200,24 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
 
   const updatePayload: Record<string, unknown> = { ...updateCoreData };
+
+  if (rawIsInProgress !== undefined) {
+    updatePayload.is_in_progress = rawIsInProgress;
+  }
+  if (rawIsAwaitingParts !== undefined) {
+    updatePayload.is_awaiting_parts = rawIsAwaitingParts;
+  }
+
+  if (body.data.status === "in_progress" && rawIsInProgress === undefined) {
+    updatePayload.is_in_progress = true;
+  }
+  if (body.data.status === "awaiting_parts" && rawIsAwaitingParts === undefined) {
+    updatePayload.is_awaiting_parts = true;
+  }
+  if (["completed", "cancelled", "invoiced"].includes(String(body.data.status || ""))) {
+    if (rawIsInProgress === undefined) updatePayload.is_in_progress = false;
+    if (rawIsAwaitingParts === undefined) updatePayload.is_awaiting_parts = false;
+  }
 
   if (rawCalloutRateId !== undefined) {
     if (rawCalloutRateId === null || rawCalloutRateId === "") {

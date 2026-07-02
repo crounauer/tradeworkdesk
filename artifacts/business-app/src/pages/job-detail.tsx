@@ -123,6 +123,7 @@ export default function JobDetail() {
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
   const [downloadingCp12, setDownloadingCp12] = useState(false);
+  const [operationalFlagPending, setOperationalFlagPending] = useState<"in_progress" | "awaiting_parts" | null>(null);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -149,6 +150,8 @@ export default function JobDetail() {
 
   const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
   const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
+  const isOperationalInProgress = Boolean(jobRecord.is_in_progress) || job?.status === "in_progress";
+  const isOperationalAwaitingParts = Boolean(jobRecord.is_awaiting_parts) || job?.status === "awaiting_parts";
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
@@ -231,6 +234,38 @@ export default function JobDetail() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update status";
       toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleOperationalFlagToggle = async (flag: "in_progress" | "awaiting_parts") => {
+    if (!job) return;
+    if (!isOnline) {
+      toast({ title: "Offline", description: "This change requires an internet connection.", variant: "destructive" });
+      return;
+    }
+
+    const isActive = flag === "in_progress" ? isOperationalInProgress : isOperationalAwaitingParts;
+    const fieldName = flag === "in_progress" ? "is_in_progress" : "is_awaiting_parts";
+    const nextValue = !isActive;
+
+    setOperationalFlagPending(flag);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [fieldName]: nextValue }),
+      });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({
+        title: "Updated",
+        description: `${flag === "in_progress" ? "In Progress" : "Awaiting Parts"} ${nextValue ? "enabled" : "cleared"}`,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setOperationalFlagPending(null);
     }
   };
 
@@ -347,6 +382,12 @@ export default function JobDetail() {
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
+            {isOperationalInProgress && (
+              <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">In Progress</span>
+            )}
+            {isOperationalAwaitingParts && (
+              <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Awaiting Parts</span>
+            )}
           </div>
           {fromQuoteId && (
             <button
@@ -383,22 +424,27 @@ export default function JobDetail() {
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
             </Button>
           )}
-          {canComplete && job.status !== "awaiting_parts" && (
-            <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleStatusChange("awaiting_parts", "Awaiting Parts")} disabled={updateJob.isPending}>
+          {canComplete && (
+            <Button
+              size="sm"
+              className={isOperationalAwaitingParts ? "bg-orange-600 hover:bg-orange-700 text-white" : "bg-orange-100 hover:bg-orange-200 text-orange-800"}
+              onClick={() => handleOperationalFlagToggle("awaiting_parts")}
+              disabled={updateJob.isPending || operationalFlagPending !== null}
+            >
               <Package className="w-4 h-4 mr-2" /> Awaiting Parts
             </Button>
           )}
           {canComplete && (
             <Button
               size="sm"
-              className={job.status === "in_progress" ? "bg-blue-700 hover:bg-blue-800 text-white" : "bg-blue-100 hover:bg-blue-200 text-blue-800"}
-              onClick={() => handleStatusChange("in_progress", "In Progress")}
-              disabled={updateJob.isPending}
+              className={isOperationalInProgress ? "bg-blue-700 hover:bg-blue-800 text-white" : "bg-blue-100 hover:bg-blue-200 text-blue-800"}
+              onClick={() => handleOperationalFlagToggle("in_progress")}
+              disabled={updateJob.isPending || operationalFlagPending !== null}
             >
-              <Clock className="w-4 h-4 mr-2" /> {job.status === "in_progress" ? "Resume" : "Mark In Progress"}
+              <Clock className="w-4 h-4 mr-2" /> In Progress
             </Button>
           )}
-          {(job.status === "requires_follow_up" || job.status === "awaiting_parts") && (
+          {job.status === "completed" && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Return Visit
             </Button>
@@ -450,6 +496,17 @@ export default function JobDetail() {
             <Button variant="outline" size="sm" onClick={handleDownloadCp12} disabled={downloadingCp12}>
               {downloadingCp12 ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
               {(job as unknown as { fuel_category?: string | null }).fuel_category === "gas" ? "CP12 PDF" : "Service Record PDF"}
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => setShowRebook(true)}
+              disabled={!isOnline}
+            >
+              {hasYearRebookScheduled ? <CheckCircle2 className="w-4 h-4 mr-2 text-white" /> : <Copy className="w-4 h-4 mr-2" />}
+              {hasYearRebookScheduled ? "Rebooked (1yr)" : "Rebook (1yr)"}
             </Button>
           )}
           {isAdmin && (
@@ -566,7 +623,12 @@ export default function JobDetail() {
         <div className="grid lg:grid-cols-3 gap-6 max-w-full min-w-0">
           <div className="lg:col-span-2 space-y-6 min-w-0">
             <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
-              <h3 className="font-bold text-lg mb-4">Job Information</h3>
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <h3 className="font-bold text-lg">Job Information</h3>
+                <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+                  {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit Job</>}
+                </Button>
+              </div>
               <div className="grid sm:grid-cols-2 gap-y-4 gap-x-6">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Calendar className="w-4 h-4"/> Scheduled</p>
@@ -597,12 +659,6 @@ export default function JobDetail() {
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap gap-2">
-                {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => setShowRebook(true)} disabled={!isOnline}>
-                    {hasYearRebookScheduled ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> : <Copy className="w-4 h-4 mr-2" />}
-                    {hasYearRebookScheduled ? "Rebooked (1yr)" : "Rebook (1yr)"}
-                  </Button>
-                )}
                 <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
                   <Mail className="w-4 h-4 mr-2" /> Email Customer
                 </Button>
@@ -611,9 +667,6 @@ export default function JobDetail() {
                     <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-                  {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
-                </Button>
               </div>
               {isAdmin && job.scheduled_date && (
                 <RebookDialog
