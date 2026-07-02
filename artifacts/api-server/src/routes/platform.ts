@@ -69,6 +69,7 @@ function signR2Headers(opts: {
 const router: IRouter = Router();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DELETED_TENANT_FALLBACK_ID = "00000000-0000-0000-0000-000000000001";
 
 function dayKey(dateLike: string | Date): string | null {
   const d = new Date(dateLike);
@@ -506,16 +507,51 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
   }
 
   if (userCount > 0 && users) {
+    const failedAuthDeletes: string[] = [];
     for (const user of users) {
-      await supabaseAdmin.auth.admin.deleteUser(user.id).catch(e =>
-        console.error(`[delete-tenant] Failed to delete auth user ${user.id}:`, e.message)
-      );
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+      if (deleteAuthError) {
+        failedAuthDeletes.push(user.id);
+        console.error(`[delete-tenant] Failed to delete auth user ${user.id}:`, deleteAuthError.message);
+      }
     }
-    await supabaseAdmin.from("profiles").delete().eq("tenant_id", id);
+
+    // Some profiles can remain if auth deletion is blocked by downstream profile FKs.
+    // Rehome those users to the system tenant so this tenant can be deleted safely.
+    const { data: remainingProfiles, error: remainingProfilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("tenant_id", id);
+
+    if (remainingProfilesError) {
+      res.status(500).json({ error: remainingProfilesError.message });
+      return;
+    }
+
+    if (remainingProfiles && remainingProfiles.length > 0) {
+      const remainingProfileIds = remainingProfiles.map((p) => p.id);
+      const { error: rehomeProfilesError } = await supabaseAdmin
+        .from("profiles")
+        .update({ tenant_id: DELETED_TENANT_FALLBACK_ID, is_active: false })
+        .in("id", remainingProfileIds)
+        .eq("tenant_id", id);
+
+      if (rehomeProfilesError) {
+        res.status(500).json({ error: rehomeProfilesError.message });
+        return;
+      }
+
+      if (failedAuthDeletes.length > 0) {
+        console.warn(`[delete-tenant] Rehomed ${remainingProfileIds.length} profile(s) after ${failedAuthDeletes.length} auth delete failure(s) for tenant ${id}`);
+      }
+    }
   }
 
-  await supabaseAdmin.from("tenant_addons").delete().eq("tenant_id", id);
-  await supabaseAdmin.from("company_settings").delete().eq("tenant_id", id);
+  const { error: deleteAddonsError } = await supabaseAdmin.from("tenant_addons").delete().eq("tenant_id", id);
+  if (deleteAddonsError) { res.status(500).json({ error: deleteAddonsError.message }); return; }
+
+  const { error: deleteCompanySettingsError } = await supabaseAdmin.from("company_settings").delete().eq("tenant_id", id);
+  if (deleteCompanySettingsError) { res.status(500).json({ error: deleteCompanySettingsError.message }); return; }
 
   const { error } = await supabaseAdmin.from("tenants").delete().eq("id", id);
   if (error) { res.status(500).json({ error: error.message }); return; }
