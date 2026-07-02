@@ -5,6 +5,11 @@ export type ServicesGridBlockProps = {
   title: string;
   subtitle?: string;
   services: ServiceItem[];
+  variant?: 'default' | 'classic';
+  layout?: 'grid' | 'list';
+  background?: 'default' | 'white' | 'light';
+  cardStyle?: 'default' | 'bordered-traditional';
+  density?: 'normal' | 'compact';
 };
 
 export function ServicesGridBlock({
@@ -12,9 +17,30 @@ export function ServicesGridBlock({
   title,
   subtitle,
   services,
+  variant = 'default',
+  layout = 'grid',
+  background = 'default',
+  cardStyle = 'default',
+  density = 'normal',
 }: ServicesGridBlockProps) {
+  const isClassic = variant === 'classic';
+  const sectionClassName = background === 'light'
+    ? 'bg-slate-50 px-6 py-20 lg:px-8'
+    : background === 'white'
+      ? 'bg-white px-6 py-20 lg:px-8'
+      : 'bg-white px-6 py-20 lg:px-8';
+  const gridClassName = layout === 'list'
+    ? 'mt-10 grid gap-4'
+    : density === 'compact'
+      ? 'mt-10 grid gap-4 md:grid-cols-3'
+      : 'mt-10 grid gap-6 md:grid-cols-3';
+  const cardClassName = cardStyle === 'bordered-traditional' || isClassic
+    ? 'rounded-sm border border-slate-300 bg-white p-6'
+    : 'rounded-xl border border-slate-200 bg-slate-50 p-6';
+  const linkClassName = isClassic ? 'mt-5 inline-block font-semibold text-slate-900 underline decoration-slate-400 underline-offset-4' : 'mt-5 inline-block font-semibold text-slate-950';
+
   return (
-    <section id="services" className="bg-white px-6 py-20 lg:px-8">
+    <section id="services" className={sectionClassName}>
       <div className="mx-auto max-w-7xl">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">{eyebrow}</p>
@@ -22,13 +48,13 @@ export function ServicesGridBlock({
           {subtitle ? <p className="mt-4 text-lg text-slate-600">{subtitle}</p> : null}
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className={gridClassName}>
           {services.map((service) => (
-            <article key={service.title} className="rounded-xl border border-slate-200 bg-slate-50 p-6">
+            <article key={service.title} className={cardClassName}>
               <h3 className="text-xl font-semibold text-slate-950">{service.title}</h3>
               <p className="mt-3 text-slate-600">{service.description}</p>
               {service.href ? (
-                <a href={service.href} className="mt-5 inline-block font-semibold text-slate-950">
+                <a href={service.href} className={linkClassName}>
                   Learn more →
                 </a>
               ) : null}

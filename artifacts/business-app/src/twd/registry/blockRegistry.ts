@@ -28,25 +28,25 @@ export const twdBlockRegistry = [
     type: 'site.header',
     label: 'Site Header',
     category: 'site',
-    editableFields: ['logoText', 'navItems', 'phone', 'ctaLabel', 'ctaHref'],
+    editableFields: ['logoText', 'navItems', 'phone', 'ctaLabel', 'ctaHref', 'layout', 'headerStyle', 'tone', 'ctaStyle'],
   },
   {
     type: 'hero.standard',
     label: 'Standard Hero',
     category: 'hero',
-    editableFields: ['eyebrow', 'title', 'subtitle', 'primaryCtaLabel', 'secondaryCtaLabel', 'phone', 'imageAlt'],
+    editableFields: ['eyebrow', 'layout', 'variant', 'heroStyle', 'tone', 'density', 'title', 'subtitle', 'primaryCtaLabel', 'secondaryCtaLabel', 'phone', 'imageAlt'],
   },
   {
     type: 'trust.badges',
     label: 'Trust Badges',
     category: 'trust',
-    editableFields: ['badges'],
+    editableFields: ['variant', 'background', 'cardStyle', 'density', 'badges'],
   },
   {
     type: 'services.grid',
     label: 'Services Grid',
     category: 'services',
-    editableFields: ['eyebrow', 'title', 'subtitle', 'services'],
+    editableFields: ['eyebrow', 'variant', 'layout', 'background', 'cardStyle', 'density', 'title', 'subtitle', 'services'],
   },
   {
     type: 'features.list',
@@ -58,19 +58,19 @@ export const twdBlockRegistry = [
     type: 'about.intro',
     label: 'About Intro',
     category: 'about',
-    editableFields: ['eyebrow', 'title', 'body', 'bullets'],
+    editableFields: ['eyebrow', 'variant', 'background', 'tone', 'title', 'body', 'bullets'],
   },
   {
     type: 'process.steps',
     label: 'Process Steps',
     category: 'process',
-    editableFields: ['eyebrow', 'title', 'steps'],
+    editableFields: ['eyebrow', 'variant', 'layout', 'tone', 'title', 'steps'],
   },
   {
     type: 'reviews.grid',
     label: 'Reviews Grid',
     category: 'reviews',
-    editableFields: ['eyebrow', 'title', 'reviews'],
+    editableFields: ['eyebrow', 'variant', 'cardStyle', 'background', 'title', 'reviews'],
   },
   {
     type: 'areas.grid',
@@ -88,7 +88,7 @@ export const twdBlockRegistry = [
     type: 'cta.banner',
     label: 'CTA Banner',
     category: 'cta',
-    editableFields: ['title', 'subtitle', 'primaryCtaLabel', 'secondaryCtaLabel', 'phone'],
+    editableFields: ['ctaStyle', 'tone', 'background', 'title', 'subtitle', 'primaryCtaLabel', 'secondaryCtaLabel', 'phone'],
   },
   {
     type: 'contact.split',
@@ -124,7 +124,7 @@ export const twdBlockRegistry = [
     type: 'site.footer',
     label: 'Site Footer',
     category: 'site',
-    editableFields: ['logoText', 'description', 'phone', 'email', 'navItems', 'legalLinks'],
+    editableFields: ['logoText', 'description', 'phone', 'email', 'navItems', 'legalLinks', 'variant', 'layout', 'background', 'tone'],
   },
 ] as const satisfies readonly BlockDefinition[];
 

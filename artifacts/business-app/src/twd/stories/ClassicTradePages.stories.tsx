@@ -20,7 +20,7 @@ import {
 } from "../templates/classicTrade.pages";
 
 const meta = {
-  title: "TWD Templates/Classic Trade Pages",
+  title: "TWD Templates / Classic Trade Pages",
   component: TemplatePageRenderer,
   parameters: {
     layout: "fullscreen",

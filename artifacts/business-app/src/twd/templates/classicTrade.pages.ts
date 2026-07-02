@@ -1,8 +1,24 @@
 import type { TemplatePage } from "./TemplatePageRenderer";
 
+const classicHeaderVisual = {
+  layout: "traditional",
+  headerStyle: "classic-dark",
+  tone: "navy",
+  ctaStyle: "amber-solid",
+} as const;
+
+const classicHeroVisual = {
+  layout: "split",
+  variant: "classic",
+  heroStyle: "classic",
+  tone: "navy",
+  density: "comfortable",
+} as const;
+
 const siteHeader = {
   type: "site.header",
   props: {
+    ...classicHeaderVisual,
     logoText: "Classic Trade Services",
     navItems: [
       { label: "Home", href: "/" },
@@ -21,6 +37,10 @@ const siteHeader = {
 const siteFooter = {
   type: "site.footer",
   props: {
+    variant: "classic",
+    layout: "traditional",
+    background: "navy",
+    tone: "formal",
     logoText: "Classic Trade Services",
     description: "Reliable plumbing, heating and property service support from an established local trade business.",
     phone: "01224 123456",
@@ -42,6 +62,9 @@ const siteFooter = {
 const commonCta = {
   type: "cta.banner",
   props: {
+    ctaStyle: "classic-amber",
+    tone: "practical",
+    background: "amber",
     title: "Need dependable help from a local trade business?",
     subtitle: "Speak to experienced local engineers for practical advice, clear quotations and well-organised work.",
     primaryCtaLabel: "Request a quote",
@@ -70,12 +93,13 @@ export const classicTradeHomePage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Established local trade business",
-        title: "Reliable plumbing and heating services for homes and small properties",
+        title: "Reliable local plumbers and heating engineers serving homes across Aberdeen and Aberdeenshire",
         subtitle:
-          "Classic Trade Services helps homeowners, landlords and local businesses with dependable plumbing, heating and repair work delivered with clear communication.",
+          "Practical servicing, repairs and installations with clear quotations, sensible scheduling and dependable workmanship from a long-established local team.",
         primaryCtaLabel: "Request a quote",
-        secondaryCtaLabel: "View services",
+        secondaryCtaLabel: "Speak to a local engineer",
         phone: "01224 123456",
         imageAlt: "Local engineer carrying out plumbing and heating work",
       },
@@ -83,35 +107,65 @@ export const classicTradeHomePage: TemplatePage = {
     {
       type: "trust.badges",
       props: {
+        variant: "classic",
+        background: "white",
+        cardStyle: "bordered-traditional",
         badges: [
-          { label: "Local engineers", description: "Serving customers across Aberdeen and Aberdeenshire with practical support." },
-          { label: "Clear quotations", description: "Straightforward pricing and sensible recommendations before work starts." },
-          { label: "Established service", description: "A professional, dependable approach suited to homes, landlords and local businesses." },
+          { label: "Clear quotations", description: "Straightforward pricing and practical recommendations before any work begins." },
+          { label: "Local engineers", description: "Experienced local engineers who understand homes and properties in the area." },
+          { label: "Reliable workmanship", description: "Servicing, repairs and installations delivered with care and clear communication." },
         ],
       },
     },
     {
       type: "services.grid",
       props: {
+        variant: "classic",
+        layout: "grid",
+        cardStyle: "bordered-traditional",
+        background: "light",
         eyebrow: "Services",
-        title: "Practical support across core trade services",
-        subtitle: "Structured service pages for the work local customers ask about most often.",
+        title: "Practical support for day-to-day plumbing and heating work",
+        subtitle: "Clear service pages focused on the work local customers regularly ask us to handle.",
         services: [
           { title: "Boiler servicing", description: "Routine servicing to help keep heating systems dependable and efficient.", href: "/services/boiler-servicing" },
-          { title: "Plumbing repairs", description: "Responsive help with leaks, pipework faults and common household plumbing issues.", href: "/services/plumbing-repairs" },
-          { title: "Heating installations", description: "Replacement heating equipment, controls and system improvement work.", href: "/services/heating-installations" },
+          { title: "Plumbing repairs", description: "Practical repairs for leaks, pipework faults and common household plumbing issues.", href: "/services/plumbing-repairs" },
+          { title: "Heating installations", description: "Heating replacements, controls and planned installation work.", href: "/services/heating-installations" },
+          { title: "Maintenance work", description: "Planned maintenance visits to keep key systems dependable year-round.", href: "/services/landlord-maintenance" },
+          { title: "Emergency callouts", description: "Sample editable wording for urgent response enquiries where availability allows.", href: "/services/heating-repairs" },
         ],
       },
     },
     {
-      type: "reviews.grid",
+      type: "about.intro",
       props: {
-        eyebrow: "Reviews",
-        title: "What local customers appreciate",
-        reviews: [
-          { quote: "Professional from the first call to the finished job, with everything explained clearly.", name: "Customer", location: "Ellon", rating: 5 },
-          { quote: "The quotation was straightforward and the work was completed carefully and on time.", name: "Customer", location: "Inverurie", rating: 5 },
-          { quote: "Reliable local service and good communication throughout.", name: "Customer", location: "Aberdeen", rating: 5 },
+        variant: "classic",
+        background: "white",
+        tone: "formal",
+        eyebrow: "About us",
+        title: "An established local trade business with a practical, professional approach",
+        body:
+          "Classic Trade Services is designed for long-standing local businesses that value clear communication, careful work scheduling and dependable workmanship for homeowners, landlords and local properties.",
+        bullets: [
+          "Formal and practical service from first enquiry to completion",
+          "Clear quotations and realistic timescales",
+          "Servicing, repairs and installations completed with care",
+        ],
+      },
+    },
+    {
+      type: "process.steps",
+      props: {
+        variant: "classic",
+        layout: "timeline",
+        tone: "light",
+        eyebrow: "How we work",
+        title: "A straightforward process from first enquiry to completed work",
+        steps: [
+          { title: "Enquiry", description: "Call or send details of the work needed and we will confirm the next step." },
+          { title: "Quote", description: "Receive a clear quotation with practical advice before scheduling begins." },
+          { title: "Work scheduled", description: "Visits are arranged clearly with suitable timing for your property." },
+          { title: "Job completed", description: "Work is completed carefully with clear communication throughout." },
         ],
       },
     },
@@ -120,7 +174,7 @@ export const classicTradeHomePage: TemplatePage = {
       props: {
         eyebrow: "Areas covered",
         title: "Supporting customers across local towns and surrounding areas",
-        subtitle: "Ideal for trade businesses serving established local catchments.",
+        subtitle: "Ideal for established trade businesses serving practical local catchments.",
         areas: [
           { name: "Ellon", href: "/areas/ellon" },
           { name: "Inverurie", href: "/areas/inverurie" },
@@ -132,19 +186,30 @@ export const classicTradeHomePage: TemplatePage = {
       },
     },
     {
-      type: "faq.accordion",
+      type: "reviews.grid",
       props: {
-        eyebrow: "FAQ",
-        title: "Common questions before booking",
-        faqs: [
-          { question: "What type of work can this site structure cover?", answer: "The template suits plumbing, heating, electrical, roofing, building and similar local service trades." },
-          { question: "Can customers request quotations online?", answer: "Yes, the contact section can support online enquiries alongside phone-first bookings." },
-          { question: "Which areas are shown by default?", answer: "The sample content covers Ellon, Inverurie, Peterhead, Aberdeen, Oldmeldrum and Mintlaw." },
+        variant: "classic",
+        cardStyle: "quote",
+        background: "white",
+        eyebrow: "Customer reviews",
+        title: "Sample feedback from local households and property managers",
+        reviews: [
+          { quote: "Sample review: professional from the first call to the finished job, with everything explained clearly.", name: "Customer", location: "Ellon", rating: 5 },
+          { quote: "Sample review: the quotation was straightforward and the work was completed carefully and on time.", name: "Customer", location: "Inverurie", rating: 5 },
+          { quote: "Sample review: reliable local service and practical communication throughout.", name: "Customer", location: "Aberdeen", rating: 5 },
         ],
       },
     },
-    commonCta,
-    contactSplit,
+    {
+      ...commonCta,
+      props: {
+        ...commonCta.props,
+        title: "Need a practical quotation for plumbing or heating work?",
+        subtitle: "Request a quote, book a visit or speak to a local engineer about servicing, repairs and installations.",
+        primaryCtaLabel: "Request a quote",
+        secondaryCtaLabel: "Book a visit",
+      },
+    },
     siteFooter,
   ],
 };
@@ -156,6 +221,7 @@ export const classicTradeAboutPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "About us",
         title: "A traditional service approach built around clear communication",
         subtitle:
@@ -169,6 +235,8 @@ export const classicTradeAboutPage: TemplatePage = {
     {
       type: "about.intro",
       props: {
+        variant: "classic",
+        tone: "formal",
         eyebrow: "Who we are",
         title: "Professional support for homes, landlords and local businesses",
         body:
@@ -206,6 +274,7 @@ export const classicTradeServicesPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Services",
         title: "Well-structured service pages for a local trade website",
         subtitle:
@@ -219,6 +288,9 @@ export const classicTradeServicesPage: TemplatePage = {
     {
       type: "services.grid",
       props: {
+        variant: "classic",
+        cardStyle: "bordered-traditional",
+        background: "white",
         eyebrow: "Our services",
         title: "Choose a service",
         subtitle: "Each service can link to an editable detail page using the same importer-compatible structure.",
@@ -235,12 +307,16 @@ export const classicTradeServicesPage: TemplatePage = {
     {
       type: "process.steps",
       props: {
+        variant: "classic",
+        layout: "timeline",
+        tone: "light",
         eyebrow: "How it works",
-        title: "Simple and well organised from first enquiry to completion",
+        title: "Simple and practical from enquiry to completed work",
         steps: [
-          { title: "Tell us about the work", description: "Explain the issue or the planned job by phone or through the enquiry form." },
-          { title: "Receive clear advice", description: "The likely next step, visit requirements and quotation process are explained properly." },
-          { title: "Work completed carefully", description: "Jobs are carried out with a practical, professional approach and clear follow-up where needed." },
+          { title: "Enquiry", description: "Explain the issue or planned job by phone or through the enquiry form." },
+          { title: "Quote", description: "Receive clear advice, likely requirements and practical quotation details." },
+          { title: "Work scheduled", description: "We confirm a suitable date and keep communication clear before arrival." },
+          { title: "Job completed", description: "Work is completed carefully with practical follow-up where needed." },
         ],
       },
     },
@@ -256,6 +332,7 @@ export const classicTradeServiceDetailPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Boiler servicing",
         title: "Boiler servicing with a careful, professional approach",
         subtitle:
@@ -269,6 +346,8 @@ export const classicTradeServiceDetailPage: TemplatePage = {
     {
       type: "about.intro",
       props: {
+        variant: "classic",
+        tone: "formal",
         eyebrow: "What is included",
         title: "A straightforward visit with sensible checks and clear advice",
         body:
@@ -318,6 +397,7 @@ export const classicTradeAreasCoveredPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Areas covered",
         title: "Serving customers across Aberdeen and Aberdeenshire",
         subtitle:
@@ -356,6 +436,7 @@ export const classicTradeAreaDetailPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Ellon",
         title: "Plumbing and heating services in Ellon",
         subtitle:
@@ -369,6 +450,8 @@ export const classicTradeAreaDetailPage: TemplatePage = {
     {
       type: "about.intro",
       props: {
+        variant: "classic",
+        tone: "formal",
         eyebrow: "Local service",
         title: "Dependable local support close to home",
         body:
@@ -383,6 +466,9 @@ export const classicTradeAreaDetailPage: TemplatePage = {
     {
       type: "services.grid",
       props: {
+        variant: "classic",
+        cardStyle: "bordered-traditional",
+        background: "light",
         eyebrow: "Popular services",
         title: "Common work in this area",
         subtitle: "Area pages can highlight the services most relevant to local customers.",
@@ -405,6 +491,7 @@ export const classicTradeReviewsPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Reviews",
         title: "Feedback from local customers",
         subtitle:
@@ -418,6 +505,9 @@ export const classicTradeReviewsPage: TemplatePage = {
     {
       type: "reviews.grid",
       props: {
+        variant: "classic",
+        cardStyle: "quote",
+        background: "white",
         eyebrow: "Customer feedback",
         title: "What customers say about the service",
         reviews: [
@@ -442,6 +532,7 @@ export const classicTradeGalleryPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Gallery",
         title: "Examples of completed work",
         subtitle:
@@ -479,6 +570,7 @@ export const classicTradeFaqPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "FAQ",
         title: "Frequently asked questions",
         subtitle:
@@ -515,6 +607,7 @@ export const classicTradeContactPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Contact",
         title: "Speak to a local trade business about your project or repair",
         subtitle:
@@ -537,6 +630,7 @@ export const classicTradeBlogIndexPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Advice",
         title: "Useful guides for homeowners and property managers",
         subtitle:
@@ -570,6 +664,7 @@ export const classicTradeBlogPostPage: TemplatePage = {
     {
       type: "hero.standard",
       props: {
+        ...classicHeroVisual,
         eyebrow: "Home maintenance advice",
         title: "When should a boiler be serviced?",
         subtitle:
