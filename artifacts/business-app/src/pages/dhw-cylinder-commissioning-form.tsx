@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import SignatureCanvas from "react-signature-canvas";
 import { useParams } from "wouter";
 import { Link } from "wouter";
 import { ArrowLeft, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, FileDown, Lock, Unlock, Upload } from "lucide-react";
@@ -102,8 +101,6 @@ type FormValues = {
   final_status: "" | "Commissioned and safe to use" | "Commissioned with advisory notes" | "Not commissioned" | "Isolated / not safe to use" | "Further work required";
   engineer_declaration: boolean;
   customer_handover: boolean;
-  engineer_signature_data: string;
-  customer_signature_data: string;
 };
 
 type ExistingRecord = {
@@ -123,8 +120,6 @@ type ExistingRecord = {
   final_status?: string | null;
   jurisdiction?: string | null;
   cylinder_type?: string | null;
-  engineer_signature_data?: string | null;
-  customer_signature_data?: string | null;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -209,8 +204,6 @@ const defaultValues: FormValues = {
   final_status: "",
   engineer_declaration: false,
   customer_handover: false,
-  engineer_signature_data: "",
-  customer_signature_data: "",
 };
 
 function isUnvented(values: FormValues) {
@@ -417,9 +410,6 @@ export default function DhwCylinderCommissioningForm() {
     defect_photos: [],
   });
 
-  const engineerSigRef = useRef<SignatureCanvas>(null);
-  const customerSigRef = useRef<SignatureCanvas>(null);
-
   const { register, handleSubmit, setValue, watch, reset, getValues } = useForm<FormValues>({ defaultValues });
   const values = watch();
 
@@ -457,7 +447,6 @@ export default function DhwCylinderCommissioningForm() {
     checks.push(!requiredMissing(values.operating_pressure_bar));
     checks.push(values.manufacturer_instructions_available !== "");
     checks.push(!!photoUploads.cylinder_data_plate);
-    checks.push(!!values.engineer_signature_data);
     checks.push(!!values.final_status);
     checks.push(values.engineer_declaration);
     checks.push(values.customer_handover);
@@ -578,8 +567,6 @@ export default function DhwCylinderCommissioningForm() {
         final_status: (rec.final_status || "") as FormValues["final_status"],
         engineer_declaration: !!installation.engineer_declaration,
         customer_handover: !!installation.customer_handover,
-        engineer_signature_data: (rec.engineer_signature_data || "") as string,
-        customer_signature_data: (rec.customer_signature_data || "") as string,
       });
 
       setPhotoUploads({
@@ -614,7 +601,6 @@ export default function DhwCylinderCommissioningForm() {
       ["Heat source", data.heat_source],
       ["Engineer declaration", data.engineer_declaration],
       ["Customer handover", data.customer_handover],
-      ["Engineer signature", data.engineer_signature_data],
       ["Final status", data.final_status],
     ] as const;
 
@@ -743,8 +729,6 @@ export default function DhwCylinderCommissioningForm() {
       resolved: data.defects_resolved,
     },
     final_status: data.final_status,
-    engineer_signature_data: data.engineer_signature_data,
-    customer_signature_data: data.customer_signature_data,
     photo_uploads: {
       cylinder_data_plate: photoUploads.cylinder_data_plate,
       tundish_photo: photoUploads.tundish_photo,
@@ -1083,7 +1067,7 @@ export default function DhwCylinderCommissioningForm() {
           </div>
         </SectionCard>
 
-        <SectionCard title="9. Final Status and Signatures" open={openSections.final} onOpenChange={(next) => setOpenSections((p) => ({ ...p, final: next }))}>
+        <SectionCard title="9. Final Status" open={openSections.final} onOpenChange={(next) => setOpenSections((p) => ({ ...p, final: next }))}>
           <div className="space-y-1.5">
             <Label>Final commissioning status *</Label>
             <select className="w-full h-10 rounded-md border px-3 text-sm" {...register("final_status")} disabled={locked}>
@@ -1104,59 +1088,6 @@ export default function DhwCylinderCommissioningForm() {
             <input type="checkbox" className="mt-1" {...register("customer_handover")} disabled={locked} />
             <span>The customer has been shown controls, isolation point, warning label and discharge/tundish arrangement where applicable, and advised what to do if discharge occurs.</span>
           </label>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Engineer signature *</Label>
-              <div className="rounded-md border p-2 bg-white">
-                <SignatureCanvas
-                  ref={engineerSigRef}
-                  canvasProps={{ width: 420, height: 120, className: "w-full h-[120px]" }}
-                  penColor="#0f172a"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => {
-                  const dataUrl = engineerSigRef.current?.toDataURL("image/png");
-                  if (dataUrl) setValue("engineer_signature_data", dataUrl, { shouldDirty: true });
-                }}>
-                  Capture
-                </Button>
-                <Button type="button" size="sm" variant="ghost" disabled={locked} onClick={() => {
-                  engineerSigRef.current?.clear();
-                  setValue("engineer_signature_data", "", { shouldDirty: true });
-                }}>
-                  Clear
-                </Button>
-                {values.engineer_signature_data ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1" />Saved</Badge> : null}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Customer signature (optional)</Label>
-              <div className="rounded-md border p-2 bg-white">
-                <SignatureCanvas
-                  ref={customerSigRef}
-                  canvasProps={{ width: 420, height: 120, className: "w-full h-[120px]" }}
-                  penColor="#0f172a"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" disabled={locked} onClick={() => {
-                  const dataUrl = customerSigRef.current?.toDataURL("image/png");
-                  if (dataUrl) setValue("customer_signature_data", dataUrl, { shouldDirty: true });
-                }}>
-                  Capture
-                </Button>
-                <Button type="button" size="sm" variant="ghost" disabled={locked} onClick={() => {
-                  customerSigRef.current?.clear();
-                  setValue("customer_signature_data", "", { shouldDirty: true });
-                }}>
-                  Clear
-                </Button>
-              </div>
-            </div>
-          </div>
         </SectionCard>
         </div>
 

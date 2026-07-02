@@ -73,6 +73,18 @@ export default function Dashboard() {
   const todaysJobs = dashboard?.todays_jobs ?? [];
   const upcomingJobs = (dashboard?.upcoming_jobs ?? []).slice(0, 5);
   const awaitingParts = (dashboard?.follow_up_required ?? []).filter(j => j.status === "awaiting_parts");
+  const inProgressJobs = (() => {
+    const merged = [...(dashboard?.todays_jobs ?? []), ...(dashboard?.upcoming_jobs ?? []), ...(dashboard?.follow_up_required ?? [])];
+    const seen = new Set<string>();
+    const list: DashboardJob[] = [];
+    for (const job of merged) {
+      if (job.status !== "in_progress") continue;
+      if (seen.has(job.id)) continue;
+      seen.add(job.id);
+      list.push(job);
+    }
+    return list;
+  })();
   const stats = dashboard?.stats;
 
   const checkJobLimit = useCallback(() => {
@@ -194,6 +206,51 @@ export default function Dashboard() {
                   <Card className="p-4 border border-orange-200 bg-orange-50/40 hover:border-orange-400 hover:shadow-sm transition-all cursor-pointer">
                     <div className="flex items-center gap-3">
                       <Package className="w-4 h-4 text-orange-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
+                          {dateStr && <span className="text-xs text-muted-foreground shrink-0">{dateStr}</span>}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                          {job.property_address && (
+                            <span className="flex items-center gap-1 truncate">
+                              <MapPin className="w-3 h-3 shrink-0" />{job.property_address}
+                            </span>
+                          )}
+                          <span className="shrink-0">{JOB_TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* In Progress */}
+      {hasJobManagement && inProgressJobs.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-blue-700" />
+              In Progress
+              <span className="text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{inProgressJobs.length}</span>
+            </h2>
+            <Link href="/jobs?status=in_progress" className="text-sm text-primary hover:underline">View all</Link>
+          </div>
+          <div className="space-y-2">
+            {inProgressJobs.map(job => {
+              const dateStr = job.scheduled_date
+                ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+                : null;
+              return (
+                <Link key={job.id} href={`/jobs/${job.id}`}>
+                  <Card className="p-4 border border-blue-200 bg-blue-50/40 hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <CalendarDays className="w-4 h-4 text-blue-700 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>

@@ -110,6 +110,8 @@ const tradeSupport = [
   { icon: ThermometerSun, title: "Heat Pumps", desc: "MCS-compliant commissioning and service" },
 ];
 
+const UK_BADGE_SRC = "/images/proudly-uk-made-badge.png";
+
 export default function FeaturesPage() {
   return (
     <MarketingLayout>
@@ -190,6 +192,33 @@ export default function FeaturesPage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="bg-slate-50 border-y border-slate-200 py-16 md:py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 mb-6">
+            <img
+              src={UK_BADGE_SRC}
+              alt="Proudly UK Made"
+              className="h-12 w-12 object-contain"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Proudly UK Made</span>
+          </div>
+          <h2 className="font-display text-2xl md:text-3xl font-bold text-slate-900">
+            Built in the UK for UK heating and plumbing businesses
+          </h2>
+          <p className="mt-4 text-slate-600 leading-relaxed">
+            TradeWorkDesk is designed, tested, and improved in the UK with direct feedback from gas, oil, heat pump, and plumbing engineers.
+            That means each feature reflects real jobs, real paperwork, and real compliance expectations in day-to-day trade work.
+          </p>
+          <p className="mt-4 text-slate-600 leading-relaxed">
+            Instead of adapting generic global workflows, we focus on what matters locally: clearer records, faster admin, and tools that match the way UK teams actually operate on site and in the office.
+          </p>
         </div>
       </section>
 

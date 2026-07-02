@@ -212,16 +212,6 @@ export default function JobDetail() {
     }
   };
 
-  const statusColors: Record<string, string> = {
-    scheduled: "bg-blue-100 text-blue-700",
-    in_progress: "bg-amber-100 text-amber-700",
-    completed: "bg-emerald-100 text-emerald-700",
-    cancelled: "bg-slate-100 text-slate-500",
-    requires_follow_up: "bg-rose-100 text-rose-700",
-    awaiting_parts: "bg-orange-100 text-orange-700",
-    invoiced: "bg-violet-100 text-violet-700",
-  };
-
   const handleStatusChange = async (newStatus: string, label: string) => {
     try {
       if (!isOnline) {
@@ -357,9 +347,6 @@ export default function JobDetail() {
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
-            <span className={`px-3 py-1 rounded-md text-xs sm:text-sm font-bold uppercase tracking-wider ${statusColors[job.status] || "bg-slate-100 text-slate-700"}`}>
-              {job.status.replace(/_/g, ' ')}
-            </span>
           </div>
           {fromQuoteId && (
             <button
@@ -392,16 +379,6 @@ export default function JobDetail() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {canComplete && (
-            <Button
-              size="sm"
-              className={job.status === "in_progress" ? "bg-slate-600 hover:bg-slate-700 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"}
-              onClick={() => handleStatusChange(job.status === "in_progress" ? "scheduled" : "in_progress", job.status === "in_progress" ? "Scheduled" : "In Progress")}
-              disabled={updateJob.isPending}
-            >
-              <Clock className="w-4 h-4 mr-2" /> {job.status === "in_progress" ? "In Progress On" : "In Progress Off"}
-            </Button>
-          )}
-          {canComplete && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
             </Button>
@@ -409,6 +386,16 @@ export default function JobDetail() {
           {canComplete && job.status !== "awaiting_parts" && (
             <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleStatusChange("awaiting_parts", "Awaiting Parts")} disabled={updateJob.isPending}>
               <Package className="w-4 h-4 mr-2" /> Awaiting Parts
+            </Button>
+          )}
+          {canComplete && (
+            <Button
+              size="sm"
+              className={job.status === "in_progress" ? "bg-blue-700 hover:bg-blue-800 text-white" : "bg-blue-100 hover:bg-blue-200 text-blue-800"}
+              onClick={() => handleStatusChange("in_progress", "In Progress")}
+              disabled={updateJob.isPending}
+            >
+              <Clock className="w-4 h-4 mr-2" /> {job.status === "in_progress" ? "Resume" : "Mark In Progress"}
             </Button>
           )}
           {(job.status === "requires_follow_up" || job.status === "awaiting_parts") && (
