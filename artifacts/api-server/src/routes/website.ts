@@ -928,12 +928,17 @@ router.patch(
       "site_name", "tagline", "logo_url", "favicon_url", "theme",
       "default_meta_title", "default_meta_description",
       "google_analytics_id", "google_search_console_verification",
-      "social_links",
+      "social_links", "template_id",
     ];
 
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in req.body) updates[key] = req.body[key];
+    }
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid website fields provided" });
+      return;
     }
 
     const { data, error } = await db
