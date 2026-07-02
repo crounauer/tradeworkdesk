@@ -268,6 +268,10 @@ export default function ServiceRecordForm() {
       populatedAt.current = dataUpdatedAt;
       const existingSafetyNotes = existingRecord.safety_devices_notes || "";
       const baseSafetyNotes = stripTaggedSafetyLines(existingSafetyNotes);
+      const existingText = (value: string | null | undefined, label: string, fallback = "") =>
+        value || getTaggedLineValue(existingSafetyNotes, label) || fallback;
+        const existingBool = (value: boolean | null | undefined, label: string) => 
+          value ?? getTaggedLineValue(existingSafetyNotes, label) === "Yes"; 
       reset({
         service_date: existingRecord.arrival_time ? String(existingRecord.arrival_time).slice(0, 10) : "",
         visual_inspection: existingRecord.visual_inspection || "",
@@ -299,45 +303,45 @@ export default function ServiceRecordForm() {
         thermostat_checked: existingRecord.thermostat_checked ?? false,
         safety_devices_checked: existingRecord.safety_devices_checked ?? false,
         safety_devices_notes: baseSafetyNotes,
-        capacitor_value: getTaggedLineValue(existingSafetyNotes, CAP_VALUE_LABEL),
-        capacitor_actual_reading: getTaggedLineValue(existingSafetyNotes, CAP_READING_LABEL),
-        appliance_make: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MAKE_LABEL) || (job?.appliance?.manufacturer || ""),
-        appliance_manufacturer_date: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MANUFACTURER_DATE_LABEL),
-        appliance_model: getTaggedLineValue(existingSafetyNotes, APPLIANCE_MODEL_LABEL) || (job?.appliance?.model || ""),
-        appliance_serial: getTaggedLineValue(existingSafetyNotes, APPLIANCE_SERIAL_LABEL) || (job?.appliance?.serial_number || ""),
-        appliance_type: getTaggedLineValue(existingSafetyNotes, APPLIANCE_TYPE_LABEL) || (job?.appliance?.boiler_type || ""),
-        appliance_output: getTaggedLineValue(existingSafetyNotes, APPLIANCE_OUTPUT_LABEL),
-        appliance_location_within_property: getTaggedLineValue(existingSafetyNotes, APPLIANCE_LOCATION_LABEL) || (job?.property?.boiler_location || ""),
-        burner_make_model: getTaggedLineValue(existingSafetyNotes, BURNER_MAKE_MODEL_LABEL) || [job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / "),
-        fuel_supply_type_details: getTaggedLineValue(existingSafetyNotes, FUEL_SUPPLY_TYPE_DETAILS_LABEL) || [job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / "),
-        burner_oring: getTaggedLineValue(existingSafetyNotes, BURNER_ORING_LABEL),
+        capacitor_value: existingText(existingRecord.capacitor_value, CAP_VALUE_LABEL),
+        capacitor_actual_reading: existingText(existingRecord.capacitor_actual_reading, CAP_READING_LABEL),
+        capacitor_reading_text: existingText(existingRecord.capacitor_actual_reading, CAP_READING_LABEL),
+        appliance_make: existingText(existingRecord.appliance_make, APPLIANCE_MAKE_LABEL, job?.appliance?.manufacturer || ""),
+        appliance_manufacturer_date: existingText(existingRecord.appliance_manufacturer_date, APPLIANCE_MANUFACTURER_DATE_LABEL),
+        appliance_model: existingText(existingRecord.appliance_model, APPLIANCE_MODEL_LABEL, job?.appliance?.model || ""),
+        appliance_serial: existingText(existingRecord.appliance_serial, APPLIANCE_SERIAL_LABEL, job?.appliance?.serial_number || ""),
+        appliance_type: existingText(existingRecord.appliance_type, APPLIANCE_TYPE_LABEL, job?.appliance?.boiler_type || ""),
+        appliance_output: existingText(existingRecord.appliance_output, APPLIANCE_OUTPUT_LABEL),
+        appliance_location_within_property: existingText(existingRecord.appliance_location_within_property, APPLIANCE_LOCATION_LABEL, job?.property?.boiler_location || ""),
+        burner_make_model: existingText(existingRecord.burner_make_model, BURNER_MAKE_MODEL_LABEL, [job?.appliance?.burner_make, job?.appliance?.burner_model].filter(Boolean).join(" / ")),
+        fuel_supply_type_details: existingText(existingRecord.fuel_supply_type_details, FUEL_SUPPLY_TYPE_DETAILS_LABEL, [job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ")),
+        burner_oring: existingText(existingRecord.burner_oring, BURNER_ORING_LABEL),
         heat_exchanger_cleaned_tb:
-          getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_CLEANED_LABEL) === "Yes" ||
+          existingBool(existingRecord.heat_exchanger_cleaned_tb, HEAT_EXCHANGER_CLEANED_LABEL) ||
           getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_CLEANED_LEGACY_LABEL) === "Yes",
-        heat_exchanger_turbulators: getTaggedLineValue(existingSafetyNotes, HEAT_EXCHANGER_TURBULATORS_LABEL),
-        blast_nozzle_size: getTaggedLineValue(existingSafetyNotes, BLAST_NOZZLE_SIZE_LABEL),
-        blast_nozzle_replaced: getTaggedLineValue(existingSafetyNotes, BLAST_NOZZLE_REPLACED_LABEL) === "Yes",
-        blast_electrode_settings_checked: getTaggedLineValue(existingSafetyNotes, BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL) === "Yes",
-        blast_electrode_settings_text: getTaggedLineValue(existingSafetyNotes, BLAST_ELECTRODE_SETTINGS_TEXT_LABEL),
-        blast_oring_replaced: getTaggedLineValue(existingSafetyNotes, BLAST_ORING_REPLACED_LABEL) === "Yes",
-        electronics_controlbox: getTaggedLineValue(existingSafetyNotes, ELECTRONICS_CONTROLBOX_LABEL),
-        capacitor_reading_text: getTaggedLineValue(existingSafetyNotes, CAPACITOR_READING_LABEL),
-        motor_text: getTaggedLineValue(existingSafetyNotes, MOTOR_TEXT_LABEL),
-        solenoid_notes: getTaggedLineValue(existingSafetyNotes, SOLENOID_NOTES_LABEL),
-        control_panel_notes: getTaggedLineValue(existingSafetyNotes, CONTROL_PANEL_NOTES_LABEL),
-        prv_notes: getTaggedLineValue(existingSafetyNotes, PRV_NOTES_LABEL),
-        oil_hoses_notes: getTaggedLineValue(existingSafetyNotes, OIL_HOSES_NOTES_LABEL),
-        combustion_chamber_baffles: getTaggedLineValue(existingSafetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL),
-        rope_seal_gasket_comments: getTaggedLineValue(existingSafetyNotes, ROPE_SEAL_GASKET_COMMENTS_LABEL),
-        condensate_cleaned_tb: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CLEANED_LABEL) === "Yes",
-        condensate_condition: getTaggedLineValue(existingSafetyNotes, CONDENSATE_CONDITION_LABEL),
-        oil_pump_pressure: getTaggedLineValue(existingSafetyNotes, OIL_PUMP_PRESSURE_LABEL),
-        solenoid_checked: false,
-        electrodes_condition: getTaggedLineValue(existingSafetyNotes, ELECTRODES_CONDITION_LABEL),
-        electrode_settings: getTaggedLineValue(existingSafetyNotes, ELECTRODE_SETTINGS_LABEL),
-        air_setting: getTaggedLineValue(existingSafetyNotes, AIR_SETTING_LABEL),
-        blast_tube_condition: getTaggedLineValue(existingSafetyNotes, BLAST_TUBE_CONDITION_LABEL),
-        overall_condition_remarks: getTaggedLineValue(existingSafetyNotes, OVERALL_CONDITION_REMARKS_LABEL),
+        heat_exchanger_turbulators: existingText(existingRecord.heat_exchanger_turbulators, HEAT_EXCHANGER_TURBULATORS_LABEL),
+        blast_nozzle_size: existingText(existingRecord.blast_nozzle_size, BLAST_NOZZLE_SIZE_LABEL),
+        blast_nozzle_replaced: existingBool(existingRecord.blast_nozzle_replaced, BLAST_NOZZLE_REPLACED_LABEL),
+        blast_electrode_settings_checked: existingBool(existingRecord.blast_electrode_settings_checked, BLAST_ELECTRODE_SETTINGS_CHECKED_LABEL),
+        blast_electrode_settings_text: existingText(existingRecord.blast_electrode_settings_text, BLAST_ELECTRODE_SETTINGS_TEXT_LABEL),
+        blast_oring_replaced: existingBool(existingRecord.blast_oring_replaced, BLAST_ORING_REPLACED_LABEL),
+        electronics_controlbox: existingText(existingRecord.electronics_controlbox, ELECTRONICS_CONTROLBOX_LABEL),
+        motor_text: existingText(existingRecord.motor_text, MOTOR_TEXT_LABEL),
+        solenoid_notes: existingText(existingRecord.solenoid_notes, SOLENOID_NOTES_LABEL),
+        control_panel_notes: existingText(existingRecord.control_panel_notes, CONTROL_PANEL_NOTES_LABEL),
+        prv_notes: existingText(existingRecord.prv_notes, PRV_NOTES_LABEL),
+        oil_hoses_notes: existingText(existingRecord.oil_hoses_notes, OIL_HOSES_NOTES_LABEL),
+        combustion_chamber_baffles: existingText(existingRecord.combustion_chamber_baffles, COMBUSTION_CHAMBER_BAFFLES_LABEL),
+        rope_seal_gasket_comments: existingText(existingRecord.rope_seal_gasket_comments, ROPE_SEAL_GASKET_COMMENTS_LABEL),
+        condensate_cleaned_tb: existingBool(existingRecord.condensate_cleaned_tb, CONDENSATE_CLEANED_LABEL),
+        condensate_condition: existingText(existingRecord.condensate_condition, CONDENSATE_CONDITION_LABEL),
+        oil_pump_pressure: existingText(existingRecord.oil_pump_pressure, OIL_PUMP_PRESSURE_LABEL),
+        solenoid_checked: existingBool(existingRecord.solenoid_checked, SOLENOID_CHECKED_LABEL),
+        electrodes_condition: existingText(existingRecord.electrodes_condition, ELECTRODES_CONDITION_LABEL),
+        electrode_settings: existingText(existingRecord.electrode_settings, ELECTRODE_SETTINGS_LABEL),
+        air_setting: existingText(existingRecord.air_setting, AIR_SETTING_LABEL),
+        blast_tube_condition: existingText(existingRecord.blast_tube_condition, BLAST_TUBE_CONDITION_LABEL),
+        overall_condition_remarks: existingText(existingRecord.overall_condition_remarks, OVERALL_CONDITION_REMARKS_LABEL),
         leaks_found: existingRecord.leaks_found ?? false,
         leaks_details: existingRecord.leaks_details || "",
         defects_found: existingRecord.defects_found ?? false,
@@ -380,6 +384,62 @@ export default function ServiceRecordForm() {
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
 
+    if (isOil) {
+      const requiredTextFields: Array<[string, string, string]> = [
+        ["service date", data.service_date, "Service Date is required"],
+        ["appliance make", data.appliance_make, "Appliance Make is required"],
+        ["appliance model", data.appliance_model, "Appliance Model is required"],
+        ["appliance type", data.appliance_type, "Appliance Type is required"],
+        ["appliance location", data.appliance_location_within_property, "Appliance Location Within Property is required"],
+        ["burner make/model", data.burner_make_model, "Burner Make / Model is required"],
+        ["appliance condition", data.appliance_condition, "Appliance Condition is required"],
+        ["flue inspection", data.flue_inspection, "Flue Inspection is required"],
+        ["CO2", data.combustion_co2, "CO2 is required"],
+        ["CO", data.combustion_co, "CO is required"],
+        ["O2", data.combustion_o2, "O2 is required"],
+        ["flue temperature", data.combustion_temp, "Flue Temp is required"],
+        ["smoke test", data.smoke_test, "Smoke Test Result is required"],
+        ["work completed", data.work_completed, "Work Completed is required"],
+      ];
+      const missing = requiredTextFields.find(([, value]) => !value || !String(value).trim());
+      if (missing) {
+        toast({ title: "Missing required field", description: missing[2], variant: "destructive" });
+        return;
+      }
+
+      if (data.defects_found && !String(data.defects_details || "").trim()) {
+        toast({ title: "Missing details", description: "Defect Details are required when Defects Found is checked.", variant: "destructive" });
+        return;
+      }
+      if (data.leaks_found && !String(data.leaks_details || "").trim()) {
+        toast({ title: "Missing details", description: "Leak Details are required when Oil Leaks Found is checked.", variant: "destructive" });
+        return;
+      }
+      if (data.follow_up_required && !String(data.follow_up_notes || "").trim()) {
+        toast({ title: "Missing details", description: "Follow-up Notes are required when Follow-up Required is checked.", variant: "destructive" });
+        return;
+      }
+
+      const smokeFailed = String(data.smoke_test || "").toLowerCase().includes("fail");
+      const coLooksHigh = String(data.combustion_co || "").toLowerCase().includes("high");
+      if ((smokeFailed || coLooksHigh) && data.appliance_safe) {
+        const safetyNotesPresent = [data.defects_details, data.leaks_details, data.advisories].some((v) => String(v || "").trim().length > 0);
+        if (!safetyNotesPresent) {
+          toast({
+            title: "Safety notes required",
+            description: "Please add Safety & Defects notes before marking the appliance safe.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (!data.appliance_safe) {
+        const confirmed = window.confirm("This appliance has not been marked safe to use. Continue and record as unsafe / further action required?");
+        if (!confirmed) return;
+      }
+    }
+
     const text = (value: string | null | undefined): string => (value || "").trim();
     const capLines: string[] = [];
     if (text(data.capacitor_value)) capLines.push(`${CAP_VALUE_LABEL}: ${text(data.capacitor_value)}`);
@@ -402,7 +462,7 @@ export default function ServiceRecordForm() {
     if (text(data.blast_electrode_settings_text)) capLines.push(`${BLAST_ELECTRODE_SETTINGS_TEXT_LABEL}: ${text(data.blast_electrode_settings_text)}`);
     if (data.blast_oring_replaced) capLines.push(`${BLAST_ORING_REPLACED_LABEL}: Yes`);
     if (text(data.electronics_controlbox)) capLines.push(`${ELECTRONICS_CONTROLBOX_LABEL}: ${text(data.electronics_controlbox)}`);
-    if (text(data.capacitor_reading_text)) capLines.push(`${CAPACITOR_READING_LABEL}: ${text(data.capacitor_reading_text)}`);
+    if (text(data.capacitor_actual_reading)) capLines.push(`${CAP_READING_LABEL}: ${text(data.capacitor_actual_reading)}`);
     if (text(data.motor_text)) capLines.push(`${MOTOR_TEXT_LABEL}: ${text(data.motor_text)}`);
     if (text(data.solenoid_notes)) capLines.push(`${SOLENOID_NOTES_LABEL}: ${text(data.solenoid_notes)}`);
     if (text(data.control_panel_notes)) capLines.push(`${CONTROL_PANEL_NOTES_LABEL}: ${text(data.control_panel_notes)}`);
@@ -435,6 +495,35 @@ export default function ServiceRecordForm() {
       combustion_efficiency: data.combustion_efficiency || undefined,
       burner_cleaned: data.burner_cleaned,
       heat_exchanger_cleaned: data.heat_exchanger_cleaned,
+      appliance_make: data.appliance_make || undefined,
+      appliance_manufacturer_date: data.appliance_manufacturer_date || undefined,
+      appliance_model: data.appliance_model || undefined,
+      appliance_serial: data.appliance_serial || undefined,
+      appliance_type: data.appliance_type || undefined,
+      appliance_output: data.appliance_output || undefined,
+      appliance_location_within_property: data.appliance_location_within_property || undefined,
+      burner_make_model: data.burner_make_model || undefined,
+      fuel_supply_type_details: data.fuel_supply_type_details || undefined,
+      burner_oring: data.burner_oring || undefined,
+      heat_exchanger_cleaned_tb: data.heat_exchanger_cleaned_tb,
+      heat_exchanger_turbulators: data.heat_exchanger_turbulators || undefined,
+      blast_nozzle_size: data.blast_nozzle_size || undefined,
+      blast_nozzle_replaced: data.blast_nozzle_replaced,
+      blast_electrode_settings_checked: data.blast_electrode_settings_checked,
+      blast_electrode_settings_text: data.blast_electrode_settings_text || undefined,
+      blast_oring_replaced: data.blast_oring_replaced,
+      electronics_controlbox: data.electronics_controlbox || undefined,
+      capacitor_value: data.capacitor_value || undefined,
+      capacitor_actual_reading: data.capacitor_actual_reading || undefined,
+      motor_text: data.motor_text || undefined,
+      solenoid_notes: data.solenoid_notes || undefined,
+      control_panel_notes: data.control_panel_notes || undefined,
+      prv_notes: data.prv_notes || undefined,
+      oil_hoses_notes: data.oil_hoses_notes || undefined,
+      combustion_chamber_baffles: data.combustion_chamber_baffles || undefined,
+      rope_seal_gasket_comments: data.rope_seal_gasket_comments || undefined,
+      condensate_cleaned_tb: data.condensate_cleaned_tb,
+      condensate_condition: data.condensate_condition || undefined,
       seals_gaskets_checked: data.seals_gaskets_checked,
       seals_gaskets_replaced: data.seals_gaskets_replaced,
       controls_checked: data.controls_checked,
@@ -468,6 +557,12 @@ export default function ServiceRecordForm() {
         oil_line_checked: data.oil_line_checked,
         fire_valve_checked: data.fire_valve_checked,
         oil_pump_pressure: data.oil_pump_pressure || data.oil_pressure || undefined,
+        solenoid_checked: data.solenoid_checked,
+        electrodes_condition: data.electrodes_condition || undefined,
+        electrode_settings: data.electrode_settings || undefined,
+        air_setting: data.air_setting || undefined,
+        blast_tube_condition: data.blast_tube_condition || undefined,
+        overall_condition_remarks: data.overall_condition_remarks || undefined,
       } : {}),
       ...(isGas ? {
         gas_tightness_pass: data.gas_tightness_pass,

@@ -406,6 +406,7 @@ const PropertyDetailRoute = protectFeature(PropertyDetail, "job_management");
 const JobsRoute = protectFeature(Jobs, "job_management");
 const JobDetailRoute = protectFeature(JobDetail, "job_management");
 const ServiceRecordRoute = protectFeature(ServiceRecordForm, "job_management");
+const OilServiceRecordRoute = protectFeature(ServiceRecordForm, "job_management");
 const BreakdownReportRoute = protectFeature(BreakdownReportForm, "job_management");
 const CommissioningRoute = protectFeature(CommissioningRecordForm, "job_management");
 const OilTankInspectionRoute = protectFeature(OilTankInspectionForm, "job_management");
@@ -570,6 +571,7 @@ function AppRouter() {
         <Route path="/jobs" component={JobsRoute} />
         <Route path="/jobs/:id" component={JobDetailRoute} />
         <Route path="/jobs/:jobId/service-record" component={ServiceRecordRoute} />
+        <Route path="/jobs/:jobId/oil-service-record" component={OilServiceRecordRoute} />
         <Route path="/jobs/:jobId/breakdown-report" component={BreakdownReportRoute} />
         <Route path="/jobs/:jobId/commissioning" component={CommissioningRoute} />
         <Route path="/jobs/:jobId/oil-tank-inspection" component={OilTankInspectionRoute} />

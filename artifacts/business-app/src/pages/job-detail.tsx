@@ -672,7 +672,7 @@ export default function JobDetail() {
             {(() => {
               const effectiveFuel = (job as unknown as { fuel_category?: string | null }).fuel_category || null;
               const isGeneral = effectiveFuel === "general" || !effectiveFuel;
-              const showGasForms = !isGeneral && (effectiveFuel === "gas" || effectiveFuel === "oil");
+              const showGasForms = !isGeneral && (effectiveFuel === "gas" || effectiveFuel === "lpg");
               const showOilForms = !isGeneral && effectiveFuel === "oil";
               const showHeatPumpForms = !isGeneral && effectiveFuel === "heat_pump";
               return (
@@ -789,6 +789,19 @@ export default function JobDetail() {
                     <>
                       <h3 className="font-display font-bold text-xl mt-8 mb-4">Oil Service Records</h3>
                       <div className="grid sm:grid-cols-2 gap-4">
+                        <Link href={`/jobs/${job.id}/oil-service-record`}>
+                          <Card className={`p-5 flex items-center gap-4 hover:border-amber-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("service_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-amber-50/50 to-white"}`}>
+                            <div className={`p-3 rounded-xl ${completedFormTypes.has("service_record") ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-600"}`}><Wrench className="w-6 h-6" /></div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold">Oil Service Record</h4>
+                                {completedFormTypes.has("service_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{completedFormTypes.has("service_record") ? "Completed — tap to view or edit" : "Oil boiler service form"}</p>
+                            </div>
+                          </Card>
+                        </Link>
+
                         <Link href={`/jobs/${job.id}/oil-tank-inspection`}>
                           <Card className={`p-5 flex items-center gap-4 hover:border-blue-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("oil_tank_inspection") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-blue-50/50 to-white"}`}>
                             <div className={`p-3 rounded-xl ${completedFormTypes.has("oil_tank_inspection") ? "bg-emerald-500 text-white" : "bg-blue-100 text-blue-600"}`}><Droplets className="w-6 h-6"/></div>
@@ -892,8 +905,9 @@ export default function JobDetail() {
                     const formRequestHref = `/support?prefill=form_request&category=feature_request&priority=normal&subject=${encodeURIComponent("Form Request: New Job Form")}&body=${encodeURIComponent(formRequestBody)}`;
 
                     const allFormDefs = [
-                      { id: "service-record", path: `/jobs/${job.id}/service-record`, label: "Service Record", desc: "Complete full inspection", completedKey: "service_record", visibleByDefault: showGasForms },
+                      { id: "oil-service-record", path: `/jobs/${job.id}/oil-service-record`, label: "Oil Service Record", desc: "Complete oil boiler service record", completedKey: "service_record", visibleByDefault: showOilForms },
                       { id: "breakdown-report", path: `/jobs/${job.id}/breakdown-report`, label: "Breakdown Report", desc: "Record faults and fixes", completedKey: "breakdown_report", visibleByDefault: true },
+                      { id: "service-record", path: `/jobs/${job.id}/service-record`, label: "Service Record", desc: "Complete full inspection", completedKey: "service_record", visibleByDefault: showGasForms },
                       { id: "commissioning", path: `/jobs/${job.id}/commissioning`, label: "Commissioning Record", desc: "New installation commissioning", completedKey: "commissioning_record", visibleByDefault: showGasForms && job.job_type === "installation" },
                       { id: "job-completion", path: `/jobs/${job.id}/job-completion`, label: "Job Completion Report", desc: "Summarise work & sign-off", completedKey: "job_completion", visibleByDefault: true },
                       { id: "heat-pump-service", path: `/jobs/${job.id}/heat-pump-service`, label: "Heat Pump Service", desc: "Refrigerant, temps & COP readings", completedKey: "heat_pump_service_record", visibleByDefault: showHeatPumpForms },

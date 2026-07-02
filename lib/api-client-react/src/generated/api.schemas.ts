@@ -445,6 +445,72 @@ export interface ServiceRecord {
   nozzle_size_fitted?: string | null;
   /** @nullable */
   oil_pressure?: string | null;
+  /** @nullable */
+  appliance_make?: string | null;
+  /** @nullable */
+  appliance_manufacturer_date?: string | null;
+  /** @nullable */
+  appliance_model?: string | null;
+  /** @nullable */
+  appliance_serial?: string | null;
+  /** @nullable */
+  appliance_type?: string | null;
+  /** @nullable */
+  appliance_output?: string | null;
+  /** @nullable */
+  appliance_location_within_property?: string | null;
+  /** @nullable */
+  burner_make_model?: string | null;
+  /** @nullable */
+  fuel_supply_type_details?: string | null;
+  /** @nullable */
+  burner_oring?: string | null;
+  heat_exchanger_cleaned_tb?: boolean;
+  /** @nullable */
+  heat_exchanger_turbulators?: string | null;
+  /** @nullable */
+  blast_nozzle_size?: string | null;
+  blast_nozzle_replaced?: boolean;
+  blast_electrode_settings_checked?: boolean;
+  /** @nullable */
+  blast_electrode_settings_text?: string | null;
+  blast_oring_replaced?: boolean;
+  /** @nullable */
+  electronics_controlbox?: string | null;
+  /** @nullable */
+  capacitor_value?: string | null;
+  /** @nullable */
+  capacitor_actual_reading?: string | null;
+  /** @nullable */
+  motor_text?: string | null;
+  /** @nullable */
+  solenoid_notes?: string | null;
+  /** @nullable */
+  control_panel_notes?: string | null;
+  /** @nullable */
+  prv_notes?: string | null;
+  /** @nullable */
+  oil_hoses_notes?: string | null;
+  /** @nullable */
+  combustion_chamber_baffles?: string | null;
+  /** @nullable */
+  rope_seal_gasket_comments?: string | null;
+  condensate_cleaned_tb?: boolean;
+  /** @nullable */
+  condensate_condition?: string | null;
+  /** @nullable */
+  oil_pump_pressure?: string | null;
+  solenoid_checked?: boolean;
+  /** @nullable */
+  electrodes_condition?: string | null;
+  /** @nullable */
+  electrode_settings?: string | null;
+  /** @nullable */
+  air_setting?: string | null;
+  /** @nullable */
+  blast_tube_condition?: string | null;
+  /** @nullable */
+  overall_condition_remarks?: string | null;
   electrodes_checked?: boolean;
   electrodes_replaced?: boolean;
   filter_checked?: boolean;
@@ -770,6 +836,42 @@ export interface CreateServiceRecordBody {
   nozzle_replaced?: boolean;
   nozzle_size_fitted?: string;
   oil_pressure?: string;
+  appliance_make?: string;
+  appliance_manufacturer_date?: string;
+  appliance_model?: string;
+  appliance_serial?: string;
+  appliance_type?: string;
+  appliance_output?: string;
+  appliance_location_within_property?: string;
+  burner_make_model?: string;
+  fuel_supply_type_details?: string;
+  burner_oring?: string;
+  heat_exchanger_cleaned_tb?: boolean;
+  heat_exchanger_turbulators?: string;
+  blast_nozzle_size?: string;
+  blast_nozzle_replaced?: boolean;
+  blast_electrode_settings_checked?: boolean;
+  blast_electrode_settings_text?: string;
+  blast_oring_replaced?: boolean;
+  electronics_controlbox?: string;
+  capacitor_value?: string;
+  capacitor_actual_reading?: string;
+  motor_text?: string;
+  solenoid_notes?: string;
+  control_panel_notes?: string;
+  prv_notes?: string;
+  oil_hoses_notes?: string;
+  combustion_chamber_baffles?: string;
+  rope_seal_gasket_comments?: string;
+  condensate_cleaned_tb?: boolean;
+  condensate_condition?: string;
+  oil_pump_pressure?: string;
+  solenoid_checked?: boolean;
+  electrodes_condition?: string;
+  electrode_settings?: string;
+  air_setting?: string;
+  blast_tube_condition?: string;
+  overall_condition_remarks?: string;
   electrodes_checked?: boolean;
   electrodes_replaced?: boolean;
   filter_checked?: boolean;
@@ -867,6 +969,72 @@ export interface UpdateServiceRecordBody {
   nozzle_size_fitted?: string | null;
   /** @nullable */
   oil_pressure?: string | null;
+  /** @nullable */
+  appliance_make?: string | null;
+  /** @nullable */
+  appliance_manufacturer_date?: string | null;
+  /** @nullable */
+  appliance_model?: string | null;
+  /** @nullable */
+  appliance_serial?: string | null;
+  /** @nullable */
+  appliance_type?: string | null;
+  /** @nullable */
+  appliance_output?: string | null;
+  /** @nullable */
+  appliance_location_within_property?: string | null;
+  /** @nullable */
+  burner_make_model?: string | null;
+  /** @nullable */
+  fuel_supply_type_details?: string | null;
+  /** @nullable */
+  burner_oring?: string | null;
+  heat_exchanger_cleaned_tb?: boolean;
+  /** @nullable */
+  heat_exchanger_turbulators?: string | null;
+  /** @nullable */
+  blast_nozzle_size?: string | null;
+  blast_nozzle_replaced?: boolean;
+  blast_electrode_settings_checked?: boolean;
+  /** @nullable */
+  blast_electrode_settings_text?: string | null;
+  blast_oring_replaced?: boolean;
+  /** @nullable */
+  electronics_controlbox?: string | null;
+  /** @nullable */
+  capacitor_value?: string | null;
+  /** @nullable */
+  capacitor_actual_reading?: string | null;
+  /** @nullable */
+  motor_text?: string | null;
+  /** @nullable */
+  solenoid_notes?: string | null;
+  /** @nullable */
+  control_panel_notes?: string | null;
+  /** @nullable */
+  prv_notes?: string | null;
+  /** @nullable */
+  oil_hoses_notes?: string | null;
+  /** @nullable */
+  combustion_chamber_baffles?: string | null;
+  /** @nullable */
+  rope_seal_gasket_comments?: string | null;
+  condensate_cleaned_tb?: boolean;
+  /** @nullable */
+  condensate_condition?: string | null;
+  /** @nullable */
+  oil_pump_pressure?: string | null;
+  solenoid_checked?: boolean;
+  /** @nullable */
+  electrodes_condition?: string | null;
+  /** @nullable */
+  electrode_settings?: string | null;
+  /** @nullable */
+  air_setting?: string | null;
+  /** @nullable */
+  blast_tube_condition?: string | null;
+  /** @nullable */
+  overall_condition_remarks?: string | null;
   electrodes_checked?: boolean;
   electrodes_replaced?: boolean;
   filter_checked?: boolean;

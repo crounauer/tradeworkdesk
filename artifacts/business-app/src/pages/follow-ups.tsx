@@ -114,7 +114,7 @@ export default function FollowUps() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...body }: { id: string; status?: string; notes?: string; parts_description?: string; expected_parts_date?: string }) => {
+    mutationFn: async ({ id, ...body }: { id: string; status?: string; notes?: string; work_description?: string; parts_description?: string; expected_parts_date?: string | null }) => {
       const res = await fetch(`/api/follow-ups/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -126,15 +126,42 @@ export default function FollowUps() {
       }
       return res.json();
     },
+    onMutate: async ({ id, ...updates }) => {
+      await qc.cancelQueries({ queryKey: ["follow-ups"] });
+      const previousFollowUps = qc.getQueriesData<FollowUpsResponse>({ queryKey: ["follow-ups"] });
+
+      qc.setQueriesData<FollowUpsResponse>({ queryKey: ["follow-ups"] }, (current) => {
+        if (!current?.follow_ups) return current;
+        return {
+          ...current,
+          follow_ups: current.follow_ups.map((followUp) => {
+            if (followUp.id !== id) return followUp;
+            const nextExpectedDate = updates.status === "parts_arrived"
+              ? null
+              : (updates.expected_parts_date !== undefined ? updates.expected_parts_date : followUp.expected_parts_date);
+            return {
+              ...followUp,
+              ...updates,
+              expected_parts_date: nextExpectedDate,
+            };
+          }),
+        };
+      });
+
+      return { previousFollowUps };
+    },
+    onError: (err: Error, _variables, context) => {
+      context?.previousFollowUps?.forEach(([queryKey, previousData]) => {
+        qc.setQueryData(queryKey, previousData);
+      });
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["follow-ups"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Follow-up updated" });
       setEditingId(null);
-    },
-    onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -212,7 +239,7 @@ export default function FollowUps() {
               isAdmin={isAdmin}
               onEdit={() => setEditingId(fu.id)}
               onBookJob={() => setBookingId(fu.id)}
-              onStatusChange={(status) => updateMutation.mutate({ id: fu.id, status })}
+              onStatusChange={(updates) => updateMutation.mutate({ id: fu.id, ...updates })}
               onDelete={() => {
                 const displayRef = fu.original_job_ref || `Job #${fu.original_job_id.slice(0, 8)}`;
                 const confirmed = window.confirm(`Delete follow-up for ${displayRef}? This cannot be undone.`);
@@ -287,7 +314,7 @@ function FollowUpCard({
   isAdmin: boolean;
   onEdit: () => void;
   onBookJob: () => void;
-  onStatusChange: (status: string) => void;
+  onStatusChange: (updates: { status: string; expected_parts_date?: string | null }) => void;
   onDelete: () => void;
   updating: boolean;
 }) {
@@ -370,7 +397,13 @@ function FollowUpCard({
               <Briefcase className="w-4 h-4" /> Book Job
             </Button>
             {effectiveStatus === "awaiting_parts" && (
-              <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => onStatusChange("parts_arrived")} disabled={updating}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                onClick={() => onStatusChange({ status: "parts_arrived", expected_parts_date: null })}
+                disabled={updating}
+              >
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Parts Arrived
               </Button>
             )}
@@ -382,7 +415,7 @@ function FollowUpCard({
                 onClick={() => {
                   const confirmed = window.confirm("Mark this follow-up as Awaiting Parts again?");
                   if (!confirmed) return;
-                  onStatusChange("awaiting_parts");
+                  onStatusChange({ status: "awaiting_parts" });
                 }}
                 disabled={updating}
               >
@@ -409,7 +442,7 @@ function FollowUpCard({
                 </Button>
               </Link>
             )}
-            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={() => onStatusChange("completed")} disabled={updating}>
+            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={() => onStatusChange({ status: "completed" })} disabled={updating}>
               <CheckCheck className="w-4 h-4" /> Mark Complete
             </Button>
           </div>
