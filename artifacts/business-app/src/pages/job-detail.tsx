@@ -12,7 +12,7 @@ import {
   ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
-  Timer, Phone, Smartphone, Receipt, Download, Copy
+  Phone, Smartphone, Receipt, Download, Copy
 } from "lucide-react";
 import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
@@ -120,7 +120,6 @@ export default function JobDetail() {
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const [showRebook, setShowRebook] = useState(false);
-  const [finishingJob, setFinishingJob] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
   const [downloadingCp12, setDownloadingCp12] = useState(false);
@@ -242,27 +241,6 @@ export default function JobDetail() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update status";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const handleFinishJob = async () => {
-    const now = new Date().toISOString();
-    try {
-      if (!isOnline) {
-        await queueJobUpdate(job!.id, { departure_time: now });
-        toast({ title: "Queued offline", description: "Departure time recorded — will sync when online." });
-        return;
-      }
-      setFinishingJob(true);
-      await updateJob.mutateAsync({ id: job!.id, data: { departure_time: now } as Parameters<typeof updateJob.mutateAsync>[0]["data"] });
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${job!.id}`] });
-      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({ title: "Job finished", description: "Departure time recorded." });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to finish job";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setFinishingJob(false);
     }
   };
 
@@ -413,15 +391,14 @@ export default function JobDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {job.status === "in_progress" && !((job as unknown as Record<string, unknown>).departure_time) && (
-            <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white" onClick={handleFinishJob} disabled={finishingJob || updateJob.isPending}>
-              {finishingJob ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Timer className="w-4 h-4 mr-2" />}
-              Finish Job
-            </Button>
-          )}
-          {canComplete && job.status !== "in_progress" && job.status !== "awaiting_parts" && (
-            <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={() => handleStatusChange("in_progress", "In Progress")} disabled={updateJob.isPending}>
-              <Clock className="w-4 h-4 mr-2" /> Mark In Progress
+          {canComplete && (
+            <Button
+              size="sm"
+              className={job.status === "in_progress" ? "bg-slate-600 hover:bg-slate-700 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"}
+              onClick={() => handleStatusChange(job.status === "in_progress" ? "scheduled" : "in_progress", job.status === "in_progress" ? "Scheduled" : "In Progress")}
+              disabled={updateJob.isPending}
+            >
+              <Clock className="w-4 h-4 mr-2" /> {job.status === "in_progress" ? "In Progress On" : "In Progress Off"}
             </Button>
           )}
           {canComplete && (
@@ -432,11 +409,6 @@ export default function JobDetail() {
           {canComplete && job.status !== "awaiting_parts" && (
             <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleStatusChange("awaiting_parts", "Awaiting Parts")} disabled={updateJob.isPending}>
               <Package className="w-4 h-4 mr-2" /> Awaiting Parts
-            </Button>
-          )}
-          {job.status === "awaiting_parts" && (
-            <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={() => handleStatusChange("in_progress", "In Progress")} disabled={updateJob.isPending}>
-              <RotateCcw className="w-4 h-4 mr-2" /> Resume Job
             </Button>
           )}
           {(job.status === "requires_follow_up" || job.status === "awaiting_parts") && (
@@ -898,7 +870,7 @@ export default function JobDetail() {
                       "Job context:",
                       `- Job ID: ${job.id}`,
                       `- Job type: ${job.job_type}`,
-                      `- Fuel category: ${(job as unknown as { fuel_category?: string | null }).fuel_category || "unknown"}`,
+                      `- Forms required: ${(job as unknown as { fuel_category?: string | null }).fuel_category || "unknown"}`,
                       "",
                       "Required fields:",
                       "- ",
@@ -3585,7 +3557,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
             )}
           </div>
           <div className="space-y-2">
-            <Label>Fuel Category</Label>
+            <Label>Forms Required</Label>
             <select
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
               value={selectedFuelCategory}
@@ -3597,7 +3569,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
               <option value="general">General</option>
             </select>
             {selectedFuelCategory !== ((job as unknown as { fuel_category?: string | null }).fuel_category || "general") && (
-              <p className="text-xs text-amber-600">Changing fuel category will update the forms shown for this job.</p>
+              <p className="text-xs text-amber-600">Changing forms required will update the forms shown for this job.</p>
             )}
           </div>
           <div className="space-y-2">
