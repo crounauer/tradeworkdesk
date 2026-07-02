@@ -203,7 +203,7 @@ export default function Dashboard() {
                 : null;
               const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
               return (
-                <Link key={job.id} href={`/jobs/${job.id}`}>
+                <Link key={job.id} href="/follow-ups">
                   <Card className="p-4 border border-orange-200 bg-orange-50/40 hover:border-orange-400 hover:shadow-sm transition-all cursor-pointer">
                     <div className="flex items-center gap-3">
                       <Package className="w-4 h-4 text-orange-500 shrink-0" />
