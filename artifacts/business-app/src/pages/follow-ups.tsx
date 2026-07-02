@@ -392,6 +392,13 @@ function FollowUpCard({
             <Button size="sm" variant="secondary" className="gap-1.5" disabled>
               <Briefcase className="w-4 h-4" /> Booked
             </Button>
+            {fu.new_job_id && (
+              <Link href={`/jobs/${fu.new_job_id}`}>
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <ArrowRight className="w-4 h-4" /> View Booked Job
+                </Button>
+              </Link>
+            )}
             <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={() => onStatusChange("completed")} disabled={updating}>
               <CheckCheck className="w-4 h-4" /> Mark Complete
             </Button>

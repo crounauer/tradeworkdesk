@@ -115,9 +115,9 @@ async function handleUnusedColumns(_req: Request, res: Response): Promise<void> 
   });
 }
 
-router.get("/api/superadmin/db-housekeeping/unused-columns", requireAuth, requireSuperAdmin, handleUnusedColumns);
+router.get("/superadmin/db-housekeeping/unused-columns", requireAuth, requireSuperAdmin, handleUnusedColumns);
 
 // Backward-compatible alias for older frontend builds still requesting /db-hq.
-router.get("/api/superadmin/db-hq/unused-columns", requireAuth, requireSuperAdmin, handleUnusedColumns);
+router.get("/superadmin/db-hq/unused-columns", requireAuth, requireSuperAdmin, handleUnusedColumns);
 
 export default router;
