@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
+import { invalidateHomepageCache } from "./homepage";
 
 const router: IRouter = Router();
 
@@ -137,6 +138,8 @@ router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "off
   const { data, error } = await supabaseAdmin.from("follow_ups").insert(insertPayload).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  invalidateHomepageCache(req.tenantId);
+
   if (expected_parts_date) {
     void notifyUsersForEvent({
       tenantId: req.tenantId!,
@@ -205,6 +208,8 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
       data: { followUpId: id },
     }).catch((err) => console.error("[push-events] followup_cancelled failed:", err));
   }
+
+  invalidateHomepageCache(req.tenantId);
 
   res.json(data);
 });
@@ -381,6 +386,8 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     }).catch((err) => console.error("[push-events] followup conversion assignment failed:", err));
   }
 
+  invalidateHomepageCache(req.tenantId);
+
   res.status(201).json({
     follow_up_id: id,
     job_id: newJob.id,
@@ -401,6 +408,7 @@ router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin"
 
   const { error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
+  invalidateHomepageCache(req.tenantId);
   res.json({ success: true });
 });
 

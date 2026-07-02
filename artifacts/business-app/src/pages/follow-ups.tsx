@@ -356,6 +356,21 @@ function FollowUpCard({
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Parts Arrived
               </Button>
             )}
+            {fu.status === "parts_arrived" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-orange-700 border-orange-200 hover:bg-orange-50"
+                onClick={() => {
+                  const confirmed = window.confirm("Mark this follow-up as Awaiting Parts again?");
+                  if (!confirmed) return;
+                  onStatusChange("awaiting_parts");
+                }}
+                disabled={updating}
+              >
+                <Clock className="w-4 h-4 mr-1" /> Revert to Awaiting Parts
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
               Edit
             </Button>
@@ -574,6 +589,7 @@ function EditFollowUpDialog({
   onSave: (updates: Record<string, string | undefined>) => void;
   saving: boolean;
 }) {
+  const [status, setStatus] = useState(followUp.status || "awaiting_parts");
   const [partsDesc, setPartsDesc] = useState(followUp.parts_description || "");
   const [expectedDate, setExpectedDate] = useState(followUp.expected_parts_date || "");
   const [notes, setNotes] = useState(followUp.notes || "");
@@ -585,6 +601,20 @@ function EditFollowUpDialog({
           <DialogTitle>Edit Follow-Up</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="awaiting_parts">Awaiting Parts</option>
+              <option value="parts_arrived">Parts Arrived</option>
+              <option value="booked">Booked</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
           <div className="space-y-1.5">
             <Label>Parts Description</Label>
             <Textarea value={partsDesc} onChange={(e) => setPartsDesc(e.target.value)} placeholder="What parts are needed?" rows={2} />
@@ -600,7 +630,7 @@ function EditFollowUpDialog({
           <div className="flex gap-3 pt-2">
             <Button
               className="flex-1"
-              onClick={() => onSave({ parts_description: partsDesc, expected_parts_date: expectedDate, notes })}
+              onClick={() => onSave({ status, parts_description: partsDesc, expected_parts_date: expectedDate, notes })}
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Changes"}

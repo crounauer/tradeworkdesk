@@ -35,6 +35,20 @@ interface OverdueApplianceRow {
   } | null;
 }
 
+interface HomepageFollowUpRow {
+  id: string;
+  original_job_id: string;
+  new_job_id: string | null;
+  customer_id: string;
+  property_id: string;
+  status: string;
+  expected_parts_date: string | null;
+  created_at: string;
+  customers?: { first_name: string; last_name: string } | null;
+  properties?: { address_line1: string } | null;
+  original_job?: { job_type: string; assigned_technician_id: string | null } | null;
+}
+
 const router: IRouter = Router();
 
 // ── Caches ───────────────────────────────────────────────────────────────────
@@ -141,7 +155,16 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
     buildJobQuery().eq("status", "completed").order("updated_at", { ascending: false }).limit(5),
-    buildJobQuery().in("status", ["requires_follow_up", "awaiting_parts"]).order("scheduled_date").limit(10),
+    (() => {
+      let q = supabaseAdmin
+        .from("follow_ups")
+        .select("id, original_job_id, new_job_id, customer_id, property_id, status, expected_parts_date, created_at, customers(first_name, last_name), properties(address_line1), original_job:jobs!follow_ups_original_job_id_fkey(job_type, assigned_technician_id)")
+        .in("status", ["awaiting_parts", "parts_arrived", "booked"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    })(),
     buildApplianceQuery()
       .not("next_service_due", "is", null)
       .lt("next_service_due", today)
@@ -167,6 +190,22 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     properties: undefined,
   });
 
+  const mappedFollowUps = ((followUpRes.data || []) as unknown as HomepageFollowUpRow[])
+    .filter((f) => !techFilter || f.original_job?.assigned_technician_id === techFilter)
+    .map((f) => ({
+      id: f.new_job_id || f.original_job_id,
+      customer_id: f.customer_id,
+      property_id: f.property_id,
+      status: f.status,
+      job_type: f.original_job?.job_type || "follow_up",
+      scheduled_date: f.expected_parts_date || String(f.created_at).slice(0, 10),
+      scheduled_time: null,
+      description: null,
+      customer_name: f.customers ? `${f.customers.first_name} ${f.customers.last_name}` : null,
+      property_address: f.properties?.address_line1 || null,
+      technician_name: null,
+    }));
+
   const overdueList = (overdueRes.data || []) as unknown as OverdueApplianceRow[];
   const mappedOverdue = overdueList.map((a) => ({
     appliance_id: a.id,
@@ -185,7 +224,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     upcoming_jobs: (upcomingRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
     overdue_services: mappedOverdue,
     recent_completed: (recentRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
-    follow_up_required: (followUpRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
+    follow_up_required: mappedFollowUps,
     stats: {
       total_customers: customerCountRes.count || 0,
       total_jobs_today: todayCountRes.count || 0,
