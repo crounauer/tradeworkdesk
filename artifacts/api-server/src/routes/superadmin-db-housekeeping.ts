@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin } from "../middlewares/auth";
 
@@ -63,7 +63,7 @@ create index if not exists idx_unused_columns_open
 
 const router: IRouter = Router();
 
-router.get("/api/superadmin/db-housekeeping/unused-columns", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
+async function handleUnusedColumns(_req: Request, res: Response): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from("superadmin_unused_columns_audit")
     .select("id, table_schema, table_name, column_name, confidence, source, evidence, protected, notes, detected_at, resolved_at")
@@ -113,6 +113,11 @@ router.get("/api/superadmin/db-housekeeping/unused-columns", requireAuth, requir
     summary,
     data: rows,
   });
-});
+}
+
+router.get("/api/superadmin/db-housekeeping/unused-columns", requireAuth, requireSuperAdmin, handleUnusedColumns);
+
+// Backward-compatible alias for older frontend builds still requesting /db-hq.
+router.get("/api/superadmin/db-hq/unused-columns", requireAuth, requireSuperAdmin, handleUnusedColumns);
 
 export default router;

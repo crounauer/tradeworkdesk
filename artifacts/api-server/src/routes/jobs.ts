@@ -3189,7 +3189,38 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
 
   let q = supabaseAdmin.from("jobs").update({ is_active: false }).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  await q;
+
+  const { error: deleteErr } = await q;
+  if (deleteErr) { res.status(500).json({ error: deleteErr.message }); return; }
+
+  // If this job was created from a follow-up, reset the follow-up back to pre-booked state.
+  let linkedFollowUpQ = supabaseAdmin
+    .from("follow_ups")
+    .select("id")
+    .eq("new_job_id", params.data.id)
+    .eq("status", "booked")
+    .limit(1);
+  if (req.tenantId) linkedFollowUpQ = linkedFollowUpQ.eq("tenant_id", req.tenantId);
+
+  const { data: linkedFollowUps, error: linkedFollowUpErr } = await linkedFollowUpQ;
+  if (linkedFollowUpErr) { res.status(500).json({ error: linkedFollowUpErr.message }); return; }
+
+  if (linkedFollowUps && linkedFollowUps.length > 0) {
+    const linkedFollowUp = linkedFollowUps[0] as { id: string };
+    let resetQ = supabaseAdmin
+      .from("follow_ups")
+      .update({
+        status: "parts_arrived",
+        new_job_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", linkedFollowUp.id);
+    if (req.tenantId) resetQ = resetQ.eq("tenant_id", req.tenantId);
+
+    const { error: resetErr } = await resetQ;
+    if (resetErr) { res.status(500).json({ error: resetErr.message }); return; }
+  }
+
   invalidateJobsCache(req.tenantId);
   invalidateHomepageCache(req.tenantId);
   res.sendStatus(204);

@@ -187,6 +187,33 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
   const { id } = req.params;
   const { status, work_description, parts_description, expected_parts_date, notes, new_job_id } = req.body;
 
+  const { data: existingFollowUp, error: existingFollowUpErr } = await supabaseAdmin
+    .from("follow_ups")
+    .select("id, status, new_job_id")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (existingFollowUpErr) {
+    res.status(500).json({ error: existingFollowUpErr.message });
+    return;
+  }
+  if (!existingFollowUp) {
+    res.status(404).json({ error: "Follow-up not found" });
+    return;
+  }
+
+  if (
+    status &&
+    existingFollowUp.new_job_id &&
+    existingFollowUp.status === "booked" &&
+    status !== "booked" &&
+    status !== "completed"
+  ) {
+    res.status(400).json({ error: "Delete the booked follow-up job to reset this follow-up." });
+    return;
+  }
+
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled", "completed"].includes(status)) updatePayload.status = status;
   if (work_description !== undefined) updatePayload.work_description = work_description || null;
@@ -256,6 +283,12 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   if (fuErr || !followUp) { res.status(404).json({ error: "Follow-up not found" }); return; }
   if (followUp.status === "booked" || followUp.status === "cancelled") {
     res.status(400).json({ error: `Follow-up is already ${followUp.status}` }); return;
+  }
+
+  const hasPartsRequirement = typeof followUp.parts_description === "string" && followUp.parts_description.trim().length > 0;
+  if (hasPartsRequirement && followUp.status !== "parts_arrived") {
+    res.status(400).json({ error: "Parts must be marked as arrived before booking this follow-up." });
+    return;
   }
 
   const tenantId = req.tenantId || followUp.tenant_id;
@@ -453,6 +486,27 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
 
 router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
+
+  const { data: existingFollowUp, error: existingFollowUpErr } = await supabaseAdmin
+    .from("follow_ups")
+    .select("id, status, new_job_id")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (existingFollowUpErr) {
+    res.status(500).json({ error: existingFollowUpErr.message });
+    return;
+  }
+  if (!existingFollowUp) {
+    res.status(404).json({ error: "Follow-up not found" });
+    return;
+  }
+
+  if (existingFollowUp.status === "booked" && existingFollowUp.new_job_id) {
+    res.status(400).json({ error: "Delete the booked follow-up job to reset this follow-up." });
+    return;
+  }
 
   let q = supabaseAdmin.from("follow_ups").delete().eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);

@@ -293,6 +293,7 @@ function FollowUpCard({
 }) {
   const overdue = isOverdue(fu.expected_parts_date, fu.status);
   const hasPartsRequirement = Boolean(fu.parts_description && fu.parts_description.trim());
+  const canBookNow = fu.status === "parts_arrived";
   const statusLabel = !hasPartsRequirement && fu.status === "parts_arrived"
     ? "follow-up"
     : fu.status.replace(/_/g, " ");
@@ -355,7 +356,7 @@ function FollowUpCard({
 
         {isAdmin && fu.status !== "cancelled" && fu.status !== "booked" && fu.status !== "completed" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5" onClick={onBookJob} disabled={updating}>
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5" onClick={onBookJob} disabled={updating || !canBookNow}>
               <Briefcase className="w-4 h-4" /> Book Job
             </Button>
             {fu.status === "awaiting_parts" && (
@@ -388,14 +389,11 @@ function FollowUpCard({
         )}
         {isAdmin && fu.status === "booked" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
+            <Button size="sm" variant="secondary" className="gap-1.5" disabled>
+              <Briefcase className="w-4 h-4" /> Booked
+            </Button>
             <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={() => onStatusChange("completed")} disabled={updating}>
               <CheckCheck className="w-4 h-4" /> Mark Complete
-            </Button>
-            <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
-              Edit
-            </Button>
-            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onDelete} disabled={updating}>
-              <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
         )}
