@@ -2667,7 +2667,7 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
-  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name), profiles(full_name), appliances(fuel_type), properties(address_line1, city, postcode)").eq("id", jobId);
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, phone, mobile, address_line1, address_line2, city, county, postcode), profiles(full_name), appliances(fuel_type), properties(address_line1, city, postcode)").eq("id", jobId);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job, error: jobErr } = await jobQ.single();
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
@@ -2679,6 +2679,10 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
 
   const customer = job.customers as Record<string, unknown> | null;
   const customerName = customer ? `${customer.first_name || ""} ${customer.last_name || ""}`.trim() : "N/A";
+  const customerPhone = customer ? ((customer.phone as string) || (customer.mobile as string) || "N/A") : "N/A";
+  const customerAddress = customer
+    ? [customer.address_line1, customer.address_line2, customer.city, customer.county, customer.postcode].filter(Boolean).join(", ") || "N/A"
+    : "N/A";
   const technicianName = (job.profiles as Record<string, unknown>)?.full_name as string || "N/A";
   const prop = job.properties as Record<string, unknown> | null;
   let propertyAddress = "N/A";
@@ -2696,6 +2700,7 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
   const pdfCompany: PdfCompanySettings | undefined = companySettings ? {
     name: (companySettings as Record<string, unknown>).name as string | null,
     trading_name: (companySettings as Record<string, unknown>).trading_name as string | null,
+    company_number: (companySettings as Record<string, unknown>).company_number as string | null,
     address_line1: (companySettings as Record<string, unknown>).address_line1 as string | null,
     address_line2: (companySettings as Record<string, unknown>).address_line2 as string | null,
     city: (companySettings as Record<string, unknown>).city as string | null,
@@ -2720,7 +2725,15 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
     config.label,
     normalizedRecord,
     config.fieldMap,
-    { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate },
+    {
+      jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(),
+      customerName,
+      customerAddress,
+      customerPhone,
+      propertyAddress,
+      technicianName,
+      scheduledDate,
+    },
     pdfCompany,
     fuelType,
   );
@@ -2754,7 +2767,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     }
   }
 
-  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email), profiles(full_name), appliances(fuel_type)").eq("id", jobId);
+  let jobQ = supabaseAdmin.from("jobs").select("*, customers(first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode), profiles(full_name), appliances(fuel_type)").eq("id", jobId);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job, error: jobErr } = await jobQ.single();
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
@@ -2777,6 +2790,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const pdfCompany: PdfCompanySettings | undefined = companySettings ? {
     name: (companySettings as Record<string, unknown>).name as string | null,
     trading_name: (companySettings as Record<string, unknown>).trading_name as string | null,
+    company_number: (companySettings as Record<string, unknown>).company_number as string | null,
     address_line1: (companySettings as Record<string, unknown>).address_line1 as string | null,
     address_line2: (companySettings as Record<string, unknown>).address_line2 as string | null,
     city: (companySettings as Record<string, unknown>).city as string | null,
@@ -2790,8 +2804,22 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     vat_number: (companySettings as Record<string, unknown>).vat_number as string | null,
   } : undefined;
 
-  const customer = job.customers as { first_name: string; last_name: string } | null;
+  const customer = job.customers as {
+    first_name: string;
+    last_name: string;
+    phone?: string;
+    mobile?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    county?: string;
+    postcode?: string;
+  } | null;
   const customerName = customer ? `${customer.first_name} ${customer.last_name}` : "Customer";
+  const customerPhone = customer?.phone || customer?.mobile || "N/A";
+  const customerAddress = customer
+    ? [customer.address_line1, customer.address_line2, customer.city, customer.county, customer.postcode].filter(Boolean).join(", ") || "N/A"
+    : "N/A";
   const techProfile = job.profiles as { full_name: string } | null;
   const technicianName = techProfile?.full_name || "Technician";
   const jobRef = job.job_ref || `#${job.id.slice(0, 8)}`;
@@ -2816,7 +2844,15 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const scheduledDate = job.scheduled_date || "";
   const appliance = job.appliances as { fuel_type: string } | null;
   const fuelType = appliance?.fuel_type || "oil";
-  const formCtx = { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
+  const formCtx = {
+    jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(),
+    customerName,
+    customerAddress,
+    customerPhone,
+    propertyAddress,
+    technicianName,
+    scheduledDate,
+  };
 
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
   const attachments: EmailAttachment[] = [];
@@ -3023,18 +3059,31 @@ router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requir
   // Fetch job + customer email
   let jobQ = supabaseAdmin
     .from("jobs")
-    .select("*, customers(first_name, last_name, email), profiles(full_name), appliances(fuel_type)")
+    .select("*, customers(first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode), profiles(full_name), appliances(fuel_type)")
     .eq("id", jobId);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job, error: jobErr } = await jobQ.single();
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
 
-  const customer = job.customers as { first_name: string; last_name: string; email: string | null } | null;
+  const customer = job.customers as {
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone?: string;
+    mobile?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    county?: string;
+    postcode?: string;
+  } | null;
   if (!customer?.email) {
     res.status(400).json({ error: "Customer has no email address on record" }); return;
   }
 
   const customerName = `${customer.first_name} ${customer.last_name}`;
+  const customerPhone = customer.phone || customer.mobile || "N/A";
+  const customerAddress = [customer.address_line1, customer.address_line2, customer.city, customer.county, customer.postcode].filter(Boolean).join(", ") || "N/A";
   const techProfile = job.profiles as { full_name: string } | null;
   const technicianName = techProfile?.full_name || "Technician";
   const jobRef = job.job_ref || `#${job.id.slice(0, 8)}`;
@@ -3050,6 +3099,7 @@ router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requir
   const pdfCompany: PdfCompanySettings | undefined = companySettings ? {
     name: companySettings.name as string | null,
     trading_name: companySettings.trading_name as string | null,
+    company_number: companySettings.company_number as string | null,
     address_line1: companySettings.address_line1 as string | null,
     address_line2: companySettings.address_line2 as string | null,
     city: companySettings.city as string | null,
@@ -3075,7 +3125,15 @@ router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requir
   const scheduledDate = job.scheduled_date || "";
   const appliance = job.appliances as { fuel_type: string } | null;
   const fuelType = appliance?.fuel_type || "oil";
-  const formCtx = { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate };
+  const formCtx = {
+    jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(),
+    customerName,
+    customerAddress,
+    customerPhone,
+    propertyAddress,
+    technicianName,
+    scheduledDate,
+  };
 
   // Gather all completed forms for this job
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];

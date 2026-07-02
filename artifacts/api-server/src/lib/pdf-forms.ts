@@ -4,6 +4,7 @@ const jsPDF = (jsPDFModule as any).default || jsPDFModule;
 export interface PdfCompanySettings {
   name?: string | null;
   trading_name?: string | null;
+  company_number?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   city?: string | null;
@@ -48,6 +49,7 @@ function renderPdfHeader(
     const contactLine = contactParts.join("  |  ");
 
     const regParts: string[] = [];
+    if (company?.company_number) regParts.push(`Company No: ${company.company_number}`);
     if (company?.gas_safe_number) regParts.push(`Gas Safe: ${company.gas_safe_number}`);
     if (company?.oftec_number) regParts.push(`OFTEC: ${company.oftec_number}`);
     if (company?.vat_number) regParts.push(`VAT: ${company.vat_number}`);
@@ -181,6 +183,8 @@ function createPdfHelpers(doc: jsPDF) {
 interface FormContext {
   jobRef: string;
   customerName: string;
+  customerAddress: string;
+  customerPhone: string;
   propertyAddress: string;
   technicianName: string;
   scheduledDate: string;
@@ -621,6 +625,8 @@ export function generateFormPdf(
 
   y = addSection(y, "Job Details", [
     ["Customer", ctx.customerName],
+    ["Customer Address", ctx.customerAddress],
+    ["Customer Tel", ctx.customerPhone],
     ["Property", ctx.propertyAddress],
     ["Technician", ctx.technicianName],
     ["Date", ctx.scheduledDate],
