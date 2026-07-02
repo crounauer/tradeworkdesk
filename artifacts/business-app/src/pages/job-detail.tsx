@@ -123,7 +123,6 @@ export default function JobDetail() {
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
   const [downloadingCp12, setDownloadingCp12] = useState(false);
-  const [operationalFlagPending, setOperationalFlagPending] = useState<"in_progress" | "awaiting_parts" | null>(null);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -150,8 +149,14 @@ export default function JobDetail() {
 
   const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
   const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
-  const isOperationalInProgress = Boolean(jobRecord.is_in_progress) || job?.status === "in_progress";
-  const isOperationalAwaitingParts = Boolean(jobRecord.is_awaiting_parts) || job?.status === "awaiting_parts";
+  const hasOperationalInProgressFlag = typeof jobRecord.is_in_progress === "boolean";
+  const hasOperationalAwaitingPartsFlag = typeof jobRecord.is_awaiting_parts === "boolean";
+  const isOperationalInProgress = hasOperationalInProgressFlag
+    ? Boolean(jobRecord.is_in_progress)
+    : job?.status === "in_progress";
+  const isOperationalAwaitingParts = hasOperationalAwaitingPartsFlag
+    ? Boolean(jobRecord.is_awaiting_parts)
+    : job?.status === "awaiting_parts";
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
@@ -188,7 +193,7 @@ export default function JobDetail() {
       case "pending":
       default:
         return {
-          label: "Awaiting Customer Response",
+          label: "Awaiting customer booking confirmation",
           classes: "bg-slate-100 text-slate-700 border-slate-200",
           timestamp: null,
           timestampLabel: "",
@@ -234,38 +239,6 @@ export default function JobDetail() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update status";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const handleOperationalFlagToggle = async (flag: "in_progress" | "awaiting_parts") => {
-    if (!job) return;
-    if (!isOnline) {
-      toast({ title: "Offline", description: "This change requires an internet connection.", variant: "destructive" });
-      return;
-    }
-
-    const isActive = flag === "in_progress" ? isOperationalInProgress : isOperationalAwaitingParts;
-    const fieldName = flag === "in_progress" ? "is_in_progress" : "is_awaiting_parts";
-    const nextValue = !isActive;
-
-    setOperationalFlagPending(flag);
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [fieldName]: nextValue }),
-      });
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
-      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({
-        title: "Updated",
-        description: `${flag === "in_progress" ? "In Progress" : "Awaiting Parts"} ${nextValue ? "enabled" : "cleared"}`,
-      });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setOperationalFlagPending(null);
     }
   };
 
@@ -354,6 +327,17 @@ export default function JobDetail() {
     staleTime: 60_000,
   });
 
+  const { data: followUpSummary } = useQuery({
+    queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""],
+    enabled: !!job?.id,
+    queryFn: async () => {
+      const response = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/follow-ups/count`) as { has_follow_up?: boolean; count?: number };
+      return response;
+    },
+    staleTime: 60_000,
+  });
+  const hasFollowUpLabel = Boolean(followUpSummary?.has_follow_up) || Number(followUpSummary?.count || 0) > 0;
+
   if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
 
   if (!job) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
@@ -382,6 +366,9 @@ export default function JobDetail() {
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
+            {hasFollowUpLabel && (
+              <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
+            )}
             {isOperationalInProgress && (
               <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">In Progress</span>
             )}
@@ -424,29 +411,9 @@ export default function JobDetail() {
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
             </Button>
           )}
-          {canComplete && (
-            <Button
-              size="sm"
-              className={isOperationalAwaitingParts ? "bg-orange-600 hover:bg-orange-700 text-white" : "bg-orange-100 hover:bg-orange-200 text-orange-800"}
-              onClick={() => handleOperationalFlagToggle("awaiting_parts")}
-              disabled={updateJob.isPending || operationalFlagPending !== null}
-            >
-              <Package className="w-4 h-4 mr-2" /> Awaiting Parts
-            </Button>
-          )}
-          {canComplete && (
-            <Button
-              size="sm"
-              className={isOperationalInProgress ? "bg-blue-700 hover:bg-blue-800 text-white" : "bg-blue-100 hover:bg-blue-200 text-blue-800"}
-              onClick={() => handleOperationalFlagToggle("in_progress")}
-              disabled={updateJob.isPending || operationalFlagPending !== null}
-            >
-              <Clock className="w-4 h-4 mr-2" /> In Progress
-            </Button>
-          )}
-          {job.status === "completed" && (
+          {(job.status === "completed" || (job.status === "cancelled" && isOfficeOrAdmin)) && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
-              <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Return Visit
+              <CalendarPlus className="w-4 h-4 mr-2" /> {job.status === "cancelled" ? "Reschedule Job" : "Schedule Return Visit"}
             </Button>
           )}
           {job.status === "completed" && (
@@ -662,6 +629,12 @@ export default function JobDetail() {
                 <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
                   <Mail className="w-4 h-4 mr-2" /> Email Customer
                 </Button>
+                {(profile?.role === "admin" || profile?.role === "office_staff") && customerEmail && (
+                  <Button variant="outline" size="sm" onClick={handleSendConfirmationDirect} disabled={sendingConfirmation} className="gap-2">
+                    <Mail className="w-4 h-4" />
+                    {sendingConfirmation ? "Sending..." : "Email Appointment Confirmation"}
+                  </Button>
+                )}
                 {hasAddon("sms_messaging") && (job.customer?.phone || job.customer?.mobile) && (
                   <Button variant="outline" size="sm" onClick={() => setShowSms(true)}>
                     <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
@@ -676,14 +649,6 @@ export default function JobDetail() {
                   originalDate={String(job.scheduled_date).slice(0, 10)}
                   originalTime={job.scheduled_time ? String(job.scheduled_time) : null}
                 />
-              )}
-              {(profile?.role === "admin" || profile?.role === "office_staff") && customerEmail && (
-                <div className="mt-4 pt-4 border-t border-border/50">
-                  <Button variant="outline" size="sm" onClick={handleSendConfirmationDirect} disabled={sendingConfirmation} className="gap-2">
-                    <Mail className="w-4 h-4" />
-                    {sendingConfirmation ? "Sending..." : "Email Appointment Confirmation"}
-                  </Button>
-                </div>
               )}
             </Card>
 
@@ -3681,6 +3646,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
   const { toast } = useToast();
   const [to, setTo] = useState(customerEmail);
   const [cc, setCc] = useState("");
+  const [customerMessage, setCustomerMessage] = useState("");
   const [completedForms, setCompletedForms] = useState<CompletedForm[]>([]);
   const [selectedForms, setSelectedForms] = useState<Set<string>>(new Set());
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
@@ -3756,6 +3722,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
         body: JSON.stringify({
           to,
           cc: cc || undefined,
+          customer_message: customerMessage.trim() || undefined,
           forms: formsPayload.length > 0 ? formsPayload : undefined,
           photo_ids: photoIdsPayload.length > 0 ? photoIdsPayload : undefined,
         }),
@@ -3805,6 +3772,17 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
           <div className="space-y-2">
             <Label>CC (optional)</Label>
             <Input type="email" value={cc} onChange={e => setCc(e.target.value)} placeholder="cc@example.com" />
+          </div>
+          <div className="space-y-2">
+            <Label>Message to Customer (optional)</Label>
+            <Textarea
+              value={customerMessage}
+              onChange={e => setCustomerMessage(e.target.value)}
+              placeholder="Add a custom note to include in this email..."
+              rows={4}
+              maxLength={2000}
+            />
+            <p className="text-xs text-muted-foreground text-right">{customerMessage.length}/2000</p>
           </div>
 
           <div>

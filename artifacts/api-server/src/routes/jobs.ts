@@ -360,6 +360,7 @@ function buildJobFormsEmailBodyText(opts: {
   jobRef: string;
   formsIncluded: string[];
   photosAttached: number;
+  customerMessage?: string | null;
 }): string {
   const lines = [
     `Dear ${opts.customerName},`,
@@ -373,6 +374,10 @@ function buildJobFormsEmailBodyText(opts: {
 
   if (opts.photosAttached > 0) {
     lines.push("", `Photos attached: ${opts.photosAttached}`);
+  }
+
+  if (opts.customerMessage && opts.customerMessage.trim().length > 0) {
+    lines.push("", "Message from your engineer:", opts.customerMessage.trim());
   }
 
   lines.push("", `Kind regards,`, opts.companyName);
@@ -1079,6 +1084,30 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
     files: filesWithUrls,
     signatures: sigsWithUrls,
   }));
+});
+
+router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const params = GetJobParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  if (req.userRole === "technician") {
+    const isOwner = await verifyTechnicianOwnership(params.data.id, req.userId, req.tenantId);
+    if (!isOwner) {
+      res.status(403).json({ error: "You can only view jobs assigned to you" });
+      return;
+    }
+  }
+
+  let q = supabaseAdmin
+    .from("follow_ups")
+    .select("id", { count: "exact", head: true })
+    .eq("original_job_id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+
+  const { count, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  res.json({ count: count ?? 0, has_follow_up: (count ?? 0) > 0 });
 });
 
 router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -2782,7 +2811,13 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const jobId = req.params.jobId;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { to, cc, forms, photo_ids } = req.body as { to?: string; cc?: string; forms?: Array<{ form_type: string; form_id: string }>; photo_ids?: string[] };
+  const { to, cc, forms, photo_ids, customer_message } = req.body as {
+    to?: string;
+    cc?: string;
+    forms?: Array<{ form_type: string; form_id: string }>;
+    photo_ids?: string[];
+    customer_message?: string;
+  };
   const hasForms = forms && Array.isArray(forms) && forms.length > 0;
   const hasPhotos = photo_ids && Array.isArray(photo_ids) && photo_ids.length > 0;
   if (!to || (!hasForms && !hasPhotos)) {
@@ -2791,6 +2826,13 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRe.test(to)) { res.status(400).json({ error: "Invalid recipient email address" }); return; }
   if (cc && !emailRe.test(cc)) { res.status(400).json({ error: "Invalid CC email address" }); return; }
+  if (customer_message !== undefined && typeof customer_message !== "string") {
+    res.status(400).json({ error: "customer_message must be a string" }); return;
+  }
+  const trimmedCustomerMessage = customer_message?.trim() || "";
+  if (trimmedCustomerMessage.length > 2000) {
+    res.status(400).json({ error: "customer_message must be 2000 characters or fewer" }); return;
+  }
 
   if (hasForms) {
     for (const f of forms!) {
@@ -2961,6 +3003,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     jobRef,
     formsIncluded: formsIncluded.map((f) => f.form_label),
     photosAttached,
+    customerMessage: trimmedCustomerMessage || null,
   });
 
   try {
@@ -2994,6 +3037,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       attachments,
       emailCompany,
       photosAttached,
+      trimmedCustomerMessage || null,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send email";

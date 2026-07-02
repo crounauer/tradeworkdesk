@@ -342,6 +342,7 @@ export async function sendJobFormsEmail(
   attachments: EmailAttachment[],
   companyDetails?: EmailCompanyDetails,
   photosAttached?: number,
+  customerMessage?: string | null,
 ): Promise<void> {
   const hasForms = formLabels.length > 0;
   const hasPhotos = (photosAttached || 0) > 0;
@@ -377,12 +378,19 @@ export async function sendJobFormsEmail(
       <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Attached Photos: ${photosAttached}</p>
     </div>` : "";
 
+  const customerMessageSection = customerMessage && customerMessage.trim().length > 0 ? `
+    <div class="info-box" style="border-color:#bfdbfe;background:#eff6ff;">
+      <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Message from your engineer:</p>
+      <p style="margin:0;white-space:pre-wrap;">${escHtml(customerMessage.trim())}</p>
+    </div>` : "";
+
   const html = baseHtml(escHtml(subject), `
     <h2>${heading}</h2>
     <p>Dear ${escHtml(customerName)},</p>
     <p>${introText}</p>
     ${formsSection}
     ${photosSection}
+    ${customerMessageSection}
     <p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>
     <p>If you have any questions about the work carried out, ${contactLine}</p>
     ${renderDocumentLinks(companyDetails)}

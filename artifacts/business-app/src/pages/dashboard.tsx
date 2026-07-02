@@ -72,7 +72,7 @@ export default function Dashboard() {
   const dashboard = homepageData?.dashboard as DashboardData | undefined;
   const todaysJobs = dashboard?.todays_jobs ?? [];
   const upcomingJobs = (dashboard?.upcoming_jobs ?? []).slice(0, 5);
-  const awaitingParts = (dashboard?.follow_up_required ?? []).filter(j => j.status === "awaiting_parts");
+  const followUps = dashboard?.follow_up_required ?? [];
   const inProgressJobs = (() => {
     const merged = [...(dashboard?.todays_jobs ?? []), ...(dashboard?.upcoming_jobs ?? []), ...(dashboard?.follow_up_required ?? [])];
     const seen = new Set<string>();
@@ -185,22 +185,23 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Waiting on Parts */}
-      {hasJobManagement && awaitingParts.length > 0 && (
+      {/* Follow-Ups */}
+      {hasJobManagement && followUps.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Package className="w-5 h-5 text-orange-500" />
-              Waiting on Parts
-              <span className="text-sm font-medium bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{awaitingParts.length}</span>
+              Follow-Ups
+              <span className="text-sm font-medium bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{followUps.length}</span>
             </h2>
-            <Link href="/jobs?status=awaiting_parts" className="text-sm text-primary hover:underline">View all</Link>
+            <Link href="/follow-ups" className="text-sm text-primary hover:underline">View all</Link>
           </div>
           <div className="space-y-2">
-            {awaitingParts.map(job => {
+            {followUps.map(job => {
               const dateStr = job.scheduled_date
                 ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
                 : null;
+              const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
               return (
                 <Link key={job.id} href={`/jobs/${job.id}`}>
                   <Card className="p-4 border border-orange-200 bg-orange-50/40 hover:border-orange-400 hover:shadow-sm transition-all cursor-pointer">
@@ -209,6 +210,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>{sc.label}</span>
                           {dateStr && <span className="text-xs text-muted-foreground shrink-0">{dateStr}</span>}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">

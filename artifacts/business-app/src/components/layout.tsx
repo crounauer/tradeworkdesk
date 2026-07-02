@@ -126,6 +126,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/schedule", label: "Schedule", icon: CalendarDays },
     { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
+    { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
     ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
       ? [{ href: "/booking", label: "Online Bookings", icon: CalendarCheck }]
       : []),
@@ -133,7 +134,6 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
-    { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
     { href: "/todos", label: "To-Do List", icon: CheckSquare },
   ] : [];
 
