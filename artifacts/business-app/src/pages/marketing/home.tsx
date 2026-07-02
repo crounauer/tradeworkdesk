@@ -185,6 +185,27 @@ export default function HomePage() {
                 30-day free trial. No credit card required.
               </p>
             </div>
+            <div className="hidden lg:flex flex-1 min-w-0 items-center justify-center">
+              <div className="relative w-full max-w-md rounded-3xl border border-blue-100 bg-white/80 p-8 shadow-xl backdrop-blur-sm">
+                <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-blue-200/45 blur-2xl" />
+                <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-sky-200/45 blur-2xl" />
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <img
+                    src={UK_BADGE_SRC}
+                    alt="Proudly UK Made"
+                    className="h-36 w-36 object-contain"
+                    loading="eager"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-slate-700">Proudly UK Made</p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Built in the UK for gas, oil, heat pump and plumbing engineers.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
