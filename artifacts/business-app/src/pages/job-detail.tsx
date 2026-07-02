@@ -887,6 +887,25 @@ export default function JobDetail() {
 
                   {/* Add Form picker */}
                   {(() => {
+                    const formRequestBody = [
+                      "Form needed:",
+                      "",
+                      "Job context:",
+                      `- Job ID: ${job.id}`,
+                      `- Job type: ${job.job_type}`,
+                      `- Fuel category: ${(job as unknown as { fuel_category?: string | null }).fuel_category || "unknown"}`,
+                      "",
+                      "Required fields:",
+                      "- ",
+                      "",
+                      "Compliance / standards needed:",
+                      "- ",
+                      "",
+                      "Notes / attachments:",
+                      "- ",
+                    ].join("\n");
+                    const formRequestHref = `/support?prefill=form_request&category=feature_request&priority=normal&subject=${encodeURIComponent("Form Request: New Job Form")}&body=${encodeURIComponent(formRequestBody)}`;
+
                     const allFormDefs = [
                       { id: "service-record", path: `/jobs/${job.id}/service-record`, label: "Service Record", desc: "Complete full inspection", completedKey: "service_record", visibleByDefault: showGasForms },
                       { id: "breakdown-report", path: `/jobs/${job.id}/breakdown-report`, label: "Breakdown Report", desc: "Record faults and fixes", completedKey: "breakdown_report", visibleByDefault: true },
@@ -906,6 +925,15 @@ export default function JobDetail() {
                     if (extraForms.length === 0) return null;
                     return (
                       <div className="mt-6">
+                        <Card className="p-4 mb-3 border-dashed border-primary/40 bg-primary/5">
+                          <p className="text-sm text-muted-foreground">
+                            Need a form that is not listed? Submit a form request ticket and we will review feasibility and add it if suitable.
+                          </p>
+                          <Link href={formRequestHref}>
+                            <Button size="sm" variant="outline" className="mt-3">Request a New Form</Button>
+                          </Link>
+                        </Card>
+
                         <button
                           type="button"
                           onClick={() => setShowExtraForms(v => !v)}

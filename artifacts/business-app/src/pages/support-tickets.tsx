@@ -42,17 +42,33 @@ function statusClass(status: string) {
 export default function SupportTicketsPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const initialTicketId = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("ticketId");
+  const initialParams = useMemo(() => {
+    if (typeof window === "undefined") return new URLSearchParams();
+    return new URLSearchParams(window.location.search);
   }, []);
+  const initialTicketId = useMemo(() => {
+    return initialParams.get("ticketId");
+  }, [initialParams]);
+  const initialSubject = useMemo(() => initialParams.get("subject") || "", [initialParams]);
+  const initialBody = useMemo(() => initialParams.get("body") || "", [initialParams]);
+  const initialCategory = useMemo(() => initialParams.get("category") || "support_issue", [initialParams]);
+  const initialPriority = useMemo(() => initialParams.get("priority") || "normal", [initialParams]);
+  const initialForms = useMemo(() => {
+    const raw = initialParams.get("forms") || "";
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [initialParams]);
+  const prefillType = useMemo(() => initialParams.get("prefill"), [initialParams]);
+
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(initialTicketId);
-  const [subject, setSubject] = useState("");
-  const [category, setCategory] = useState("support_issue");
-  const [priority, setPriority] = useState("normal");
-  const [body, setBody] = useState("");
+  const [subject, setSubject] = useState(initialSubject);
+  const [category, setCategory] = useState(initialCategory);
+  const [priority, setPriority] = useState(initialPriority);
+  const [body, setBody] = useState(initialBody);
   const [images, setImages] = useState<File[]>([]);
-  const [selectedForms, setSelectedForms] = useState<string[]>([]);
+  const [selectedForms, setSelectedForms] = useState<string[]>(initialForms);
   const [replyBody, setReplyBody] = useState("");
   const [replyImages, setReplyImages] = useState<File[]>([]);
 
@@ -138,6 +154,16 @@ export default function SupportTicketsPage() {
         <h1 className="text-2xl font-display font-bold">Support Tickets</h1>
         <p className="text-muted-foreground">Raise support issues, feature requests, and attach screenshots.</p>
       </div>
+
+      {prefillType === "form_request" && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6">
+            <p className="text-sm">
+              Need a form that is not listed? Submit a Form Request ticket with required fields, compliance references, and any sample template.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className="space-y-6">

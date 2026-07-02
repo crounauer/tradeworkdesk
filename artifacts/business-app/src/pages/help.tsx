@@ -628,12 +628,23 @@ export default function HelpPage() {
       </div>
 
       <Card className="p-5 text-center border-slate-200 bg-slate-50">
-        <p className="text-sm text-muted-foreground">
-          Can't find what you're looking for?{" "}
-          <a href="mailto:support@tradeworkdesk.co.uk" className="text-primary hover:underline font-medium">
-            Contact support
-          </a>
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Can't find what you're looking for?{" "}
+            <a href="mailto:support@tradeworkdesk.co.uk" className="text-primary hover:underline font-medium">
+              Contact support
+            </a>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Need a form template that does not exist yet?{" "}
+            <Link
+              href="/support?prefill=form_request&category=feature_request&priority=normal&subject=Form%20Request%3A%20New%20Job%20Form&body=Form%20needed%3A%0A%0ARequired%20fields%3A%0A-%20%0A%0ACompliance%20or%20standards%20needed%3A%0A-%20%0A%0ANotes%3A%0A-%20"
+              className="text-primary hover:underline font-medium"
+            >
+              Submit a Form Request ticket
+            </Link>
+          </p>
+        </div>
       </Card>
     </div>
   );
