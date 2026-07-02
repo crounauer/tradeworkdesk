@@ -412,8 +412,6 @@ function BookJobDialog({
   const [scheduledDate, setScheduledDate] = useState(todayStr);
   const [scheduledTime, setScheduledTime] = useState("");
   const [assignedTechnicianId, setAssignedTechnicianId] = useState("");
-  const [carryForwardBillable, setCarryForwardBillable] = useState(true);
-  const [carryForwardParts, setCarryForwardParts] = useState(true);
   const [carryForwardServices, setCarryForwardServices] = useState(true);
   const [carryForwardTimeEntries, setCarryForwardTimeEntries] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -443,7 +441,7 @@ function BookJobDialog({
           scheduled_date: scheduledDate,
           scheduled_time: scheduledTime || null,
           assigned_technician_id: assignedTechnicianId || null,
-          carry_forward_parts: carryForwardParts,
+          carry_forward_parts: true,
           carry_forward_services: carryForwardServices,
           carry_forward_time_entries: carryForwardTimeEntries,
         }),
@@ -513,41 +511,13 @@ function BookJobDialog({
           </div>
           <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-sm font-medium">Carry Forward to New Job</p>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={carryForwardBillable}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setCarryForwardBillable(checked);
-                  setCarryForwardParts(checked);
-                  setCarryForwardServices(checked);
-                }}
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              Carry forward billable items (parts + services)
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={carryForwardParts}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setCarryForwardParts(checked);
-                  setCarryForwardBillable(checked && carryForwardServices);
-                }}
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              Copy parts
-            </label>
+            <p className="text-sm text-muted-foreground">Parts are always carried forward from the original and follow-up records.</p>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={carryForwardServices}
                 onChange={(e) => {
-                  const checked = e.target.checked;
-                  setCarryForwardServices(checked);
-                  setCarryForwardBillable(carryForwardParts && checked);
+                  setCarryForwardServices(e.target.checked);
                 }}
                 className="h-4 w-4 rounded border-border accent-primary"
               />
@@ -590,6 +560,7 @@ function EditFollowUpDialog({
   saving: boolean;
 }) {
   const [status, setStatus] = useState(followUp.status || "awaiting_parts");
+  const [workDesc, setWorkDesc] = useState(followUp.work_description || "");
   const [partsDesc, setPartsDesc] = useState(followUp.parts_description || "");
   const [expectedDate, setExpectedDate] = useState(followUp.expected_parts_date || "");
   const [notes, setNotes] = useState(followUp.notes || "");
@@ -620,6 +591,10 @@ function EditFollowUpDialog({
             <Textarea value={partsDesc} onChange={(e) => setPartsDesc(e.target.value)} placeholder="What parts are needed?" rows={2} />
           </div>
           <div className="space-y-1.5">
+            <Label>Work to Complete</Label>
+            <Textarea value={workDesc} onChange={(e) => setWorkDesc(e.target.value)} placeholder="What work should be completed on return visit?" rows={2} />
+          </div>
+          <div className="space-y-1.5">
             <Label>Expected Parts Date</Label>
             <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </div>
@@ -630,7 +605,7 @@ function EditFollowUpDialog({
           <div className="flex gap-3 pt-2">
             <Button
               className="flex-1"
-              onClick={() => onSave({ status, parts_description: partsDesc, expected_parts_date: expectedDate, notes })}
+              onClick={() => onSave({ status, work_description: workDesc, parts_description: partsDesc, expected_parts_date: expectedDate, notes })}
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Changes"}

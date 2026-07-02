@@ -4113,6 +4113,7 @@ function calcDuration(start: string, end: string): string {
 
 function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onClose: () => void; onCreated: () => void }) {
   const [workDesc, setWorkDesc] = useState("");
+  const [partsRequired, setPartsRequired] = useState(false);
   const [partsDesc, setPartsDesc] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -4121,7 +4122,7 @@ function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onCl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partsDesc.trim()) {
+    if (partsRequired && !partsDesc.trim()) {
       toast({ title: "Missing info", description: "Please describe the parts needed.", variant: "destructive" });
       return;
     }
@@ -4133,8 +4134,9 @@ function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onCl
         body: JSON.stringify({
           original_job_id: jobId,
           work_description: workDesc.trim() || null,
-          parts_description: partsDesc.trim(),
-          expected_parts_date: expectedDate || null,
+          parts_required: partsRequired,
+          parts_description: partsRequired ? partsDesc.trim() : null,
+          expected_parts_date: partsRequired ? (expectedDate || null) : null,
           notes: notes.trim() || null,
         }),
       });
@@ -4157,30 +4159,52 @@ function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onCl
         <ClipboardList className="w-5 h-5" /> Create Follow-Up Reminder
       </h3>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <Label>Parts Needed *</Label>
-          <Textarea
-            value={partsDesc}
-            onChange={(e) => setPartsDesc(e.target.value)}
-            placeholder="e.g. Boiler PCB board, Model XYZ-123"
-            rows={2}
-            required
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={partsRequired}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setPartsRequired(checked);
+              if (!checked) {
+                setPartsDesc("");
+                setExpectedDate("");
+              }
+            }}
+            className="h-4 w-4 rounded border-border accent-primary"
           />
-        </div>
+          Parts required for this follow-up
+        </label>
+        {partsRequired && (
+          <>
+            <div className="space-y-1.5">
+              <Label>Parts Needed *</Label>
+              <Textarea
+                value={partsDesc}
+                onChange={(e) => setPartsDesc(e.target.value)}
+                placeholder={"Enter one part per line\nExample:\nBoiler PCB board, Model XYZ-123\nPump gasket kit"}
+                rows={4}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Expected Delivery Date</Label>
+                <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+              </div>
+            </div>
+          </>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label>Expected Delivery Date</Label>
-            <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+            <Label>Work to Complete</Label>
+            <Textarea
+              value={workDesc}
+              onChange={(e) => setWorkDesc(e.target.value)}
+              placeholder="Describe the follow-up work needed..."
+              rows={2}
+            />
           </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Work to Complete</Label>
-          <Textarea
-            value={workDesc}
-            onChange={(e) => setWorkDesc(e.target.value)}
-            placeholder="Describe the follow-up work needed..."
-            rows={2}
-          />
         </div>
         <div className="space-y-1.5">
           <Label>Notes</Label>

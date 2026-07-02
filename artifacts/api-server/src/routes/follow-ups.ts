@@ -7,6 +7,28 @@ import { invalidateHomepageCache } from "./homepage";
 
 const router: IRouter = Router();
 
+function parseFollowUpParts(partsDescription: string | null | undefined): Array<{ part_name: string; quantity: number }> {
+  if (!partsDescription) return [];
+  return partsDescription
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const qtyMatch = line.match(/^(\d+(?:\.\d+)?)\s*[xX]\s+(.+)$/);
+      if (qtyMatch) {
+        return {
+          quantity: Number(qtyMatch[1]),
+          part_name: qtyMatch[2].trim(),
+        };
+      }
+      return {
+        quantity: 1,
+        part_name: line,
+      };
+    })
+    .filter((row) => row.part_name.length > 0);
+}
+
 router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const status = req.query.status as string | undefined;
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
@@ -87,13 +109,14 @@ router.get("/follow-ups/:id", requireAuth, requireTenant, requirePlanFeature("jo
 });
 
 router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { original_job_id, work_description, parts_description, expected_parts_date, notes } = req.body;
+  const { original_job_id, work_description, parts_required, parts_description, expected_parts_date, notes } = req.body;
 
   if (!original_job_id) {
     res.status(400).json({ error: "original_job_id is required" }); return;
   }
-  if (!parts_description || typeof parts_description !== "string" || !parts_description.trim()) {
-    res.status(400).json({ error: "parts_description is required" }); return;
+  const requiresParts = parts_required === true;
+  if (requiresParts && (!parts_description || typeof parts_description !== "string" || !parts_description.trim())) {
+    res.status(400).json({ error: "parts_description is required when parts_required is true" }); return;
   }
 
   let jobQ = supabaseAdmin.from("jobs").select("id, customer_id, property_id, tenant_id").eq("id", original_job_id);
@@ -128,10 +151,10 @@ router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "off
     customer_id: job.customer_id,
     property_id: job.property_id,
     work_description: work_description || null,
-    parts_description: parts_description || null,
-    expected_parts_date: expected_parts_date || null,
+    parts_description: requiresParts ? (parts_description || null) : null,
+    expected_parts_date: requiresParts ? (expected_parts_date || null) : null,
     notes: notes || null,
-    status: "awaiting_parts",
+    status: requiresParts ? "awaiting_parts" : "parts_arrived",
     created_by: req.userId,
   };
 
@@ -216,9 +239,9 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
 
 router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { scheduled_date, scheduled_time, assigned_technician_id, carry_forward_parts, carry_forward_services, carry_forward_time_entries } = req.body;
+  const { scheduled_date, scheduled_time, assigned_technician_id, carry_forward_services, carry_forward_time_entries } = req.body;
 
-  const copyParts = carry_forward_parts === true;
+  const copyParts = true;
   const copyServices = carry_forward_services === true;
   const copyTimeEntries = carry_forward_time_entries === true;
 
@@ -296,8 +319,9 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
         const { data: sourceParts, error: sourcePartsErr } = await partsQ;
         if (sourcePartsErr) throw sourcePartsErr;
 
+        const partRows: Array<Record<string, unknown>> = [];
         if (sourceParts && sourceParts.length > 0) {
-          const partRows = sourceParts.map((p: Record<string, unknown>) => ({
+          partRows.push(...sourceParts.map((p: Record<string, unknown>) => ({
             job_id: newJob.id,
             tenant_id: tenantId,
             part_name: p.part_name,
@@ -306,7 +330,30 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
             unit_price: p.unit_price,
             catalogue_item_id: p.catalogue_item_id,
             status: p.status || "fitted",
-          }));
+          })));
+        }
+
+        const parsedFollowUpParts = parseFollowUpParts(followUp.parts_description);
+        if (parsedFollowUpParts.length > 0) {
+          const existingPartNames = new Set(
+            partRows
+              .map((row) => String(row.part_name || "").trim().toLowerCase())
+              .filter(Boolean),
+          );
+          for (const part of parsedFollowUpParts) {
+            const normalized = part.part_name.trim().toLowerCase();
+            if (!normalized || existingPartNames.has(normalized)) continue;
+            existingPartNames.add(normalized);
+            partRows.push({
+              job_id: newJob.id,
+              tenant_id: tenantId,
+              part_name: part.part_name,
+              quantity: part.quantity,
+            });
+          }
+        }
+
+        if (partRows.length > 0) {
           const { error: insertPartsErr } = await supabaseAdmin.from("job_parts").insert(partRows);
           if (insertPartsErr) throw insertPartsErr;
         }
