@@ -195,7 +195,7 @@ export default function WebsiteSetup() {
       let newlyPublished = 0;
 
       if (publishAllPages) {
-        const draftPages = pages.filter((page) => page.status !== "published");
+        const draftPages = pages.filter((page) => page.status === "draft");
         for (const page of draftPages) {
           await apiFetch(`/api/website/pages/${page.id}/publish`, { method: "POST" });
           newlyPublished += 1;
@@ -459,8 +459,8 @@ export default function WebsiteSetup() {
   const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && (d.verification_status === "verified" || d.is_active));
   const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && d.verification_status !== "verified" && !d.is_active);
   const publishedPagesCount = pages.filter((page) => page.status === "published").length;
-  const totalPagesCount = pages.length;
-  const draftPagesCount = totalPagesCount - publishedPagesCount;
+  const draftPagesCount = pages.filter((page) => page.status === "draft").length;
+  const totalPagesCount = publishedPagesCount + draftPagesCount;
   const hasDraftPages = draftPagesCount > 0;
   const liveUrl = activeCustomDomain?.domain
     ? `https://${activeCustomDomain.domain}?twd_edit=1`

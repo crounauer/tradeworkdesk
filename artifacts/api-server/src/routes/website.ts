@@ -1065,6 +1065,7 @@ router.post(
       .from("website_pages")
       .select("id, slug, status")
       .eq("tenant_id", req.tenantId!)
+      .neq("status", "archived")
       .order("created_at", { ascending: true }) as { data: Array<{ id: string; slug: string; status: string }> | null; error: unknown };
 
     if (websitePagesError) {
@@ -1337,7 +1338,8 @@ router.get(
       db
         .from("website_pages")
         .select("id, status")
-        .eq("website_id", website.id) as Promise<{ data: Array<{ id: string; status: string }> | null }>,
+        .eq("website_id", website.id)
+        .neq("status", "archived") as Promise<{ data: Array<{ id: string; status: string }> | null }>,
       db
         .from("website_forms")
         .select("id, name, is_active")
@@ -1731,6 +1733,7 @@ router.get(
       .from("website_pages")
       .select("id, slug, page_type, title, status, meta_title, meta_description, show_in_nav, nav_label, nav_order, published_at, created_at, updated_at")
       .eq("website_id", website.id)
+      .neq("status", "archived")
       .order("nav_order", { ascending: true }) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) { res.status(500).json({ error: "Failed to load pages" }); return; }
