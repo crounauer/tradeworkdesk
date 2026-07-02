@@ -11,6 +11,8 @@ const EVENT_COLORS: Record<string, string> = {
   plan_created: "bg-purple-100 text-purple-700",
   plan_updated: "bg-purple-100 text-purple-700",
   plan_deleted: "bg-red-100 text-red-700",
+  legacy_job_flags_observed: "bg-amber-100 text-amber-800",
+  legacy_job_flags_write: "bg-rose-100 text-rose-800",
 };
 
 const EVENT_TYPES = [
@@ -20,6 +22,8 @@ const EVENT_TYPES = [
   { value: "plan_created", label: "Plan Created" },
   { value: "plan_updated", label: "Plan Updated" },
   { value: "plan_deleted", label: "Plan Deleted" },
+  { value: "legacy_job_flags_observed", label: "Legacy Job Flags Observed" },
+  { value: "legacy_job_flags_write", label: "Legacy Job Flags Write" },
 ];
 
 const PAGE_SIZE = 50;

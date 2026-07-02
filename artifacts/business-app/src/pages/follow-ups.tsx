@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
 import {
   Package, CheckCircle2, CalendarPlus, XCircle, Clock,
-  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase, CheckCheck, AlertCircle
+  ArrowRight, AlertTriangle, ChevronLeft, ChevronRight, ExternalLink, Briefcase, CheckCheck, AlertCircle, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -138,6 +138,27 @@ export default function FollowUps() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const res = await fetch(`/api/follow-ups/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete follow-up");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["follow-ups"] });
+      qc.invalidateQueries({ queryKey: ["homepage"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
+      qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] });
+      toast({ title: "Follow-up deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const followUps = data?.follow_ups || [];
   const pagination = data?.pagination;
 
@@ -192,7 +213,13 @@ export default function FollowUps() {
               onEdit={() => setEditingId(fu.id)}
               onBookJob={() => setBookingId(fu.id)}
               onStatusChange={(status) => updateMutation.mutate({ id: fu.id, status })}
-              updating={updateMutation.isPending}
+              onDelete={() => {
+                const displayRef = fu.original_job_ref || `Job #${fu.original_job_id.slice(0, 8)}`;
+                const confirmed = window.confirm(`Delete follow-up for ${displayRef}? This cannot be undone.`);
+                if (!confirmed) return;
+                deleteMutation.mutate({ id: fu.id });
+              }}
+              updating={updateMutation.isPending || deleteMutation.isPending}
             />
           ))}
         </div>
@@ -253,6 +280,7 @@ function FollowUpCard({
   onEdit,
   onBookJob,
   onStatusChange,
+  onDelete,
   updating,
 }: {
   followUp: FollowUp;
@@ -260,6 +288,7 @@ function FollowUpCard({
   onEdit: () => void;
   onBookJob: () => void;
   onStatusChange: (status: string) => void;
+  onDelete: () => void;
   updating: boolean;
 }) {
   const overdue = isOverdue(fu.expected_parts_date, fu.status);
@@ -330,8 +359,8 @@ function FollowUpCard({
             <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
               Edit
             </Button>
-            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => onStatusChange("cancelled")} disabled={updating}>
-              <XCircle className="w-4 h-4" />
+            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onDelete} disabled={updating}>
+              <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
         )}
@@ -343,8 +372,8 @@ function FollowUpCard({
             <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>
               Edit
             </Button>
-            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => onStatusChange("cancelled")} disabled={updating}>
-              <XCircle className="w-4 h-4" />
+            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onDelete} disabled={updating}>
+              <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
         )}

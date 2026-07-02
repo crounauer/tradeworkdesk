@@ -22,8 +22,8 @@ router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_ma
   if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled", "completed"].includes(status)) {
     q = q.eq("status", status);
   } else {
-    // Default "All" view excludes completed follow-ups
-    q = q.neq("status", "completed");
+    // Default "All" view excludes terminal follow-ups
+    q = q.neq("status", "completed").neq("status", "cancelled");
   }
 
   const { data, error, count } = await q;
@@ -100,6 +100,26 @@ router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "off
   const { data: job, error: jobErr } = await jobQ.single();
 
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  let existingFollowUpQ = supabaseAdmin
+    .from("follow_ups")
+    .select("id, status, new_job_id")
+    .eq("original_job_id", job.id)
+    .limit(1);
+  if (req.tenantId) existingFollowUpQ = existingFollowUpQ.eq("tenant_id", req.tenantId);
+  const { data: existingFollowUps, error: existingErr } = await existingFollowUpQ;
+  if (existingErr) { res.status(500).json({ error: existingErr.message }); return; }
+  if ((existingFollowUps || []).length > 0) {
+    const existing = existingFollowUps![0] as { id: string; status: string; new_job_id?: string | null };
+    res.status(409).json({
+      error: "A follow-up already exists for this job",
+      code: "FOLLOW_UP_ALREADY_EXISTS",
+      follow_up_id: existing.id,
+      status: existing.status,
+      new_job_id: existing.new_job_id || null,
+    });
+    return;
+  }
 
   const insertPayload: Record<string, unknown> = {
     tenant_id: req.tenantId || job.tenant_id,
@@ -373,7 +393,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   });
 });
 
-router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
   let q = supabaseAdmin.from("follow_ups").delete().eq("id", id);

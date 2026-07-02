@@ -448,7 +448,7 @@ export default function JobDetail() {
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>
           )}
-          {canCreateFollowUp && (
+          {canCreateFollowUp && !hasFollowUpLabel && (
             <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowFollowUpForm(true)}>
               <ClipboardList className="w-4 h-4 mr-2" /> Create Follow-Up
             </Button>
@@ -538,6 +538,7 @@ export default function JobDetail() {
           onCreated={() => {
             setShowFollowUpForm(false);
             setCreatingFollowUp(false);
+            qc.invalidateQueries({ queryKey: ["job-follow-up-summary", job.id] });
             qc.invalidateQueries({ queryKey: ["follow-ups"] });
             qc.invalidateQueries({ queryKey: ["homepage"] });
             qc.invalidateQueries({ queryKey: ["me-init"] });
