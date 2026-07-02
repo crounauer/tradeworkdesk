@@ -85,6 +85,8 @@ const addons = [
   "Specialist Forms",
 ];
 
+const UK_BADGE_SRC = "/images/proudly-uk-made-badge.png";
+
 interface Plan {
   id: string;
   name: string;
@@ -137,6 +139,22 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
           <div className="flex flex-col lg:flex-row items-start gap-10 lg:gap-14">
             <div className="flex-1 min-w-0">
+              <div className="mb-5 flex items-center gap-3">
+                <img
+                  src={UK_BADGE_SRC}
+                  alt="Proudly UK Made"
+                  className="h-14 w-14 sm:h-16 sm:w-16 object-contain"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    const fallback = e.currentTarget.nextElementSibling as HTMLSpanElement | null;
+                    if (fallback) fallback.style.display = "inline-flex";
+                  }}
+                />
+                <span className="hidden items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                  Proudly UK Made
+                </span>
+              </div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
                 <Flame className="w-4 h-4" />
                 Built for Gas, Oil, Heat Pump &amp; Plumbing Engineers
@@ -217,6 +235,18 @@ export default function HomePage() {
       <section className="bg-slate-50 py-16 md:py-20 border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mb-8">
+            <div className="mb-4 flex items-center gap-2">
+              <img
+                src={UK_BADGE_SRC}
+                alt="Proudly UK Made"
+                className="h-10 w-10 object-contain opacity-90"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Proudly UK Made</span>
+            </div>
             <h2 className="font-display text-2xl md:text-3xl font-bold text-slate-900">
               Security and reliability built into every layer
             </h2>
@@ -366,6 +396,17 @@ export default function HomePage() {
 
       <section className="bg-primary py-16 md:py-20">
         <div className="max-w-3xl mx-auto px-4 text-center text-white">
+          <div className="mb-5 flex justify-center">
+            <img
+              src={UK_BADGE_SRC}
+              alt="Proudly UK Made"
+              className="h-12 w-12 object-contain opacity-95"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold">
             Ready to ditch the paperwork?
           </h2>

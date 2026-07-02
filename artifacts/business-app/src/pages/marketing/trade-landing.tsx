@@ -5,6 +5,8 @@ import { breadcrumbSchema, faqSchema, softwareApplicationSchema } from "@/lib/sc
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight, Shield } from "lucide-react";
 
+const UK_BADGE_SRC = "/images/proudly-uk-made-badge.png";
+
 interface TradePageConfig {
   slug: string;
   h1: string;
@@ -473,6 +475,22 @@ export default function TradeLandingPage({ slug }: { slug: string }) {
       <section className="bg-gradient-to-br from-slate-50 to-white py-20 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
+            <div className="mb-5 flex items-center gap-3">
+              <img
+                src={UK_BADGE_SRC}
+                alt="Proudly UK Made"
+                className="h-14 w-14 sm:h-16 sm:w-16 object-contain"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const fallback = e.currentTarget.nextElementSibling as HTMLSpanElement | null;
+                  if (fallback) fallback.style.display = "inline-flex";
+                }}
+              />
+              <span className="hidden items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                Proudly UK Made
+              </span>
+            </div>
             <h1 className="font-display text-4xl md:text-5xl font-bold text-slate-900">
               {config.h1}
             </h1>
@@ -512,6 +530,18 @@ export default function TradeLandingPage({ slug }: { slug: string }) {
 
       <section className="bg-white py-20 border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-4 flex items-center gap-2">
+            <img
+              src={UK_BADGE_SRC}
+              alt="Proudly UK Made"
+              className="h-10 w-10 object-contain opacity-90"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Proudly UK Made</span>
+          </div>
           <h2 className="font-display text-3xl font-bold text-slate-900 mb-4">
             Credentials &amp; industry standards
           </h2>
