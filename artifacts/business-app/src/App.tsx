@@ -31,10 +31,9 @@ function resetChunkReloadAttempts() {
 
 async function clearSwAndReload() {
   try {
-    if ("serviceWorker" in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(r => r.unregister()));
-      // Also clear all caches so stale precache entries are purged
+    // Preserve service worker registration so push subscriptions stay intact.
+    // We only clear cache storage to force fresh assets on next load.
+    if (window.caches && caches.keys) {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
     }
@@ -755,9 +754,15 @@ function ServiceWorkerPushBridge() {
 }
 
 function AppUpdatePrompt() {
+  const SESSION_DISMISS_KEY = "app_update_prompt_dismissed_session";
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [working, setWorking] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(SESSION_DISMISS_KEY) === "1");
+  const dismissedRef = useRef(dismissed);
+
+  useEffect(() => {
+    dismissedRef.current = dismissed;
+  }, [dismissed]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -766,7 +771,8 @@ function AppUpdatePrompt() {
     const currentVersion = localStorage.getItem("sw-version") || "unknown";
     const dismissedKey = `app_update_prompt_dismissed_${currentVersion}`;
 
-    if (sessionStorage.getItem(dismissedKey) === "1") {
+    if (sessionStorage.getItem(SESSION_DISMISS_KEY) === "1" || sessionStorage.getItem(dismissedKey) === "1") {
+      dismissedRef.current = true;
       setDismissed(true);
       return () => {
         isMounted = false;
@@ -774,7 +780,7 @@ function AppUpdatePrompt() {
     }
 
     const markUpdateAvailable = () => {
-      if (isMounted) setUpdateAvailable(true);
+      if (isMounted && !dismissedRef.current) setUpdateAvailable(true);
     };
 
     const inspectRegistration = (reg: ServiceWorkerRegistration | undefined) => {
@@ -834,7 +840,10 @@ function AppUpdatePrompt() {
   const dismissForSession = () => {
     const currentVersion = localStorage.getItem("sw-version") || "unknown";
     const dismissedKey = `app_update_prompt_dismissed_${currentVersion}`;
+    sessionStorage.setItem(SESSION_DISMISS_KEY, "1");
     sessionStorage.setItem(dismissedKey, "1");
+    dismissedRef.current = true;
+    setUpdateAvailable(false);
     setDismissed(true);
   };
 

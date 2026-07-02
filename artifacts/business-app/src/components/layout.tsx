@@ -396,13 +396,9 @@ export function Layout({ children }: { children: ReactNode }) {
                 const names = await caches.keys();
                 await Promise.all(names.map(n => caches.delete(n)));
               }
-              if ('serviceWorker' in navigator) {
-                const reg = await navigator.serviceWorker.getRegistration();
-                if (reg) await reg.unregister();
-              }
               window.location.reload();
             }}
-            title="Clear cached data and reload"
+            title="Clear cached data and reload (keeps push notifications enabled on this device)"
           >
             <RefreshCcw className="w-3.5 h-3.5 mr-2" />
             Clear Cache
@@ -482,10 +478,6 @@ export function Layout({ children }: { children: ReactNode }) {
                 if ('caches' in window) {
                   const names = await caches.keys();
                   await Promise.all(names.map(n => caches.delete(n)));
-                }
-                if ('serviceWorker' in navigator) {
-                  const reg = await navigator.serviceWorker.getRegistration();
-                  if (reg) await reg.unregister();
                 }
                 window.location.reload();
               }}>

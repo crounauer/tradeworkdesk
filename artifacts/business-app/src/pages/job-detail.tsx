@@ -440,29 +440,6 @@ export default function JobDetail() {
               <ClipboardList className="w-4 h-4 mr-2" /> Create Follow-Up
             </Button>
           )}
-          {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => setShowRebook(true)} disabled={!isOnline}>
-              {hasYearRebookScheduled ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> : <Copy className="w-4 h-4 mr-2" />}
-              {hasYearRebookScheduled ? "Rebooked (1yr)" : "Rebook (1yr)"}
-            </Button>
-          )}
-          {isAdmin && job.scheduled_date && (
-            <RebookDialog
-              open={showRebook}
-              onOpenChange={setShowRebook}
-              jobId={job.id}
-              originalDate={String(job.scheduled_date).slice(0, 10)}
-              originalTime={job.scheduled_time ? String(job.scheduled_time) : null}
-            />
-          )}
-          <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
-            <Mail className="w-4 h-4 mr-2" /> Email Customer
-          </Button>
-          {hasAddon("sms_messaging") && (job.customer?.phone || job.customer?.mobile) && (
-            <Button variant="outline" size="sm" onClick={() => setShowSms(true)}>
-              <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
-            </Button>
-          )}
           {completedForms && completedForms.length > 0 && (
             <Button variant="outline" size="sm" onClick={handleEmailCertificate} disabled={sendingCertificate || !isOnline}>
               {sendingCertificate ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
@@ -475,9 +452,6 @@ export default function JobDetail() {
               {(job as unknown as { fuel_category?: string | null }).fuel_category === "gas" ? "CP12 PDF" : "Service Record PDF"}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-            {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
-          </Button>
           {isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -622,6 +596,34 @@ export default function JobDetail() {
                   <p className="text-foreground whitespace-pre-wrap">{job.description || 'No description provided.'}</p>
                 </div>
               </div>
+              <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap gap-2">
+                {isAdmin && (
+                  <Button variant="outline" size="sm" onClick={() => setShowRebook(true)} disabled={!isOnline}>
+                    {hasYearRebookScheduled ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> : <Copy className="w-4 h-4 mr-2" />}
+                    {hasYearRebookScheduled ? "Rebooked (1yr)" : "Rebook (1yr)"}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
+                  <Mail className="w-4 h-4 mr-2" /> Email Customer
+                </Button>
+                {hasAddon("sms_messaging") && (job.customer?.phone || job.customer?.mobile) && (
+                  <Button variant="outline" size="sm" onClick={() => setShowSms(true)}>
+                    <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+                  {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
+                </Button>
+              </div>
+              {isAdmin && job.scheduled_date && (
+                <RebookDialog
+                  open={showRebook}
+                  onOpenChange={setShowRebook}
+                  jobId={job.id}
+                  originalDate={String(job.scheduled_date).slice(0, 10)}
+                  originalTime={job.scheduled_time ? String(job.scheduled_time) : null}
+                />
+              )}
               {(profile?.role === "admin" || profile?.role === "office_staff") && customerEmail && (
                 <div className="mt-4 pt-4 border-t border-border/50">
                   <Button variant="outline" size="sm" onClick={handleSendConfirmationDirect} disabled={sendingConfirmation} className="gap-2">
