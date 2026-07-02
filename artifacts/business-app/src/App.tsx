@@ -141,6 +141,7 @@ const AdminWebsiteTemplatesPage = lazyRetry(() => import("@/pages/admin-website-
 const SuperadminTemplatesPage = lazyRetry(() => import("@/pages/superadmin-templates"));
 const SuperadminTemplateDetailPage = lazyRetry(() => import("@/pages/superadmin-template-detail"));
 const SuperadminTemplatePreviewPage = lazyRetry(() => import("@/pages/superadmin-template-preview"));
+const SuperadminDbHousekeepingPage = lazyRetry(() => import("@/pages/superadmin-db-housekeeping"));
 const QuickRecord = lazyRetry(() => import("@/pages/quick-record"));
 const Enquiries = lazyRetry(() => import("@/pages/enquiries"));
 const EnquiryDetail = lazyRetry(() => import("@/pages/enquiry-detail"));
@@ -492,6 +493,7 @@ const AdminWebsiteTemplatesRoute = protect(AdminWebsiteTemplatesPage, ["super_ad
 const SuperadminTemplatesRoute = protect(SuperadminTemplatesPage, ["super_admin"]);
 const SuperadminTemplateDetailRoute = protect(SuperadminTemplateDetailPage, ["super_admin"]);
 const SuperadminTemplatePreviewRoute = protect(SuperadminTemplatePreviewPage, ["super_admin"]);
+const SuperadminDbHousekeepingRoute = protect(SuperadminDbHousekeepingPage, ["super_admin"]);
 const AdminWebsiteTemplatePreviewRoute = protect(lazyRetry(() => import("@/pages/admin-website-template-preview")), ["super_admin"]);
 const PlatformSupportTicketsRoute = protect(PlatformSupportTicketsPage, ["super_admin"]);
 const NotFoundRoute = () => <Suspense fallback={<PageFallback />}><NotFound /></Suspense>;
@@ -668,6 +670,7 @@ function AppRouter() {
         <Route path="/superadmin/templates" component={SuperadminTemplatesRoute} />
         <Route path="/superadmin/templates/:slug" component={SuperadminTemplateDetailRoute} />
         <Route path="/superadmin/templates/:slug/preview/:pageSlug" component={SuperadminTemplatePreviewRoute} />
+        <Route path="/superadmin/db-housekeeping" component={SuperadminDbHousekeepingRoute} />
         <Route path="/admin/website-templates" component={AdminWebsiteTemplatesRoute} />
         <Route path="/admin/website-templates/:id/preview" component={AdminWebsiteTemplatePreviewRoute} />
 

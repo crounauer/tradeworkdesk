@@ -292,6 +292,13 @@ function FollowUpCard({
   updating: boolean;
 }) {
   const overdue = isOverdue(fu.expected_parts_date, fu.status);
+  const hasPartsRequirement = Boolean(fu.parts_description && fu.parts_description.trim());
+  const statusLabel = !hasPartsRequirement && fu.status === "parts_arrived"
+    ? "follow-up"
+    : fu.status.replace(/_/g, " ");
+  const statusClass = !hasPartsRequirement && fu.status === "parts_arrived"
+    ? "bg-indigo-100 text-indigo-700"
+    : (statusColors[fu.status] || "bg-slate-100 text-slate-600");
 
   return (
     <Card className={cn("p-4 border shadow-sm transition-colors", overdue && "border-orange-300 bg-orange-50/50")}>
@@ -302,8 +309,8 @@ function FollowUpCard({
               {fu.original_job_ref || `Job #${fu.original_job_id.slice(0, 8)}`}
               <ExternalLink className="w-3 h-3" />
             </Link>
-            <span className={cn("px-2 py-0.5 rounded text-xs font-semibold uppercase", statusColors[fu.status] || "bg-slate-100 text-slate-600")}>
-              {fu.status.replace(/_/g, " ")}
+            <span className={cn("px-2 py-0.5 rounded text-xs font-semibold uppercase", statusClass)}>
+              {statusLabel}
             </span>
             {overdue && (
               <span className="flex items-center gap-1 text-xs font-semibold text-orange-600">
@@ -356,7 +363,7 @@ function FollowUpCard({
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Parts Arrived
               </Button>
             )}
-            {fu.status === "parts_arrived" && (
+            {fu.status === "parts_arrived" && hasPartsRequirement && (
               <Button
                 size="sm"
                 variant="outline"
