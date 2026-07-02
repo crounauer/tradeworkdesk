@@ -44,6 +44,10 @@ router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_ma
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled", "completed"].includes(status)) {
     q = q.eq("status", status);
+    if (status === "parts_arrived") {
+      // Parts Arrived tab should only include follow-ups that actually have parts listed.
+      q = q.not("parts_description", "is", null).neq("parts_description", "");
+    }
   } else {
     // Default "All" view excludes terminal follow-ups
     q = q.neq("status", "completed").neq("status", "cancelled");
