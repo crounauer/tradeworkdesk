@@ -179,6 +179,7 @@ function PushNotificationsSection() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [supported, setSupported] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
   const [permission, setPermission] = useState<PushPermissionState>("default");
   const [subscribed, setSubscribed] = useState(false);
 
@@ -203,6 +204,7 @@ function PushNotificationsSection() {
       const existing = await getExistingPushSubscription();
       if (!mounted) return;
       setSubscribed(Boolean(existing));
+      setSetupRequired(!existing && !("serviceWorker" in navigator && navigator.serviceWorker.controller));
       setLoading(false);
     };
 
@@ -316,6 +318,32 @@ function PushNotificationsSection() {
             This browser does not support push notifications.
           </CardDescription>
         </CardHeader>
+      </Card>
+    );
+  }
+
+  if (setupRequired) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Bell className="w-4 h-4" /> Device Push Notifications</CardTitle>
+          <CardDescription>
+            Push setup is missing on this device. Refresh the app once so the service worker can register, then enable push notifications.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-lg border bg-slate-50 p-3 text-sm text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground">Setup steps</p>
+            <p>1. Reload the app so the service worker registers.</p>
+            <p>2. Return here and select Enable on this device.</p>
+            <p>3. Allow notifications when the browser asks.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => window.location.reload()}>
+              Reload app
+            </Button>
+          </div>
+        </CardContent>
       </Card>
     );
   }

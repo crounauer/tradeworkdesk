@@ -229,13 +229,17 @@ export default function WebsiteSetup() {
 
   const changeTemplateMutation = useMutation({
     mutationFn: (templateId: string) =>
-      apiFetch("/api/website", {
-        method: "PATCH",
+      apiFetch(`/api/website/templates/${templateId}/apply`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: templateId }),
+        body: JSON.stringify({
+          confirmReplace: pages.length > 0,
+          contentMode: selectedContentMode,
+        }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
+      qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
       setShowChangeTemplate(false);
       setSelectedTemplateId(null);
       toast({ title: "Template updated", description: "Your website template has been changed." });
