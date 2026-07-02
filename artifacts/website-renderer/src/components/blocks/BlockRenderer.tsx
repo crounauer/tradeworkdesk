@@ -160,6 +160,12 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   const companyBase = {
     phone: companyContact?.phone ?? undefined,
     email: companyContact?.email ?? undefined,
+    company_address_line1: site?.company?.address_line1 ?? undefined,
+    company_address_line2: site?.company?.address_line2 ?? undefined,
+    company_city: site?.company?.city ?? undefined,
+    company_county: site?.company?.county ?? undefined,
+    company_postcode: site?.company?.postcode ?? undefined,
+    company_service_area: site?.company?.service_area ?? undefined,
   };
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
   const websiteOverride = websiteId ? { website_id: websiteId } : {};

@@ -49,6 +49,33 @@ interface Props {
   } & Record<string, unknown>;
 }
 
+function looksUkBased(content: Record<string, unknown>): boolean {
+  const postcodePattern = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i;
+  const countryPattern = /\b(uk|united kingdom|great britain|england|scotland|wales|northern ireland)\b/i;
+
+  const email = typeof content.email === "string" ? content.email : "";
+  const phone = typeof content.phone === "string" ? content.phone : "";
+
+  const addressBits = [
+    content.company_address_line1,
+    content.company_address_line2,
+    content.company_city,
+    content.company_county,
+    content.company_postcode,
+    content.company_service_area,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ");
+
+  const compactPhone = phone.replace(/\s+/g, "");
+  const hasUkDomain = /\.uk\b/i.test(email);
+  const hasUkPhone = /^(\+44|0)\d+/i.test(compactPhone);
+  const hasUkCountry = countryPattern.test(addressBits);
+  const hasUkPostcode = postcodePattern.test(addressBits);
+
+  return hasUkDomain || hasUkPhone || hasUkCountry || hasUkPostcode;
+}
+
 export default function HeroBlock({ content }: Props) {
   const isModernTradePayload = Boolean(content.title || content.eyebrow || content.primaryCtaLabel);
   const heading = (content.heading || content.title) as string | undefined;
@@ -77,6 +104,8 @@ export default function HeroBlock({ content }: Props) {
     overlay_opacity = 0.55,
   } = content;
 
+  const showMadeInUkBadge = looksUkBased(content);
+
   const isPostcodeCta = (ctaText || "").toLowerCase().includes("postcode");
   const primaryHref = cta_phone
     ? `tel:${cta_phone.replace(/\s/g, "")}`
@@ -102,6 +131,13 @@ export default function HeroBlock({ content }: Props) {
               <p style={{ margin: "0 0 16px", fontSize: "0.875rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, color: "#fbbf24" }}>
                 {content.eyebrow}
               </p>
+            )}
+            {showMadeInUkBadge && (
+              <div style={{ margin: "0 0 18px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, border: "1px solid rgba(52,211,153,0.45)", background: "rgba(16,185,129,0.15)", color: "#a7f3d0", fontSize: "0.675rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700, padding: "4px 10px" }}>
+                  Proudly UK Made
+                </span>
+              </div>
             )}
             {heading && (
               <h1 style={{ margin: "0 0 20px", fontSize: "clamp(2rem, 4.8vw, 3.5rem)", lineHeight: 1.08, fontWeight: 800 }}>
@@ -194,6 +230,13 @@ export default function HeroBlock({ content }: Props) {
         <p style={{ color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
           {content.eyebrow}
         </p>
+      )}
+      {showMadeInUkBadge && (
+        <div style={{ marginBottom: 14 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, border: isDark ? "1px solid rgba(255,255,255,0.3)" : "1px solid #a7f3d0", background: isDark ? "rgba(16,185,129,0.18)" : "#ecfdf5", color: isDark ? "#d1fae5" : "#065f46", fontSize: "0.675rem", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700, padding: "4px 10px" }}>
+            Proudly UK Made
+          </span>
+        </div>
       )}
       {(badges as Badge[]).length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22, justifyContent: isSplit || (!isCentered && align !== "center") ? "flex-start" : "center" }}>
