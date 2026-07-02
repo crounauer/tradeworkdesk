@@ -737,6 +737,21 @@ export default function JobDetail() {
                       </Link>
                     )}
 
+                    {(showGasForms || showHeatPumpForms || showOilForms) && (
+                      <Link href={`/jobs/${job.id}/dhw-cylinder-commissioning`}>
+                        <Card className={`p-5 flex items-center gap-4 hover:border-cyan-600 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completedFormTypes.has("dhw_cylinder_commissioning_record") ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-cyan-50/50 to-white"}`}>
+                          <div className={`p-3 rounded-xl ${completedFormTypes.has("dhw_cylinder_commissioning_record") ? "bg-emerald-500 text-white" : "bg-cyan-100 text-cyan-700"}`}><Droplets className="w-6 h-6"/></div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold">DHW Cylinder Commissioning</h4>
+                              {completedFormTypes.has("dhw_cylinder_commissioning_record") && <Check className="w-4 h-4 text-emerald-600" />}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{completedFormTypes.has("dhw_cylinder_commissioning_record") ? "Completed - tap to view or edit" : "Unvented and DHW cylinder commissioning"}</p>
+                          </div>
+                        </Card>
+                      </Link>
+                    )}
+
                     <Link href={`/jobs/${job.id}/job-completion`}>
                       <Card className={`p-5 flex items-center gap-4 hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all h-full bg-gradient-to-br ${completionReport ? "from-emerald-100/80 to-emerald-50/50 border-emerald-200" : "from-emerald-50/50 to-white"}`}>
                         <div className={`p-3 rounded-xl ${completionReport ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><ClipboardList className="w-6 h-6"/></div>
@@ -879,6 +894,7 @@ export default function JobDetail() {
                       { id: "job-completion", path: `/jobs/${job.id}/job-completion`, label: "Job Completion Report", desc: "Summarise work & sign-off", completedKey: "job_completion", visibleByDefault: true },
                       { id: "heat-pump-service", path: `/jobs/${job.id}/heat-pump-service`, label: "Heat Pump Service", desc: "Refrigerant, temps & COP readings", completedKey: "heat_pump_service_record", visibleByDefault: showHeatPumpForms },
                       { id: "heat-pump-commissioning", path: `/jobs/${job.id}/heat-pump-commissioning`, label: "Heat Pump Commissioning", desc: "MCS-style commissioning record", completedKey: "heat_pump_commissioning_record", visibleByDefault: showHeatPumpForms },
+                      { id: "dhw-cylinder-commissioning", path: `/jobs/${job.id}/dhw-cylinder-commissioning`, label: "DHW Cylinder Commissioning", desc: "Unvented and DHW cylinder commissioning", completedKey: "dhw_cylinder_commissioning_record", visibleByDefault: showGasForms || showHeatPumpForms || showOilForms },
                       { id: "oil-tank-inspection", path: `/jobs/${job.id}/oil-tank-inspection`, label: "Oil Tank Inspection", desc: "Tank details & condition", completedKey: "oil_tank_inspection", visibleByDefault: showOilForms },
                       { id: "oil-tank-risk-assessment", path: `/jobs/${job.id}/oil-tank-risk-assessment`, label: "Oil Tank Risk Assessment", desc: "Hazards & risk ratings", completedKey: "oil_tank_risk_assessment", visibleByDefault: showOilForms },
                       { id: "combustion-analysis", path: `/jobs/${job.id}/combustion-analysis`, label: "Combustion Analysis", desc: "Flue gas readings & efficiency", completedKey: "combustion_analysis_record", visibleByDefault: showOilForms },

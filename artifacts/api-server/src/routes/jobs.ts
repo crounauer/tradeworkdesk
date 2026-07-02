@@ -2436,7 +2436,199 @@ const FORM_TABLE_MAP: Record<string, { table: string; label: string; fieldMap: R
       notes: "Notes",
     },
   },
+  dhw_cylinder_commissioning_record: {
+    table: "dhw_cylinder_commissioning_records",
+    label: "DHW Cylinder Commissioning Record",
+    fieldMap: {
+      jurisdiction: "Jurisdiction",
+      cylinder_type: "Cylinder Type",
+      install_work_type: "Work Type",
+      install_compliance_route: "Compliance Route",
+      install_notification_reference: "Notification/Certificate Ref",
+
+      cylinder_manufacturer: "Manufacturer",
+      cylinder_model: "Model",
+      cylinder_serial_number: "Serial Number",
+      cylinder_capacity_litres: "Capacity (L)",
+      cylinder_heat_source: "Heat Source",
+      cylinder_max_working_pressure_bar: "Max Working Pressure (bar)",
+      cylinder_operating_pressure_bar: "Operating Pressure (bar)",
+      cylinder_manufacturer_instructions_available: "Manufacturer Instructions Available",
+
+      safety_cylinder_thermostat: "Cylinder Thermostat",
+      safety_thermal_cut_out: "Thermal Cut-out",
+      safety_immersion_thermostat_overheat: "Immersion Thermostat/Overheat",
+      safety_motorised_valve_operation: "Motorised Valve",
+      safety_tp_relief_valve: "T/P Relief Valve",
+      safety_expansion_relief_valve: "Expansion Relief Valve",
+      safety_no_isolation_valve_before_relief: "No Isolating Valve Before Relief",
+      safety_safety_valves_manually_tested: "Safety Valves Tested",
+      safety_discharge_visible_at_tundish: "Discharge Visible At Tundish",
+
+      expansion_incoming_static_pressure_bar: "Incoming Static Pressure (bar)",
+      expansion_prv_fitted: "PRV Fitted",
+      expansion_prv_setting_bar: "PRV Setting (bar)",
+      expansion_method: "Expansion Method",
+      expansion_vessel_size_litres: "Expansion Vessel Size (L)",
+      expansion_vessel_precharge_checked: "Pre-charge Checked",
+      expansion_vessel_precharge_pressure_bar: "Pre-charge Pressure (bar)",
+      expansion_cold_control_group: "Cold Control Group",
+      expansion_strainer_check_valve: "Strainer/Check Valve",
+      expansion_no_leaks: "No Leaks",
+
+      discharge_tundish_fitted: "Tundish Fitted",
+      discharge_tundish_visible_positioned: "Tundish Visible/Positioned",
+      discharge_valve_to_tundish_length_ok: "Valve to Tundish Length Acceptable",
+      discharge_d1_pipe_size: "D1 Pipe Size",
+      discharge_d2_pipe_size: "D2 Pipe Size",
+      discharge_d2_continuous_fall: "D2 Continuous Fall",
+      discharge_d2_terminates_safely: "D2 Terminates Safely",
+      discharge_termination_location: "Discharge Termination Location",
+
+      temp_cylinder_thermostat_setting_c: "Cylinder Thermostat Setting (C)",
+      temp_stored_hot_water_temp_c: "Stored Hot Water Temp (C)",
+      temp_nearest_hot_outlet_temp_c: "Nearest Hot Outlet Temp (C)",
+      temp_bath_present: "Bath Present",
+      temp_bath_hot_water_temperature_c: "Bath Hot Water Temp (C)",
+      temp_tmv_fitted: "Bath TMV Fitted",
+      temp_tmv_absence_note: "TMV Absence Note",
+
+      functional_filled_and_purged: "Filled and Air Purged",
+      functional_heated_to_operating_temp: "Heated to Operating Temp",
+      functional_controls_cycled: "Controls Cycled",
+      functional_safety_valves_tested: "Safety Valves Tested",
+      functional_no_leaks_after_heat_up: "No Leaks After Heat-up",
+      functional_no_unwanted_discharge: "No Unwanted Discharge",
+      functional_warning_label_visible: "Warning Label Visible",
+      functional_user_instructions_explained: "User Instructions Explained",
+
+      defects_found: "Defects Found",
+      defects_severity: "Defect Severity",
+      defects_notes: "Defect Notes",
+      defects_remedial_action: "Remedial Action",
+      defects_further_work_required: "Further Work Required",
+      final_status: "Final Status",
+      form_status: "Form Status",
+      completed_at: "Completed At",
+      photo_data_plate: "Data Plate Photo",
+      photo_tundish: "Tundish Photo",
+      photo_discharge: "Discharge Termination Photo",
+      photo_defects_count: "Defect Photo Count",
+    },
+  },
 };
+
+function normalizeRecordForPdf(formType: string, rawRecord: Record<string, unknown>): Record<string, unknown> {
+  if (formType !== "dhw_cylinder_commissioning_record") {
+    return rawRecord;
+  }
+
+  const getObj = (key: string): Record<string, unknown> => {
+    const val = rawRecord[key];
+    return val && typeof val === "object" ? (val as Record<string, unknown>) : {};
+  };
+
+  const installation = getObj("installation_type");
+  const cylinder = getObj("cylinder_details");
+  const safety = getObj("safety_controls");
+  const expansion = getObj("expansion_cold_inlet");
+  const discharge = getObj("discharge_pipework");
+  const temp = getObj("temperature_readings");
+  const functional = getObj("functional_tests");
+  const defects = getObj("defects");
+  const photos = getObj("photo_uploads");
+
+  const asText = (v: unknown): string => {
+    if (v == null) return "";
+    if (Array.isArray(v)) return v.join(", ");
+    if (typeof v === "object") {
+      const rec = v as Record<string, unknown>;
+      return String(rec.file_name || rec.id || rec.url || rec.signed_url || "");
+    }
+    return String(v);
+  };
+
+  const defectsList = Array.isArray(photos.defect_photos) ? (photos.defect_photos as unknown[]) : [];
+
+  return {
+    ...rawRecord,
+    jurisdiction: rawRecord.jurisdiction,
+    cylinder_type: rawRecord.cylinder_type,
+    install_work_type: installation.work_type,
+    install_compliance_route: installation.compliance_route,
+    install_notification_reference: installation.notification_reference,
+
+    cylinder_manufacturer: cylinder.manufacturer,
+    cylinder_model: cylinder.model,
+    cylinder_serial_number: cylinder.serial_number,
+    cylinder_capacity_litres: cylinder.capacity_litres,
+    cylinder_heat_source: Array.isArray(cylinder.heat_source) ? (cylinder.heat_source as unknown[]).join(", ") : cylinder.heat_source,
+    cylinder_max_working_pressure_bar: cylinder.max_working_pressure_bar,
+    cylinder_operating_pressure_bar: cylinder.operating_pressure_bar,
+    cylinder_manufacturer_instructions_available: cylinder.manufacturer_instructions_available,
+
+    safety_cylinder_thermostat: safety.cylinder_thermostat,
+    safety_thermal_cut_out: safety.thermal_cut_out,
+    safety_immersion_thermostat_overheat: safety.immersion_thermostat_overheat,
+    safety_motorised_valve_operation: safety.motorised_valve_operation,
+    safety_tp_relief_valve: safety.tp_relief_valve,
+    safety_expansion_relief_valve: safety.expansion_relief_valve,
+    safety_no_isolation_valve_before_relief: safety.no_isolation_valve_before_relief,
+    safety_safety_valves_manually_tested: safety.safety_valves_manually_tested,
+    safety_discharge_visible_at_tundish: safety.discharge_visible_at_tundish,
+
+    expansion_incoming_static_pressure_bar: expansion.incoming_static_pressure_bar,
+    expansion_prv_fitted: expansion.prv_fitted,
+    expansion_prv_setting_bar: expansion.prv_setting_bar,
+    expansion_method: expansion.expansion_method,
+    expansion_vessel_size_litres: expansion.expansion_vessel_size_litres,
+    expansion_vessel_precharge_checked: expansion.vessel_precharge_checked,
+    expansion_vessel_precharge_pressure_bar: expansion.vessel_precharge_pressure_bar,
+    expansion_cold_control_group: expansion.cold_control_group,
+    expansion_strainer_check_valve: expansion.strainer_check_valve,
+    expansion_no_leaks: expansion.no_leaks,
+
+    discharge_tundish_fitted: discharge.tundish_fitted,
+    discharge_tundish_visible_positioned: discharge.tundish_visible_positioned,
+    discharge_valve_to_tundish_length_ok: discharge.valve_to_tundish_length_ok,
+    discharge_d1_pipe_size: discharge.d1_pipe_size,
+    discharge_d2_pipe_size: discharge.d2_pipe_size,
+    discharge_d2_continuous_fall: discharge.d2_continuous_fall,
+    discharge_d2_terminates_safely: discharge.d2_terminates_safely,
+    discharge_termination_location: discharge.termination_location,
+
+    temp_cylinder_thermostat_setting_c: temp.cylinder_thermostat_setting_c,
+    temp_stored_hot_water_temp_c: temp.stored_hot_water_temp_c,
+    temp_nearest_hot_outlet_temp_c: temp.nearest_hot_outlet_temp_c,
+    temp_bath_present: temp.bath_present,
+    temp_bath_hot_water_temperature_c: temp.bath_hot_water_temperature_c,
+    temp_tmv_fitted: temp.tmv_fitted,
+    temp_tmv_absence_note: temp.tmv_absence_note,
+
+    functional_filled_and_purged: functional.filled_and_purged,
+    functional_heated_to_operating_temp: functional.heated_to_operating_temp,
+    functional_controls_cycled: functional.controls_cycled,
+    functional_safety_valves_tested: functional.safety_valves_tested,
+    functional_no_leaks_after_heat_up: functional.no_leaks_after_heat_up,
+    functional_no_unwanted_discharge: functional.no_unwanted_discharge,
+    functional_warning_label_visible: functional.warning_label_visible,
+    functional_user_instructions_explained: functional.user_instructions_explained,
+
+    defects_found: defects.defects_found,
+    defects_severity: defects.defect_severity,
+    defects_notes: defects.defect_notes,
+    defects_remedial_action: defects.remedial_action,
+    defects_further_work_required: defects.further_work_required,
+
+    final_status: rawRecord.final_status,
+    form_status: rawRecord.form_status,
+    completed_at: rawRecord.completed_at,
+    photo_data_plate: asText(photos.cylinder_data_plate),
+    photo_tundish: asText(photos.tundish_photo),
+    photo_discharge: asText(photos.discharge_termination_photo),
+    photo_defects_count: defectsList.length,
+  };
+}
 
 router.get("/jobs/:jobId/completed-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.jobId;
@@ -2521,10 +2713,12 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
   const fuelType = appliance?.fuel_type || "oil";
   const scheduledDate = job.scheduled_date || "";
 
+  const normalizedRecord = normalizeRecordForPdf(formType, record as Record<string, unknown>);
+
   const pdfBuffer = generateFormPdf(
     formType,
     config.label,
-    record as Record<string, unknown>,
+    normalizedRecord,
     config.fieldMap,
     { jobRef: job.job_ref || job.id.slice(0, 8).toUpperCase(), customerName, propertyAddress, technicianName, scheduledDate },
     pdfCompany,
@@ -2662,6 +2856,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     if (!record) continue;
 
     const rec = record as Record<string, unknown>;
+    const normalizedRecord = normalizeRecordForPdf(formType, rec);
     const matchedFields = Object.keys(config.fieldMap).filter(k => rec[k] != null && rec[k] !== "" && rec[k] !== "null");
     const unmatchedDbKeys = Object.keys(rec).filter(k => !["id","job_id","technician_id","tenant_id","created_at","updated_at"].includes(k) && !(k in config.fieldMap));
     console.log(`[email-pdf] ${formType}: DB columns=${Object.keys(rec).length}, fieldMap keys=${Object.keys(config.fieldMap).length}, matched=${matchedFields.length}, unmatched DB cols=[${unmatchedDbKeys.join(",")}]`);
@@ -2669,7 +2864,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     const pdfBuffer = generateFormPdf(
       formType,
       config.label,
-      record as Record<string, unknown>,
+      normalizedRecord,
       config.fieldMap,
       formCtx,
       pdfCompany,
@@ -2894,7 +3089,8 @@ router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requir
 
     for (const record of records) {
       const rec = record as Record<string, unknown>;
-      const pdfBuffer = generateFormPdf(formType, config.label, rec, config.fieldMap, formCtx, pdfCompany, fuelType);
+      const normalizedRecord = normalizeRecordForPdf(formType, rec);
+      const pdfBuffer = generateFormPdf(formType, config.label, normalizedRecord, config.fieldMap, formCtx, pdfCompany, fuelType);
       const safeLabel = config.label.replace(/[^a-zA-Z0-9]/g, "_");
       attachments.push({ filename: `${safeLabel}_${formCtx.jobRef}.pdf`, content: pdfBuffer });
       formsIncluded.push({ form_type: formType, form_label: config.label, form_id: rec.id as string });

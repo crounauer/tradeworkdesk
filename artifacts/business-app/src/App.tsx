@@ -70,16 +70,13 @@ class ChunkErrorBoundary extends ReactComponent<{ children: ReactNode }, { hasEr
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
           <div className="text-center space-y-4 max-w-md px-4">
             <p className="text-foreground font-semibold">App update required</p>
-            <p className="text-muted-foreground text-sm">We could not load the latest app files. Refresh now, or clear cached data if this keeps happening.</p>
+            <p className="text-muted-foreground text-sm">We could not load the latest app files. Update now to refresh the app and clear old cached files.</p>
             <div className="flex items-center justify-center gap-2">
-              <button className="px-4 py-2 border border-border bg-white rounded-lg text-sm" onClick={() => window.location.reload()}>
-                Refresh Now
-              </button>
               <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm" onClick={() => {
                 incrementChunkReloadAttempts();
                 clearSwAndReload();
               }}>
-                Clear Cached Data
+                Update Now
               </button>
             </div>
           </div>
@@ -110,6 +107,7 @@ const OilLineVacuumTestForm = lazyRetry(() => import("@/pages/oil-line-vacuum-te
 const JobCompletionReportForm = lazyRetry(() => import("@/pages/job-completion-report-form"));
 const HeatPumpServiceForm = lazyRetry(() => import("@/pages/heat-pump-service-form"));
 const HeatPumpCommissioningForm = lazyRetry(() => import("@/pages/heat-pump-commissioning-form"));
+const DhwCylinderCommissioningForm = lazyRetry(() => import("@/pages/dhw-cylinder-commissioning-form"));
 const JobFiles = lazyRetry(() => import("@/pages/job-files"));
 const JobSignatures = lazyRetry(() => import("@/pages/job-signatures"));
 const Reports = lazyRetry(() => import("@/pages/reports"));
@@ -419,6 +417,7 @@ const OilLineVacuumTestRoute = protectFeature(OilLineVacuumTestForm, "job_manage
 const JobCompletionRoute = protectFeature(JobCompletionReportForm, "job_management");
 const HeatPumpServiceRoute = protectFeature(HeatPumpServiceForm, "job_management");
 const HeatPumpCommissioningRoute = protectFeature(HeatPumpCommissioningForm, "job_management");
+const DhwCylinderCommissioningRoute = protectFeature(DhwCylinderCommissioningForm, "job_management");
 const JobFilesRoute = protectFeature(JobFiles, "job_management");
 const JobSignaturesRoute = protectFeature(JobSignatures, "job_management");
 const ScheduleRoute = protectFeature(SchedulePage, "job_management");
@@ -581,6 +580,7 @@ function AppRouter() {
         <Route path="/jobs/:jobId/job-completion" component={JobCompletionRoute} />
         <Route path="/jobs/:jobId/heat-pump-service" component={HeatPumpServiceRoute} />
         <Route path="/jobs/:jobId/heat-pump-commissioning" component={HeatPumpCommissioningRoute} />
+        <Route path="/jobs/:jobId/dhw-cylinder-commissioning" component={DhwCylinderCommissioningRoute} />
         <Route path="/jobs/:jobId/files" component={JobFilesRoute} />
         <Route path="/jobs/:jobId/signatures" component={JobSignaturesRoute} />
 
@@ -853,25 +853,14 @@ function AppUpdatePrompt() {
           </button>
           <button
             type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-slate-700 disabled:opacity-50"
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
             disabled={working}
             onClick={() => {
               setWorking(true);
               clearSwAndReload();
             }}
           >
-            Clear Cached Data
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
-            disabled={working}
-            onClick={() => {
-              setWorking(true);
-              window.location.reload();
-            }}
-          >
-            Refresh Now
+            Update Now
           </button>
         </div>
       </div>

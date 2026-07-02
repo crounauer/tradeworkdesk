@@ -23,7 +23,7 @@ function renderBlock(blockType: string, content: TenantWebsiteContent) {
     case "business_info":
       return <BusinessInfoBlock business={content.business} />;
     case "hero":
-      return <HeroBlock hero={content.hero} />;
+      return <HeroBlock hero={content.hero} business={content.business} />;
     case "benefits":
       return <BenefitsBlock benefits={content.benefits} />;
     case "services":
