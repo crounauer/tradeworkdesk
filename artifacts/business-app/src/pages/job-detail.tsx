@@ -419,6 +419,11 @@ export default function JobDetail() {
               Finish Job
             </Button>
           )}
+          {canComplete && job.status !== "in_progress" && job.status !== "awaiting_parts" && (
+            <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white" onClick={() => handleStatusChange("in_progress", "In Progress")} disabled={updateJob.isPending}>
+              <Clock className="w-4 h-4 mr-2" /> Mark In Progress
+            </Button>
+          )}
           {canComplete && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
