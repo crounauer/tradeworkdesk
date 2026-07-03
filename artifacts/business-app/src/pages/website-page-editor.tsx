@@ -594,7 +594,17 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
   return "generic";
 }
 
-function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Record<string, unknown>) => void }) {
+function BlockEditor({
+  block,
+  onChange,
+  previewEnabled,
+  onTogglePreview,
+}: {
+  block: Block;
+  onChange: (content: Record<string, unknown>) => void;
+  previewEnabled?: boolean;
+  onTogglePreview?: (enabled: boolean) => void;
+}) {
   const c = block.content;
   const editorType = resolveEditorType(block.block_type);
 
@@ -617,16 +627,23 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       const heroPreviewSubtitle = subheading || "A short description of your services or offer.";
       const heroPreviewPrimary = primaryText || "Get a Free Quote";
       const heroPreviewSecondary = secondaryText || undefined;
+      const isPreviewVisible = previewEnabled !== false;
 
       return (
-        <div className="space-y-6 xl:pt-[42vh]">
-          <div className="hidden xl:block xl:fixed xl:inset-x-0 xl:top-0 xl:z-30 xl:px-0">
-            <Card className="overflow-hidden border-border/70 shadow-xl">
-              <CardHeader className="border-b bg-muted/40 py-3">
-                <CardTitle className="text-sm">Live Preview</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <HeroPreviewBlock
+        <div className={`space-y-6 ${isPreviewVisible ? "xl:pt-[42vh]" : "xl:pt-0"}`}>
+          {isPreviewVisible ? (
+            <div className="hidden xl:block xl:fixed xl:inset-x-0 xl:top-0 xl:z-30 xl:px-0">
+              <Card className="overflow-hidden border-border/70 shadow-xl">
+                <CardHeader className="border-b bg-muted/40 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-sm">Live Preview</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(false)}>
+                      Hide preview
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <HeroPreviewBlock
                   eyebrow={eyebrow || undefined}
                   layout={(c.layout as "full" | "centered" | "split") ?? "full"}
                   variant={(c.variant as "default" | "classic") ?? "default"}
@@ -678,9 +695,16 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
                   cardBorderColor={readString(c, ["card_border_color"]) || undefined}
                   cardShadow={readString(c, ["card_shadow"]) || undefined}
                 />
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="hidden xl:block">
+              <Button variant="outline" size="sm" onClick={() => onTogglePreview?.(true)}>
+                Show preview
+              </Button>
+            </div>
+          )}
 
           <div className="space-y-3">
             <FieldRow label="Eyebrow / Preheading">
@@ -1550,6 +1574,8 @@ function BlockCard({
   onToggleVisible,
   onDelete,
   onContentChange,
+  previewEnabled,
+  onTogglePreview,
 }: {
   block: Block;
   index: number;
@@ -1558,6 +1584,8 @@ function BlockCard({
   onToggleVisible: (id: string) => void;
   onDelete: (id: string) => void;
   onContentChange: (id: string, content: Record<string, unknown>) => void;
+  previewEnabled?: boolean;
+  onTogglePreview?: (enabled: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const normalizedType = normalizeTemplateBlockType(block.block_type);
@@ -1623,6 +1651,8 @@ function BlockCard({
               <BlockEditor
                 block={block}
                 onChange={(content) => onContentChange(block.id, content)}
+                previewEnabled={previewEnabled}
+                onTogglePreview={onTogglePreview}
               />
             </div>
           </CardContent>
@@ -1644,6 +1674,7 @@ export default function WebsitePageEditor() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [deletingBlockId, setDeletingBlockId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [showHeroPreview, setShowHeroPreview] = useState(true);
   const [metaForm, setMetaForm] = useState({
     title: "",
     slug: "",
@@ -1913,6 +1944,8 @@ export default function WebsitePageEditor() {
                 onToggleVisible={toggleVisible}
                 onDelete={(id) => setDeletingBlockId(id)}
                 onContentChange={updateBlockContent}
+                previewEnabled={showHeroPreview}
+                onTogglePreview={setShowHeroPreview}
               />
             ))
           )}
