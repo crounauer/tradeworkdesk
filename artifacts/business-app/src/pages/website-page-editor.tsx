@@ -2100,10 +2100,10 @@ export default function WebsitePageEditor() {
       </div>
 
       {/* ── 3-column layout ────────────────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="grid flex-1 min-h-0 overflow-hidden xl:grid-cols-[11.5rem_minmax(0,1fr)_15.5rem]">
 
         {/* ── Left: Block palette ──────────────────────────────────────── */}
-        <aside className="w-56 flex-shrink-0 border-r bg-muted/30 overflow-y-auto p-3 space-y-1">
+        <aside className="border-r bg-muted/30 overflow-y-auto p-2.5 space-y-1">
           <p className="text-xs font-semibold text-muted-foreground px-1 pb-1">Add Block</p>
           {BLOCK_PALETTE.map((item) => {
             const Icon = item.icon;
@@ -2123,7 +2123,7 @@ export default function WebsitePageEditor() {
         </aside>
 
         {/* ── Centre: Block list ───────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto p-4 space-y-2">
+        <main className="min-w-0 overflow-y-auto p-3 space-y-2">
           {blocks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground">
               <Layout className="w-10 h-10 mb-3 opacity-30" />
@@ -2149,8 +2149,8 @@ export default function WebsitePageEditor() {
         </main>
 
         {/* ── Right: Page settings ─────────────────────────────────────── */}
-        <aside className="w-72 flex-shrink-0 border-l overflow-y-auto">
-          <div className="p-4 space-y-4">
+        <aside className="border-l overflow-y-auto">
+          <div className="p-3 space-y-4">
             <div>
               <h2 className="text-sm font-semibold mb-3">Page Settings</h2>
               <div className="space-y-3">
