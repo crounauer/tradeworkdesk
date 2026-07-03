@@ -48,10 +48,11 @@ import { useToast } from "@/hooks/use-toast";
 import { ImagePickerField } from "@/components/image-picker-field";
 import { modernTradePages } from "@/twd/templates/modernTrade.pages";
 import { HeroBlock as HeroPreviewBlock } from "@/twd/blocks";
+import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
-  Type, Image, Layout, MessageSquare, Star, Grid3X3,
+  ChevronLeft, Type, Image, Layout, MessageSquare, Star, Grid3X3,
   Phone, Award, Minus, Undo2, CalendarCheck,
 } from "lucide-react";
 
@@ -1868,10 +1869,22 @@ export default function WebsitePageEditor() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const leftPanelStorageKey = "website-page-editor-left-panel-collapsed";
+  const rightPanelStorageKey = "website-page-editor-right-panel-collapsed";
+  const readPanelCollapsedState = (key: string) => {
+    try {
+      return localStorage.getItem(key) === "true";
+    } catch {
+      return false;
+    }
+  };
+
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [deletingBlockId, setDeletingBlockId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [showHeroPreview, setShowHeroPreview] = useState(true);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() => readPanelCollapsedState(leftPanelStorageKey));
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => readPanelCollapsedState(rightPanelStorageKey));
   const [metaForm, setMetaForm] = useState({
     title: "",
     slug: "",
@@ -1905,6 +1918,22 @@ export default function WebsitePageEditor() {
       setIsDirty(false);
     }
   }, [page]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(leftPanelStorageKey, String(leftPanelCollapsed));
+    } catch {
+      // Ignore storage failures and keep the editor usable.
+    }
+  }, [leftPanelCollapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(rightPanelStorageKey, String(rightPanelCollapsed));
+    } catch {
+      // Ignore storage failures and keep the editor usable.
+    }
+  }, [rightPanelCollapsed]);
 
   // ── Save blocks
   const saveBlocksMutation = useMutation({
@@ -2100,26 +2129,58 @@ export default function WebsitePageEditor() {
       </div>
 
       {/* ── 3-column layout ────────────────────────────────────────────── */}
-      <div className="grid flex-1 min-h-0 overflow-hidden xl:grid-cols-[11.5rem_minmax(0,1fr)_15.5rem]">
+      <div
+        className={cn(
+          "grid flex-1 min-h-0 overflow-hidden",
+          leftPanelCollapsed && rightPanelCollapsed
+            ? "xl:grid-cols-[3rem_minmax(0,1fr)_3rem]"
+            : leftPanelCollapsed
+              ? "xl:grid-cols-[3rem_minmax(0,1fr)_15.5rem]"
+              : rightPanelCollapsed
+                ? "xl:grid-cols-[11.5rem_minmax(0,1fr)_3rem]"
+                : "xl:grid-cols-[11.5rem_minmax(0,1fr)_15.5rem]"
+        )}
+      >
 
         {/* ── Left: Block palette ──────────────────────────────────────── */}
-        <aside className="border-r bg-muted/30 overflow-y-auto p-2.5 space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground px-1 pb-1">Add Block</p>
-          {BLOCK_PALETTE.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.type}
-                onClick={() => addBlock(item.type)}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                title={item.description}
-              >
-                <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
-                <Plus className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
-              </button>
-            );
-          })}
+        <aside className="border-r bg-muted/30 overflow-y-auto">
+          <div className="flex items-center justify-between gap-2 border-b px-2.5 py-2">
+            <p className={cn("text-xs font-semibold text-muted-foreground", leftPanelCollapsed && "sr-only")}>Add Block</p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setLeftPanelCollapsed((v) => !v)}
+              title={leftPanelCollapsed ? "Expand block palette" : "Collapse block palette"}
+            >
+              <ChevronLeft className={cn("h-4 w-4 transition-transform", leftPanelCollapsed && "rotate-180")} />
+            </Button>
+          </div>
+          {leftPanelCollapsed ? (
+            <div className="p-2">
+              <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setLeftPanelCollapsed(false)} title="Expand block palette">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-1 p-2.5">
+              {BLOCK_PALETTE.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.type}
+                    onClick={() => addBlock(item.type)}
+                    className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                    title={item.description}
+                  >
+                    <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                    <Plus className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </aside>
 
         {/* ── Centre: Block list ───────────────────────────────────────── */}
@@ -2150,111 +2211,130 @@ export default function WebsitePageEditor() {
 
         {/* ── Right: Page settings ─────────────────────────────────────── */}
         <aside className="border-l overflow-y-auto">
-          <div className="p-3 space-y-4">
-            <div>
-              <h2 className="text-sm font-semibold mb-3">Page Settings</h2>
-              <div className="space-y-3">
-                <FieldRow label="Page Title">
-                  <Input value={metaForm.title} onChange={(e) => setMetaForm((f) => ({ ...f, title: e.target.value }))} />
-                </FieldRow>
-                <FieldRow label="Page URL">
-                  {page.page_type === "home" ? (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground px-3 py-2 rounded-md border bg-muted/50">
-                      <span className="text-muted-foreground/60">/</span>
-                      <span>(home page — fixed)</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                      <span className="px-2 py-2 text-sm text-muted-foreground bg-muted border-r select-none">/</span>
-                      <Input
-                        value={metaForm.slug}
-                        onChange={(e) => {
-                          const raw = e.target.value
-                            .toLowerCase()
-                            .replace(/[^a-z0-9-/]/g, "-")
-                            .replace(/-+/g, "-")
-                            .replace(/^\//, "");
-                          setMetaForm((f) => ({ ...f, slug: raw }));
-                        }}
-                        className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                        placeholder="page-url"
-                      />
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-0.5">Only lowercase letters, numbers and hyphens</p>
-                </FieldRow>
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Show in navigation</Label>
-                  <Switch checked={metaForm.show_in_nav} onCheckedChange={(v) => setMetaForm((f) => ({ ...f, show_in_nav: v }))} />
-                </div>
-                {metaForm.show_in_nav && (
-                  <FieldRow label="Nav Label">
-                    <Input value={metaForm.nav_label} onChange={(e) => setMetaForm((f) => ({ ...f, nav_label: e.target.value }))} placeholder={metaForm.title} />
-                  </FieldRow>
-                )}
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <h2 className="text-sm font-semibold mb-3">SEO</h2>
-              <div className="space-y-3">
-                <FieldRow label="Meta Title">
-                  <Input
-                    value={metaForm.meta_title}
-                    onChange={(e) => setMetaForm((f) => ({ ...f, meta_title: e.target.value }))}
-                    placeholder={metaForm.title}
-                    maxLength={60}
-                  />
-                  <p className="text-xs text-muted-foreground mt-0.5">{metaForm.meta_title.length}/60 chars</p>
-                </FieldRow>
-                <FieldRow label="Meta Description">
-                  <Textarea
-                    value={metaForm.meta_description}
-                    onChange={(e) => setMetaForm((f) => ({ ...f, meta_description: e.target.value }))}
-                    placeholder="A short description for search engines..."
-                    rows={3}
-                    maxLength={160}
-                  />
-                  <p className="text-xs text-muted-foreground mt-0.5">{metaForm.meta_description.length}/160 chars</p>
-                </FieldRow>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Hide from search engines</Label>
-                    <p className="text-xs text-muted-foreground/70">Adds noindex tag</p>
-                  </div>
-                  <Switch checked={metaForm.no_index} onCheckedChange={(v) => setMetaForm((f) => ({ ...f, no_index: v }))} />
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => saveMetaMutation.mutate()}
-                disabled={saveMetaMutation.isPending}
-              >
-                {saveMetaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-                Save Page Settings
+          <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+            <h2 className={cn("text-sm font-semibold", rightPanelCollapsed && "sr-only")}>Page Settings</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setRightPanelCollapsed((v) => !v)}
+              title={rightPanelCollapsed ? "Expand page settings" : "Collapse page settings"}
+            >
+              <ChevronRight className={cn("h-4 w-4 transition-transform", rightPanelCollapsed && "rotate-180")} />
+            </Button>
+          </div>
+          {rightPanelCollapsed ? (
+            <div className="p-2 flex items-start justify-center">
+              <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setRightPanelCollapsed(false)} title="Expand page settings">
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+          ) : (
+            <div className="p-3 space-y-4">
+              <div>
+                <div className="space-y-3">
+                  <FieldRow label="Page Title">
+                    <Input value={metaForm.title} onChange={(e) => setMetaForm((f) => ({ ...f, title: e.target.value }))} />
+                  </FieldRow>
+                  <FieldRow label="Page URL">
+                    {page.page_type === "home" ? (
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground px-3 py-2 rounded-md border bg-muted/50">
+                        <span className="text-muted-foreground/60">/</span>
+                        <span>(home page — fixed)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                        <span className="px-2 py-2 text-sm text-muted-foreground bg-muted border-r select-none">/</span>
+                        <Input
+                          value={metaForm.slug}
+                          onChange={(e) => {
+                            const raw = e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9-/]/g, "-")
+                              .replace(/-+/g, "-")
+                              .replace(/^\//, "");
+                            setMetaForm((f) => ({ ...f, slug: raw }));
+                          }}
+                          className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          placeholder="page-url"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5">Only lowercase letters, numbers and hyphens</p>
+                  </FieldRow>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Show in navigation</Label>
+                    <Switch checked={metaForm.show_in_nav} onCheckedChange={(v) => setMetaForm((f) => ({ ...f, show_in_nav: v }))} />
+                  </div>
+                  {metaForm.show_in_nav && (
+                    <FieldRow label="Nav Label">
+                      <Input value={metaForm.nav_label} onChange={(e) => setMetaForm((f) => ({ ...f, nav_label: e.target.value }))} placeholder={metaForm.title} />
+                    </FieldRow>
+                  )}
+                </div>
+              </div>
 
-            <Separator />
+              <Separator />
 
-            <div>
-              <h2 className="text-sm font-semibold mb-2">Version History</h2>
-              <Link href={`/website/pages/${pageId}/history`}>
-                <Button variant="outline" size="sm" className="w-full text-xs">
-                  View History
+              <div>
+                <h2 className="text-sm font-semibold mb-3">SEO</h2>
+                <div className="space-y-3">
+                  <FieldRow label="Meta Title">
+                    <Input
+                      value={metaForm.meta_title}
+                      onChange={(e) => setMetaForm((f) => ({ ...f, meta_title: e.target.value }))}
+                      placeholder={metaForm.title}
+                      maxLength={60}
+                    />
+                    <p className="text-xs text-muted-foreground mt-0.5">{metaForm.meta_title.length}/60 chars</p>
+                  </FieldRow>
+                  <FieldRow label="Meta Description">
+                    <Textarea
+                      value={metaForm.meta_description}
+                      onChange={(e) => setMetaForm((f) => ({ ...f, meta_description: e.target.value }))}
+                      placeholder="A short description for search engines..."
+                      rows={3}
+                      maxLength={160}
+                    />
+                    <p className="text-xs text-muted-foreground mt-0.5">{metaForm.meta_description.length}/160 chars</p>
+                  </FieldRow>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Hide from search engines</Label>
+                      <p className="text-xs text-muted-foreground/70">Adds noindex tag</p>
+                    </div>
+                    <Switch checked={metaForm.no_index} onCheckedChange={(v) => setMetaForm((f) => ({ ...f, no_index: v }))} />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => saveMetaMutation.mutate()}
+                  disabled={saveMetaMutation.isPending}
+                >
+                  {saveMetaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+                  Save Page Settings
                 </Button>
-              </Link>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h2 className="text-sm font-semibold mb-2">Version History</h2>
+                <Link href={`/website/pages/${pageId}/history`}>
+                  <Button variant="outline" size="sm" className="w-full text-xs">
+                    View History
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </aside>
       </div>
 
