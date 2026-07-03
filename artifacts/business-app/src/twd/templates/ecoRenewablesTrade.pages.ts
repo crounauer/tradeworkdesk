@@ -691,10 +691,136 @@ const stickyMobileCta = {
   },
 } as const;
 
+const expandedDemoBlocksByPageTitle: Record<string, Array<{ type: string; props: Record<string, unknown> }>> = {
+  Home: [
+    {
+      type: "features_bar",
+      props: {
+        background_color: "#0d9488",
+        text_color: "#ffffff",
+        items: [
+          { icon: "⚡", title: "Fast response", description: "We reply quickly and keep communication clear." },
+          { icon: "✅", title: "Qualified engineers", description: "Skilled local professionals for planned and reactive work." },
+          { icon: "🏆", title: "Trusted service", description: "Dependable workmanship and practical advice." },
+        ],
+      },
+    },
+    {
+      type: "brands",
+      props: {
+        heading: "Brands we work with",
+        brands: [
+          { name: "Vaillant", logo_url: "" },
+          { name: "Worcester Bosch", logo_url: "" },
+        ],
+        layout_variant: "logo-cloud",
+      },
+    },
+    {
+      type: "spacer",
+      props: { height: "md" },
+    },
+  ],
+  About: [
+    {
+      type: "why_choose_us",
+      props: {
+        heading: "Why choose us",
+        subheading: "A practical local service built around reliability and communication.",
+        items: [
+          { title: "Clear advice", description: "Straight answers before any work is booked.", icon: "🧭" },
+          { title: "Tidy workmanship", description: "Careful work standards across every visit.", icon: "🛠️" },
+          { title: "Local accountability", description: "A local team with a reputation to protect.", icon: "📍" },
+        ],
+        layout_variant: "card-grid",
+      },
+    },
+  ],
+  Services: [
+    {
+      type: "image",
+      props: {
+        image_url: "",
+        alt_text: "Service image",
+        caption: "",
+        width: "full",
+      },
+    },
+    {
+      type: "project_showcase",
+      props: {
+        heading: "Recent project",
+        projects: [
+          {
+            title: "Recent installation",
+            location: "Aberdeenshire",
+            image_url: "",
+            description: "A sample case study block for showcasing completed work.",
+            cta_text: "Request a quote",
+            cta_url: "/contact",
+          },
+        ],
+      },
+    },
+  ],
+  Contact: [
+    {
+      type: "online_booking",
+      props: {
+        heading: "Book an appointment",
+        subheading: "Choose a service and request a convenient slot.",
+        require_postcode: true,
+        require_description: true,
+        show_price: true,
+        complex_keywords: "repair,breakdown,fault,emergency,not working,no hot water,leak",
+      },
+    },
+    {
+      type: "contact_form",
+      props: {
+        heading: "Send an enquiry",
+        subheading: "Tell us what you need and we will get back to you shortly.",
+      },
+    },
+  ],
+  "Blog Post": [
+    {
+      type: "blog.post",
+      props: {
+        heading: "Blog Post",
+        subheading: "",
+        html: "<p>Write your article content here.</p>",
+        layout_variant: "classic-article",
+      },
+    },
+  ],
+};
+
+function withExpandedDemoBlocks(page: TemplatePage): TemplatePage {
+  const additions = expandedDemoBlocksByPageTitle[page.title] || [];
+  if (!additions.length) return page;
+
+  const blocks = [...page.blocks];
+  const existing = new Set(
+    blocks.map((block) => String(block.type || block.block_type || "").trim().toLowerCase())
+  );
+  const insertAt = Math.max(blocks.length - 1, 0);
+
+  additions.forEach((addition) => {
+    const normalized = addition.type.toLowerCase();
+    if (existing.has(normalized)) return;
+    blocks.splice(insertAt, 0, { type: addition.type, props: addition.props });
+    existing.add(normalized);
+  });
+
+  return { ...page, blocks };
+}
+
 function withStickyMobileCta(page: TemplatePage): TemplatePage {
-  const hasSticky = page.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
-  if (hasSticky) return page;
-  return { ...page, blocks: [...page.blocks, stickyMobileCta] };
+  const expanded = withExpandedDemoBlocks(page);
+  const hasSticky = expanded.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
+  if (hasSticky) return expanded;
+  return { ...expanded, blocks: [...expanded.blocks, stickyMobileCta] };
 }
 
 function withEcoRenewablesStyleMix(page: TemplatePage): TemplatePage {
