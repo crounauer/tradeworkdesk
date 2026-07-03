@@ -47,6 +47,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ImagePickerField } from "@/components/image-picker-field";
 import { modernTradePages } from "@/twd/templates/modernTrade.pages";
+import { HeroBlock as HeroPreviewBlock } from "@/twd/blocks";
 import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
@@ -612,112 +613,117 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       const heroImage = readString(c, ["hero_image_url", "heroImageUrl"]);
       const backgroundColor = readString(c, ["background_color", "backgroundColor"], "#1e40af");
       const textColor = readString(c, ["text_color", "textColor"], "#ffffff");
+      const heroPreviewTitle = heading || "Your Heading Here";
+      const heroPreviewSubtitle = subheading || "A short description of your services or offer.";
+      const heroPreviewPrimary = primaryText || "Get a Free Quote";
+      const heroPreviewSecondary = secondaryText || undefined;
 
       return (
-        <div className="space-y-3">
-          <FieldRow label="Eyebrow / Preheading">
-            <Input value={eyebrow} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
-          </FieldRow>
-          <FieldRow label="Layout">
-            <Select value={String(c.layout ?? "full")} onValueChange={(v) => set("layout", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="full">Full-width (dark background)</SelectItem>
-                <SelectItem value="centered">Centered (dark background)</SelectItem>
-                <SelectItem value="split">Split (image + content, light)</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <FieldRow label="Variant">
-            <Select value={String(c.variant ?? "default")} onValueChange={(v) => set("variant", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="modern">Modern</SelectItem>
-                <SelectItem value="classic">Classic</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <FieldRow label="Hero Style">
-            <Select value={String(c.heroStyle ?? "default")} onValueChange={(v) => set("heroStyle", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="modern">Modern</SelectItem>
-                <SelectItem value="classic">Classic</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <FieldRow label="Tone">
-            <Select value={String(c.tone ?? "default")} onValueChange={(v) => set("tone", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="navy">Navy</SelectItem>
-                <SelectItem value="light">Light</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <FieldRow label="Density">
-            <Select value={String(c.density ?? "normal")} onValueChange={(v) => set("density", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="compact">Compact</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="comfortable">Comfortable</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <FieldRow label="CTA Style">
-            <Select value={String(c.ctaStyle ?? "default")} onValueChange={(v) => set("ctaStyle", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="rounded">Rounded</SelectItem>
-                <SelectItem value="soft">Soft</SelectItem>
-                <SelectItem value="outline">Outline</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
-          <FieldRow label="Heading Accent Word">
-            <Input value={String(c.heading_accent ?? "")} onChange={(e) => set("heading_accent", e.target.value)} placeholder="One word from the heading to highlight in colour" />
-          </FieldRow>
-          <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
-          <FieldRow label="Primary Button Text"><Input value={primaryText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
-          <FieldRow label="Primary Button URL"><Input value={primaryUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
-          <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
-          <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
-          <ImagePickerField
-            label="Background Image URL (full/centered layouts)"
-            value={backgroundImage}
-            onChange={(url) => onChange(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }))}
-            hint="Recommended: 1920 × 1080 px (landscape). Used as the hero background."
-            fieldName="hero_background"
-          />
-          <ImagePickerField
-            label="Hero Image URL (split layout only)"
-            value={heroImage}
-            onChange={(url) => onChange(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }))}
-            hint="Recommended: 900 × 700 px (portrait or square works best)."
-            fieldName="hero_image"
-          />
-          <div className="flex gap-3">
-            <FieldRow label="Background Colour">
-              <div className="flex items-center gap-2">
-                <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
-                <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
-              </div>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.92fr)] xl:items-start">
+          <div className="space-y-3">
+            <FieldRow label="Eyebrow / Preheading">
+              <Input value={eyebrow} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
             </FieldRow>
-            <FieldRow label="Text Colour">
-              <div className="flex items-center gap-2">
-                <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
-                <Input value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="flex-1" />
-              </div>
+            <FieldRow label="Layout">
+              <Select value={String(c.layout ?? "full")} onValueChange={(v) => set("layout", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full">Full-width (dark background)</SelectItem>
+                  <SelectItem value="centered">Centered (dark background)</SelectItem>
+                  <SelectItem value="split">Split (image + content, light)</SelectItem>
+                </SelectContent>
+              </Select>
             </FieldRow>
-          </div>
-          <Separator />
-          <Collapsible>
+            <FieldRow label="Variant">
+              <Select value={String(c.variant ?? "default")} onValueChange={(v) => set("variant", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="modern">Modern</SelectItem>
+                  <SelectItem value="classic">Classic</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow label="Hero Style">
+              <Select value={String(c.heroStyle ?? "default")} onValueChange={(v) => set("heroStyle", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="modern">Modern</SelectItem>
+                  <SelectItem value="classic">Classic</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow label="Tone">
+              <Select value={String(c.tone ?? "default")} onValueChange={(v) => set("tone", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="navy">Navy</SelectItem>
+                  <SelectItem value="light">Light</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow label="Density">
+              <Select value={String(c.density ?? "normal")} onValueChange={(v) => set("density", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="compact">Compact</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="comfortable">Comfortable</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow label="CTA Style">
+              <Select value={String(c.ctaStyle ?? "default")} onValueChange={(v) => set("ctaStyle", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="rounded">Rounded</SelectItem>
+                  <SelectItem value="soft">Soft</SelectItem>
+                  <SelectItem value="outline">Outline</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
+            <FieldRow label="Heading Accent Word">
+              <Input value={String(c.heading_accent ?? "")} onChange={(e) => set("heading_accent", e.target.value)} placeholder="One word from the heading to highlight in colour" />
+            </FieldRow>
+            <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
+            <FieldRow label="Primary Button Text"><Input value={primaryText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
+            <FieldRow label="Primary Button URL"><Input value={primaryUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
+            <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
+            <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
+            <ImagePickerField
+              label="Background Image URL (full/centered layouts)"
+              value={backgroundImage}
+              onChange={(url) => onChange(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }))}
+              hint="Recommended: 1920 × 1080 px (landscape). Used as the hero background."
+              fieldName="hero_background"
+            />
+            <ImagePickerField
+              label="Hero Image URL (split layout only)"
+              value={heroImage}
+              onChange={(url) => onChange(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }))}
+              hint="Recommended: 900 × 700 px (portrait or square works best)."
+              fieldName="hero_image"
+            />
+            <div className="flex gap-3">
+              <FieldRow label="Background Colour">
+                <div className="flex items-center gap-2">
+                  <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                  <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
+                </div>
+              </FieldRow>
+              <FieldRow label="Text Colour">
+                <div className="flex items-center gap-2">
+                  <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                  <Input value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="flex-1" />
+                </div>
+              </FieldRow>
+            </div>
+            <Separator />
+            <Collapsible>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between px-0 text-sm">
                 Hero Colours
@@ -899,6 +905,68 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
               </SelectContent>
             </Select>
           </FieldRow>
+          </div>
+          <div className="lg:sticky lg:top-6">
+            <Card className="overflow-hidden border-border/70 shadow-sm">
+              <CardHeader className="border-b bg-muted/40 py-3">
+                <CardTitle className="text-sm">Live Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <HeroPreviewBlock
+                  eyebrow={eyebrow || undefined}
+                  layout={(c.layout as "full" | "centered" | "split") ?? "full"}
+                  variant={(c.variant as "default" | "classic") ?? "default"}
+                  heroStyle={(c.heroStyle as "default" | "classic") ?? "default"}
+                  tone={(c.tone as "default" | "navy") ?? "default"}
+                  density={(c.density as "normal" | "comfortable" | "compact") ?? "normal"}
+                  title={heroPreviewTitle}
+                  subtitle={heroPreviewSubtitle}
+                  primaryCtaLabel={heroPreviewPrimary}
+                  secondaryCtaLabel={heroPreviewSecondary}
+                  phone={String(c.cta_phone ?? "") || undefined}
+                  backgroundImageUrl={backgroundImage || undefined}
+                  heroImageUrl={heroImage || undefined}
+                  backgroundColor={String(c.background_color ?? c.backgroundColor ?? backgroundColor)}
+                  textColor={String(c.text_color ?? c.textColor ?? textColor)}
+                  imageAlt={String(c.imageAlt ?? "Hero image preview")}
+                  fontFamily={readString(c, ["font_family"]) || undefined}
+                  headingFontFamily={readString(c, ["heading_font_family"]) || undefined}
+                  bodyFontFamily={readString(c, ["body_font_family"]) || undefined}
+                  ctaFontFamily={readString(c, ["cta_font_family"]) || undefined}
+                  headingFontSize={readString(c, ["heading_font_size"]) || undefined}
+                  subheadingFontSize={readString(c, ["subheading_font_size"]) || undefined}
+                  eyebrowFontSize={readString(c, ["eyebrow_font_size"]) || undefined}
+                  ctaFontSize={readString(c, ["cta_font_size"]) || undefined}
+                  headingFontWeight={c.heading_font_weight as string | number | undefined}
+                  subheadingFontWeight={c.subheading_font_weight as string | number | undefined}
+                  ctaFontWeight={c.cta_font_weight as string | number | undefined}
+                  sectionPaddingTop={readString(c, ["section_padding_top"]) || undefined}
+                  sectionPaddingBottom={readString(c, ["section_padding_bottom"]) || undefined}
+                  contentMaxWidth={readString(c, ["content_max_width"]) || undefined}
+                  contentGap={readString(c, ["content_gap"]) || undefined}
+                  sectionBorderRadius={readString(c, ["border_radius"]) || undefined}
+                  sectionBorderWidth={readString(c, ["section_border_width"]) || undefined}
+                  sectionBorderColor={readString(c, ["section_border_color"]) || undefined}
+                  sectionShadow={readString(c, ["section_shadow"]) || undefined}
+                  overlayColor={readString(c, ["overlay_color"]) || undefined}
+                  overlayOpacity={typeof c.overlay_opacity === "number" ? c.overlay_opacity : Number(c.overlay_opacity) || undefined}
+                  accentColor={readString(c, ["accent_color"]) || undefined}
+                  headingColor={readString(c, ["heading_color"]) || undefined}
+                  subheadingColor={readString(c, ["subheading_color"]) || undefined}
+                  eyebrowColor={readString(c, ["eyebrow_color"]) || undefined}
+                  primaryButtonBgColor={readString(c, ["primary_button_bg_color"]) || undefined}
+                  primaryButtonTextColor={readString(c, ["primary_button_text_color"]) || undefined}
+                  primaryButtonBorderColor={readString(c, ["primary_button_border_color"]) || undefined}
+                  secondaryButtonBgColor={readString(c, ["secondary_button_bg_color"]) || undefined}
+                  secondaryButtonTextColor={readString(c, ["secondary_button_text_color"]) || undefined}
+                  secondaryButtonBorderColor={readString(c, ["secondary_button_border_color"]) || undefined}
+                  cardBackgroundColor={readString(c, ["card_background_color"]) || undefined}
+                  cardBorderColor={readString(c, ["card_border_color"]) || undefined}
+                  cardShadow={readString(c, ["card_shadow"]) || undefined}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       );
     }
