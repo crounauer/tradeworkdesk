@@ -628,6 +628,57 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
               </SelectContent>
             </Select>
           </FieldRow>
+          <FieldRow label="Variant">
+            <Select value={String(c.variant ?? "default")} onValueChange={(v) => set("variant", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="modern">Modern</SelectItem>
+                <SelectItem value="classic">Classic</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
+          <FieldRow label="Hero Style">
+            <Select value={String(c.heroStyle ?? "default")} onValueChange={(v) => set("heroStyle", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="modern">Modern</SelectItem>
+                <SelectItem value="classic">Classic</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
+          <FieldRow label="Tone">
+            <Select value={String(c.tone ?? "default")} onValueChange={(v) => set("tone", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="navy">Navy</SelectItem>
+                <SelectItem value="light">Light</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
+          <FieldRow label="Density">
+            <Select value={String(c.density ?? "normal")} onValueChange={(v) => set("density", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="compact">Compact</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="comfortable">Comfortable</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
+          <FieldRow label="CTA Style">
+            <Select value={String(c.ctaStyle ?? "default")} onValueChange={(v) => set("ctaStyle", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="rounded">Rounded</SelectItem>
+                <SelectItem value="soft">Soft</SelectItem>
+                <SelectItem value="outline">Outline</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
           <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
           <FieldRow label="Heading Accent Word">
             <Input value={String(c.heading_accent ?? "")} onChange={(e) => set("heading_accent", e.target.value)} placeholder="One word from the heading to highlight in colour" />
