@@ -1,5 +1,7 @@
 "use client";
 
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 // Supports both legacy field names (author, text) and current names (author_name, body)
 interface Testimonial {
   author_name?: string;
@@ -55,7 +57,7 @@ export default function TestimonialsBlock({ content }: Props) {
       source_url: r.source_url as string | undefined,
     })) : []) as Testimonial[];
   const { accent_color = "#0d9488", background_color = "#f9fafb", aggregate_rating, review_count } = content;
-  const isModernTradePayload = Boolean(content.reviews || content.eyebrow);
+  const isModernTradePayload = isModernTemplateContent(content);
   if (!testimonials.length) return null;
 
   if (isModernTradePayload) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 interface Stat {
   value: string;
   label: string;
@@ -50,7 +52,7 @@ interface Props {
 }
 
 export default function HeroBlock({ content }: Props) {
-  const isModernTradePayload = Boolean(content.title || content.eyebrow || content.primaryCtaLabel);
+  const isModernTradePayload = isModernTemplateContent(content);
   const heading = (content.heading || content.title) as string | undefined;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
   const ctaText = (content.cta_text || content.primaryCtaLabel) as string | undefined;

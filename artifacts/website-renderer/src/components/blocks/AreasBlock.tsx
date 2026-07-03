@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isModernTemplateContent } from "@/lib/siteTheme";
 
 const API_BASE =
   typeof process !== "undefined"
@@ -64,7 +65,7 @@ export default function AreasBlock({ content }: Props) {
   const ctaBg = isTealCard ? "#ffffff" : accent_color;
   const ctaColor = isTealCard ? accent_color : "#ffffff";
   const areaItems = Array.isArray(areas) ? areas : [];
-  const isModernTradePayload = Boolean(content.title || content.eyebrow);
+  const isModernTradePayload = isModernTemplateContent(content);
 
   const canShowCoveredActions = Boolean(coverage?.covered);
   const contactHref = contact_url || cta_url || "#contact";

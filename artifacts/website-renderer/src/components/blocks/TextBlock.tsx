@@ -1,6 +1,7 @@
 "use client";
 
 import { sanitizeTenantHtml } from "@/lib/sanitize-html";
+import { isModernTemplateContent } from "@/lib/siteTheme";
 
 interface Props {
   content: {
@@ -19,7 +20,7 @@ export default function TextBlock({ content }: Props) {
   const title = content.title as string | undefined;
   const eyebrow = content.eyebrow as string | undefined;
   const subtitle = content.subtitle as string | undefined;
-  const isModernTradePayload = Boolean(title || eyebrow || subtitle);
+  const isModernTradePayload = isModernTemplateContent(content);
 
   if (isModernTradePayload) {
     return (

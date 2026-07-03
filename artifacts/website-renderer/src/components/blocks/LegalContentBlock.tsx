@@ -1,4 +1,5 @@
 import { sanitizeTenantHtml } from "@/lib/sanitize-html";
+import { isModernTemplateContent } from "@/lib/siteTheme";
 
 interface Props {
   content: {
@@ -14,7 +15,7 @@ export default function LegalContentBlock({ content }: Props) {
   const body = (content.html || content.body || content.text) as string | undefined;
   const safeBody = sanitizeTenantHtml(body);
   const label = (content.label || content.eyebrow) as string | undefined;
-  const isModernTradePayload = Boolean(content.eyebrow || content.title);
+  const isModernTradePayload = isModernTemplateContent(content);
 
   if (isModernTradePayload) {
     return (

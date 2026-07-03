@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { SitePage } from "@/lib/api";
 import Link from "next/link";
 import { ensureAccessibleTextColor } from "@/lib/theme";
+import { resolveSiteTheme } from "@/lib/siteTheme";
 
 interface CompanyInfo {
   phone?: string | null;
@@ -19,7 +20,7 @@ interface Props {
   siteName: string;
   logoUrl: string | null;
   pages: SitePage[];
-  theme: Record<string, string>;
+  theme: Record<string, unknown>;
   templateSlug?: string;
   company?: CompanyInfo | null;
   basePath?: string;
@@ -29,9 +30,10 @@ interface Props {
 
 export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSlug, company, basePath, previewToken, showTopBar = true }: Props) {
   const isModernTrade = String(templateSlug || "").toLowerCase() === "modern-trade";
-  const navBg = theme?.nav_background || (isModernTrade ? "#ffffff" : "#1c2942");
-  const navText = ensureAccessibleTextColor(navBg, theme?.nav_text || (isModernTrade ? "#0f172a" : "#ffffff"));
-  const accent = theme?.accent_color || (isModernTrade ? "#fbbf24" : "#f97316");
+  const normalizedTheme = resolveSiteTheme(theme, templateSlug);
+  const navBg = normalizedTheme.navBackground;
+  const navText = ensureAccessibleTextColor(navBg, normalizedTheme.navText);
+  const accent = normalizedTheme.accentColor;
   const [menuOpen, setMenuOpen] = useState(false);
 
   function pageHref(page: SitePage): string {

@@ -1,5 +1,7 @@
 "use client";
 
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 interface Props {
   content: {
     heading?: string;
@@ -19,7 +21,7 @@ export default function CtaBlock({ content }: Props) {
   const { background_color = "#f97316", text_color = "#ffffff" } = content;
   const heading = (content.heading || content.title) as string | undefined;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
-  const isModernTradePayload = Boolean(content.title || content.primaryCtaLabel);
+  const isModernTradePayload = isModernTemplateContent(content);
   // Support both field names: cta_text/cta_url (current) and button_text/button_url (legacy)
   const cta_text = (content.cta_text || content.primaryCtaLabel || content.button_text) as string | undefined;
   const cta_url = (content.cta_url || content.primaryCtaHref || content.button_url) as string | undefined;

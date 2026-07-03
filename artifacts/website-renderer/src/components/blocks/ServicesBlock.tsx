@@ -1,5 +1,7 @@
 "use client";
 
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 interface Service {
   title: string;
   description?: string;
@@ -31,7 +33,7 @@ export default function ServicesBlock({ content }: Props) {
   const subheading = (content.subheading || content.subtitle) as string | undefined;
   const label = (content.label || content.eyebrow) as string | undefined;
   const { columns = 3, accent_color = "#f97316" } = content;
-  const isModernTradePayload = Boolean(content.title || content.eyebrow);
+  const isModernTradePayload = isModernTemplateContent(content);
   const schemaServices = services
     .filter((service) => Boolean(service.title))
     .map((service) => {

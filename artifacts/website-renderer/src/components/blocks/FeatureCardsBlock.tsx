@@ -1,3 +1,5 @@
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 interface FeatureCard {
   title: string;
   description?: string;
@@ -24,7 +26,7 @@ export default function FeatureCardsBlock({ content }: Props) {
   const subheading = content.subheading as string | undefined;
   const label = content.label as string | undefined;
   const accent = content.accent_color || "#0d9488";
-  const isModernTradePayload = Boolean(content.title || content.eyebrow || label);
+  const isModernTradePayload = isModernTemplateContent(content);
 
   if (!cards.length) return null;
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 interface GalleryImage {
   url: string;
   alt?: string;
@@ -18,7 +20,7 @@ export default function GalleryBlock({ content }: Props) {
   const { heading, images = [], columns = 3 } = content;
   const label = (content.label || content.eyebrow) as string | undefined;
   const subtitle = content.subtitle as string | undefined;
-  const isModernTradePayload = Boolean(content.eyebrow || content.subtitle);
+  const isModernTradePayload = isModernTemplateContent(content);
   if (!images.length) return null;
 
   if (isModernTradePayload) {

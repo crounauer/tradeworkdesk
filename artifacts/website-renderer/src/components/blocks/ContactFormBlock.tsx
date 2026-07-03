@@ -2,6 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { submitForm, uploadFormPhotos } from "@/lib/api";
+import { isModernTemplateContent } from "@/lib/siteTheme";
 
 interface ContactInfo {
   phone?: string;
@@ -38,7 +39,7 @@ export default function ContactFormBlock({ content }: Props) {
   const rootEmail = content.email as string | undefined;
   const rootAddress = content.address as string | undefined;
   const rootOpeningHours = content.openingHours as string | undefined;
-  const isModernTradePayload = Boolean(content.title || content.eyebrow || rootOpeningHours || rootAddress);
+  const isModernTradePayload = isModernTemplateContent(content);
 
   const {
     form_id,

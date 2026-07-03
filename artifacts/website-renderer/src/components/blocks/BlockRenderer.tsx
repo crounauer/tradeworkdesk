@@ -26,6 +26,7 @@ import LegalContentBlock from "./LegalContentBlock";
 import FeatureCardsBlock from "./FeatureCardsBlock";
 import DetailSectionBlock from "./DetailSectionBlock";
 import { hasBlockRendererForType, isSkippableBlockType, normalizeBlockType } from "./block-registry";
+import { resolveSiteTheme } from "@/lib/siteTheme";
 
 interface Props {
   block: SiteBlock;
@@ -155,8 +156,18 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     return null;
   }
 
-  const siteAccent = theme?.accent_color;
-  const base = siteAccent ? { accent_color: siteAccent } : {};
+  const normalizedTheme = resolveSiteTheme(theme, site?.website?.template_slug);
+  const base = {
+    accent_color: normalizedTheme.accentColor,
+    primary_color: normalizedTheme.primaryColor,
+    primary_text_color: normalizedTheme.primaryTextColor,
+    background_color: normalizedTheme.backgroundColor,
+    muted_background_color: normalizedTheme.mutedBackgroundColor,
+    border_color: normalizedTheme.borderColor,
+    text_color: normalizedTheme.textColor,
+    muted_text_color: normalizedTheme.mutedTextColor,
+    template_slug: site?.website?.template_slug || undefined,
+  };
   const companyBase = {
     phone: companyContact?.phone ?? undefined,
     email: companyContact?.email ?? undefined,

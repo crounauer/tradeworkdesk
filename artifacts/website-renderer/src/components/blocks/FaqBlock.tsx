@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { isModernTemplateContent } from "@/lib/siteTheme";
 
 interface FaqItem {
   question: string;
@@ -50,7 +51,7 @@ export default function FaqBlock({ content }: Props) {
   const heading = (content.heading || content.title || "Frequently Asked Questions") as string;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
   const label = (content.label || content.eyebrow) as string | undefined;
-  const isModernTradePayload = Boolean(content.title || content.eyebrow);
+  const isModernTradePayload = isModernTemplateContent(content);
   const items = (Array.isArray(content.faqs) ? content.faqs : Array.isArray(content.items) ? content.items : []) as FaqItem[];
   if (!items.length) return null;
 

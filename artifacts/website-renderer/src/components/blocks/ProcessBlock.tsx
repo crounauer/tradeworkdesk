@@ -1,5 +1,7 @@
 "use client";
 
+import { isModernTemplateContent } from "@/lib/siteTheme";
+
 interface Step {
   title: string;
   description?: string;
@@ -37,7 +39,7 @@ export default function ProcessBlock({ content }: Props) {
     background_color = "#ffffff",
     accent_color = "#0d9488",
   } = content;
-  const isModernTradePayload = Boolean(content.label || content.eyebrow || content.title);
+  const isModernTradePayload = isModernTemplateContent(content);
 
   const cols = Math.min(steps.length || 4, 4);
 

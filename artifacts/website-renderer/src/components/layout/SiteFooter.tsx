@@ -1,11 +1,12 @@
 import type { CompanySettings, SitePage } from "@/lib/api";
 import { ensureAccessibleTextColor } from "@/lib/theme";
+import { resolveSiteTheme } from "@/lib/siteTheme";
 
 interface Props {
   siteName: string;
   company: CompanySettings | null;
   socialLinks: Record<string, string> | null;
-  theme: Record<string, string>;
+  theme: Record<string, unknown>;
   pages?: SitePage[];
   tagline?: string | null;
   logoUrl?: string | null;
@@ -17,9 +18,10 @@ const SOCIAL_ICONS: Record<string, string> = {
 };
 
 export default function SiteFooter({ siteName, company, socialLinks, theme, pages = [], tagline, logoUrl }: Props) {
-  const footerBg = theme?.footer_background || "#111827";
-  const footerText = ensureAccessibleTextColor(footerBg, theme?.footer_text || "#9ca3af");
-  const accent = theme?.accent_color || "#f97316";
+  const normalizedTheme = resolveSiteTheme(theme);
+  const footerBg = normalizedTheme.footerBackground;
+  const footerText = ensureAccessibleTextColor(footerBg, normalizedTheme.footerText);
+  const accent = normalizedTheme.accentColor;
   const year = new Date().getFullYear();
   const displayName = company?.trading_name || company?.name || siteName;
 
