@@ -119,6 +119,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const hasJobManagement = hasFeature("job_management");
   const hasWebsiteBuilder = hasFeature("website_builder");
   const supportHref = isSuperAdmin ? "/platform/support-tickets" : "/support";
+  const isFullWidthWorkspace =
+    location.startsWith("/website/") ||
+    location === "/website" ||
+    location.startsWith("/admin/website-templates") ||
+    location.startsWith("/superadmin/template") ||
+    location.startsWith("/superadmin/db-housekeeping");
 
   // ── Work: core day-to-day items ──────────────────────────────────────────
   const workNavItems = hasJobManagement ? [
@@ -620,7 +626,10 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         ))}
 
-        <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0">
+        <div className={cn(
+          "flex-1 p-4 md:p-8 w-full min-w-0",
+          isFullWidthWorkspace ? "max-w-none mx-0" : "max-w-7xl mx-auto"
+        )}>
           {isLockedOut && !isOnAllowedPath ? (
             <LockedOutScreen
               accountSuspended={accountSuspended}
