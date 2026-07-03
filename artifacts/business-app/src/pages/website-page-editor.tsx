@@ -1538,7 +1538,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>
                   {isPreviewVisible ? "Hide preview" : "Show preview"}
@@ -1679,7 +1679,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -1829,7 +1829,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -1958,7 +1958,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2118,7 +2118,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2284,7 +2284,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2425,7 +2425,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2542,7 +2542,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2675,7 +2675,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2801,7 +2801,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -2928,7 +2928,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3037,7 +3037,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3135,7 +3135,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3245,7 +3245,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3384,7 +3384,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3529,7 +3529,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3678,7 +3678,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3802,7 +3802,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -3932,7 +3932,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -4086,7 +4086,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -4199,7 +4199,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
@@ -4376,7 +4376,7 @@ function BlockEditor({
               )}
             </div>
 
-            <div className="space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
               <div className="flex items-center justify-end">
                 <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
               </div>
