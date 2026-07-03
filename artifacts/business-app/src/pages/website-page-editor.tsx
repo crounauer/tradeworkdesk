@@ -716,6 +716,179 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
               </div>
             </FieldRow>
           </div>
+          <Separator />
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between px-0 text-sm">
+                Hero Colours
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="grid gap-3 md:grid-cols-2">
+                <FieldRow label="Accent Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["accent_color"], "#f97316")} onChange={(e) => set("accent_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["accent_color"], "")} onChange={(e) => set("accent_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Eyebrow Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["eyebrow_color"], "#f97316")} onChange={(e) => set("eyebrow_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["eyebrow_color"], "")} onChange={(e) => set("eyebrow_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Heading Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["heading_color"], "#ffffff")} onChange={(e) => set("heading_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["heading_color"], "")} onChange={(e) => set("heading_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Subheading Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["subheading_color"], "#cbd5e1")} onChange={(e) => set("subheading_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["subheading_color"], "")} onChange={(e) => set("subheading_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Primary Button Background">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(e) => set("primary_button_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["primary_button_bg_color"], "")} onChange={(e) => set("primary_button_bg_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Primary Button Text">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["primary_button_text_color"], "")} onChange={(e) => set("primary_button_text_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Primary Button Border">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["primary_button_border_color"], "#f97316")} onChange={(e) => set("primary_button_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["primary_button_border_color"], "")} onChange={(e) => set("primary_button_border_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Secondary Button Background">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(e) => set("secondary_button_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["secondary_button_bg_color"], "")} onChange={(e) => set("secondary_button_bg_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Secondary Button Text">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["secondary_button_text_color"], "")} onChange={(e) => set("secondary_button_text_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Secondary Button Border">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["secondary_button_border_color"], "#d1d5db")} onChange={(e) => set("secondary_button_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["secondary_button_border_color"], "")} onChange={(e) => set("secondary_button_border_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Badge Background">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(e) => set("badge_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["badge_bg_color"], "")} onChange={(e) => set("badge_bg_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Badge Text">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["badge_text_color"], "")} onChange={(e) => set("badge_text_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Badge Border">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["badge_border_color"], "#d1d5db")} onChange={(e) => set("badge_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["badge_border_color"], "")} onChange={(e) => set("badge_border_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Trust Icon Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["trust_icon_color"], "#f97316")} onChange={(e) => set("trust_icon_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["trust_icon_color"], "")} onChange={(e) => set("trust_icon_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Trust Text Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["trust_text_color"], "#ffffff")} onChange={(e) => set("trust_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["trust_text_color"], "")} onChange={(e) => set("trust_text_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Card Background">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(e) => set("card_background_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["card_background_color"], "")} onChange={(e) => set("card_background_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Card Border">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["card_border_color"], "")} onChange={(e) => set("card_border_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between px-0 text-sm">
+                Typography
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="grid gap-3 md:grid-cols-2">
+                <FieldRow label="Base Font Family"><Input value={readString(c, ["font_family"])} onChange={(e) => set("font_family", e.target.value)} placeholder="inherit" /></FieldRow>
+                <FieldRow label="Heading Font Family"><Input value={readString(c, ["heading_font_family"])} onChange={(e) => set("heading_font_family", e.target.value)} placeholder="inherit" /></FieldRow>
+                <FieldRow label="Body Font Family"><Input value={readString(c, ["body_font_family"])} onChange={(e) => set("body_font_family", e.target.value)} placeholder="inherit" /></FieldRow>
+                <FieldRow label="CTA Font Family"><Input value={readString(c, ["cta_font_family"])} onChange={(e) => set("cta_font_family", e.target.value)} placeholder="inherit" /></FieldRow>
+                <FieldRow label="Heading Size"><Input value={readString(c, ["heading_font_size"])} onChange={(e) => set("heading_font_size", e.target.value)} placeholder="clamp(2rem, 4.8vw, 3.5rem)" /></FieldRow>
+                <FieldRow label="Subheading Size"><Input value={readString(c, ["subheading_font_size"])} onChange={(e) => set("subheading_font_size", e.target.value)} placeholder="1.125rem" /></FieldRow>
+                <FieldRow label="Eyebrow Size"><Input value={readString(c, ["eyebrow_font_size"])} onChange={(e) => set("eyebrow_font_size", e.target.value)} placeholder="0.875rem" /></FieldRow>
+                <FieldRow label="CTA Size"><Input value={readString(c, ["cta_font_size"])} onChange={(e) => set("cta_font_size", e.target.value)} placeholder="0.9375rem" /></FieldRow>
+                <FieldRow label="Stat Value Size"><Input value={readString(c, ["stats_value_font_size"])} onChange={(e) => set("stats_value_font_size", e.target.value)} placeholder="1.75rem" /></FieldRow>
+                <FieldRow label="Stat Label Size"><Input value={readString(c, ["stats_label_font_size"])} onChange={(e) => set("stats_label_font_size", e.target.value)} placeholder="0.8125rem" /></FieldRow>
+                <FieldRow label="Heading Weight"><Input value={String(c.heading_font_weight ?? "")} onChange={(e) => set("heading_font_weight", e.target.value)} placeholder="800" /></FieldRow>
+                <FieldRow label="Subheading Weight"><Input value={String(c.subheading_font_weight ?? "")} onChange={(e) => set("subheading_font_weight", e.target.value)} placeholder="400" /></FieldRow>
+                <FieldRow label="CTA Weight"><Input value={String(c.cta_font_weight ?? "")} onChange={(e) => set("cta_font_weight", e.target.value)} placeholder="700" /></FieldRow>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between px-0 text-sm">
+                Layout, Spacing & Borders
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <div className="grid gap-3 md:grid-cols-2">
+                <FieldRow label="Section Top Padding"><Input value={readString(c, ["section_padding_top"])} onChange={(e) => set("section_padding_top", e.target.value)} placeholder="80px" /></FieldRow>
+                <FieldRow label="Section Bottom Padding"><Input value={readString(c, ["section_padding_bottom"])} onChange={(e) => set("section_padding_bottom", e.target.value)} placeholder="64px" /></FieldRow>
+                <FieldRow label="Content Max Width"><Input value={readString(c, ["content_max_width"])} onChange={(e) => set("content_max_width", e.target.value)} placeholder="1200px" /></FieldRow>
+                <FieldRow label="Content Gap"><Input value={readString(c, ["content_gap"])} onChange={(e) => set("content_gap", e.target.value)} placeholder="40px" /></FieldRow>
+                <FieldRow label="Section Border Radius"><Input value={readString(c, ["border_radius"])} onChange={(e) => set("border_radius", e.target.value)} placeholder="12px" /></FieldRow>
+                <FieldRow label="Section Border Width"><Input value={readString(c, ["section_border_width"])} onChange={(e) => set("section_border_width", e.target.value)} placeholder="1px" /></FieldRow>
+                <FieldRow label="Section Border Colour">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={readString(c, ["section_border_color"], "#d1d5db")} onChange={(e) => set("section_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <Input value={readString(c, ["section_border_color"], "")} onChange={(e) => set("section_border_color", e.target.value)} className="flex-1" />
+                  </div>
+                </FieldRow>
+                <FieldRow label="Section Shadow"><Input value={readString(c, ["section_shadow"])} onChange={(e) => set("section_shadow", e.target.value)} placeholder="0 20px 45px rgba(2,6,23,0.2)" /></FieldRow>
+                <FieldRow label="Card Shadow"><Input value={readString(c, ["card_shadow"])} onChange={(e) => set("card_shadow", e.target.value)} placeholder="0 20px 45px rgba(2,6,23,0.35)" /></FieldRow>
+                <FieldRow label="Min Height"><Input value={readString(c, ["min_height"])} onChange={(e) => set("min_height", e.target.value)} placeholder="500px" /></FieldRow>
+                <FieldRow label="Overlay Opacity (0-1)"><Input value={String(c.overlay_opacity ?? "")} onChange={(e) => set("overlay_opacity", Number(e.target.value) || 0)} placeholder="0.55" /></FieldRow>
+                <FieldRow label="Overlay Colour">
+                  <Input value={readString(c, ["overlay_color"])} onChange={(e) => set("overlay_color", e.target.value)} placeholder="0,0,0 or rgba(0,0,0,0.5)" />
+                </FieldRow>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
           <FieldRow label="Alignment">
             <Select value={String(c.align ?? "center")} onValueChange={(v) => set("align", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>

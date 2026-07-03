@@ -57,7 +57,62 @@ interface Props {
     emergency_phone?: string;
     min_height?: string;
     overlay_opacity?: number;
+    overlay_color?: string;
+    font_family?: string;
+    heading_font_family?: string;
+    body_font_family?: string;
+    cta_font_family?: string;
+    heading_font_size?: string;
+    subheading_font_size?: string;
+    eyebrow_font_size?: string;
+    cta_font_size?: string;
+    stats_value_font_size?: string;
+    stats_label_font_size?: string;
+    heading_font_weight?: string | number;
+    subheading_font_weight?: string | number;
+    cta_font_weight?: string | number;
+    border_radius?: string;
+    section_border_width?: string;
+    section_border_color?: string;
+    section_shadow?: string;
+    content_max_width?: string;
+    content_gap?: string;
+    section_padding_top?: string;
+    section_padding_bottom?: string;
+    heading_color?: string;
+    subheading_color?: string;
+    eyebrow_color?: string;
+    primary_button_bg_color?: string;
+    primary_button_text_color?: string;
+    primary_button_border_color?: string;
+    secondary_button_bg_color?: string;
+    secondary_button_text_color?: string;
+    secondary_button_border_color?: string;
+    badge_bg_color?: string;
+    badge_text_color?: string;
+    badge_border_color?: string;
+    trust_icon_color?: string;
+    trust_text_color?: string;
+    card_background_color?: string;
+    card_border_color?: string;
+    card_shadow?: string;
   } & Record<string, unknown>;
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function getSize(value: unknown, fallback: string): string {
+  if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+  const asString = getString(value);
+  return asString || fallback;
+}
+
+function getWeight(value: unknown, fallback: number): number | string {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const asString = getString(value);
+  return asString || fallback;
 }
 
 export default function HeroBlock({ content }: Props) {
@@ -123,17 +178,58 @@ export default function HeroBlock({ content }: Props) {
   const safeTextColor = typeof text_color === "string"
     ? text_color
     : (typeof content.textColor === "string" ? content.textColor : undefined);
-  const sectionPadding = density === "compact" ? "56px 24px 48px" : density === "comfortable" ? "96px 24px 72px" : "80px 24px 64px";
+  const defaultTopPadding = density === "compact" ? "56px" : density === "comfortable" ? "96px" : "80px";
+  const defaultBottomPadding = density === "compact" ? "48px" : density === "comfortable" ? "72px" : "64px";
+  const sectionPaddingTop = getSize(content.section_padding_top, defaultTopPadding);
+  const sectionPaddingBottom = getSize(content.section_padding_bottom, defaultBottomPadding);
+  const sectionPadding = `${sectionPaddingTop} 24px ${sectionPaddingBottom}`;
   const isClassic = variant === "classic" || heroStyle === "classic";
   const isNavyTone = tone === "navy" || (tone === "default" && isClassic);
   const resolvedDarkBg = safeBackgroundColor || (isNavyTone ? primaryColorToken : "#020617");
   const resolvedDarkText = safeTextColor || primaryTextColorToken;
   const resolvedSubtleText = isNavyTone ? "rgba(255,255,255,0.82)" : "#cbd5e1";
-  const primaryRadius = ctaStyle === "rounded" ? 999 : ctaStyle === "soft" ? 10 : 6;
+  const primaryRadiusDefault = ctaStyle === "rounded" ? "999px" : ctaStyle === "soft" ? "10px" : "6px";
+  const primaryRadius = getSize(content.border_radius, primaryRadiusDefault);
   const primaryBg = ctaStyle === "outline" ? "transparent" : accentColor;
   const primaryBorder = ctaStyle === "outline" ? `2px solid ${accentColor}` : "none";
   const primaryColor = ctaStyle === "outline" ? accentColor : "#fff";
-  const secondaryRadius = ctaStyle === "rounded" ? 999 : ctaStyle === "soft" ? 10 : 6;
+  const secondaryRadius = getSize(content.border_radius, primaryRadiusDefault);
+  const sectionBorderWidth = getSize(content.section_border_width, "0px");
+  const sectionBorderColor = getString(content.section_border_color) || "transparent";
+  const sectionShadow = getString(content.section_shadow);
+  const contentMaxWidth = getSize(content.content_max_width, "1200px");
+  const contentGap = getSize(content.content_gap, "40px");
+  const headingColor = getString(content.heading_color) || resolvedDarkText;
+  const eyebrowColor = getString(content.eyebrow_color) || accentColor;
+  const subheadingColor = getString(content.subheading_color) || resolvedSubtleText;
+  const headingFontSize = getSize(content.heading_font_size, "clamp(2rem, 4.8vw, 3.5rem)");
+  const subheadingFontSize = getSize(content.subheading_font_size, "1.125rem");
+  const eyebrowFontSize = getSize(content.eyebrow_font_size, "0.875rem");
+  const ctaFontSize = getSize(content.cta_font_size, "0.9375rem");
+  const statsValueFontSize = getSize(content.stats_value_font_size, "1.75rem");
+  const statsLabelFontSize = getSize(content.stats_label_font_size, "0.8125rem");
+  const headingWeight = getWeight(content.heading_font_weight, 800);
+  const subheadingWeight = getWeight(content.subheading_font_weight, 400);
+  const ctaWeight = getWeight(content.cta_font_weight, 700);
+  const baseFontFamily = getString(content.font_family);
+  const headingFontFamily = getString(content.heading_font_family) || baseFontFamily;
+  const bodyFontFamily = getString(content.body_font_family) || baseFontFamily;
+  const ctaFontFamily = getString(content.cta_font_family) || baseFontFamily;
+  const primaryButtonBg = getString(content.primary_button_bg_color) || primaryBg;
+  const primaryButtonText = getString(content.primary_button_text_color) || primaryColor;
+  const primaryButtonBorderColor = getString(content.primary_button_border_color) || accentColor;
+  const secondaryButtonBg = getString(content.secondary_button_bg_color) || "transparent";
+  const secondaryButtonText = getString(content.secondary_button_text_color) || resolvedDarkText;
+  const secondaryButtonBorder = getString(content.secondary_button_border_color) || "rgba(255,255,255,0.35)";
+  const badgeBgColor = getString(content.badge_bg_color);
+  const badgeTextColor = getString(content.badge_text_color);
+  const badgeBorderColor = getString(content.badge_border_color);
+  const trustIconColor = getString(content.trust_icon_color) || accentColor;
+  const trustTextColor = getString(content.trust_text_color);
+  const cardBackgroundColor = getString(content.card_background_color) || "rgba(255,255,255,0.08)";
+  const cardBorderColor = getString(content.card_border_color) || "transparent";
+  const cardShadow = getString(content.card_shadow) || "0 20px 45px rgba(2,6,23,0.35)";
+  const sectionBorderRadius = getSize(content.border_radius, "0px");
   const modernImageStyle: React.CSSProperties | undefined = modernHeroImageUrl
     ? {
         backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.18)), url(${modernHeroImageUrl})`,
@@ -145,30 +241,30 @@ export default function HeroBlock({ content }: Props) {
 
   if (isModernTradePayload) {
     return (
-      <section style={{ backgroundColor: resolvedDarkBg, color: resolvedDarkText }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: sectionPadding, display: "grid", gap: 40, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", alignItems: "center" }}>
+      <section style={{ backgroundColor: resolvedDarkBg, color: resolvedDarkText, borderRadius: sectionBorderRadius, border: `${sectionBorderWidth} solid ${sectionBorderColor}`, boxShadow: sectionShadow, fontFamily: bodyFontFamily }}>
+        <div style={{ maxWidth: contentMaxWidth, margin: "0 auto", padding: sectionPadding, display: "grid", gap: contentGap, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", alignItems: "center" }}>
           <div>
             {content.eyebrow && (
-              <p style={{ margin: "0 0 16px", fontSize: "0.875rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, color: accentColor }}>
+              <p style={{ margin: "0 0 16px", fontSize: eyebrowFontSize, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, color: eyebrowColor, fontFamily: bodyFontFamily }}>
                 {content.eyebrow}
               </p>
             )}
             {heading && (
-              <h1 style={{ margin: "0 0 20px", fontSize: "clamp(2rem, 4.8vw, 3.5rem)", lineHeight: 1.08, fontWeight: 800 }}>
+              <h1 style={{ margin: "0 0 20px", fontSize: headingFontSize, lineHeight: 1.08, fontWeight: headingWeight, color: headingColor, fontFamily: headingFontFamily }}>
                 {heading}
               </h1>
             )}
             {subheading && (
-              <p style={{ margin: "0 0 28px", maxWidth: 640, fontSize: "1.125rem", color: resolvedSubtleText, lineHeight: 1.7 }}>
+              <p style={{ margin: "0 0 28px", maxWidth: 640, fontSize: subheadingFontSize, color: subheadingColor, lineHeight: 1.7, fontWeight: subheadingWeight, fontFamily: bodyFontFamily }}>
                 {subheading}
               </p>
             )}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              <a href={primaryHref} style={{ display: "inline-block", backgroundColor: primaryBg, color: primaryColor, border: primaryBorder, borderRadius: primaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: 700 }}>
+              <a href={primaryHref} style={{ display: "inline-block", backgroundColor: primaryButtonBg, color: primaryButtonText, border: ctaStyle === "outline" ? `2px solid ${primaryButtonBorderColor}` : primaryBorder, borderRadius: primaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, fontFamily: ctaFontFamily }}>
                 {primaryLabel}
               </a>
               {secondaryCtaText && (
-                <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-block", border: "1px solid rgba(255,255,255,0.35)", color: resolvedDarkText, borderRadius: secondaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: 700 }}>
+                <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-block", border: `1px solid ${secondaryButtonBorder}`, backgroundColor: secondaryButtonBg, color: secondaryButtonText, borderRadius: secondaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, fontFamily: ctaFontFamily }}>
                   {secondaryCtaText}
                 </a>
               )}
@@ -179,7 +275,7 @@ export default function HeroBlock({ content }: Props) {
               </p>
             )}
           </div>
-          <div style={{ borderRadius: isClassic ? 10 : 16, backgroundColor: "rgba(255,255,255,0.08)", padding: 24, boxShadow: "0 20px 45px rgba(2,6,23,0.35)" }}>
+          <div style={{ borderRadius: isClassic ? 10 : 16, backgroundColor: cardBackgroundColor, border: `1px solid ${cardBorderColor}`, padding: 24, boxShadow: cardShadow }}>
             <div style={{ borderRadius: isClassic ? 8 : 12, backgroundColor: "rgba(255,255,255,0.1)", minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: resolvedSubtleText, fontSize: "0.95rem", padding: modernHeroImageUrl ? 0 : 20, overflow: "hidden" }}>
               {modernHeroImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -208,7 +304,10 @@ export default function HeroBlock({ content }: Props) {
   const bgColor = safeBackgroundColor ?? (isSplit ? (tone === "light" ? mutedBackgroundColorToken : "#ffffff") : primaryColorToken);
   const txtColor = safeTextColor ?? (isSplit ? "#111827" : primaryTextColorToken);
 
-  const overlayColor = `rgba(0,0,0,${overlay_opacity})`;
+  const overlayBase = getString(content.overlay_color) || "0,0,0";
+  const overlayColor = overlayBase.startsWith("rgb") || overlayBase.startsWith("#")
+    ? overlayBase
+    : `rgba(${overlayBase},${overlay_opacity})`;
   const bgStyle: React.CSSProperties = !isSplit && backgroundImageUrl
     ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageUrl}) center/cover no-repeat` }
     : { backgroundColor: bgColor };
@@ -219,8 +318,8 @@ export default function HeroBlock({ content }: Props) {
   // Render heading with optional accent word highlighted
   function renderHeading() {
     if (!heading) return null;
-    const fontSize = "clamp(1.9rem, 4.5vw, 3rem)";
-    const style: React.CSSProperties = { fontSize, fontWeight: 800, margin: "0 0 16px", lineHeight: 1.15, color: txtColor };
+    const fontSize = headingFontSize || "clamp(1.9rem, 4.5vw, 3rem)";
+    const style: React.CSSProperties = { fontSize, fontWeight: headingWeight, margin: "0 0 16px", lineHeight: 1.15, color: headingColor || txtColor, fontFamily: headingFontFamily };
     if (heading_accent && heading.includes(heading_accent)) {
       const parts = heading.split(heading_accent);
       return (
@@ -232,23 +331,23 @@ export default function HeroBlock({ content }: Props) {
     return <h1 style={style}>{heading}</h1>;
   }
 
-  const badgeBg = isDark ? "rgba(255,255,255,0.15)" : `${accentColor}18`;
-  const badgeBorder = isDark ? "1px solid rgba(255,255,255,0.25)" : `1px solid ${accentColor}44`;
-  const badgeTxt = isDark ? txtColor : accentColor;
-  const secondaryBorderColor = isDark ? "rgba(255,255,255,0.65)" : "#d1d5db";
+  const badgeBg = badgeBgColor || (isDark ? "rgba(255,255,255,0.15)" : `${accentColor}18`);
+  const badgeBorder = `1px solid ${badgeBorderColor || (isDark ? "rgba(255,255,255,0.25)" : `${accentColor}44`)}`;
+  const badgeTxt = badgeTextColor || (isDark ? txtColor : accentColor);
+  const secondaryBorderColor = getString(content.secondary_button_border_color) || (isDark ? "rgba(255,255,255,0.65)" : "#d1d5db");
 
   const contentBlock = (
     <div style={{ flex: 1, minWidth: 0, maxWidth: isCentered ? 760 : undefined, margin: isCentered ? "0 auto" : undefined, textAlign }}>
       {/* Badges */}
       {content.eyebrow && (
-        <p style={{ color: accentColor, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
+        <p style={{ color: eyebrowColor, fontWeight: 700, fontSize: eyebrowFontSize, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10, fontFamily: bodyFontFamily }}>
           {content.eyebrow}
         </p>
       )}
       {(badges as Badge[]).length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22, justifyContent: isSplit || (!isCentered && align !== "center") ? "flex-start" : "center" }}>
           {(badges as Badge[]).map((badge, i) => (
-            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: badgeBg, border: badgeBorder, borderRadius: 20, padding: "4px 14px", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: badgeTxt }}>
+            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: badgeBg, border: badgeBorder, borderRadius: 20, padding: "4px 14px", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: badgeTxt, fontFamily: bodyFontFamily }}>
               {badge.icon && <span>{badge.icon}</span>}{badge.label}
             </span>
           ))}
@@ -258,18 +357,18 @@ export default function HeroBlock({ content }: Props) {
       {renderHeading()}
 
       {subheading && (
-        <p style={{ fontSize: "1.0625rem", color: isDark ? "rgba(255,255,255,0.85)" : "#4b5563", margin: "0 0 32px", maxWidth: 540, lineHeight: 1.7 }}>
+        <p style={{ fontSize: subheadingFontSize, color: subheadingColor || (isDark ? "rgba(255,255,255,0.85)" : "#4b5563"), margin: "0 0 32px", maxWidth: 540, lineHeight: 1.7, fontWeight: subheadingWeight, fontFamily: bodyFontFamily }}>
           {subheading}
         </p>
       )}
 
       {/* CTA buttons */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start", marginBottom: (trust_items as TrustItem[]).length || (stats as Stat[]).length ? 36 : 0 }}>
-        <a href={primaryHref} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: accentColor, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem" }}>
+        <a href={primaryHref} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: primaryButtonBg, color: primaryButtonText, borderRadius: primaryRadius, border: `1px solid ${primaryButtonBorderColor}`, textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, fontFamily: ctaFontFamily }}>
           {primaryLabel}
         </a>
         {secondaryCtaText && (secondaryCtaUrl || ctaUrl) && (
-          <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: "transparent", color: txtColor, border: `2px solid ${secondaryBorderColor}`, borderRadius: 6, textDecoration: "none", fontWeight: 600, fontSize: "0.9375rem" }}>
+          <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", backgroundColor: secondaryButtonBg, color: secondaryButtonText || txtColor, border: `2px solid ${secondaryBorderColor}`, borderRadius: secondaryRadius, textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, fontFamily: ctaFontFamily }}>
             {secondaryCtaText}
           </a>
         )}
@@ -280,8 +379,8 @@ export default function HeroBlock({ content }: Props) {
         <div style={{ display: "flex", gap: 0, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start", marginBottom: (trust_items as TrustItem[]).length ? 24 : 0 }}>
           {(stats as Stat[]).map((s, i) => (
             <div key={i} style={{ paddingRight: 28, marginRight: 28, borderRight: i < (stats as Stat[]).length - 1 ? `2px solid ${isDark ? "rgba(255,255,255,0.2)" : "#e5e7eb"}` : "none" }}>
-              <div style={{ fontSize: "1.75rem", fontWeight: 800, color: isDark ? "#fff" : "#111827", lineHeight: 1 }}>{s.value}</div>
-              {s.label && <div style={{ fontSize: "0.8125rem", color: isDark ? "rgba(255,255,255,0.65)" : "#6b7280", marginTop: 4 }}>{s.label}</div>}
+              <div style={{ fontSize: statsValueFontSize, fontWeight: headingWeight, color: isDark ? "#fff" : "#111827", lineHeight: 1, fontFamily: headingFontFamily }}>{s.value}</div>
+              {s.label && <div style={{ fontSize: statsLabelFontSize, color: isDark ? "rgba(255,255,255,0.65)" : "#6b7280", marginTop: 4, fontFamily: bodyFontFamily }}>{s.label}</div>}
             </div>
           ))}
         </div>
@@ -291,8 +390,8 @@ export default function HeroBlock({ content }: Props) {
       {(trust_items as TrustItem[]).length > 0 && (
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start" }}>
           {(trust_items as TrustItem[]).map((item, i) => (
-            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: isDark ? "rgba(255,255,255,0.8)" : "#4b5563" }}>
-              <span style={{ color: accentColor }}>{item.icon || "✓"}</span> {item.text}
+            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: trustTextColor || (isDark ? "rgba(255,255,255,0.8)" : "#4b5563"), fontFamily: bodyFontFamily }}>
+              <span style={{ color: trustIconColor }}>{item.icon || "✓"}</span> {item.text}
             </span>
           ))}
         </div>
@@ -309,8 +408,8 @@ export default function HeroBlock({ content }: Props) {
         @media (min-width: 860px) { .hero-split-img { max-height: 480px; } }
       `}</style>
 
-      <section style={{ ...bgStyle, color: txtColor, padding: isSplit ? sectionPadding : sectionPadding, minHeight: isSplit ? undefined : min_height, display: "flex", alignItems: "center" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+      <section style={{ ...bgStyle, color: txtColor, padding: isSplit ? sectionPadding : sectionPadding, minHeight: isSplit ? undefined : min_height, display: "flex", alignItems: "center", borderRadius: sectionBorderRadius, border: `${sectionBorderWidth} solid ${sectionBorderColor}`, boxShadow: sectionShadow, fontFamily: bodyFontFamily }}>
+        <div style={{ maxWidth: contentMaxWidth, margin: "0 auto", width: "100%" }}>
           {isSplit ? (
             <div className="hero-split">
               {contentBlock}
