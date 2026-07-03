@@ -619,7 +619,69 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       const heroPreviewSecondary = secondaryText || undefined;
 
       return (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.92fr)] xl:items-start">
+        <div className="space-y-6">
+          <div className="hidden xl:block xl:sticky xl:top-6 xl:z-20">
+            <Card className="overflow-hidden border-border/70 shadow-sm">
+              <CardHeader className="border-b bg-muted/40 py-3">
+                <CardTitle className="text-sm">Live Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <HeroPreviewBlock
+                  eyebrow={eyebrow || undefined}
+                  layout={(c.layout as "full" | "centered" | "split") ?? "full"}
+                  variant={(c.variant as "default" | "classic") ?? "default"}
+                  heroStyle={(c.heroStyle as "default" | "classic") ?? "default"}
+                  tone={(c.tone as "default" | "navy") ?? "default"}
+                  density={(c.density as "normal" | "comfortable" | "compact") ?? "normal"}
+                  title={heroPreviewTitle}
+                  subtitle={heroPreviewSubtitle}
+                  primaryCtaLabel={heroPreviewPrimary}
+                  secondaryCtaLabel={heroPreviewSecondary}
+                  phone={String(c.cta_phone ?? "") || undefined}
+                  backgroundImageUrl={backgroundImage || undefined}
+                  heroImageUrl={heroImage || undefined}
+                  backgroundColor={String(c.background_color ?? c.backgroundColor ?? backgroundColor)}
+                  textColor={String(c.text_color ?? c.textColor ?? textColor)}
+                  imageAlt={String(c.imageAlt ?? "Hero image preview")}
+                  fontFamily={readString(c, ["font_family"]) || undefined}
+                  headingFontFamily={readString(c, ["heading_font_family"]) || undefined}
+                  bodyFontFamily={readString(c, ["body_font_family"]) || undefined}
+                  ctaFontFamily={readString(c, ["cta_font_family"]) || undefined}
+                  headingFontSize={readString(c, ["heading_font_size"]) || undefined}
+                  subheadingFontSize={readString(c, ["subheading_font_size"]) || undefined}
+                  eyebrowFontSize={readString(c, ["eyebrow_font_size"]) || undefined}
+                  ctaFontSize={readString(c, ["cta_font_size"]) || undefined}
+                  headingFontWeight={c.heading_font_weight as string | number | undefined}
+                  subheadingFontWeight={c.subheading_font_weight as string | number | undefined}
+                  ctaFontWeight={c.cta_font_weight as string | number | undefined}
+                  sectionPaddingTop={readString(c, ["section_padding_top"]) || undefined}
+                  sectionPaddingBottom={readString(c, ["section_padding_bottom"]) || undefined}
+                  contentMaxWidth={readString(c, ["content_max_width"]) || undefined}
+                  contentGap={readString(c, ["content_gap"]) || undefined}
+                  sectionBorderRadius={readString(c, ["border_radius"]) || undefined}
+                  sectionBorderWidth={readString(c, ["section_border_width"]) || undefined}
+                  sectionBorderColor={readString(c, ["section_border_color"]) || undefined}
+                  sectionShadow={readString(c, ["section_shadow"]) || undefined}
+                  overlayColor={readString(c, ["overlay_color"]) || undefined}
+                  overlayOpacity={typeof c.overlay_opacity === "number" ? c.overlay_opacity : Number(c.overlay_opacity) || undefined}
+                  accentColor={readString(c, ["accent_color"]) || undefined}
+                  headingColor={readString(c, ["heading_color"]) || undefined}
+                  subheadingColor={readString(c, ["subheading_color"]) || undefined}
+                  eyebrowColor={readString(c, ["eyebrow_color"]) || undefined}
+                  primaryButtonBgColor={readString(c, ["primary_button_bg_color"]) || undefined}
+                  primaryButtonTextColor={readString(c, ["primary_button_text_color"]) || undefined}
+                  primaryButtonBorderColor={readString(c, ["primary_button_border_color"]) || undefined}
+                  secondaryButtonBgColor={readString(c, ["secondary_button_bg_color"]) || undefined}
+                  secondaryButtonTextColor={readString(c, ["secondary_button_text_color"]) || undefined}
+                  secondaryButtonBorderColor={readString(c, ["secondary_button_border_color"]) || undefined}
+                  cardBackgroundColor={readString(c, ["card_background_color"]) || undefined}
+                  cardBorderColor={readString(c, ["card_border_color"]) || undefined}
+                  cardShadow={readString(c, ["card_shadow"]) || undefined}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="space-y-3">
             <FieldRow label="Eyebrow / Preheading">
               <Input value={eyebrow} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
@@ -895,77 +957,16 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
               </div>
             </CollapsibleContent>
           </Collapsible>
-          <FieldRow label="Alignment">
-            <Select value={String(c.align ?? "center")} onValueChange={(v) => set("align", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-              </SelectContent>
-            </Select>
-          </FieldRow>
-          </div>
-          <div className="lg:sticky lg:top-6">
-            <Card className="overflow-hidden border-border/70 shadow-sm">
-              <CardHeader className="border-b bg-muted/40 py-3">
-                <CardTitle className="text-sm">Live Preview</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <HeroPreviewBlock
-                  eyebrow={eyebrow || undefined}
-                  layout={(c.layout as "full" | "centered" | "split") ?? "full"}
-                  variant={(c.variant as "default" | "classic") ?? "default"}
-                  heroStyle={(c.heroStyle as "default" | "classic") ?? "default"}
-                  tone={(c.tone as "default" | "navy") ?? "default"}
-                  density={(c.density as "normal" | "comfortable" | "compact") ?? "normal"}
-                  title={heroPreviewTitle}
-                  subtitle={heroPreviewSubtitle}
-                  primaryCtaLabel={heroPreviewPrimary}
-                  secondaryCtaLabel={heroPreviewSecondary}
-                  phone={String(c.cta_phone ?? "") || undefined}
-                  backgroundImageUrl={backgroundImage || undefined}
-                  heroImageUrl={heroImage || undefined}
-                  backgroundColor={String(c.background_color ?? c.backgroundColor ?? backgroundColor)}
-                  textColor={String(c.text_color ?? c.textColor ?? textColor)}
-                  imageAlt={String(c.imageAlt ?? "Hero image preview")}
-                  fontFamily={readString(c, ["font_family"]) || undefined}
-                  headingFontFamily={readString(c, ["heading_font_family"]) || undefined}
-                  bodyFontFamily={readString(c, ["body_font_family"]) || undefined}
-                  ctaFontFamily={readString(c, ["cta_font_family"]) || undefined}
-                  headingFontSize={readString(c, ["heading_font_size"]) || undefined}
-                  subheadingFontSize={readString(c, ["subheading_font_size"]) || undefined}
-                  eyebrowFontSize={readString(c, ["eyebrow_font_size"]) || undefined}
-                  ctaFontSize={readString(c, ["cta_font_size"]) || undefined}
-                  headingFontWeight={c.heading_font_weight as string | number | undefined}
-                  subheadingFontWeight={c.subheading_font_weight as string | number | undefined}
-                  ctaFontWeight={c.cta_font_weight as string | number | undefined}
-                  sectionPaddingTop={readString(c, ["section_padding_top"]) || undefined}
-                  sectionPaddingBottom={readString(c, ["section_padding_bottom"]) || undefined}
-                  contentMaxWidth={readString(c, ["content_max_width"]) || undefined}
-                  contentGap={readString(c, ["content_gap"]) || undefined}
-                  sectionBorderRadius={readString(c, ["border_radius"]) || undefined}
-                  sectionBorderWidth={readString(c, ["section_border_width"]) || undefined}
-                  sectionBorderColor={readString(c, ["section_border_color"]) || undefined}
-                  sectionShadow={readString(c, ["section_shadow"]) || undefined}
-                  overlayColor={readString(c, ["overlay_color"]) || undefined}
-                  overlayOpacity={typeof c.overlay_opacity === "number" ? c.overlay_opacity : Number(c.overlay_opacity) || undefined}
-                  accentColor={readString(c, ["accent_color"]) || undefined}
-                  headingColor={readString(c, ["heading_color"]) || undefined}
-                  subheadingColor={readString(c, ["subheading_color"]) || undefined}
-                  eyebrowColor={readString(c, ["eyebrow_color"]) || undefined}
-                  primaryButtonBgColor={readString(c, ["primary_button_bg_color"]) || undefined}
-                  primaryButtonTextColor={readString(c, ["primary_button_text_color"]) || undefined}
-                  primaryButtonBorderColor={readString(c, ["primary_button_border_color"]) || undefined}
-                  secondaryButtonBgColor={readString(c, ["secondary_button_bg_color"]) || undefined}
-                  secondaryButtonTextColor={readString(c, ["secondary_button_text_color"]) || undefined}
-                  secondaryButtonBorderColor={readString(c, ["secondary_button_border_color"]) || undefined}
-                  cardBackgroundColor={readString(c, ["card_background_color"]) || undefined}
-                  cardBorderColor={readString(c, ["card_border_color"]) || undefined}
-                  cardShadow={readString(c, ["card_shadow"]) || undefined}
-                />
-              </CardContent>
-            </Card>
+            <FieldRow label="Alignment">
+              <Select value={String(c.align ?? "center")} onValueChange={(v) => set("align", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
           </div>
         </div>
       );
