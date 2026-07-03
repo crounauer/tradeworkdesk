@@ -666,7 +666,6 @@ router.post(
 
       const hasTemplateTheme = !!resolvedTemplate.default_theme
         && Object.keys(resolvedTemplate.default_theme as Record<string, unknown>).length > 0;
-      const templateSlug = String(resolvedTemplate.slug || "");
       const defaultTheme = hasTemplateTheme
         ? mergeThemeWithPaletteDefaults(
             resolvedTemplate.default_theme as Record<string, unknown>,
