@@ -52,7 +52,24 @@ interface Props {
     tenant_id?: string;
     heading?: string;
     subheading?: string;
+    label?: string;
     accent_color?: string;
+    section_bg?: string;
+    card_bg?: string;
+    border_color?: string;
+    heading_color?: string;
+    body_color?: string;
+    heading_font_family?: string;
+    body_font_family?: string;
+    button_font_family?: string;
+    heading_size?: string;
+    body_size?: string;
+    layout_variant?: string;
+    layout?: string;
+    padding_y?: string;
+    padding_x?: string;
+    max_width?: string;
+    card_radius?: string;
     show_price?: boolean;
     require_postcode?: boolean;
     require_description?: boolean;
@@ -90,6 +107,7 @@ export default function OnlineBookingBlock({ content }: Props) {
     tenant_id,
     heading = "Book an Appointment",
     subheading = "Choose a service and pick a time that suits you.",
+    label,
     accent_color = "#1d4ed8",
     show_price = true,
     require_postcode = true,
@@ -98,6 +116,25 @@ export default function OnlineBookingBlock({ content }: Props) {
   } = content;
 
   const complexKws = complex_keywords.split(",").map((s) => s.trim()).filter(Boolean);
+  const layoutVariant = String(content.layout_variant || content.layout || "centered-card").toLowerCase();
+  const sectionBg = String(content.section_bg || "#f8fafc");
+  const cardBg = String(content.card_bg || "#ffffff");
+  const borderColor = String(content.border_color || "#e5e7eb");
+  const headingColor = String(content.heading_color || "#111827");
+  const bodyColor = String(content.body_color || "#6b7280");
+  const headingFont = String(content.heading_font_family || content.global_heading_font_family || "inherit");
+  const bodyFont = String(content.body_font_family || content.global_body_font_family || "inherit");
+  const buttonFont = String(content.button_font_family || content.global_button_font_family || "inherit");
+  const headingSize = String(content.heading_size || "clamp(1.5rem,4vw,2.25rem)");
+  const bodySize = String(content.body_size || "16px");
+  const paddingY = String(content.padding_y || "56px");
+  const paddingX = String(content.padding_x || "16px");
+  const maxWidth = String(content.max_width || "680px");
+  const cardRadius = String(content.card_radius || "16px");
+
+  const isSplit = layoutVariant === "split-shell";
+  const isMinimal = layoutVariant === "minimal-panel";
+  const isGlass = layoutVariant === "glass-card";
 
   const [step, setStep] = useState<Step>("service");
   const [services, setServices] = useState<Service[]>([]);
@@ -356,6 +393,7 @@ export default function OnlineBookingBlock({ content }: Props) {
         borderRadius: 8,
         fontWeight: 600,
         fontSize: 14,
+        fontFamily: buttonFont,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         border: variant === "outline" ? `2px solid ${accent_color}` : "none",
@@ -464,20 +502,28 @@ export default function OnlineBookingBlock({ content }: Props) {
   };
 
   return (
-    <section style={{ padding: "56px 16px", background: "#f8fafc" }}>
-      <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <h2 style={{ fontSize: "clamp(1.5rem,4vw,2.25rem)", fontWeight: 800, color: "#111827", margin: 0 }}>{heading}</h2>
-          {subheading && <p style={{ marginTop: 10, fontSize: 16, color: "#6b7280" }}>{subheading}</p>}
+    <section style={{ padding: `${paddingY} ${paddingX}`, background: sectionBg }}>
+      <div style={{ maxWidth, margin: "0 auto" }}>
+        <div style={{ textAlign: isSplit ? "left" : "center", marginBottom: 36 }}>
+          {label && <p style={{ margin: "0 0 8px", color: accent_color, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: bodyFont }}>{label}</p>}
+          <h2 style={{ fontSize: headingSize, fontWeight: 800, color: headingColor, margin: 0, fontFamily: headingFont }}>{heading}</h2>
+          {subheading && <p style={{ marginTop: 10, fontSize: bodySize, color: bodyColor, fontFamily: bodyFont }}>{subheading}</p>}
         </div>
 
-        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,.08)", padding: "32px 28px" }}>
+        <div style={{
+          background: isGlass ? "rgba(255,255,255,0.7)" : cardBg,
+          borderRadius: cardRadius,
+          boxShadow: isMinimal ? "none" : "0 4px 24px rgba(0,0,0,.08)",
+          border: `1px solid ${borderColor}`,
+          backdropFilter: isGlass ? "blur(10px)" : "none",
+          padding: isMinimal ? "24px 20px" : "32px 28px",
+        }}>
 
           {/* ── Step 1: Service ── */}
           {step === "service" && (
             <>
               {stepBar("service")}
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "#1f2937" }}>What do you need?</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: headingColor, fontFamily: headingFont }}>What do you need?</h3>
               {loadingServices ? (
                 <p style={{ color: "#6b7280" }}>Loading services…</p>
               ) : services.length === 0 ? (
@@ -504,8 +550,8 @@ export default function OnlineBookingBlock({ content }: Props) {
                         onMouseOut={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
                       >
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>{svc.name}</div>
-                          {svc.description && <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{svc.description}</div>}
+                          <div style={{ fontWeight: 700, fontSize: 15, color: headingColor, fontFamily: headingFont }}>{svc.name}</div>
+                          {svc.description && <div style={{ fontSize: 13, color: bodyColor, marginTop: 2, fontFamily: bodyFont }}>{svc.description}</div>}
                           {complex && (
                             <div style={{ fontSize: 12, color: "#d97706", marginTop: 4, fontWeight: 600 }}>
                               ⚠ Likely requires a call-back before confirming
@@ -675,8 +721,8 @@ export default function OnlineBookingBlock({ content }: Props) {
           {step === "slots" && (
             <>
               {stepBar("slots")}
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, color: "#1f2937" }}>Choose a date and time</h3>
-              <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>All times are shown in local time.</p>
+              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, color: headingColor, fontFamily: headingFont }}>Choose a date and time</h3>
+              <p style={{ fontSize: 13, color: bodyColor, marginBottom: 16, fontFamily: bodyFont }}>All times are shown in local time.</p>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <button
@@ -747,7 +793,7 @@ export default function OnlineBookingBlock({ content }: Props) {
           {step === "contact" && (
             <>
               {stepBar("contact")}
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "#1f2937" }}>Your contact details</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: headingColor, fontFamily: headingFont }}>Your contact details</h3>
               {input("Full name", name, setName, { required: true, placeholder: "John Smith" })}
               {input("Email address", email, setEmail, { type: "email", required: true, placeholder: "john@example.com" })}
               {input("Phone number", phone, setPhone, { type: "tel", required: true, placeholder: "07700 900000" })}
@@ -763,7 +809,7 @@ export default function OnlineBookingBlock({ content }: Props) {
           {step === "confirm" && selectedService && selectedSlot && (
             <>
               {stepBar("confirm")}
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "#1f2937" }}>Review your booking</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: headingColor, fontFamily: headingFont }}>Review your booking</h3>
 
               <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412", fontSize: 13 }}>
                 <strong>Subject to confirmation.</strong> Your booking will be reviewed by our team before it is fully confirmed.
@@ -811,19 +857,19 @@ export default function OnlineBookingBlock({ content }: Props) {
               <div style={{ fontSize: 48, marginBottom: 16 }}>{resultStatus === "confirmed" ? "✅" : "📋"}</div>
               {resultStatus === "confirmed" ? (
                 <>
-                  <h3 style={{ fontSize: 20, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Booking confirmed!</h3>
-                  <p style={{ color: "#374151", marginBottom: 4 }}>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: headingColor, marginBottom: 8, fontFamily: headingFont }}>Booking confirmed!</h3>
+                  <p style={{ color: bodyColor, marginBottom: 4, fontFamily: bodyFont }}>
                     <strong>{selectedService?.name}</strong> on {selectedSlot && formatDate(selectedSlot.start)} at {selectedSlot && formatTime(selectedSlot.start)}.
                   </p>
-                  <p style={{ color: "#6b7280", fontSize: 14 }}>A confirmation has been sent to {email}.</p>
+                  <p style={{ color: bodyColor, fontSize: 14, fontFamily: bodyFont }}>A confirmation has been sent to {email}.</p>
                 </>
               ) : (
                 <>
-                  <h3 style={{ fontSize: 20, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Subject to confirmation</h3>
-                  <p style={{ color: "#374151", marginBottom: 4 }}>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: headingColor, marginBottom: 8, fontFamily: headingFont }}>Subject to confirmation</h3>
+                  <p style={{ color: bodyColor, marginBottom: 4, fontFamily: bodyFont }}>
                     We've received your {isComplex ? "request" : "booking request"} for <strong>{selectedService?.name}</strong>.
                   </p>
-                  <p style={{ color: "#6b7280", fontSize: 14 }}>
+                  <p style={{ color: bodyColor, fontSize: 14, fontFamily: bodyFont }}>
                     {isComplex
                       ? "Because this is a more complex job, one of our team will call you within 2 hours to confirm your appointment."
                       : "We'll confirm your appointment shortly and send details to " + email + "."}
@@ -837,7 +883,7 @@ export default function OnlineBookingBlock({ content }: Props) {
                   setPropertyType("house"); setJobUrgency("standard"); setApplianceType(""); setHasNoHeatOrHotWater("no"); setParkingAccess("");
                   setResultStatus(null); setResultError(null);
                 }}
-                style={{ marginTop: 20, background: "none", border: "none", color: accent_color, fontWeight: 600, cursor: "pointer", fontSize: 14 }}
+                style={{ marginTop: 20, background: "none", border: "none", color: accent_color, fontWeight: 600, cursor: "pointer", fontSize: 14, fontFamily: buttonFont }}
               >
                 Make another booking
               </button>

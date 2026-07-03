@@ -1,14 +1,18 @@
 export type HeroBlockProps = {
   eyebrow?: string;
   layout?: 'full' | 'centered' | 'split';
-  variant?: 'default' | 'classic';
-  heroStyle?: 'default' | 'classic';
-  tone?: 'default' | 'navy';
+  variant?: 'default' | 'classic' | 'modern';
+  heroStyle?: 'default' | 'classic' | 'modern';
+  tone?: 'default' | 'navy' | 'light';
+  ctaStyle?: 'default' | 'rounded' | 'soft' | 'outline';
   density?: 'normal' | 'comfortable' | 'compact';
   title: string;
+  headingAccent?: string;
   subtitle: string;
   primaryCtaLabel: string;
+  primaryCtaHref?: string;
   secondaryCtaLabel?: string;
+  secondaryCtaHref?: string;
   phone?: string;
   backgroundImageUrl?: string;
   heroImageUrl?: string;
@@ -67,11 +71,15 @@ export function HeroBlock({
   variant = 'default',
   heroStyle = 'default',
   tone = 'default',
+  ctaStyle = 'default',
   density = 'normal',
   title,
+  headingAccent,
   subtitle,
   primaryCtaLabel,
+  primaryCtaHref,
   secondaryCtaLabel,
+  secondaryCtaHref,
   phone,
   backgroundImageUrl,
   heroImageUrl,
@@ -115,13 +123,16 @@ export function HeroBlock({
 }: HeroBlockProps) {
   const isSplit = layout === 'split';
   const isCentered = layout === 'centered';
+  const isModern = variant === 'modern' || heroStyle === 'modern';
   const isClassic = variant === 'classic' || heroStyle === 'classic';
   const isNavyTone = tone === 'navy';
   const bgColor = backgroundColor
+    ?? (isModern && isSplit ? '#f8fafc' : undefined)
     ?? (isClassic && isSplit ? '#f8fafc' : undefined)
     ?? (isClassic || isNavyTone ? '#0f2448' : undefined)
     ?? (isSplit ? '#ffffff' : '#020617');
   const fgColor = textColor
+    ?? (isModern && isSplit ? '#0f172a' : undefined)
     ?? (isClassic && isSplit ? '#0f172a' : undefined)
     ?? (isClassic || isNavyTone ? '#f8fafc' : undefined)
     ?? (isSplit ? '#111827' : '#ffffff');
@@ -170,20 +181,26 @@ export function HeroBlock({
     fontFamily: bodyFontFamily || fontFamily,
     fontSize: resolveSize(eyebrowFontSize, '0.875rem'),
   } as const;
+  const primaryRadiusDefault = ctaStyle === 'rounded' ? '999px' : ctaStyle === 'soft' ? '10px' : isClassic ? '2px' : '10px';
   const primaryButtonStyle = {
-    backgroundColor: primaryButtonBgColor ?? '#f59e0b',
+    backgroundColor: primaryButtonBgColor ?? (ctaStyle === 'outline' ? 'transparent' : '#f59e0b'),
     borderColor: primaryButtonBorderColor ?? '#f59e0b',
-    color: primaryButtonTextColor ?? '#0f172a',
-    borderRadius: isClassic ? '2px' : '10px',
+    color: primaryButtonTextColor ?? (ctaStyle === 'outline' ? '#f59e0b' : '#0f172a'),
+    borderRadius: resolveSize(primaryRadiusDefault, '10px'),
+    borderWidth: ctaStyle === 'outline' ? '2px' : '1px',
+    borderStyle: 'solid',
     fontFamily: ctaFontFamily || fontFamily,
     fontSize: resolveSize(ctaFontSize, '0.9375rem'),
     fontWeight: resolveWeight(ctaFontWeight, 700),
   } as const;
+  const secondaryRadiusDefault = ctaStyle === 'rounded' ? '999px' : ctaStyle === 'soft' ? '10px' : isClassic ? '2px' : '10px';
   const secondaryButtonStyle = {
     backgroundColor: secondaryButtonBgColor ?? 'transparent',
     borderColor: secondaryButtonBorderColor ?? '#d1d5db',
     color: secondaryButtonTextColor ?? 'inherit',
-    borderRadius: isClassic ? '2px' : '10px',
+    borderRadius: resolveSize(secondaryRadiusDefault, '10px'),
+    borderWidth: '1px',
+    borderStyle: 'solid',
     fontFamily: ctaFontFamily || fontFamily,
     fontSize: resolveSize(ctaFontSize, '0.9375rem'),
     fontWeight: resolveWeight(ctaFontWeight, 700),
@@ -193,6 +210,23 @@ export function HeroBlock({
     borderColor: cardBorderColor ?? 'transparent',
     boxShadow: cardShadow ?? '0 20px 45px rgba(2,6,23,0.35)',
   } as const;
+
+  const renderHeading = () => {
+    if (headingAccent && title.includes(headingAccent)) {
+      const parts = title.split(headingAccent);
+      return (
+        <h1 className={isSplit ? 'tracking-tight md:text-5xl' : 'tracking-tight md:text-6xl'} style={headingStyle}>
+          {parts[0]}<span style={{ color: accentColor ?? '#f59e0b' }}>{headingAccent}</span>{parts.slice(1).join(headingAccent)}
+        </h1>
+      );
+    }
+
+    return (
+      <h1 className={isSplit ? 'tracking-tight md:text-5xl' : 'tracking-tight md:text-6xl'} style={headingStyle}>
+        {title}
+      </h1>
+    );
+  };
 
   return (
     <section
@@ -219,18 +253,16 @@ export function HeroBlock({
               <p className={eyebrowClassName}>
                 <span style={eyebrowStyle}>{eyebrow}</span>
               </p>
-              <h1 className="tracking-tight md:text-5xl" style={headingStyle}>
-                {title}
-              </h1>
+              {renderHeading()}
               <p className="mt-6 max-w-xl" style={subheadingStyle}>
                 {subtitle}
               </p>
               <div className="mt-8 flex flex-wrap gap-4 justify-start">
-                <a href="#contact" className={primaryCtaClassName} style={primaryButtonStyle}>
+                <a href={primaryCtaHref || '#contact'} className={primaryCtaClassName} style={primaryButtonStyle}>
                   {primaryCtaLabel}
                 </a>
                 {secondaryCtaLabel ? (
-                  <a href="#services" className={secondarySplitClassName} style={secondaryButtonStyle}>
+                  <a href={secondaryCtaHref || '#services'} className={secondarySplitClassName} style={secondaryButtonStyle}>
                     {secondaryCtaLabel}
                   </a>
                 ) : null}
@@ -257,18 +289,16 @@ export function HeroBlock({
             <p className={eyebrowClassName}>
               <span style={eyebrowStyle}>{eyebrow}</span>
             </p>
-            <h1 className="tracking-tight md:text-6xl" style={headingStyle}>
-              {title}
-            </h1>
+            {renderHeading()}
             <p className="mt-6 max-w-2xl" style={subheadingStyle}>
               {subtitle}
             </p>
             <div className={`mt-8 flex flex-wrap gap-4 ${isCentered ? 'justify-center' : 'justify-start'}`}>
-              <a href="#contact" className={primaryCtaClassName} style={primaryButtonStyle}>
+              <a href={primaryCtaHref || '#contact'} className={primaryCtaClassName} style={primaryButtonStyle}>
                 {primaryCtaLabel}
               </a>
               {secondaryCtaLabel ? (
-                <a href="#services" className={secondaryFullClassName} style={secondaryButtonStyle}>
+                <a href={secondaryCtaHref || '#services'} className={secondaryFullClassName} style={secondaryButtonStyle}>
                   {secondaryCtaLabel}
                 </a>
               ) : null}

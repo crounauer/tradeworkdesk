@@ -986,21 +986,168 @@ export const boldIndustrialTradeNotFoundPage: TemplatePage = {
   ],
 };
 
+const stickyMobileCta = {
+  type: "sticky_mobile_cta",
+  props: {
+    primary_label: "Call Now",
+    primary_href: "tel:+441224000000",
+    secondary_label: "Book Online",
+    secondary_href: "/book",
+    background_color: "#0f172a",
+    text_color: "#ffffff",
+    enabled: true,
+  },
+} as const;
+
+function withStickyMobileCta(page: TemplatePage): TemplatePage {
+  const hasSticky = page.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
+  if (hasSticky) return page;
+  return { ...page, blocks: [...page.blocks, stickyMobileCta] };
+}
+
+function withBoldIndustrialStyleMix(page: TemplatePage): TemplatePage {
+  return {
+    ...page,
+    blocks: page.blocks.map((block, index) => {
+      const rawType = String(block.type || block.block_type || "").trim().toLowerCase();
+      const normalizedType = ({
+        "hero.standard": "hero",
+        "about.intro": "text",
+        "trust.badges": "accreditations",
+        "services.grid": "services",
+        "reviews.grid": "testimonials",
+        "areas.grid": "areas",
+        "gallery.grid": "gallery",
+        "cta.banner": "cta",
+        "contact.split": "contact",
+        "faq.accordion": "faq",
+        "process.steps": "process",
+        "features.list": "feature_cards",
+        "blog.index": "blog_index",
+        "blog.post": "blog_post",
+        "legal.content": "legal_content",
+      } as Record<string, string>)[rawType] || rawType;
+
+      const props = (block.props && typeof block.props === "object") ? block.props as Record<string, unknown> : {};
+      const slot = index % 4;
+      const baseTheme = {
+        accent_color: "#F97316",
+        heading_color: "#111827",
+        body_color: "#7C5A3B",
+        border_color: "#F5CBA7",
+        card_bg: "#FFFFFF",
+        section_bg: "#FFF7ED",
+      } as Record<string, unknown>;
+
+      const byType: Record<string, Record<string, unknown>> = {
+        hero: {
+          layout: ["full", "split", "centered", "full"][slot],
+          variant: ["modern", "classic", "default", "modern"][slot],
+          heroStyle: ["modern", "classic", "default", "modern"][slot],
+          tone: ["navy", "default", "light", "default"][slot],
+          ...baseTheme,
+        },
+        cta: {
+          layout_variant: ["stacked-card", "split-inline", "center-banner", "minimal-strip"][slot],
+          layout: ["stacked-card", "split-inline", "center-banner", "minimal-strip"][slot],
+          ...baseTheme,
+        },
+        services: {
+          layout_variant: ["compact-rows", "icon-panels", "card-grid", "split-list"][slot],
+          layout: ["compact-rows", "icon-panels", "card-grid", "split-list"][slot],
+          ...baseTheme,
+        },
+        testimonials: {
+          layout_variant: ["spotlight", "compact-rows", "card-grid", "editorial-list"][slot],
+          layout: ["spotlight", "compact-rows", "card-grid", "editorial-list"][slot],
+          ...baseTheme,
+        },
+        areas: {
+          layout_variant: ["card-grid", "split-columns", "pill-cloud", "minimal-list"][slot],
+          layout: ["card-grid", "split-columns", "pill-cloud", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        faq: {
+          layout_variant: ["stacked-cards", "split-panels", "accordion-card", "minimal-list"][slot],
+          layout: ["stacked-cards", "split-panels", "accordion-card", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        process: {
+          layout_variant: ["numbered-cards", "timeline", "split-list", "minimal-steps"][slot],
+          layout: ["numbered-cards", "timeline", "split-list", "minimal-steps"][slot],
+          ...baseTheme,
+        },
+        project_showcase: {
+          layout_variant: ["masonry-cards", "featured-split", "card-grid", "compact-list"][slot],
+          layout: ["masonry-cards", "featured-split", "card-grid", "compact-list"][slot],
+          ...baseTheme,
+        },
+        gallery: {
+          layout_variant: ["collage", "strip", "grid", "masonry"][slot],
+          layout: ["collage", "strip", "grid", "masonry"][slot],
+          ...baseTheme,
+        },
+        feature_cards: {
+          layout_variant: ["minimal-tiles", "icon-panels", "card-grid", "split-list"][slot],
+          layout: ["minimal-tiles", "icon-panels", "card-grid", "split-list"][slot],
+          ...baseTheme,
+        },
+        blog_index: {
+          layout_variant: ["magazine", "card-grid", "editorial-list", "minimal-list"][slot],
+          layout: ["magazine", "card-grid", "editorial-list", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        blog_post: {
+          layout_variant: ["hero-lead", "split-aside", "classic-article", "minimal-prose"][slot],
+          layout: ["hero-lead", "split-aside", "classic-article", "minimal-prose"][slot],
+          ...baseTheme,
+        },
+        legal_content: {
+          layout_variant: ["boxed-note", "split-aside", "classic-doc", "minimal-prose"][slot],
+          layout: ["boxed-note", "split-aside", "classic-doc", "minimal-prose"][slot],
+          ...baseTheme,
+        },
+        sticky_mobile_cta: {
+          layout_variant: ["dual-pill", "split-label", "stacked-copy", "single-primary"][slot],
+          layout: ["dual-pill", "split-label", "stacked-copy", "single-primary"][slot],
+          background_color: "#111827",
+          text_color: "#FFFFFF",
+          primary_color: "#F97316",
+          secondary_color: "rgba(255,255,255,0.1)",
+          border_color: "rgba(255,255,255,0.24)",
+        },
+        "site.footer": {
+          layout_variant: ["split-brand", "four-column", "centered-stack", "minimal-columns"][slot],
+          layout: ["split-brand", "four-column", "centered-stack", "minimal-columns"][slot],
+          background_color: "#0B1220",
+          text_color: "#C9D2E0",
+          heading_color: "#FFFFFF",
+          accent_color: "#F97316",
+        },
+      };
+
+      const overrides = byType[normalizedType];
+      if (!overrides) return block;
+      return { ...block, props: { ...props, ...overrides } };
+    }),
+  };
+}
+
 export const boldIndustrialTradePages = {
-  home: boldIndustrialTradeHomePage,
-  about: boldIndustrialTradeAboutPage,
-  services: boldIndustrialTradeServicesPage,
-  "service-detail": boldIndustrialTradeServiceDetailPage,
-  "areas-covered": boldIndustrialTradeAreasCoveredPage,
-  "area-detail": boldIndustrialTradeAreaDetailPage,
-  reviews: boldIndustrialTradeReviewsPage,
-  gallery: boldIndustrialTradeGalleryPage,
-  faq: boldIndustrialTradeFaqPage,
-  contact: boldIndustrialTradeContactPage,
-  "blog-index": boldIndustrialTradeBlogIndexPage,
-  "blog-post": boldIndustrialTradeBlogPostPage,
-  "privacy-policy": boldIndustrialTradePrivacyPolicyPage,
-  "cookie-policy": boldIndustrialTradeCookiePolicyPage,
-  "terms-conditions": boldIndustrialTradeTermsConditionsPage,
-  "404": boldIndustrialTradeNotFoundPage,
+  home: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeHomePage)),
+  about: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeAboutPage)),
+  services: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeServicesPage)),
+  "service-detail": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeServiceDetailPage)),
+  "areas-covered": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeAreasCoveredPage)),
+  "area-detail": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeAreaDetailPage)),
+  reviews: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeReviewsPage)),
+  gallery: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeGalleryPage)),
+  faq: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeFaqPage)),
+  contact: withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeContactPage)),
+  "blog-index": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeBlogIndexPage)),
+  "blog-post": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeBlogPostPage)),
+  "privacy-policy": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradePrivacyPolicyPage)),
+  "cookie-policy": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeCookiePolicyPage)),
+  "terms-conditions": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeTermsConditionsPage)),
+  "404": withStickyMobileCta(withBoldIndustrialStyleMix(boldIndustrialTradeNotFoundPage)),
 } satisfies Record<string, TemplatePage>;

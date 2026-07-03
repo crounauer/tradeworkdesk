@@ -770,21 +770,40 @@ export const classicTradeNotFoundPage: TemplatePage = {
   ],
 };
 
+const stickyMobileCta = {
+  type: "sticky_mobile_cta",
+  props: {
+    primary_label: "Call Now",
+    primary_href: "tel:+441224000000",
+    secondary_label: "Book Online",
+    secondary_href: "/book",
+    background_color: "#0f172a",
+    text_color: "#ffffff",
+    enabled: true,
+  },
+} as const;
+
+function withStickyMobileCta(page: TemplatePage): TemplatePage {
+  const hasSticky = page.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
+  if (hasSticky) return page;
+  return { ...page, blocks: [...page.blocks, stickyMobileCta] };
+}
+
 export const classicTradePages = {
-  home: classicTradeHomePage,
-  about: classicTradeAboutPage,
-  services: classicTradeServicesPage,
-  "service-detail": classicTradeServiceDetailPage,
-  "areas-covered": classicTradeAreasCoveredPage,
-  "area-detail": classicTradeAreaDetailPage,
-  reviews: classicTradeReviewsPage,
-  gallery: classicTradeGalleryPage,
-  faq: classicTradeFaqPage,
-  contact: classicTradeContactPage,
-  "blog-index": classicTradeBlogIndexPage,
-  "blog-post": classicTradeBlogPostPage,
-  "privacy-policy": classicTradePrivacyPolicyPage,
-  "cookie-policy": classicTradeCookiePolicyPage,
-  "terms-conditions": classicTradeTermsConditionsPage,
-  "404": classicTradeNotFoundPage,
+  home: withStickyMobileCta(classicTradeHomePage),
+  about: withStickyMobileCta(classicTradeAboutPage),
+  services: withStickyMobileCta(classicTradeServicesPage),
+  "service-detail": withStickyMobileCta(classicTradeServiceDetailPage),
+  "areas-covered": withStickyMobileCta(classicTradeAreasCoveredPage),
+  "area-detail": withStickyMobileCta(classicTradeAreaDetailPage),
+  reviews: withStickyMobileCta(classicTradeReviewsPage),
+  gallery: withStickyMobileCta(classicTradeGalleryPage),
+  faq: withStickyMobileCta(classicTradeFaqPage),
+  contact: withStickyMobileCta(classicTradeContactPage),
+  "blog-index": withStickyMobileCta(classicTradeBlogIndexPage),
+  "blog-post": withStickyMobileCta(classicTradeBlogPostPage),
+  "privacy-policy": withStickyMobileCta(classicTradePrivacyPolicyPage),
+  "cookie-policy": withStickyMobileCta(classicTradeCookiePolicyPage),
+  "terms-conditions": withStickyMobileCta(classicTradeTermsConditionsPage),
+  "404": withStickyMobileCta(classicTradeNotFoundPage),
 } satisfies Record<string, TemplatePage>;

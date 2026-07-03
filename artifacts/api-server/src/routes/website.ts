@@ -35,7 +35,7 @@ import {
   type AuthenticatedRequest,
 } from "../middlewares/auth";
 
-import { generateDefaultTheme, getDefaultPagesForTemplate } from "../lib/template-utils";
+import { buildTemplateDefaultTheme, generateDefaultTheme, getDefaultPagesForTemplate, mergeThemeWithPaletteDefaults } from "../lib/template-utils";
 const router: IRouter = Router();
 const db = supabaseAdmin as any; // new tables not yet in generated types
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
@@ -248,6 +248,34 @@ async function getWebsiteForTenant(tenantId: string): Promise<Record<string, unk
     .select("*")
     .eq("tenant_id", tenantId)
     .maybeSingle() as { data: Record<string, unknown> | null };
+  if (!data) return null;
+
+  // Safe auto-migration: fill missing theme keys from template defaults without
+  // overwriting tenant-defined colors.
+  let templateSlug = String((data.template_slug as string | undefined) || "");
+  if (!templateSlug && data.template_id) {
+    const { data: templateRow } = await db
+      .from("website_templates")
+      .select("slug")
+      .eq("id", data.template_id)
+      .maybeSingle() as { data: { slug?: string } | null };
+    templateSlug = String(templateRow?.slug || "");
+  }
+  const mergedTheme = mergeThemeWithPaletteDefaults(
+    (data.theme as Record<string, unknown> | null | undefined) || {},
+    templateSlug,
+  );
+
+  const currentTheme = ((data.theme as Record<string, unknown> | null | undefined) || {});
+  const hasMissingThemeKeys = Object.keys(mergedTheme).some((key) => !(key in currentTheme));
+  if (hasMissingThemeKeys && data.id) {
+    await db
+      .from("websites")
+      .update({ theme: mergedTheme })
+      .eq("id", data.id);
+    data.theme = mergedTheme;
+  }
+
   return data;
 }
 
@@ -638,9 +666,13 @@ router.post(
 
       const hasTemplateTheme = !!resolvedTemplate.default_theme
         && Object.keys(resolvedTemplate.default_theme as Record<string, unknown>).length > 0;
+      const templateSlug = String(resolvedTemplate.slug || "");
       const defaultTheme = hasTemplateTheme
-        ? (resolvedTemplate.default_theme as Record<string, unknown>)
-        : generateDefaultTheme(resolvedTemplate.design_tokens || {});
+        ? mergeThemeWithPaletteDefaults(
+            resolvedTemplate.default_theme as Record<string, unknown>,
+            templateSlug,
+          )
+        : buildTemplateDefaultTheme(templateSlug, resolvedTemplate.design_tokens || {}) || generateDefaultTheme(resolvedTemplate.design_tokens || {});
 
       if (defaultTheme) {
         await db
@@ -939,6 +971,22 @@ router.patch(
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid website fields provided" });
       return;
+    }
+
+    if ("theme" in updates) {
+      let templateSlug = String((website.template_slug as string | undefined) || "");
+      if (!templateSlug && website.template_id) {
+        const { data: templateRow } = await db
+          .from("website_templates")
+          .select("slug")
+          .eq("id", website.template_id)
+          .maybeSingle() as { data: { slug?: string } | null };
+        templateSlug = String(templateRow?.slug || "");
+      }
+      updates.theme = mergeThemeWithPaletteDefaults(
+        (updates.theme as Record<string, unknown> | null | undefined) || {},
+        templateSlug,
+      );
     }
 
     const { data, error } = await db

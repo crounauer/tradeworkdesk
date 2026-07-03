@@ -17,8 +17,8 @@ primary_region = "lhr"
   auto_stop_machines = "stop"
   auto_start_machines = true
   # Normal profile (cost-balanced)
-  # Dev profile: allow full scale-to-zero when idle
-  min_machines_running = 0
+  # Keep one machine warm to avoid cold-start proxy reachability blips
+  min_machines_running = 1
   # Balanced cap: allow extra burst headroom while keeping spend bounded
   max_machines_running = 4
 

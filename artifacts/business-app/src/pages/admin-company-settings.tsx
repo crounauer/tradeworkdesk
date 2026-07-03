@@ -1105,7 +1105,7 @@ export default function AdminCompanySettings() {
           </TabsList>
         </div>
 
-        <form>
+        <form onSubmit={(e) => e.preventDefault()}>
           <TabsContent value="profile" className="space-y-6 pt-4">
           {/* Logo */}
           <Card>
@@ -2151,7 +2151,7 @@ function CalloutRatesSection() {
               Different callout fees for weekdays, weekends, and after-hours. The system auto-selects based on the first time entry.
             </CardDescription>
           </div>
-          <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else setShowAdd(true); }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Rate</>}
           </Button>
         </div>
@@ -2196,7 +2196,7 @@ function CalloutRatesSection() {
                 </label>
               </div>
             </div>
-            <Button size="sm" onClick={handleSave} disabled={submitting || !form.name.trim() || !form.amount}>
+            <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim() || !form.amount}>
               <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : editingId ? "Update" : "Add"}
             </Button>
           </div>
@@ -2227,8 +2227,8 @@ function CalloutRatesSection() {
                       <span className="text-xs text-muted-foreground ml-1.5">(£{Number(r.hourly_rate).toFixed(2)}/hr)</span>
                     )}
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => handleEdit(r)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => handleEdit(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                 </div>
               </div>
             ))}

@@ -20,6 +20,7 @@ import FeaturesBarBlock from "./FeaturesBarBlock";
 import ProcessBlock from "./ProcessBlock";
 import ProjectShowcaseBlock from "./ProjectShowcaseBlock";
 import OnlineBookingBlock from "./OnlineBookingBlock";
+import StickyMobileCtaBlock from "./StickyMobileCtaBlock";
 import BlogIndexBlock from "./BlogIndexBlock";
 import BlogPostBlock from "./BlogPostBlock";
 import LegalContentBlock from "./LegalContentBlock";
@@ -134,6 +135,7 @@ const blockRegistry: Record<string, BlockRendererFn> = {
   projects: (context) => render(ProjectShowcaseBlock, context),
   online_booking: (context) => render(OnlineBookingBlock, context),
   booking: (context) => render(OnlineBookingBlock, context),
+  sticky_mobile_cta: (context) => render(StickyMobileCtaBlock, context),
   blog_index: renderBlogIndex,
   blog_post: renderBlogPost,
   legal_content: renderLegalContent,
@@ -157,6 +159,10 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   }
 
   const normalizedTheme = resolveSiteTheme(theme, site?.website?.template_slug);
+  const themeObj = (theme && typeof theme === "object") ? theme as Record<string, unknown> : {};
+  const globalHeadingFont = typeof themeObj.heading_font_family === "string" ? themeObj.heading_font_family : undefined;
+  const globalBodyFont = typeof themeObj.body_font_family === "string" ? themeObj.body_font_family : undefined;
+  const globalButtonFont = typeof themeObj.button_font_family === "string" ? themeObj.button_font_family : undefined;
   const base = {
     accent_color: normalizedTheme.accentColor,
     primary_color: normalizedTheme.primaryColor,
@@ -166,6 +172,9 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     border_color: normalizedTheme.borderColor,
     text_color: normalizedTheme.textColor,
     muted_text_color: normalizedTheme.mutedTextColor,
+    global_heading_font_family: globalHeadingFont,
+    global_body_font_family: globalBodyFont,
+    global_button_font_family: globalButtonFont,
     template_slug: site?.website?.template_slug || undefined,
   };
   const companyBase = {

@@ -986,21 +986,169 @@ export const professionalTradeNotFoundPage: TemplatePage = {
   ],
 };
 
+const stickyMobileCta = {
+  type: "sticky_mobile_cta",
+  props: {
+    primary_label: "Call Now",
+    primary_href: "tel:+441224000000",
+    secondary_label: "Book Online",
+    secondary_href: "/book",
+    background_color: "#0f172a",
+    text_color: "#ffffff",
+    enabled: true,
+  },
+} as const;
+
+function withStickyMobileCta(page: TemplatePage): TemplatePage {
+  const hasSticky = page.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
+  if (hasSticky) return page;
+  return { ...page, blocks: [...page.blocks, stickyMobileCta] };
+}
+
+function withProfessionalStyleMix(page: TemplatePage): TemplatePage {
+  return {
+    ...page,
+    blocks: page.blocks.map((block, index) => {
+      const rawType = String(block.type || block.block_type || "").trim().toLowerCase();
+      const normalizedType = ({
+        "hero.standard": "hero",
+        "about.intro": "text",
+        "trust.badges": "accreditations",
+        "services.grid": "services",
+        "reviews.grid": "testimonials",
+        "areas.grid": "areas",
+        "gallery.grid": "gallery",
+        "cta.banner": "cta",
+        "contact.split": "contact",
+        "faq.accordion": "faq",
+        "process.steps": "process",
+        "features.list": "feature_cards",
+        "blog.index": "blog_index",
+        "blog.post": "blog_post",
+        "legal.content": "legal_content",
+      } as Record<string, string>)[rawType] || rawType;
+
+      const props = (block.props && typeof block.props === "object") ? block.props as Record<string, unknown> : {};
+      const slot = index % 4;
+
+      const baseTheme = {
+        accent_color: "#2563EB",
+        heading_color: "#0F2942",
+        body_color: "#4A6A88",
+        border_color: "#C8D9EE",
+        card_bg: "#FFFFFF",
+        section_bg: "#F8FBFF",
+      } as Record<string, unknown>;
+
+      const byType: Record<string, Record<string, unknown>> = {
+        hero: {
+          layout: ["split", "centered", "full", "split"][slot],
+          variant: ["modern", "default", "classic", "modern"][slot],
+          heroStyle: ["modern", "default", "classic", "modern"][slot],
+          tone: ["light", "default", "navy", "default"][slot],
+          ...baseTheme,
+        },
+        cta: {
+          layout_variant: ["split-inline", "center-banner", "stacked-card", "minimal-strip"][slot],
+          layout: ["split-inline", "center-banner", "stacked-card", "minimal-strip"][slot],
+          ...baseTheme,
+        },
+        services: {
+          layout_variant: ["icon-panels", "card-grid", "compact-rows", "split-list"][slot],
+          layout: ["icon-panels", "card-grid", "compact-rows", "split-list"][slot],
+          ...baseTheme,
+        },
+        testimonials: {
+          layout_variant: ["editorial-list", "card-grid", "spotlight", "compact-rows"][slot],
+          layout: ["editorial-list", "card-grid", "spotlight", "compact-rows"][slot],
+          ...baseTheme,
+        },
+        areas: {
+          layout_variant: ["split-columns", "card-grid", "pill-cloud", "minimal-list"][slot],
+          layout: ["split-columns", "card-grid", "pill-cloud", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        faq: {
+          layout_variant: ["split-panels", "accordion-card", "stacked-cards", "minimal-list"][slot],
+          layout: ["split-panels", "accordion-card", "stacked-cards", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        process: {
+          layout_variant: ["timeline", "numbered-cards", "split-list", "minimal-steps"][slot],
+          layout: ["timeline", "numbered-cards", "split-list", "minimal-steps"][slot],
+          ...baseTheme,
+        },
+        project_showcase: {
+          layout_variant: ["featured-split", "card-grid", "masonry-cards", "compact-list"][slot],
+          layout: ["featured-split", "card-grid", "masonry-cards", "compact-list"][slot],
+          ...baseTheme,
+        },
+        gallery: {
+          layout_variant: ["grid", "masonry", "collage", "strip"][slot],
+          layout: ["grid", "masonry", "collage", "strip"][slot],
+          ...baseTheme,
+        },
+        feature_cards: {
+          layout_variant: ["card-grid", "split-list", "icon-panels", "minimal-tiles"][slot],
+          layout: ["card-grid", "split-list", "icon-panels", "minimal-tiles"][slot],
+          ...baseTheme,
+        },
+        blog_index: {
+          layout_variant: ["editorial-list", "card-grid", "magazine", "minimal-list"][slot],
+          layout: ["editorial-list", "card-grid", "magazine", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        blog_post: {
+          layout_variant: ["classic-article", "hero-lead", "split-aside", "minimal-prose"][slot],
+          layout: ["classic-article", "hero-lead", "split-aside", "minimal-prose"][slot],
+          ...baseTheme,
+        },
+        legal_content: {
+          layout_variant: ["classic-doc", "split-aside", "boxed-note", "minimal-prose"][slot],
+          layout: ["classic-doc", "split-aside", "boxed-note", "minimal-prose"][slot],
+          ...baseTheme,
+        },
+        sticky_mobile_cta: {
+          layout_variant: ["dual-pill", "stacked-copy", "split-label", "single-primary"][slot],
+          layout: ["dual-pill", "stacked-copy", "split-label", "single-primary"][slot],
+          background_color: "#0B3A6E",
+          text_color: "#FFFFFF",
+          primary_color: "#2563EB",
+          secondary_color: "rgba(255,255,255,0.12)",
+          border_color: "rgba(255,255,255,0.22)",
+        },
+        "site.footer": {
+          layout_variant: ["four-column", "centered-stack", "split-brand", "minimal-columns"][slot],
+          layout: ["four-column", "centered-stack", "split-brand", "minimal-columns"][slot],
+          background_color: "#082B52",
+          text_color: "#B9CCE3",
+          heading_color: "#FFFFFF",
+          accent_color: "#2563EB",
+        },
+      };
+
+      const overrides = byType[normalizedType];
+      if (!overrides) return block;
+      return { ...block, props: { ...props, ...overrides } };
+    }),
+  };
+}
+
 export const professionalTradePages = {
-  home: professionalTradeHomePage,
-  about: professionalTradeAboutPage,
-  services: professionalTradeServicesPage,
-  "service-detail": professionalTradeServiceDetailPage,
-  "areas-covered": professionalTradeAreasCoveredPage,
-  "area-detail": professionalTradeAreaDetailPage,
-  reviews: professionalTradeReviewsPage,
-  gallery: professionalTradeGalleryPage,
-  faq: professionalTradeFaqPage,
-  contact: professionalTradeContactPage,
-  "blog-index": professionalTradeBlogIndexPage,
-  "blog-post": professionalTradeBlogPostPage,
-  "privacy-policy": professionalTradePrivacyPolicyPage,
-  "cookie-policy": professionalTradeCookiePolicyPage,
-  "terms-conditions": professionalTradeTermsConditionsPage,
-  "404": professionalTradeNotFoundPage,
+  home: withStickyMobileCta(withProfessionalStyleMix(professionalTradeHomePage)),
+  about: withStickyMobileCta(withProfessionalStyleMix(professionalTradeAboutPage)),
+  services: withStickyMobileCta(withProfessionalStyleMix(professionalTradeServicesPage)),
+  "service-detail": withStickyMobileCta(withProfessionalStyleMix(professionalTradeServiceDetailPage)),
+  "areas-covered": withStickyMobileCta(withProfessionalStyleMix(professionalTradeAreasCoveredPage)),
+  "area-detail": withStickyMobileCta(withProfessionalStyleMix(professionalTradeAreaDetailPage)),
+  reviews: withStickyMobileCta(withProfessionalStyleMix(professionalTradeReviewsPage)),
+  gallery: withStickyMobileCta(withProfessionalStyleMix(professionalTradeGalleryPage)),
+  faq: withStickyMobileCta(withProfessionalStyleMix(professionalTradeFaqPage)),
+  contact: withStickyMobileCta(withProfessionalStyleMix(professionalTradeContactPage)),
+  "blog-index": withStickyMobileCta(withProfessionalStyleMix(professionalTradeBlogIndexPage)),
+  "blog-post": withStickyMobileCta(withProfessionalStyleMix(professionalTradeBlogPostPage)),
+  "privacy-policy": withStickyMobileCta(withProfessionalStyleMix(professionalTradePrivacyPolicyPage)),
+  "cookie-policy": withStickyMobileCta(withProfessionalStyleMix(professionalTradeCookiePolicyPage)),
+  "terms-conditions": withStickyMobileCta(withProfessionalStyleMix(professionalTradeTermsConditionsPage)),
+  "404": withStickyMobileCta(withProfessionalStyleMix(professionalTradeNotFoundPage)),
 } satisfies Record<string, TemplatePage>;

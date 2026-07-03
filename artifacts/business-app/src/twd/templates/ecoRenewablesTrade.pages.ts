@@ -678,21 +678,163 @@ export const ecoRenewablesTradeNotFoundPage: TemplatePage = {
   ],
 };
 
+const stickyMobileCta = {
+  type: "sticky_mobile_cta",
+  props: {
+    primary_label: "Call Now",
+    primary_href: "tel:+441224000000",
+    secondary_label: "Book Online",
+    secondary_href: "/book",
+    background_color: "#0f172a",
+    text_color: "#ffffff",
+    enabled: true,
+  },
+} as const;
+
+function withStickyMobileCta(page: TemplatePage): TemplatePage {
+  const hasSticky = page.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
+  if (hasSticky) return page;
+  return { ...page, blocks: [...page.blocks, stickyMobileCta] };
+}
+
+function withEcoRenewablesStyleMix(page: TemplatePage): TemplatePage {
+  return {
+    ...page,
+    blocks: page.blocks.map((block, index) => {
+      const rawType = String(block.type || block.block_type || "").trim().toLowerCase();
+      const normalizedType = ({
+        "hero.standard": "hero",
+        "about.intro": "text",
+        "trust.badges": "accreditations",
+        "services.grid": "services",
+        "reviews.grid": "testimonials",
+        "areas.grid": "areas",
+        "gallery.grid": "gallery",
+        "cta.banner": "cta",
+        "contact.split": "contact",
+        "faq.accordion": "faq",
+        "process.steps": "process",
+        "features.list": "feature_cards",
+        "blog.index": "blog_index",
+        "blog.post": "blog_post",
+        "legal.content": "legal_content",
+      } as Record<string, string>)[rawType] || rawType;
+
+      const props = (block.props && typeof block.props === "object") ? block.props as Record<string, unknown> : {};
+      const slot = index % 4;
+      const baseTheme = {
+        accent_color: "#65A30D",
+        heading_color: "#1F3A27",
+        body_color: "#557462",
+        border_color: "#BFD9C2",
+        card_bg: "#FFFFFF",
+        section_bg: "#F5FAF4",
+      } as Record<string, unknown>;
+
+      const byType: Record<string, Record<string, unknown>> = {
+        hero: {
+          layout: ["full", "split", "centered", "split"][slot],
+          variant: ["modern", "default", "classic", "modern"][slot],
+          heroStyle: ["modern", "default", "classic", "modern"][slot],
+          tone: ["light", "default", "navy", "light"][slot],
+          ...baseTheme,
+        },
+        cta: {
+          layout_variant: ["minimal-strip", "center-banner", "split-inline", "stacked-card"][slot],
+          layout: ["minimal-strip", "center-banner", "split-inline", "stacked-card"][slot],
+          ...baseTheme,
+        },
+        services: {
+          layout_variant: ["split-list", "icon-panels", "card-grid", "compact-rows"][slot],
+          layout: ["split-list", "icon-panels", "card-grid", "compact-rows"][slot],
+          ...baseTheme,
+        },
+        testimonials: {
+          layout_variant: ["spotlight", "editorial-list", "card-grid", "compact-rows"][slot],
+          layout: ["spotlight", "editorial-list", "card-grid", "compact-rows"][slot],
+          ...baseTheme,
+        },
+        areas: {
+          layout_variant: ["pill-cloud", "split-columns", "card-grid", "minimal-list"][slot],
+          layout: ["pill-cloud", "split-columns", "card-grid", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        faq: {
+          layout_variant: ["accordion-card", "split-panels", "minimal-list", "stacked-cards"][slot],
+          layout: ["accordion-card", "split-panels", "minimal-list", "stacked-cards"][slot],
+          ...baseTheme,
+        },
+        process: {
+          layout_variant: ["minimal-steps", "timeline", "numbered-cards", "split-list"][slot],
+          layout: ["minimal-steps", "timeline", "numbered-cards", "split-list"][slot],
+          ...baseTheme,
+        },
+        gallery: {
+          layout_variant: ["masonry", "collage", "grid", "strip"][slot],
+          layout: ["masonry", "collage", "grid", "strip"][slot],
+          ...baseTheme,
+        },
+        feature_cards: {
+          layout_variant: ["icon-panels", "card-grid", "minimal-tiles", "split-list"][slot],
+          layout: ["icon-panels", "card-grid", "minimal-tiles", "split-list"][slot],
+          ...baseTheme,
+        },
+        blog_index: {
+          layout_variant: ["magazine", "editorial-list", "card-grid", "minimal-list"][slot],
+          layout: ["magazine", "editorial-list", "card-grid", "minimal-list"][slot],
+          ...baseTheme,
+        },
+        blog_post: {
+          layout_variant: ["hero-lead", "classic-article", "split-aside", "minimal-prose"][slot],
+          layout: ["hero-lead", "classic-article", "split-aside", "minimal-prose"][slot],
+          ...baseTheme,
+        },
+        legal_content: {
+          layout_variant: ["boxed-note", "classic-doc", "split-aside", "minimal-prose"][slot],
+          layout: ["boxed-note", "classic-doc", "split-aside", "minimal-prose"][slot],
+          ...baseTheme,
+        },
+        sticky_mobile_cta: {
+          layout_variant: ["stacked-copy", "dual-pill", "single-primary", "split-label"][slot],
+          layout: ["stacked-copy", "dual-pill", "single-primary", "split-label"][slot],
+          background_color: "#1F4D2E",
+          text_color: "#FFFFFF",
+          primary_color: "#65A30D",
+          secondary_color: "rgba(255,255,255,0.12)",
+          border_color: "rgba(255,255,255,0.24)",
+        },
+        "site.footer": {
+          layout_variant: ["split-brand", "four-column", "minimal-columns", "centered-stack"][slot],
+          layout: ["split-brand", "four-column", "minimal-columns", "centered-stack"][slot],
+          background_color: "#173A23",
+          text_color: "#A8C2AE",
+          heading_color: "#FFFFFF",
+          accent_color: "#65A30D",
+        },
+      };
+
+      const overrides = byType[normalizedType];
+      if (!overrides) return block;
+      return { ...block, props: { ...props, ...overrides } };
+    }),
+  };
+}
+
 export const ecoRenewablesTradePages = {
-  home: ecoRenewablesTradeHomePage,
-  about: ecoRenewablesTradeAboutPage,
-  services: ecoRenewablesTradeServicesPage,
-  "service-detail": ecoRenewablesTradeServiceDetailPage,
-  "areas-covered": ecoRenewablesTradeAreasCoveredPage,
-  "area-detail": ecoRenewablesTradeAreaDetailPage,
-  reviews: ecoRenewablesTradeReviewsPage,
-  gallery: ecoRenewablesTradeGalleryPage,
-  faq: ecoRenewablesTradeFaqPage,
-  contact: ecoRenewablesTradeContactPage,
-  "blog-index": ecoRenewablesTradeBlogIndexPage,
-  "blog-post": ecoRenewablesTradeBlogPostPage,
-  "privacy-policy": ecoRenewablesTradePrivacyPolicyPage,
-  "cookie-policy": ecoRenewablesTradeCookiePolicyPage,
-  "terms-conditions": ecoRenewablesTradeTermsConditionsPage,
-  "404": ecoRenewablesTradeNotFoundPage,
+  home: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeHomePage)),
+  about: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeAboutPage)),
+  services: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeServicesPage)),
+  "service-detail": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeServiceDetailPage)),
+  "areas-covered": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeAreasCoveredPage)),
+  "area-detail": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeAreaDetailPage)),
+  reviews: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeReviewsPage)),
+  gallery: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeGalleryPage)),
+  faq: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeFaqPage)),
+  contact: withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeContactPage)),
+  "blog-index": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeBlogIndexPage)),
+  "blog-post": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeBlogPostPage)),
+  "privacy-policy": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradePrivacyPolicyPage)),
+  "cookie-policy": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeCookiePolicyPage)),
+  "terms-conditions": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeTermsConditionsPage)),
+  "404": withStickyMobileCta(withEcoRenewablesStyleMix(ecoRenewablesTradeNotFoundPage)),
 } satisfies Record<string, TemplatePage>;

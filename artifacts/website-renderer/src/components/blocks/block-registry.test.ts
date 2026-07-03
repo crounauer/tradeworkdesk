@@ -40,6 +40,7 @@ test("hasBlockRendererForType detects supported and unsupported blocks", () => {
   assert.equal(hasBlockRendererForType("blog_cards"), true);
   assert.equal(hasBlockRendererForType("hero_centered"), true);
   assert.equal(hasBlockRendererForType("pricing_table"), true);
+  assert.equal(hasBlockRendererForType("sticky_mobile_cta"), true);
   assert.equal(hasBlockRendererForType("unknown_block_type"), false);
 });
 

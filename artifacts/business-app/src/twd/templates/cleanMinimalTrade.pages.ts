@@ -678,21 +678,163 @@ export const cleanMinimalTradeNotFoundPage: TemplatePage = {
   ],
 };
 
+const stickyMobileCta = {
+  type: "sticky_mobile_cta",
+  props: {
+    primary_label: "Call Now",
+    primary_href: "tel:+441224000000",
+    secondary_label: "Book Online",
+    secondary_href: "/book",
+    background_color: "#0f172a",
+    text_color: "#ffffff",
+    enabled: true,
+  },
+} as const;
+
+function withStickyMobileCta(page: TemplatePage): TemplatePage {
+  const hasSticky = page.blocks.some((block) => String(block.type || block.block_type || "").trim().toLowerCase() === "sticky_mobile_cta");
+  if (hasSticky) return page;
+  return { ...page, blocks: [...page.blocks, stickyMobileCta] };
+}
+
+function withCleanMinimalStyleMix(page: TemplatePage): TemplatePage {
+  return {
+    ...page,
+    blocks: page.blocks.map((block, index) => {
+      const rawType = String(block.type || block.block_type || "").trim().toLowerCase();
+      const normalizedType = ({
+        "hero.standard": "hero",
+        "about.intro": "text",
+        "trust.badges": "accreditations",
+        "services.grid": "services",
+        "reviews.grid": "testimonials",
+        "areas.grid": "areas",
+        "gallery.grid": "gallery",
+        "cta.banner": "cta",
+        "contact.split": "contact",
+        "faq.accordion": "faq",
+        "process.steps": "process",
+        "features.list": "feature_cards",
+        "blog.index": "blog_index",
+        "blog.post": "blog_post",
+        "legal.content": "legal_content",
+      } as Record<string, string>)[rawType] || rawType;
+
+      const props = (block.props && typeof block.props === "object") ? block.props as Record<string, unknown> : {};
+      const slot = index % 4;
+      const baseTheme = {
+        accent_color: "#0EA5A4",
+        heading_color: "#1E293B",
+        body_color: "#64748B",
+        border_color: "#DDE5EC",
+        card_bg: "#FFFFFF",
+        section_bg: "#FAFAF9",
+      } as Record<string, unknown>;
+
+      const byType: Record<string, Record<string, unknown>> = {
+        hero: {
+          layout: ["centered", "split", "full", "centered"][slot],
+          variant: ["default", "modern", "classic", "default"][slot],
+          heroStyle: ["default", "modern", "classic", "default"][slot],
+          tone: ["light", "default", "navy", "light"][slot],
+          ...baseTheme,
+        },
+        cta: {
+          layout_variant: ["minimal-strip", "center-banner", "split-inline", "stacked-card"][slot],
+          layout: ["minimal-strip", "center-banner", "split-inline", "stacked-card"][slot],
+          ...baseTheme,
+        },
+        services: {
+          layout_variant: ["split-list", "card-grid", "icon-panels", "compact-rows"][slot],
+          layout: ["split-list", "card-grid", "icon-panels", "compact-rows"][slot],
+          ...baseTheme,
+        },
+        testimonials: {
+          layout_variant: ["editorial-list", "compact-rows", "card-grid", "spotlight"][slot],
+          layout: ["editorial-list", "compact-rows", "card-grid", "spotlight"][slot],
+          ...baseTheme,
+        },
+        areas: {
+          layout_variant: ["minimal-list", "split-columns", "pill-cloud", "card-grid"][slot],
+          layout: ["minimal-list", "split-columns", "pill-cloud", "card-grid"][slot],
+          ...baseTheme,
+        },
+        faq: {
+          layout_variant: ["minimal-list", "accordion-card", "split-panels", "stacked-cards"][slot],
+          layout: ["minimal-list", "accordion-card", "split-panels", "stacked-cards"][slot],
+          ...baseTheme,
+        },
+        process: {
+          layout_variant: ["minimal-steps", "split-list", "timeline", "numbered-cards"][slot],
+          layout: ["minimal-steps", "split-list", "timeline", "numbered-cards"][slot],
+          ...baseTheme,
+        },
+        gallery: {
+          layout_variant: ["strip", "grid", "masonry", "collage"][slot],
+          layout: ["strip", "grid", "masonry", "collage"][slot],
+          ...baseTheme,
+        },
+        feature_cards: {
+          layout_variant: ["minimal-tiles", "split-list", "card-grid", "icon-panels"][slot],
+          layout: ["minimal-tiles", "split-list", "card-grid", "icon-panels"][slot],
+          ...baseTheme,
+        },
+        blog_index: {
+          layout_variant: ["minimal-list", "editorial-list", "card-grid", "magazine"][slot],
+          layout: ["minimal-list", "editorial-list", "card-grid", "magazine"][slot],
+          ...baseTheme,
+        },
+        blog_post: {
+          layout_variant: ["minimal-prose", "classic-article", "split-aside", "hero-lead"][slot],
+          layout: ["minimal-prose", "classic-article", "split-aside", "hero-lead"][slot],
+          ...baseTheme,
+        },
+        legal_content: {
+          layout_variant: ["minimal-prose", "classic-doc", "split-aside", "boxed-note"][slot],
+          layout: ["minimal-prose", "classic-doc", "split-aside", "boxed-note"][slot],
+          ...baseTheme,
+        },
+        sticky_mobile_cta: {
+          layout_variant: ["single-primary", "dual-pill", "split-label", "stacked-copy"][slot],
+          layout: ["single-primary", "dual-pill", "split-label", "stacked-copy"][slot],
+          background_color: "#0F172A",
+          text_color: "#FFFFFF",
+          primary_color: "#0EA5A4",
+          secondary_color: "rgba(255,255,255,0.12)",
+          border_color: "rgba(255,255,255,0.22)",
+        },
+        "site.footer": {
+          layout_variant: ["minimal-columns", "centered-stack", "split-brand", "four-column"][slot],
+          layout: ["minimal-columns", "centered-stack", "split-brand", "four-column"][slot],
+          background_color: "#111827",
+          text_color: "#CBD5E1",
+          heading_color: "#FFFFFF",
+          accent_color: "#0EA5A4",
+        },
+      };
+
+      const overrides = byType[normalizedType];
+      if (!overrides) return block;
+      return { ...block, props: { ...props, ...overrides } };
+    }),
+  };
+}
+
 export const cleanMinimalTradePages = {
-  home: cleanMinimalTradeHomePage,
-  about: cleanMinimalTradeAboutPage,
-  services: cleanMinimalTradeServicesPage,
-  "service-detail": cleanMinimalTradeServiceDetailPage,
-  "areas-covered": cleanMinimalTradeAreasCoveredPage,
-  "area-detail": cleanMinimalTradeAreaDetailPage,
-  reviews: cleanMinimalTradeReviewsPage,
-  gallery: cleanMinimalTradeGalleryPage,
-  faq: cleanMinimalTradeFaqPage,
-  contact: cleanMinimalTradeContactPage,
-  "blog-index": cleanMinimalTradeBlogIndexPage,
-  "blog-post": cleanMinimalTradeBlogPostPage,
-  "privacy-policy": cleanMinimalTradePrivacyPolicyPage,
-  "cookie-policy": cleanMinimalTradeCookiePolicyPage,
-  "terms-conditions": cleanMinimalTradeTermsConditionsPage,
-  "404": cleanMinimalTradeNotFoundPage,
+  home: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeHomePage)),
+  about: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeAboutPage)),
+  services: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeServicesPage)),
+  "service-detail": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeServiceDetailPage)),
+  "areas-covered": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeAreasCoveredPage)),
+  "area-detail": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeAreaDetailPage)),
+  reviews: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeReviewsPage)),
+  gallery: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeGalleryPage)),
+  faq: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeFaqPage)),
+  contact: withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeContactPage)),
+  "blog-index": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeBlogIndexPage)),
+  "blog-post": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeBlogPostPage)),
+  "privacy-policy": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradePrivacyPolicyPage)),
+  "cookie-policy": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeCookiePolicyPage)),
+  "terms-conditions": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeTermsConditionsPage)),
+  "404": withStickyMobileCta(withCleanMinimalStyleMix(cleanMinimalTradeNotFoundPage)),
 } satisfies Record<string, TemplatePage>;

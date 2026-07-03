@@ -54,6 +54,7 @@ const liveToStorybook: Record<string, string> = {
   projects: "gallery.grid",
   online_booking: "cta.banner",
   booking: "cta.banner",
+  sticky_mobile_cta: "cta.banner",
   blog_index: "blog.index",
   blog_post: "blog.index",
   legal_content: "legal.content",

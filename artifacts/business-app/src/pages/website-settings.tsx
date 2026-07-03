@@ -418,6 +418,10 @@ export default function WebsiteSettings() {
 
         <TabsContent value="theme" className="space-y-4 pt-4">
           <p className="text-sm text-muted-foreground">Customise the colours of your site navigation and footer. We automatically protect text contrast so links and labels stay readable.</p>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+            <p className="font-medium">How these theme colours work</p>
+            <p className="mt-1 text-blue-900">These are site-level fallback colours. They always control the header and footer, and are also used by blocks that do not set their own colours. If a block has explicit colour settings, those block colours take priority.</p>
+          </div>
           {themeColorPairs.map((pair) => {
             const background = form.theme[pair.backgroundKey] || "#000000";
             const text = form.theme[pair.textKey] || "#ffffff";

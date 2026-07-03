@@ -84,6 +84,7 @@ const supportedBlockTypes = new Set([
   "projects",
   "online_booking",
   "booking",
+  "sticky_mobile_cta",
   "blog_index",
   "blog_post",
   "legal_content",

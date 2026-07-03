@@ -99,7 +99,7 @@ const blockTypeAliases: Record<string, string> = {
   hero_centered:'hero', service_detail_intro:'service_detail', team_cards:'feature_cards', area_list:'areas_grid', map_opening_hours:'contact', gallery_grid:'gallery', before_after:'gallery', faq_accordion:'faq', contact_form_section:'contact_form', richtext_article_body:'rich_text', system_404:'text', pricing_table:'feature_cards'
 };
 
-const supportedBlockTypes = new Set(['hero','hero_split','text','rich_text','text_section','image','cta','cta_band','services','services_grid','service_detail','contact_form','contact','testimonials','reviews','gallery','accreditations','trust_badges','spacer','why_choose_us','faq','areas','areas_grid','area_detail_hero','brands','partners','features_bar','feature_cards','process','steps','how_it_works','project_showcase','case_study','projects','online_booking','booking','blog_index','blog_post','legal_content']);
+const supportedBlockTypes = new Set(['hero','hero_split','text','rich_text','text_section','image','cta','cta_band','services','services_grid','service_detail','contact_form','contact','testimonials','reviews','gallery','accreditations','trust_badges','spacer','why_choose_us','faq','areas','areas_grid','area_detail_hero','brands','partners','features_bar','feature_cards','process','steps','how_it_works','project_showcase','case_study','projects','online_booking','booking','sticky_mobile_cta','blog_index','blog_post','legal_content']);
 
 function normalizePath(rawPath: string): string | null {
   const cleaned = rawPath.replace(/\\/g, "/").trim();
