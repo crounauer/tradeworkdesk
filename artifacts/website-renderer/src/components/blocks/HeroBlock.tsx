@@ -35,8 +35,11 @@ interface Props {
     secondaryCtaHref?: string;
     secondary_cta_url?: string;
     background_image_url?: string;
+    backgroundImageUrl?: string;
     background_color?: string;
+    backgroundColor?: string;
     text_color?: string;
+    textColor?: string;
     align?: "left" | "center" | "right";
     layout?: "full" | "centered" | "split";
     variant?: "default" | "modern" | "classic";
@@ -45,6 +48,7 @@ interface Props {
     density?: "compact" | "normal" | "comfortable";
     ctaStyle?: "default" | "rounded" | "soft" | "outline";
     hero_image_url?: string;
+    heroImageUrl?: string;
     accent_color?: string;
     badges?: Badge[];
     trust_items?: TrustItem[];
@@ -102,13 +106,23 @@ export default function HeroBlock({ content }: Props) {
     : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
   const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
 
-  const modernHeroImageUrl = hero_image_url || background_image_url;
+  const backgroundImageUrl = typeof background_image_url === "string"
+    ? background_image_url
+    : (typeof content.backgroundImageUrl === "string" ? content.backgroundImageUrl : undefined);
+  const heroImageUrl = typeof hero_image_url === "string"
+    ? hero_image_url
+    : (typeof content.heroImageUrl === "string" ? content.heroImageUrl : undefined);
+  const modernHeroImageUrl = heroImageUrl || backgroundImageUrl;
   const accentColor = typeof accent_color === "string" ? accent_color : "#f97316";
   const primaryColorToken = typeof primary_color === "string" ? primary_color : "#1c2942";
   const primaryTextColorToken = typeof primary_text_color === "string" ? primary_text_color : "#ffffff";
   const mutedBackgroundColorToken = typeof muted_background_color === "string" ? muted_background_color : "#f8fafc";
-  const safeBackgroundColor = typeof background_color === "string" ? background_color : undefined;
-  const safeTextColor = typeof text_color === "string" ? text_color : undefined;
+  const safeBackgroundColor = typeof background_color === "string"
+    ? background_color
+    : (typeof content.backgroundColor === "string" ? content.backgroundColor : undefined);
+  const safeTextColor = typeof text_color === "string"
+    ? text_color
+    : (typeof content.textColor === "string" ? content.textColor : undefined);
   const sectionPadding = density === "compact" ? "56px 24px 48px" : density === "comfortable" ? "96px 24px 72px" : "80px 24px 64px";
   const isClassic = variant === "classic" || heroStyle === "classic";
   const isNavyTone = tone === "navy" || (tone === "default" && isClassic);
@@ -195,8 +209,8 @@ export default function HeroBlock({ content }: Props) {
   const txtColor = safeTextColor ?? (isSplit ? "#111827" : primaryTextColorToken);
 
   const overlayColor = `rgba(0,0,0,${overlay_opacity})`;
-  const bgStyle: React.CSSProperties = !isSplit && background_image_url
-    ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${background_image_url}) center/cover no-repeat` }
+  const bgStyle: React.CSSProperties = !isSplit && backgroundImageUrl
+    ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageUrl}) center/cover no-repeat` }
     : { backgroundColor: bgColor };
 
   const textAlign = isSplit || isCentered || align === "center" ? "center" : "left";
@@ -300,10 +314,10 @@ export default function HeroBlock({ content }: Props) {
           {isSplit ? (
             <div className="hero-split">
               {contentBlock}
-              {hero_image_url && (
+              {heroImageUrl && (
                 <div style={{ flex: "0 0 auto", width: "100%", maxWidth: 520 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={hero_image_url} alt="" className="hero-split-img" loading="eager" decoding="async" fetchPriority="high" />
+                  <img src={heroImageUrl} alt="" className="hero-split-img" loading="eager" decoding="async" fetchPriority="high" />
                 </div>
               )}
             </div>
