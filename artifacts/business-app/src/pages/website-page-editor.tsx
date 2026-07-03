@@ -630,10 +630,10 @@ function BlockEditor({
       const isPreviewVisible = previewEnabled !== false;
 
       return (
-        <div className={`space-y-6 ${isPreviewVisible ? "xl:pt-[38rem]" : "xl:pt-0"}`}>
+        <div className={`space-y-6 ${isPreviewVisible ? "xl:pt-[34rem]" : "xl:pt-0"}`}>
           {isPreviewVisible ? (
             <div className="hidden xl:block xl:fixed xl:inset-x-0 xl:top-0 xl:z-30 xl:px-0">
-              <Card className="overflow-hidden border-border/70 shadow-xl xl:h-[36rem]">
+              <Card className="overflow-hidden border-border/70 shadow-xl xl:h-[32rem]">
                 <CardHeader className="border-b bg-muted/40 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <CardTitle className="text-sm">Live Preview</CardTitle>
@@ -642,7 +642,7 @@ function BlockEditor({
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="p-0 xl:h-[calc(36rem-57px)] xl:overflow-hidden">
+                <CardContent className="p-0 xl:h-[calc(32rem-57px)] xl:overflow-hidden">
                   <HeroPreviewBlock
                   eyebrow={eyebrow || undefined}
                   layout={(c.layout as "full" | "centered" | "split") ?? "full"}
