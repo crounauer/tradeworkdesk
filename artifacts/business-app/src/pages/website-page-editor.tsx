@@ -619,9 +619,9 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (content: Re
       const heroPreviewSecondary = secondaryText || undefined;
 
       return (
-        <div className="space-y-6">
-          <div className="hidden xl:block xl:sticky xl:top-6 xl:z-20">
-            <Card className="overflow-hidden border-border/70 shadow-sm">
+        <div className="space-y-6 xl:pt-[42vh]">
+          <div className="hidden xl:block xl:fixed xl:inset-x-0 xl:top-[57px] xl:z-30 xl:px-6">
+            <Card className="overflow-hidden border-border/70 shadow-xl">
               <CardHeader className="border-b bg-muted/40 py-3">
                 <CardTitle className="text-sm">Live Preview</CardTitle>
               </CardHeader>
