@@ -70,6 +70,27 @@ interface WebsitePage {
   status: "draft" | "published" | string;
 }
 
+const DOMAIN_EMAIL_PARTNER_URL = (import.meta.env.VITE_DOMAIN_EMAIL_PARTNER_URL as string | undefined) || "";
+const DOMAIN_EMAIL_PARTNER_LABEL = (import.meta.env.VITE_DOMAIN_EMAIL_PARTNER_LABEL as string | undefined) || "our trusted partner";
+
+function trackDomainEmailClick(eventName: "buy_domain_email_click" | "already_have_domain_click", source: "website_setup") {
+  const payload = {
+    event: eventName,
+    source,
+    ts: Date.now(),
+  };
+
+  try {
+    const dataLayer = (window as typeof window & { dataLayer?: Array<Record<string, unknown>> }).dataLayer;
+    if (Array.isArray(dataLayer)) {
+      dataLayer.push(payload);
+    }
+    window.dispatchEvent(new CustomEvent("twd:analytics", { detail: payload }));
+  } catch {
+    // Best-effort only; never block user interaction.
+  }
+}
+
 function TemplatePreview({ template }: { template: Template }) {
   const screenshots = (template.screenshot_urls || []).filter(Boolean).slice(0, 4);
   const primaryImage = template.preview_url || template.thumbnail_url || screenshots[0] || null;
@@ -458,6 +479,7 @@ export default function WebsiteSetup() {
   const platformDomain = website.domains.find((d) => d.is_platform_subdomain);
   const activeCustomDomain = website.domains.find((d) => !d.is_platform_subdomain && (d.verification_status === "verified" || d.is_active));
   const pendingDomains = website.domains.filter((d) => !d.is_platform_subdomain && d.verification_status !== "verified" && !d.is_active);
+  const hasPartnerLink = DOMAIN_EMAIL_PARTNER_URL.trim().length > 0;
   const publishedPagesCount = pages.filter((page) => page.status === "published").length;
   const draftPagesCount = pages.filter((page) => page.status === "draft").length;
   const totalPagesCount = publishedPagesCount + draftPagesCount;
@@ -591,6 +613,37 @@ export default function WebsiteSetup() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Domain + Business Email</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain to your website.
+          </p>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {hasPartnerLink ? (
+              <Button asChild size="sm">
+                <a
+                  href={DOMAIN_EMAIL_PARTNER_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_setup")}
+                >
+                  Buy domain + email
+                </a>
+              </Button>
+            ) : null}
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/website/domain" onClick={() => trackDomainEmailClick("already_have_domain_click", "website_setup")}>I already have a domain</Link>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            TradeWorkDesk supports website setup and publishing. Domain registration, mailbox billing, and mailbox support are handled by the provider.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Change Template Modal */}
       {showChangeTemplate && templates && templates.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -687,7 +740,7 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/blog" icon={<FileText className="w-5 h-5" />} title="Blog" description="Write and publish blog posts" />
         <QuickCard href="/website/gallery" icon={<Image className="w-5 h-5" />} title="Gallery" description="Manage gallery images and import from jobs" />
         <QuickCard href="/website/analytics" icon={<MessageSquare className="w-5 h-5" />} title="Analytics" description="Track leads, forms and conversion trends" />
-        <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your custom domain" />
+        <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your domain and email setup" />
         <QuickCard href="/website/templates" icon={<LayoutTemplate className="w-5 h-5" />} title="Website Template" description="Choose a published global template" />
         <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
       </div>

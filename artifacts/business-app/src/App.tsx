@@ -727,6 +727,47 @@ function MarketingSiteTracker() {
   return null;
 }
 
+function TwdAnalyticsBridge() {
+  useEffect(() => {
+    const handler = (rawEvent: Event) => {
+      const customEvent = rawEvent as CustomEvent<{ event?: string; source?: string; ts?: number }>;
+      const eventName = String(customEvent.detail?.event || "").trim();
+      if (!eventName) return;
+
+      const source = customEvent.detail?.source || "unknown";
+
+      try {
+        const w = window as typeof window & {
+          gtag?: (...args: unknown[]) => void;
+          plausible?: (eventName: string, options?: { props?: Record<string, unknown> }) => void;
+          posthog?: { capture?: (eventName: string, properties?: Record<string, unknown>) => void };
+        };
+
+        if (typeof w.gtag === "function") {
+          w.gtag("event", eventName, { source });
+        }
+
+        if (typeof w.plausible === "function") {
+          w.plausible(eventName, { props: { source } });
+        }
+
+        if (w.posthog?.capture) {
+          w.posthog.capture(eventName, { source });
+        }
+      } catch {
+        // Best-effort only; never interrupt the user flow.
+      }
+    };
+
+    window.addEventListener("twd:analytics", handler as EventListener);
+    return () => {
+      window.removeEventListener("twd:analytics", handler as EventListener);
+    };
+  }, []);
+
+  return null;
+}
+
 function ServiceWorkerPushBridge() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -891,6 +932,7 @@ function App() {
             <ChunkErrorBoundary>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <MarketingSiteTracker />
+                <TwdAnalyticsBridge />
                 <ServiceWorkerPushBridge />
                 <AppUpdatePrompt />
                 <AppRouter />

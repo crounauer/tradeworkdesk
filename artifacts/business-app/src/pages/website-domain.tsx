@@ -27,6 +27,27 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Trash2, RefreshCw, ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Copy } from "lucide-react";
 
+const DOMAIN_EMAIL_PARTNER_URL = (import.meta.env.VITE_DOMAIN_EMAIL_PARTNER_URL as string | undefined) || "";
+const DOMAIN_EMAIL_PARTNER_LABEL = (import.meta.env.VITE_DOMAIN_EMAIL_PARTNER_LABEL as string | undefined) || "our trusted partner";
+
+function trackDomainEmailClick(eventName: "buy_domain_email_click" | "already_have_domain_click", source: "website_domain") {
+  const payload = {
+    event: eventName,
+    source,
+    ts: Date.now(),
+  };
+
+  try {
+    const dataLayer = (window as typeof window & { dataLayer?: Array<Record<string, unknown>> }).dataLayer;
+    if (Array.isArray(dataLayer)) {
+      dataLayer.push(payload);
+    }
+    window.dispatchEvent(new CustomEvent("twd:analytics", { detail: payload }));
+  } catch {
+    // Best-effort only; never block user interaction.
+  }
+}
+
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
   if (!res.ok) {
@@ -178,6 +199,7 @@ export default function WebsiteDomain() {
 
   const platformDomain = domains.find((d) => d.is_platform_subdomain);
   const customDomains = domains.filter((d) => !d.is_platform_subdomain);
+  const hasPartnerLink = DOMAIN_EMAIL_PARTNER_URL.trim().length > 0;
 
   const addMutation = useMutation({
     mutationFn: (domain: string) =>
@@ -234,6 +256,37 @@ export default function WebsiteDomain() {
       <p className="text-muted-foreground text-sm">
         Your site comes with a free address instantly. You can also connect your own domain (e.g. <code className="text-xs bg-muted px-1 rounded">www.myplumbingco.co.uk</code>) at any time.
       </p>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Get a domain and business email</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain here.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {hasPartnerLink ? (
+              <Button asChild>
+                <a
+                  href={DOMAIN_EMAIL_PARTNER_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_domain")}
+                >
+                  Buy domain + email
+                </a>
+              </Button>
+            ) : null}
+            <Button variant="outline" asChild>
+              <a href="#connect-domain" onClick={() => trackDomainEmailClick("already_have_domain_click", "website_domain")}>I already have a domain</a>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            TradeWorkDesk supports website setup and publishing. Domain registration, mailbox billing, and mailbox support are handled by the provider.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Free platform subdomain */}
       {isLoading ? (
@@ -375,7 +428,7 @@ export default function WebsiteDomain() {
 
       {/* Add custom domain (only when no custom domain exists yet) */}
       {customDomains.length === 0 && (
-        <div>
+        <div id="connect-domain">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Connect Your Own Domain</h2>
           {!adding ? (
             <Button variant="outline" onClick={() => setAdding(true)}>

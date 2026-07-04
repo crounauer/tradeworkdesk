@@ -81,6 +81,7 @@ type BlockType =
   | "process"
   | "areas"
   | "project_showcase"
+  | "amazon_affiliates"
   | "legal_content"
   | "spacer"
   | "online_booking"
@@ -407,6 +408,31 @@ const BLOCK_PALETTE: BlockPaletteItem[] = [
     },
   },
   {
+    type: "amazon_affiliates",
+    label: "Amazon Affiliates",
+    icon: Award,
+    description: "Amazon Associates product showcase with disclosure and flexible layouts",
+    defaultContent: {
+      heading: "Recommended Products",
+      subheading: "Curated picks we trust and install regularly.",
+      disclosure_text: "As an Amazon Associate, we earn from qualifying purchases.",
+      layout_variant: "product-grid",
+      products: [
+        {
+          title: "Smart Thermostat",
+          image_url: "",
+          affiliate_url: "",
+          price_text: "",
+          rating_text: "",
+          reviews_text: "",
+          badge_text: "Editor's Pick",
+        },
+      ],
+      button_text: "View on Amazon",
+      open_in_new_tab: true,
+    },
+  },
+  {
     type: "online_booking",
     label: "Online Booking",
     icon: CalendarCheck,
@@ -495,6 +521,7 @@ const TEMPLATE_BLOCK_TYPE_ALIASES: Record<string, string> = {
   "faq.accordion": "faq",
   "process.steps": "process",
   "features.list": "feature_cards",
+  "amazon.affiliates": "amazon_affiliates",
   "blog.index": "blog_index",
   "blog.post": "blog_post",
   "legal.content": "legal_content",
@@ -719,6 +746,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
     "process",
     "areas",
     "project_showcase",
+    "amazon_affiliates",
     "legal_content",
     "spacer",
     "online_booking",
@@ -749,6 +777,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
   if (t.includes("process") || t.includes("how_it_works")) return "process";
   if (t.includes("area")) return "areas";
   if (t.includes("project") || t.includes("case_study")) return "project_showcase";
+  if (t.includes("amazon") || t.includes("affiliate") || t.includes("associates")) return "amazon_affiliates";
   if (t.includes("legal") || t.includes("privacy") || t.includes("terms")) return "legal_content";
   if (t.includes("booking")) return "online_booking";
   if (t.includes("spacer")) return "spacer";
@@ -3925,6 +3954,272 @@ function BlockEditor({
             </FieldRow>
             <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
+          </div>
+        </div>
+      );
+    }
+
+    case "amazon_affiliates": {
+      type AmazonProduct = {
+        title: string;
+        image_url: string;
+        affiliate_url: string;
+        price_text: string;
+        rating_text: string;
+        reviews_text: string;
+        badge_text: string;
+      };
+      const heading = readString(c, ["heading", "title"], "Recommended Products");
+      const subheading = readString(c, ["subheading", "subtitle"], "Curated picks we trust and install regularly.");
+      const disclosureText = readString(c, ["disclosure_text"], "As an Amazon Associate, we earn from qualifying purchases.");
+      const buttonText = readString(c, ["button_text"], "View on Amazon");
+      const layoutVariant = readString(c, ["layout_variant", "layout"], "product-grid");
+      const bulkInput = readString(c, ["bulk_input"]);
+      const sectionBg = readString(c, ["section_bg", "background_color"], "#ffffff");
+      const cardBg = readString(c, ["card_bg"], "#f8fafc");
+      const borderColor = readString(c, ["border_color"], "#e2e8f0");
+      const accentColor = readString(c, ["accent_color"], "#f59e0b");
+      const headingColor = readString(c, ["heading_color"], "#0f172a");
+      const bodyColor = readString(c, ["body_color"], "#334155");
+      const products = readArray<AmazonProduct>(c, ["products", "items"], []).map((product) => ({
+        title: String(product.title || ""),
+        image_url: String(product.image_url || ""),
+        affiliate_url: String(product.affiliate_url || ""),
+        price_text: String(product.price_text || ""),
+        rating_text: String(product.rating_text || ""),
+        reviews_text: String(product.reviews_text || ""),
+        badge_text: String(product.badge_text || ""),
+      }));
+      const isPreviewVisible = previewEnabled !== false;
+
+      const parseBulkProducts = (): AmazonProduct[] => {
+        return bulkInput
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const [title, affiliateUrl, imageUrl, priceText, ratingText, reviewsText, badgeText] = line.split("|").map((value) => value.trim());
+            return {
+              title: title || "",
+              affiliate_url: affiliateUrl || "",
+              image_url: imageUrl || "",
+              price_text: priceText || "",
+              rating_text: ratingText || "",
+              reviews_text: reviewsText || "",
+              badge_text: badgeText || "",
+            };
+          });
+      };
+
+      const previewColumns = layoutVariant === "feature-spotlight"
+        ? "1fr"
+        : layoutVariant === "compact-list"
+          ? "1fr"
+          : layoutVariant === "horizontal-scroll"
+            ? "repeat(2, minmax(0, 1fr))"
+            : "repeat(2, minmax(0, 1fr))";
+
+      return (
+        <div className="space-y-6">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
+            <div className="xl:min-h-0">
+              {isPreviewVisible ? (
+                <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
+                  <CardHeader className="border-b bg-muted/40 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="text-sm">Live Preview</CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(false)}>Hide preview</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 xl:h-[calc(100vh-11.5rem)] xl:overflow-y-auto">
+                    <section style={{ padding: "18px 16px", background: sectionBg }}>
+                      <h3 style={{ margin: "0 0 8px", color: headingColor, fontWeight: 800, fontSize: "1.5rem" }}>{heading}</h3>
+                      {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor }}>{subheading}</p> : null}
+                      <p style={{ margin: "0 0 12px", color: bodyColor, fontSize: "0.8rem" }}>{disclosureText}</p>
+
+                      <div style={{ display: "grid", gap: 10, gridTemplateColumns: previewColumns }}>
+                        {products.slice(0, layoutVariant === "feature-spotlight" ? 2 : 4).map((product, index) => (
+                          <article key={index} style={{ border: `1px solid ${borderColor}`, borderRadius: 12, background: cardBg, padding: 10, display: "grid", gap: 8 }}>
+                            <div style={{ borderRadius: 10, background: "#e2e8f0", minHeight: 100, display: "grid", placeItems: "center", color: "#64748b", fontSize: "0.75rem" }}>
+                              {product.image_url ? "Product Image" : "Image Placeholder"}
+                            </div>
+                            {product.badge_text ? (
+                              <span style={{ display: "inline-flex", width: "fit-content", borderRadius: 9999, padding: "3px 8px", fontSize: "0.7rem", fontWeight: 700, background: accentColor, color: "#111827" }}>
+                                {product.badge_text}
+                              </span>
+                            ) : null}
+                            <strong style={{ color: headingColor }}>{product.title || "Product title"}</strong>
+                            {product.price_text ? <p style={{ margin: 0, color: bodyColor, fontWeight: 700 }}>{product.price_text}</p> : null}
+                            {(product.rating_text || product.reviews_text) ? (
+                              <p style={{ margin: 0, color: bodyColor, fontSize: "0.82rem" }}>
+                                {[product.rating_text, product.reviews_text].filter(Boolean).join(" • ")}
+                              </p>
+                            ) : null}
+                            <button style={{ border: 0, borderRadius: 8, padding: "8px 10px", background: "#111827", color: "#ffffff", fontWeight: 700, textAlign: "left" }}>
+                              {buttonText}
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="h-full rounded-lg border border-dashed border-border/70 bg-muted/20 p-6 text-sm text-muted-foreground">Preview hidden for this block.</div>
+              )}
+            </div>
+
+            <div className="space-y-3 xl:min-h-0 xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto xl:pr-1">
+              <div className="flex items-center justify-end">
+                <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>{isPreviewVisible ? "Hide preview" : "Show preview"}</Button>
+              </div>
+              <FieldRow label="Layout Variation">
+                <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="product-grid">Product Grid</SelectItem>
+                    <SelectItem value="feature-spotlight">Feature Spotlight</SelectItem>
+                    <SelectItem value="horizontal-scroll">Horizontal Scroll</SelectItem>
+                    <SelectItem value="compact-list">Compact List</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldRow>
+              <FieldRow label="Heading">
+                <Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} placeholder="Recommended Products" />
+              </FieldRow>
+              <FieldRow label="Subheading">
+                <Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} />
+              </FieldRow>
+              <FieldRow label="Affiliate Disclosure (required)">
+                <Textarea value={disclosureText} onChange={(e) => set("disclosure_text", e.target.value)} rows={2} />
+              </FieldRow>
+              <FieldRow label="Button Text">
+                <Input value={buttonText} onChange={(e) => set("button_text", e.target.value)} placeholder="View on Amazon" />
+              </FieldRow>
+              <FieldRow label="Open links in new tab">
+                <Switch checked={Boolean(c.open_in_new_tab ?? true)} onCheckedChange={(v) => set("open_in_new_tab", v)} />
+              </FieldRow>
+              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
+              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Products (individual)</Label>
+                {products.map((product, index) => (
+                  <Card key={index} className="p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={product.title}
+                        onChange={(e) => {
+                          const next = [...products];
+                          next[index] = { ...next[index], title: e.target.value };
+                          set("products", next);
+                        }}
+                        placeholder="Product title"
+                        className="flex-1"
+                      />
+                      <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => set("products", products.filter((_, i) => i !== index))}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <Input
+                      value={product.affiliate_url}
+                      onChange={(e) => {
+                        const next = [...products];
+                        next[index] = { ...next[index], affiliate_url: e.target.value };
+                        set("products", next);
+                      }}
+                      placeholder="https://www.amazon.co.uk/dp/.../?tag=yourtag-21"
+                    />
+                    <ImagePickerField
+                      label="Product Image"
+                      value={product.image_url}
+                      onChange={(url) => {
+                        const next = [...products];
+                        next[index] = { ...next[index], image_url: url };
+                        set("products", next);
+                      }}
+                      hint="Use product image with permission from Amazon policies."
+                      fieldName={`amazon_product_${index}_image`}
+                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        value={product.price_text}
+                        onChange={(e) => {
+                          const next = [...products];
+                          next[index] = { ...next[index], price_text: e.target.value };
+                          set("products", next);
+                        }}
+                        placeholder="Price text"
+                      />
+                      <Input
+                        value={product.rating_text}
+                        onChange={(e) => {
+                          const next = [...products];
+                          next[index] = { ...next[index], rating_text: e.target.value };
+                          set("products", next);
+                        }}
+                        placeholder="Rating text"
+                      />
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        value={product.reviews_text}
+                        onChange={(e) => {
+                          const next = [...products];
+                          next[index] = { ...next[index], reviews_text: e.target.value };
+                          set("products", next);
+                        }}
+                        placeholder="Reviews text"
+                      />
+                      <Input
+                        value={product.badge_text}
+                        onChange={(e) => {
+                          const next = [...products];
+                          next[index] = { ...next[index], badge_text: e.target.value };
+                          set("products", next);
+                        }}
+                        placeholder="Badge text"
+                      />
+                    </div>
+                  </Card>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => set("products", [...products, { title: "", image_url: "", affiliate_url: "", price_text: "", rating_text: "", reviews_text: "", badge_text: "" }])}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Product
+                </Button>
+              </div>
+
+              <FieldRow label="Bulk Import (one product per line)">
+                <Textarea
+                  value={bulkInput}
+                  onChange={(e) => set("bulk_input", e.target.value)}
+                  rows={4}
+                  placeholder="Title|Affiliate URL|Image URL|Price|Rating|Reviews|Badge"
+                />
+              </FieldRow>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const parsed = parseBulkProducts();
+                  if (!parsed.length) return;
+                  set("products", parsed);
+                }}
+              >
+                Import Bulk Products
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Keep disclosures visible, avoid misleading price claims, and ensure affiliate links include your Associates tag.
+              </p>
+            </div>
           </div>
         </div>
       );
