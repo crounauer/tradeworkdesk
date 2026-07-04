@@ -2882,6 +2882,7 @@ function BlockEditor({
       const subheading = readString(c, ["subheading", "subtitle"]);
       const label = readString(c, ["label", "eyebrow"]);
       const layoutVariant = readString(c, ["layout_variant", "layout"], "card-grid");
+      const normalizedLayoutVariant = String(layoutVariant || "card-grid").toLowerCase();
       const sectionBg = readString(c, ["section_bg"], "transparent");
       const cardBg = readString(c, ["card_bg"], "#ffffff");
       const borderColor = readString(c, ["border_color"], "#e5e7eb");
@@ -2911,15 +2912,58 @@ function BlockEditor({
                       {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
                       <h3 style={{ margin: "0 0 8px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading || "Features"}</h3>
                       {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-                        {cards.slice(0, 4).map((item, i) => (
-                          <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, background: cardBg, padding: 8 }}>
-                            <div style={{ color: accentColor }}>{item.icon || "✓"}</div>
-                            <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
-                            <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
-                          </article>
-                        ))}
-                      </div>
+                      {(normalizedLayoutVariant === "card-grid" || !["split-list", "icon-panels", "minimal-tiles"].includes(normalizedLayoutVariant)) && (
+                        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                          {cards.slice(0, 4).map((item, i) => (
+                            <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, background: cardBg, padding: 10 }}>
+                              <div style={{ color: accentColor }}>{item.icon || "✓"}</div>
+                              <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
+                              <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {normalizedLayoutVariant === "split-list" && (
+                        <div style={{ display: "grid", gap: 8 }}>
+                          {cards.slice(0, 4).map((item, i) => (
+                            <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, background: cardBg, padding: "10px 12px" }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", gap: 8, alignItems: "start" }}>
+                                <div style={{ color: accentColor, fontWeight: 700, fontFamily: headingFont }}>{item.icon || String(i + 1)}</div>
+                                <div>
+                                  <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
+                                  <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                                </div>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {normalizedLayoutVariant === "icon-panels" && (
+                        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                          {cards.slice(0, 4).map((item, i) => (
+                            <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, background: cardBg, padding: 10 }}>
+                              <div style={{ width: 30, height: 30, borderRadius: 8, background: `${accentColor}22`, color: accentColor, display: "grid", placeItems: "center", marginBottom: 6 }}>
+                                {item.icon || "✓"}
+                              </div>
+                              <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
+                              <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {normalizedLayoutVariant === "minimal-tiles" && (
+                        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                          {cards.slice(0, 4).map((item, i) => (
+                            <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, borderBottom: `2px solid ${accentColor}`, background: cardBg, padding: 10 }}>
+                              <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
+                              <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
                     </section>
                   </CardContent>
                 </Card>
