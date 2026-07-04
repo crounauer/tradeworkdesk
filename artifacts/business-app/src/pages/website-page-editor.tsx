@@ -794,7 +794,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -1104,7 +1104,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             {isPreviewVisible ? (
               <Card className="overflow-hidden border-border/70 shadow-xl">
                 <CardHeader className="border-b bg-muted/40 py-3">
@@ -1473,7 +1473,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -1594,7 +1594,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1644,7 +1644,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -1742,7 +1742,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1792,7 +1792,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -1867,7 +1867,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1914,7 +1914,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2005,7 +2005,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2087,7 +2087,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2163,7 +2163,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2209,7 +2209,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2320,7 +2320,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2364,7 +2364,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2464,7 +2464,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Subheading (optional)"><Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} /></FieldRow>
             <FieldRow label="Body (HTML or plain text)">
@@ -2503,7 +2503,7 @@ function BlockEditor({
       const isPreviewVisible = previewEnabled !== false;
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2598,7 +2598,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
@@ -2645,7 +2645,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2730,7 +2730,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
           </div>
@@ -2770,7 +2770,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -2853,7 +2853,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
           </div>
@@ -2897,7 +2897,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3030,7 +3030,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
           </div>
@@ -3056,7 +3056,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3131,7 +3131,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <ImagePickerField
               label="Image"
               value={imageUrl}
@@ -3156,7 +3156,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3215,7 +3215,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Height">
               <Select value={height} onValueChange={(v) => set("height", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -3260,7 +3260,7 @@ function BlockEditor({
       const isPreviewVisible = previewEnabled !== false;
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3343,7 +3343,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
             <FieldRow label="Layout Variation">
@@ -3389,7 +3389,7 @@ function BlockEditor({
       const isPreviewVisible = previewEnabled !== false;
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3481,7 +3481,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -3530,7 +3530,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3629,7 +3629,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -3680,7 +3680,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3778,7 +3778,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -3818,7 +3818,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -3911,7 +3911,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Layout Variation">
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -3950,7 +3950,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -4043,7 +4043,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Section Heading">
               <Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} placeholder="Book an Appointment" />
             </FieldRow>
@@ -4082,7 +4082,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -4172,7 +4172,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Legal Body (HTML or plain text)">
               <Textarea
@@ -4213,7 +4213,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -4319,7 +4319,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Primary Button Label">
               <Input
                 value={primaryLabel}
@@ -4379,7 +4379,7 @@ function BlockEditor({
 
       return (
         <div className="space-y-6">
-          <div className="hidden xl:grid xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:gap-4 xl:min-h-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
             <div className="xl:min-h-0">
               {isPreviewVisible ? (
                 <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
@@ -4501,7 +4501,7 @@ function BlockEditor({
             </div>
           </div>
 
-          <div className="xl:hidden space-y-3">
+          <div className="hidden space-y-3">
             <FieldRow label="Logo Text">
               <Input value={logoText} onChange={(e) => set("logoText", e.target.value)} placeholder="Your Business" />
             </FieldRow>
