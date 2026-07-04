@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
@@ -106,9 +107,46 @@ function PlatformSettingField({ settingKey, label, description, placeholder, hel
 
 export default function PlatformSettings() {
   const { toast } = useToast();
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [indexNowSubmitting, setIndexNowSubmitting] = useState(false);
   const [indexNowSubmitted, setIndexNowSubmitted] = useState(false);
   const [lastSubmittedUrls, setLastSubmittedUrls] = useState<string[]>([]);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword.length < 8) {
+      toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast({ title: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      toast({ title: "Password updated", description: "Your superuser password has been changed." });
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err) {
+      toast({
+        title: "Password update failed",
+        description: err instanceof Error ? err.message : "Could not update password.",
+        variant: "destructive",
+      });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const submitIndexNow = async () => {
     setIndexNowSubmitting(true);
@@ -147,6 +185,65 @@ export default function PlatformSettings() {
         </h1>
         <p className="text-muted-foreground mt-1">Configure platform-wide API keys and integrations.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Superuser Password</CardTitle>
+          <CardDescription>Change your own superuser account password without using reset email.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleChangePassword} className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label htmlFor="platform-new-password">New password</Label>
+              <div className="relative">
+                <Input
+                  id="platform-new-password"
+                  type={showNewPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label htmlFor="platform-confirm-password">Confirm new password</Label>
+              <div className="relative">
+                <Input
+                  id="platform-confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2 flex items-center gap-3">
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update password"}
+              </Button>
+              <p className="text-xs text-muted-foreground">Use a strong password with 8+ characters.</p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="database">
         <TabsList className="mb-6">

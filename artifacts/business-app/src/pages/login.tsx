@@ -8,11 +8,42 @@ import { Flame, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
+function getLoginErrorMessage(message: string) {
+  const normalized = message.trim().toLowerCase();
+
+  if (normalized === "invalid login credentials") {
+    return "Invalid email or password. If this is a new account, confirm your email first or use Forgot password.";
+  }
+
+  if (normalized.includes("email not confirmed")) {
+    return "Check your email and confirm your account before signing in.";
+  }
+
+  return message;
+}
+
+function getResetErrorMessage(message: string) {
+  const normalized = message.trim().toLowerCase();
+
+  if (
+    normalized.includes("over_email_send_rate_limit") ||
+    normalized.includes("email rate limit exceeded") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("too many")
+  ) {
+    return "Password reset emails are temporarily rate-limited. Please wait before trying again, or ask support to increase Supabase Auth email limits.";
+  }
+
+  return message;
+}
+
 export default function Login() {
   const { mfaPending } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [lastResetAttemptAt, setLastResetAttemptAt] = useState<number | null>(null);
   const [showMfa, setShowMfa] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -41,16 +72,17 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const normalizedEmail = email.trim().toLowerCase();
     
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
 
     if (error) {
       toast({
         title: "Login Failed",
-        description: error.message,
+        description: getLoginErrorMessage(error.message),
         variant: "destructive"
       });
       setLoading(false);
@@ -85,6 +117,55 @@ export default function Login() {
     }
 
     setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    const now = Date.now();
+    if (lastResetAttemptAt && now - lastResetAttemptAt < 60_000) {
+      toast({
+        title: "Please wait",
+        description: "A reset email was requested recently. Check your inbox or try again in about a minute.",
+      });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      toast({
+        title: "Email required",
+        description: "Enter your email address first so we can send a reset link.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setLastResetAttemptAt(now);
+
+      toast({
+        title: "Reset email sent",
+        description: "Check your inbox for a password reset link.",
+      });
+    } catch (err) {
+      setLastResetAttemptAt(now);
+      toast({
+        title: "Reset failed",
+        description: err instanceof Error
+          ? getResetErrorMessage(err.message)
+          : "Could not send a password reset email.",
+        variant: "destructive",
+      });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const handleMfaVerify = async () => {
@@ -196,6 +277,16 @@ export default function Login() {
                 autoComplete="current-password"
                 required
               />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={resetLoading}
+                className="text-sm font-medium text-primary hover:underline disabled:opacity-60"
+              >
+                {resetLoading ? "Sending reset link..." : "Forgot password?"}
+              </button>
             </div>
             <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
