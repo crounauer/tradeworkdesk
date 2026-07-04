@@ -2919,6 +2919,7 @@ function BlockEditor({
                               <div style={{ color: accentColor }}>{item.icon || "✓"}</div>
                               <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
                               <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                              {item.cta_text && item.cta_url ? <div style={{ marginTop: 6, color: accentColor, fontWeight: 700, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.cta_text}</div> : null}
                             </article>
                           ))}
                         </div>
@@ -2933,6 +2934,7 @@ function BlockEditor({
                                 <div>
                                   <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
                                   <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                                  {item.cta_text && item.cta_url ? <div style={{ marginTop: 6, color: accentColor, fontWeight: 700, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.cta_text}</div> : null}
                                 </div>
                               </div>
                             </article>
@@ -2949,6 +2951,7 @@ function BlockEditor({
                               </div>
                               <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
                               <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                              {item.cta_text && item.cta_url ? <div style={{ marginTop: 6, color: accentColor, fontWeight: 700, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.cta_text}</div> : null}
                             </article>
                           ))}
                         </div>
@@ -2960,6 +2963,7 @@ function BlockEditor({
                             <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, borderBottom: `2px solid ${accentColor}`, background: cardBg, padding: 10 }}>
                               <div style={{ color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</div>
                               <div style={{ color: bodyColor, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.description || "Description"}</div>
+                              {item.cta_text && item.cta_url ? <div style={{ marginTop: 6, color: accentColor, fontWeight: 700, fontSize: "0.8rem", fontFamily: bodyFont }}>{item.cta_text}</div> : null}
                             </article>
                           ))}
                         </div>

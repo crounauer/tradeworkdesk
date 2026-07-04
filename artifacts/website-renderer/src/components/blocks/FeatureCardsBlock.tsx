@@ -77,6 +77,7 @@ export default function FeatureCardsBlock({ content }: Props) {
                   <div>
                     <h3 style={{ margin: "0 0 6px", color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{card.title}</h3>
                     {card.description ? <p style={{ margin: 0, color: bodyColor, fontSize: "0.92rem", fontFamily: bodyFont }}>{card.description}</p> : null}
+                    {card.cta_text && card.cta_url ? <a href={card.cta_url} style={{ display: "inline-block", marginTop: 10, color: accentColor, fontWeight: 700, textDecoration: "none", fontFamily: buttonFont }}>{card.cta_text}</a> : null}
                   </div>
                 </div>
               </article>
@@ -91,6 +92,7 @@ export default function FeatureCardsBlock({ content }: Props) {
                 <div style={{ width: 46, height: 46, borderRadius: 10, background: `${accentColor}22`, color: accentColor, display: "grid", placeItems: "center", fontSize: "1.2rem", marginBottom: 10 }}>{card.icon || "✓"}</div>
                 <h3 style={{ margin: "0 0 6px", color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{card.title}</h3>
                 {card.description ? <p style={{ margin: 0, color: bodyColor, fontSize: "0.9rem", lineHeight: 1.65, fontFamily: bodyFont }}>{card.description}</p> : null}
+                {card.cta_text && card.cta_url ? <a href={card.cta_url} style={{ display: "inline-block", marginTop: 12, color: accentColor, fontWeight: 700, textDecoration: "none", fontFamily: buttonFont }}>{card.cta_text}</a> : null}
               </article>
             ))}
           </div>
@@ -102,6 +104,7 @@ export default function FeatureCardsBlock({ content }: Props) {
               <article key={index} style={{ borderBottom: `2px solid ${accentColor}`, background: cardBg, borderRadius: radius, border: `1px solid ${borderColor}`, padding: 14 }}>
                 <h3 style={{ margin: "0 0 5px", color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{card.title}</h3>
                 {card.description ? <p style={{ margin: 0, color: bodyColor, fontSize: "0.88rem", fontFamily: bodyFont }}>{card.description}</p> : null}
+                {card.cta_text && card.cta_url ? <a href={card.cta_url} style={{ display: "inline-block", marginTop: 10, color: accentColor, fontWeight: 700, textDecoration: "none", fontFamily: buttonFont }}>{card.cta_text}</a> : null}
               </article>
             ))}
           </div>

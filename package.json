@@ -6,7 +6,9 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "if [ -n \"$RAILWAY_ENVIRONMENT_ID\" ]; then pnpm --filter @workspace/api-server build && mkdir -p dist && cp artifacts/api-server/dist/index.cjs dist/index.cjs; else pnpm -r --if-present run build; fi",
+    "verify:block-fields": "node scripts/verify-block-field-coverage.mjs",
     "verify:layout-variants": "node scripts/verify-layout-variant-coverage.mjs",
+    "verify:blocks": "pnpm run verify:layout-variants && pnpm run verify:block-fields",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "db:migrate": "pnpm --filter @workspace/scripts db:migrate",

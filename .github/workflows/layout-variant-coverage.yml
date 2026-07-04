@@ -27,8 +27,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify layout variant coverage
-        run: pnpm run verify:layout-variants
+      - name: Verify block integrity coverage
+        run: pnpm run verify:blocks
 
       - name: Typecheck business app
         run: pnpm --filter @workspace/business-app typecheck
