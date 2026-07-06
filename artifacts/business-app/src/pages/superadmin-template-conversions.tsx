@@ -81,18 +81,23 @@ function ColorSwatch({ color }: { color: string }) {
 }
 
 function DesignTokensPreview({ tokens }: { tokens?: Record<string, any> }) {
-  if (!tokens) return null;
+  // Provide fallback tokens when none available
+  const fallbackTokens = {
+    colors: {
+      primary: "#1e3a8a",
+      accent: "#f97316",
+      background: "#ffffff",
+      text: "#111827",
+    },
+    typography: {
+      bodyFamily: "system-ui, -apple-system, sans-serif",
+      headingFamily: "system-ui, -apple-system, sans-serif",
+    },
+  };
 
-  const colors = tokens.colors || {};
-  // Get all color entries, or show fallbacks if none found
-  const colorEntries = Object.entries(colors).length > 0 
-    ? Object.entries(colors)
-    : Object.entries({
-        primary: "#1e3a8a",
-        accent: "#f97316",
-        background: "#ffffff",
-        text: "#111827",
-      });
+  const displayTokens = tokens && Object.keys(tokens).length > 0 ? tokens : fallbackTokens;
+  const colors = displayTokens.colors || fallbackTokens.colors;
+  const colorEntries = Object.entries(colors);
 
   return (
     <div className="space-y-3">
@@ -107,12 +112,16 @@ function DesignTokensPreview({ tokens }: { tokens?: Record<string, any> }) {
           ))}
         </div>
       </div>
-      {tokens.typography && (
+      {(displayTokens.typography || fallbackTokens.typography) && (
         <div>
           <h4 className="font-semibold text-sm mb-2">Typography</h4>
           <div className="space-y-1 text-xs text-gray-600">
-            {tokens.typography.bodyFamily && <div>Body: {tokens.typography.bodyFamily}</div>}
-            {tokens.typography.headingFamily && <div>Heading: {tokens.typography.headingFamily}</div>}
+            {(displayTokens.typography?.bodyFamily || fallbackTokens.typography.bodyFamily) && (
+              <div>Body: {displayTokens.typography?.bodyFamily || fallbackTokens.typography.bodyFamily}</div>
+            )}
+            {(displayTokens.typography?.headingFamily || fallbackTokens.typography.headingFamily) && (
+              <div>Heading: {displayTokens.typography?.headingFamily || fallbackTokens.typography.headingFamily}</div>
+            )}
           </div>
         </div>
       )}
