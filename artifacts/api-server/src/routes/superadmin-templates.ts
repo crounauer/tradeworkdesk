@@ -13,7 +13,7 @@ import multer from "multer";
 import JSZip from "jszip";
 import { v4 as uuidv4 } from "uuid";
 import { supabaseAdmin } from "../lib/supabase";
-import { requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { validateTemplateZip } from "../lib/template-zip-validator";
 import { findUnsupportedBlockTypes } from "../lib/template-import-safeguards";
 
@@ -484,6 +484,340 @@ router.post(
       }
     }
   },
+);
+
+/**
+ * POST /api/superadmin/templates/convert
+ * Convert Figma ZIP + URL to template package (store as pending)
+ */
+router.post(
+  "/superadmin/templates/convert",
+  requireAuth,
+  requireSuperAdmin,
+  upload.single("figmaZip"),
+  async (req: AuthenticatedRequest, res: Response<ImportResponse>) => {
+    let tempFilePath: string | undefined;
+
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: "No ZIP file uploaded",
+        });
+      }
+
+      const { figmaUrl, templateName, industries = [] } = req.body;
+
+      if (!figmaUrl || !templateName) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields: figmaUrl and templateName",
+        });
+      }
+
+      tempFilePath = req.file.path;
+      const zipBuffer = await fs.readFile(tempFilePath);
+
+      // Import converter
+      const { convertFigmaZipToTemplate, verifyFigmaUrl } = await import("../lib/figma-converter");
+
+      // Verify Figma URL is accessible
+      const urlValid = await verifyFigmaUrl(figmaUrl);
+      if (!urlValid) {
+        console.warn("[POST /convert] Figma URL may not be accessible:", figmaUrl);
+        // Continue anyway - URL might be private/behind auth
+      }
+
+      // Convert Figma ZIP to template analysis
+      const conversionResult = await convertFigmaZipToTemplate(
+        zipBuffer,
+        figmaUrl,
+        templateName,
+        Array.isArray(industries) ? industries : industries ? [industries] : []
+      );
+
+      if (!conversionResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: conversionResult.error || "Conversion failed",
+        });
+      }
+
+      // Store ZIP in Supabase for later reference
+      const zipFileName = `conversions/${uuidv4()}/figma-export.zip`;
+      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+        .from(TEMPLATE_PACKAGE_BUCKET)
+        .upload(zipFileName, zipBuffer, {
+          contentType: "application/zip",
+          metadata: {
+            uploadedBy: req.userId,
+            convertedAt: new Date().toISOString(),
+          },
+        });
+
+      if (uploadError) {
+        console.error("[POST /convert] Storage upload failed:", uploadError);
+        throw new TemplateImportError("Failed to store ZIP file", { status: 500, code: "STORAGE_UPLOAD_FAILED" });
+      }
+
+      // Insert conversion record with status='pending'
+      const { data: conversion, error: dbError } = await supabaseAdmin
+        .from("template_conversions")
+        .insert({
+          status: "pending",
+          figma_url: figmaUrl,
+          figma_zip_url: uploadData.path,
+          template_name: conversionResult.templateName,
+          template_slug: conversionResult.templateSlug,
+          template_description: conversionResult.templateDescription,
+          industries: Array.isArray(industries) ? industries : industries ? [industries] : [],
+          block_mapping_report: {
+            pages: conversionResult.pages,
+            blocksPerPage: conversionResult.blocksPerPage,
+            blockTypes: conversionResult.blockTypes,
+          },
+          design_tokens: conversionResult.designTokens,
+          created_by: req.userId,
+        })
+        .select()
+        .single();
+
+      if (dbError || !conversion) {
+        console.error("[POST /convert] Failed to create conversion record:", dbError);
+        throw new TemplateImportError("Failed to save conversion record", { status: 500, code: "DB_RECORD_FAILED" });
+      }
+
+      console.log(`[POST /convert] Conversion created: ${conversion.id} (slug: ${conversionResult.templateSlug})`);
+
+      return res.json({
+        success: true,
+        templateSlug: conversionResult.templateSlug,
+        templateName: conversionResult.templateName,
+        status: "pending",
+        importedPages: conversionResult.pages.length,
+        importedBlocks: Object.values(conversionResult.blocksPerPage).reduce((a, b) => a + b, 0),
+      });
+    } catch (error) {
+      const err = error as any;
+      const status = err.status || 500;
+      const errorMessage = err.message || "Conversion failed";
+
+      console.error("[POST /convert] Error:", error);
+
+      return res.status(status).json({
+        success: false,
+        error: errorMessage,
+        details: err.code ? { code: err.code } : undefined,
+      });
+    } finally {
+      // Clean up temp file
+      if (tempFilePath) {
+        try {
+          await fs.unlink(tempFilePath);
+        } catch (error) {
+          console.warn("[POST /convert] Failed to clean up temp file:", error);
+        }
+      }
+    }
+  }
+);
+
+/**
+ * GET /api/superadmin/templates/pending
+ * List all pending template conversions
+ */
+router.get(
+  "/superadmin/templates/pending",
+  requireAuth,
+  requireSuperAdmin,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("template_conversions")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new TemplateImportError("Failed to fetch pending templates", { status: 500, code: "DB_QUERY_FAILED" });
+      }
+
+      console.log(`[GET /pending] Found ${data?.length || 0} pending templates`);
+
+      return res.json({
+        success: true,
+        pending: data || [],
+        count: data?.length || 0,
+      });
+    } catch (error) {
+      const err = error as any;
+      const status = err.status || 500;
+      const errorMessage = err.message || "Failed to fetch pending templates";
+
+      console.error("[GET /pending] Error:", error);
+
+      return res.status(status).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+  }
+);
+
+/**
+ * PATCH /api/superadmin/templates/:id/approve
+ * Approve pending conversion → publish to tenant dashboard
+ * 
+ * In Phase 2, this will trigger full template package generation
+ * For MVP, just marks as approved and copies to website_templates
+ */
+router.patch(
+  "/superadmin/templates/:id/approve",
+  requireAuth,
+  requireSuperAdmin,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Get conversion record
+      const { data: conversion, error: fetchError } = await supabaseAdmin
+        .from("template_conversions")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchError || !conversion) {
+        return res.status(404).json({
+          success: false,
+          error: "Conversion not found",
+        });
+      }
+
+      if (conversion.status !== "pending") {
+        return res.status(400).json({
+          success: false,
+          error: `Cannot approve template with status='${conversion.status}'`,
+        });
+      }
+
+      // Update conversion status
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from("template_conversions")
+        .update({
+          status: "approved",
+          processed_at: new Date().toISOString(),
+          approved_at: new Date().toISOString(),
+          approved_by: req.userId,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (updateError || !updated) {
+        throw new TemplateImportError("Failed to approve template", { status: 500, code: "DB_UPDATE_FAILED" });
+      }
+
+      // TODO: Phase 2 - Generate full template package and create website_templates record
+      // For now, just mark as approved
+      // In Phase 2:
+      // 1. Generate complete template JSON files
+      // 2. Create template package ZIP
+      // 3. Store in Supabase
+      // 4. Create website_templates record with is_active=true
+      // 5. Notify tenants of new template availability
+
+      console.log(`[PATCH /:id/approve] Template approved: ${conversion.template_slug}`);
+
+      return res.json({
+        success: true,
+        message: "Template approved and ready for Phase 2 generation",
+        template: updated,
+      });
+    } catch (error) {
+      const err = error as any;
+      const status = err.status || 500;
+      const errorMessage = err.message || "Approval failed";
+
+      console.error("[PATCH /:id/approve] Error:", error);
+
+      return res.status(status).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+  }
+);
+
+/**
+ * PATCH /api/superadmin/templates/:id/reject
+ * Reject a pending conversion
+ */
+router.patch(
+  "/superadmin/templates/:id/reject",
+  requireAuth,
+  requireSuperAdmin,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      // Get conversion record
+      const { data: conversion, error: fetchError } = await supabaseAdmin
+        .from("template_conversions")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchError || !conversion) {
+        return res.status(404).json({
+          success: false,
+          error: "Conversion not found",
+        });
+      }
+
+      if (conversion.status !== "pending") {
+        return res.status(400).json({
+          success: false,
+          error: `Cannot reject template with status='${conversion.status}'`,
+        });
+      }
+
+      // Update conversion status
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from("template_conversions")
+        .update({
+          status: "rejected",
+          processed_at: new Date().toISOString(),
+          error_message: reason || "Rejected by superadmin",
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (updateError || !updated) {
+        throw new TemplateImportError("Failed to reject template", { status: 500, code: "DB_UPDATE_FAILED" });
+      }
+
+      console.log(`[PATCH /:id/reject] Template rejected: ${conversion.template_slug}`);
+
+      return res.json({
+        success: true,
+        message: "Template rejected",
+        template: updated,
+      });
+    } catch (error) {
+      const err = error as any;
+      const status = err.status || 500;
+      const errorMessage = err.message || "Rejection failed";
+
+      console.error("[PATCH /:id/reject] Error:", error);
+
+      return res.status(status).json({
+        success: false,
+        error: errorMessage,
+      });
+    }
+  }
 );
 
 export default router;

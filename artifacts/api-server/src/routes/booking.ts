@@ -25,7 +25,7 @@
  */
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
@@ -49,7 +49,7 @@ const bookingSubmitLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many booking attempts. Please wait a few minutes and try again." },
-  keyGenerator: (req) => `booking-submit:${req.params.tenantId || "unknown"}:${req.ip || "unknown"}`,
+  keyGenerator: (req) => `booking-submit:${req.params.tenantId || "unknown"}:${ipKeyGenerator(req.ip || "unknown")}`,
 });
 
 const bookingSlotsLimiter = rateLimit({
@@ -58,7 +58,7 @@ const bookingSlotsLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many slot requests. Please slow down and try again." },
-  keyGenerator: (req) => `booking-slots:${req.params.tenantId || "unknown"}:${req.ip || "unknown"}`,
+  keyGenerator: (req) => `booking-slots:${req.params.tenantId || "unknown"}:${ipKeyGenerator(req.ip || "unknown")}`,
 });
 
 const postcodeLookupLimiter = rateLimit({
@@ -67,7 +67,7 @@ const postcodeLookupLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many postcode lookups. Please wait a few minutes and try again." },
-  keyGenerator: (req) => `booking-postcode:${req.params.tenantId || "unknown"}:${req.ip || "unknown"}`,
+  keyGenerator: (req) => `booking-postcode:${req.params.tenantId || "unknown"}:${ipKeyGenerator(req.ip || "unknown")}`,
 });
 
 const idempotencyCache = new Map<string, { payloadHash: string; response: { id: string; status: string; scheduled_start: string }; createdAt: number }>();

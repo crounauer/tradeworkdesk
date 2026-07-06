@@ -67,6 +67,15 @@ const portalAuthLimiter = rateLimit({
 // Public warmup endpoint — no auth, used by frontend to wake Railway on load
 app.get("/api/ping", (_req: Request, res: Response) => { res.json({ ok: true }); });
 
+// Public no-op endpoint used by some third-party scripts/extensions.
+// Keep unauthenticated to avoid noisy 401 errors in local and marketing pages.
+app.get("/api/mc/init", (_req: Request, res: Response) => {
+  res.status(204).send();
+});
+app.post("/api/mc/init", (_req: Request, res: Response) => {
+  res.status(204).send();
+});
+
 app.use("/api/auth/register", registrationLimiter);
 app.use("/api/auth/validate-invite", authLimiter);
 app.use("/api/auth/use-invite", authLimiter);

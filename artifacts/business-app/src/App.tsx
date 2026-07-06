@@ -139,6 +139,7 @@ const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
 const AdminWebsiteTemplatesPage = lazyRetry(() => import("@/pages/admin-website-templates"));
 const SuperadminTemplatesPage = lazyRetry(() => import("@/pages/superadmin-templates"));
+const SuperadminTemplateConversionsPage = lazyRetry(() => import("@/pages/superadmin-template-conversions"));
 const SuperadminTemplateDetailPage = lazyRetry(() => import("@/pages/superadmin-template-detail"));
 const SuperadminTemplatePreviewPage = lazyRetry(() => import("@/pages/superadmin-template-preview"));
 const SuperadminDbHousekeepingPage = lazyRetry(() => import("@/pages/superadmin-db-housekeeping"));
@@ -179,6 +180,7 @@ const ReviewRequests = lazyRetry(() => import("@/pages/review-requests"));
 const MaintenancePlans = lazyRetry(() => import("@/pages/maintenance-plans"));
 const EmailCampaigns = lazyRetry(() => import("@/pages/email-campaigns"));
 const MissedCallSettings = lazyRetry(() => import("@/pages/missed-call-settings"));
+const ResetPassword = lazyRetry(() => import("@/pages/reset-password"));
 
 const ToolsIndex = lazyRetry(() => import("@/pages/tools/index"));
 const RadiatorSizing = lazyRetry(() => import("@/pages/tools/radiator-sizing"));
@@ -492,6 +494,7 @@ const PlatformAuditLogRoute = protect(PlatformAuditLog, ["super_admin"]);
 const PlatformSettingsRoute = protect(PlatformSettingsPage, ["super_admin"]);
 const AdminWebsiteTemplatesRoute = protect(AdminWebsiteTemplatesPage, ["super_admin"]);
 const SuperadminTemplatesRoute = protect(SuperadminTemplatesPage, ["super_admin"]);
+const SuperadminTemplateConversionsRoute = protect(SuperadminTemplateConversionsPage, ["super_admin"]);
 const SuperadminTemplateDetailRoute = protect(SuperadminTemplateDetailPage, ["super_admin"]);
 const SuperadminTemplatePreviewRoute = protect(SuperadminTemplatePreviewPage, ["super_admin"]);
 const SuperadminDbHousekeepingRoute = protect(SuperadminDbHousekeepingPage, ["super_admin"]);
@@ -532,6 +535,10 @@ function AppRouter() {
 
         <Route path="/login">
           {session && !mfaPending ? <Redirect to="/" /> : <Login />}
+        </Route>
+
+        <Route path="/reset-password">
+          <ResetPassword />
         </Route>
 
         <Route path="/register">
@@ -670,6 +677,7 @@ function AppRouter() {
         <Route path="/platform/settings" component={PlatformSettingsRoute} />
         <Route path="/platform/templates" component={AdminWebsiteTemplatesRoute} />
         <Route path="/superadmin/templates" component={SuperadminTemplatesRoute} />
+        <Route path="/superadmin/templates/conversions/pending" component={SuperadminTemplateConversionsRoute} />
         <Route path="/superadmin/templates/:slug" component={SuperadminTemplateDetailRoute} />
         <Route path="/superadmin/templates/:slug/preview/:pageSlug" component={SuperadminTemplatePreviewRoute} />
         <Route path="/superadmin/db-housekeeping" component={SuperadminDbHousekeepingRoute} />

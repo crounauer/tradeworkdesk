@@ -166,6 +166,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
     { href: "/platform/plans", label: "Plans", icon: CreditCard },
     { href: "/admin/website-templates", label: "Website Templates", icon: LayoutTemplate },
+    { href: "/superadmin/templates/conversions/pending", label: "Template Conversions", icon: Rocket },
     { href: "/superadmin/db-housekeeping", label: "DB Housekeeping", icon: Database },
     { href: "/platform/settings", label: "Settings", icon: Settings2 },
     { href: "/platform/beta-invites", label: "Beta Invites", icon: Ticket },
