@@ -81,17 +81,30 @@ function ColorSwatch({ color }: { color: string }) {
 }
 
 function DesignTokensPreview({ tokens }: { tokens?: Record<string, any> }) {
-  if (!tokens || !tokens.colors) return null;
+  if (!tokens) return null;
+
+  const colors = tokens.colors || {};
+  // Get all color entries, or show fallbacks if none found
+  const colorEntries = Object.entries(colors).length > 0 
+    ? Object.entries(colors)
+    : Object.entries({
+        primary: "#1e3a8a",
+        accent: "#f97316",
+        background: "#ffffff",
+        text: "#111827",
+      });
 
   return (
     <div className="space-y-3">
       <div>
         <h4 className="font-semibold text-sm mb-2">Colors</h4>
         <div className="grid gap-3">
-          {tokens.colors.primary && <ColorSwatch color={tokens.colors.primary} />}
-          {tokens.colors.accent && <ColorSwatch color={tokens.colors.accent} />}
-          {tokens.colors.background && <ColorSwatch color={tokens.colors.background} />}
-          {tokens.colors.text && <ColorSwatch color={tokens.colors.text} />}
+          {colorEntries.map(([name, value]) => (
+            <div key={name}>
+              <div className="text-xs font-mono text-gray-500 mb-1">{name}</div>
+              <ColorSwatch color={value as string} />
+            </div>
+          ))}
         </div>
       </div>
       {tokens.typography && (

@@ -164,10 +164,10 @@ export async function extractDesignTokens(zip: JSZip): Promise<Record<string, an
 
   // Ensure standard keys exist using fallbacks
   const fallbacks: Record<string, string[]> = {
-    primary: ["primary", "colorPrimary", "brandPrimary", "blue"],
-    accent: ["accent", "colorAccent", "brandAccent", "secondary", "orange"],
-    background: ["background", "bg", "colorBackground", "surface", "white"],
-    text: ["text", "colorText", "foreground", "textPrimary", "gray"],
+    primary: ["primary", "colorPrimary", "brandPrimary", "blue", "mainColor", "brandColor"],
+    accent: ["accent", "colorAccent", "brandAccent", "secondary", "orange", "highlightColor", "accentColor"],
+    background: ["background", "bg", "colorBackground", "surface", "white", "pageBackground", "bgColor", "bodyBackground"],
+    text: ["text", "colorText", "foreground", "textPrimary", "gray", "textColor", "contentColor"],
   };
   for (const [stdKey, candidates] of Object.entries(fallbacks)) {
     if (!tokens.colors[stdKey]) {

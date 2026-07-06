@@ -582,12 +582,20 @@ router.post(
         .select()
         .single();
 
-      if (dbError || !conversion) {
-        console.error("[POST /convert] Failed to create conversion record:", dbError);
+      if (dbError) {
+        console.error("[POST /convert] DB Error:", dbError);
         throw new TemplateImportError("Failed to save conversion record", { status: 500, code: "DB_RECORD_FAILED" });
       }
 
-      console.log(`[POST /convert] Conversion created: ${conversion.id} (slug: ${conversionResult.templateSlug})`);
+      if (!conversion) {
+        console.error("[POST /convert] No conversion returned from DB");
+        throw new TemplateImportError("Failed to save conversion record", { status: 500, code: "DB_RECORD_FAILED" });
+      }
+
+      console.log(`[POST /convert] Conversion created: ${conversion.id}`, {
+        designTokens: conversion.design_tokens,
+        blockMapping: conversion.block_mapping_report,
+      });
 
       return res.json({
         success: true,
