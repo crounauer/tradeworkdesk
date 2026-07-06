@@ -26,6 +26,7 @@ import BlogPostBlock from "./BlogPostBlock";
 import LegalContentBlock from "./LegalContentBlock";
 import FeatureCardsBlock from "./FeatureCardsBlock";
 import DetailSectionBlock from "./DetailSectionBlock";
+import AmazonBlock from "./AmazonBlock";
 import { hasBlockRendererForType, isSkippableBlockType, normalizeBlockType } from "./block-registry";
 import { resolveSiteTheme } from "@/lib/siteTheme";
 
@@ -139,6 +140,8 @@ const blockRegistry: Record<string, BlockRendererFn> = {
   blog_index: renderBlogIndex,
   blog_post: renderBlogPost,
   legal_content: renderLegalContent,
+  amazon: (context) => render(AmazonBlock, context),
+  amazon_products: (context) => render(AmazonBlock, context),
 };
 
 function UnsupportedBlock({ blockType, showFallback }: { blockType: string; showFallback?: boolean }) {

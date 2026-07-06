@@ -213,6 +213,7 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
       "testimonials",
       "services.grid",
       "process.steps",
+      "amazon",
       "cta.banner",
       "site.footer",
     ],
