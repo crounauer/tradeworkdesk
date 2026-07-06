@@ -218,7 +218,7 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
     ],
     services: [
       "site.header",
-      "hero.standard",
+      "hero.split",
       "services.grid",
       "why.choose.us",
       "faq.accordion",
@@ -252,6 +252,7 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
       "hero.standard",
       "reviews.grid",
       "testimonials",
+      "image",
       "cta.banner",
       "site.footer",
     ],
