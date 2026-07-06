@@ -143,7 +143,70 @@ export async function generateTemplateInstance(
     const blockMappingReport = conversion.block_mapping_report || {};
     const designTokens = conversion.design_tokens || {};
 
-    // 2. Create website_templates record
+    // 2. Generate pages and blocks structure first (for demo_pages)
+    const pages = blockMappingReport.pages || {};
+    const generatedPages: GeneratedPage[] = [];
+    const demoPagesData: Array<{
+      slug: string;
+      title: string;
+      block_count: number;
+      block_types: string[];
+    }> = [];
+    let blockCount = 0;
+    const pageBlocksMap: Record<string, GeneratedBlock[]> = {};
+
+    // Process each page
+    for (const [pageSlug, blockTypes] of Object.entries(pages)) {
+      const pageId = uuid();
+      const pageType = pageSlug === "404" ? "404" : pageSlug;
+
+      // Create page record
+      generatedPages.push({
+        id: pageId,
+        slug: pageSlug,
+        page_type: pageType,
+        title: pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1),
+        status: "published",
+        show_in_nav: !pageSlug.startsWith("404"),
+        nav_label: pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1),
+        nav_order: Object.keys(pages).indexOf(pageSlug),
+      });
+
+      // Generate blocks for this page
+      const generatedBlocks: GeneratedBlock[] = [];
+      const blockTypesArray = Array.isArray(blockTypes) ? blockTypes : [];
+      const pageBlockTypes: string[] = [];
+
+      for (let i = 0; i < blockTypesArray.length; i++) {
+        const blockType = blockTypesArray[i];
+        if (!blockType) continue;
+
+        const blockId = uuid();
+        const blockContent = applyDesignTokens(blockType, {}, designTokens);
+
+        generatedBlocks.push({
+          id: blockId,
+          block_type: blockType,
+          content: blockContent,
+          sort_order: i,
+        });
+
+        blockCount++;
+        pageBlockTypes.push(blockType);
+      }
+
+      // Add to demo pages (for admin preview)
+      demoPagesData.push({
+        slug: pageSlug,
+        title: generatedPages[generatedPages.length - 1].title,
+        block_count: pageBlockTypes.length,
+        block_types: pageBlockTypes,
+      });
+
+      pageBlocksMap[pageId] = generatedBlocks;
+    }
+
+    // 3. Create website_templates record with demo_pages
     const templateId = uuid();
     const { error: templateError } = await supabase
       .from("website_templates")
@@ -155,6 +218,7 @@ export async function generateTemplateInstance(
         category: "imported",
         version: 1,
         design_tokens: designTokens,
+        demo_pages: demoPagesData,
         figma_export_info: {
           figma_url: conversion.figma_url,
           imported_at: new Date().toISOString(),
@@ -172,58 +236,9 @@ export async function generateTemplateInstance(
       throw new Error(errorMsg);
     }
 
-    // 3. Generate pages and blocks
-    const pages = blockMappingReport.pages || {};
-    const generatedPages: GeneratedPage[] = [];
-    let blockCount = 0;
-    const pageBlocksMap: Record<string, GeneratedBlock[]> = {};
-
-    // Process each page
-    for (const [pageSlug, blockTypes] of Object.entries(pages)) {
-      const pageId = uuid();
-      const pageType = pageSlug === "404" ? "404" : pageSlug;
-
-      // Create page record (but don't insert yet - wait for pages to be created)
-      generatedPages.push({
-        id: pageId,
-        slug: pageSlug,
-        page_type: pageType,
-        title: pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1),
-        status: "published",
-        show_in_nav: !pageSlug.startsWith("404"),
-        nav_label: pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1),
-        nav_order: Object.keys(pages).indexOf(pageSlug),
-      });
-
-      // Generate blocks for this page
-      const generatedBlocks: GeneratedBlock[] = [];
-      const blockTypesArray = Array.isArray(blockTypes) ? blockTypes : [];
-
-      for (let i = 0; i < blockTypesArray.length; i++) {
-        const blockType = blockTypesArray[i];
-        if (!blockType) continue;
-
-        const blockId = uuid();
-        const blockContent = applyDesignTokens(blockType, {}, designTokens);
-
-        generatedBlocks.push({
-          id: blockId,
-          block_type: blockType,
-          content: blockContent,
-          sort_order: i,
-        });
-
-        blockCount++;
-      }
-
-      pageBlocksMap[pageId] = generatedBlocks;
-    }
-
     // 4. Note: Pages and blocks are NOT inserted here
     // They will be inserted when a website applies this template
     // This keeps the template conversion fast and the template reusable
-
-    // 5. Update conversion to mark as processed
     const { error: updateError } = await supabase
       .from("template_conversions")
       .update({

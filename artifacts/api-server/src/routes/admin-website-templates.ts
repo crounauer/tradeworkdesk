@@ -1010,19 +1010,42 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     status: normalizeTemplateStatus(template as TemplateRow),
   };
 
+  // demo_pages is a preview structure, parse it into pages/blocks format
+  const demoPages = template.demo_pages || [];
+  const pages = demoPages.map((page: any, idx: number) => ({
+    id: `preview-${idx}`,
+    template_id: id,
+    slug: page.slug,
+    title: page.title,
+    sort_order: idx,
+  }));
+
+  const blocks: any[] = [];
+  (demoPages || []).forEach((page: any, pageIdx: number) => {
+    (page.block_types || []).forEach((blockType: string, blockIdx: number) => {
+      blocks.push({
+        id: `preview-${pageIdx}-${blockIdx}`,
+        page_id: `preview-${pageIdx}`,
+        template_id: id,
+        block_type: blockType,
+        sort_order: blockIdx,
+      });
+    });
+  });
+
   const latestUploadResult = await getLatestTemplateUpload(id);
-  const [pagesResult, blocksResult, versionsResult] = await Promise.all([
-    supabaseAdmin.from("website_template_pages").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
-    supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
-    supabaseAdmin.from("template_versions").select("*").eq("template_id", id).order("version", { ascending: false }),
-  ]);
+  const { data: versionsResult } = await supabaseAdmin
+    .from("template_versions")
+    .select("*")
+    .eq("template_id", id)
+    .order("version", { ascending: false });
 
   res.json({
     template: normalizedTemplate,
-    pages: pagesResult.data || [],
-    blocks: blocksResult.data || [],
+    pages,
+    blocks,
     upload: latestUploadResult.data || null,
-    versions: versionsResult.data || [],
+    versions: versionsResult || [],
     validation_report: (latestUploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null,
   });
 });
