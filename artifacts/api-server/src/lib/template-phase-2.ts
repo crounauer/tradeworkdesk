@@ -65,6 +65,114 @@ const DEFAULT_LAYOUTS: Record<string, string> = {
 };
 
 /**
+ * Map block types to each page (default block distribution)
+ */
+const DEFAULT_PAGE_BLOCKS: Record<string, string[]> = {
+  home: [
+    "site.header",
+    "hero.standard",
+    "trust.badges",
+    "features.list",
+    "spacer",
+    "testimonials",
+    "services.grid",
+    "process.steps",
+    "amazon",
+    "cta.banner",
+    "site.footer",
+  ],
+  services: [
+    "site.header",
+    "hero.standard",
+    "services.grid",
+    "why.choose.us",
+    "faq.accordion",
+    "cta.banner",
+    "site.footer",
+  ],
+  "service-detail": [
+    "site.header",
+    "hero.standard",
+    "features.list",
+    "process.steps",
+    "cta.banner",
+    "site.footer",
+  ],
+  emergency: [
+    "site.header",
+    "hero.standard",
+    "process.steps",
+    "cta.banner",
+    "site.footer",
+  ],
+  areas: [
+    "site.header",
+    "hero.standard",
+    "areas.grid",
+    "contact.split",
+    "site.footer",
+  ],
+  reviews: [
+    "site.header",
+    "hero.standard",
+    "reviews.grid",
+    "testimonials",
+    "brands",
+    "cta.banner",
+    "site.footer",
+  ],
+  gallery: [
+    "site.header",
+    "hero.standard",
+    "gallery.grid",
+    "project.showcase",
+    "spacer",
+    "site.footer",
+  ],
+  "blog-index": [
+    "site.header",
+    "hero.standard",
+    "blog.index",
+    "cta.banner",
+    "site.footer",
+  ],
+  "blog-post": [
+    "site.header",
+    "hero.standard",
+    "legal.content",
+    "cta.banner",
+    "site.footer",
+  ],
+  booking: [
+    "site.header",
+    "hero.standard",
+    "online.booking",
+    "cta.banner",
+    "sticky.mobile.cta",
+    "site.footer",
+  ],
+  contact: [
+    "site.header",
+    "hero.standard",
+    "contact.split",
+    "accreditations",
+    "site.footer",
+  ],
+  legal: [
+    "site.header",
+    "legal.content",
+    "faq.accordion",
+    "site.footer",
+  ],
+  "404": [
+    "site.header",
+    "system.notFound",
+    "cta.banner",
+    "site.footer",
+  ],
+};
+
+/**
  * Map block types to default page placement and order
  */
 const BLOCK_PAGE_MAP: Record<string, Record<string, number>> = {
@@ -144,7 +252,7 @@ export async function generateTemplateInstance(
     const designTokens = conversion.design_tokens || {};
 
     // 2. Generate pages and blocks structure first (for demo_pages)
-    const pages = blockMappingReport.pages || {};
+    // Use DEFAULT_PAGE_BLOCKS since blockMappingReport.pages is just an array of page names
     const generatedPages: GeneratedPage[] = [];
     const demoPagesData: Array<{
       slug: string;
@@ -155,8 +263,8 @@ export async function generateTemplateInstance(
     let blockCount = 0;
     const pageBlocksMap: Record<string, GeneratedBlock[]> = {};
 
-    // Process each page
-    for (const [pageSlug, blockTypes] of Object.entries(pages)) {
+    // Process each page using the default block mapping
+    for (const [pageSlug, blockTypes] of Object.entries(DEFAULT_PAGE_BLOCKS)) {
       const pageId = uuid();
       const pageType = pageSlug === "404" ? "404" : pageSlug;
 
@@ -169,16 +277,15 @@ export async function generateTemplateInstance(
         status: "published",
         show_in_nav: !pageSlug.startsWith("404"),
         nav_label: pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1),
-        nav_order: Object.keys(pages).indexOf(pageSlug),
+        nav_order: Object.keys(DEFAULT_PAGE_BLOCKS).indexOf(pageSlug),
       });
 
       // Generate blocks for this page
       const generatedBlocks: GeneratedBlock[] = [];
-      const blockTypesArray = Array.isArray(blockTypes) ? blockTypes : [];
       const pageBlockTypes: string[] = [];
 
-      for (let i = 0; i < blockTypesArray.length; i++) {
-        const blockType = blockTypesArray[i];
+      for (let i = 0; i < blockTypes.length; i++) {
+        const blockType = blockTypes[i];
         if (!blockType) continue;
 
         const blockId = uuid();

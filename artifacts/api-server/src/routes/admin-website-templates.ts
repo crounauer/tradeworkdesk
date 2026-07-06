@@ -1010,8 +1010,39 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     status: normalizeTemplateStatus(template as TemplateRow),
   };
 
-  // demo_pages is a preview structure, parse it into pages/blocks format
-  const demoPages = template.demo_pages || [];
+  // demo_pages is a preview structure
+  let demoPages = template.demo_pages || [];
+
+  // If demo_pages is empty (template created before the fix), fetch from conversion
+  if (demoPages.length === 0 && template.slug) {
+    try {
+      const { data: conversion } = await supabaseAdmin
+        .from("template_conversions")
+        .select("block_mapping_report")
+        .eq("template_slug", template.slug)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (conversion?.block_mapping_report) {
+        const blockMapping = conversion.block_mapping_report as any;
+        const pages = blockMapping.pages || {};
+
+        // Reconstruct demo_pages from block_mapping_report
+        demoPages = Object.entries(pages).map(([slug, blockTypes]: [string, any], idx: number) => ({
+          slug,
+          title: slug.charAt(0).toUpperCase() + slug.slice(1),
+          block_count: (Array.isArray(blockTypes) ? blockTypes : []).length,
+          block_types: Array.isArray(blockTypes) ? blockTypes : [],
+        }));
+      }
+    } catch {
+      // Silently fail - demo_pages will remain empty
+    }
+  }
+
+  // Parse demo_pages into pages/blocks format for display
   const pages = demoPages.map((page: any, idx: number) => ({
     id: `preview-${idx}`,
     template_id: id,
