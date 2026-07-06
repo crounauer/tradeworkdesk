@@ -155,7 +155,6 @@ export async function generateTemplateInstance(
         category: "imported",
         version: 1,
         design_tokens: designTokens,
-        demo_pages: Object.keys(blockMappingReport.pages || {}),
         figma_export_info: {
           figma_url: conversion.figma_url,
           imported_at: new Date().toISOString(),
