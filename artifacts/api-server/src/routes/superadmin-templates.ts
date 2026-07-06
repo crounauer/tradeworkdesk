@@ -702,7 +702,8 @@ router.patch(
         });
       }
 
-      if (conversion.status !== "pending") {
+      // Allow approval of pending OR failed conversions (retry)
+      if (conversion.status !== "pending" && conversion.status !== "failed") {
         return res.status(400).json({
           success: false,
           error: `Cannot approve template with status='${conversion.status}'`,

@@ -167,7 +167,10 @@ export async function generateTemplateInstance(
       });
 
     if (templateError) {
-      throw new Error(`Failed to create template: ${templateError.message}`);
+      const errorMsg = `Failed to create template: ${templateError.message}. 
+      If you see "relation does not exist", migrations patch-070 and patch-071 need to be deployed to Supabase.
+      See: supabase/patch-070-template-conversions.sql and supabase/patch-071-site-pages-and-blocks.sql`;
+      throw new Error(errorMsg);
     }
 
     // 3. Generate pages and blocks
