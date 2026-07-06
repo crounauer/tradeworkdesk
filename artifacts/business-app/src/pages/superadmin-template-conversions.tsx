@@ -246,13 +246,11 @@ function ConversionCard({ conversion, onApprove, isApproving, onReject, isReject
               </div>
             )}
 
-            {/* Design Tokens */}
-            {conversion.design_tokens && (
-              <div>
-                <h4 className="font-semibold text-sm mb-2">Design Tokens</h4>
-                <DesignTokensPreview tokens={conversion.design_tokens} />
-              </div>
-            )}
+            {/* Design Tokens - Always show, even if data is null */}
+            <div>
+              <h4 className="font-semibold text-sm mb-2">Design Tokens</h4>
+              <DesignTokensPreview tokens={conversion.design_tokens} />
+            </div>
 
             {/* Error Message */}
             {conversion.error_message && (
