@@ -1027,14 +1027,15 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
 
       if (conversion?.block_mapping_report) {
         const blockMapping = conversion.block_mapping_report as any;
-        const pages = blockMapping.pages || {};
+        const pageNames = blockMapping.pages || []; // Array of page names
+        const blocksPerPage = blockMapping.blocksPerPage || {}; // Dict with block counts
 
         // Reconstruct demo_pages from block_mapping_report
-        demoPages = Object.entries(pages).map(([slug, blockTypes]: [string, any], idx: number) => ({
+        demoPages = pageNames.map((slug: string, idx: number) => ({
           slug,
           title: slug.charAt(0).toUpperCase() + slug.slice(1),
-          block_count: (Array.isArray(blockTypes) ? blockTypes : []).length,
-          block_types: Array.isArray(blockTypes) ? blockTypes : [],
+          block_count: blocksPerPage[slug] || 0,
+          block_types: [], // Empty - we only have counts, not the type names
         }));
       }
     } catch {
@@ -1049,19 +1050,35 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     slug: page.slug,
     title: page.title,
     sort_order: idx,
+    block_count: page.block_count || 0, // Add count to page object
   }));
 
   const blocks: any[] = [];
   (demoPages || []).forEach((page: any, pageIdx: number) => {
-    (page.block_types || []).forEach((blockType: string, blockIdx: number) => {
-      blocks.push({
-        id: `preview-${pageIdx}-${blockIdx}`,
-        page_id: `preview-${pageIdx}`,
-        template_id: id,
-        block_type: blockType,
-        sort_order: blockIdx,
+    // If we have block_types, use them; otherwise generate placeholder blocks based on count
+    if (page.block_types && page.block_types.length > 0) {
+      page.block_types.forEach((blockType: string, blockIdx: number) => {
+        blocks.push({
+          id: `preview-${pageIdx}-${blockIdx}`,
+          page_id: `preview-${pageIdx}`,
+          template_id: id,
+          block_type: blockType,
+          sort_order: blockIdx,
+        });
       });
-    });
+    } else if ((page.block_count || 0) > 0) {
+      // Generate placeholder blocks based on count (from fallback conversion data)
+      const blockCount = page.block_count || 0;
+      for (let i = 0; i < blockCount; i++) {
+        blocks.push({
+          id: `preview-${pageIdx}-${i}`,
+          page_id: `preview-${pageIdx}`,
+          template_id: id,
+          block_type: `block.${i + 1}`,
+          sort_order: i,
+        });
+      }
+    }
   });
 
   const latestUploadResult = await getLatestTemplateUpload(id);
