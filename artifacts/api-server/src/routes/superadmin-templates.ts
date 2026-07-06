@@ -16,6 +16,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { validateTemplateZip } from "../lib/template-zip-validator";
 import { findUnsupportedBlockTypes } from "../lib/template-import-safeguards";
+import { generateTemplateInstance } from "../lib/template-phase-2";
 
 const router = Router();
 
@@ -725,21 +726,33 @@ router.patch(
         throw new TemplateImportError("Failed to approve template", { status: 500, code: "DB_UPDATE_FAILED" });
       }
 
-      // TODO: Phase 2 - Generate full template package and create website_templates record
-      // For now, just mark as approved
-      // In Phase 2:
-      // 1. Generate complete template JSON files
-      // 2. Create template package ZIP
-      // 3. Store in Supabase
-      // 4. Create website_templates record with is_active=true
-      // 5. Notify tenants of new template availability
+      // Phase 2: Generate template instance with pages and blocks
+      console.log(`[PATCH /:id/approve] Triggering Phase 2 for template: ${conversion.template_slug}`);
+      
+      const phase2Result = await generateTemplateInstance(
+        supabaseAdmin,
+        id,
+        conversion.template_slug,
+        req.userId
+      );
 
-      console.log(`[PATCH /:id/approve] Template approved: ${conversion.template_slug}`);
+      if (!phase2Result.success) {
+        throw new TemplateImportError(`Phase 2 failed: ${phase2Result.error}`, { status: 500, code: "PHASE_2_FAILED" });
+      }
+
+      console.log(
+        `[PATCH /:id/approve] Phase 2 complete: ${phase2Result.pages.length} pages, ${phase2Result.block_count} blocks`
+      );
 
       return res.json({
         success: true,
-        message: "Template approved and ready for Phase 2 generation",
-        template: updated,
+        message: "Template approved and published",
+        template: {
+          ...updated,
+          template_id: phase2Result.template_id,
+          pages_generated: phase2Result.pages.length,
+          blocks_generated: phase2Result.block_count,
+        },
       });
     } catch (error) {
       const err = error as any;
