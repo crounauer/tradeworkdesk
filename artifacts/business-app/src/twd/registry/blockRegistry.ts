@@ -28,13 +28,13 @@ export const twdBlockRegistry = [
     type: 'site.header',
     label: 'Site Header',
     category: 'site',
-    editableFields: ['logoText', 'navItems', 'phone', 'ctaLabel', 'ctaHref', 'layout', 'headerStyle', 'tone', 'ctaStyle'],
+    editableFields: ['logoText', 'navItems', 'phone', 'ctaLabel', 'ctaHref', 'scheduleText', 'locationText', 'layout', 'headerStyle', 'tone', 'ctaStyle', 'variant'],
   },
   {
     type: 'hero.standard',
     label: 'Standard Hero',
     category: 'hero',
-    editableFields: ['eyebrow', 'layout', 'variant', 'heroStyle', 'tone', 'density', 'title', 'subtitle', 'primaryCtaLabel', 'secondaryCtaLabel', 'phone', 'imageAlt'],
+    editableFields: ['eyebrow', 'layout', 'variant', 'heroStyle', 'tone', 'density', 'title', 'subtitle', 'primaryCtaLabel', 'secondaryCtaLabel', 'phone', 'trustBadges', 'imageAlt'],
   },
   {
     type: 'trust.badges',
@@ -47,6 +47,12 @@ export const twdBlockRegistry = [
     label: 'Services Grid',
     category: 'services',
     editableFields: ['eyebrow', 'variant', 'layout', 'background', 'cardStyle', 'density', 'title', 'subtitle', 'services'],
+  },
+  {
+    type: 'services.rates',
+    label: 'Service Rates',
+    category: 'services',
+    editableFields: ['eyebrow', 'variation', 'background', 'title', 'subtitle', 'note', 'rates'],
   },
   {
     type: 'features.list',

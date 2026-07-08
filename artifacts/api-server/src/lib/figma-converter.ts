@@ -5,20 +5,10 @@
  */
 
 import JSZip from "jszip";
+import type { FigmaContent } from "./figma-content-mapping";
 
 // Type: App.tsx extracted data
-type FigmaAppData = {
-  company: string;
-  phone: string;
-  location: string;
-  services: Array<{ title: string; desc: string; slug: string; icon: string }>;
-  testimonials: Array<{ name: string; location: string; text: string; date: string; stars: number }>;
-  areas: string[];
-  faq: Array<{ q: string; a: string }>;
-  processSteps: Array<{ step: string; title: string; desc: string }>;
-  blogPosts: Array<{ slug: string; title: string; excerpt: string; date: string; category: string }>;
-  galleryImages: Array<{ url: string; alt: string }>;
-};
+type FigmaAppData = FigmaContent;
 
 export type ConversionResult = {
   success: boolean;
@@ -29,13 +19,72 @@ export type ConversionResult = {
   blocksPerPage: Record<string, number>;
   blockTypes: string[];
   designTokens: Record<string, any>;
+  content?: FigmaContent;
+  blockProps?: Record<string, Record<string, unknown>>;
+  pageBlockProps?: Record<string, Record<string, Record<string, unknown>>>;
   packageUrl?: string;
   error?: string;
   errorDetails?: any;
 };
 
 /**
- * Extract App.tsx constants and data structures using regex
+ * Parse an array of JS object literals into typed records.
+ * Strips JSX values (e.g. `icon: <Droplets size={28} />`) then extracts the
+ * requested string/number fields from each top-level `{ ... }` object.
+ */
+function parseObjectArray(
+  raw: string,
+  stringFields: string[],
+  numberFields: string[] = [],
+): Array<Record<string, string | number>> {
+  // Remove JSX-valued fields so brace matching is safe (JSX contains `{28}`).
+  const cleaned = raw.replace(/\b\w+\s*:\s*<[^>]*\/?>\s*,?/g, "");
+  const objects = cleaned.match(/\{[^{}]*\}/g) || [];
+  const results: Array<Record<string, string | number>> = [];
+
+  for (const obj of objects) {
+    const record: Record<string, string | number> = {};
+    for (const field of stringFields) {
+      const m = obj.match(new RegExp(`\\b${field}\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+      if (m) record[field] = m[1].replace(/\\"/g, '"');
+    }
+    for (const field of numberFields) {
+      const m = obj.match(new RegExp(`\\b${field}\\s*:\\s*(\\d+(?:\\.\\d+)?)`));
+      if (m) record[field] = Number(m[1]);
+    }
+    if (Object.keys(record).length > 0) results.push(record);
+  }
+
+  return results;
+}
+
+/** Parse an array of bare string literals, e.g. `["Reading", "Caversham"]`. */
+function parseStringArray(raw: string): string[] {
+  const matches = raw.match(/"((?:[^"\\]|\\.)*)"/g) || [];
+  return matches.map((s) => s.slice(1, -1).replace(/\\"/g, '"'));
+}
+
+function pageComponentToSlug(componentName: string): string | null {
+  const map: Record<string, string> = {
+    HomePage: "home",
+    ServicesPage: "services",
+    ServiceDetailPage: "service-detail",
+    EmergencyPage: "emergency",
+    AreasPage: "areas",
+    ReviewsPage: "reviews",
+    GalleryPage: "gallery",
+    BlogIndexPage: "blog-index",
+    BlogPostPage: "blog-post",
+    BookingPage: "booking",
+    ContactPage: "contact",
+    LegalPage: "legal",
+    NotFoundPage: "404",
+  };
+  return map[componentName] || null;
+}
+
+/**
+ * Extract App.tsx constants and data structures.
  */
 export async function extractFigmaAppData(zip: JSZip): Promise<FigmaAppData> {
   const appTsxFile = zip.file("src/app/App.tsx");
@@ -43,49 +92,144 @@ export async function extractFigmaAppData(zip: JSZip): Promise<FigmaAppData> {
     throw new Error("App.tsx not found in ZIP - expected at src/app/App.tsx");
   }
 
-  const appTsxContent = await appTsxFile.async("text");
+  const src = await appTsxFile.async("text");
 
-  // Helper to extract value between specific patterns
-  const extractValue = (pattern: RegExp): string | null => {
-    const match = appTsxContent.match(pattern);
-    return match ? match[1] : null;
+  const strConst = (pattern: RegExp): string | null => {
+    const m = src.match(pattern);
+    return m ? m[1] : null;
   };
 
-  // Extract simple string constants
-  const company = extractValue(/const COMPANY = "([^"]+)"/) || "Local Plumbing Pro";
-  const phone = extractValue(/const PHONE = "([^"]+)"/) || "01234 567 890";
-  const location = extractValue(/const LOCATION = "([^"]+)"/) || "Reading & Surrounding Areas";
+  const arrayBody = (name: string): string => {
+    const m = src.match(new RegExp(`const ${name}\\s*(?::[^=]+)?=\\s*\\[([\\s\\S]*?)\\];`));
+    return m ? m[1] : "";
+  };
 
-  // Extract data arrays - capture JSON-like structure
-  const extractArray = (pattern: RegExp): any[] => {
-    const match = appTsxContent.match(pattern);
-    if (!match) return [];
-    try {
-      // Try to parse the captured group as JSON
-      const jsonStr = match[1]
-        .replace(/'/g, '"')
-        .replace(/undefined/g, "null")
-        .replace(/\w+\(/g, '"') // Handle function calls
-        .replace(/\/\*[\s\S]*?\*\//g, ""); // Remove comments
+  const company = strConst(/const COMPANY = "([^"]+)"/) || "Local Plumbing Pro";
+  const phone = strConst(/const PHONE = "([^"]+)"/) || "01234 567 890";
+  const tagline = strConst(/const TAGLINE = "([^"]+)"/) || "Reliable local trade services";
 
-      // More lenient parsing - just extract what we can
-      return JSON.parse(`[${match[1]}]`);
-    } catch {
-      return [];
+  const services = parseObjectArray(arrayBody("SERVICES_DATA"), ["title", "desc", "slug"]).map((s) => ({
+    title: String(s.title || ""),
+    description: String(s.desc || ""),
+    slug: String(s.slug || ""),
+  }));
+
+  const testimonials = parseObjectArray(
+    arrayBody("TESTIMONIALS_DATA"),
+    ["name", "location", "text", "date"],
+    ["stars"],
+  ).map((t) => ({
+    name: String(t.name || ""),
+    location: String(t.location || ""),
+    text: String(t.text || ""),
+    date: String(t.date || ""),
+    stars: Number(t.stars || 5),
+  }));
+
+  const areas = parseStringArray(arrayBody("AREAS_DATA"));
+
+  const faq = parseObjectArray(arrayBody("FAQ_DATA"), ["q", "a"]).map((f) => ({
+    q: String(f.q || ""),
+    a: String(f.a || ""),
+  }));
+
+  const processSteps = parseObjectArray(arrayBody("PROCESS_STEPS"), ["step", "title", "desc"]).map((p) => ({
+    step: String(p.step || ""),
+    title: String(p.title || ""),
+    desc: String(p.desc || ""),
+  }));
+
+  const blogPosts = parseObjectArray(arrayBody("BLOG_POSTS"), ["slug", "title", "excerpt", "date", "category"]).map(
+    (b) => ({
+      slug: String(b.slug || ""),
+      title: String(b.title || ""),
+      excerpt: String(b.excerpt || ""),
+      date: String(b.date || ""),
+      category: String(b.category || ""),
+    }),
+  );
+
+  const galleryImages = parseObjectArray(arrayBody("GALLERY_IMAGES"), ["url", "alt"]).map((g) => ({
+    url: String(g.url || ""),
+    alt: String(g.alt || ""),
+  }));
+
+  // "Why choose us" reasons are declared inline inside a block component.
+  const whyChoose = parseObjectArray(arrayBody("reasons"), ["title", "desc"]).map((r) => ({
+    title: String(r.title || ""),
+    desc: String(r.desc || ""),
+  }));
+
+  // Trust badges are inline `{ icon: <...>, text: "..." }` entries; dedupe by text.
+  const badgeMatches = src.match(/icon:\s*<[^>]*\/?>\s*,\s*text:\s*"([^"]+)"/g) || [];
+  const badges = Array.from(
+    new Set(
+      badgeMatches
+        .map((m) => (m.match(/text:\s*"([^"]+)"/) || [])[1])
+        .filter((v): v is string => Boolean(v)),
+    ),
+  );
+
+  const location =
+    strConst(/const LOCATION = "([^"]+)"/) ||
+    (areas.length > 0 ? `${areas[0]} & surrounding areas` : "your local area");
+
+  // Per-page hero extraction: parse each `*Page` component and its first HeroBlock.
+  const pageHeroes: Record<string, { title?: string; subtitle?: string; bgImage?: string; emergencyMode?: boolean; showTrust?: boolean }> = {};
+  const pageFunctionRegex = /function\s+([A-Za-z]+Page)\s*\(/g;
+  const pageFns: Array<{ name: string; index: number }> = [];
+  let fnMatch: RegExpExecArray | null;
+  while ((fnMatch = pageFunctionRegex.exec(src)) !== null) {
+    pageFns.push({ name: fnMatch[1], index: fnMatch.index });
+  }
+
+  for (let i = 0; i < pageFns.length; i++) {
+    const current = pageFns[i];
+    const nextIndex = i + 1 < pageFns.length ? pageFns[i + 1].index : src.length;
+    const pageSlug = pageComponentToSlug(current.name);
+    if (!pageSlug) continue;
+
+    const section = src.slice(current.index, nextIndex);
+    const heroBlockMatch = section.match(/<HeroBlock([\s\S]*?)\/>/);
+    if (!heroBlockMatch) continue;
+
+    const heroAttrs = heroBlockMatch[1] || "";
+    const title = (heroAttrs.match(/\btitle\s*=\s*"([^"]+)"/) || [])[1];
+    const subtitle = (heroAttrs.match(/\bsubtitle\s*=\s*"([^"]+)"/) || [])[1];
+    const bgImage = (heroAttrs.match(/\bbgImage\s*=\s*"([^"]+)"/) || [])[1];
+    const emergencyMode = /\bemergencyMode\b/.test(heroAttrs);
+    const showTrust = /\bshowTrust\b/.test(heroAttrs);
+
+    if (title || subtitle || bgImage || emergencyMode || showTrust) {
+      pageHeroes[pageSlug] = {
+        ...(title ? { title } : {}),
+        ...(subtitle ? { subtitle } : {}),
+        ...(bgImage ? { bgImage } : {}),
+        ...(emergencyMode ? { emergencyMode: true } : {}),
+        ...(showTrust ? { showTrust: true } : {}),
+      };
     }
-  };
+  }
 
   return {
     company,
     phone,
+    tagline,
     location,
-    services: extractArray(/const SERVICES_DATA = \[([\s\S]*?)\];/) || [],
-    testimonials: extractArray(/const TESTIMONIALS_DATA = \[([\s\S]*?)\];/) || [],
-    areas: extractArray(/const AREAS_DATA = \[([\s\S]*?)\];/) || [],
-    faq: extractArray(/const FAQ_DATA = \[([\s\S]*?)\];/) || [],
-    processSteps: extractArray(/const PROCESS_STEPS = \[([\s\S]*?)\];/) || [],
-    blogPosts: extractArray(/const BLOG_POSTS = \[([\s\S]*?)\];/) || [],
-    galleryImages: extractArray(/const GALLERY_IMAGES = \[([\s\S]*?)\];/) || [],
+    navLinks: parseObjectArray(arrayBody("NAV_LINKS"), ["label", "page"]).map((n) => ({
+      label: String(n.label || ""),
+      page: String(n.page || ""),
+    })),
+    services,
+    testimonials,
+    areas,
+    faq,
+    processSteps,
+    blogPosts,
+    galleryImages,
+    whyChoose,
+    badges,
+    pageHeroes,
   };
 }
 
@@ -116,12 +260,20 @@ export async function extractDesignTokens(zip: JSZip): Promise<Record<string, an
     spacing: {},
   };
 
-  // Build a map of all CSS variable definitions: --varname → value
+  // Build a map of CSS variable definitions from :root first, then fill gaps from whole file.
+  // This avoids `.dark` overrides replacing the intended default palette.
   const varMap: Record<string, string> = {};
-  const allVarRegex = /--([\w-]+)\s*:\s*([^;}\n]+)/g;
+  const rootBlockMatch = themeCss.match(/:root\s*\{([\s\S]*?)\}/);
+  const rootCss = rootBlockMatch ? rootBlockMatch[1] : "";
+  const rootVarRegex = /--([\w-]+)\s*:\s*([^;}\n]+)/g;
   let m;
-  while ((m = allVarRegex.exec(themeCss)) !== null) {
+  while ((m = rootVarRegex.exec(rootCss)) !== null) {
     varMap[m[1].trim()] = m[2].trim();
+  }
+  const allVarRegex = /--([\w-]+)\s*:\s*([^;}\n]+)/g;
+  while ((m = allVarRegex.exec(themeCss)) !== null) {
+    const key = m[1].trim();
+    if (!(key in varMap)) varMap[key] = m[2].trim();
   }
 
   console.log(`[extractDesignTokens] Found ${Object.keys(varMap).length} CSS variables`, Object.keys(varMap).slice(0, 10));
@@ -142,7 +294,8 @@ export async function extractDesignTokens(zip: JSZip): Promise<Record<string, an
   const isColourValue = (v: string) =>
     /^#[0-9a-fA-F]{3,8}$/.test(v) ||
     /^rgba?\s*\(/.test(v) ||
-    /^hsla?\s*\(/.test(v);
+    /^hsla?\s*\(/.test(v) ||
+    /^oklch\s*\(/.test(v);
 
   // Extract all color-like variables (aggressive)
   let extractedCount = 0;
@@ -212,6 +365,7 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
       "spacer",
       "testimonials",
       "services.grid",
+      "services.rates",
       "process.steps",
       "amazon",
       "cta.banner",
@@ -221,6 +375,7 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
       "site.header",
       "hero.standard",
       "services.grid",
+      "services.rates",
       "why.choose.us",
       "faq.accordion",
       "cta.banner",
@@ -230,6 +385,7 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
       "site.header",
       "hero.standard",
       "features.list",
+      "services.rates",
       "process.steps",
       "cta.banner",
       "site.footer",
@@ -296,12 +452,14 @@ export function generateBlockMapping(appData: FigmaAppData): Record<string, stri
     ],
     legal: [
       "site.header",
+      "hero.standard",
       "legal.content",
       "faq.accordion",
       "site.footer",
     ],
     "404": [
       "site.header",
+      "hero.standard",
       "system.notFound",
       "cta.banner",
       "site.footer",
@@ -345,6 +503,11 @@ export async function convertFigmaZipToTemplate(
       blocksPerPage[page] = blockMapping[page].length;
     });
 
+    // Build real block props from extracted content, keyed by block type.
+    const { buildBlockPropsMap, buildPageBlockPropsMap } = await import("./figma-content-mapping");
+    const blockProps = buildBlockPropsMap(appData, Array.from(allBlockTypes));
+    const pageBlockProps = buildPageBlockPropsMap(appData, blockMapping);
+
     return {
       success: true,
       templateSlug: templateName
@@ -357,6 +520,9 @@ export async function convertFigmaZipToTemplate(
       blocksPerPage,
       blockTypes: Array.from(allBlockTypes).sort(),
       designTokens,
+      content: appData,
+      blockProps,
+      pageBlockProps,
     };
   } catch (error) {
     console.error("[convertFigmaZipToTemplate]", error);

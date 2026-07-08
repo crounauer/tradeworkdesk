@@ -7,6 +7,7 @@ import TextBlock from "./TextBlock";
 import ImageBlock from "./ImageBlock";
 import CtaBlock from "./CtaBlock";
 import ServicesBlock from "./ServicesBlock";
+import ServiceRatesBlock from "./ServiceRatesBlock";
 import ContactFormBlock from "./ContactFormBlock";
 import TestimonialsBlock from "./TestimonialsBlock";
 import GalleryBlock from "./GalleryBlock";
@@ -50,6 +51,169 @@ type BlockRenderContext = {
   site?: SiteData;
   page?: SitePage;
 };
+
+function buildLocalPlumbingFallback(
+  blockType: string,
+  pageSlug: string | undefined,
+  phone: string | undefined,
+  email: string | undefined,
+): Record<string, unknown> | null {
+  const cityText = "Reading and the surrounding area";
+
+  switch (blockType) {
+    case "hero":
+    case "hero_split":
+      return {
+        title: "Reliable Local Plumbing Services",
+        subtitle: `Honest, fast and fully insured plumbers serving ${cityText}. Free quotes, 12-month guarantee.`,
+        primaryCtaLabel: phone ? `Call Now: ${phone}` : "Call Now",
+        primaryCtaHref: phone ? `tel:${phone.replace(/\s+/g, "")}` : "#contact",
+        secondaryCtaLabel: "Request a Quote",
+        secondaryCtaHref: "#contact",
+        background_image_url: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=1400&h=700&fit=crop&auto=format",
+        overlay_color: "15,31,61",
+        overlay_opacity: 0.75,
+        heading_color: "#ffffff",
+        subheading_color: "rgba(255,255,255,0.8)",
+        primary_button_bg_color: "#00a8a8",
+        primary_button_text_color: "#ffffff",
+        primary_button_border_color: "rgba(26, 58, 107, 0.12)",
+        secondary_button_bg_color: "#ffffff",
+        secondary_button_text_color: "#1a3a6b",
+        secondary_button_border_color: "rgba(26, 58, 107, 0.12)",
+        border_radius: "10px",
+        cta_font_size: "18px",
+        cta_line_height: "28px",
+        primary_button_padding: "14px 24px",
+        secondary_button_padding: "14px 24px",
+        heading_font_size: "48px",
+        heading_line_height: "60px",
+      };
+    case "features_bar":
+      return {
+        heading: "",
+        section_bg: "#f0f4f9",
+        card_bg: "#f0f4f9",
+        heading_color: "#1a3a6b",
+        text_color: "#1a3a6b",
+        accent_color: "#00a8a8",
+        border_color: "rgba(26, 58, 107, 0.12)",
+        features: [
+          { title: "Fully Insured", icon: "✓" },
+          { title: "Local Engineers", icon: "✓" },
+          { title: "2-Hour Emergency", icon: "✓" },
+          { title: "Free Quotes", icon: "✓" },
+        ],
+      };
+    case "services":
+    case "services_grid":
+      return {
+        heading: "Plumbing Services We Cover",
+        label: "What We Do",
+        subheading: "From emergency call-outs to planned installations, delivered by trusted local professionals.",
+        section_bg: "#ffffff",
+        card_bg: "#ffffff",
+        heading_color: "#1a3a6b",
+        body_color: "#5a6a7e",
+        border_color: "rgba(26, 58, 107, 0.12)",
+        accent_color: "#00a8a8",
+        services: [
+          { title: "Emergency Plumbing", description: "Urgent leaks, burst pipes and no-water faults resolved quickly.", href: "/services" },
+          { title: "Boiler Repairs", description: "Fast diagnostics and repairs for boiler and heating issues.", href: "/services" },
+          { title: "Bathroom Plumbing", description: "Installations, upgrades and fixes for baths, showers and toilets.", href: "/services" },
+        ],
+      };
+    case "service_rates":
+      return {
+        eyebrow: "Rates",
+        title: "Typical Service Rates",
+        subtitle: "Clear starting prices for common plumbing jobs.",
+        variation: "cards",
+        note: "Final quote depends on access, complexity and parts required.",
+        rates: [
+          { service: "Emergency Leak Repair", price: "From £95", description: "Urgent leak diagnosis and immediate fix.", duration: "45-90 min", badge: "Popular" },
+          { service: "Drain Unblocking", price: "From £79", description: "Kitchen, bathroom and external drain clearance.", duration: "30-60 min" },
+          { service: "Boiler Pressure Fault", price: "From £110", description: "System checks and pressure issue resolution.", duration: "60-90 min" },
+          { service: "Toilet Repair", price: "From £85", description: "Flush, fill valve and leak repairs.", duration: "45-75 min" },
+        ],
+      };
+    case "process":
+    case "how_it_works":
+    case "steps":
+      return {
+        label: "How It Works",
+        heading: "Our Simple 4-Step Process",
+        section_bg: "#ffffff",
+        heading_color: "#1a3a6b",
+        body_color: "#5a6a7e",
+        border_color: "rgba(26, 58, 107, 0.12)",
+        accent_color: "#00a8a8",
+        steps: [
+          { title: "Call or Book Online", description: "Tell us what you need and choose your preferred contact method." },
+          { title: "Rapid Assessment", description: "We assess the issue and provide clear, upfront guidance." },
+          { title: "Expert Work", description: "Qualified engineers complete the work safely and efficiently." },
+          { title: "Aftercare", description: "We confirm everything is working and share aftercare advice." },
+        ],
+      };
+    case "testimonials":
+    case "reviews":
+      return {
+        label: "Reviews",
+        heading: "What Our Customers Say",
+        section_bg: "#f0f4f9",
+        card_bg: "#ffffff",
+        heading_color: "#1a3a6b",
+        body_color: "#5a6a7e",
+        border_color: "rgba(26, 58, 107, 0.12)",
+        star_color: "#f59e0b",
+        testimonials: [
+          { author_name: "Sarah M.", location: "Reading", rating: 5, body: "Fast response, tidy work and very fair pricing." },
+          { author_name: "James T.", location: "Caversham", rating: 5, body: "Excellent communication and the issue was fixed first visit." },
+          { author_name: "Priya L.", location: "Tilehurst", rating: 5, body: "Professional team, great advice and no hidden costs." },
+        ],
+      };
+    case "trust_badges":
+    case "accreditations":
+      return {
+        heading: "",
+        section_bg: "#f0f4f9",
+        card_bg: "#f0f4f9",
+        text_color: "#1a3a6b",
+        border_color: "rgba(26, 58, 107, 0.12)",
+        badges: [
+          { name: "Fully Insured" },
+          { name: "Local Engineers" },
+          { name: "Fast Response" },
+          { name: "Free Quotes" },
+        ],
+      };
+    case "cta":
+    case "cta_band":
+      return {
+        heading: "Need Plumbing Help Today?",
+        subheading: "Call now for fast local support or request a free quote online.",
+        cta_text: phone ? `Call Now: ${phone}` : "Call Now",
+        cta_url: phone ? `tel:${phone.replace(/\s+/g, "")}` : "#contact",
+        secondaryCtaLabel: "Request a Quote",
+        secondary_cta_url: "#contact",
+        background_color: "#1a3a6b",
+        text_color: "#ffffff",
+        primary_color: "#00a8a8",
+        primary_text_color: "#ffffff",
+        border_color: "rgba(255,255,255,0.3)",
+      };
+    case "contact":
+    case "contact_form":
+      return {
+        heading: "Request a Quote",
+        subheading: "Tell us a few details and we will get back to you quickly.",
+        email,
+        phone,
+      };
+    default:
+      return null;
+  }
+}
 
 type BlockRendererFn = (context: BlockRenderContext) => ReactElement | null;
 
@@ -110,6 +274,7 @@ const blockRegistry: Record<string, BlockRendererFn> = {
   cta_band: (context) => render(CtaBlock, context),
   services: (context) => render(ServicesBlock, context),
   services_grid: (context) => render(ServicesBlock, context),
+  service_rates: (context) => render(ServiceRatesBlock, context),
   service_detail: renderDetailSection,
   contact_form: (context) => render(ContactFormBlock, context),
   contact: (context) => render(ContactFormBlock, context),
@@ -186,8 +351,59 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   };
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
   const websiteOverride = websiteId ? { website_id: websiteId } : {};
-  const content = { ...base, ...companyBase, ...tenantOverride, ...websiteOverride, ...(block.content as Record<string, unknown>) };
+  const rawContent = (block.content as Record<string, unknown>) || {};
   const normalizedType = normalizeBlockType(block.block_type);
+  const templateSlug = String(site?.website?.template_slug || "").toLowerCase();
+  const hasMeaningfulContent = Object.keys(rawContent).length > 0;
+
+  const fallbackContent =
+    templateSlug === "local-plumbing-pro" && !hasMeaningfulContent
+      ? buildLocalPlumbingFallback(normalizedType, page?.slug, companyContact?.phone ?? undefined, companyContact?.email ?? undefined)
+      : null;
+
+  const content = {
+    ...base,
+    ...companyBase,
+    ...tenantOverride,
+    ...websiteOverride,
+    ...(fallbackContent || {}),
+    ...rawContent,
+    ...(templateSlug === "local-plumbing-pro" && normalizedType === "hero"
+      ? {
+          trust_items:
+            Array.isArray(rawContent.trust_items) && rawContent.trust_items.length > 0
+              ? rawContent.trust_items
+              : [
+                  { text: "Fully Insured", icon: "🛡" },
+                  { text: "Local Engineers", icon: "📍" },
+                  { text: "Fast Response", icon: "⚡" },
+                  { text: "Free Quotes", icon: "✓" },
+                ],
+        }
+      : {}),
+    ...(templateSlug === "local-plumbing-pro" && normalizedType === "features_bar"
+      ? {
+          heading: "",
+          subheading: "",
+          label: "",
+          layout_variant: "local-strip",
+          section_bg: "#eef3f8",
+          card_bg: "#eef3f8",
+          heading_color: "#1a3a6b",
+          text_color: "#1a3a6b",
+          accent_color: "#00a8a8",
+          border_color: "rgba(26, 58, 107, 0.14)",
+          features: [
+            { title: "Fully Insured", icon: "🛡" },
+            { title: "Local Engineers", icon: "📍" },
+            { title: "2-Hour Emergency", icon: "⚡" },
+            { title: "Free Quotes", icon: "✓" },
+            { title: "12-Month Guarantee", icon: "◎" },
+            { title: "Mon-Sat 7am-8pm", icon: "◷" },
+          ],
+        }
+      : {}),
+  };
   const renderer = blockRegistry[normalizedType];
 
   if (!renderer) {

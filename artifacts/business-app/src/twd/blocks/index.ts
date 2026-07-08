@@ -2,6 +2,7 @@ export * from './SiteHeaderBlock';
 export * from './HeroBlock';
 export * from './TrustBadgesBlock';
 export * from './ServicesGridBlock';
+export * from './ServiceRatesBlock';
 export * from './FeatureListBlock';
 export * from './AboutIntroBlock';
 export * from './ProcessStepsBlock';

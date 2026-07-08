@@ -19,6 +19,16 @@ export type ServiceItem = {
   href?: string;
 };
 
+export type ServiceRateItem = {
+  service: string;
+  price: string;
+  description?: string;
+  duration?: string;
+  badge?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+};
+
 export type FeatureItem = {
   title: string;
   description: string;

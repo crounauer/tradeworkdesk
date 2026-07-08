@@ -29,6 +29,7 @@ test("normalizeBlockType maps known aliases", () => {
   assert.equal(normalizeBlockType("pricing_table"), "feature_cards");
   assert.equal(normalizeBlockType("hero.standard"), "hero");
   assert.equal(normalizeBlockType("services.grid"), "services_grid");
+  assert.equal(normalizeBlockType("services.rates"), "service_rates");
   assert.equal(normalizeBlockType("trust.badges"), "trust_badges");
   assert.equal(normalizeBlockType("reviews.grid"), "reviews");
   assert.equal(normalizeBlockType("areas.grid"), "areas_grid");
@@ -40,6 +41,7 @@ test("hasBlockRendererForType detects supported and unsupported blocks", () => {
   assert.equal(hasBlockRendererForType("blog_cards"), true);
   assert.equal(hasBlockRendererForType("hero_centered"), true);
   assert.equal(hasBlockRendererForType("pricing_table"), true);
+  assert.equal(hasBlockRendererForType("services.rates"), true);
   assert.equal(hasBlockRendererForType("sticky_mobile_cta"), true);
   assert.equal(hasBlockRendererForType("unknown_block_type"), false);
 });

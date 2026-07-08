@@ -31,6 +31,7 @@ const liveToStorybook: Record<string, string> = {
   cta_band: "cta.banner",
   services: "services.grid",
   services_grid: "services.grid",
+  services_rates: "services.rates",
   service_detail: "about.intro",
   contact_form: "contact.split",
   contact: "contact.split",
@@ -62,6 +63,12 @@ const liveToStorybook: Record<string, string> = {
   spacer: "cta.banner",
   brands: "trust.badges",
   partners: "trust.badges",
+  amazon: "trust.badges",
+  "why.choose.us": "features.list",
+  "system.notfound": "system.404",
+  "online.booking": "contact.split",
+  "sticky.mobile.cta": "cta.banner",
+  "project.showcase": "gallery.grid",
 };
 
 export function normalizeLiveBlockType(blockType: string): string {
@@ -71,6 +78,8 @@ export function normalizeLiveBlockType(blockType: string): string {
 
 export function toStorybookBlockType(blockType: string): string {
   const raw = String(blockType || "").trim();
+  const normalizedRaw = raw.toLowerCase();
+  if (liveToStorybook[normalizedRaw]) return liveToStorybook[normalizedRaw] || "about.intro";
   if (raw.includes(".")) return raw;
   const normalized = normalizeLiveBlockType(raw);
   return liveToStorybook[normalized] || "about.intro";

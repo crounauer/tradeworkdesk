@@ -47,6 +47,8 @@ const DEFAULT_LAYOUTS: Record<string, string> = {
   hero_split: "standard",
   services: "grid",
   services_grid: "grid",
+  "services.rates": "cards",
+  services_rates: "cards",
   process: "timeline",
   testimonials: "grid",
   reviews: "grid",
@@ -76,6 +78,7 @@ const DEFAULT_PAGE_BLOCKS: Record<string, string[]> = {
     "spacer",
     "testimonials",
     "services.grid",
+    "services.rates",
     "process.steps",
     "amazon",
     "cta.banner",
@@ -85,6 +88,7 @@ const DEFAULT_PAGE_BLOCKS: Record<string, string[]> = {
     "site.header",
     "hero.standard",
     "services.grid",
+    "services.rates",
     "why.choose.us",
     "faq.accordion",
     "cta.banner",
@@ -94,6 +98,7 @@ const DEFAULT_PAGE_BLOCKS: Record<string, string[]> = {
     "site.header",
     "hero.standard",
     "features.list",
+    "services.rates",
     "process.steps",
     "cta.banner",
     "site.footer",
@@ -160,12 +165,14 @@ const DEFAULT_PAGE_BLOCKS: Record<string, string[]> = {
   ],
   legal: [
     "site.header",
+    "hero.standard",
     "legal.content",
     "faq.accordion",
     "site.footer",
   ],
   "404": [
     "site.header",
+    "hero.standard",
     "system.notFound",
     "cta.banner",
     "site.footer",
@@ -184,19 +191,21 @@ const BLOCK_PAGE_MAP: Record<string, Record<string, number>> = {
     "spacer": 4,
     "testimonials": 5,
     "services.grid": 6,
-    "process.steps": 7,
-    "amazon": 8,
-    "cta.banner": 9,
-    "site.footer": 10,
+    "services.rates": 7,
+    "process.steps": 8,
+    "amazon": 9,
+    "cta.banner": 10,
+    "site.footer": 11,
   },
   services: {
     "site.header": 0,
     "hero.standard": 1,
     "services.grid": 2,
-    "why.choose.us": 3,
-    "faq.accordion": 4,
-    "cta.banner": 5,
-    "site.footer": 6,
+    "services.rates": 3,
+    "why.choose.us": 4,
+    "faq.accordion": 5,
+    "cta.banner": 6,
+    "site.footer": 7,
   },
   // ... other pages
 };
@@ -251,6 +260,29 @@ export async function generateTemplateInstance(
     const blockMappingReport = conversion.block_mapping_report || {};
     const designTokens = conversion.design_tokens || {};
 
+    // Real block props extracted from the Figma design (Phase 1). Prefer the
+    // precomputed map; fall back to rebuilding it from the stored content.
+    let blockProps: Record<string, Record<string, unknown>> =
+      blockMappingReport.blockProps && typeof blockMappingReport.blockProps === "object"
+        ? (blockMappingReport.blockProps as Record<string, Record<string, unknown>>)
+        : {};
+    let pageBlockProps: Record<string, Record<string, Record<string, unknown>>> =
+      blockMappingReport.pageBlockProps && typeof blockMappingReport.pageBlockProps === "object"
+        ? (blockMappingReport.pageBlockProps as Record<string, Record<string, Record<string, unknown>>>)
+        : {};
+    if (Object.keys(blockProps).length === 0 && blockMappingReport.content) {
+      try {
+        const { buildBlockPropsMap, buildPageBlockPropsMap } = await import("./figma-content-mapping");
+        const allTypes = Array.from(
+          new Set(Object.values(DEFAULT_PAGE_BLOCKS).flat()),
+        );
+        blockProps = buildBlockPropsMap(blockMappingReport.content, allTypes);
+        pageBlockProps = buildPageBlockPropsMap(blockMappingReport.content, DEFAULT_PAGE_BLOCKS);
+      } catch (err) {
+        console.warn("[generateTemplateInstance] Could not rebuild block props:", err);
+      }
+    }
+
     // 2. Generate pages and blocks structure first (for demo_pages)
     // Use DEFAULT_PAGE_BLOCKS since blockMappingReport.pages is just an array of page names
     const generatedPages: GeneratedPage[] = [];
@@ -289,7 +321,8 @@ export async function generateTemplateInstance(
         if (!blockType) continue;
 
         const blockId = uuid();
-        const blockContent = applyDesignTokens(blockType, {}, designTokens);
+        const props = pageBlockProps?.[pageSlug]?.[blockType] || blockProps[blockType];
+        const blockContent = applyDesignTokens(blockType, props ? { props } : {}, designTokens);
 
         generatedBlocks.push({
           id: blockId,
@@ -313,28 +346,65 @@ export async function generateTemplateInstance(
       pageBlocksMap[pageId] = generatedBlocks;
     }
 
-    // 3. Create website_templates record with demo_pages
+    const cmsMappingJson = {
+      pages: Array.isArray(blockMappingReport.pages)
+        ? blockMappingReport.pages
+        : Object.keys(DEFAULT_PAGE_BLOCKS),
+      blocksPerPage:
+        blockMappingReport.blocksPerPage && typeof blockMappingReport.blocksPerPage === "object"
+          ? blockMappingReport.blocksPerPage
+          : Object.fromEntries(demoPagesData.map((p) => [p.slug, p.block_count])),
+      blockTypes: Array.isArray(blockMappingReport.blockTypes)
+        ? blockMappingReport.blockTypes
+        : Array.from(new Set(demoPagesData.flatMap((p) => p.block_types))),
+      blockProps,
+      pageBlockProps,
+    };
+    // 3. Create website_templates record with demo_pages.
+    // Some Supabase projects can briefly report schema-cache misses right after migrations.
     const templateId = uuid();
-    const { error: templateError } = await supabase
+    const baseTemplatePayload = {
+      id: templateId,
+      name: conversion.template_name,
+      slug: templateSlug,
+      description: conversion.template_description,
+      category: "imported",
+      version: 1,
+      theme_json: designTokens,
+      cms_mapping_json: cmsMappingJson,
+      default_theme: designTokens,
+      design_tokens: designTokens,
+      figma_export_info: {
+        figma_url: conversion.figma_url,
+        imported_at: new Date().toISOString(),
+        block_count: blockMappingReport.blockCount || 0,
+      },
+      is_active: true,
+      is_featured: false,
+      created_by: userId,
+    };
+
+    const { error: firstInsertError } = await supabase
       .from("website_templates")
       .insert({
-        id: templateId,
-        name: conversion.template_name,
-        slug: templateSlug,
-        description: conversion.template_description,
-        category: "imported",
-        version: 1,
-        design_tokens: designTokens,
+        ...baseTemplatePayload,
         demo_pages: demoPagesData,
-        figma_export_info: {
-          figma_url: conversion.figma_url,
-          imported_at: new Date().toISOString(),
-          block_count: blockMappingReport.blockCount || 0,
-        },
-        is_active: true,
-        is_featured: false,
-        created_by: userId,
       });
+
+    const isDemoPagesSchemaCacheError =
+      firstInsertError?.message?.includes("Could not find the 'demo_pages' column") ||
+      firstInsertError?.message?.includes("schema cache");
+
+    let templateError = firstInsertError;
+    if (templateError && isDemoPagesSchemaCacheError) {
+      console.warn(
+        "[generateTemplateInstance] demo_pages unavailable in schema cache; retrying insert without demo_pages"
+      );
+      const { error: retryInsertError } = await supabase
+        .from("website_templates")
+        .insert(baseTemplatePayload);
+      templateError = retryInsertError;
+    }
 
     if (templateError) {
       const errorMsg = `Failed to create template: ${templateError.message}. 

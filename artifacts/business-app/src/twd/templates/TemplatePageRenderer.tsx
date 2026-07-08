@@ -12,6 +12,7 @@ import {
   NotFoundBlock,
   ProcessStepsBlock,
   ReviewsBlock,
+  ServiceRatesBlock,
   ServicesGridBlock,
   SiteFooterBlock,
   SiteHeaderBlock,
@@ -29,6 +30,7 @@ import {
   type NotFoundBlockProps,
   type ProcessStepsBlockProps,
   type ReviewsBlockProps,
+  type ServiceRatesBlockProps,
   type ServicesGridBlockProps,
   type SiteFooterBlockProps,
   type SiteHeaderBlockProps,
@@ -65,6 +67,8 @@ export function TemplatePageRenderer({ page }: { page: TemplatePage }) {
             return <TrustBadgesBlock key={index} {...(blockProps as TrustBadgesBlockProps)} />;
           case 'services.grid':
             return <ServicesGridBlock key={index} {...(blockProps as ServicesGridBlockProps)} />;
+          case 'services.rates':
+            return <ServiceRatesBlock key={index} {...(blockProps as ServiceRatesBlockProps)} />;
           case 'features.list':
             return <FeatureListBlock key={index} {...(blockProps as FeatureListBlockProps)} />;
           case 'about.intro':
