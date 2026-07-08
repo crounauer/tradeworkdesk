@@ -47,7 +47,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ImagePickerField } from "@/components/image-picker-field";
 import { modernTradePages } from "@/twd/templates/modernTrade.pages";
-import { HeroBlock as HeroPreviewBlock } from "@/twd/blocks";
+import { HeroBlock as HeroPreviewBlock, SiteHeaderBlock as SiteHeaderPreviewBlock } from "@/twd/blocks";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
@@ -61,11 +61,13 @@ import {
 // ---------------------------------------------------------------------------
 
 type BlockType =
+  | "site.header"
   | "hero"
   | "text"
   | "image"
   | "cta"
   | "services"
+  | "service_rates"
   | "contact"
   | "contact_form"
   | "testimonials"
@@ -121,6 +123,31 @@ type BlockPaletteItem = {
 
 const BLOCK_PALETTE: BlockPaletteItem[] = [
   {
+    type: "site.header",
+    label: "Site Header",
+    icon: Globe,
+    description: "Logo, navigation, call-to-action and top info bar",
+    singleton: true,
+    defaultContent: {
+      logoText: "Your Business",
+      navItems: [
+        { label: "Home", href: "/" },
+        { label: "Services", href: "/services" },
+        { label: "Contact", href: "/contact" },
+      ],
+      phone: "01224 000000",
+      ctaLabel: "Book a visit",
+      ctaHref: "#contact",
+      scheduleText: "Mon-Sat 7am-8pm | Emergency 24/7",
+      locationText: "Reading & Surrounding Areas",
+      layout: "default",
+      headerStyle: "light",
+      tone: "default",
+      ctaStyle: "default",
+      variant: "figma",
+    },
+  },
+  {
     type: "hero",
     label: "Hero",
     icon: Star,
@@ -131,6 +158,7 @@ const BLOCK_PALETTE: BlockPaletteItem[] = [
       subheading: "Describe your business, service area and value proposition.",
       cta_text: "Get a Free Quote",
       cta_url: "/contact",
+      trustBadges: ["Fully Insured", "Local Engineers", "Fast Response", "Free Quotes"],
       hero_style: "default",
       variant: "default",
       layout: "full",
@@ -179,6 +207,23 @@ const BLOCK_PALETTE: BlockPaletteItem[] = [
         { title: "Emergency Repairs", description: "Fast response when your heating fails.", icon: "🚨" },
       ],
       layout_variant: "card-grid",
+    },
+  },
+  {
+    type: "service_rates",
+    label: "Service Rates",
+    icon: Grid3X3,
+    description: "Pricing cards/table for core services",
+    defaultContent: {
+      heading: "Typical Service Rates",
+      subheading: "Clear starting prices for common jobs.",
+      variation: "cards",
+      note: "Final quote depends on scope and parts.",
+      rates: [
+        { service: "Emergency call-out", price: "From £95", description: "Urgent diagnostics and first fix", duration: "45-90 min", badge: "Popular", ctaLabel: "Get quote", ctaHref: "/contact" },
+        { service: "Drain unblock", price: "From £79", description: "Kitchen, bathroom and external drains", duration: "30-60 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
+        { service: "Boiler pressure issue", price: "From £110", description: "System checks and safe reset", duration: "60-90 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
+      ],
     },
   },
   {
@@ -513,6 +558,7 @@ const TEMPLATE_BLOCK_TYPE_ALIASES: Record<string, string> = {
   "about.intro": "text",
   "trust.badges": "trust_badges",
   "services.grid": "services_grid",
+  "services.rates": "service_rates",
   "reviews.grid": "reviews",
   "areas.grid": "areas_grid",
   "gallery.grid": "gallery",
@@ -527,7 +573,7 @@ const TEMPLATE_BLOCK_TYPE_ALIASES: Record<string, string> = {
   "legal.content": "legal_content",
 };
 
-const TEMPLATE_SKIPPED_BLOCK_TYPES = new Set(["site.header"]);
+const TEMPLATE_SKIPPED_BLOCK_TYPES = new Set<string>([]);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -726,6 +772,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
   const t = String(blockType || "").toLowerCase();
 
   const known: BlockType[] = [
+    "site.header",
     "hero",
     "text",
     "image",
@@ -757,6 +804,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
   if (known.includes(t as BlockType)) return t as BlockType;
 
   if (t.includes("sticky_mobile_cta")) return "sticky_mobile_cta";
+  if (t === "site.header" || t.includes("site.header")) return "site.header";
   if (t.includes("hero")) return "hero";
   if (t.includes("text") || t.includes("intro")) return "text";
   if (t.includes("image")) return "image";
@@ -803,6 +851,150 @@ function BlockEditor({
   const set = (key: string, value: unknown) => onChange({ ...c, [key]: value });
 
   switch (editorType) {
+    case "site.header": {
+      const logoText = readString(c, ["logoText", "logo_text"], "Your Business");
+      const phone = readString(c, ["phone"]);
+      const ctaLabel = readString(c, ["ctaLabel", "cta_label"]);
+      const ctaHref = readString(c, ["ctaHref", "cta_href"], "#contact");
+      const layout = readString(c, ["layout"], "default");
+      const headerStyle = readString(c, ["headerStyle", "header_style"], "light");
+      const tone = readString(c, ["tone"], "default");
+      const ctaStyle = readString(c, ["ctaStyle", "cta_style"], "default");
+      const variant = readString(c, ["variant"], "default");
+      const scheduleText = readString(c, ["scheduleText", "schedule_text"]);
+      const locationText = readString(c, ["locationText", "location_text"]);
+      const navItems = readArray<{ label: string; href: string }>(c, ["navItems", "nav_items"]).map((item) => ({
+        label: String(item.label ?? ""),
+        href: String(item.href ?? ""),
+      }));
+      const updateNavItems = (next: Array<{ label: string; href: string }>) => {
+        onChange(syncBlockContent(c, { navItems: next, nav_items: next }, { navItems: ["nav_items"], nav_items: ["navItems"] }));
+      };
+      const isPreviewVisible = previewEnabled !== false;
+
+      return (
+        <div className="space-y-6">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] xl:min-h-0">
+            <div className="xl:min-h-0">
+              {isPreviewVisible ? (
+                <Card className="overflow-hidden border-border/70 shadow-xl xl:sticky xl:top-4 xl:max-h-[calc(100vh-8rem)] xl:min-h-0">
+                  <CardHeader className="border-b bg-muted/40 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="text-sm">Live Preview</CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(false)}>Hide preview</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 xl:h-[calc(100vh-11.5rem)] xl:overflow-y-auto">
+                    <SiteHeaderPreviewBlock
+                      logoText={logoText}
+                      navItems={navItems}
+                      phone={phone || undefined}
+                      ctaLabel={ctaLabel || undefined}
+                      ctaHref={ctaHref || undefined}
+                      layout={layout as "default" | "traditional"}
+                      headerStyle={headerStyle as "light" | "classic-dark"}
+                      tone={tone as "default" | "navy"}
+                      ctaStyle={ctaStyle as "default" | "amber-solid" | "outline-light"}
+                      variant={variant as "default" | "figma"}
+                      scheduleText={scheduleText || undefined}
+                      locationText={locationText || undefined}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="h-full rounded-lg border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">Preview hidden. Use the toggle below to bring it back.</div>
+              )}
+            </div>
+
+            <div className="xl:min-h-0">
+              <Card className="h-full border-border/70 shadow-sm xl:max-h-[calc(100vh-8rem)] xl:overflow-y-auto">
+                <CardHeader className="border-b bg-muted/20 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-sm">Site Header Settings</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => onTogglePreview?.(!isPreviewVisible)}>
+                      {isPreviewVisible ? "Hide preview" : "Show preview"}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 p-4">
+                  <FieldRow label="Logo Text"><Input value={logoText} onChange={(e) => set("logoText", e.target.value)} /></FieldRow>
+                  <FieldRow label="Schedule Text"><Input value={scheduleText} onChange={(e) => set("scheduleText", e.target.value)} placeholder="Mon-Sat 7am-8pm | Emergency 24/7" /></FieldRow>
+                  <FieldRow label="Location Text"><Input value={locationText} onChange={(e) => set("locationText", e.target.value)} placeholder="Reading & Surrounding Areas" /></FieldRow>
+                  <FieldRow label="Phone"><Input value={phone} onChange={(e) => set("phone", e.target.value)} placeholder="01234 567890" /></FieldRow>
+                  <FieldRow label="CTA Label"><Input value={ctaLabel} onChange={(e) => set("ctaLabel", e.target.value)} placeholder="Call Now" /></FieldRow>
+                  <FieldRow label="CTA URL"><Input value={ctaHref} onChange={(e) => set("ctaHref", e.target.value)} placeholder="#contact" /></FieldRow>
+                  <FieldRow label="Layout">
+                    <Select value={layout} onValueChange={(v) => set("layout", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="traditional">Traditional</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldRow>
+                  <FieldRow label="Header Style">
+                    <Select value={headerStyle} onValueChange={(v) => set("headerStyle", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="classic-dark">Classic Dark</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldRow>
+                  <FieldRow label="Tone">
+                    <Select value={tone} onValueChange={(v) => set("tone", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="navy">Navy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldRow>
+                  <FieldRow label="CTA Style">
+                    <Select value={ctaStyle} onValueChange={(v) => set("ctaStyle", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="amber-solid">Amber Solid</SelectItem>
+                        <SelectItem value="outline-light">Outline Light</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldRow>
+                  <FieldRow label="Variant">
+                    <Select value={variant} onValueChange={(v) => set("variant", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="figma">Figma</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldRow>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Navigation Items</Label>
+                    {navItems.map((item, i) => (
+                      <div key={i} className="rounded border p-3 space-y-2">
+                        <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                          <Input value={item.label} onChange={(e) => { const next = [...navItems]; next[i] = { ...next[i], label: e.target.value }; updateNavItems(next); }} placeholder="Home" />
+                          <Input value={item.href} onChange={(e) => { const next = [...navItems]; next[i] = { ...next[i], href: e.target.value }; updateNavItems(next); }} placeholder="/" />
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => updateNavItems(navItems.filter((_, j) => j !== i))}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => updateNavItems([...navItems, { label: "", href: "" }])}>
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Nav Item
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     case "hero": {
       const eyebrow = readString(c, ["eyebrow"]);
       const heading = readString(c, ["heading", "title"]);
@@ -819,6 +1011,7 @@ function BlockEditor({
       const heroPreviewSubtitle = subheading || "A short description of your services or offer.";
       const heroPreviewPrimary = primaryText || "Get a Free Quote";
       const heroPreviewSecondary = secondaryText || undefined;
+      const trustBadges = readArray<string>(c, ["trustBadges", "trust_badges"]);
       const isPreviewVisible = previewEnabled !== false;
 
       return (
@@ -852,6 +1045,7 @@ function BlockEditor({
                       secondaryCtaLabel={heroPreviewSecondary}
                       secondaryCtaHref={secondaryUrl || undefined}
                       phone={String(c.cta_phone ?? "") || undefined}
+                      trustBadges={trustBadges.length ? trustBadges : undefined}
                       backgroundImageUrl={backgroundImage || undefined}
                       heroImageUrl={heroImage || undefined}
                       backgroundColor={String(c.background_color ?? c.backgroundColor ?? backgroundColor)}
@@ -985,6 +1179,17 @@ function BlockEditor({
             <FieldRow label="Primary Button URL"><Input value={primaryUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
             <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
             <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
+            <FieldRow label="Trust Badges (one per line)">
+              <Textarea
+                value={trustBadges.join("\n")}
+                onChange={(e) => {
+                  const next = e.target.value.split("\n").map((item) => item.trim()).filter(Boolean);
+                  onChange(syncBlockContent(c, { trustBadges: next, trust_badges: next }, { trustBadges: ["trust_badges"], trust_badges: ["trustBadges"] }));
+                }}
+                rows={3}
+                placeholder={"Fully Insured\nLocal Engineers\nFast Response\nFree Quotes"}
+              />
+            </FieldRow>
             <ImagePickerField
               label="Background Image URL (full/centered layouts)"
               value={backgroundImage}
@@ -2506,7 +2711,9 @@ function BlockEditor({
 
     case "accreditations": {
       type BadgeItem = { name: string; logo_url: string; description?: string; number?: string };
-      const isTrustBadges = String(block.block_type || "").toLowerCase().includes("trust_badge");
+      const isTrustBadges = String(block.block_type || "").toLowerCase().includes("trust_badge")
+        || String(block.block_type || "").toLowerCase().includes("trust.badge")
+        || String(block.block_type || "").toLowerCase().includes("trust_bar");
       const sourceBadges = readArray<Record<string, unknown>>(c, ["badges", "items"]);
       const accs: BadgeItem[] = sourceBadges.map((item) => ({
         name: String(item.name ?? item.label ?? ""),
