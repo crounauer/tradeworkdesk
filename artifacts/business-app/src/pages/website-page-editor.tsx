@@ -778,6 +778,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
     "image",
     "cta",
     "services",
+    "service_rates",
     "contact",
     "contact_form",
     "testimonials",
@@ -803,6 +804,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
 
   if (known.includes(t as BlockType)) return t as BlockType;
 
+  if (t === "service_rates" || t === "services.rates" || t.includes("service_rate")) return "service_rates";
   if (t.includes("sticky_mobile_cta")) return "sticky_mobile_cta";
   if (t === "site.header" || t.includes("site.header")) return "site.header";
   if (t.includes("hero")) return "hero";
@@ -1990,6 +1992,94 @@ function BlockEditor({
             </FieldRow>
             <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
             <FieldRow label="Subheading"><Textarea value={subtitle} onChange={(e) => onChange(syncBlockContent(c, { subtitle: e.target.value, subheading: e.target.value }, { subtitle: ["subheading"], subheading: ["subtitle"] }))} rows={2} /></FieldRow>
+          </div>
+        </div>
+      );
+    }
+
+    case "service_rates": {
+      const defaultRates = [
+        { service: "Emergency call-out", price: "From £95", description: "Urgent diagnostics and first fix", duration: "45-90 min", badge: "Popular", ctaLabel: "Get quote", ctaHref: "/contact" },
+        { service: "Drain unblock", price: "From £79", description: "Kitchen, bathroom and external drains", duration: "30-60 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
+        { service: "Boiler pressure issue", price: "From £110", description: "System checks and safe reset", duration: "60-90 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
+      ];
+      const heading = readString(c, ["heading", "title"], "Typical Service Rates");
+      const subheading = readString(c, ["subheading", "subtitle"], "Clear starting prices for common jobs.");
+      const label = readString(c, ["label", "eyebrow"], "Rates");
+      const note = readString(c, ["note"], "Final quote depends on scope and parts.");
+      const variation = readString(c, ["variation", "layout_variant", "layout"], "cards");
+      const rates = readArray<{
+        service: string;
+        price: string;
+        description?: string;
+        duration?: string;
+        badge?: string;
+        ctaLabel?: string;
+        ctaHref?: string;
+      }>(c, ["rates", "items"]);
+      const effectiveRates = rates.length > 0 ? rates : defaultRates;
+      const updateRates = (next: typeof effectiveRates) => {
+        onChange({ ...c, rates: next, items: next });
+      };
+
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)">
+            <Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} />
+          </FieldRow>
+          <FieldRow label="Section Heading">
+            <Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} />
+          </FieldRow>
+          <FieldRow label="Subheading">
+            <Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} />
+          </FieldRow>
+          <FieldRow label="Variation">
+            <Select value={variation} onValueChange={(v) => onChange(syncBlockContent(c, { variation: v, layout_variant: v, layout: v }, { variation: ["layout_variant", "layout"], layout_variant: ["variation", "layout"], layout: ["variation", "layout_variant"] }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cards">Cards</SelectItem>
+                <SelectItem value="table">Table</SelectItem>
+                <SelectItem value="split">Split</SelectItem>
+                <SelectItem value="compact">Compact</SelectItem>
+              </SelectContent>
+            </Select>
+          </FieldRow>
+          <FieldRow label="Footer Note (optional)">
+            <Input value={note} onChange={(e) => set("note", e.target.value)} placeholder="Final quote depends on scope and parts." />
+          </FieldRow>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Rate Items</Label>
+              {rates.length === 0 ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => updateRates(defaultRates)}>
+                  Use default rates
+                </Button>
+              ) : null}
+            </div>
+            {effectiveRates.map((rate, i) => (
+              <Card key={i} className="p-3 space-y-2">
+                <div className="grid gap-2 md:grid-cols-[2fr_1fr_auto]">
+                  <Input value={rate.service} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], service: e.target.value }; updateRates(n); }} placeholder="Service name" />
+                  <Input value={rate.price} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], price: e.target.value }; updateRates(n); }} placeholder="From £95" />
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => updateRates(effectiveRates.filter((_, j) => j !== i))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <Textarea value={String(rate.description ?? "")} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], description: e.target.value }; updateRates(n); }} placeholder="Short description" rows={2} />
+                <div className="grid gap-2 md:grid-cols-2">
+                  <Input value={String(rate.duration ?? "")} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], duration: e.target.value }; updateRates(n); }} placeholder="45-90 min" />
+                  <Input value={String(rate.badge ?? "")} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], badge: e.target.value }; updateRates(n); }} placeholder="Popular (optional)" />
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <Input value={String(rate.ctaLabel ?? "")} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], ctaLabel: e.target.value }; updateRates(n); }} placeholder="Get quote" />
+                  <Input value={String(rate.ctaHref ?? "")} onChange={(e) => { const n = [...effectiveRates]; n[i] = { ...n[i], ctaHref: e.target.value }; updateRates(n); }} placeholder="/contact" />
+                </div>
+              </Card>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => updateRates([...effectiveRates, { service: "", price: "", description: "", duration: "", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" }])}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Rate
+            </Button>
           </div>
         </div>
       );
