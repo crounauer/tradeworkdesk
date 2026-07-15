@@ -219,11 +219,7 @@ const BLOCK_PALETTE: BlockPaletteItem[] = [
       subheading: "Clear starting prices for common jobs.",
       variation: "cards",
       note: "Final quote depends on scope and parts.",
-      rates: [
-        { service: "Emergency call-out", price: "From £95", description: "Urgent diagnostics and first fix", duration: "45-90 min", badge: "Popular", ctaLabel: "Get quote", ctaHref: "/contact" },
-        { service: "Drain unblock", price: "From £79", description: "Kitchen, bathroom and external drains", duration: "30-60 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
-        { service: "Boiler pressure issue", price: "From £110", description: "System checks and safe reset", duration: "60-90 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
-      ],
+      rates: [],
     },
   },
   {
@@ -1998,11 +1994,6 @@ function BlockEditor({
     }
 
     case "service_rates": {
-      const defaultRates = [
-        { service: "Emergency call-out", price: "From £95", description: "Urgent diagnostics and first fix", duration: "45-90 min", badge: "Popular", ctaLabel: "Get quote", ctaHref: "/contact" },
-        { service: "Drain unblock", price: "From £79", description: "Kitchen, bathroom and external drains", duration: "30-60 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
-        { service: "Boiler pressure issue", price: "From £110", description: "System checks and safe reset", duration: "60-90 min", badge: "", ctaLabel: "Get quote", ctaHref: "/contact" },
-      ];
       const heading = readString(c, ["heading", "title"], "Typical Service Rates");
       const subheading = readString(c, ["subheading", "subtitle"], "Clear starting prices for common jobs.");
       const label = readString(c, ["label", "eyebrow"], "Rates");
@@ -2017,7 +2008,7 @@ function BlockEditor({
         ctaLabel?: string;
         ctaHref?: string;
       }>(c, ["rates", "items"]);
-      const effectiveRates = rates.length > 0 ? rates : defaultRates;
+      const effectiveRates = rates;
       const updateRates = (next: typeof effectiveRates) => {
         onChange({ ...c, rates: next, items: next });
       };
@@ -2061,12 +2052,10 @@ function BlockEditor({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Rate Items</Label>
-              {rates.length === 0 ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => updateRates(defaultRates)}>
-                  Use default rates
-                </Button>
-              ) : null}
             </div>
+            {effectiveRates.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No manual rates added yet. Add rates here only if you do not want to source them from Service Catalogue.</p>
+            ) : null}
             {effectiveRates.map((rate, i) => (
               <Card key={i} className="p-3 space-y-2">
                 <div className="grid gap-2 md:grid-cols-[2fr_1fr_auto]">

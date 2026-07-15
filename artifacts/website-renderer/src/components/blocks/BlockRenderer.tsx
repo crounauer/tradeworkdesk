@@ -130,12 +130,7 @@ function buildLocalPlumbingFallback(
         subtitle: "Clear starting prices for common plumbing jobs.",
         variation: "cards",
         note: "Final quote depends on access, complexity and parts required.",
-        rates: [
-          { service: "Emergency Leak Repair", price: "From £95", description: "Urgent leak diagnosis and immediate fix.", duration: "45-90 min", badge: "Popular" },
-          { service: "Drain Unblocking", price: "From £79", description: "Kitchen, bathroom and external drain clearance.", duration: "30-60 min" },
-          { service: "Boiler Pressure Fault", price: "From £110", description: "System checks and pressure issue resolution.", duration: "60-90 min" },
-          { service: "Toilet Repair", price: "From £85", description: "Flush, fill valve and leak repairs.", duration: "45-75 min" },
-        ],
+        rates: [],
       };
     case "process":
     case "how_it_works":
