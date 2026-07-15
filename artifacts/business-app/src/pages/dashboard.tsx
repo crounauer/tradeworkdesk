@@ -538,9 +538,9 @@ export default function Dashboard() {
       <Dialog open={showEssentialSetupPrompt} onOpenChange={setShowEssentialSetupPrompt}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Get Set Up in 5 Minutes</DialogTitle>
+            <DialogTitle>Complete Your Essential Setup</DialogTitle>
             <DialogDescription>
-              Complete a quick setup so services, team assignment and job-sheet options are ready before your first live job.
+              Follow the setup guide to configure services, team assignment and job-sheet options before your first live job.
             </DialogDescription>
           </DialogHeader>
           <div className="text-sm text-muted-foreground space-y-1">
@@ -566,7 +566,7 @@ export default function Dashboard() {
                 navigate("/getting-started");
               }}
             >
-              Start setup
+              Open setup guide
             </Button>
           </DialogFooter>
         </DialogContent>
