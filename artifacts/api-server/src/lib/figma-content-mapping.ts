@@ -70,7 +70,6 @@ function pageLabel(pageSlug: string): string {
  */
 export function buildBlockProps(rawBlockType: string, content: FigmaContent): Props | null {
   const type = rawBlockType.toLowerCase();
-  const fallbackRates = ["From £79", "From £95", "From £120", "From £180", "From £240"];
 
   switch (type) {
     case "site.header":
@@ -156,23 +155,14 @@ export function buildBlockProps(rawBlockType: string, content: FigmaContent): Pr
     }
 
     case "services.rates": {
-      if (content.services.length === 0) return null;
       return {
         eyebrow: "Rates",
         title: "Transparent Service Rates",
-        subtitle: "Typical starting prices for common jobs. Final quote depends on scope and parts.",
+        subtitle: "Show service pricing from Service Catalogue, or add manual rates in the website editor.",
         note: "VAT included where applicable. Emergency and out-of-hours call-outs may vary.",
         variation: "cards",
         background: "light",
-        rates: content.services.slice(0, 6).map((s, index) => ({
-          service: s.title,
-          price: fallbackRates[index % fallbackRates.length],
-          description: s.description,
-          duration: index % 2 === 0 ? "45-90 min" : "1-2 hrs",
-          badge: index === 0 ? "Popular" : "",
-          ctaLabel: "Get quote",
-          ctaHref: s.slug ? `/services/${s.slug}` : "/contact",
-        })),
+        rates: [],
       };
     }
 
