@@ -1010,6 +1010,12 @@ function BlockEditor({
       const heroPreviewPrimary = primaryText || "Get a Free Quote";
       const heroPreviewSecondary = secondaryText || undefined;
       const trustBadges = readArray<string>(c, ["trustBadges", "trust_badges"]);
+      const trustItems = readArray<{ text?: string; icon?: string }>(c, ["trust_items"])
+        .map((item) => ({ text: String(item.text || ""), icon: String(item.icon || "✓") }))
+        .filter((item) => item.text.trim().length > 0);
+      const previewTrustBadges = trustItems.length > 0
+        ? trustItems.map((item) => `${item.icon || "✓"} ${item.text}`.trim())
+        : trustBadges;
       const isPreviewVisible = previewEnabled !== false;
 
       return (
@@ -1043,7 +1049,7 @@ function BlockEditor({
                       secondaryCtaLabel={heroPreviewSecondary}
                       secondaryCtaHref={secondaryUrl || undefined}
                       phone={String(c.cta_phone ?? "") || undefined}
-                      trustBadges={trustBadges.length ? trustBadges : undefined}
+                      trustBadges={previewTrustBadges.length ? previewTrustBadges : undefined}
                       backgroundImageUrl={backgroundImage || undefined}
                       heroImageUrl={heroImage || undefined}
                       backgroundColor={String(c.background_color ?? c.backgroundColor ?? backgroundColor)}
@@ -1177,7 +1183,50 @@ function BlockEditor({
             <FieldRow label="Primary Button URL"><Input value={primaryUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
             <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
             <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
-            <FieldRow label="Trust Badges (one per line)">
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Trust Items (icon + text)</Label>
+              {trustItems.map((item, i) => (
+                <div key={i} className="grid gap-2 md:grid-cols-[90px_1fr_auto]">
+                  <Input
+                    value={item.icon || ""}
+                    onChange={(e) => {
+                      const next = [...trustItems];
+                      next[i] = { ...next[i], icon: e.target.value || "✓" };
+                      onChange({ ...c, trust_items: next });
+                    }}
+                    placeholder="✓"
+                  />
+                  <Input
+                    value={item.text}
+                    onChange={(e) => {
+                      const next = [...trustItems];
+                      next[i] = { ...next[i], text: e.target.value };
+                      onChange({ ...c, trust_items: next });
+                    }}
+                    placeholder="Fully Insured"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive"
+                    onClick={() => onChange({ ...c, trust_items: trustItems.filter((_, j) => j !== i) })}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onChange({ ...c, trust_items: [...trustItems, { icon: "✓", text: "" }] })}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Trust Item
+              </Button>
+            </div>
+
+            <FieldRow label="Trust Badges (legacy, one per line)">
               <Textarea
                 value={trustBadges.join("\n")}
                 onChange={(e) => {

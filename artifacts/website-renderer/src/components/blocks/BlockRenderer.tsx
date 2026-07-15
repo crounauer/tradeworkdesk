@@ -383,24 +383,32 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
       : {}),
     ...(templateSlug === "local-plumbing-pro" && normalizedType === "features_bar"
       ? {
-          heading: "",
-          subheading: "",
-          label: "",
-          layout_variant: "local-strip",
-          section_bg: "#eef3f8",
-          card_bg: "#eef3f8",
-          heading_color: "#1a3a6b",
-          text_color: "#1a3a6b",
-          accent_color: "#00a8a8",
-          border_color: "rgba(26, 58, 107, 0.14)",
-          features: [
-            { title: "Fully Insured", icon: "🛡" },
-            { title: "Local Engineers", icon: "📍" },
-            { title: "2-Hour Emergency", icon: "⚡" },
-            { title: "Free Quotes", icon: "✓" },
-            { title: "12-Month Guarantee", icon: "◎" },
-            { title: "Mon-Sat 7am-8pm", icon: "◷" },
-          ],
+          heading: typeof rawContent.heading === "string" ? rawContent.heading : "",
+          subheading: typeof rawContent.subheading === "string" ? rawContent.subheading : "",
+          label: typeof rawContent.label === "string" ? rawContent.label : "",
+          layout_variant:
+            typeof rawContent.layout_variant === "string"
+              ? rawContent.layout_variant
+              : (typeof rawContent.layout === "string" ? rawContent.layout : "local-strip"),
+          section_bg: typeof rawContent.section_bg === "string" ? rawContent.section_bg : "#eef3f8",
+          card_bg: typeof rawContent.card_bg === "string" ? rawContent.card_bg : "#eef3f8",
+          heading_color: typeof rawContent.heading_color === "string" ? rawContent.heading_color : "#1a3a6b",
+          text_color: typeof rawContent.text_color === "string" ? rawContent.text_color : "#1a3a6b",
+          accent_color: typeof rawContent.accent_color === "string" ? rawContent.accent_color : "#00a8a8",
+          border_color: typeof rawContent.border_color === "string" ? rawContent.border_color : "rgba(26, 58, 107, 0.14)",
+          features:
+            Array.isArray(rawContent.features) && rawContent.features.length > 0
+              ? rawContent.features
+              : (Array.isArray(rawContent.items) && rawContent.items.length > 0
+                ? rawContent.items
+              : [
+                  { title: "Fully Insured", icon: "🛡" },
+                  { title: "Local Engineers", icon: "📍" },
+                  { title: "2-Hour Emergency", icon: "⚡" },
+                  { title: "Free Quotes", icon: "✓" },
+                  { title: "12-Month Guarantee", icon: "◎" },
+                  { title: "Mon-Sat 7am-8pm", icon: "◷" },
+                ]),
         }
       : {}),
     ...(normalizedType === "service_rates" && Array.isArray(site?.service_catalogue) && site.service_catalogue.length > 0

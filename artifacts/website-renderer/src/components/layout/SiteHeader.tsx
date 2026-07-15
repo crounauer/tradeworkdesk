@@ -21,6 +21,7 @@ interface Props {
   logoUrl: string | null;
   pages: SitePage[];
   theme: Record<string, unknown>;
+  headerContent?: Record<string, unknown> | null;
   templateSlug?: string;
   company?: CompanyInfo | null;
   basePath?: string;
@@ -28,7 +29,16 @@ interface Props {
   showTopBar?: boolean;
 }
 
-export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSlug, company, basePath, previewToken, showTopBar = true }: Props) {
+function readHeaderString(content: Record<string, unknown> | null | undefined, keys: string[], fallback = ""): string {
+  if (!content) return fallback;
+  for (const key of keys) {
+    const value = content[key];
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+  return fallback;
+}
+
+export default function SiteHeader({ siteName, logoUrl, pages, theme, headerContent, templateSlug, company, basePath, previewToken, showTopBar = true }: Props) {
   const isModernTrade = String(templateSlug || "").toLowerCase() === "modern-trade";
   const isLocalPlumbingPro = String(templateSlug || "").toLowerCase() === "local-plumbing-pro";
   const normalizedTheme = resolveSiteTheme(theme, templateSlug);
@@ -50,6 +60,11 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSl
   const homeHref = basePath ? (previewToken ? `${basePath}?token=${previewToken}` : basePath) : "/";
   const contactPage = pages.find((p) => p.page_type === "contact" || p.slug?.includes("contact"));
   const ctaHref = contactPage ? pageHref(contactPage) : (basePath ? `${basePath}?page=contact` : "/contact");
+  const headerPhone = readHeaderString(headerContent, ["phone", "header_phone"], company?.phone || "");
+  const headerCtaLabel = readHeaderString(headerContent, ["ctaLabel", "cta_label"], "Call Now");
+  const headerCtaHref = readHeaderString(headerContent, ["ctaHref", "cta_url", "cta_href"], ctaHref);
+  const topBarScheduleText = readHeaderString(headerContent, ["scheduleText", "schedule_text"], "Mon-Sat 7am-8pm | Emergency 24/7");
+  const topBarLocationText = readHeaderString(headerContent, ["locationText", "location_text"], "Reading & Surrounding Areas");
 
   // Slightly darker shade for top bar
   const topBarBg = navBg + "dd";
@@ -81,13 +96,13 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSl
         <div style={{ backgroundColor: topBarBg, color: topBarText, borderBottom: "1px solid rgba(26,58,107,0.12)" }}>
           <div style={{ maxWidth: 1280, margin: "0 auto", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: "14px", lineHeight: "20px", fontWeight: 400 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 24, color: "rgba(26,58,107,0.82)" }}>
-              <span>Mon-Sat 7am-8pm | Emergency 24/7</span>
-              <span>Reading & Surrounding Areas</span>
+              {topBarScheduleText ? <span>{topBarScheduleText}</span> : null}
+              {topBarLocationText ? <span>{topBarLocationText}</span> : null}
             </div>
             <div style={{ color: "#00A8A8", fontWeight: 700 }}>
-              {company?.phone ? (
-                <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none", fontWeight: "inherit" }}>
-                  {company.phone}
+              {headerPhone ? (
+                <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none", fontWeight: "inherit" }}>
+                  {headerPhone}
                 </a>
               ) : null}
             </div>
@@ -118,8 +133,8 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSl
             </nav>
 
             <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
-              <a href={ctaHref} style={{ padding: "8px 16px", backgroundColor: ctaBg, color: "#ffffff", borderRadius: 10, textDecoration: "none", fontWeight: 700, fontSize: "0.875rem", border: `1px solid ${ctaBorder}` }}>
-                Call Now
+              <a href={headerCtaHref} style={{ padding: "8px 16px", backgroundColor: ctaBg, color: "#ffffff", borderRadius: 10, textDecoration: "none", fontWeight: 700, fontSize: "0.875rem", border: `1px solid ${ctaBorder}` }}>
+                {headerCtaLabel}
               </a>
             </div>
 
@@ -143,8 +158,8 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSl
                 </li>
               ))}
               <li style={{ padding: "12px 24px" }}>
-                <a href={ctaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: "#fff", borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
-                  Call Now
+                <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: "#fff", borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
+                  {headerCtaLabel}
                 </a>
               </li>
             </ul>
@@ -224,13 +239,13 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSl
 
           {/* Phone + CTA */}
           <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
-            {company?.phone && (
-              <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: navText, textDecoration: "none", fontWeight: 600, fontSize: "0.875rem", whiteSpace: "nowrap", opacity: 0.9 }}>
-                {company.phone}
+            {headerPhone && (
+              <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: navText, textDecoration: "none", fontWeight: 600, fontSize: "0.875rem", whiteSpace: "nowrap", opacity: 0.9 }}>
+                {headerPhone}
               </a>
             )}
-            <a href={ctaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: isModernTrade ? "#0f172a" : "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
-              Request a Quote
+            <a href={headerCtaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: isModernTrade ? "#0f172a" : "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
+              {headerCtaLabel}
             </a>
           </div>
 
@@ -255,16 +270,16 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, templateSl
                 </Link>
               </li>
             ))}
-            {company?.phone && (
+            {headerPhone && (
               <li style={{ padding: "12px 24px" }}>
-                <a href={`tel:${company.phone.replace(/\s/g, "")}`} style={{ color: accent, fontWeight: 700, textDecoration: "none", fontSize: "1.125rem" }}>
-                  📞 {company.phone}
+                <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: accent, fontWeight: 700, textDecoration: "none", fontSize: "1.125rem" }}>
+                  📞 {headerPhone}
                 </a>
               </li>
             )}
             <li style={{ padding: "12px 24px" }}>
-              <a href={ctaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600 }}>
-                Request a Quote
+              <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600 }}>
+                {headerCtaLabel}
               </a>
             </li>
           </ul>
