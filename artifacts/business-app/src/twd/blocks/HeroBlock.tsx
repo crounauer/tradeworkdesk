@@ -15,6 +15,7 @@ export type HeroBlockProps = {
   secondaryCtaHref?: string;
   phone?: string;
   backgroundImageUrl?: string;
+  backgroundCss?: string;
   heroImageUrl?: string;
   backgroundColor?: string;
   textColor?: string;
@@ -53,6 +54,7 @@ export type HeroBlockProps = {
   cardBackgroundColor?: string;
   cardBorderColor?: string;
   cardShadow?: string;
+  trustBadges?: string[];
 };
 
 function resolveSize(value: string | number | undefined, fallback: string): string {
@@ -82,6 +84,7 @@ export function HeroBlock({
   secondaryCtaHref,
   phone,
   backgroundImageUrl,
+  backgroundCss,
   heroImageUrl,
   backgroundColor,
   textColor,
@@ -120,6 +123,7 @@ export function HeroBlock({
   cardBackgroundColor,
   cardBorderColor,
   cardShadow,
+  trustBadges,
 }: HeroBlockProps) {
   const isSplit = layout === 'split';
   const isCentered = layout === 'centered';
@@ -137,6 +141,7 @@ export function HeroBlock({
     ?? (isClassic || isNavyTone ? '#f8fafc' : undefined)
     ?? (isSplit ? '#111827' : '#ffffff');
   const hasBackgroundImage = Boolean(backgroundImageUrl && !isSplit);
+  const explicitBackground = typeof backgroundCss === 'string' && backgroundCss.trim() ? backgroundCss.trim() : undefined;
   const sectionPaddingClass = density === 'compact' ? 'py-14' : density === 'comfortable' ? 'py-24' : 'py-20';
   const eyebrowClassName = isClassic ? 'mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-amber-300' : 'mb-4 text-sm font-semibold uppercase tracking-wide text-amber-400';
   const primaryCtaClassName = isClassic
@@ -232,9 +237,12 @@ export function HeroBlock({
     <section
       className="text-white"
       style={{
+        background: explicitBackground,
+        // Keep a solid fallback so the hero never renders as a white panel
+        // if a complex background shorthand is rejected by the browser.
         backgroundColor: bgColor,
         color: fgColor,
-        backgroundImage: hasBackgroundImage ? `linear-gradient(${overlay}, ${overlay}), url(${backgroundImageUrl})` : undefined,
+        backgroundImage: explicitBackground ? undefined : hasBackgroundImage ? `linear-gradient(${overlay}, ${overlay}), url(${backgroundImageUrl})` : undefined,
         backgroundSize: hasBackgroundImage ? 'cover' : undefined,
         backgroundPosition: hasBackgroundImage ? 'center' : undefined,
         backgroundRepeat: hasBackgroundImage ? 'no-repeat' : undefined,
@@ -250,9 +258,11 @@ export function HeroBlock({
         {layout === 'split' ? (
           <div className="grid md:grid-cols-2 md:items-center" style={{ gap: contentGap }}>
             <div className={isCentered ? 'text-center' : 'text-left'}>
-              <p className={eyebrowClassName}>
-                <span style={eyebrowStyle}>{eyebrow}</span>
-              </p>
+              {eyebrow ? (
+                <p className={eyebrowClassName}>
+                  <span style={eyebrowStyle}>{eyebrow}</span>
+                </p>
+              ) : null}
               {renderHeading()}
               <p className="mt-6 max-w-xl" style={subheadingStyle}>
                 {subtitle}
@@ -286,9 +296,11 @@ export function HeroBlock({
           </div>
         ) : (
           <div className={isCentered ? 'mx-auto max-w-4xl text-center' : 'max-w-4xl'}>
-            <p className={eyebrowClassName}>
-              <span style={eyebrowStyle}>{eyebrow}</span>
-            </p>
+            {eyebrow ? (
+              <p className={eyebrowClassName}>
+                <span style={eyebrowStyle}>{eyebrow}</span>
+              </p>
+            ) : null}
             {renderHeading()}
             <p className="mt-6 max-w-2xl" style={subheadingStyle}>
               {subtitle}
@@ -303,6 +315,15 @@ export function HeroBlock({
                 </a>
               ) : null}
             </div>
+            {trustBadges && trustBadges.length > 0 ? (
+              <div className={`mt-8 flex flex-wrap gap-3 ${isCentered ? 'justify-center' : 'justify-start'}`}>
+                {trustBadges.map((badge) => (
+                  <span key={badge} className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white">
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             {phone ? (
               <p className="mt-6 text-sm" style={{ color: isSplit ? '#6b7280' : '#cbd5e1' }}>
                 Prefer to call? <span className="font-semibold" style={{ color: fgColor }}>{phone}</span>

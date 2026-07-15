@@ -120,6 +120,7 @@ export default function JobDetail() {
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const [showRebook, setShowRebook] = useState(false);
+  const [hasRebookBeenUsedLocal, setHasRebookBeenUsedLocal] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
   const [downloadingCp12, setDownloadingCp12] = useState(false);
@@ -139,6 +140,10 @@ export default function JobDetail() {
       });
     }
   }, [isOnline, onlineJob, isLoading, id]);
+
+  useEffect(() => {
+    setHasRebookBeenUsedLocal(false);
+  }, [id]);
   const effectiveJob = onlineJob || cachedJob;
   const isFromCache = !onlineJob && !!cachedJob;
   const job = effectiveJob ? (effectiveJob as unknown as JobDetailType) : null;
@@ -326,6 +331,7 @@ export default function JobDetail() {
     },
     staleTime: 60_000,
   });
+  const hasRebookBeenUsed = hasYearRebookScheduled || hasRebookBeenUsedLocal;
 
   const { data: followUpSummary } = useQuery({
     queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""],
@@ -472,8 +478,8 @@ export default function JobDetail() {
               onClick={() => setShowRebook(true)}
               disabled={!isOnline}
             >
-              {hasYearRebookScheduled ? <CheckCircle2 className="w-4 h-4 mr-2 text-white" /> : <Copy className="w-4 h-4 mr-2" />}
-              {hasYearRebookScheduled ? "Rebooked (1yr)" : "Rebook (1yr)"}
+              {hasRebookBeenUsed ? <CheckCircle2 className="w-4 h-4 mr-2 text-white" /> : <Copy className="w-4 h-4 mr-2" />}
+              {hasRebookBeenUsed ? "Rebooked (1yr)" : "Rebook (1yr)"}
             </Button>
           )}
           {isAdmin && (
@@ -649,6 +655,7 @@ export default function JobDetail() {
                   jobId={job.id}
                   originalDate={String(job.scheduled_date).slice(0, 10)}
                   originalTime={job.scheduled_time ? String(job.scheduled_time) : null}
+                  onRebooked={() => setHasRebookBeenUsedLocal(true)}
                 />
               )}
             </Card>

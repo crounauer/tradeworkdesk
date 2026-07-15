@@ -10,6 +10,9 @@ export type SiteHeaderBlockProps = {
   headerStyle?: 'light' | 'classic-dark';
   tone?: 'default' | 'navy';
   ctaStyle?: 'default' | 'amber-solid' | 'outline-light';
+  variant?: 'default' | 'figma';
+  scheduleText?: string;
+  locationText?: string;
 };
 
 export function SiteHeaderBlock({
@@ -22,6 +25,9 @@ export function SiteHeaderBlock({
   headerStyle = 'light',
   tone = 'default',
   ctaStyle = 'default',
+  variant = 'default',
+  scheduleText,
+  locationText,
 }: SiteHeaderBlockProps) {
   const isClassicDark = headerStyle === 'classic-dark' || tone === 'navy';
   const isTraditional = layout === 'traditional';
@@ -42,9 +48,90 @@ export function SiteHeaderBlock({
       ? 'rounded-sm bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950'
       : 'rounded-md bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950';
 
+  if (variant === 'figma') {
+    return (
+      <header className="border-b border-slate-200 bg-white">
+        <div className="bg-[rgba(15,31,61,0.95)] text-white">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-2 text-xs font-medium lg:px-8">
+            <div className="flex items-center gap-4 text-white/90">
+              {scheduleText ? <span>{scheduleText}</span> : null}
+              {locationText ? <span>{locationText}</span> : null}
+            </div>
+            {phone ? (
+              <a href={'tel:' + phone.replace(/\s+/g, '')} className="font-bold text-white">
+                {phone}
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <a href="/" className="text-2xl font-extrabold tracking-tight text-slate-950">
+            {logoText}
+          </a>
+
+          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-slate-700">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="hover:text-slate-950">
+                {item.label}
+              </a>
+            ))}
+          </nav>
+
+          {ctaLabel ? (
+            <a
+              href={ctaHref}
+              className="rounded-[10px] border border-[rgba(26,58,107,0.12)] bg-[#00a8a8] px-4 py-2 text-[14px] font-bold leading-5 text-white hover:brightness-95"
+            >
+              {ctaLabel}
+            </a>
+          ) : null}
+        </div>
+      </header>
+    );
+  }
+
+  if (isTraditional) {
+    return (
+      <header className={headerClassName}>
+        <div className="mx-auto max-w-7xl px-6 py-4 lg:px-8">
+          <div className="flex flex-col gap-4 lg:gap-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <a href="/" className={logoClassName}>
+                {logoText}
+              </a>
+
+              <div className="flex flex-wrap items-center gap-4">
+                {phone ? (
+                  <a href={'tel:' + phone} className={phoneClassName}>
+                    {phone}
+                  </a>
+                ) : null}
+
+                {ctaLabel ? (
+                  <a href={ctaHref} className={ctaClassName}>
+                    {ctaLabel}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+
+            <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-200 pt-3 text-sm font-medium text-slate-700">
+              {navItems.map((item) => (
+                <a key={item.href} href={item.href} className={navHoverClassName}>
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className={headerClassName}>
-      <div className={`mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:px-8 ${isTraditional ? 'lg:flex-row lg:items-center lg:justify-between' : 'lg:flex-row lg:items-center lg:justify-between'}`}>
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="flex items-center justify-between gap-6">
           <a href="/" className={logoClassName}>
             {logoText}

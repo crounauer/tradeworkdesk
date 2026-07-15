@@ -319,28 +319,44 @@ export async function topUpAddonCredits(tenantId: string, addonId: string, bundl
   }
 }
 
-export const TRIAL_USAGE_CREDIT_ALLOCATION: Record<string, number> = {
-  sms_messaging: 150,
-  uk_address_lookup: 300,
-  ai_blog_writing: 120,
+export const TRIAL_USAGE_CREDIT_VALUE_GBP: Record<string, number> = {
+  sms_messaging: 5,
+  uk_address_lookup: 5,
+  ai_blog_writing: 5,
 };
 
 export async function grantTrialUsageCredits(tenantId: string): Promise<void> {
-  const features = Object.keys(TRIAL_USAGE_CREDIT_ALLOCATION);
+  const features = Object.keys(TRIAL_USAGE_CREDIT_VALUE_GBP);
   const { data: addons } = await supabaseAdmin
     .from("addons")
-    .select("id, feature_keys")
+    .select("id, feature_keys, usage_bundle_size, usage_bundle_price")
     .eq("billing_model", "usage")
     .eq("is_active", true);
 
-  const usageAddons = (addons ?? []) as Array<{ id: string; feature_keys: string[] | null }>;
+  const usageAddons = (addons ?? []) as Array<{
+    id: string;
+    feature_keys: string[] | null;
+    usage_bundle_size: number | null;
+    usage_bundle_price: number | null;
+  }>;
+
+  const trialAddonIds: string[] = [];
 
   for (const feature of features) {
-    const amount = TRIAL_USAGE_CREDIT_ALLOCATION[feature] || 0;
-    if (amount <= 0) continue;
+    const creditValueGbp = TRIAL_USAGE_CREDIT_VALUE_GBP[feature] || 0;
+    if (creditValueGbp <= 0) continue;
 
     const addon = usageAddons.find((a) => Array.isArray(a.feature_keys) && a.feature_keys.includes(feature));
     if (!addon) continue;
+
+    trialAddonIds.push(addon.id);
+
+    const bundleSize = Number(addon.usage_bundle_size || 0);
+    const bundlePrice = Number(addon.usage_bundle_price || 0);
+    const amount = bundleSize > 0 && bundlePrice > 0
+      ? Math.max(1, Math.floor((bundleSize * creditValueGbp) / bundlePrice))
+      : 0;
+    if (amount <= 0) continue;
 
     const { data: existing } = await supabaseAdmin
       .from("tenant_addon_credits")
@@ -367,10 +383,26 @@ export async function grantTrialUsageCredits(tenantId: string): Promise<void> {
         } as Record<string, unknown>);
     }
   }
+
+  if (trialAddonIds.length > 0) {
+    const nowIso = new Date().toISOString();
+    const addonRows = trialAddonIds.map((addonId) => ({
+      tenant_id: tenantId,
+      addon_id: addonId,
+      is_active: true,
+      quantity: 1,
+      activated_at: nowIso,
+      deactivated_at: null,
+    }));
+
+    await supabaseAdmin
+      .from("tenant_addons")
+      .upsert(addonRows as Record<string, unknown>[], { onConflict: "tenant_id,addon_id" });
+  }
 }
 
 export async function resetTrialUsageCredits(tenantId: string): Promise<void> {
-  const features = Object.keys(TRIAL_USAGE_CREDIT_ALLOCATION);
+  const features = Object.keys(TRIAL_USAGE_CREDIT_VALUE_GBP);
   const { data: addons } = await supabaseAdmin
     .from("addons")
     .select("id, feature_keys")

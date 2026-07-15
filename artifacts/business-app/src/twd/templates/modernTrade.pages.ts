@@ -14,6 +14,9 @@ const siteHeader = {
     phone: "01224 000000",
     ctaLabel: "Book a visit",
     ctaHref: "#contact",
+    scheduleText: "Mon-Sat 7am-8pm | Emergency 24/7",
+    locationText: "Reading & Surrounding Areas",
+    variant: "figma",
   },
 } as const;
 
@@ -76,6 +79,7 @@ export const modernTradeHomePage: TemplatePage = {
         primaryCtaLabel: "Request a quote",
         secondaryCtaLabel: "View services",
         phone: "01224 000000",
+        trustBadges: ["Fully Insured", "Local Engineers", "Fast Response", "Free Quotes"],
         imageAlt: "Engineer working on a heating system",
       },
     },

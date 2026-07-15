@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Shield, ShieldCheck, ShieldOff, Loader2, QrCode } from "lucide-react";
@@ -11,10 +12,14 @@ import QRCode from "qrcode";
 type MfaFactor = { id: string; friendly_name?: string; factor_type: string; status: string };
 
 export default function AccountSettings() {
-  const { profile } = useAuth();
+  const pendingEmailStorageKey = "pending_email_change";
+  const { profile, user } = useAuth();
   const { toast } = useToast();
   const [factors, setFactors] = useState<MfaFactor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [pendingEmailVerification, setPendingEmailVerification] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [totpSecret, setTotpSecret] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -25,6 +30,27 @@ export default function AccountSettings() {
   const [disableCode, setDisableCode] = useState("");
   const [showDisable, setShowDisable] = useState(false);
   const [disableFactorId, setDisableFactorId] = useState("");
+
+  useEffect(() => {
+    const currentEmail = user?.email || profile?.email || "";
+    setEmailDraft(currentEmail);
+  }, [user?.email, profile?.email]);
+
+  useEffect(() => {
+    const pending = localStorage.getItem(pendingEmailStorageKey);
+    if (pending) {
+      setPendingEmailVerification(pending);
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentEmail = (user?.email || profile?.email || "").trim().toLowerCase();
+    const pendingEmail = (pendingEmailVerification || "").trim().toLowerCase();
+    if (pendingEmail && currentEmail && pendingEmail === currentEmail) {
+      setPendingEmailVerification(null);
+      localStorage.removeItem(pendingEmailStorageKey);
+    }
+  }, [user?.email, profile?.email, pendingEmailVerification]);
 
   const loadFactors = async () => {
     setLoading(true);
@@ -157,6 +183,49 @@ export default function AccountSettings() {
     }
   };
 
+  const handleEmailChange = async () => {
+    const nextEmail = emailDraft.trim().toLowerCase();
+    const currentEmail = (user?.email || profile?.email || "").trim().toLowerCase();
+
+    if (!nextEmail) {
+      toast({ title: "Missing email", description: "Enter a valid email address.", variant: "destructive" });
+      return;
+    }
+    if (!nextEmail.includes("@")) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
+    if (nextEmail === currentEmail) {
+      toast({ title: "No change", description: "That is already your current email address." });
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const { error } = await supabase.auth.updateUser(
+        { email: nextEmail },
+        { emailRedirectTo: `${window.location.origin}/login` },
+      );
+      if (error) throw error;
+
+      setPendingEmailVerification(nextEmail);
+      localStorage.setItem(pendingEmailStorageKey, nextEmail);
+
+      toast({
+        title: "Check your email",
+        description: "We sent an email confirmation link to your new address. Your login email updates after confirmation.",
+      });
+    } catch (err) {
+      toast({
+        title: "Email update failed",
+        description: err instanceof Error ? err.message : "Could not start email change.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -173,11 +242,45 @@ export default function AccountSettings() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Email</p>
-            <p className="font-medium">{profile?.email || "—"}</p>
+            <p className="font-medium">{user?.email || profile?.email || "—"}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Role</p>
             <p className="font-medium capitalize">{profile?.role?.replace("_", " ") || "—"}</p>
+          </div>
+          <div className="sm:col-span-2 space-y-2">
+            <p className="text-xs text-muted-foreground">Change Login Email</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="email"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                placeholder="you@company.com"
+              />
+              <Button type="button" onClick={handleEmailChange} disabled={savingEmail}>
+                {savingEmail ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Updating...</> : "Update Email"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You will need to confirm this change from your new inbox before it becomes your main login email.
+            </p>
+            {pendingEmailVerification && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-start justify-between gap-3">
+                <span>
+                  Pending verification for <strong>{pendingEmailVerification}</strong>. Open your inbox and click the confirmation link to complete the email change.
+                </span>
+                <button
+                  type="button"
+                  className="text-amber-700 hover:text-amber-900 font-medium"
+                  onClick={() => {
+                    setPendingEmailVerification(null);
+                    localStorage.removeItem(pendingEmailStorageKey);
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </Card>

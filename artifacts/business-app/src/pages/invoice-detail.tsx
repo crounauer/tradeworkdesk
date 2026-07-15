@@ -79,6 +79,14 @@ function emptyLine(): InvoiceLineItem {
   return { description: "", quantity: 1, unit_price: 0, item_type: "other" };
 }
 
+function normalizeLineItem(line: InvoiceLineItem): InvoiceLineItem {
+  return {
+    ...line,
+    quantity: Number(line.quantity) || 0,
+    unit_price: Number(line.unit_price) || 0,
+  };
+}
+
 // ─── Main component ───────────────────────────────────────────────────────
 
 export default function InvoiceDetail() {
@@ -238,7 +246,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     return isDraft && sp.get("edit") === "1";
   });
   const [lines, setLines] = useState<InvoiceLineItem[]>(
-    invoice.line_items ? invoice.line_items.map((l) => ({ ...l })) : []
+    invoice.line_items ? invoice.line_items.map(normalizeLineItem) : []
   );
   const [worksOrder, setWorksOrder] = useState(invoice.works_order || "");
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);

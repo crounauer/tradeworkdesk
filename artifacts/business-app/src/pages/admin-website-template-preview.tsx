@@ -68,6 +68,37 @@ function groupBlocksByPage(blocks: Array<Record<string, unknown>>) {
   return grouped;
 }
 
+const PREVIEW_PAGE_BLOCK_ORDER: Record<string, string[]> = {
+  home: ["site.header", "hero.standard", "trust.badges", "features.list", "services.grid", "process.steps", "testimonials", "cta.banner", "site.footer"],
+  services: ["site.header", "hero.standard", "services.grid", "features.list", "faq.accordion", "cta.banner", "site.footer"],
+  "service-detail": ["site.header", "hero.standard", "features.list", "process.steps", "cta.banner", "site.footer"],
+  emergency: ["site.header", "hero.standard", "process.steps", "cta.banner", "site.footer"],
+  areas: ["site.header", "hero.standard", "areas.grid", "contact.split", "site.footer"],
+  reviews: ["site.header", "hero.standard", "reviews.grid", "testimonials", "trust.badges", "cta.banner", "site.footer"],
+  gallery: ["site.header", "hero.standard", "gallery.grid", "cta.banner", "site.footer"],
+  "blog-index": ["site.header", "hero.standard", "blog.index", "cta.banner", "site.footer"],
+  "blog-post": ["site.header", "hero.standard", "legal.content", "cta.banner", "site.footer"],
+  booking: ["site.header", "hero.standard", "contact.split", "cta.banner", "site.footer"],
+  contact: ["site.header", "hero.standard", "contact.split", "trust.badges", "site.footer"],
+  legal: ["site.header", "hero.standard", "legal.content", "faq.accordion", "site.footer"],
+  "404": ["site.header", "hero.standard", "system.notFound", "cta.banner", "site.footer"],
+};
+
+function orderBlocksForPage(pageSlug: string, blocks: TemplateBlock[]): TemplateBlock[] {
+  const preferred = PREVIEW_PAGE_BLOCK_ORDER[pageSlug] || [];
+  if (preferred.length === 0) {
+    return [...blocks].sort((a, b) => a.sort_order - b.sort_order);
+  }
+
+  const rank = new Map<string, number>(preferred.map((type, idx) => [type, idx]));
+  return [...blocks].sort((a, b) => {
+    const aRank = rank.has(a.block_type) ? (rank.get(a.block_type) as number) : Number.MAX_SAFE_INTEGER;
+    const bRank = rank.has(b.block_type) ? (rank.get(b.block_type) as number) : Number.MAX_SAFE_INTEGER;
+    if (aRank !== bRank) return aRank - bRank;
+    return a.sort_order - b.sort_order;
+  });
+}
+
 export default function AdminWebsiteTemplatePreviewPage() {
   const [location, setLocation] = useLocation();
   const templateId = useMemo(() => normalizeTemplateId(location), [location]);
@@ -108,7 +139,11 @@ export default function AdminWebsiteTemplatePreviewPage() {
     }
   }, [selectedPage?.slug, selectedPageSlug]);
 
-  const selectedBlocks = selectedPage ? blocksByPage.get(String(selectedPage.id || "")) || [] : [];
+  const selectedBlocks = useMemo(() => {
+    if (!selectedPage) return [] as TemplateBlock[];
+    const pageBlocks = blocksByPage.get(String(selectedPage.id || "")) || [];
+    return orderBlocksForPage(String(selectedPage.slug || ""), pageBlocks);
+  }, [selectedPage, blocksByPage]);
 
   const updatePage = (nextSlug: string) => {
     setSelectedPageSlug(nextSlug);

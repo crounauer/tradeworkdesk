@@ -54,6 +54,23 @@ export default function FeaturesBarBlock({ content }: Props) {
 
   const gridTemplate = `repeat(${cols}, minmax(0, 1fr))`;
 
+  if (layout === "local-strip") {
+    return (
+      <section style={{ padding: "0", backgroundColor: sectionBg, borderTop: `1px solid ${borderColor}`, borderBottom: `1px solid ${borderColor}` }}>
+        <div style={{ maxWidth, margin: "0 auto", padding: "12px 20px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 22, alignItems: "center", justifyContent: "space-between" }}>
+            {features.map((f, i) => (
+              <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: headingColor, fontWeight: 700, fontSize: "0.875rem", fontFamily: headingFont }}>
+                <span style={{ color: accentColor, fontSize: "1rem", lineHeight: 1 }}>{f.icon || "✓"}</span>
+                <span>{f.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={{ padding: `${paddingY} ${paddingX}`, backgroundColor: sectionBg }}>
       <div style={{ maxWidth, margin: "0 auto" }}>

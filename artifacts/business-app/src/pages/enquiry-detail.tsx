@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { createJobType } from "@/lib/create-job-type";
 import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
   Briefcase, Clock, Edit, Check, X, Trash2,
@@ -969,6 +970,8 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   onConverted: (jobId: string) => void;
 }) {
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -1013,6 +1016,9 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
     return m ? m[1].trim() : "";
   });
   const [jobTypeId, setJobTypeId] = useState("");
+  const [showAddJobTypeInline, setShowAddJobTypeInline] = useState(false);
+  const [newJobTypeName, setNewJobTypeName] = useState("");
+  const [creatingJobType, setCreatingJobType] = useState(false);
   const [priority, setPriority] = useState((enquiry.priority as string) || "medium");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split("T")[0]);
   const [scheduledTime, setScheduledTime] = useState("");
@@ -1030,6 +1036,34 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   });
 
   const filteredProperties = properties?.filter(p => !customerId || p.customer_id === customerId);
+  const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+
+  const createJobTypeInline = async () => {
+    const name = newJobTypeName.trim();
+    if (!name) {
+      toast({ title: "Missing info", description: "Enter a job type name.", variant: "destructive" });
+      return;
+    }
+
+    setCreatingJobType(true);
+    try {
+      const created = await createJobType({
+        endpoint: "/api/admin/service-catalogue",
+        name,
+      });
+
+      await qc.invalidateQueries({ queryKey: ["job-types"] });
+      setJobTypeId(created.id);
+      setShowAddJobTypeInline(false);
+      setNewJobTypeName("");
+      toast({ title: "Job type added", description: `${created.name || name} is now selected.` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to add job type";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setCreatingJobType(false);
+    }
+  };
 
   const handleConvert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1280,10 +1314,60 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Job Type *</Label>
-                <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required value={jobTypeId} onChange={e => setJobTypeId(e.target.value)}>
+                <select
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                  required
+                  value={jobTypeId}
+                  onChange={e => {
+                    const value = e.target.value;
+                    if (value === "__add_new__") {
+                      setJobTypeId("");
+                      setShowAddJobTypeInline(true);
+                      return;
+                    }
+                    setShowAddJobTypeInline(false);
+                    setNewJobTypeName("");
+                    setJobTypeId(value);
+                  }}
+                >
                   <option value="">Select type...</option>
                   {jobTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {isAdminOrOffice && (
+                    <option value="__add_new__">+ Add new job type...</option>
+                  )}
                 </select>
+                {showAddJobTypeInline && (
+                  <div className="mt-2 p-3 border border-border rounded-lg bg-slate-50/60 space-y-2">
+                    <Label className="text-xs">New Job Type Name</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={newJobTypeName}
+                        onChange={(e) => setNewJobTypeName(e.target.value)}
+                        placeholder="e.g. System flush"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={createJobTypeInline}
+                        disabled={creatingJobType || !newJobTypeName.trim()}
+                      >
+                        {creatingJobType ? "Adding..." : "Add"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowAddJobTypeInline(false);
+                          setNewJobTypeName("");
+                        }}
+                        disabled={creatingJobType}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Priority</Label>

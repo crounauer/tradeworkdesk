@@ -220,6 +220,84 @@ router.get("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req, 
   });
 });
 
+router.get("/platform/tenants/:id/delete-summary", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: tenant, error: tenantError } = await supabaseAdmin
+    .from("tenants")
+    .select("id, company_name")
+    .eq("id", id)
+    .maybeSingle();
+  if (tenantError || !tenant) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
+  const [
+    usersRes,
+    customersRes,
+    propertiesRes,
+    jobsRes,
+    enquiriesRes,
+    invoicesRes,
+    invoiceLinesRes,
+    websitesRes,
+    pagesRes,
+    blocksRes,
+    formsRes,
+    addonsRes,
+    companySettingsRes,
+  ] = await Promise.all([
+    supabaseAdmin.from("profiles").select("id, email", { count: "exact" }).eq("tenant_id", id),
+    supabaseAdmin.from("customers").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("properties").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("enquiries").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("invoices").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("invoice_line_items").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("websites").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("website_pages").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("website_blocks").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("website_forms").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("tenant_addons").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabaseAdmin.from("company_settings").select("tenant_id", { count: "exact", head: true }).eq("tenant_id", id),
+  ]);
+
+  const userCount = usersRes.count || 0;
+  const users = (usersRes.data || []).map((u: { id: string; email: string | null }) => ({ id: u.id, email: u.email }));
+
+  const counts = {
+    users: userCount,
+    customers: customersRes.count || 0,
+    properties: propertiesRes.count || 0,
+    jobs: jobsRes.count || 0,
+    enquiries: enquiriesRes.count || 0,
+    invoices: invoicesRes.count || 0,
+    invoice_line_items: invoiceLinesRes.count || 0,
+    websites: websitesRes.count || 0,
+    website_pages: pagesRes.count || 0,
+    website_blocks: blocksRes.count || 0,
+    website_forms: formsRes.count || 0,
+    tenant_addons: addonsRes.count || 0,
+    company_settings: companySettingsRes.count || 0,
+  };
+
+  const totalRecords = Object.values(counts).reduce((sum, value) => sum + value, 0);
+
+  res.json({
+    tenant: { id: tenant.id, company_name: tenant.company_name },
+    requires_confirm: userCount > 0,
+    users,
+    counts,
+    total_records: totalRecords,
+    notes: {
+      auth_users_deleted_attempted: userCount,
+      invoices_deleted_explicitly: counts.invoices,
+      invoice_line_items_deleted_explicitly: counts.invoice_line_items,
+    },
+  });
+});
+
 router.patch("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
   const allowed = [
@@ -546,6 +624,21 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
       }
     }
   }
+
+  // Invoicing tables still use tenant_id as TEXT (no FK to tenants), and
+  // invoices reference customers/jobs with restrictive FKs. Remove tenant
+  // invoices explicitly so downstream customer/job tenant cascades can succeed.
+  const { error: deleteInvoiceLineItemsError } = await supabaseAdmin
+    .from("invoice_line_items")
+    .delete()
+    .eq("tenant_id", id);
+  if (deleteInvoiceLineItemsError) { res.status(500).json({ error: deleteInvoiceLineItemsError.message }); return; }
+
+  const { error: deleteInvoicesError } = await supabaseAdmin
+    .from("invoices")
+    .delete()
+    .eq("tenant_id", id);
+  if (deleteInvoicesError) { res.status(500).json({ error: deleteInvoicesError.message }); return; }
 
   const { error: deleteAddonsError } = await supabaseAdmin.from("tenant_addons").delete().eq("tenant_id", id);
   if (deleteAddonsError) { res.status(500).json({ error: deleteAddonsError.message }); return; }

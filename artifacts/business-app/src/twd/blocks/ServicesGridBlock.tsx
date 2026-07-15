@@ -25,7 +25,7 @@ export function ServicesGridBlock({
 }: ServicesGridBlockProps) {
   const isClassic = variant === 'classic';
   const sectionClassName = background === 'light'
-    ? 'bg-slate-50 px-6 py-20 lg:px-8'
+    ? 'bg-[#f0f4f9] px-6 py-20 lg:px-8'
     : background === 'white'
       ? 'bg-white px-6 py-20 lg:px-8'
       : 'bg-white px-6 py-20 lg:px-8';
@@ -43,7 +43,7 @@ export function ServicesGridBlock({
     <section id="services" className={sectionClassName}>
       <div className="mx-auto max-w-7xl">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">{eyebrow}</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#1a3a6b]">{eyebrow}</p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">{title}</h2>
           {subtitle ? <p className="mt-4 text-lg text-slate-600">{subtitle}</p> : null}
         </div>

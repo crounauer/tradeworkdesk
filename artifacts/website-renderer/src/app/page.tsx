@@ -87,6 +87,7 @@ export default async function HomePage() {
         websiteId={site.website.id}
         slug={homePage.slug}
         page={homePage}
+        site={site}
         theme={siteTheme}
         tenantId={site.website.tenant_id}
         companyContact={{

@@ -20,7 +20,7 @@ export function ProcessStepsBlock({
   const isClassic = variant === 'classic';
   const isLight = tone === 'light';
   const sectionClassName = isLight
-    ? 'bg-slate-50 px-6 py-20 text-slate-900 lg:px-8'
+    ? 'bg-[#f0f4f9] px-6 py-20 text-slate-900 lg:px-8'
     : 'bg-slate-950 px-6 py-20 text-white lg:px-8';
   const gridClassName = layout === 'timeline'
     ? 'mt-10 grid gap-4'
@@ -31,14 +31,14 @@ export function ProcessStepsBlock({
       : 'rounded-xl border border-slate-200 bg-white p-6'
     : 'rounded-xl border border-white/10 bg-white/5 p-6';
   const numberClassName = isClassic
-    ? 'flex h-10 w-10 items-center justify-center rounded-sm bg-amber-400 font-bold text-slate-950'
-    : 'flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 font-bold text-slate-950';
+    ? 'flex h-10 w-10 items-center justify-center rounded-sm bg-[#00a8a8] font-bold text-white'
+    : 'flex h-10 w-10 items-center justify-center rounded-full bg-[#00a8a8] font-bold text-white';
   const bodyClassName = isLight ? 'mt-3 text-slate-600' : 'mt-3 text-slate-300';
 
   return (
     <section className={sectionClassName}>
       <div className="mx-auto max-w-7xl">
-        <p className="text-sm font-semibold uppercase tracking-wide text-amber-400">{eyebrow}</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-[#1a3a6b]">{eyebrow}</p>
         <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">{title}</h2>
 
         <div className={gridClassName}>

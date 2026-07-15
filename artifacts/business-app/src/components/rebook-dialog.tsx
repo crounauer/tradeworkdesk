@@ -30,6 +30,8 @@ interface RebookDialogProps {
   originalDate: string;
   /** Original scheduled time as HH:MM, or null */
   originalTime?: string | null;
+  /** Called after the duplicate job has been created successfully. */
+  onRebooked?: (newJobId: string) => void;
 }
 
 type LeaveConflict = {
@@ -110,7 +112,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-slate-200 text-slate-500",
 };
 
-export function RebookDialog({ open, onOpenChange, jobId, originalDate, originalTime }: RebookDialogProps) {
+export function RebookDialog({ open, onOpenChange, jobId, originalDate, originalTime, onRebooked }: RebookDialogProps) {
   const defaultDate = addOneYear(originalDate);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [dateInputValue, setDateInputValue] = useState(defaultDate);
@@ -179,6 +181,9 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       // Move to email prompt step
       setNewJob(created);
+      if (created?.id) {
+        onRebooked?.(String(created.id));
+      }
     } catch (err) {
       toast({
         title: "Error",

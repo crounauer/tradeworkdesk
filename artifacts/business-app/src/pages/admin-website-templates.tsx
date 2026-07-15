@@ -209,8 +209,63 @@ function TemplateDetailsDialog({
   });
 
   const templateJson = data?.template.template_json || {};
-  const themeJson = data?.template.theme_json || {};
-  const cmsMappingJson = data?.template.cms_mapping_json || {};
+  const themeJson = useMemo(() => {
+    const rawTheme = data?.template.theme_json;
+    if (rawTheme && Object.keys(rawTheme).length > 0) return rawTheme;
+
+    // Stable fallback for legacy templates where theme_json is missing.
+    return {
+      source: "derived-fallback",
+      colors: {
+        primary: "#000000",
+        accent: "#f97316",
+        background: "#ffffff",
+        text: "#1f2937",
+      },
+      typography: {
+        bodyFamily: "system-ui, -apple-system, sans-serif",
+        headingFamily: "system-ui, -apple-system, sans-serif",
+      },
+    };
+  }, [data?.template.theme_json]);
+
+  const cmsMappingJson = useMemo(() => {
+    const rawMapping = data?.template.cms_mapping_json;
+    if (rawMapping && Object.keys(rawMapping).length > 0) return rawMapping;
+
+    const pages = (data?.pages || [])
+      .map((page) => String(page.slug || "").trim())
+      .filter((slug) => slug.length > 0);
+
+    const blocksPerPage = (data?.pages || []).reduce<Record<string, number>>((acc, page) => {
+      const slug = String(page.slug || "").trim();
+      if (!slug) return acc;
+      const explicitCount = Number(page.block_count || 0);
+      if (explicitCount > 0) {
+        acc[slug] = explicitCount;
+        return acc;
+      }
+
+      const pageId = String(page.id || page.page_id || page.slug || "");
+      acc[slug] = (data?.blocks || []).filter((block) => String(block.page_id || "") === pageId).length;
+      return acc;
+    }, {});
+
+    const blockTypes = Array.from(
+      new Set(
+        (data?.blocks || [])
+          .map((block) => String(block.block_type || "").trim())
+          .filter((blockType) => blockType.length > 0)
+      )
+    );
+
+    return {
+      source: "derived-fallback",
+      pages,
+      blocksPerPage,
+      blockTypes,
+    };
+  }, [data?.template.cms_mapping_json, data?.pages, data?.blocks]);
 
   const blocksByPage = useMemo(() => {
     const grouped = new Map<string, Array<Record<string, unknown>>>();

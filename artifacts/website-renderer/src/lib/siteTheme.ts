@@ -163,14 +163,15 @@ export type NormalizedSiteTheme = {
 export function resolveSiteTheme(theme: ThemeLike, templateSlug?: string | null): NormalizedSiteTheme {
   const palette = getTemplatePalette(templateSlug);
 
-  const accentColor = pickThemeColor(theme, [["accent_color"], ["tokens", "colors", "accent"]], palette.accentColor);
-  const primaryColor = pickThemeColor(theme, [["primary_color"], ["tokens", "colors", "primary"]], palette.primaryColor);
-  const primaryTextColor = pickThemeColor(theme, [["primary_text_color"], ["tokens", "colors", "primaryText"]], palette.primaryTextColor);
-  const backgroundColor = pickThemeColor(theme, [["background_color"], ["tokens", "colors", "background"]], palette.backgroundColor);
-  const mutedBackgroundColor = pickThemeColor(theme, [["muted_background"], ["tokens", "colors", "mutedBackground"]], palette.mutedBackgroundColor);
-  const borderColor = pickThemeColor(theme, [["border_color"], ["tokens", "colors", "border"]], palette.borderColor);
-  const textColor = pickThemeColor(theme, [["text_color"], ["tokens", "colors", "text"]], palette.textColor);
-  const mutedTextColor = pickThemeColor(theme, [["muted_text_color"], ["tokens", "colors", "mutedText"]], palette.mutedTextColor);
+  // Prefer tokenized theme colors first (new pipeline), then legacy flat keys.
+  const accentColor = pickThemeColor(theme, [["tokens", "colors", "accent"], ["accent_color"]], palette.accentColor);
+  const primaryColor = pickThemeColor(theme, [["tokens", "colors", "primary"], ["primary_color"]], palette.primaryColor);
+  const primaryTextColor = pickThemeColor(theme, [["tokens", "colors", "primaryText"], ["primary_text_color"]], palette.primaryTextColor);
+  const backgroundColor = pickThemeColor(theme, [["tokens", "colors", "background"], ["background_color"]], palette.backgroundColor);
+  const mutedBackgroundColor = pickThemeColor(theme, [["tokens", "colors", "mutedBackground"], ["muted_background"]], palette.mutedBackgroundColor);
+  const borderColor = pickThemeColor(theme, [["tokens", "colors", "border"], ["border_color"]], palette.borderColor);
+  const textColor = pickThemeColor(theme, [["tokens", "colors", "text"], ["text_color"]], palette.textColor);
+  const mutedTextColor = pickThemeColor(theme, [["tokens", "colors", "mutedText"], ["muted_text_color"]], palette.mutedTextColor);
 
   const navBackground = pickThemeColor(theme, [["nav_background"]], palette.navBackground);
   const navText = pickThemeColor(theme, [["nav_text"]], palette.navText);

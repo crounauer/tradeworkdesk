@@ -470,6 +470,34 @@ router.post(
 
     let resolvedTemplateId: string | null = template_id || null;
     let resolvedTemplate: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown>; source?: Record<string, unknown> } | null = null;
+    let usedSignupDefaultTemplate = false;
+    let signupDefaultTemplateSlug: string | null = null;
+
+    // If no explicit template was provided, fall back to the platform default
+    // configured for new signups.
+    if (!resolvedTemplateId) {
+      const { data: defaultTemplateSetting } = await supabaseAdmin
+        .from("platform_settings")
+        .select("value")
+        .eq("key", "default_signup_template_slug")
+        .maybeSingle() as { data: { value?: string | null } | null };
+
+      const defaultTemplateSlug = String(defaultTemplateSetting?.value || "").trim();
+      if (defaultTemplateSlug) {
+        signupDefaultTemplateSlug = defaultTemplateSlug;
+        const { data: defaultTemplate } = await db
+          .from("website_templates")
+          .select("id")
+          .eq("slug", defaultTemplateSlug)
+          .or("status.eq.published,status.eq.live,is_active.eq.true")
+          .maybeSingle() as { data: { id?: string } | null };
+
+        if (defaultTemplate?.id) {
+          resolvedTemplateId = String(defaultTemplate.id);
+          usedSignupDefaultTemplate = true;
+        }
+      }
+    }
 
     // If template_id provided, fetch and validate it
     if (resolvedTemplateId) {
@@ -477,7 +505,7 @@ router.post(
         .from("website_templates")
         .select("slug, default_pages, default_theme, design_tokens, figma_export_info, source")
         .eq("id", resolvedTemplateId)
-        .eq("is_active", true)
+        .or("status.eq.published,status.eq.live,is_active.eq.true")
         .maybeSingle() as { data: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown>; source?: Record<string, unknown> } | null };
 
       if (!template) {
@@ -516,6 +544,22 @@ router.post(
       console.error("[website] create failed:", error);
       res.status(500).json({ error: "Failed to create website" });
       return;
+    }
+
+    if (usedSignupDefaultTemplate && resolvedTemplateId) {
+      await insertTenantTemplateAuditLog({
+        tenantId: req.tenantId,
+        actorId: req.userId,
+        actorEmail: req.userEmail,
+        actorRole: req.userRole,
+        eventType: "website_template_auto_selected_signup_default",
+        websiteId: String(website.id),
+        templateId: resolvedTemplateId,
+        detail: {
+          default_signup_template_slug: signupDefaultTemplateSlug,
+          requested_template_id: template_id || null,
+        },
+      });
     }
 
     // Auto-provision a free platform subdomain (e.g. gasboilersuk.tradeworkdesk.co.uk)

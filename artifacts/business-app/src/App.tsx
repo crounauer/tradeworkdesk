@@ -243,14 +243,28 @@ const PageFallback = () => (
   </div>
 );
 
+function getSafeNextPathFromSearch(search: string): string | null {
+  if (!search) return null;
+
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const raw = params.get("next");
+  if (!raw) return null;
+
+  // Only allow app-internal relative paths.
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
 function ProtectedRoute({ component: Component, roles, requiredFeature }: { component: React.ComponentType; roles?: string[]; requiredFeature?: "job_management" | "website_builder" }) {
   const { session, isLoading, profile, mfaPending } = useAuth();
   const { hasFeature } = usePlanFeatures();
   const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
 
   if (isLoading) return <PageFallback />;
-  if (!session) return <Redirect to="/login" />;
-  if (mfaPending) return <Redirect to="/login" />;
+  if (!session || mfaPending) {
+    const nextPath = `${window.location.pathname}${window.location.search || ""}`;
+    return <Redirect to={`/login?next=${encodeURIComponent(nextPath)}`} />;
+  }
 
   if (requiredFeature && !hasFeature(requiredFeature)) {
     if (requiredFeature === "job_management") {
@@ -262,7 +276,7 @@ function ProtectedRoute({ component: Component, roles, requiredFeature }: { comp
   if (roles) {
     if (!profile) return <PageFallback />;
     const hasRole = roles.includes(profile.role) || (isReadOnlySupportMode && profile.role === "super_admin");
-    if (!hasRole) return <Redirect to="/dashboard" />;
+    if (!hasRole) return <Redirect to="/" />;
   }
 
   return (
@@ -524,6 +538,7 @@ function PortalRoutes() {
 function AppRouter() {
   const { session, mfaPending } = useAuth();
   const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
+  const loginNextPath = getSafeNextPathFromSearch(window.location.search);
 
   return (
     <Suspense fallback={<PageFallback />}>
@@ -534,7 +549,7 @@ function AppRouter() {
         {isReadOnlySupportMode && <Route path="/platform/:rest*">{() => <Redirect to="/" />}</Route>}
 
         <Route path="/login">
-          {session && !mfaPending ? <Redirect to="/" /> : <Login />}
+          {session && !mfaPending ? <Redirect to={loginNextPath || "/"} /> : <Login />}
         </Route>
 
         <Route path="/reset-password">
@@ -544,6 +559,8 @@ function AppRouter() {
         <Route path="/register">
           {session ? <Redirect to="/" /> : <Register />}
         </Route>
+
+        <Route path="/dashboard">{() => <Redirect to="/" />}</Route>
 
         <Route path="/" component={RootRoute} />
 

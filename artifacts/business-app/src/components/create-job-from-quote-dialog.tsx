@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Briefcase, Package, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { createJobType } from "@/lib/create-job-type";
 import type { InvoiceLineItem } from "@/hooks/use-invoices";
 
 interface JobType {
@@ -60,9 +62,13 @@ export function CreateJobFromQuoteDialog({
   initialPropertyId,
 }: CreateJobFromQuoteDialogProps) {
   const { toast } = useToast();
+  const { profile } = useAuth();
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
+  const [showAddJobTypeInline, setShowAddJobTypeInline] = useState(false);
+  const [newJobTypeName, setNewJobTypeName] = useState("");
+  const [creatingJobType, setCreatingJobType] = useState(false);
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -132,6 +138,7 @@ export function CreateJobFromQuoteDialog({
   }, [properties, initialPropertyId, setValue]);
 
   const selectedPropertyId = watch("property_id");
+  const isAdminOrOffice = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
 
   // Categorise line items for preview
   const products = lineItems.filter(l => l.item_type === "product");
@@ -188,6 +195,33 @@ export function CreateJobFromQuoteDialog({
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const createJobTypeInline = async () => {
+    const name = newJobTypeName.trim();
+    if (!name) {
+      toast({ title: "Missing info", description: "Enter a job type name.", variant: "destructive" });
+      return;
+    }
+
+    setCreatingJobType(true);
+    try {
+      const created = await createJobType({
+        endpoint: `${import.meta.env.BASE_URL}api/admin/service-catalogue`,
+        name,
+      });
+
+      await qc.invalidateQueries({ queryKey: ["job-types"] });
+      setValue("job_type_id", created.id, { shouldValidate: true, shouldDirty: true });
+      setShowAddJobTypeInline(false);
+      setNewJobTypeName("");
+      toast({ title: "Job type added", description: `${created.name || name} is now selected.` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to add job type";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setCreatingJobType(false);
     }
   };
 
@@ -249,12 +283,53 @@ export function CreateJobFromQuoteDialog({
               <select
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
                 {...register("job_type_id")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "__add_new__") {
+                    setValue("job_type_id", "", { shouldValidate: true, shouldDirty: true });
+                    setShowAddJobTypeInline(true);
+                    return;
+                  }
+                  setShowAddJobTypeInline(false);
+                  setNewJobTypeName("");
+                  setValue("job_type_id", value, { shouldValidate: true, shouldDirty: true });
+                }}
               >
                 <option value="">— Default (Service) —</option>
                 {jobTypes.filter(jt => jt.is_active).map(jt => (
                   <option key={jt.id} value={String(jt.id)}>{jt.name}</option>
                 ))}
+                {isAdminOrOffice && (
+                  <option value="__add_new__">+ Add new job type...</option>
+                )}
               </select>
+              {showAddJobTypeInline && (
+                <div className="mt-2 p-3 border border-border rounded-lg bg-slate-50/60 space-y-2">
+                  <Label className="text-xs">New Job Type Name</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={newJobTypeName}
+                      onChange={(e) => setNewJobTypeName(e.target.value)}
+                      placeholder="e.g. System flush"
+                    />
+                    <Button type="button" size="sm" onClick={createJobTypeInline} disabled={creatingJobType || !newJobTypeName.trim()}>
+                      {creatingJobType ? "Adding..." : "Add"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddJobTypeInline(false);
+                        setNewJobTypeName("");
+                      }}
+                      disabled={creatingJobType}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

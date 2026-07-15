@@ -16,6 +16,15 @@ const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "canc
 
 const SUPERADMIN_OVERRIDE_MARKER = "superadmin_access_override=true";
 
+type TenantDeleteSummary = {
+  tenant: { id: string; company_name: string };
+  requires_confirm: boolean;
+  users: { id: string; email: string | null }[];
+  counts: Record<string, number>;
+  total_records: number;
+  notes?: Record<string, unknown>;
+};
+
 function hasFreeAccessOverride(notes: string | null | undefined): boolean {
   return typeof notes === "string" && notes.includes(SUPERADMIN_OVERRIDE_MARKER);
 }
@@ -244,6 +253,24 @@ export default function PlatformTenantDetail() {
 
   const [deleteConfirmData, setDeleteConfirmData] = useState<{ user_count: number; users: { id: string; email: string }[] } | null>(null);
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null); // userId
+  const isDeleteAction = confirmAction?.status === "__delete__";
+
+  const {
+    data: deleteSummary,
+    isLoading: deleteSummaryLoading,
+    error: deleteSummaryError,
+  } = useQuery<TenantDeleteSummary>({
+    queryKey: ["platform-tenant-delete-summary", params.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/delete-summary`);
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || "Failed to load delete summary");
+      }
+      return res.json();
+    },
+    enabled: !!params.id && isDeleteAction,
+  });
 
   const { data: userAddons } = useQuery<{ user_id: string; addons: { name: string } | null }[]>({
     queryKey: ["platform-tenant-user-addons", params.id],
@@ -925,21 +952,54 @@ export default function PlatformTenantDetail() {
           <DialogHeader>
             <DialogTitle>Confirm {confirmAction?.action}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            {confirmAction?.status === "__delete__"
-              ? `Are you sure you want to permanently delete "${tenant.company_name}"? This cannot be undone.`
-              : `Are you sure you want to ${confirmAction?.action?.toLowerCase()} "${tenant.company_name}"? This will change their status to "${confirmAction?.status}".`
-            }
-          </p>
+          {confirmAction?.status === "__delete__" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to permanently delete "{tenant.company_name}"? This cannot be undone.
+              </p>
+
+              {deleteSummaryLoading && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-muted-foreground">
+                  Loading delete impact summary...
+                </div>
+              )}
+
+              {deleteSummaryError && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Could not load full delete summary. You can still continue and the server will enforce confirmation if required.
+                </div>
+              )}
+
+              {deleteSummary && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+                  <p className="text-sm font-medium text-red-700">
+                    This action will remove {deleteSummary.total_records.toLocaleString()} record(s).
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-red-700/90">
+                    <span>Users: {deleteSummary.counts.users ?? 0}</span>
+                    <span>Customers: {deleteSummary.counts.customers ?? 0}</span>
+                    <span>Properties: {deleteSummary.counts.properties ?? 0}</span>
+                    <span>Jobs: {deleteSummary.counts.jobs ?? 0}</span>
+                    <span>Enquiries: {deleteSummary.counts.enquiries ?? 0}</span>
+                    <span>Invoices: {deleteSummary.counts.invoices ?? 0}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {`Are you sure you want to ${confirmAction?.action?.toLowerCase()} "${tenant.company_name}"? This will change their status to "${confirmAction?.status}".`}
+            </p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
             <Button
               variant="destructive"
-              disabled={updateMutation.isPending || deleteMutation.isPending}
+              disabled={updateMutation.isPending || deleteMutation.isPending || (isDeleteAction && deleteSummaryLoading)}
               onClick={() => {
                 setConfirmAction(null);
                 if (confirmAction?.status === "__delete__") {
-                  deleteMutation.mutate(false);
+                  deleteMutation.mutate(Boolean(deleteSummary?.requires_confirm));
                 } else {
                   confirmStatusChange();
                 }

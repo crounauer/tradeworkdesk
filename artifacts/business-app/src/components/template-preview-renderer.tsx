@@ -83,41 +83,186 @@ function BlockComponent({ block }: BlockRendererProps) {
     : contentObj) as Record<string, unknown>;
   const resolvedType = toStorybookBlockType(block_type);
 
+  const defaultPropsByType: Record<string, Record<string, unknown>> = {
+    "site.header": {
+      logoText: "Local Plumbing Pro",
+      navItems: [
+        { label: "Home", href: "/" },
+        { label: "Services", href: "/services" },
+        { label: "Contact", href: "/contact" },
+      ],
+      ctaLabel: "Get quote",
+      ctaHref: "#contact",
+      phone: "01234 567890",
+      scheduleText: "Mon-Sat 7am-8pm | Emergency 24/7",
+      locationText: "Reading & Surrounding Areas",
+    },
+    "site.footer": {
+      logoText: "Local Plumbing Pro",
+      description: "Trusted local trade specialists.",
+      navItems: [
+        { label: "Home", href: "/" },
+        { label: "Services", href: "/services" },
+        { label: "Contact", href: "/contact" },
+      ],
+      legalLinks: [
+        { label: "Privacy", href: "/privacy" },
+        { label: "Terms", href: "/terms" },
+      ],
+      phone: "01234 567890",
+      email: "hello@example.com",
+    },
+    "hero.standard": {
+      title: "Reliable local trade services",
+      subtitle: "Fast response, clear pricing, and quality workmanship.",
+      primaryCtaLabel: "Book now",
+      primaryCtaHref: "#contact",
+      trustBadges: ["Fully Insured", "Local Engineers", "Fast Response", "Free Quotes"],
+    },
+    "trust.badges": {
+      badges: [
+        { label: "Fully Insured", description: "Public liability cover in place" },
+        { label: "Gas Safe", description: "Certified and compliant" },
+        { label: "5-Star Rated", description: "Trusted by local customers" },
+      ],
+    },
+    "services.grid": {
+      title: "Our services",
+      services: [
+        { title: "Boiler Service", description: "Annual servicing for safety and efficiency" },
+        { title: "Repairs", description: "Rapid diagnostics and reliable fixes" },
+        { title: "Installations", description: "Professional installation and setup" },
+      ],
+    },
+    "features.list": {
+      title: "Why choose us",
+      features: [
+        { title: "Fast response", description: "Same-day callouts available" },
+        { title: "Clear pricing", description: "No hidden fees" },
+        { title: "Quality workmanship", description: "Experienced local engineers" },
+      ],
+    },
+    "about.intro": {
+      title: "About our team",
+      body: "We provide dependable trade services with a focus on quality and customer care.",
+    },
+    "process.steps": {
+      title: "How it works",
+      steps: [
+        { title: "Book", description: "Choose a suitable date and time" },
+        { title: "Visit", description: "Engineer arrives and completes the work" },
+        { title: "Follow-up", description: "We confirm everything is working perfectly" },
+      ],
+    },
+    "reviews.grid": {
+      title: "Customer reviews",
+      reviews: [
+        { name: "A. Smith", quote: "Great service and very professional.", rating: 5 },
+        { name: "J. Brown", quote: "Arrived on time and fixed it quickly.", rating: 5 },
+        { name: "K. Jones", quote: "Highly recommended.", rating: 5 },
+      ],
+    },
+    "areas.grid": {
+      title: "Areas we cover",
+      areas: [
+        { name: "City Centre" },
+        { name: "Northside" },
+        { name: "Southside" },
+        { name: "West End" },
+      ],
+    },
+    "faq.accordion": {
+      title: "Frequently asked questions",
+      faqs: [
+        { question: "Do you offer emergency callouts?", answer: "Yes, we provide emergency support." },
+        { question: "Are quotes free?", answer: "Yes, we provide free no-obligation quotes." },
+      ],
+    },
+    "cta.banner": {
+      title: "Need help today?",
+      subtitle: "Book an appointment and we will get back to you quickly.",
+      primaryCtaLabel: "Book now",
+      secondaryCtaLabel: "Call us",
+      phone: "01234 567890",
+    },
+    "contact.split": {
+      title: "Get in touch",
+      subtitle: "Tell us what you need and we will respond promptly.",
+      phone: "01234 567890",
+      email: "hello@example.com",
+      address: "123 High Street",
+      openingHours: "Mon-Fri 8:00-18:00",
+    },
+    "gallery.grid": {
+      title: "Recent work",
+      images: [
+        { alt: "Project 1", caption: "Installation" },
+        { alt: "Project 2", caption: "Repair" },
+        { alt: "Project 3", caption: "Maintenance" },
+      ],
+    },
+    "blog.index": {
+      title: "Latest articles",
+      posts: [
+        { href: "/blog/1", title: "Maintenance tips", excerpt: "Simple ways to prevent breakdowns." },
+        { href: "/blog/2", title: "When to service", excerpt: "How often your system should be checked." },
+        { href: "/blog/3", title: "Energy savings", excerpt: "Reduce bills with efficient usage." },
+      ],
+    },
+    "legal.content": {
+      title: "Legal information",
+      sections: [
+        { heading: "Overview", body: "This is placeholder legal content for preview." },
+      ],
+    },
+    "system.404": {
+      title: "Page not found",
+      subtitle: "The page you are looking for could not be found.",
+      ctaLabel: "Back to home",
+      ctaHref: "/",
+    },
+  };
+
+  const safeProps = {
+    ...(defaultPropsByType[resolvedType] || {}),
+    ...props,
+  } as Record<string, unknown>;
+
   switch (resolvedType) {
     case 'site.header':
-      return <SiteHeaderBlock {...(props as any)} />;
+      return <SiteHeaderBlock {...(safeProps as any)} />;
     case 'site.footer':
-      return <SiteFooterBlock {...(props as any)} />;
+      return <SiteFooterBlock {...(safeProps as any)} />;
     case 'hero.standard':
-      return <HeroBlock {...(props as any)} />;
+      return <HeroBlock {...(safeProps as any)} />;
     case 'trust.badges':
-      return <TrustBadgesBlock {...(props as any)} />;
+      return <TrustBadgesBlock {...(safeProps as any)} />;
     case 'services.grid':
-      return <ServicesGridBlock {...(props as any)} />;
+      return <ServicesGridBlock {...(safeProps as any)} />;
     case 'features.list':
-      return <FeatureListBlock {...(props as any)} />;
+      return <FeatureListBlock {...(safeProps as any)} />;
     case 'about.intro':
-      return <AboutIntroBlock {...(props as any)} />;
+      return <AboutIntroBlock {...(safeProps as any)} />;
     case 'process.steps':
-      return <ProcessStepsBlock {...(props as any)} />;
+      return <ProcessStepsBlock {...(safeProps as any)} />;
     case 'reviews.grid':
-      return <ReviewsBlock {...(props as any)} />;
+      return <ReviewsBlock {...(safeProps as any)} />;
     case 'areas.grid':
-      return <AreasCoveredBlock {...(props as any)} />;
+      return <AreasCoveredBlock {...(safeProps as any)} />;
     case 'faq.accordion':
-      return <FaqBlock {...(props as any)} />;
+      return <FaqBlock {...(safeProps as any)} />;
     case 'cta.banner':
-      return <CtaBannerBlock {...(props as any)} />;
+      return <CtaBannerBlock {...(safeProps as any)} />;
     case 'contact.split':
-      return <ContactBlock {...(props as any)} />;
+      return <ContactBlock {...(safeProps as any)} />;
     case 'gallery.grid':
-      return <GalleryBlock {...(props as any)} />;
+      return <GalleryBlock {...(safeProps as any)} />;
     case 'blog.index':
-      return <BlogIndexBlock {...(props as any)} />;
+      return <BlogIndexBlock {...(safeProps as any)} />;
     case 'legal.content':
-      return <LegalContentBlock {...(props as any)} />;
+      return <LegalContentBlock {...(safeProps as any)} />;
     case 'system.404':
-      return <NotFoundBlock {...(props as any)} />;
+      return <NotFoundBlock {...(safeProps as any)} />;
 
     default:
       return (

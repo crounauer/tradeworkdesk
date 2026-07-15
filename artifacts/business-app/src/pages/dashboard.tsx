@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { MessageSquarePlus, AlertTriangle, Plus, FileText, Receipt, CalendarDays, MapPin, ChevronRight, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useCallback, lazy, Suspense } from "react";
-import { Link } from "wouter";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useCallback, lazy, Suspense, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -57,8 +58,51 @@ const JOB_TYPE_LABELS: Record<string, string> = {
   follow_up: "Follow Up",
 };
 
+const ESSENTIAL_SETUP_PROMPT_MAX_SHOWS = 3;
+const ESSENTIAL_SETUP_KEY_BASE = "twd-essential-setup-v1";
+
+type EssentialSetupState = {
+  shownCount: number;
+  dismissed: boolean;
+  completed: boolean;
+};
+
+type EssentialSetupChecks = {
+  hasServices: boolean;
+  hasCustomers: boolean;
+  hasActiveUser: boolean;
+};
+
+function getEssentialSetupStorageKey(userId: string): string {
+  return `${ESSENTIAL_SETUP_KEY_BASE}:${userId}`;
+}
+
+function readEssentialSetupState(userId: string): EssentialSetupState {
+  if (typeof window === "undefined") {
+    return { shownCount: 0, dismissed: false, completed: false };
+  }
+  try {
+    const raw = window.localStorage.getItem(getEssentialSetupStorageKey(userId));
+    if (!raw) return { shownCount: 0, dismissed: false, completed: false };
+    const parsed = JSON.parse(raw) as Partial<EssentialSetupState>;
+    return {
+      shownCount: Number(parsed.shownCount || 0),
+      dismissed: Boolean(parsed.dismissed),
+      completed: Boolean(parsed.completed),
+    };
+  } catch {
+    return { shownCount: 0, dismissed: false, completed: false };
+  }
+}
+
+function writeEssentialSetupState(userId: string, state: EssentialSetupState): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(getEssentialSetupStorageKey(userId), JSON.stringify(state));
+}
+
 export default function Dashboard() {
   const { profile } = useAuth();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: initData } = useInitData();
   const { data: homepageData, isLoading: homepageLoading } = useHomepageData();
@@ -66,6 +110,9 @@ export default function Dashboard() {
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
   const [showQuickInvoice, setShowQuickInvoice] = useState<"invoice" | "quote" | null>(null);
+  const [showEssentialSetupPrompt, setShowEssentialSetupPrompt] = useState(false);
+  const [essentialSetupState, setEssentialSetupState] = useState<EssentialSetupState>({ shownCount: 0, dismissed: false, completed: false });
+  const [hasServices, setHasServices] = useState(false);
   const { hasFeature: dashHasFeature } = usePlanFeatures();
   const hasJobManagement = dashHasFeature("job_management");
 
@@ -108,12 +155,104 @@ export default function Dashboard() {
 
   const canCreateJobs = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
   const canCreateInvoices = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+  const hasCustomers = (stats?.total_customers ?? 0) > 0;
+  const hasActiveUser = (initData?.usageLimits?.currentUsers ?? 0) > 0;
 
   const overdueFollowUpsCount = initData?.overdueFollowUpsCount ?? 0;
+
+  useEffect(() => {
+    const userId = profile?.id;
+    if (!userId || typeof window === "undefined") return;
+
+    const state = readEssentialSetupState(userId);
+    setEssentialSetupState(state);
+
+    if (state.completed || state.dismissed || state.shownCount >= ESSENTIAL_SETUP_PROMPT_MAX_SHOWS) {
+      return;
+    }
+
+    const seenThisSessionKey = `${getEssentialSetupStorageKey(userId)}:session-seen`;
+    if (window.sessionStorage.getItem(seenThisSessionKey) === "1") {
+      return;
+    }
+
+    window.sessionStorage.setItem(seenThisSessionKey, "1");
+    const next = { ...state, shownCount: state.shownCount + 1 };
+    writeEssentialSetupState(userId, next);
+    setEssentialSetupState(next);
+    setShowEssentialSetupPrompt(true);
+  }, [profile?.id]);
+
+  const updateEssentialSetupState = useCallback((update: Partial<EssentialSetupState>) => {
+    const userId = profile?.id;
+    if (!userId) return;
+    setEssentialSetupState((prev) => {
+      const next = { ...prev, ...update };
+      writeEssentialSetupState(userId, next);
+      return next;
+    });
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || !hasJobManagement || !canCreateJobs) return;
+    let cancelled = false;
+
+    const checkServices = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const list = Array.isArray(data) ? data : [];
+          setHasServices(list.some((s) => s && s.is_active !== false));
+        }
+      } catch {
+        if (!cancelled) setHasServices(false);
+      }
+    };
+
+    checkServices();
+    return () => { cancelled = true; };
+  }, [profile?.id, hasJobManagement, canCreateJobs]);
+
+  const setupChecks: EssentialSetupChecks = {
+    hasServices,
+    hasCustomers,
+    hasActiveUser,
+  };
+  const completedChecks = Object.values(setupChecks).filter(Boolean).length;
+  const totalChecks = Object.keys(setupChecks).length;
+  const checksComplete = completedChecks === totalChecks;
+
+  useEffect(() => {
+    if (!hasJobManagement || !checksComplete) return;
+    if (essentialSetupState.completed) return;
+    updateEssentialSetupState({ completed: true, dismissed: false });
+    setShowEssentialSetupPrompt(false);
+  }, [hasJobManagement, checksComplete, essentialSetupState.completed, updateEssentialSetupState]);
+
+  const showEssentialSetupCard = !essentialSetupState.completed
+    && !showEssentialSetupPrompt
+    && (essentialSetupState.dismissed || essentialSetupState.shownCount >= ESSENTIAL_SETUP_PROMPT_MAX_SHOWS);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <AddToHomeScreen />
+
+      {showEssentialSetupCard && (
+        <Card className="p-4 border-emerald-200 bg-emerald-50/60">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-emerald-900">Complete your essential setup</p>
+              <p className="text-xs text-emerald-800 mt-1">Set up company profile, services and team assignment so job-sheet options are ready when booking jobs.</p>
+              <p className="text-[11px] text-emerald-700 mt-1">Progress: {completedChecks}/{totalChecks} complete</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => navigate("/getting-started")}>Open setup</Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {hasJobManagement && overdueFollowUpsCount > 0 && (
         <a href="/follow-ups" className="block">
@@ -395,6 +534,43 @@ export default function Dashboard() {
           <QuickInvoiceDialog type={showQuickInvoice} onOpenChange={(v) => { if (!v) setShowQuickInvoice(null); }} />
         </Suspense>
       )}
+
+      <Dialog open={showEssentialSetupPrompt} onOpenChange={setShowEssentialSetupPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Get Set Up in 5 Minutes</DialogTitle>
+            <DialogDescription>
+              Complete a quick setup so services, team assignment and job-sheet options are ready before your first live job.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>• Add at least one service to catalogue {setupChecks.hasServices ? "(done)" : ""}</p>
+            <p>• Add at least one customer {setupChecks.hasCustomers ? "(done)" : ""}</p>
+            <p>• Keep an active team user seat {setupChecks.hasActiveUser ? "(done)" : ""}</p>
+            <p className="text-xs">Progress: {completedChecks}/{totalChecks} complete</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                updateEssentialSetupState({ dismissed: true });
+                setShowEssentialSetupPrompt(false);
+              }}
+            >
+              Don&apos;t show again
+            </Button>
+            <Button variant="outline" onClick={() => setShowEssentialSetupPrompt(false)}>Remind me later</Button>
+            <Button
+              onClick={() => {
+                setShowEssentialSetupPrompt(false);
+                navigate("/getting-started");
+              }}
+            >
+              Start setup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -14,10 +14,10 @@ export function FeatureListBlock({
   features,
 }: FeatureListBlockProps) {
   return (
-    <section className="bg-slate-50 px-6 py-20 lg:px-8">
+    <section className="bg-[#f0f4f9] px-6 py-20 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">{eyebrow}</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-[#1a3a6b]">{eyebrow}</p>
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">{title}</h2>
           {subtitle ? <p className="mt-4 text-slate-600">{subtitle}</p> : null}
         </div>

@@ -124,6 +124,42 @@ function normalizeTemplateStatus(template: TemplateRow): string {
   return template.published_at ? "validated" : "draft";
 }
 
+const PREVIEW_DEFAULT_PAGE_BLOCKS: Record<string, string[]> = {
+  home: [
+    "site.header",
+    "hero.standard",
+    "trust.badges",
+    "features.list",
+    "spacer",
+    "testimonials",
+    "services.grid",
+    "process.steps",
+    "amazon",
+    "cta.banner",
+    "site.footer",
+  ],
+  services: [
+    "site.header",
+    "hero.standard",
+    "services.grid",
+    "why.choose.us",
+    "faq.accordion",
+    "cta.banner",
+    "site.footer",
+  ],
+  "service-detail": ["site.header", "hero.standard", "features.list", "process.steps", "cta.banner", "site.footer"],
+  emergency: ["site.header", "hero.standard", "process.steps", "cta.banner", "site.footer"],
+  areas: ["site.header", "hero.standard", "areas.grid", "contact.split", "site.footer"],
+  reviews: ["site.header", "hero.standard", "reviews.grid", "testimonials", "brands", "cta.banner", "site.footer"],
+  gallery: ["site.header", "hero.standard", "gallery.grid", "project.showcase", "spacer", "site.footer"],
+  "blog-index": ["site.header", "hero.standard", "blog.index", "cta.banner", "site.footer"],
+  "blog-post": ["site.header", "hero.standard", "legal.content", "cta.banner", "site.footer"],
+  booking: ["site.header", "hero.standard", "online.booking", "cta.banner", "sticky.mobile.cta", "site.footer"],
+  contact: ["site.header", "hero.standard", "contact.split", "accreditations", "site.footer"],
+  legal: ["site.header", "hero.standard", "legal.content", "faq.accordion", "site.footer"],
+  "404": ["site.header", "hero.standard", "system.notFound", "cta.banner", "site.footer"],
+};
+
 class TemplateImportError extends Error {
   readonly status: number;
   readonly code: string;
@@ -1005,40 +1041,209 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     return;
   }
 
-  const normalizedTemplate = {
+  let normalizedTemplate: Record<string, unknown> = {
     ...template,
     status: normalizeTemplateStatus(template as TemplateRow),
+    theme_json: (template as Record<string, unknown>).theme_json || (template as Record<string, unknown>).design_tokens || {},
+    cms_mapping_json: (template as Record<string, unknown>).cms_mapping_json || {},
   };
 
   // demo_pages is a preview structure
   let demoPages = template.demo_pages || [];
 
-  // If demo_pages is empty (template created before the fix), fetch from conversion
-  if (demoPages.length === 0 && template.slug) {
+  const needsThemeBackfill =
+    !normalizedTemplate.theme_json ||
+    Object.keys(normalizedTemplate.theme_json as Record<string, unknown>).length === 0;
+  const needsCmsBackfill =
+    !normalizedTemplate.cms_mapping_json ||
+    Object.keys(normalizedTemplate.cms_mapping_json as Record<string, unknown>).length === 0;
+
+  let conversionData: { block_mapping_report?: unknown; design_tokens?: unknown } | null = null;
+
+  if (template.slug && (demoPages.length === 0 || needsThemeBackfill || needsCmsBackfill)) {
     try {
       const { data: conversion } = await supabaseAdmin
         .from("template_conversions")
-        .select("block_mapping_report")
+        .select("block_mapping_report, design_tokens")
         .eq("template_slug", template.slug)
-        .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      conversionData = conversion || null;
+    } catch (err) {
+      console.error(`[GET /:id] Conversion enrichment lookup error:`, err);
+    }
+  }
+
+  if (needsThemeBackfill && conversionData?.design_tokens && typeof conversionData.design_tokens === "object") {
+    normalizedTemplate = {
+      ...normalizedTemplate,
+      theme_json: conversionData.design_tokens,
+    };
+  }
+
+  if (
+    (!normalizedTemplate.theme_json ||
+      Object.keys(normalizedTemplate.theme_json as Record<string, unknown>).length === 0)
+  ) {
+    const defaultTheme = {
+      colors: {
+        primary: "#000000",
+        accent: "#f97316",
+        background: "#ffffff",
+        text: "#1f2937",
+      },
+      typography: {
+        bodyFamily: "system-ui, -apple-system, sans-serif",
+        headingFamily: "system-ui, -apple-system, sans-serif",
+      },
+    };
+
+    normalizedTemplate = {
+      ...normalizedTemplate,
+      theme_json: defaultTheme,
+    };
+  }
+
+  if (
+    needsCmsBackfill &&
+    conversionData?.block_mapping_report &&
+    typeof conversionData.block_mapping_report === "object"
+  ) {
+    const mapping = conversionData.block_mapping_report as Record<string, unknown>;
+    normalizedTemplate = {
+      ...normalizedTemplate,
+      cms_mapping_json: {
+        pages: Array.isArray(mapping.pages) ? mapping.pages : [],
+        blocksPerPage:
+          mapping.blocksPerPage && typeof mapping.blocksPerPage === "object"
+            ? mapping.blocksPerPage
+            : {},
+        blockTypes: Array.isArray(mapping.blockTypes) ? mapping.blockTypes : [],
+      },
+    };
+  }
+
+  if (
+    (!normalizedTemplate.cms_mapping_json ||
+      Object.keys(normalizedTemplate.cms_mapping_json as Record<string, unknown>).length === 0) &&
+    Array.isArray(demoPages) &&
+    demoPages.length > 0
+  ) {
+    const pagesFromDemo = demoPages
+      .map((page: any) => String(page?.slug || "").trim())
+      .filter((slug: string) => slug.length > 0);
+
+    const blocksPerPageFromDemo = Object.fromEntries(
+      demoPages.map((page: any) => [
+        String(page?.slug || ""),
+        Number(page?.block_count || (Array.isArray(page?.block_types) ? page.block_types.length : 0)),
+      ])
+    );
+
+    const blockTypesFromDemo = Array.from(
+      new Set(
+        demoPages.flatMap((page: any) =>
+          Array.isArray(page?.block_types)
+            ? page.block_types.filter((value: unknown) => typeof value === "string")
+            : []
+        )
+      )
+    );
+
+    normalizedTemplate = {
+      ...normalizedTemplate,
+      cms_mapping_json: {
+        pages: pagesFromDemo,
+        blocksPerPage: blocksPerPageFromDemo,
+        blockTypes: blockTypesFromDemo,
+      },
+    };
+  }
+
+  // If demo_pages is empty (template created before the fix), fetch from conversion
+  if (demoPages.length === 0 && template.slug) {
+    try {
+      console.log(`[GET /:id] demo_pages empty, fetching from conversion. Slug: ${template.slug}`);
+      const conversion = conversionData;
+
+      console.log(`[GET /:id] Conversion found:`, !!conversion, conversion?.block_mapping_report ? "has report" : "no report");
 
       if (conversion?.block_mapping_report) {
         const blockMapping = conversion.block_mapping_report as any;
         const pageNames = blockMapping.pages || []; // Array of page names
         const blocksPerPage = blockMapping.blocksPerPage || {}; // Dict with block counts
+        const blockTypes = blockMapping.blockTypes || []; // All block types array
+        const pageBlockProps =
+          blockMapping.pageBlockProps && typeof blockMapping.pageBlockProps === "object"
+            ? (blockMapping.pageBlockProps as Record<string, Record<string, unknown>>)
+            : {};
+
+        // Backfill cms_mapping_json for legacy templates that were created before this field was populated.
+        if (!normalizedTemplate.cms_mapping_json || Object.keys(normalizedTemplate.cms_mapping_json as Record<string, unknown>).length === 0) {
+          normalizedTemplate = {
+            ...normalizedTemplate,
+            cms_mapping_json: {
+              pages: pageNames,
+              blocksPerPage,
+              blockTypes,
+              pageBlockProps,
+            },
+          };
+        }
+
+        console.log(`[GET /:id] Page names: ${pageNames.length}`, pageNames);
+        console.log(`[GET /:id] BlocksPerPage:`, blocksPerPage);
+        console.log(`[GET /:id] BlockTypes count:`, blockTypes.length);
+
+        // Calculate block counts per page
+        const blockCountPerPage: Record<string, number> = {};
+        
+        // First, try to use blocksPerPage if it has values
+        const hasBlocksPerPageData = Object.values(blocksPerPage).some((count: any) => (count || 0) > 0);
+        
+        if (hasBlocksPerPageData) {
+          // Use the blocksPerPage mapping
+          pageNames.forEach((slug: string) => {
+            blockCountPerPage[slug] = blocksPerPage[slug] || 0;
+          });
+        } else if (blockTypes.length > 0 && pageNames.length > 0) {
+          // Fallback: distribute blockTypes evenly across pages if we have no per-page info
+          const avgBlocksPerPage = Math.ceil(blockTypes.length / pageNames.length);
+          pageNames.forEach((slug: string) => {
+            blockCountPerPage[slug] = avgBlocksPerPage;
+          });
+          console.log(`[GET /:id] Using fallback distribution: ~${avgBlocksPerPage} blocks per page`);
+        }
 
         // Reconstruct demo_pages from block_mapping_report
         demoPages = pageNames.map((slug: string, idx: number) => ({
-          slug,
-          title: slug.charAt(0).toUpperCase() + slug.slice(1),
-          block_count: blocksPerPage[slug] || 0,
-          block_types: [], // Empty - we only have counts, not the type names
+          ...(function () {
+            const rawKeys = Object.keys(pageBlockProps?.[slug] || {});
+            const preferredOrder = PREVIEW_DEFAULT_PAGE_BLOCKS[slug] || [];
+            const orderedKeys = preferredOrder.length > 0
+              ? [
+                  ...preferredOrder.filter((type) => rawKeys.includes(type)),
+                  ...rawKeys.filter((type) => !preferredOrder.includes(type)),
+                ]
+              : rawKeys;
+            return {
+              slug,
+              title: slug.charAt(0).toUpperCase() + slug.slice(1),
+              block_count: blockCountPerPage[slug] || 0,
+              block_types: orderedKeys,
+            };
+          })(),
         }));
+        
+        console.log(`[GET /:id] Reconstructed demo_pages with ${demoPages.length} pages`);
+        demoPages.slice(0, 2).forEach(p => {
+          console.log(`[GET /:id]   - ${p.slug}: ${p.block_count} blocks`);
+        });
       }
-    } catch {
+    } catch (err) {
+      console.error(`[GET /:id] Fallback reconstruction error:`, err);
       // Silently fail - demo_pages will remain empty
     }
   }
@@ -1081,6 +1286,8 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
     }
   });
 
+  console.log(`[GET /:id] Final response: ${pages.length} pages, ${blocks.length} blocks`);
+
   const latestUploadResult = await getLatestTemplateUpload(id);
   const { data: versionsResult } = await supabaseAdmin
     .from("template_versions")
@@ -1115,6 +1322,8 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
   const normalizedTemplate = {
     ...template,
     status: normalizeTemplateStatus(template as TemplateRow),
+    theme_json: (template as Record<string, unknown>).theme_json || (template as Record<string, unknown>).design_tokens || {},
+    cms_mapping_json: (template as Record<string, unknown>).cms_mapping_json || {},
   };
 
   const latestUploadResult = await getLatestTemplateUpload(id);
@@ -1123,13 +1332,167 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
     supabaseAdmin.from("website_template_blocks").select("*").eq("template_id", id).order("sort_order", { ascending: true }),
   ]);
 
+  let previewPages = pagesResult.data || [];
+  let previewBlocks = blocksResult.data || [];
+
+  // Phase 2 templates store preview data on website_templates.demo_pages and do not create
+  // website_template_pages/website_template_blocks until a tenant applies the template.
+  if (previewPages.length === 0) {
+    let demoPages = Array.isArray((template as Record<string, unknown>).demo_pages)
+      ? ((template as Record<string, unknown>).demo_pages as Array<Record<string, unknown>>)
+      : [];
+
+    if (demoPages.length === 0 && template.slug) {
+      const { data: conversion } = await supabaseAdmin
+        .from("template_conversions")
+        .select("block_mapping_report")
+        .eq("template_slug", template.slug)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const mapping = conversion?.block_mapping_report as Record<string, unknown> | undefined;
+      const mappedPages = Array.isArray(mapping?.pages) ? (mapping?.pages as string[]) : [];
+      const mappedCounts =
+        mapping?.blocksPerPage && typeof mapping.blocksPerPage === "object"
+          ? (mapping.blocksPerPage as Record<string, number>)
+          : {};
+      const mappedPageBlockProps =
+        mapping?.pageBlockProps && typeof mapping.pageBlockProps === "object"
+          ? (mapping.pageBlockProps as Record<string, Record<string, unknown>>)
+          : {};
+
+      demoPages = mappedPages.map((slug) => ({
+        ...(function () {
+          const rawKeys = Object.keys(mappedPageBlockProps?.[slug] || {});
+          const preferredOrder = PREVIEW_DEFAULT_PAGE_BLOCKS[slug] || [];
+          const orderedKeys = preferredOrder.length > 0
+            ? [
+                ...preferredOrder.filter((type) => rawKeys.includes(type)),
+                ...rawKeys.filter((type) => !preferredOrder.includes(type)),
+              ]
+            : rawKeys;
+          return {
+            slug,
+            title: slug.charAt(0).toUpperCase() + slug.slice(1),
+            block_count: Number(mappedCounts[slug] || 0),
+            block_types: orderedKeys,
+          };
+        })(),
+      }));
+    }
+
+    previewPages = demoPages.map((page, idx) => ({
+      id: `preview-${idx}`,
+      template_id: id,
+      slug: String(page.slug || ""),
+      title: String(page.title || page.slug || `Page ${idx + 1}`),
+      page_type: String(page.slug || "custom"),
+      path: String(page.slug || ""),
+      sort_order: idx,
+      block_count: Number(page.block_count || 0),
+    }));
+
+    previewBlocks = [];
+    demoPages.forEach((page, pageIdx) => {
+      const pageId = `preview-${pageIdx}`;
+      const pageSlug = String(page.slug || "");
+      const types = Array.isArray(page.block_types)
+        ? page.block_types.map((value) => String(value)).filter(Boolean)
+        : [];
+
+      const fallbackTypes = PREVIEW_DEFAULT_PAGE_BLOCKS[pageSlug] || [];
+      const resolvedTypes = types.length > 0 ? types : fallbackTypes;
+
+      if (resolvedTypes.length > 0) {
+        resolvedTypes.forEach((blockType, blockIdx) => {
+          previewBlocks.push({
+            id: `preview-${pageIdx}-${blockIdx}`,
+            page_id: pageId,
+            template_id: id,
+            block_type: blockType,
+            sort_order: blockIdx,
+            content: {},
+            settings: {},
+          });
+        });
+        return;
+      }
+
+      const count = Number(page.block_count || 0);
+      for (let i = 0; i < count; i++) {
+        previewBlocks.push({
+          id: `preview-${pageIdx}-${i}`,
+          page_id: pageId,
+          template_id: id,
+          block_type: `block.${i + 1}`,
+          sort_order: i,
+          content: {},
+          settings: {},
+        });
+      }
+    });
+  }
+
   const validation = (latestUploadResult.data as { original_zip_metadata?: { validation?: unknown } } | null)?.original_zip_metadata?.validation || null;
+
+  // Attach real block props extracted from the Figma conversion so the preview
+  // renders the template's actual copy instead of generic placeholder defaults.
+  try {
+    let blockProps: Record<string, Record<string, unknown>> | null = null;
+    let pageBlockProps: Record<string, Record<string, Record<string, unknown>>> | null = null;
+
+    const demoPagesRaw = (template as Record<string, unknown>).demo_pages;
+    if (demoPagesRaw && typeof demoPagesRaw === "object") {
+      // Phase 2 may store blockProps alongside demo pages on the template.
+      const cms = (template as Record<string, unknown>).cms_mapping_json as Record<string, unknown> | undefined;
+      if (cms && typeof cms.blockProps === "object" && cms.blockProps) {
+        blockProps = cms.blockProps as Record<string, Record<string, unknown>>;
+      }
+      if (cms && typeof cms.pageBlockProps === "object" && cms.pageBlockProps) {
+        pageBlockProps = cms.pageBlockProps as Record<string, Record<string, Record<string, unknown>>>;
+      }
+    }
+
+    if ((!blockProps || !pageBlockProps) && template.slug) {
+      const { data: conversion } = await supabaseAdmin
+        .from("template_conversions")
+        .select("block_mapping_report")
+        .eq("template_slug", template.slug)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const report = conversion?.block_mapping_report as Record<string, unknown> | undefined;
+      if (report && typeof report.blockProps === "object" && report.blockProps) {
+        blockProps = report.blockProps as Record<string, Record<string, unknown>>;
+      }
+      if (report && typeof report.pageBlockProps === "object" && report.pageBlockProps) {
+        pageBlockProps = report.pageBlockProps as Record<string, Record<string, Record<string, unknown>>>;
+      }
+    }
+
+    if (blockProps || pageBlockProps) {
+      const pageSlugById = new Map<string, string>(
+        previewPages.map((page: Record<string, unknown>) => [String(page.id), String(page.slug || "")]),
+      );
+      previewBlocks = previewBlocks.map((block: Record<string, unknown>) => {
+        const existing = (block.content && typeof block.content === "object" ? block.content : {}) as Record<string, unknown>;
+        const hasProps = existing.props && typeof existing.props === "object" && Object.keys(existing.props).length > 0;
+        const pageSlug = pageSlugById.get(String(block.page_id)) || "";
+        const props = pageBlockProps?.[pageSlug]?.[String(block.block_type)] || blockProps?.[String(block.block_type)];
+        if (hasProps || !props) return block;
+        return { ...block, content: { ...existing, props } };
+      });
+    }
+  } catch (err) {
+    console.error("[preview-data] Failed to attach block props:", err);
+  }
 
   res.json({
     template: normalizedTemplate,
     theme: (template as Record<string, unknown>).theme_json || (template as Record<string, unknown>).default_theme || {},
-    pages: pagesResult.data || [],
-    blocks: blocksResult.data || [],
+    pages: previewPages,
+    blocks: previewBlocks,
     upload: latestUploadResult.data || null,
     validation_report: validation,
   });
@@ -1161,7 +1524,9 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
 
   const uploadRow = uploadResult.data;
 
-  if (uploadRow?.validation_status !== "validated") {
+  // Legacy/admin ZIP imports require validation_status=validated.
+  // Conversion-generated templates may not have a website_template_uploads row.
+  if (uploadRow && uploadRow.validation_status !== "validated") {
     res.status(400).json({ error: "Template cannot be published until validation passes" });
     return;
   }

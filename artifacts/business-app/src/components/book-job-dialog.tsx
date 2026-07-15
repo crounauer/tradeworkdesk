@@ -18,6 +18,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useOffline } from "@/contexts/offline-context";
 import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTechnicians, useCacheJobTypes } from "@/hooks/use-offline-data";
+import { createJobType } from "@/lib/create-job-type";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -209,6 +210,9 @@ export function BookJobDialog({
   const [pendingSelectPropertyId, setPendingSelectPropertyId] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [showAddJobTypeInline, setShowAddJobTypeInline] = useState(false);
+  const [newJobTypeName, setNewJobTypeName] = useState("");
+  const [creatingJobType, setCreatingJobType] = useState(false);
   const [confirmationState, setConfirmationState] = useState<{
     jobId: string;
     customerEmail: string;
@@ -235,8 +239,42 @@ export function BookJobDialog({
     setNewPropCity("");
     setNewPropPostcode("");
     setPendingSelectPropertyId(null);
+    setShowAddJobTypeInline(false);
+    setNewJobTypeName("");
+    setCreatingJobType(false);
     reset();
     onOpenChange(false);
+  };
+
+  const createJobTypeInline = async () => {
+    const name = newJobTypeName.trim();
+    if (!name) {
+      toast({ title: "Missing info", description: "Enter a job type name.", variant: "destructive" });
+      return;
+    }
+    if (!isOnline) {
+      toast({ title: "Offline", description: "You need to be online to add a new job type.", variant: "destructive" });
+      return;
+    }
+
+    setCreatingJobType(true);
+    try {
+      const created = await createJobType({
+        endpoint: `${import.meta.env.BASE_URL}api/admin/service-catalogue`,
+        name,
+      });
+
+      await qc.invalidateQueries({ queryKey: ["job-types"] });
+      setValue("job_type_id", created.id, { shouldValidate: true, shouldDirty: true });
+      setShowAddJobTypeInline(false);
+      setNewJobTypeName("");
+      toast({ title: "Job type added", description: `${created.name || name} is now selected.` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to add job type";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setCreatingJobType(false);
+    }
   };
 
   // Pre-select customer (and optionally property) when initial values are provided
@@ -445,6 +483,11 @@ export function BookJobDialog({
       }
 
       const selectedType = jobTypes.find((t) => t.id === data.job_type_id);
+      if (!selectedType) {
+        toast({ title: "Missing info", description: "Please select a job type.", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
       const technicianId = autoAssign && profile?.id
         ? profile.id
         : (isAdminOrOffice ? data.assigned_technician_id || undefined : undefined);
@@ -453,7 +496,7 @@ export function BookJobDialog({
         customer_id: customerId,
         property_id: propertyId,
         job_type: "service",
-        service_catalogue_id: selectedType ? selectedType.id : undefined,
+        service_catalogue_id: selectedType.id,
         fuel_category: data.fuel_category || undefined,
         priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
         scheduled_date: data.scheduled_date,
@@ -815,12 +858,57 @@ export function BookJobDialog({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Job Type *</Label>
-                    <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" required {...register("job_type_id")}>
+                    <select
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                      required
+                      {...register("job_type_id")}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "__add_new__") {
+                          setValue("job_type_id", "", { shouldValidate: true, shouldDirty: true });
+                          setShowAddJobTypeInline(true);
+                          return;
+                        }
+                        setShowAddJobTypeInline(false);
+                        setNewJobTypeName("");
+                        setValue("job_type_id", value, { shouldValidate: true, shouldDirty: true });
+                      }}
+                    >
                       <option value="">Select type...</option>
                       {jobTypes.map(t => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
+                      {isAdminOrOffice && isOnline && (
+                        <option value="__add_new__">+ Add new job type...</option>
+                      )}
                     </select>
+                    {showAddJobTypeInline && (
+                      <div className="mt-2 p-3 border border-border rounded-lg bg-slate-50/60 space-y-2">
+                        <Label className="text-xs">New Job Type Name</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={newJobTypeName}
+                            onChange={(e) => setNewJobTypeName(e.target.value)}
+                            placeholder="e.g. System flush"
+                          />
+                          <Button type="button" size="sm" onClick={createJobTypeInline} disabled={creatingJobType || !newJobTypeName.trim()}>
+                            {creatingJobType ? "Adding..." : "Add"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setShowAddJobTypeInline(false);
+                              setNewJobTypeName("");
+                            }}
+                            disabled={creatingJobType}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Priority</Label>
