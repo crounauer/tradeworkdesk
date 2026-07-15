@@ -89,6 +89,8 @@ const BLOCK_TYPE_ALIASES: Record<string, string> = {
 };
 const SKIPPED_BLOCK_TYPES = new Set(["site.header", "site.footer"]);
 const SHARED_BLOCK_TYPES = new Set(["contact", "services_grid"]);
+const GLOBAL_SITE_HEADER_THEME_KEY = "__site_header_content";
+const GLOBAL_SITE_FOOTER_THEME_KEY = "__site_footer_content";
 
 function normalizeTenantBlockType(blockType: unknown): string {
   const normalized = String(blockType || "").trim().toLowerCase();
@@ -99,6 +101,54 @@ function normalizeTenantBlockType(blockType: unknown): string {
 function shouldSkipTenantBlock(blockType: unknown): boolean {
   const normalized = String(blockType || "").trim().toLowerCase();
   return SKIPPED_BLOCK_TYPES.has(normalized);
+}
+
+function normalizeGlobalSiteBlockType(blockType: unknown): "site.header" | "site.footer" | null {
+  const normalized = String(blockType || "").trim().toLowerCase();
+  if (normalized === "site.header") return "site.header";
+  if (normalized === "site.footer") return "site.footer";
+  return null;
+}
+
+function mergeGlobalSiteBlocksIntoTheme(
+  theme: Record<string, unknown> | null | undefined,
+  globalBlocks: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>>,
+): Record<string, unknown> {
+  const next = { ...(theme || {}) };
+
+  if (globalBlocks["site.header"]) {
+    next[GLOBAL_SITE_HEADER_THEME_KEY] = globalBlocks["site.header"];
+  }
+  if (globalBlocks["site.footer"]) {
+    next[GLOBAL_SITE_FOOTER_THEME_KEY] = globalBlocks["site.footer"];
+  }
+
+  return next;
+}
+
+async function persistGlobalSiteBlocksForWebsite(args: {
+  websiteId?: string | null;
+  tenantId?: string;
+  globalBlocks: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>>;
+}): Promise<void> {
+  const { websiteId, tenantId, globalBlocks } = args;
+  if (!websiteId || !tenantId) return;
+  if (!globalBlocks["site.header"] && !globalBlocks["site.footer"]) return;
+
+  const { data: websiteRow } = await db
+    .from("websites")
+    .select("theme")
+    .eq("id", websiteId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
+
+  const mergedTheme = mergeGlobalSiteBlocksIntoTheme(websiteRow?.theme || {}, globalBlocks);
+
+  await db
+    .from("websites")
+    .update({ theme: mergedTheme })
+    .eq("id", websiteId)
+    .eq("tenant_id", tenantId);
 }
 
 async function syncSharedBlockTypesAcrossWebsite(args: {
@@ -658,6 +708,7 @@ router.post(
           const pageIdBySlug = new Map<string, string>(
             createdPages.map((p) => [String(p.slug || ""), String(p.id || "")])
           );
+          const globalBlocksFromTemplate: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>> = {};
 
           const blockInserts: Array<{
             page_id: string;
@@ -679,6 +730,13 @@ router.post(
 
             pageBlocks.forEach((blockDef, i) => {
               const rawBlockType = String(blockDef.type || blockDef.block_type || "text");
+              const globalType = normalizeGlobalSiteBlockType(rawBlockType);
+              if (globalType && !globalBlocksFromTemplate[globalType]) {
+                const globalContent = (blockDef.content as Record<string, unknown>)
+                  || (blockDef.props as Record<string, unknown>)
+                  || {};
+                globalBlocksFromTemplate[globalType] = globalContent;
+              }
               if (shouldSkipTenantBlock(rawBlockType)) return;
               const blockType = normalizeTenantBlockType(rawBlockType);
               const syntheticBlock = {
@@ -715,6 +773,14 @@ router.post(
             } else {
               console.log(`[website] Seeded ${blockInserts.length} blocks`);
             }
+          }
+
+          if (website?.id && req.tenantId) {
+            await persistGlobalSiteBlocksForWebsite({
+              websiteId: String(website.id),
+              tenantId: req.tenantId,
+              globalBlocks: globalBlocksFromTemplate,
+            });
           }
         }
       }
@@ -1205,7 +1271,7 @@ router.post(
       }
     }
 
-    const theme = (template.theme_json as Record<string, unknown>) || (template.default_theme as Record<string, unknown>) || {};
+    let theme = (template.theme_json as Record<string, unknown>) || (template.default_theme as Record<string, unknown>) || {};
 
     if (hasExistingPages && confirmReplace) {
       const archivedAt = Date.now();
@@ -1293,8 +1359,8 @@ router.post(
 
     const pageIdBySlug = new Map<string, string>((insertedPages || []).map((page: Record<string, unknown>) => [String(page.slug), String(page.id)]));
     const templateBlocksList = templateBlocks || [];
+    const globalBlocksFromTemplate: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>> = {};
     const blockInserts = templateBlocksList.flatMap((block) => {
-      if (shouldSkipTenantBlock(block.block_type)) return [];
       const targetPage = templatePages.find((page: Record<string, unknown>) => String(page.id) === String(block.page_id));
       const tenantPageId = targetPage ? pageIdBySlug.get(String(targetPage.slug)) : null;
       if (!tenantPageId) return [];
@@ -1316,6 +1382,13 @@ router.post(
         (block.settings as Record<string, unknown>) || {},
       );
 
+      const globalType = normalizeGlobalSiteBlockType(block.block_type);
+      if (globalType) {
+        globalBlocksFromTemplate[globalType] = blockContent;
+      }
+
+      if (shouldSkipTenantBlock(block.block_type)) return [];
+
       return [{
         page_id: tenantPageId,
         tenant_id: req.tenantId,
@@ -1333,6 +1406,8 @@ router.post(
         return;
       }
     }
+
+    theme = mergeGlobalSiteBlocksIntoTheme(theme, globalBlocksFromTemplate);
 
     const fullWebsiteTemplateUpdate = {
       template_id: template.id,
@@ -2123,6 +2198,16 @@ router.put(
 
     if (!Array.isArray(blocks)) { res.status(400).json({ error: "blocks must be an array" }); return; }
 
+    const globalBlocksFromEditor: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>> = {};
+    for (const block of blocks) {
+      const globalType = normalizeGlobalSiteBlockType(block.block_type);
+      if (!globalType) continue;
+      const content = block.content;
+      if (content && typeof content === "object") {
+        globalBlocksFromEditor[globalType] = content as Record<string, unknown>;
+      }
+    }
+
     // Verify page belongs to tenant
     const { data: page } = await db
       .from("website_pages")
@@ -2167,6 +2252,14 @@ router.put(
           });
         }
       }
+    }
+
+    if (page?.website_id && req.tenantId) {
+      await persistGlobalSiteBlocksForWebsite({
+        websiteId: page.website_id,
+        tenantId: req.tenantId,
+        globalBlocks: globalBlocksFromEditor,
+      });
     }
 
     // Return updated blocks

@@ -6,6 +6,8 @@ import SiteFooter from "./SiteFooter";
 import GoogleAnalytics from "./GoogleAnalytics";
 import AdminEditPageButton from "@/components/AdminEditPageButton";
 
+const GLOBAL_SITE_HEADER_THEME_KEY = "__site_header_content";
+
 interface Props {
   site: SiteData;
   children: ReactNode;
@@ -18,26 +20,32 @@ export default async function SiteLayout({ site, children, basePath, previewToke
   const appBaseUrl = process.env.NEXT_PUBLIC_BUSINESS_APP_URL || process.env.BUSINESS_APP_URL || "https://tradeworkdesk.co.uk";
 
   const navPages = site.pages.filter((p) => p.show_in_nav);
-  let headerContent: Record<string, unknown> | null = null;
+  const themeObject = (website.theme && typeof website.theme === "object") ? website.theme as Record<string, unknown> : {};
+  let headerContent: Record<string, unknown> | null = (
+    themeObject[GLOBAL_SITE_HEADER_THEME_KEY]
+    && typeof themeObject[GLOBAL_SITE_HEADER_THEME_KEY] === "object"
+  ) ? (themeObject[GLOBAL_SITE_HEADER_THEME_KEY] as Record<string, unknown>) : null;
 
   try {
-    const homePage =
-      site.pages.find((p) => p.page_type === "home")
-      || site.pages.find((p) => p.slug === "/" || p.slug === "home" || p.slug === "/home");
+    if (!headerContent) {
+      const homePage =
+        site.pages.find((p) => p.page_type === "home")
+        || site.pages.find((p) => p.slug === "/" || p.slug === "home" || p.slug === "/home");
 
-    if (homePage?.id) {
-      const previewMode = Boolean(basePath && basePath.startsWith("/preview/"));
-      const blocks = previewMode
-        ? await getPreviewBlocksByPageId(homePage.id)
-        : (await getPageBySlug(website.id, String(homePage.slug || "home").replace(/^\//, "") || "home"))?.blocks || [];
+      if (homePage?.id) {
+        const previewMode = Boolean(basePath && basePath.startsWith("/preview/"));
+        const blocks = previewMode
+          ? await getPreviewBlocksByPageId(homePage.id)
+          : (await getPageBySlug(website.id, String(homePage.slug || "home").replace(/^\//, "") || "home"))?.blocks || [];
 
-      const headerBlock = blocks.find((block) => {
-        const t = String(block.block_type || "").toLowerCase().trim();
-        return t === "site.header" || t === "site_header" || t === "header";
-      });
+        const headerBlock = blocks.find((block) => {
+          const t = String(block.block_type || "").toLowerCase().trim();
+          return t === "site.header" || t === "site_header" || t === "header";
+        });
 
-      if (headerBlock?.content && typeof headerBlock.content === "object") {
-        headerContent = headerBlock.content as Record<string, unknown>;
+        if (headerBlock?.content && typeof headerBlock.content === "object") {
+          headerContent = headerBlock.content as Record<string, unknown>;
+        }
       }
     }
   } catch (error) {
