@@ -310,10 +310,12 @@ async function provisionPlatformSubdomain(websiteId: string, tenantId: string, c
     slug = `${baseSlug}-${counter}`;
   }
 
+  const domain = `${slug}.${base}`;
+
   await db.from("website_domains").insert({
     website_id: websiteId,
     tenant_id: tenantId,
-    domain: `${slug}.${base}`,
+    domain,
     is_platform_subdomain: true,
     is_primary: false,
     is_active: true,
@@ -325,9 +327,17 @@ async function provisionPlatformSubdomain(websiteId: string, tenantId: string, c
   });
 
   // Register with Fly so the renderer serves traffic for this subdomain
-  addDomainToFly(`${slug}.${base}`).catch((e) =>
-    console.error(`[fly-certs] addDomainToFly(${slug}.${base}) failed:`, e)
-  );
+  const firstAttempt = await addDomainToFly(domain);
+  if (firstAttempt.ok) return;
+
+  // Retry once for transient Fly API failures during website creation.
+  const secondAttempt = await addDomainToFly(domain);
+  if (!secondAttempt.ok) {
+    console.error(
+      `[fly-certs] addDomainToFly(${domain}) failed after retry:`,
+      secondAttempt.error || firstAttempt.error || "Unknown error",
+    );
+  }
 }
 
 function requireWebsiteBuilder() {

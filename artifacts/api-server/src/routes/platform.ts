@@ -2739,7 +2739,11 @@ router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireS
     if (!existing.is_active) {
       await db.from("website_domains").update({ is_active: true, activated_at: new Date().toISOString() }).eq("id", existing.id);
     }
-    await addDomainToFly(existing.domain);
+    const syncResult = await addDomainToFly(existing.domain);
+    if (!syncResult.ok) {
+      res.status(502).json({ error: syncResult.error || "Failed to provision certificate on renderer", domain: existing.domain });
+      return;
+    }
     res.json({ ok: true, domain: existing.domain, action: existing.is_active ? "re-synced" : "reactivated" });
     return;
   }
@@ -2788,7 +2792,11 @@ router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireS
     activated_at: new Date().toISOString(),
   });
 
-  await addDomainToFly(domain);
+  const syncResult = await addDomainToFly(domain);
+  if (!syncResult.ok) {
+    res.status(502).json({ error: syncResult.error || "Failed to provision certificate on renderer", domain });
+    return;
+  }
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
@@ -2808,9 +2816,17 @@ router.post("/platform/domains/sync-renderer", requireAuth, requireSuperAdmin, a
 
   try {
     if (action === "remove") {
-      await removeDomainFromFly(domain);
+      const removeResult = await removeDomainFromFly(domain);
+      if (!removeResult.ok) {
+        res.status(502).json({ error: removeResult.error || "Failed to remove certificate from renderer", domain, action });
+        return;
+      }
     } else {
-      await addDomainToFly(domain);
+      const addResult = await addDomainToFly(domain);
+      if (!addResult.ok) {
+        res.status(502).json({ error: addResult.error || "Failed to provision certificate on renderer", domain, action });
+        return;
+      }
     }
     await supabaseAdmin.from("platform_audit_log").insert({
       actor_id: req.userId,
