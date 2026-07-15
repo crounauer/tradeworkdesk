@@ -49,6 +49,7 @@ import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToFly, removeDomainFromFly } from "../lib/fly-certs";
 import { sendSimpleNotification } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
+import { isContactLikeBlockType } from "../lib/contact-block-type";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
@@ -240,11 +241,6 @@ async function getActiveContactFormMeta(websiteId: string): Promise<ActiveContac
       .map((option) => String(option || "").trim())
       .filter(Boolean),
   };
-}
-
-function isContactLikeBlockType(blockType: unknown): boolean {
-  if (typeof blockType !== "string") return false;
-  return ["contact", "contact_form", "contact_form_section", "map_opening_hours"].includes(blockType);
 }
 
 function applyContactFormMetaToBlocks(blocks: Record<string, unknown>[], formMeta: ActiveContactFormMeta): Record<string, unknown>[] {
@@ -1703,6 +1699,122 @@ router.post(
   }
 );
 
+router.post(
+  "/public/website/forms/website/:websiteId/submissions",
+  formSubmitLimiter,
+  async (req, res): Promise<void> => {
+    const { websiteId } = req.params;
+
+    const { data: website } = await db
+      .from("websites")
+      .select("id, tenant_id, status")
+      .eq("id", websiteId)
+      .maybeSingle() as { data: { id: string; tenant_id: string; status: string | null } | null };
+
+    if (!website) {
+      res.status(404).json({ error: "Website not found" });
+      return;
+    }
+
+    if (website.status !== "published") {
+      res.status(403).json({ error: "Website is not published" });
+      return;
+    }
+
+    const { data: submissionData } = req.body as { data?: Record<string, unknown> };
+    if (!submissionData || typeof submissionData !== "object") {
+      res.status(400).json({ error: "data is required" });
+      return;
+    }
+
+    let { data: form } = await db
+      .from("website_forms")
+      .select("id, form_type, notify_email, auto_create_enquiry, is_active")
+      .eq("website_id", website.id)
+      .eq("form_type", "contact")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle() as { data: { id: string; form_type: string | null; notify_email: string | null; auto_create_enquiry: boolean | null; is_active: boolean } | null };
+
+    if (!form) {
+      const defaultFields = [
+        { name: "name", label: "Full Name", type: "text", required: true },
+        { name: "phone", label: "Phone Number", type: "tel", required: true },
+        { name: "email", label: "Email Address", type: "email", required: true },
+        { name: "message", label: "Message", type: "textarea", required: false },
+      ];
+
+      const { data: createdForm, error: createFormError } = await db
+        .from("website_forms")
+        .insert({
+          website_id: website.id,
+          tenant_id: website.tenant_id,
+          name: "Contact Form",
+          form_type: "contact",
+          fields: defaultFields,
+          notify_email: null,
+          auto_create_enquiry: true,
+          is_active: true,
+        })
+        .select("id, form_type, notify_email, auto_create_enquiry, is_active")
+        .single() as {
+          data: { id: string; form_type: string | null; notify_email: string | null; auto_create_enquiry: boolean | null; is_active: boolean } | null;
+          error: { message?: string } | null;
+        };
+
+      if (createFormError || !createdForm) {
+        res.status(500).json({ error: "Failed to initialize website contact form" });
+        return;
+      }
+
+      form = createdForm;
+    }
+
+    const { data: submission, error } = await db
+      .from("website_form_submissions")
+      .insert({
+        form_id: form.id,
+        website_id: website.id,
+        tenant_id: website.tenant_id,
+        data: submissionData,
+        status: "new",
+        ip_address: req.ip || null,
+        user_agent: req.headers["user-agent"] || null,
+      })
+      .select("id")
+      .single() as { data: { id: string } | null; error: unknown };
+
+    if (error || !submission) {
+      res.status(500).json({ error: "Failed to submit form" });
+      return;
+    }
+
+    let enquiryId: string | null = null;
+    const effectiveFormType = String(form.form_type || "contact");
+    const shouldCreateEnquiry = Boolean(form.auto_create_enquiry) || effectiveFormType === "contact";
+    if (shouldCreateEnquiry) {
+      enquiryId = await createEnquiryFromFormSubmission(
+        String(website.tenant_id),
+        submission.id,
+        effectiveFormType,
+        submissionData,
+      );
+    }
+
+    void sendFormSubmissionNotifications(
+      String(website.tenant_id),
+      String(form.notify_email || ""),
+      effectiveFormType,
+      submissionData,
+      submission.id,
+      enquiryId,
+    );
+
+    res.json({ ok: true, submission_id: submission.id, form_id: form.id });
+  }
+);
+
 router.get(
   "/website/forms/:id/submissions",
   requireAuth,
@@ -1761,7 +1873,7 @@ router.get(
     const nowIso = new Date().toISOString();
 
     // Fetch full site data
-    const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes, platformAnnouncementsRes] = await Promise.all([
+    const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes, platformAnnouncementsRes, bookingSettingsRes] = await Promise.all([
       db.from("websites").select("*, website_templates(slug)").eq("id", domainRecord.website_id).single(),
       db.from("website_pages").select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at").eq("website_id", domainRecord.website_id).eq("status", "published").order("nav_order", { ascending: true }),
       db.from("website_blog_posts").select("id, slug, title, excerpt, content, featured_image_url, published_at, meta_title, meta_description, website_blog_categories(name, slug)").eq("website_id", domainRecord.website_id).eq("status", "published").order("published_at", { ascending: false }).limit(20),
@@ -1776,6 +1888,7 @@ router.get(
         .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
         .order("severity", { ascending: false })
         .limit(20),
+      db.from("booking_settings").select("is_enabled").eq("tenant_id", domainRecord.tenant_id).maybeSingle(),
     ]) as Array<{ data: unknown }>;
 
     // Fetch company settings for contact info
@@ -1835,6 +1948,9 @@ router.get(
       testimonials: testimonialsRes.data || [],
       gallery: galleryRes.data || [],
       company: companyOut,
+      booking: {
+        is_enabled: Boolean((bookingSettingsRes.data as { is_enabled?: boolean | null } | null)?.is_enabled),
+      },
       platform_announcements: websiteAnnouncements,
     });
   }
@@ -1934,7 +2050,7 @@ router.get(
 
     const nowIso = new Date().toISOString();
 
-    const [pagesRes, testimonialsRes, galleryRes, platformAnnouncementsRes] = await Promise.all([
+    const [pagesRes, testimonialsRes, galleryRes, platformAnnouncementsRes, bookingSettingsRes] = await Promise.all([
       // Include draft pages — this is a preview
       db.from("website_pages")
         .select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at")
@@ -1960,6 +2076,7 @@ router.get(
         .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
         .order("severity", { ascending: false })
         .limit(20),
+      db.from("booking_settings").select("is_enabled").eq("tenant_id", String(website.tenant_id)).maybeSingle(),
     ]) as Array<{ data: unknown }>;
 
     const { data: companySettings } = await supabaseAdmin
@@ -2014,6 +2131,9 @@ router.get(
       testimonials: (testimonialsRes.data as unknown[]) || [],
       gallery: (galleryRes.data as unknown[]) || [],
       company: companyOut,
+      booking: {
+        is_enabled: Boolean((bookingSettingsRes.data as { is_enabled?: boolean | null } | null)?.is_enabled),
+      },
       platform_announcements: websiteAnnouncements,
     });
   }

@@ -83,6 +83,7 @@ const BLOCK_TYPE_ALIASES: Record<string, string> = {
   "faq.accordion": "faq",
   "process.steps": "process",
   "features.list": "feature_cards",
+  "amazon.affiliates": "amazon_affiliates",
   "blog.index": "blog_index",
   "legal.content": "legal_content",
 };

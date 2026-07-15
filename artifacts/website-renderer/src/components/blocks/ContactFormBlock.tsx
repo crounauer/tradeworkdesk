@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent } from "react";
-import { submitForm, uploadFormPhotos } from "@/lib/api";
+import { submitForm, submitWebsiteForm, uploadFormPhotos } from "@/lib/api";
 import { isModernTemplateContent } from "@/lib/siteTheme";
 
 interface ContactInfo {
@@ -32,6 +32,14 @@ interface Props {
 }
 
 export default function ContactFormBlock({ content }: Props) {
+  const websiteId = typeof content.website_id === "string" ? content.website_id : "";
+  const configuredFormId =
+    (typeof content.form_id === "string" && content.form_id.trim())
+      ? content.form_id.trim()
+      : (typeof content.formId === "string" && content.formId.trim())
+        ? content.formId.trim()
+        : "";
+
   const heading = (content.heading || content.title || "Get in Touch") as string;
   const label = (content.label || content.eyebrow) as string | undefined;
   const subheading = (content.subheading || content.subtitle) as string | undefined;
@@ -42,7 +50,6 @@ export default function ContactFormBlock({ content }: Props) {
   const isModernTradePayload = isModernTemplateContent(content);
 
   const {
-    form_id,
     form_kind,
     submit_label = "Send Message",
     success_message = "Thank you! We'll be in touch soon.",
@@ -89,7 +96,7 @@ export default function ContactFormBlock({ content }: Props) {
 
   const hasContactInfo = contactRows.length > 0;
 
-  if (!form_id) {
+  if (!configuredFormId && !websiteId) {
     return (
       <section id="contact" style={{ backgroundColor: sectionBg, color: headingColor, padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -200,7 +207,13 @@ export default function ContactFormBlock({ content }: Props) {
     // Upload photos first (if any)
     let photoUrls: string[] = [];
     if (allow_photos && photos.length > 0) {
-      photoUrls = await uploadFormPhotos(form_id!, photos);
+      if (!configuredFormId) {
+        setSubmitting(false);
+        setError("Photo uploads are unavailable until this contact form is fully configured.");
+        return;
+      }
+
+      photoUrls = await uploadFormPhotos(configuredFormId, photos);
       if (photoUrls.length === 0) {
         setSubmitting(false);
         setError("Photo upload failed. Please try again or submit without photos.");
@@ -211,7 +224,10 @@ export default function ContactFormBlock({ content }: Props) {
     const payload = photoUrls.length > 0
       ? { ...values, photos: photoUrls, form_kind: form_kind || "contact" }
       : { ...values, form_kind: form_kind || "contact" };
-    const result = await submitForm(form_id!, payload);
+
+    const result = configuredFormId
+      ? await submitForm(configuredFormId, payload)
+      : await submitWebsiteForm(websiteId, payload);
 
     setSubmitting(false);
     if (result.ok) {

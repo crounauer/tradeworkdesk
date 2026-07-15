@@ -33,6 +33,7 @@ const blockTypeAliases: Record<string, string> = {
   "faq.accordion": "faq",
   "process.steps": "process",
   "features.list": "feature_cards",
+  "amazon.affiliates": "amazon_affiliates",
   "blog.index": "blog_index",
   "legal.content": "legal_content",
 };
@@ -90,6 +91,9 @@ const supportedBlockTypes = new Set([
   "blog_index",
   "blog_post",
   "legal_content",
+  "amazon",
+  "amazon_products",
+  "amazon_affiliates",
 ]);
 
 export function hasBlockRendererForType(blockType: string): boolean {

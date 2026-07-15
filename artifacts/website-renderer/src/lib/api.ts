@@ -117,6 +117,10 @@ export interface PlatformAnnouncement {
   ends_at: string | null;
 }
 
+export interface BookingSettingsPublic {
+  is_enabled: boolean;
+}
+
 export interface SiteData {
   website: Website;
   pages: SitePage[];
@@ -124,6 +128,7 @@ export interface SiteData {
   testimonials: Testimonial[];
   gallery: GalleryItem[];
   company: CompanySettings | null;
+  booking?: BookingSettingsPublic | null;
   platform_announcements?: PlatformAnnouncement[];
 }
 
@@ -255,6 +260,30 @@ export async function submitForm(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(`${API_BASE}/api/website/forms/${formId}/submissions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data }),
+    });
+
+    const json = await res.json() as { ok?: boolean; error?: string };
+
+    if (!res.ok) return { ok: false, error: json.error || "Submission failed" };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+/**
+ * Submit a website contact form by website ID.
+ * The API resolves (or creates) the active contact form internally.
+ */
+export async function submitWebsiteForm(
+  websiteId: string,
+  data: Record<string, unknown>,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/public/website/forms/website/${websiteId}/submissions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data }),

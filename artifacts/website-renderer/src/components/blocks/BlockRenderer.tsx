@@ -307,6 +307,7 @@ const blockRegistry: Record<string, BlockRendererFn> = {
   legal_content: renderLegalContent,
   amazon: (context) => render(AmazonBlock, context),
   amazon_products: (context) => render(AmazonBlock, context),
+  amazon_affiliates: (context) => render(AmazonBlock, context),
 };
 
 function UnsupportedBlock({ blockType, showFallback }: { blockType: string; showFallback?: boolean }) {
@@ -323,6 +324,11 @@ function UnsupportedBlock({ blockType, showFallback }: { blockType: string; show
 
 export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact, site, page, showFallback }: Props) {
   if (isSkippableBlockType(block.block_type)) {
+    return null;
+  }
+
+  const normalizedType = normalizeBlockType(block.block_type);
+  if ((normalizedType === "online_booking" || normalizedType === "booking") && site?.booking?.is_enabled === false) {
     return null;
   }
 
@@ -352,7 +358,6 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
   const websiteOverride = websiteId ? { website_id: websiteId } : {};
   const rawContent = (block.content as Record<string, unknown>) || {};
-  const normalizedType = normalizeBlockType(block.block_type);
   const templateSlug = String(site?.website?.template_slug || "").toLowerCase();
   const hasMeaningfulContent = Object.keys(rawContent).length > 0;
 
