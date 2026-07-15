@@ -161,7 +161,7 @@ async function send(to: string, subject: string, html: string): Promise<void> {
 export async function sendConfirmationEmail(to: string, contactName: string, companyName: string, confirmUrl: string): Promise<void> {
   const html = baseHtml("Confirm your TradeWorkDesk account", `
     <h2>Welcome to TradeWorkDesk, ${contactName}!</h2>
-    <p>Your company account for <strong>${companyName}</strong> has been created. Please confirm your email address to activate your account and start your free trial.</p>
+    <p>Your company account for <strong>${companyName}</strong> has been created. Please confirm your email address to activate your account and start your 30-day free trial.</p>
     <p style="margin-top:24px;">
       <a href="${confirmUrl}" class="btn">Confirm Email Address</a>
     </p>
@@ -175,7 +175,7 @@ export async function sendWelcomeEmail(to: string, companyName: string, trialEnd
   const trialDate = new Date(trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const html = baseHtml("Welcome to TradeWorkDesk", `
     <h2>Welcome to TradeWorkDesk, ${companyName}!</h2>
-    <p>Your account is set up and ready to go. You're on a free trial until <strong>${trialDate}</strong>.</p>
+    <p>Your account is set up and ready to go. You're on a 30-day free trial until <strong>${trialDate}</strong>.</p>
     <p>During your trial you have full access to all features:</p>
     <ul>
       <li>Job management &amp; scheduling</li>
@@ -620,7 +620,7 @@ export async function sendNewRegistrationNotification(
       <p><strong>Contact:</strong> ${escHtml(contactName)}</p>
       <p><strong>Email:</strong> ${escHtml(contactEmail)}</p>
     </div>
-    <p>They are now on a 14-day free trial. You can view their account in the platform admin panel.</p>
+    <p>They are now on a 30-day free trial. You can view their account in the platform admin panel.</p>
     <p style="margin-top:24px;">
       <a href="https://www.tradeworkdesk.co.uk/platform" class="btn">Open Platform Admin</a>
     </p>

@@ -130,7 +130,7 @@ export default function HomePage() {
     <MarketingLayout>
       <SEOHead
         title="TradeWorkDesk — Job Management Software for Gas, Oil, Heat Pump Engineers & Plumbers"
-        description="The all-in-one platform for heating and plumbing businesses. Manage jobs, customers, digital forms, and compliance — built for gas, oil, heat pump engineers and plumbers. Start your free trial today."
+        description="The all-in-one platform for heating and plumbing businesses. Manage jobs, customers, digital forms, and compliance — built for gas, oil, heat pump engineers and plumbers. Start your 30-day free trial today."
         canonical={SITE_URL}
         schema={[organizationSchema(), webSiteSchema(), softwareApplicationSchema()]}
       />
@@ -158,7 +158,7 @@ export default function HomePage() {
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link href="/register">
                   <Button size="lg" className="text-base px-8 h-12">
-                    Start Free Trial
+                    Start 30-Day Free Trial
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -290,7 +290,7 @@ export default function HomePage() {
               <div className="mt-8">
                 <Link href="/register">
                   <Button size="lg" className="bg-teal-500 hover:bg-teal-400 text-white text-base px-8 h-12">
-                    Start Free Trial
+                    Start 30-Day Free Trial
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -406,7 +406,7 @@ export default function HomePage() {
               size="lg"
               className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12"
             >
-              Start Free Trial
+              Start 30-Day Free Trial
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>

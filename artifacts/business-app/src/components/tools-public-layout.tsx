@@ -27,7 +27,7 @@ export function ToolsPublicLayout({ children }: { children: ReactNode }) {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link href="/register">
               <Button variant="secondary" className="gap-2 font-semibold">
-                Start Free Trial — 30 days free <ArrowRight className="w-4 h-4" />
+                Start 30-Day Free Trial <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
             <Link href="/login" className="text-sm text-white/70 hover:text-white transition-colors">

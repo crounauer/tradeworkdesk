@@ -62,7 +62,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
                     <Button variant="ghost" size="sm">Log in</Button>
                   </Link>
                   <Link href="/register">
-                    <Button size="sm">Start Free Trial</Button>
+                    <Button size="sm">Start 30-Day Free Trial</Button>
                   </Link>
                 </>
               )}
@@ -106,7 +106,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
                     <Button variant="outline" className="w-full">Log in</Button>
                   </Link>
                   <Link href="/register" onClick={() => setMobileOpen(false)}>
-                    <Button className="w-full">Start Free Trial</Button>
+                    <Button className="w-full">Start 30-Day Free Trial</Button>
                   </Link>
                 </>
               )}

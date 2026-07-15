@@ -82,7 +82,7 @@ export function SaveToJobDialog({ open, onClose, content, toolName }: SaveToJobD
             <div className="flex flex-col gap-2">
               <Link href="/register" onClick={onClose}>
                 <Button className="w-full gap-2">
-                  Start Free Trial — 30 days free <ArrowRight className="w-4 h-4" />
+                  Start 30-Day Free Trial <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
               <Link href="/login" onClick={onClose}>

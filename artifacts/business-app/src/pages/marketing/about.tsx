@@ -130,11 +130,11 @@ export default function AboutPage() {
         <div className="max-w-3xl mx-auto px-4 text-center text-white">
           <h2 className="font-display text-3xl font-bold">Want to see what we've built?</h2>
           <p className="mt-4 text-lg text-blue-100">
-            Start your free trial and explore every feature. No credit card required.
+            Start your 30-day free trial and explore every feature. No credit card required.
           </p>
           <Link href="/register">
             <Button size="lg" className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12">
-              Start Free Trial
+              Start 30-Day Free Trial
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>

@@ -205,7 +205,7 @@ export default function DirectoryPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild>
-              <Link href="/register">Start Free Trial</Link>
+              <Link href="/register">Start 30-Day Free Trial</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/pricing">View Plans</Link>

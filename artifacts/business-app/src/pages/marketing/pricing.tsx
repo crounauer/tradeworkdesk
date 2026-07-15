@@ -201,7 +201,7 @@ export default function PricingPage() {
         </div>
         <Link href="/register">
           <Button className={"w-full mt-8 font-semibold text-sm py-5 " + (accent ? "bg-white text-primary hover:bg-blue-50" : "bg-primary text-white hover:bg-primary/90")}>
-            Start free trial
+            Start 30-Day Free Trial
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </Link>

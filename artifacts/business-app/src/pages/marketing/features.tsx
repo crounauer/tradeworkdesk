@@ -235,7 +235,7 @@ export default function FeaturesPage() {
               size="lg"
               className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12"
             >
-              Start Free Trial
+              Start 30-Day Free Trial
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>

@@ -1999,7 +1999,7 @@ router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: 
   const { sendWelcomeEmail: wel, sendInvoiceEmail: inv, sendTrialExpiryReminder: trial, sendRenewalReminder: ren, sendPaymentFailedEmail: fail } = await import("../lib/email");
 
   const BILLING = process.env.APP_URL ? `${process.env.APP_URL}/billing` : "https://tradeworkdesk.co.uk/billing";
-  const futureDate = new Date(Date.now() + 14 * 86400000).toISOString();
+  const futureDate = new Date(Date.now() + 30 * 86400000).toISOString();
 
   try {
     switch (template) {

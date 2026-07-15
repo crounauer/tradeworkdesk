@@ -86,7 +86,7 @@ export default function AlternativesPage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/register">
                 <Button size="lg" className="text-base px-8 h-12">
-                  Start Free Trial
+                  Start 30-Day Free Trial
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
@@ -171,7 +171,7 @@ export default function AlternativesPage() {
           </p>
           <Link href="/register">
             <Button size="lg" className="mt-8 bg-white text-primary hover:bg-blue-50 text-base px-8 h-12">
-              Start Free Trial
+              Start 30-Day Free Trial
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
