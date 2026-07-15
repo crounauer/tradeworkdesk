@@ -1365,6 +1365,32 @@ type ServiceCatalogueSyncRow = {
   show_in_job_type_dropdown: boolean | null;
 };
 
+const SERVICE_CATALOGUE_WEBSITE_FIELDS = [
+  "show_in_website_service_rates",
+  "website_service_description",
+  "website_service_badge",
+  "website_service_price_text",
+  "website_service_cta_text",
+  "website_service_cta_url",
+  "website_service_display_order",
+] as const;
+
+function isMissingServiceCatalogueWebsiteColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String((error as { code?: unknown }).code || "") : "";
+  const message = "message" in error ? String((error as { message?: unknown }).message || "") : "";
+  if (code === "PGRST204") return true;
+  return message.includes("service_catalogue") && message.includes("schema cache") && message.includes("Could not find the");
+}
+
+function stripWebsiteFields(payload: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...payload };
+  for (const key of SERVICE_CATALOGUE_WEBSITE_FIELDS) {
+    delete next[key];
+  }
+  return next;
+}
+
 router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("service_catalogue")
@@ -1400,7 +1426,7 @@ router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole(
   if (website_service_display_order != null && (!Number.isFinite(Number(website_service_display_order)) || Number(website_service_display_order) < 0)) {
     res.status(400).json({ error: "website_service_display_order must be a non-negative number" }); return;
   }
-  const { data, error } = await supabaseAdmin.from("service_catalogue").insert({
+  const insertPayload: Record<string, unknown> = {
     tenant_id: req.tenantId!,
     name,
     default_price: default_price != null ? Number(default_price) : null,
@@ -1414,7 +1440,12 @@ router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole(
     website_service_cta_text: typeof website_service_cta_text === "string" ? website_service_cta_text.trim() || null : null,
     website_service_cta_url: typeof website_service_cta_url === "string" ? website_service_cta_url.trim() || null : null,
     website_service_display_order: website_service_display_order != null ? Math.max(0, Math.round(Number(website_service_display_order))) : 0,
-  }).select().single();
+  };
+
+  let { data, error } = await supabaseAdmin.from("service_catalogue").insert(insertPayload).select().single();
+  if (error && isMissingServiceCatalogueWebsiteColumnError(error)) {
+    ({ data, error } = await supabaseAdmin.from("service_catalogue").insert(stripWebsiteFields(insertPayload)).select().single());
+  }
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   res.json(data);
@@ -1461,7 +1492,10 @@ router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRo
   }
   if (is_active !== undefined) updates.is_active = is_active;
 
-  const { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
+  let { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
+  if (error && isMissingServiceCatalogueWebsiteColumnError(error)) {
+    ({ data, error } = await supabaseAdmin.from("service_catalogue").update(stripWebsiteFields(updates)).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single());
+  }
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   res.json(data);
