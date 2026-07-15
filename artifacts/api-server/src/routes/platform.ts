@@ -539,6 +539,8 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     singleton_id: "default",
     tenant_id: tenant.id,
     name: company_name,
+    email: contact_email,
+    phone: contact_phone || null,
     invoices_enabled: true,
   });
 

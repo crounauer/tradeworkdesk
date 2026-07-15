@@ -974,6 +974,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     singleton_id: "default",
     tenant_id: tenant.id,
     name: resolvedCompanyName,
+    email: contact_email,
+    phone: contact_phone || null,
   });
 
   await grantTrialUsageCredits(tenant.id).catch((e) =>
