@@ -2419,8 +2419,47 @@ type ServiceItem = {
   booking_duration_minutes: number;
   online_booking_enabled: boolean;
   show_in_job_type_dropdown: boolean;
+  show_in_website_service_rates: boolean;
+  website_service_description: string | null;
+  website_service_badge: string | null;
+  website_service_price_text: string | null;
+  website_service_cta_text: string | null;
+  website_service_cta_url: string | null;
+  website_service_display_order: number;
   is_active: boolean;
 };
+
+type ServiceFormState = {
+  name: string;
+  default_price: string;
+  booking_duration_minutes: string;
+  online_booking_enabled: boolean;
+  show_in_job_type_dropdown: boolean;
+  show_in_website_service_rates: boolean;
+  website_service_description: string;
+  website_service_badge: string;
+  website_service_price_text: string;
+  website_service_cta_text: string;
+  website_service_cta_url: string;
+  website_service_display_order: string;
+};
+
+function createEmptyServiceForm(): ServiceFormState {
+  return {
+    name: "",
+    default_price: "",
+    booking_duration_minutes: "60",
+    online_booking_enabled: false,
+    show_in_job_type_dropdown: false,
+    show_in_website_service_rates: false,
+    website_service_description: "",
+    website_service_badge: "",
+    website_service_price_text: "",
+    website_service_cta_text: "",
+    website_service_cta_url: "",
+    website_service_display_order: "0",
+  };
+}
 
 function ServiceCatalogueSection() {
   const { toast } = useToast();
@@ -2429,7 +2468,7 @@ function ServiceCatalogueSection() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false, show_in_job_type_dropdown: false });
+  const [form, setForm] = useState<ServiceFormState>(createEmptyServiceForm());
   const [submitting, setSubmitting] = useState(false);
 
   const fetchServices = useCallback(async () => {
@@ -2442,7 +2481,7 @@ function ServiceCatalogueSection() {
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  const resetForm = () => { setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false, show_in_job_type_dropdown: false }); setShowAdd(false); setEditingId(null); };
+  const resetForm = () => { setForm(createEmptyServiceForm()); setShowAdd(false); setEditingId(null); };
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
@@ -2454,6 +2493,13 @@ function ServiceCatalogueSection() {
         booking_duration_minutes: form.booking_duration_minutes ? Number(form.booking_duration_minutes) : 60,
         online_booking_enabled: form.online_booking_enabled,
         show_in_job_type_dropdown: form.show_in_job_type_dropdown,
+        show_in_website_service_rates: form.show_in_website_service_rates,
+        website_service_description: form.website_service_description.trim() || null,
+        website_service_badge: form.website_service_badge.trim() || null,
+        website_service_price_text: form.website_service_price_text.trim() || null,
+        website_service_cta_text: form.website_service_cta_text.trim() || null,
+        website_service_cta_url: form.website_service_cta_url.trim() || null,
+        website_service_display_order: form.website_service_display_order ? Number(form.website_service_display_order) : 0,
       };
       if (editingId) {
         await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue/${editingId}`, {
@@ -2480,6 +2526,13 @@ function ServiceCatalogueSection() {
       booking_duration_minutes: String(s.booking_duration_minutes || 60),
       online_booking_enabled: s.online_booking_enabled,
       show_in_job_type_dropdown: s.show_in_job_type_dropdown,
+      show_in_website_service_rates: s.show_in_website_service_rates,
+      website_service_description: s.website_service_description || "",
+      website_service_badge: s.website_service_badge || "",
+      website_service_price_text: s.website_service_price_text || "",
+      website_service_cta_text: s.website_service_cta_text || "",
+      website_service_cta_url: s.website_service_cta_url || "",
+      website_service_display_order: String(s.website_service_display_order || 0),
     });
     setEditingId(s.id);
     setShowAdd(false);
@@ -2518,9 +2571,11 @@ function ServiceCatalogueSection() {
             </CardTitle>
             <CardDescription>
               Pre-defined services such as boiler services and gas safety checks with fixed prices. Set booking duration so online bookings reserve the correct appointment length.
+              <br />
+              For website pricing: enable <strong>Show in website service rates</strong> on any service to publish it automatically in the Website Builder Service Rates block. Add optional website-specific description, badge, CTA and order fields to control how it appears.
             </CardDescription>
           </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm({ name: "", default_price: "", booking_duration_minutes: "60", online_booking_enabled: false, show_in_job_type_dropdown: false }); setShowAdd(true); } }}>
+          <Button type="button" size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); else { setEditingId(null); setForm(createEmptyServiceForm()); setShowAdd(true); } }}>
             {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
           </Button>
         </div>
@@ -2556,6 +2611,38 @@ function ServiceCatalogueSection() {
                       <p className="text-[11px] text-muted-foreground">Show this service as a selectable job type when creating jobs</p>
                     </div>
                     <Switch checked={form.show_in_job_type_dropdown} onCheckedChange={(v) => setForm((f) => ({ ...f, show_in_job_type_dropdown: v }))} />
+                  </div>
+                  <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <div>
+                      <Label className="text-xs">Show in website service rates</Label>
+                      <p className="text-[11px] text-muted-foreground">Include this service in the website Service Rates block</p>
+                    </div>
+                    <Switch checked={form.show_in_website_service_rates} onCheckedChange={(v) => setForm((f) => ({ ...f, show_in_website_service_rates: v }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Website Service Description (optional)</Label>
+                    <Textarea value={form.website_service_description} onChange={e => setForm(f => ({ ...f, website_service_description: e.target.value }))} placeholder="Short marketing description for service rates." rows={2} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Website Badge (optional)</Label>
+                    <Input value={form.website_service_badge} onChange={e => setForm(f => ({ ...f, website_service_badge: e.target.value }))} placeholder="Popular" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Website Price Text Override (optional)</Label>
+                    <Input value={form.website_service_price_text} onChange={e => setForm(f => ({ ...f, website_service_price_text: e.target.value }))} placeholder="From £95" />
+                    <p className="text-[11px] text-muted-foreground">If blank, website uses Default Price.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Website CTA Text (optional)</Label>
+                    <Input value={form.website_service_cta_text} onChange={e => setForm(f => ({ ...f, website_service_cta_text: e.target.value }))} placeholder="Get quote" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Website CTA URL (optional)</Label>
+                    <Input value={form.website_service_cta_url} onChange={e => setForm(f => ({ ...f, website_service_cta_url: e.target.value }))} placeholder="/contact" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Website Display Order</Label>
+                    <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} placeholder="0" />
                   </div>
                 </div>
                 <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2601,6 +2688,37 @@ function ServiceCatalogueSection() {
                           </div>
                           <Switch checked={form.show_in_job_type_dropdown} onCheckedChange={(v) => setForm((f) => ({ ...f, show_in_job_type_dropdown: v }))} />
                         </div>
+                        <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                          <div>
+                            <Label className="text-xs">Show in website service rates</Label>
+                            <p className="text-[11px] text-muted-foreground">Include this service in the website Service Rates block</p>
+                          </div>
+                          <Switch checked={form.show_in_website_service_rates} onCheckedChange={(v) => setForm((f) => ({ ...f, show_in_website_service_rates: v }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Website Service Description (optional)</Label>
+                          <Textarea value={form.website_service_description} onChange={e => setForm(f => ({ ...f, website_service_description: e.target.value }))} rows={2} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Website Badge (optional)</Label>
+                          <Input value={form.website_service_badge} onChange={e => setForm(f => ({ ...f, website_service_badge: e.target.value }))} placeholder="Popular" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Website Price Text Override (optional)</Label>
+                          <Input value={form.website_service_price_text} onChange={e => setForm(f => ({ ...f, website_service_price_text: e.target.value }))} placeholder="From £95" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Website CTA Text (optional)</Label>
+                          <Input value={form.website_service_cta_text} onChange={e => setForm(f => ({ ...f, website_service_cta_text: e.target.value }))} placeholder="Get quote" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Website CTA URL (optional)</Label>
+                          <Input value={form.website_service_cta_url} onChange={e => setForm(f => ({ ...f, website_service_cta_url: e.target.value }))} placeholder="/contact" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Website Display Order</Label>
+                          <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} placeholder="0" />
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2616,6 +2734,7 @@ function ServiceCatalogueSection() {
                         {!s.is_active && <span className="ml-2 text-xs text-red-500">(Inactive)</span>}
                         {s.online_booking_enabled && <span className="ml-2 text-xs rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">Online booking</span>}
                         {s.show_in_job_type_dropdown && <span className="ml-2 text-xs rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">Job type</span>}
+                        {s.show_in_website_service_rates && <span className="ml-2 text-xs rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">Website rates</span>}
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground">{s.booking_duration_minutes}min</span>

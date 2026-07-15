@@ -408,6 +408,28 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
           ],
         }
       : {}),
+    ...(normalizedType === "service_rates" && Array.isArray(site?.service_catalogue) && site.service_catalogue.length > 0
+      ? {
+          rates: site.service_catalogue.map((service) => {
+            const defaultPrice = typeof service.default_price === "number"
+              ? `From £${service.default_price.toFixed(0)}`
+              : "Price on request";
+            const durationMinutes = typeof service.booking_duration_minutes === "number" && service.booking_duration_minutes > 0
+              ? `${service.booking_duration_minutes} min`
+              : undefined;
+
+            return {
+              service: service.name,
+              price: service.website_service_price_text || defaultPrice,
+              description: service.website_service_description || undefined,
+              duration: durationMinutes,
+              badge: service.website_service_badge || undefined,
+              cta_text: service.website_service_cta_text || undefined,
+              cta_url: service.website_service_cta_url || undefined,
+            };
+          }),
+        }
+      : {}),
   };
   const renderer = blockRegistry[normalizedType];
 

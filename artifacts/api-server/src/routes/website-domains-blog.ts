@@ -1873,7 +1873,7 @@ router.get(
     const nowIso = new Date().toISOString();
 
     // Fetch full site data
-    const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes, platformAnnouncementsRes, bookingSettingsRes] = await Promise.all([
+    const [websiteRes, pagesRes, blogsRes, testimonialsRes, galleryRes, platformAnnouncementsRes, bookingSettingsRes, websiteRatesServicesRes] = await Promise.all([
       db.from("websites").select("*, website_templates(slug)").eq("id", domainRecord.website_id).single(),
       db.from("website_pages").select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at").eq("website_id", domainRecord.website_id).eq("status", "published").order("nav_order", { ascending: true }),
       db.from("website_blog_posts").select("id, slug, title, excerpt, content, featured_image_url, published_at, meta_title, meta_description, website_blog_categories(name, slug)").eq("website_id", domainRecord.website_id).eq("status", "published").order("published_at", { ascending: false }).limit(20),
@@ -1889,6 +1889,13 @@ router.get(
         .order("severity", { ascending: false })
         .limit(20),
       db.from("booking_settings").select("is_enabled").eq("tenant_id", domainRecord.tenant_id).maybeSingle(),
+      db.from("service_catalogue")
+        .select("id, name, default_price, booking_duration_minutes, website_service_description, website_service_badge, website_service_price_text, website_service_cta_text, website_service_cta_url, website_service_display_order")
+        .eq("tenant_id", domainRecord.tenant_id)
+        .eq("is_active", true)
+        .eq("show_in_website_service_rates", true)
+        .order("website_service_display_order", { ascending: true })
+        .order("name", { ascending: true }),
     ]) as Array<{ data: unknown }>;
 
     // Fetch company settings for contact info
@@ -1951,6 +1958,7 @@ router.get(
       booking: {
         is_enabled: Boolean((bookingSettingsRes.data as { is_enabled?: boolean | null } | null)?.is_enabled),
       },
+      service_catalogue: (websiteRatesServicesRes.data as unknown[]) || [],
       platform_announcements: websiteAnnouncements,
     });
   }
@@ -2050,7 +2058,7 @@ router.get(
 
     const nowIso = new Date().toISOString();
 
-    const [pagesRes, testimonialsRes, galleryRes, platformAnnouncementsRes, bookingSettingsRes] = await Promise.all([
+    const [pagesRes, testimonialsRes, galleryRes, platformAnnouncementsRes, bookingSettingsRes, websiteRatesServicesRes] = await Promise.all([
       // Include draft pages — this is a preview
       db.from("website_pages")
         .select("id, slug, page_type, title, status, meta_title, meta_description, og_image_url, canonical_url, no_index, schema_markup, show_in_nav, nav_label, nav_order, published_at")
@@ -2077,6 +2085,13 @@ router.get(
         .order("severity", { ascending: false })
         .limit(20),
       db.from("booking_settings").select("is_enabled").eq("tenant_id", String(website.tenant_id)).maybeSingle(),
+      db.from("service_catalogue")
+        .select("id, name, default_price, booking_duration_minutes, website_service_description, website_service_badge, website_service_price_text, website_service_cta_text, website_service_cta_url, website_service_display_order")
+        .eq("tenant_id", String(website.tenant_id))
+        .eq("is_active", true)
+        .eq("show_in_website_service_rates", true)
+        .order("website_service_display_order", { ascending: true })
+        .order("name", { ascending: true }),
     ]) as Array<{ data: unknown }>;
 
     const { data: companySettings } = await supabaseAdmin
@@ -2134,6 +2149,7 @@ router.get(
       booking: {
         is_enabled: Boolean((bookingSettingsRes.data as { is_enabled?: boolean | null } | null)?.is_enabled),
       },
+      service_catalogue: (websiteRatesServicesRes.data as unknown[]) || [],
       platform_announcements: websiteAnnouncements,
     });
   }

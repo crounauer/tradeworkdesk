@@ -1376,13 +1376,29 @@ router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("
 });
 
 router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, default_price, booking_duration_minutes, online_booking_enabled, show_in_job_type_dropdown } = req.body;
+  const {
+    name,
+    default_price,
+    booking_duration_minutes,
+    online_booking_enabled,
+    show_in_job_type_dropdown,
+    show_in_website_service_rates,
+    website_service_description,
+    website_service_badge,
+    website_service_price_text,
+    website_service_cta_text,
+    website_service_cta_url,
+    website_service_display_order,
+  } = req.body;
   if (!name) { res.status(400).json({ error: "name is required" }); return; }
   if (default_price != null && (!Number.isFinite(Number(default_price)) || Number(default_price) < 0)) {
     res.status(400).json({ error: "default_price must be a valid non-negative number" }); return;
   }
   if (booking_duration_minutes != null && (!Number.isFinite(Number(booking_duration_minutes)) || Number(booking_duration_minutes) < 1)) {
     res.status(400).json({ error: "booking_duration_minutes must be a positive number" }); return;
+  }
+  if (website_service_display_order != null && (!Number.isFinite(Number(website_service_display_order)) || Number(website_service_display_order) < 0)) {
+    res.status(400).json({ error: "website_service_display_order must be a non-negative number" }); return;
   }
   const { data, error } = await supabaseAdmin.from("service_catalogue").insert({
     tenant_id: req.tenantId!,
@@ -1391,6 +1407,13 @@ router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole(
     booking_duration_minutes: booking_duration_minutes != null ? Number(booking_duration_minutes) : 60,
     online_booking_enabled: Boolean(online_booking_enabled),
     show_in_job_type_dropdown: Boolean(show_in_job_type_dropdown),
+    show_in_website_service_rates: Boolean(show_in_website_service_rates),
+    website_service_description: typeof website_service_description === "string" ? website_service_description.trim() || null : null,
+    website_service_badge: typeof website_service_badge === "string" ? website_service_badge.trim() || null : null,
+    website_service_price_text: typeof website_service_price_text === "string" ? website_service_price_text.trim() || null : null,
+    website_service_cta_text: typeof website_service_cta_text === "string" ? website_service_cta_text.trim() || null : null,
+    website_service_cta_url: typeof website_service_cta_url === "string" ? website_service_cta_url.trim() || null : null,
+    website_service_display_order: website_service_display_order != null ? Math.max(0, Math.round(Number(website_service_display_order))) : 0,
   }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
 
@@ -1398,7 +1421,21 @@ router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole(
 });
 
 router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, default_price, booking_duration_minutes, online_booking_enabled, show_in_job_type_dropdown, is_active } = req.body;
+  const {
+    name,
+    default_price,
+    booking_duration_minutes,
+    online_booking_enabled,
+    show_in_job_type_dropdown,
+    show_in_website_service_rates,
+    website_service_description,
+    website_service_badge,
+    website_service_price_text,
+    website_service_cta_text,
+    website_service_cta_url,
+    website_service_display_order,
+    is_active,
+  } = req.body;
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (name !== undefined) updates.name = name;
   if (default_price !== undefined) updates.default_price = default_price != null ? Number(default_price) : null;
@@ -1410,6 +1447,18 @@ router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRo
   }
   if (online_booking_enabled !== undefined) updates.online_booking_enabled = Boolean(online_booking_enabled);
   if (show_in_job_type_dropdown !== undefined) updates.show_in_job_type_dropdown = Boolean(show_in_job_type_dropdown);
+  if (show_in_website_service_rates !== undefined) updates.show_in_website_service_rates = Boolean(show_in_website_service_rates);
+  if (website_service_description !== undefined) updates.website_service_description = typeof website_service_description === "string" ? website_service_description.trim() || null : null;
+  if (website_service_badge !== undefined) updates.website_service_badge = typeof website_service_badge === "string" ? website_service_badge.trim() || null : null;
+  if (website_service_price_text !== undefined) updates.website_service_price_text = typeof website_service_price_text === "string" ? website_service_price_text.trim() || null : null;
+  if (website_service_cta_text !== undefined) updates.website_service_cta_text = typeof website_service_cta_text === "string" ? website_service_cta_text.trim() || null : null;
+  if (website_service_cta_url !== undefined) updates.website_service_cta_url = typeof website_service_cta_url === "string" ? website_service_cta_url.trim() || null : null;
+  if (website_service_display_order !== undefined) {
+    if (website_service_display_order != null && (!Number.isFinite(Number(website_service_display_order)) || Number(website_service_display_order) < 0)) {
+      res.status(400).json({ error: "website_service_display_order must be a non-negative number" }); return;
+    }
+    updates.website_service_display_order = website_service_display_order != null ? Math.max(0, Math.round(Number(website_service_display_order))) : 0;
+  }
   if (is_active !== undefined) updates.is_active = is_active;
 
   const { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();

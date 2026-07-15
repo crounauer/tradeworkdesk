@@ -121,6 +121,19 @@ export interface BookingSettingsPublic {
   is_enabled: boolean;
 }
 
+export interface ServiceCatalogueWebsiteRate {
+  id: string;
+  name: string;
+  default_price: number | null;
+  booking_duration_minutes: number | null;
+  website_service_description: string | null;
+  website_service_badge: string | null;
+  website_service_price_text: string | null;
+  website_service_cta_text: string | null;
+  website_service_cta_url: string | null;
+  website_service_display_order: number | null;
+}
+
 export interface SiteData {
   website: Website;
   pages: SitePage[];
@@ -129,6 +142,7 @@ export interface SiteData {
   gallery: GalleryItem[];
   company: CompanySettings | null;
   booking?: BookingSettingsPublic | null;
+  service_catalogue?: ServiceCatalogueWebsiteRate[];
   platform_announcements?: PlatformAnnouncement[];
 }
 

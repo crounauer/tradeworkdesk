@@ -2024,6 +2024,16 @@ function BlockEditor({
 
       return (
         <div className="space-y-3">
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <p className="font-medium text-foreground">How this block works</p>
+            <p>
+              If one or more services are enabled in Company Settings -&gt; Catalogue with <strong>Show in website service rates</strong>,
+              the live website will use those catalogue services automatically.
+            </p>
+            <p>
+              If no services are enabled there, this block uses the manual rate items below.
+            </p>
+          </div>
           <FieldRow label="Eyebrow / Label (optional)">
             <Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} />
           </FieldRow>
