@@ -25,6 +25,8 @@ export default async function SiteLayout({ site, children, basePath, previewToke
     themeObject[GLOBAL_SITE_HEADER_THEME_KEY]
     && typeof themeObject[GLOBAL_SITE_HEADER_THEME_KEY] === "object"
   ) ? (themeObject[GLOBAL_SITE_HEADER_THEME_KEY] as Record<string, unknown>) : null;
+  const hasThemeHeaderContent = Boolean(headerContent);
+  let hasHeaderBlockContent = false;
 
   try {
     if (!headerContent) {
@@ -45,6 +47,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
 
         if (headerBlock?.content && typeof headerBlock.content === "object") {
           headerContent = headerBlock.content as Record<string, unknown>;
+          hasHeaderBlockContent = true;
         }
       }
     }
@@ -88,6 +91,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
         theme={website.theme as Record<string, string>}
         basePath={basePath}
         previewToken={previewToken}
+        showTopBar={hasThemeHeaderContent || hasHeaderBlockContent}
       />
       <div id="main-content" style={{ minHeight: "60vh" }}>{children}</div>
       <SiteFooter

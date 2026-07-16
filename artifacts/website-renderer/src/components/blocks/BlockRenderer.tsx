@@ -367,19 +367,6 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     ...websiteOverride,
     ...(fallbackContent || {}),
     ...rawContent,
-    ...(templateSlug === "local-plumbing-pro" && normalizedType === "hero"
-      ? {
-          trust_items:
-            Array.isArray(rawContent.trust_items) && rawContent.trust_items.length > 0
-              ? rawContent.trust_items
-              : [
-                  { text: "Fully Insured", icon: "🛡" },
-                  { text: "Local Engineers", icon: "📍" },
-                  { text: "Fast Response", icon: "⚡" },
-                  { text: "Free Quotes", icon: "✓" },
-                ],
-        }
-      : {}),
     ...(normalizedType === "hero"
       ? {
           ...(Array.isArray(rawContent.trust_items) && rawContent.trust_items.length > 0

@@ -63,8 +63,8 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   const headerPhone = readHeaderString(headerContent, ["phone", "header_phone"], company?.phone || "");
   const headerCtaLabel = readHeaderString(headerContent, ["ctaLabel", "cta_label"], "Call Now");
   const headerCtaHref = readHeaderString(headerContent, ["ctaHref", "cta_url", "cta_href"], ctaHref);
-  const topBarScheduleText = readHeaderString(headerContent, ["scheduleText", "schedule_text"], "Mon-Sat 7am-8pm | Emergency 24/7");
-  const topBarLocationText = readHeaderString(headerContent, ["locationText", "location_text"], "Reading & Surrounding Areas");
+  const topBarScheduleText = readHeaderString(headerContent, ["scheduleText", "schedule_text"], "");
+  const topBarLocationText = readHeaderString(headerContent, ["locationText", "location_text"], "");
 
   // Slightly darker shade for top bar
   const topBarBg = navBg + "dd";
@@ -93,21 +93,23 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           }
         `}</style>
 
-        <div style={{ backgroundColor: topBarBg, color: topBarText, borderBottom: "1px solid rgba(26,58,107,0.12)" }}>
-          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: "14px", lineHeight: "20px", fontWeight: 400 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 24, color: "rgba(26,58,107,0.82)" }}>
-              {topBarScheduleText ? <span>{topBarScheduleText}</span> : null}
-              {topBarLocationText ? <span>{topBarLocationText}</span> : null}
-            </div>
-            <div style={{ color: "#00A8A8", fontWeight: 700 }}>
-              {headerPhone ? (
-                <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none", fontWeight: "inherit" }}>
-                  {headerPhone}
-                </a>
-              ) : null}
+        {showTopBar && (topBarScheduleText || topBarLocationText || headerPhone) ? (
+          <div style={{ backgroundColor: topBarBg, color: topBarText, borderBottom: "1px solid rgba(26,58,107,0.12)" }}>
+            <div style={{ maxWidth: 1280, margin: "0 auto", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: "14px", lineHeight: "20px", fontWeight: 400 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 24, color: "rgba(26,58,107,0.82)" }}>
+                {topBarScheduleText ? <span>{topBarScheduleText}</span> : null}
+                {topBarLocationText ? <span>{topBarLocationText}</span> : null}
+              </div>
+              <div style={{ color: "#00A8A8", fontWeight: 700 }}>
+                {headerPhone ? (
+                  <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none", fontWeight: "inherit" }}>
+                    {headerPhone}
+                  </a>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div style={{ backgroundColor: "#eef5ff", color: "#0f1f3d", borderBottom: "1px solid rgba(26, 58, 107, 0.16)", boxShadow: "0 1px 0 rgba(26,58,107,0.06)" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 72 }}>
