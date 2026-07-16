@@ -750,10 +750,10 @@ router.post(
 
     const { data: domain } = await db
       .from("website_domains")
-      .select("id, domain")
+      .select("id, domain, website_id")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
-      .single() as { data: { id: string; domain: string } | null };
+      .single() as { data: { id: string; domain: string; website_id: string } | null };
 
     if (!domain) { res.status(404).json({ error: "Domain not found" }); return; }
 

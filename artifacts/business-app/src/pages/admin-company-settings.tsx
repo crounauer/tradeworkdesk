@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Link, useSearch } from "wouter";
 import {
   Building2, Phone, Mail, Globe, Shield, FileText, ExternalLink,
@@ -511,6 +512,7 @@ type FormValues = Omit<CompanySettings, "id" | "singleton_id" | "logo_url" | "lo
 type BookingWorkingHour = { day: number; start: string; end: string };
 type BookingSettingsProfile = {
   working_hours: BookingWorkingHour[];
+  buffer_between_minutes: number;
 };
 
 type GeoResult = {
@@ -617,6 +619,7 @@ const DEFAULT_BOOKING_WORKING_HOURS: BookingWorkingHour[] = [
   { day: 4, start: "08:00", end: "17:00" },
   { day: 5, start: "08:00", end: "17:00" },
 ];
+const DEFAULT_BOOKING_BUFFER_MINUTES = 15;
 
 export default function AdminCompanySettings() {
   const { data: settings, isLoading } = useCompanySettings();
@@ -877,14 +880,22 @@ export default function AdminCompanySettings() {
         const workingHours = Array.isArray(data?.working_hours)
           ? (data.working_hours as BookingWorkingHour[])
           : DEFAULT_BOOKING_WORKING_HOURS;
+        const parsedBuffer = Number(data?.buffer_between_minutes);
+        const bufferBetweenMinutes = Number.isFinite(parsedBuffer) && parsedBuffer >= 0
+          ? parsedBuffer
+          : DEFAULT_BOOKING_BUFFER_MINUTES;
         setBookingSettingsProfile({
           working_hours: [...workingHours].sort((a, b) => a.day - b.day),
+          buffer_between_minutes: bufferBetweenMinutes,
         });
         bookingHoursLoadedRef.current = true;
       })
       .catch((err: Error) => {
         if (cancelled) return;
-        setBookingSettingsProfile({ working_hours: DEFAULT_BOOKING_WORKING_HOURS });
+        setBookingSettingsProfile({
+          working_hours: DEFAULT_BOOKING_WORKING_HOURS,
+          buffer_between_minutes: DEFAULT_BOOKING_BUFFER_MINUTES,
+        });
         toast({ title: "Could not load working hours", description: err.message, variant: "destructive" });
       })
       .finally(() => {
@@ -898,7 +909,10 @@ export default function AdminCompanySettings() {
 
   const toggleBookingDay = useCallback((day: number) => {
     setBookingSettingsProfile((current) => {
-      const prev = current ?? { working_hours: DEFAULT_BOOKING_WORKING_HOURS };
+      const prev = current ?? {
+        working_hours: DEFAULT_BOOKING_WORKING_HOURS,
+        buffer_between_minutes: DEFAULT_BOOKING_BUFFER_MINUTES,
+      };
       const exists = prev.working_hours.find((w) => w.day === day);
       if (exists) {
         return { ...prev, working_hours: prev.working_hours.filter((w) => w.day !== day) };
@@ -912,7 +926,10 @@ export default function AdminCompanySettings() {
 
   const updateBookingDayHours = useCallback((day: number, field: "start" | "end", value: string) => {
     setBookingSettingsProfile((current) => {
-      const prev = current ?? { working_hours: DEFAULT_BOOKING_WORKING_HOURS };
+      const prev = current ?? {
+        working_hours: DEFAULT_BOOKING_WORKING_HOURS,
+        buffer_between_minutes: DEFAULT_BOOKING_BUFFER_MINUTES,
+      };
       return {
         ...prev,
         working_hours: prev.working_hours.map((w) => (w.day === day ? { ...w, [field]: value } : w)),
@@ -934,6 +951,7 @@ export default function AdminCompanySettings() {
       const payload = {
         ...current,
         working_hours: [...bookingSettingsProfile.working_hours].sort((a, b) => a.day - b.day),
+        buffer_between_minutes: Math.max(0, Number(bookingSettingsProfile.buffer_between_minutes) || 0),
       };
 
       const saveRes = await fetch("/api/booking/settings", {
@@ -1602,10 +1620,10 @@ export default function AdminCompanySettings() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarSync className="w-4 h-4" />
-              Online Booking Working Hours
+              Online Booking Availability
             </CardTitle>
             <CardDescription>
-              Configure the days and times customers can book online. This was moved from Online Booking settings.
+              Configure customer bookable hours and travel buffer. This was moved from Online Booking settings.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1649,10 +1667,34 @@ export default function AdminCompanySettings() {
               </div>
             )}
 
+            <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="booking_travel_buffer" className="text-sm">Travel Time Buffer (minutes)</Label>
+              <Input
+                id="booking_travel_buffer"
+                type="number"
+                min={0}
+                step={5}
+                value={bookingSettingsProfile?.buffer_between_minutes ?? DEFAULT_BOOKING_BUFFER_MINUTES}
+                onChange={(e) => {
+                  const parsed = Number.parseInt(e.target.value, 10);
+                  const nextValue = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+                  setBookingSettingsProfile((current) => ({
+                    working_hours: current?.working_hours ?? DEFAULT_BOOKING_WORKING_HOURS,
+                    buffer_between_minutes: nextValue,
+                  }));
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Adds travel and turnaround time between appointments. This value is used when calculating available booking slots.
+              </p>
+            </div>
+
             <div className="flex justify-end">
               <Button type="button" size="sm" onClick={() => void saveBookingWorkingHours()} disabled={bookingHoursLoading || bookingHoursSaving}>
                 {bookingHoursSaving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
-                Save Working Hours
+                Save Availability Settings
               </Button>
             </div>
           </CardContent>

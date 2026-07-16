@@ -41,7 +41,7 @@ const upload = multer({
         await ensureTempDir();
         cb(null, TEMP_DIR);
       } catch (error) {
-        cb(error as Error);
+        cb(error as Error, TEMP_DIR);
       }
     },
     filename: (req, file, cb) => {
@@ -689,7 +689,7 @@ router.patch(
   requireSuperAdmin,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id || "");
 
       // Get conversion record
       const { data: conversion, error: fetchError } = await supabaseAdmin
@@ -732,6 +732,10 @@ router.patch(
 
       // Phase 2: Generate template instance with pages and blocks
       console.log(`[PATCH /:id/approve] Triggering Phase 2 for template: ${conversion.template_slug}`);
+
+      if (!req.userId) {
+        throw new TemplateImportError("Missing authenticated user", { status: 401, code: "UNAUTHENTICATED" });
+      }
       
       const phase2Result = await generateTemplateInstance(
         supabaseAdmin,
@@ -783,7 +787,7 @@ router.patch(
   requireSuperAdmin,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id || "");
       const { reason } = req.body;
 
       // Get conversion record

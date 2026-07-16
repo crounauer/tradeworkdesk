@@ -16,7 +16,7 @@ function isConfigured(): boolean {
   return !!(process.env.FLY_API_TOKEN && FLY_RENDERER_APP_NAME);
 }
 
-function authHeaders(): HeadersInit {
+function authHeaders(): Record<string, string> {
   return {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${process.env.FLY_API_TOKEN}`,

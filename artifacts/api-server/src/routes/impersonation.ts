@@ -87,7 +87,8 @@ router.post(
       .single() as { data: { id: string } | null; error: unknown };
 
     if (sessionErr || !session) {
-      console.error("[impersonate] session insert failed:", sessionErr?.message);
+      const sessionErrMsg = sessionErr instanceof Error ? sessionErr.message : String(sessionErr || "unknown error");
+      console.error("[impersonate] session insert failed:", sessionErrMsg);
       res.status(500).json({ error: "Failed to create impersonation session" });
       return;
     }
@@ -253,7 +254,8 @@ router.delete(
       .is("revoked_at", null);
 
     if (error) {
-      res.status(500).json({ error: error.message });
+      const errMsg = error instanceof Error ? error.message : String(error || "unknown error");
+      res.status(500).json({ error: errMsg });
       return;
     }
 
@@ -286,7 +288,7 @@ router.get(
       .limit(100) as { data: Record<string, unknown>[] | null; error: unknown };
 
     if (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load impersonation sessions" });
       return;
     }
 

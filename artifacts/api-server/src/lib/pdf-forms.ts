@@ -19,7 +19,7 @@ export interface PdfCompanySettings {
 }
 
 function renderPdfHeader(
-  doc: jsPDF,
+  doc: any,
   company: PdfCompanySettings | undefined,
   title: string,
   subtitle?: string,
@@ -98,7 +98,7 @@ function pdfFooterText(company: PdfCompanySettings | undefined, docType: string)
   return name ? `${docType} - ${name}` : `${docType}`;
 }
 
-function createPdfHelpers(doc: jsPDF) {
+function createPdfHelpers(doc: any) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
@@ -212,7 +212,7 @@ function str(v: unknown): string {
   return s;
 }
 
-function addPdfFooter(doc: jsPDF, company: PdfCompanySettings | undefined, docType: string): void {
+function addPdfFooter(doc: any, company: PdfCompanySettings | undefined, docType: string): void {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);

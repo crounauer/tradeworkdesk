@@ -45,8 +45,15 @@ router.post(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { websiteId } = req.params;
+      const websiteId = String(req.params.websiteId || "");
       const { templateId } = req.body;
+
+      if (!req.userId) {
+        return res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+        });
+      }
 
       if (!templateId) {
         return res.status(400).json({
@@ -111,7 +118,14 @@ router.post(
  */
 router.get("/websites/:websiteId/pages", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { websiteId } = req.params;
+    const websiteId = String(req.params.websiteId || "");
+
+    if (!req.userId) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
 
     // Verify ownership
     const { data: website, error: websiteError } = await supabaseAdmin

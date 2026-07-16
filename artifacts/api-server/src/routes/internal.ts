@@ -262,7 +262,7 @@ router.get("/internal/send-renewal-reminders", async (req: Request, res: Respons
 
     if (stripe && tenant.stripe_subscription_id) {
       try {
-        const upcoming = await stripe.invoices.retrieveUpcoming({
+          const upcoming = await (stripe.invoices as any).retrieveUpcoming({
           subscription: tenant.stripe_subscription_id,
         });
         amount = upcoming.amount_due;
@@ -331,7 +331,7 @@ router.get("/internal/send-low-credits-alerts", async (req: Request, res: Respon
   const results: Array<{ tenant: string; addon: string; credits: number; sent: boolean; reason?: string }> = [];
   let successCount = 0;
 
-  for (const row of (rows || []) as Row[]) {
+  for (const row of (rows as unknown as Row[] || [])) {
     const addon = row.addons;
     const tenant = row.tenants;
 

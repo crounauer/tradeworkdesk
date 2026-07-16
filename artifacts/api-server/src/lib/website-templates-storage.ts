@@ -142,7 +142,7 @@ export class WebsiteTemplateStorage {
 
     return (result.data || [])
       .map((row: Record<string, any>) => this.normalizeTemplate(row))
-      .sort((left, right) => {
+      .sort((left: WebsiteTemplate, right: WebsiteTemplate) => {
         const leftOrder = typeof left.sort_order === "number" ? left.sort_order : Number.MAX_SAFE_INTEGER;
         const rightOrder = typeof right.sort_order === "number" ? right.sort_order : Number.MAX_SAFE_INTEGER;
         if (leftOrder !== rightOrder) return leftOrder - rightOrder;

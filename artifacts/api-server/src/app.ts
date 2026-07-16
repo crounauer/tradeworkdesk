@@ -18,8 +18,15 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
-// Broad CORS: allow the business app, all *.tradeworkdesk.co.uk subdomains,
-// and any custom tenant domain (public endpoints are rate-limited separately).
+const configuredCustomCorsOrigins = new Set(
+  (process.env.CUSTOM_CORS_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+const allowAnyHttpsOriginInNonProduction = process.env.NODE_ENV !== "production";
+
+// CORS: allow trusted first-party origins and explicitly configured custom domains.
 const corsOptions: cors.CorsOptions = {
   origin(origin, callback) {
     // Allow requests with no origin (server-to-server, curl, mobile apps)
@@ -32,9 +39,12 @@ const corsOptions: cors.CorsOptions = {
       origin === "http://localhost:5173" ||
       /^https?:\/\/([a-z0-9-]+\.)*tradeworkdesk\.co\.uk$/.test(origin) ||
       /^https?:\/\/([a-z0-9-]+\.)*vercel\.app$/.test(origin);
-    // Custom tenant domains: allow all https origins (public routes are rate-limited)
-    const isCustomDomain = origin.startsWith("https://");
-    callback(null, allowed || isCustomDomain);
+
+    const isConfiguredCustomOrigin = configuredCustomCorsOrigins.has(origin);
+    const isHttpsOrigin = origin.startsWith("https://");
+    const allowCustomOrigin = isConfiguredCustomOrigin || (allowAnyHttpsOriginInNonProduction && isHttpsOrigin);
+
+    callback(null, allowed || allowCustomOrigin);
   },
   credentials: true,
 };
@@ -107,9 +117,14 @@ app.get("/health/sentry", (_req: Request, res: Response) => {
   });
 });
 
-// Test endpoint for monitoring verification
-app.get("/api/test-error", (_req: Request, _res: Response) => {
-  throw new Error("This is a test error for Sentry verification");
+// Test endpoint for monitoring verification. Disabled in production unless explicitly enabled.
+app.get("/api/test-error", (_req: Request, res: Response, next: NextFunction) => {
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_TEST_ERROR_ENDPOINT !== "true") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  next(new Error("This is a test error for Sentry verification"));
 });
 
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {

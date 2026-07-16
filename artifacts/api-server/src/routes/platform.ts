@@ -92,6 +92,11 @@ function classifyChannel(referrer: string | null): string {
 
 const TENANT_ADMIN_ROLES = new Set(["admin", "office_staff", "super_admin"]);
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 function parseBooleanFlag(value: unknown, fallback: boolean): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -333,7 +338,7 @@ router.patch("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req
  * Super-admin: move a tenant to any active, non-free plan immediately.
  */
 router.post("/platform/tenants/:id/switch-plan", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { plan_id } = req.body as { plan_id: string };
   if (!plan_id) { res.status(400).json({ error: "plan_id is required" }); return; }
 
@@ -369,7 +374,7 @@ router.post("/platform/tenants/:id/switch-plan", requireAuth, requireSuperAdmin,
 });
 
 router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { data: existingTenant } = await supabaseAdmin
     .from("tenants")
     .select("notes")
@@ -459,7 +464,7 @@ router.post("/platform/tenants/:id/grant-free-access", requireAuth, requireSuper
 });
 
 router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { data: existingTenant } = await supabaseAdmin
     .from("tenants")
     .select("notes")
@@ -482,10 +487,15 @@ router.post("/platform/tenants/:id/revoke-free-access", requireAuth, requireSupe
 
   const { count } = await supabaseAdmin
     .from("tenant_addons")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", id)
+    .eq("is_active", true);
+
+  await supabaseAdmin
+    .from("tenant_addons")
     .update({ is_active: false })
     .eq("tenant_id", id)
-    .eq("is_active", true)
-    .select("id", { count: "exact", head: true });
+    .eq("is_active", true);
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
@@ -773,7 +783,7 @@ router.get("/platform/plans/public", async (_req, res): Promise<void> => {
   const fullSelect = "id, name, description, monthly_price, annual_price, per_user_price, max_users, is_active, is_popular, is_legacy, sort_order, stripe_price_id, stripe_price_id_annual";
   const basicSelect = "id, name, description, monthly_price, annual_price, max_users, is_active, sort_order";
 
-  let result = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).eq("is_legacy", false).order("sort_order", { ascending: true });
+  let result: any = await supabaseAdmin.from("plans").select(fullSelect).eq("is_active", true).eq("is_legacy", false).order("sort_order", { ascending: true });
   if (result.error?.code === "42703") {
     result = await supabaseAdmin.from("plans").select(basicSelect).eq("is_active", true).order("sort_order", { ascending: true });
   }
@@ -1173,7 +1183,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
     return;
   }
 
-  const promises: Promise<unknown>[] = [profilePromise];
+  const promises: PromiseLike<unknown>[] = [profilePromise];
 
   if (req.tenantId) {
     promises.push(
@@ -2463,7 +2473,7 @@ router.get("/platform/stats/ai-usage", requireAuth, requireSuperAdmin, async (_r
 // ─── Template Asset Management (superadmin) ──────────────────────────────────
 
 router.get("/platform/website-templates", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
-  let result = await supabaseAdmin
+  let result: any = await supabaseAdmin
     .from("website_templates")
     .select("id, name, slug, description, is_active, sort_order, updated_at, template_path")
     .eq("is_active", true)
@@ -2534,7 +2544,8 @@ const updateWebsiteTemplateStatus = async (id: string, is_active: boolean, res: 
       .maybeSingle() as { data: { value?: string | null } | null };
 
     const currentDefaultSlug = String(defaultTemplateSetting?.value || "").trim();
-    if (currentDefaultSlug && currentDefaultSlug === data.slug) {
+    const templateData = data as { slug?: string | null };
+    if (currentDefaultSlug && currentDefaultSlug === templateData.slug) {
       await supabaseAdmin
         .from("platform_settings")
         .upsert({ key: "default_signup_template_slug", value: null, updated_at: new Date().toISOString() }, { onConflict: "key" });
@@ -2545,7 +2556,7 @@ const updateWebsiteTemplateStatus = async (id: string, is_active: boolean, res: 
 };
 
 router.patch("/platform/website-templates/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { is_active } = req.body as { is_active?: boolean };
 
   if (typeof is_active !== "boolean") {
@@ -2557,7 +2568,7 @@ router.patch("/platform/website-templates/:id", requireAuth, requireSuperAdmin, 
 });
 
 router.post("/platform/website-templates/:id/status", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { is_active } = req.body as { is_active?: boolean };
 
   if (typeof is_active !== "boolean") {
@@ -2570,7 +2581,7 @@ router.post("/platform/website-templates/:id/status", requireAuth, requireSuperA
 
 // Compatibility endpoint for clients posting directly to /:id.
 router.post("/platform/website-templates/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { is_active } = req.body as { is_active?: boolean };
 
   if (typeof is_active !== "boolean") {
@@ -2583,7 +2594,7 @@ router.post("/platform/website-templates/:id", requireAuth, requireSuperAdmin, a
 
 // Compatibility endpoint for clients patching /:id/status.
 router.patch("/platform/website-templates/:id/status", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { is_active } = req.body as { is_active?: boolean };
 
   if (typeof is_active !== "boolean") {
@@ -2611,7 +2622,7 @@ const templateAssetUpload = multer({
 
 // GET /platform/template-assets/:templateId — list assets for a template
 router.get("/platform/template-assets/:templateId", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const { templateId } = req.params;
+  const templateId = toSingleParam(req.params.templateId);
   const { data: template } = await supabaseAdmin
     .from("website_templates")
     .select("slug, version")
@@ -2649,7 +2660,7 @@ router.post(
   }),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     if (!req.file) { res.status(400).json({ error: "No file uploaded." }); return; }
-    const { templateId } = req.params;
+    const templateId = toSingleParam(req.params.templateId);
 
     const { data: template } = await supabaseAdmin
       .from("website_templates")
@@ -2685,7 +2696,8 @@ router.post(
 
 // DELETE /platform/template-assets/:templateId/:filename — delete an asset
 router.delete("/platform/template-assets/:templateId/:filename", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
-  const { templateId, filename } = req.params;
+  const templateId = toSingleParam(req.params.templateId);
+  const filename = toSingleParam(req.params.filename);
   const { data: template } = await supabaseAdmin
     .from("website_templates")
     .select("slug, version")
@@ -2712,7 +2724,7 @@ router.delete("/platform/template-assets/:templateId/:filename", requireAuth, re
 // website was created before subdomain provisioning ran, or whose subdomain
 // record was never inserted.
 router.post("/platform/tenants/:id/reprovision-subdomain", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: tenantId } = req.params;
+  const tenantId = toSingleParam(req.params.id);
   const db = supabaseAdmin as any;
   const PLATFORM_SUBDOMAIN_BASE = process.env.PLATFORM_SUBDOMAIN_BASE || "tradeworkdesk.co.uk";
 

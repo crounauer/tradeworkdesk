@@ -13,6 +13,7 @@ const router = Router();
 
 // In-memory build status tracking (in production, use Redis or DB)
 const buildStatus = new Map<string, { status: 'idle' | 'building' | 'success' | 'failed'; error?: string; previewUrl?: string; timestamp: number }>();
+type BuildState = { status: 'idle' | 'building' | 'success' | 'failed'; error?: string; previewUrl?: string; timestamp?: number };
 
 /**
  * POST /api/admin/template-builds/:slug
@@ -22,8 +23,8 @@ router.post(
   "/:slug",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
-    const { slug } = req.params;
+  async (req: Request, res: Response): Promise<void> => {
+    const slug = String(req.params.slug || "");
 
     try {
       // Check template exists
@@ -34,7 +35,8 @@ router.post(
         .single();
 
       if (templateError || !template) {
-        return res.status(404).json({ error: "Template not found" });
+        res.status(404).json({ error: "Template not found" });
+        return;
       }
 
       // Mark as building
@@ -76,16 +78,17 @@ router.get(
   "/:slug/status",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
-    const { slug } = req.params;
+  async (req: Request, res: Response): Promise<void> => {
+    const slug = String(req.params.slug || "");
 
     try {
-      const status = buildStatus.get(slug) || { status: 'idle' };
+      const status: BuildState = buildStatus.get(slug) || { status: 'idle' };
 
       // Treat as idle if older than 5 minutes
-      if (status.timestamp && Date.now() - status.timestamp > 5 * 60 * 1000) {
+      if (typeof status.timestamp === "number" && Date.now() - status.timestamp > 5 * 60 * 1000) {
         buildStatus.delete(slug);
-        return res.json({ status: 'idle' });
+        res.json({ status: 'idle' });
+        return;
       }
 
       res.json(status);

@@ -387,7 +387,7 @@ router.get("/billing/credits", requireAuth, requireTenant, requireRole("admin"),
  * Deducts via Stripe if active subscription; always updates credit balance.
  */
 router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { addonId } = req.params;
+  const addonId = Array.isArray(req.params.addonId) ? req.params.addonId[0] : req.params.addonId;
   const bundles = Math.max(1, Math.floor(Number(req.body.bundles) || 1));
   const bundleType: "small" | "standard" = req.body.bundle_type === "small" ? "small" : "standard";
 
@@ -475,10 +475,10 @@ router.post("/billing/credits/:addonId/buy", requireAuth, requireTenant, require
         metadata: {
           type: "credit_topup",
           tenant_id: req.tenantId!,
-          addon_id: addonId,
+          addon_id: addonId || "",
           bundles: String(bundles),
           bundle_size: String(effectiveBundleSize),
-          bundle_type: bundleType,
+          bundle_type: String(bundleType || ""),
         },
       });
 

@@ -24,7 +24,7 @@ export async function triggerRendererRevalidate(opts: { domains?: string[]; webs
   const websiteIds = Array.from(new Set((opts.websiteIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
   if (domains.length === 0 && websiteIds.length === 0) return;
 
-  const headers: HeadersInit = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
   const secret = process.env.RENDERER_SECRET;
   if (secret) headers["x-renderer-secret"] = secret;
 

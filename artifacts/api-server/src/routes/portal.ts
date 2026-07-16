@@ -24,6 +24,11 @@ const PORTAL_TOKEN_CACHE_TTL_MS = 60_000;
 export const portalUserCache = new Map<string, { portalUserId: string; customerId: string; tenantId: string; expiresAt: number }>();
 const PORTAL_USER_CACHE_TTL_MS = 120_000;
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
@@ -157,10 +162,10 @@ router.post("/portal/register", async (req: CustomerPortalRequest, res): Promise
     const isDuplicate = authErr.message?.includes("already been registered") || authErr.message?.includes("already exists");
     if (isDuplicate) {
       const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
-      const existingUser = listData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase().trim());
+      const existingUser = listData?.users?.find((u) => String((u as Record<string, unknown>).email || "").toLowerCase() === email.toLowerCase().trim());
       if (!existingUser) {
         const { data: allUsers } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const found = allUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase().trim());
+        const found = allUsers?.users?.find((u) => String((u as Record<string, unknown>).email || "").toLowerCase() === email.toLowerCase().trim());
         if (!found) {
           res.status(400).json({ error: "An account with this email already exists but could not be resolved. Please contact support." });
           return;
@@ -444,13 +449,28 @@ router.get("/portal/jobs/:jobId/certificate", requireCustomerAuth, async (req: C
   const jobRef = job.job_ref || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
 
   try {
-    const pdfBuffer = await generateFormPdf(formType, formData, {
-      jobRef,
-      customerName,
-      propertyAddress,
-      technicianName,
-      scheduledDate: job.scheduled_date,
-    }, company);
+    const fieldMap = Object.fromEntries(
+      Object.keys(formData).map((key) => [key, key.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())])
+    ) as Record<string, string>;
+
+    const normalizedFormType = formType === "job_completion" ? "job_completion_report" : "service_record";
+
+    const pdfBuffer = await generateFormPdf(
+      normalizedFormType,
+      formLabel,
+      formData,
+      fieldMap,
+      {
+        jobRef,
+        customerName,
+        customerAddress: propertyAddress,
+        customerPhone: "N/A",
+        propertyAddress,
+        technicianName,
+        scheduledDate: job.scheduled_date,
+      },
+      company,
+    );
 
     const filename = `${formLabel.replace(/\s+/g, "-").toLowerCase()}-${jobRef}.pdf`;
     res.setHeader("Content-Type", "application/pdf");
@@ -646,7 +666,7 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
 
 // ─── PORTAL: On-demand Stripe Checkout ───────────────────────────────────
 router.post("/portal/invoices/:id/stripe-checkout", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   const { data: invoice, error } = await supabaseAdmin
     .from("invoices")
@@ -730,7 +750,7 @@ async function handleQuoteAction(
   res: Response,
   action: "accept" | "decline",
 ): Promise<void> {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   const { data: invoice, error } = await supabaseAdmin
     .from("invoices")

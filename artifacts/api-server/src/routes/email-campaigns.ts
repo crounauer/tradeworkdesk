@@ -68,7 +68,7 @@ async function resolveAudience(
 
 // ─── Campaigns CRUD ──────────────────────────────────────────────────────────
 
-router.get("/campaigns", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/campaigns", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("email_campaigns")
     .select("id, name, subject, status, scheduled_for, sent_at, recipient_count, open_count, click_count, created_at")
     .eq("tenant_id", req.tenantId)
@@ -77,7 +77,7 @@ router.get("/campaigns", requireAuth, requireTenant, async (req: AuthenticatedRe
   res.json(data ?? []);
 });
 
-router.get("/campaigns/preview-audience", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/campaigns/preview-audience", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const filter = typeof req.query.filter === "string"
     ? JSON.parse(req.query.filter) as Record<string, unknown>
     : {};
@@ -85,21 +85,21 @@ router.get("/campaigns/preview-audience", requireAuth, requireTenant, async (req
   res.json({ count: audience.length });
 });
 
-router.get("/campaigns/unsubscribes", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/campaigns/unsubscribes", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("email_unsubscribes")
     .select("*").eq("tenant_id", req.tenantId).order("created_at", { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data ?? []);
 });
 
-router.get("/campaigns/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/campaigns/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("email_campaigns")
     .select("*").eq("id", req.params.id).eq("tenant_id", req.tenantId).single();
   if (error) return res.status(404).json({ error: "Not found" });
   res.json(data);
 });
 
-router.post("/campaigns", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/campaigns", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("email_campaigns")
     .insert({ ...fields, tenant_id: req.tenantId, status: "draft" })
@@ -109,7 +109,7 @@ router.post("/campaigns", requireAuth, requireTenant, async (req: AuthenticatedR
   res.status(201).json(data);
 });
 
-router.patch("/campaigns/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/campaigns/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   // Only allow editing drafts or scheduled campaigns
   const { data: existing } = await db.from("email_campaigns")
     .select("status").eq("id", req.params.id).eq("tenant_id", req.tenantId).single();
@@ -128,7 +128,7 @@ router.patch("/campaigns/:id", requireAuth, requireTenant, async (req: Authentic
   res.json(data);
 });
 
-router.delete("/campaigns/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/campaigns/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data: existing } = await db.from("email_campaigns")
     .select("status").eq("id", req.params.id).eq("tenant_id", req.tenantId).single();
   if (!existing) return res.status(404).json({ error: "Not found" });
@@ -141,7 +141,7 @@ router.delete("/campaigns/:id", requireAuth, requireTenant, async (req: Authenti
 
 // ─── Send / Schedule ─────────────────────────────────────────────────────────
 
-router.post("/campaigns/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/campaigns/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { scheduled_for } = req.body as { scheduled_for?: string };
 
   const { data: campaign } = await db.from("email_campaigns")
@@ -190,7 +190,7 @@ router.post("/campaigns/:id/send", requireAuth, requireTenant, async (req: Authe
 });
 
 // POST /api/campaigns/:id/preview — sends test email to the requesting user
-router.post("/campaigns/:id/preview", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/campaigns/:id/preview", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { to_email } = req.body as { to_email?: string };
   if (!to_email) return res.status(400).json({ error: "to_email is required" });
   // In production this would actually send via Resend/Mailgun etc.
@@ -200,7 +200,7 @@ router.post("/campaigns/:id/preview", requireAuth, requireTenant, async (req: Au
 
 // ─── Recipients ───────────────────────────────────────────────────────────────
 
-router.get("/campaigns/:id/recipients", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/campaigns/:id/recipients", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("campaign_recipients")
     .select("id, email, name, status, sent_at, opened_at, clicked_at")
     .eq("campaign_id", req.params.id)
@@ -266,7 +266,7 @@ publicRouter.get("/public/campaign/:token/click", async (req: Request, res: Resp
 });
 
 // GET /api/public/campaign/:token/unsubscribe — one-click unsubscribe
-publicRouter.get("/public/campaign/:token/unsubscribe", async (req: Request, res: Response) => {
+publicRouter.get("/public/campaign/:token/unsubscribe", async (req: Request, res: Response): Promise<Response | void> => {
   const token = req.params.token;
   const { data: recipient } = await db.from("campaign_recipients")
     .select("email, tenant_id")

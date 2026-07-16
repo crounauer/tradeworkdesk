@@ -44,26 +44,32 @@ const db = supabaseAdmin as any;
 
 // ─── Tiers ────────────────────────────────────────────────────────────────────
 
-router.get("/maintenance/tiers", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/maintenance/tiers", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { data, error } = await db.from("maintenance_plan_tiers")
     .select("*")
     .eq("tenant_id", req.tenantId)
     .order("sort_order");
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? []);
 });
 
-router.post("/maintenance/tiers", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/maintenance/tiers", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("maintenance_plan_tiers")
     .insert({ ...fields, tenant_id: req.tenantId })
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.status(201).json(data);
 });
 
-router.patch("/maintenance/tiers/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/maintenance/tiers/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("maintenance_plan_tiers")
     .update(fields)
@@ -71,19 +77,26 @@ router.patch("/maintenance/tiers/:id", requireAuth, requireTenant, async (req: A
     .eq("tenant_id", req.tenantId)
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
-  if (!data) return res.status(404).json({ error: "Not found" });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(data);
 });
 
-router.delete("/maintenance/tiers/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/maintenance/tiers/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   // Check no active subscriptions
   const { count } = await db.from("maintenance_plan_subscriptions")
     .select("id", { count: "exact", head: true })
     .eq("tier_id", req.params.id)
     .eq("status", "active");
   if ((count ?? 0) > 0) {
-    return res.status(409).json({ error: "Cannot delete a tier with active subscriptions" });
+    res.status(409).json({ error: "Cannot delete a tier with active subscriptions" });
+    return;
   }
   await db.from("maintenance_plan_tiers")
     .delete()
@@ -94,7 +107,7 @@ router.delete("/maintenance/tiers/:id", requireAuth, requireTenant, async (req: 
 
 // ─── Subscriptions ────────────────────────────────────────────────────────────
 
-router.get("/maintenance/subscriptions", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/maintenance/subscriptions", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { status, customer_id } = req.query as Record<string, string>;
   let q = db.from("maintenance_plan_subscriptions")
     .select(`
@@ -108,21 +121,27 @@ router.get("/maintenance/subscriptions", requireAuth, requireTenant, async (req:
   if (status) q = q.eq("status", status);
   if (customer_id) q = q.eq("customer_id", customer_id);
   const { data, error } = await q;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? []);
 });
 
-router.post("/maintenance/subscriptions", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/maintenance/subscriptions", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("maintenance_plan_subscriptions")
     .insert({ ...fields, tenant_id: req.tenantId })
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.status(201).json(data);
 });
 
-router.patch("/maintenance/subscriptions/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/maintenance/subscriptions/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("maintenance_plan_subscriptions")
     .update(fields)
@@ -130,12 +149,18 @@ router.patch("/maintenance/subscriptions/:id", requireAuth, requireTenant, async
     .eq("tenant_id", req.tenantId)
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
-  if (!data) return res.status(404).json({ error: "Not found" });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(data);
 });
 
-router.delete("/maintenance/subscriptions/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/maintenance/subscriptions/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   // Soft cancel
   const { data, error } = await db.from("maintenance_plan_subscriptions")
     .update({ status: "cancelled" })
@@ -143,33 +168,45 @@ router.delete("/maintenance/subscriptions/:id", requireAuth, requireTenant, asyn
     .eq("tenant_id", req.tenantId)
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
-  if (!data) return res.status(404).json({ error: "Not found" });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(data);
 });
 
 // ─── Reminder settings ────────────────────────────────────────────────────────
 
-router.get("/maintenance/reminder-settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/maintenance/reminder-settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { data, error } = await db.from("service_reminder_settings")
     .select("*").eq("tenant_id", req.tenantId).maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? {});
 });
 
-router.put("/maintenance/reminder-settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.put("/maintenance/reminder-settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("service_reminder_settings").upsert(
     { ...fields, tenant_id: req.tenantId },
     { onConflict: "tenant_id" }
   ).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data);
 });
 
 // ─── Reminders list ───────────────────────────────────────────────────────────
 
-router.get("/maintenance/reminders", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/maintenance/reminders", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { status, due_before, limit = "50" } = req.query as Record<string, string>;
   let q = db.from("service_reminders")
     .select(`
@@ -184,21 +221,27 @@ router.get("/maintenance/reminders", requireAuth, requireTenant, async (req: Aut
   if (status) q = q.eq("status", status);
   if (due_before) q = q.lte("due_date", due_before);
   const { data, error } = await q;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? []);
 });
 
-router.post("/maintenance/reminders", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/maintenance/reminders", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("service_reminders")
     .insert({ ...fields, tenant_id: req.tenantId })
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.status(201).json(data);
 });
 
-router.patch("/maintenance/reminders/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/maintenance/reminders/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("service_reminders")
     .update(fields)
@@ -206,19 +249,28 @@ router.patch("/maintenance/reminders/:id", requireAuth, requireTenant, async (re
     .eq("tenant_id", req.tenantId)
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
-  if (!data) return res.status(404).json({ error: "Not found" });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(data);
 });
 
 // POST /api/maintenance/reminders/:id/send — force send a reminder now
-router.post("/maintenance/reminders/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/maintenance/reminders/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { data: reminder, error: fetchErr } = await db.from("service_reminders")
     .select("*, customer:customers(first_name, last_name, email, phone)")
     .eq("id", req.params.id)
     .eq("tenant_id", req.tenantId)
     .single();
-  if (fetchErr || !reminder) return res.status(404).json({ error: "Not found" });
+  if (fetchErr || !reminder) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
 
   // Mark as sent (actual email/SMS delivery handled by background worker / cron)
   const { data, error } = await db.from("service_reminders")
@@ -226,7 +278,10 @@ router.post("/maintenance/reminders/:id/send", requireAuth, requireTenant, async
     .eq("id", req.params.id)
     .select()
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
 
   void notifyUsersForEvent({
     tenantId: req.tenantId!,
@@ -243,7 +298,7 @@ router.post("/maintenance/reminders/:id/send", requireAuth, requireTenant, async
 });
 
 // POST /api/maintenance/reminders/generate — scan appliances for upcoming due dates
-router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { advance_days = 30 } = req.body as { advance_days?: number };
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + advance_days);
@@ -256,8 +311,14 @@ router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async
     .lte("next_service_due", cutoffStr)
     .not("next_service_due", "is", null);
 
-  if (appErr) return res.status(500).json({ error: appErr.message });
-  if (!appliances?.length) return res.json({ created: 0 });
+  if (appErr) {
+    res.status(500).json({ error: appErr.message });
+    return;
+  }
+  if (!appliances?.length) {
+    res.json({ created: 0 });
+    return;
+  }
 
   const applianceIds = (appliances as Array<{ id: string }>).map((app) => app.id);
   const { data: existingReminders, error: existingErr } = await db.from("service_reminders")
@@ -266,7 +327,10 @@ router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async
     .in("status", ["pending", "sent"])
     .in("appliance_id", applianceIds);
 
-  if (existingErr) return res.status(500).json({ error: existingErr.message });
+  if (existingErr) {
+    res.status(500).json({ error: existingErr.message });
+    return;
+  }
 
   const alreadyReminderApplianceIds = new Set(
     ((existingReminders ?? []) as Array<{ appliance_id: string | null }>)
@@ -301,7 +365,10 @@ router.post("/maintenance/reminders/generate", requireAuth, requireTenant, async
 
   if (rowsToInsert.length > 0) {
     const { error: insertErr } = await db.from("service_reminders").insert(rowsToInsert);
-    if (insertErr) return res.status(500).json({ error: insertErr.message });
+    if (insertErr) {
+      res.status(500).json({ error: insertErr.message });
+      return;
+    }
   }
 
   const created = rowsToInsert.length;
@@ -338,14 +405,17 @@ publicRouter.get("/public/reminder/:token", async (req: Request, res: Response) 
 });
 
 // GET /api/public/reminder/:token/book — redirect to booking page
-publicRouter.get("/public/reminder/:token/book", async (req: Request, res: Response) => {
+publicRouter.get("/public/reminder/:token/book", async (req: Request, res: Response): Promise<void> => {
   const token = req.params.token;
   const { data: reminder } = await db.from("service_reminders")
     .select("tenant_id, status")
     .eq("tracking_token", token)
     .maybeSingle();
 
-  if (!reminder) return res.status(404).send("Not found");
+  if (!reminder) {
+    res.status(404).send("Not found");
+    return;
+  }
 
   // Get tenant's booking URL
   const { data: tenant } = await db.from("tenants")

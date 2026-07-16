@@ -15,6 +15,11 @@ import { buildInvoiceData } from "./jobs";
 
 const router: IRouter = Router();
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 const pendingOAuthStates = new Map<string, { tenantId: string; provider: string; expiresAt: number }>();
 
 setInterval(() => {
@@ -52,7 +57,7 @@ router.post(
         return;
       }
 
-      const providerKey = req.params.provider;
+      const providerKey = toSingleParam(req.params.provider);
       const provider = getProvider(providerKey);
       if (!provider) {
         res.status(400).json({ error: `Unknown provider: ${providerKey}` });
@@ -120,7 +125,7 @@ router.get(
         return;
       }
 
-      const providerKey = req.params.provider;
+      const providerKey = toSingleParam(req.params.provider);
       const provider = await getProviderForTenant(providerKey, req.tenantId!);
       if (!provider) {
         res.status(400).json({ error: `Unknown provider: ${providerKey}` });
@@ -249,7 +254,7 @@ router.delete(
   requireRole("admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const providerKey = req.params.provider;
+      const providerKey = toSingleParam(req.params.provider);
 
       const { error } = await supabaseAdmin
         .from("accounting_integrations")
@@ -382,7 +387,7 @@ router.post(
   requireRole("admin", "office_staff"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const jobId = req.params.id;
+      const jobId = toSingleParam(req.params.id);
       const tenantId = req.tenantId!;
 
       const { data: job } = await supabaseAdmin

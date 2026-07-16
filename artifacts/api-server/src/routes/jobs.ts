@@ -49,7 +49,7 @@ interface SupabaseJobRow {
   is_awaiting_parts?: boolean | null;
   priority: string;
   description: string | null;
-  notes: string | null;
+  notes?: string | null;
   scheduled_date: string;
   scheduled_end_date: string | null;
   scheduled_time: string | null;
@@ -59,7 +59,7 @@ interface SupabaseJobRow {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  customers?: { first_name: string; last_name: string } | null;
+  customers?: { first_name: string; last_name: string; is_active?: boolean | null } | null;
   properties?: { address_line1: string; latitude?: number | null; longitude?: number | null; postcode?: string | null } | null;
   profiles?: { full_name: string } | null;
 }
@@ -115,6 +115,11 @@ async function enrichJobsWithTypeNames(
 }
 
 const VALID_JOB_TYPE_ENUMS = new Set(["service", "breakdown", "installation", "inspection", "follow_up"]);
+
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
 
 function deriveJobTypeEnum(
   category: string,
@@ -502,7 +507,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   const hasGeoMapping = !!(tenantFeatures?.geo_mapping);
 
-  const withTypeNames = await enrichJobsWithTypeNames((data as SupabaseJobRow[] || []));
+  const withTypeNames = await enrichJobsWithTypeNames((data as unknown as SupabaseJobRow[] || []));
   const rawMapped = withTypeNames.map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
@@ -1517,7 +1522,7 @@ router.get("/products/search", requireAuth, requireTenant, async (req: Authentic
 });
 
 router.get("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {
@@ -1533,7 +1538,7 @@ router.get("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("jo
 });
 
 router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   const { part_name, quantity, serial_number, unit_price, catalogue_item_id, status } = req.body;
@@ -1575,7 +1580,8 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
 });
 
 router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: jobId, partId } = req.params;
+  const jobId = toSingleParam(req.params.id);
+  const partId = toSingleParam(req.params.partId);
   if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
@@ -1590,7 +1596,7 @@ router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, requirePlan
 });
 
 router.get("/jobs/:id/schedule-history", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (req.userRole === "technician") {
     const isOwner = await verifyTechnicianOwnership(jobId, req.userId, req.tenantId);
     if (!isOwner) { res.status(403).json({ error: "You can only view jobs assigned to you" }); return; }
@@ -1618,7 +1624,7 @@ router.get("/jobs/:id/schedule-history", requireAuth, requireTenant, requirePlan
 });
 
 router.get("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {
@@ -1648,7 +1654,7 @@ router.get("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeat
 });
 
 router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   const { arrival_time, departure_time, notes, hourly_rate, callout_fee } = req.body;
@@ -1682,7 +1688,8 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFea
 });
 
 router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: jobId, entryId } = req.params;
+  const jobId = toSingleParam(req.params.id);
+  const entryId = toSingleParam(req.params.entryId);
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
@@ -1719,7 +1726,8 @@ router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requ
 });
 
 router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: jobId, entryId } = req.params;
+  const jobId = toSingleParam(req.params.id);
+  const entryId = toSingleParam(req.params.entryId);
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
@@ -1745,7 +1753,8 @@ router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, req
 });
 
 router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: jobId, partId } = req.params;
+  const jobId = toSingleParam(req.params.id);
+  const partId = toSingleParam(req.params.partId);
   if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
@@ -1821,7 +1830,7 @@ router.get("/services/search", requireAuth, requireTenant, async (req: Authentic
 // ─── Job Services CRUD ───────────────────────────────────────────────────────
 
 router.get("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {
@@ -1837,7 +1846,7 @@ router.get("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature(
 });
 
 router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   const { service_name, quantity, unit_price, catalogue_item_id } = req.body;
@@ -1875,7 +1884,8 @@ router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature
 });
 
 router.delete("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: jobId, serviceId } = req.params;
+  const jobId = toSingleParam(req.params.id);
+  const serviceId = toSingleParam(req.params.serviceId);
   if (!jobId || !serviceId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
@@ -1890,7 +1900,8 @@ router.delete("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requi
 });
 
 router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id: jobId, serviceId } = req.params;
+  const jobId = toSingleParam(req.params.id);
+  const serviceId = toSingleParam(req.params.serviceId);
   if (!jobId || !serviceId) { res.status(400).json({ error: "Missing ids" }); return; }
 
   if (req.userRole === "technician") {
@@ -2136,15 +2147,17 @@ export async function buildInvoiceData(
 }
 
 router.get("/jobs/:id/invoice-summary", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const invoiceData = await buildInvoiceData(req.params.id, req.tenantId);
+  const jobId = toSingleParam(req.params.id);
+  const invoiceData = await buildInvoiceData(jobId, req.tenantId);
   if (!invoiceData) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(invoiceData);
 });
 
 router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = toSingleParam(req.params.id);
   const format = (req.query.format as string) || "csv";
 
-  let statusQ = supabaseAdmin.from("jobs").select("status").eq("id", req.params.id);
+  let statusQ = supabaseAdmin.from("jobs").select("status").eq("id", jobId);
   if (req.tenantId) statusQ = statusQ.eq("tenant_id", req.tenantId);
   const { data: jobRow } = await statusQ.single();
   if (!jobRow) { res.status(404).json({ error: "Job not found" }); return; }
@@ -2152,7 +2165,7 @@ router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("
     res.status(400).json({ error: "Only completed or invoiced jobs can be exported" }); return;
   }
 
-  const invoiceData = await buildInvoiceData(req.params.id, req.tenantId);
+  const invoiceData = await buildInvoiceData(jobId, req.tenantId);
   if (!invoiceData) { res.status(404).json({ error: "Job not found" }); return; }
 
   const safeName = invoiceData.customer_name.replace(/[^a-zA-Z0-9]/g, "-");
@@ -2294,7 +2307,7 @@ router.post("/quick-record", requireAuth, requireTenant, requireRole("admin", "o
     req.tenantId,
   );
   if (!ownershipResult.valid) {
-    res.status(400).json({ error: ownershipResult.error || "Invalid references" });
+    res.status(400).json({ error: ownershipResult.failedTable ? `Invalid ${ownershipResult.failedTable} reference` : "Invalid references" });
     return;
   }
 
@@ -2768,7 +2781,7 @@ function normalizeRecordForPdf(formType: string, rawRecord: Record<string, unkno
 }
 
 router.get("/jobs/:jobId/completed-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.jobId;
+  const jobId = toSingleParam(req.params.jobId);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {
@@ -2793,7 +2806,9 @@ router.get("/jobs/:jobId/completed-forms", requireAuth, requireTenant, requirePl
 });
 
 router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { jobId, formType, formId } = req.params;
+  const jobId = toSingleParam(req.params.jobId);
+  const formType = toSingleParam(req.params.formType);
+  const formId = toSingleParam(req.params.formId);
   if (!jobId || !formType || !formId) { res.status(400).json({ error: "Missing parameters" }); return; }
 
   const config = FORM_TABLE_MAP[formType];
@@ -3153,7 +3168,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
 });
 
 router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.jobId;
+  const jobId = toSingleParam(req.params.jobId);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {
@@ -3231,7 +3246,7 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
  * One-tap: collects all completed forms for the job and emails them to the customer.
  */
 router.post("/jobs/:jobId/email-certificate", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.jobId;
+  const jobId = toSingleParam(req.params.jobId);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
   if (req.userRole === "technician") {

@@ -228,10 +228,10 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   }));
 
   const dashboard = GetDashboardResponse.parse({
-    todays_jobs: (todaysRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
-    upcoming_jobs: (upcomingRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
+    todays_jobs: (todaysRes.data as unknown as DashboardJobRow[] || []).map(mapDashboardJob),
+    upcoming_jobs: (upcomingRes.data as unknown as DashboardJobRow[] || []).map(mapDashboardJob),
     overdue_services: mappedOverdue,
-    recent_completed: (recentRes.data as DashboardJobRow[] || []).map(mapDashboardJob),
+    recent_completed: (recentRes.data as unknown as DashboardJobRow[] || []).map(mapDashboardJob),
     follow_up_required: mappedFollowUps,
     stats: {
       total_customers: customerCountRes.count || 0,

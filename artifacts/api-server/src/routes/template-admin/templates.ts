@@ -11,7 +11,7 @@ import { createHash } from "crypto";
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import { supabaseAdmin as supabase } from "../../lib/supabase";
-import { requireAuth, requireRole } from "../../middlewares/auth";
+import { requireAuth, requireRole, type AuthenticatedRequest } from "../../middlewares/auth";
 import {
   parseFigmaTemplateZip,
   validateDesignTokens,
@@ -168,7 +168,7 @@ router.post(
       return res.status(400).json({ error: "Failed to parse multipart upload" });
     });
   },
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: AuthenticatedRequest, res: Response) => {
     let uploadId: string | null = null;
     try {
       const files = (req.files as Express.Multer.File[] | undefined) || [];
@@ -178,11 +178,13 @@ router.post(
       console.log("[upload-zip] Starting upload, zip size:", zipFile?.size, "images:", imageFiles.length);
 
       if (!zipFile) {
-        return res.status(400).json({ error: "No file provided" });
+        res.status(400).json({ error: "No file provided" });
+        return;
       }
 
       if (!zipFile.originalname.toLowerCase().endsWith(".zip")) {
-        return res.status(400).json({ error: "The 'file' field must be a .zip file" });
+        res.status(400).json({ error: "The 'file' field must be a .zip file" });
+        return;
       }
 
       uploadId = uuidv4();
@@ -197,7 +199,8 @@ router.post(
         });
 
       if (packageUploadError) {
-        return res.status(500).json({ error: `Failed to store uploaded ZIP: ${packageUploadError.message}` });
+        res.status(500).json({ error: `Failed to store uploaded ZIP: ${packageUploadError.message}` });
+        return;
       }
 
       const uploadRecord = await supabase
@@ -222,12 +225,14 @@ router.post(
         .single();
 
       if (uploadRecord.error) {
-        return res.status(500).json({ error: `Failed to create upload record: ${uploadRecord.error.message}` });
+        res.status(500).json({ error: `Failed to create upload record: ${uploadRecord.error.message}` });
+        return;
       }
 
       const invalidImage = imageFiles.find((file) => !file.mimetype.startsWith("image/"));
       if (invalidImage) {
-        return res.status(400).json({ error: `Invalid image file: ${invalidImage.originalname}` });
+        res.status(400).json({ error: `Invalid image file: ${invalidImage.originalname}` });
+        return;
       }
 
       console.log("[upload-zip] Parsing ZIP file...");
@@ -286,10 +291,11 @@ router.post(
             failed_at: new Date().toISOString(),
           })
           .eq("id", uploadId);
-        return res.status(400).json({
+        res.status(400).json({
           error: "Invalid template: design tokens incomplete",
           warnings: validation.warnings,
         });
+        return;
       }
 
       console.log("[upload-zip] Checking for existing template...");
@@ -310,9 +316,10 @@ router.post(
             failed_at: new Date().toISOString(),
           })
           .eq("id", uploadId);
-        return res.status(409).json({
+        res.status(409).json({
           error: `Template with slug '${parsed.metadata.slug}' already exists`,
         });
+        return;
       }
 
       console.log("[upload-zip] Creating template record...");
@@ -370,10 +377,11 @@ router.post(
 
       if (createError) {
         console.log("[upload-zip] Create error:", createError);
-        return res.status(500).json({
+        res.status(500).json({
           error: "Failed to create template",
           details: createError.message,
         });
+        return;
       }
 
       console.log("[upload-zip] Creating version record...");
@@ -383,7 +391,7 @@ router.post(
         template_id: templateId,
         version: templateVersion,
         design_tokens: parsed.designTokens,
-        demo_pages: parsed.metadata.demoPages || [],
+        demo_pages: (parsed.metadata as { demoPages?: unknown[] }).demoPages || [],
         release_notes: "Initial version from Figma export",
       });
 
@@ -407,7 +415,7 @@ router.post(
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : "";
+      const errorStack = error instanceof Error ? (error.stack || "") : "";
       if (uploadId) {
         await supabase
           .from("website_template_uploads")
@@ -437,7 +445,7 @@ router.get(
   "/:id/files",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const { data: templateRow } = await supabase
@@ -469,7 +477,8 @@ router.get(
       }
 
       if (error || !template) {
-        return res.status(404).json({ error: "Template not found" });
+        res.status(404).json({ error: "Template not found" });
+        return;
       }
 
       const figmaExportInfo = (template as any).figma_export_info || {};
@@ -495,7 +504,7 @@ router.get(
       const extractedFileTree = toFileTree(archivePaths);
       const files = toFileTree([...archivePaths, ...uploadedImages]);
 
-      return res.json({
+      res.json({
         templateId: template.id,
         templateName: template.name,
         extractedFiles,
@@ -503,8 +512,10 @@ router.get(
         files,
         uploadedImages,
       });
+      return;
     } catch (err) {
-      return res.status(500).json({ error: "Failed to load template files" });
+      res.status(500).json({ error: "Failed to load template files" });
+      return;
     }
   }
 );
@@ -513,7 +524,7 @@ router.post(
   "/:id/files/backfill",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -534,10 +545,13 @@ router.post(
       }
 
       if (error || !template) {
-        return res.status(404).json({ error: "Template not found" });
+        res.status(404).json({ error: "Template not found" });
+        return;
       }
 
       const figmaExportInfo = ((template as any).figma_export_info || {}) as Record<string, unknown>;
+      const templateSlug = String((template as { slug?: string } | null)?.slug || id);
+      const templateVersion = "1";
 
       const { data: listed, error: listError } = await supabase.storage
         .from(TEMPLATE_ASSET_BUCKET)
@@ -547,7 +561,8 @@ router.post(
         });
 
       if (listError) {
-        return res.status(500).json({ error: `Failed to list template images: ${listError.message}` });
+        res.status(500).json({ error: `Failed to list template images: ${listError.message}` });
+        return;
       }
 
       const uploadedImages = (listed || [])
@@ -581,17 +596,20 @@ router.post(
         .eq("id", template.id);
 
       if (updateError) {
-        return res.status(500).json({ error: `Failed to update template metadata: ${updateError.message}` });
+        res.status(500).json({ error: `Failed to update template metadata: ${updateError.message}` });
+        return;
       }
 
-      return res.json({
+      res.json({
         success: true,
         templateId: template.id,
         extractedFilesCount: extractedFiles.length,
         uploadedImagesCount: uploadedImages.length,
       });
+      return;
     } catch (err) {
-      return res.status(500).json({ error: "Failed to backfill template files" });
+      res.status(500).json({ error: "Failed to backfill template files" });
+      return;
     }
   }
 );
@@ -600,7 +618,7 @@ router.get(
   "/",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { data: templates, error } = await supabase
         .from("website_templates")
@@ -608,7 +626,8 @@ router.get(
         .order("created_at", { ascending: false });
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message });
+        return;
       }
 
       res.json(templates);
@@ -626,7 +645,7 @@ router.get(
   "/:id",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -638,7 +657,8 @@ router.get(
         .single();
 
       if (templateError || !template) {
-        return res.status(404).json({ error: "Template not found" });
+        res.status(404).json({ error: "Template not found" });
+        return;
       }
 
       // Get version history
@@ -674,7 +694,7 @@ router.patch(
   "/:id",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -700,7 +720,8 @@ router.patch(
         .single();
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message });
+        return;
       }
 
       res.json(template);
@@ -718,7 +739,7 @@ router.delete(
   "/:id",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -730,9 +751,10 @@ router.delete(
         .limit(1);
 
       if (usageLog && usageLog.length > 0) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Cannot delete template that is currently in use",
         });
+        return;
       }
 
       const { error } = await supabase
@@ -741,7 +763,8 @@ router.delete(
         .eq("id", id);
 
       if (error) {
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message });
+        return;
       }
 
       res.json({ success: true });
@@ -759,7 +782,7 @@ router.post(
   "/:id/generate-pages",
   requireAuth,
   requireRole("super_admin"),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -795,7 +818,8 @@ router.post(
       }
 
       if (error || !template) {
-        return res.status(404).json({ error: "Template not found" });
+        res.status(404).json({ error: "Template not found" });
+        return;
       }
 
       const figmaExportInfo = template.figma_export_info || {};
@@ -857,10 +881,11 @@ router.post(
       }
 
       if (!previewHtml) {
-        return res.status(400).json({
+        res.status(400).json({
           error: "Template has no preview HTML to generate pages from",
           hint: "Please upload the template ZIP file again, or ensure it contains an index.html file",
         });
+        return;
       }
 
       console.log(`[generate-pages] Generating pages from Figma design for template ${template.slug}`);
@@ -875,10 +900,11 @@ router.post(
       const validation = validateGeneratedPages(generatedPages);
       if (!validation.valid) {
         console.error("[generate-pages] Validation failed:", validation.errors);
-        return res.status(400).json({
+        res.status(400).json({
           error: "Failed to generate valid pages",
           errors: validation.errors,
         });
+        return;
       }
 
       console.log(`[generate-pages] Generated ${generatedPages.length} pages from template`);
@@ -893,10 +919,11 @@ router.post(
 
       if (updateError) {
         console.error("[generate-pages] Update error:", updateError);
-        return res.status(500).json({
+        res.status(500).json({
           error: "Failed to save generated pages",
           details: updateError.message,
         });
+        return;
       }
 
       console.log("[generate-pages] Successfully saved generated pages to template");

@@ -14,6 +14,11 @@ import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib
 
 const router: IRouter = Router();
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 async function insertTenantAuditLog(opts: {
   tenantId?: string;
   actorId?: string;
@@ -51,7 +56,7 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 });
 
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { role, full_name, phone, can_be_assigned_jobs } = req.body;
 
   const { data: before } = await supabaseAdmin
@@ -101,7 +106,7 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
 });
 
 router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   if (id === req.userId) {
     res.status(400).json({ error: "You cannot remove your own account." });
@@ -256,7 +261,7 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
 });
 
 router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   let q = supabaseAdmin.from("invite_codes").update({ is_active: false }).eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
@@ -431,7 +436,7 @@ router.post("/admin/lookup-options", requireAuth, requireRole("admin"), async (r
 });
 
 router.put("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { label, sort_order, is_active } = req.body;
 
   const updates: Record<string, unknown> = {};
@@ -457,7 +462,7 @@ router.put("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async
 });
 
 router.delete("/admin/lookup-options/:id", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   let delQ = supabaseAdmin
     .from("lookup_options")
@@ -776,7 +781,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const { company_name, contact_name, contact_email, contact_phone, password, plan_id, product, company_type, addon_ids, addon_quantities = {}, beta_code, start_on_free } = req.body;
 
   // Skip beta code validation for now to enable dev testing
-  let betaInvite: Record<string, unknown> | null = null;
+  let betaInvite: {
+    expires_at: string | null;
+    used_count: number;
+    max_uses: number;
+    email: string | null;
+  } | null = null;
 
   if (beta_code?.trim()) {
     const trimmedBetaCode = beta_code.trim().toUpperCase();
@@ -789,7 +799,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       .single();
 
     if (bi) {
-      betaInvite = bi;
+      betaInvite = bi as {
+        expires_at: string | null;
+        used_count: number;
+        max_uses: number;
+        email: string | null;
+      };
     }
   }
   if (betaInvite) {
@@ -1001,24 +1016,26 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     console.error("[email] Confirmation email failed:", e)
   );
 
-  supabaseAdmin
-    .from("profiles")
-    .select("email")
-    .eq("role", "super_admin")
-    .then(({ data: superAdmins }) => {
-      if (superAdmins?.length) {
-        for (const sa of superAdmins) {
-          sendNewRegistrationNotification(
-            sa.email,
-            resolvedCompanyName,
-            contact_name,
-            contact_email,
-            resolvedCompanyType,
-          ).catch((e) => console.error("[email] Super-admin notification failed:", e));
-        }
+  try {
+    const { data: superAdmins } = await supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .eq("role", "super_admin");
+
+    if (superAdmins?.length) {
+      for (const sa of superAdmins) {
+        sendNewRegistrationNotification(
+          sa.email,
+          resolvedCompanyName,
+          contact_name,
+          contact_email,
+          resolvedCompanyType,
+        ).catch((e) => console.error("[email] Super-admin notification failed:", e));
       }
-    })
-    .catch((e) => console.error("[email] Failed to fetch super_admins:", e));
+    }
+  } catch (e) {
+    console.error("[email] Failed to fetch super_admins:", e);
+  }
 
   res.status(201).json({
     tenant_id: tenant.id,
@@ -1274,7 +1291,7 @@ router.post("/admin/callout-rates", requireAuth, requireTenant, requireRole("adm
 });
 
 router.put("/admin/callout-rates/:id", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const { name, amount, day_type, time_from, time_to, is_default, sort_order, is_active, hourly_rate } = req.body;
 
   if (is_default) {

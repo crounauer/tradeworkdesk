@@ -218,7 +218,7 @@ router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole
 // PRIVATE: GET /api/admin/directory-check-slug/:slug — check if a slug is available (excludes own tenant)
 // ---------------------------------------------------------------------------
 router.get("/admin/directory-check-slug/:slug", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { slug } = req.params;
+  const slug = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
   const normalised = (slug || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   if (!normalised) { res.json({ available: false }); return; }
 

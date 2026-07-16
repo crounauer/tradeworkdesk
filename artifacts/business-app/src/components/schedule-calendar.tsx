@@ -178,10 +178,12 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [dragOverEngineerLane, setDragOverEngineerLane] = useState<string | null>(null);
   const didDragRef = useRef(false);
   const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<CalendarJob>>>({}); // immediate drag-drop overrides
   const [popoverDate, setPopoverDate] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [dayViewLayout, setDayViewLayout] = useState<"timeline" | "lanes">("timeline");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -498,6 +500,79 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
     return technicians;
   }, [technicians, profile]);
 
+  const canViewEngineerLanes = profile?.role !== "technician" && visibleTechs.length > 0;
+  const engineerLanes = useMemo(
+    () => [
+      { id: null as string | null, name: "Unassigned" },
+      ...visibleTechs.map((tech) => ({ id: tech.id, name: tech.full_name || "Engineer" })),
+    ],
+    [visibleTechs]
+  );
+
+  const handleDropTechnician = useCallback(
+    async (e: DragEvent<HTMLDivElement>, newDateStr: string, technicianId: string | null) => {
+      e.preventDefault();
+      setDragOverEngineerLane(null);
+      setDragOverDate(null);
+      setDragOverSlot(null);
+      setDragJobId(null);
+      if (!canDrag) return;
+
+      const jobId = e.dataTransfer.getData("text/plain");
+      if (!jobId) return;
+
+      const job = calendarJobs.find((j) => j.id === jobId);
+      if (!job) return;
+
+      const oldDateStr = String(job.scheduled_date).slice(0, 10);
+      const dateChanged = oldDateStr !== newDateStr;
+      const assignmentChanged = (job.assigned_technician_id || null) !== technicianId;
+      if (!dateChanged && !assignmentChanged) return;
+
+      const technicianName = technicianId
+        ? (visibleTechs.find((tech) => tech.id === technicianId)?.full_name || null)
+        : null;
+
+      const updateData: Record<string, string | null> = {
+        assigned_technician_id: technicianId,
+      };
+      if (dateChanged) {
+        updateData.scheduled_date = newDateStr;
+      }
+
+      const override: Partial<CalendarJob> = {
+        assigned_technician_id: technicianId,
+        technician_name: technicianName,
+        ...(dateChanged ? { scheduled_date: newDateStr } : {}),
+      };
+      setLocalOverrides((prev) => ({ ...prev, [jobId]: override }));
+
+      try {
+        await updateJob.mutateAsync({
+          id: jobId,
+          data: updateData as unknown as { scheduled_date: string },
+        });
+        qc.invalidateQueries({ queryKey: ["api/jobs"] });
+        qc.invalidateQueries({ queryKey: ["/api/calendar"] });
+        qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+        qc.invalidateQueries({ queryKey: ["homepage"] });
+
+        toast({
+          title: "Job reassigned",
+          description: technicianName ? `Assigned to ${technicianName}` : "Moved to unassigned",
+        });
+      } catch {
+        setLocalOverrides((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
+        toast({
+          title: "Failed to reassign",
+          description: "Could not update the job. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [canDrag, calendarJobs, visibleTechs, updateJob, qc, toast]
+  );
+
   return (
     <Card className="p-6 border-0 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
@@ -539,6 +614,25 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
               Month
             </button>
           </div>
+
+          {(viewMode === "day" || viewMode === "week") && canViewEngineerLanes && (
+            <div className="flex bg-muted rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setDayViewLayout("timeline")}
+                className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${dayViewLayout === "timeline" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Standard
+              </button>
+              <button
+                type="button"
+                onClick={() => setDayViewLayout("lanes")}
+                className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${dayViewLayout === "lanes" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Engineer Lanes
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center gap-1">
             <Button
@@ -598,6 +692,113 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           }
         }
         const HOURS = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
+
+        if (dayViewLayout === "lanes" && canViewEngineerLanes) {
+          return (
+            <div className="border border-border rounded-xl overflow-hidden">
+              <div className={`px-4 py-3 flex items-center justify-between ${isToday ? "bg-primary/5" : "bg-muted/50"}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-bold ${isToday ? "text-primary" : "text-foreground"}`}>
+                    {anchorDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+                  </span>
+                  {isToday && <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5 font-medium">Today</span>}
+                </div>
+                <span className="text-sm text-muted-foreground font-medium">{dayJobs.length} job{dayJobs.length !== 1 ? "s" : ""}</span>
+              </div>
+
+              {onDayAction && (
+                <div className="flex gap-2 px-4 py-2 border-b border-border bg-background">
+                  <button type="button" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors" onClick={() => onDayAction(ds, "enquiry")}>
+                    <MessageSquarePlus className="w-3.5 h-3.5 text-orange-500" /> Add Enquiry
+                  </button>
+                  <button type="button" className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors" onClick={() => onDayAction(ds, "job")}>
+                    <Plus className="w-3.5 h-3.5 text-primary" /> Book Job
+                  </button>
+                </div>
+              )}
+
+              {dayHolidays.length > 0 && (
+                <div className="px-4 py-2 border-b border-border bg-muted/20 flex flex-wrap gap-1.5">
+                  {dayHolidays.map((h) => (
+                    <span key={h.id} className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full border ${HOLIDAY_STYLES[h.holiday_type]}`}>
+                      {h.name}{h.technician_name ? ` - ${h.technician_name}` : ""}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="p-3 overflow-x-auto">
+                <div className="grid gap-3 min-w-max" style={{ gridTemplateColumns: `repeat(${engineerLanes.length}, minmax(260px, 1fr))` }}>
+                  {engineerLanes.map((lane) => {
+                    const laneKey = lane.id || "unassigned";
+                    const laneDropKey = `${ds}-${laneKey}`;
+                    const isLaneTarget = dragOverEngineerLane === laneDropKey;
+                    const laneJobs = dayJobs
+                      .filter((job) => (job.assigned_technician_id || null) === lane.id)
+                      .sort((a, b) => (a.scheduled_time || "99:99").localeCompare(b.scheduled_time || "99:99"));
+
+                    return (
+                      <div
+                        key={laneKey}
+                        className={`rounded-lg border bg-background min-h-[420px] transition-colors ${isLaneTarget ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          setDragOverEngineerLane(laneDropKey);
+                          setDragOverDate(null);
+                          setDragOverSlot(null);
+                        }}
+                        onDragLeave={() => setDragOverEngineerLane(null)}
+                        onDrop={(e) => handleDropTechnician(e, ds, lane.id)}
+                      >
+                        <div className="px-3 py-2 border-b bg-muted/40 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-foreground">{lane.name}</span>
+                          <span className="text-xs text-muted-foreground">{laneJobs.length}</span>
+                        </div>
+                        <div className="p-2 space-y-1.5">
+                          {laneJobs.length === 0 && (
+                            <div className="text-xs text-muted-foreground border border-dashed rounded-md px-2 py-3 text-center">
+                              Drop jobs here to assign
+                            </div>
+                          )}
+                          {laneJobs.map((job) => (
+                            <div
+                              key={job.id}
+                              data-job-card
+                              role="button"
+                              tabIndex={0}
+                              draggable={canDrag}
+                              onDragStart={(e) => handleDragStart(e, job.id)}
+                              onDragEnd={() => { didDragRef.current = false; setDragOverEngineerLane(null); }}
+                              onClick={(e) => handleJobClick(e, job.id)}
+                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                              className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                                <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
+                                <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type_name ?? job.job_type?.replace("_", " ")}</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 ml-4">
+                                {job.scheduled_time
+                                  ? <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{formatTime(job.scheduled_time)}</span>
+                                  : <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />No time</span>}
+                                {job.property_address && (
+                                  <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[210px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
+                                )}
+                                <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div className="border border-border rounded-xl overflow-hidden">
@@ -780,7 +981,101 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         );
       })()}
 
-      {viewMode !== "day" && <div className="hidden sm:block">
+      {viewMode === "week" && dayViewLayout === "lanes" && canViewEngineerLanes && <div className="hidden sm:block">
+        <div className="grid grid-cols-7 gap-3">
+          {days.map((day) => {
+            const ds = toDateStr(day);
+            const dayJobs = (jobsByDate[ds] || []).slice().sort((a, b) => (a.scheduled_time || "99:99").localeCompare(b.scheduled_time || "99:99"));
+            const dayHolidays = holidaysByDate[ds] || [];
+            const isToday = isSameDay(ds, todayStr);
+
+            return (
+              <div key={ds} className={`rounded-xl border overflow-hidden ${isToday ? "border-primary/40 bg-primary/[0.03]" : "border-border bg-background"}`}>
+                <div className="px-2 py-2 border-b bg-muted/40">
+                  <div className="text-xs font-semibold text-foreground">{formatDayHeader(day)}</div>
+                  <div className="text-[11px] text-muted-foreground">{dayJobs.length} job{dayJobs.length !== 1 ? "s" : ""}</div>
+                </div>
+
+                {dayHolidays.length > 0 && (
+                  <div className="px-2 py-1.5 border-b bg-muted/20 space-y-1">
+                    {dayHolidays.slice(0, 2).map((holiday) => (
+                      <div
+                        key={holiday.id}
+                        className={`text-[10px] leading-tight px-1.5 py-1 rounded border ${HOLIDAY_STYLES[holiday.holiday_type]}`}
+                        title={holiday.technician_name ? `${holiday.name} (${holiday.technician_name})` : holiday.name}
+                      >
+                        {holiday.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="p-2 space-y-2 max-h-[520px] overflow-y-auto">
+                  {engineerLanes.map((lane) => {
+                    const laneKey = lane.id || "unassigned";
+                    const laneDropKey = `${ds}-${laneKey}`;
+                    const laneJobs = dayJobs.filter((job) => (job.assigned_technician_id || null) === lane.id);
+                    const isLaneTarget = dragOverEngineerLane === laneDropKey;
+
+                    return (
+                      <div
+                        key={laneKey}
+                        className={`rounded-md border bg-background transition-colors ${isLaneTarget ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          setDragOverEngineerLane(laneDropKey);
+                          setDragOverDate(null);
+                          setDragOverSlot(null);
+                        }}
+                        onDragLeave={() => setDragOverEngineerLane(null)}
+                        onDrop={(e) => handleDropTechnician(e, ds, lane.id)}
+                      >
+                        <div className="px-2 py-1 border-b bg-muted/30 flex items-center justify-between">
+                          <span className="text-[11px] font-medium text-foreground truncate">{lane.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{laneJobs.length}</span>
+                        </div>
+                        <div className="p-1.5 space-y-1">
+                          {laneJobs.length === 0 && (
+                            <div className="text-[10px] text-muted-foreground border border-dashed rounded px-1.5 py-1.5 text-center">
+                              Drop
+                            </div>
+                          )}
+                          {laneJobs.map((job) => (
+                            <div
+                              key={job.id}
+                              data-job-card
+                              role="button"
+                              tabIndex={0}
+                              draggable={canDrag}
+                              onDragStart={(e) => handleDragStart(e, job.id)}
+                              onDragEnd={() => { didDragRef.current = false; setDragOverEngineerLane(null); }}
+                              onClick={(e) => handleJobClick(e, job.id)}
+                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                              className={`px-1.5 py-1 rounded border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                                <span className="text-[11px] font-semibold truncate">{job.customer_name || "Unknown"}</span>
+                              </div>
+                              <div className="text-[10px] opacity-75 truncate ml-2.5">
+                                {job.scheduled_time ? formatTime(job.scheduled_time) : "No time"}
+                                {job.property_address ? ` · ${job.property_address}` : ""}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>}
+
+      {!(viewMode === "week" && dayViewLayout === "lanes" && canViewEngineerLanes) && viewMode !== "day" && <div className="hidden sm:block">
         <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden border border-border">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
             <div

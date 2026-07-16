@@ -1,0 +1,40 @@
+name: Quality Gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API server
+        run: pnpm --filter @workspace/api-server build
+
+      - name: Test API server
+        run: pnpm --filter @workspace/api-server test
+
+      - name: Typecheck website renderer
+        run: pnpm --filter @workspace/website-renderer typecheck
+
+      - name: Typecheck business app
+        run: pnpm --filter @workspace/business-app typecheck

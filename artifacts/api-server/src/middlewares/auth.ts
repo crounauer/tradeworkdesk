@@ -164,7 +164,7 @@ export async function requireAuth(
   const needsMfa = !cachedMfa || cachedMfa.expiresAt <= now;
   const needsProfile = !cachedProfile || cachedProfile.expiresAt <= now;
 
-  const parallel: Promise<unknown>[] = [];
+  const parallel: PromiseLike<unknown>[] = [];
 
   if (needsMfa) {
     parallel.push(

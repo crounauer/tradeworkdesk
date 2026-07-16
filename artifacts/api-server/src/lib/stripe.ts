@@ -27,6 +27,8 @@ const STRIPE_CACHE_TTL = 60_000;
  * STRIPE_SECRET_KEY env var as fallback. Use this in request handlers so the
  * super admin can configure the key through the UI.
  */
+export function getStripe(): Promise<Stripe>;
+export function getStripe(required: false): Promise<Stripe | null>;
 export async function getStripe(required = true): Promise<Stripe | null> {
   const now = Date.now();
   if (_cachedStripe && now - _cachedStripe.ts < STRIPE_CACHE_TTL) {

@@ -135,9 +135,10 @@ router.patch("/appliances/:id", requireAuth, requireTenant, async (req: Authenti
   const body = UpdateApplianceBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  if (body.data.property_id) {
+  const propertyId = (body.data as Record<string, unknown>).property_id as string | undefined;
+  if (propertyId) {
     const { valid, failedTable } = await verifyMultipleTenantOwnership(
-      [{ table: "properties", id: body.data.property_id }], req.tenantId
+      [{ table: "properties", id: propertyId }], req.tenantId
     );
     if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
   }

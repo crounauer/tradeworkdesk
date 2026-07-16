@@ -15,15 +15,16 @@ const previewCache = new Map<string, { html: string; timestamp: number }>();
  * GET /api/preview/templates/:slug/
  * Serve template preview HTML
  */
-router.get("/:slug/", async (req: Request, res: Response) => {
-  const { slug } = req.params;
+router.get("/:slug/", async (req: Request, res: Response): Promise<void> => {
+  const slug = String(req.params.slug || "");
 
   try {
     // Check cache first
     const cached = previewCache.get(slug);
     if (cached && Date.now() - cached.timestamp < 30 * 60 * 1000) {
       // Cache for 30 minutes
-      return res.type("text/html").send(cached.html);
+      res.type("text/html").send(cached.html);
+      return;
     }
 
     // Fetch template
@@ -34,7 +35,8 @@ router.get("/:slug/", async (req: Request, res: Response) => {
       .single();
 
     if (error || !template) {
-      return res.status(404).send("<h1>Template not found</h1>");
+      res.status(404).send("<h1>Template not found</h1>");
+      return;
     }
 
     // Generate preview HTML

@@ -2,6 +2,8 @@
  * Online Booking API routes
  *
  * Authenticated (tenant staff):
+ *   Most management endpoints require admin/office_staff/super_admin.
+ *   Slot lookup remains authenticated + tenant + feature gated.
  *   GET    /api/booking/settings             — get booking settings
  *   PUT    /api/booking/settings             — upsert booking settings
  *   GET    /api/booking/services             — list booking services
@@ -34,6 +36,7 @@ import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../l
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
 import {
   requireAuth,
+  requireRole,
   requireTenant,
   requirePlanFeature,
   type AuthenticatedRequest,
@@ -326,6 +329,11 @@ function calculateDistanceMiles(origin: { latitude: number; longitude: number },
   return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 async function vetBookingCoverage(args: {
   tenantId: string;
   customerPostcode?: string;
@@ -400,6 +408,10 @@ function requireBooking() {
   return requirePlanFeature("job_management");  // booking is part of job management module
 }
 
+function requireBookingAdminAccess() {
+  return requireRole("admin", "office_staff", "super_admin");
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -412,7 +424,7 @@ async function getAvailableSlots(
   toDate: string,
   serviceDurationMinutes = 60
 ): Promise<{ start: string; end: string }[]> {
-  const [settingsResult, bookingsResult, overridesResult, jobsResult] = await Promise.all([
+  const [settingsResult, bookingsResult, overridesResult, jobsResult, assignableEngineersResult, holidaysResult] = await Promise.all([
     db.from("booking_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
     db.from("bookings")
       .select("scheduled_start, scheduled_end")
@@ -426,30 +438,62 @@ async function getAvailableSlots(
       .gte("date", fromDate)
       .lte("date", toDate),
     db.from("jobs")
-      .select("scheduled_date, scheduled_time, estimated_duration, status")
+      .select("scheduled_date, scheduled_time, estimated_duration, status, assigned_technician_id")
       .eq("tenant_id", tenantId)
       .gte("scheduled_date", fromDate)
       .lte("scheduled_date", toDate)
       .not("scheduled_time", "is", null),
+    db.from("profiles")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .eq("can_be_assigned_jobs", true),
+    db.from("calendar_holidays")
+      .select("technician_id, holiday_type, start_date, end_date")
+      .eq("tenant_id", tenantId)
+      .lte("start_date", toDate)
+      .gte("end_date", fromDate),
   ]);
 
   const settings = settingsResult.data;
   if (!settings || !settings.is_enabled) return [];
 
-  const workingHours: { day: number; start: string; end: string }[] = settings.working_hours || [];
-  const slotDuration: number = settings.slot_duration_minutes || 60;
-  const buffer: number = settings.buffer_between_minutes || 15;
-  const minAdvanceMs: number = (settings.min_advance_hours || 2) * 60 * 60 * 1000;
-  const maxAdvanceDays: number = settings.max_advance_days || 60;
+  const workingHours: { day: number; start: string; end: string }[] = Array.isArray(settings.working_hours) ? settings.working_hours : [];
+  const parsedSlotDuration = Number(settings.slot_duration_minutes);
+  const parsedBuffer = Number(settings.buffer_between_minutes);
+  const parsedMinAdvanceHours = Number(settings.min_advance_hours);
+  const parsedMaxAdvanceDays = Number(settings.max_advance_days);
+  const slotDuration: number = Number.isFinite(parsedSlotDuration) && parsedSlotDuration > 0 ? parsedSlotDuration : 60;
+  const buffer: number = Number.isFinite(parsedBuffer) && parsedBuffer >= 0 ? parsedBuffer : 15;
+  const minAdvanceHours: number = Number.isFinite(parsedMinAdvanceHours) && parsedMinAdvanceHours >= 0 ? parsedMinAdvanceHours : 2;
+  const maxAdvanceDays: number = Number.isFinite(parsedMaxAdvanceDays) && parsedMaxAdvanceDays > 0 ? parsedMaxAdvanceDays : 60;
+  const minAdvanceMs: number = minAdvanceHours * 60 * 60 * 1000;
 
   const existingBookings: { scheduled_start: string; scheduled_end: string }[] = bookingsResult.data || [];
-  const existingJobs: { scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null }[] = jobsResult.data || [];
+  const existingJobs: { scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null; assigned_technician_id: string | null }[] = jobsResult.data || [];
   const overrides: { date: string; start_time: string | null; end_time: string | null; type: string }[] = overridesResult.data || [];
+  const assignableEngineers: { id: string }[] = assignableEngineersResult.data || [];
+  const holidays: { technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string }[] = holidaysResult.data || [];
 
   const slots: { start: string; end: string }[] = [];
   const now = new Date();
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + maxAdvanceDays);
+
+  // No assignable engineers means no bookable capacity.
+  if (assignableEngineers.length === 0) return [];
+  const engineerIds = new Set(assignableEngineers.map((engineer) => engineer.id));
+
+  function overlapsWithBuffer(startIso: string, endIso: string, slotStartMs: number, slotEndMs: number): boolean {
+    const startMs = new Date(startIso).getTime() - buffer * 60000;
+    const endMs = new Date(endIso).getTime() + buffer * 60000;
+    return slotStartMs < endMs && slotEndMs > startMs;
+  }
+
+  function isBlockingHolidayType(type: string | null | undefined): boolean {
+    if (!type) return true;
+    return ["technician_leave", "technician_away", "technician_sick", "public_holiday", "bank_holiday"].includes(type);
+  }
 
   const start = new Date(fromDate);
   const end = new Date(toDate);
@@ -458,6 +502,18 @@ async function getAvailableSlots(
     if (d > maxDate) break;
     const dateStr = d.toISOString().split("T")[0];
     const dayOfWeek = getLocalWeekdayIndex(new Date(`${dateStr}T12:00:00.000Z`));
+
+    const dayHolidays = holidays.filter(
+      (holiday) => isBlockingHolidayType(holiday.holiday_type) && holiday.start_date <= dateStr && holiday.end_date >= dateStr,
+    );
+    const isGlobalHoliday = dayHolidays.some((holiday) => !holiday.technician_id);
+    if (isGlobalHoliday) continue;
+
+    const holidayEngineerIds = new Set(
+      dayHolidays
+        .map((holiday) => holiday.technician_id)
+        .filter((technicianId): technicianId is string => Boolean(technicianId && engineerIds.has(technicianId))),
+    );
 
     // Check whole-day block override
     const wholeDayBlock = overrides.find(
@@ -475,6 +531,8 @@ async function getAvailableSlots(
     while (slotStart < dayEnd) {
       const slotEnd = new Date(slotStart.getTime() + serviceDurationMinutes * 60000);
       if (slotEnd > dayEnd) break;
+      const slotStartMs = slotStart.getTime();
+      const slotEndMs = slotEnd.getTime();
 
       // Check min advance
       if (slotStart.getTime() - now.getTime() < minAdvanceMs) {
@@ -494,15 +552,11 @@ async function getAvailableSlots(
         continue;
       }
 
-      // Check existing bookings overlap (with buffer)
-      const bookingConflict = existingBookings.some((b) => {
-        const bStart = new Date(b.scheduled_start).getTime() - buffer * 60000;
-        const bEnd = new Date(b.scheduled_end).getTime() + buffer * 60000;
-        return slotStart.getTime() < bEnd && slotEnd.getTime() > bStart;
-      });
+      const overlappingBookingsCount = existingBookings.filter((booking) =>
+        overlapsWithBuffer(booking.scheduled_start, booking.scheduled_end, slotStartMs, slotEndMs),
+      ).length;
 
-      // Also block slots that overlap scheduled jobs from the main calendar.
-      const jobConflict = existingJobs.some((j) => {
+      const overlappingJobs = existingJobs.filter((j) => {
         if (!j.scheduled_time) return false;
         const status = (j.status || "").toLowerCase();
         if (status === "cancelled" || status === "completed") return false;
@@ -510,10 +564,24 @@ async function getAvailableSlots(
         const durationMinutes = Number(j.estimated_duration || serviceDurationMinutes || slotDuration || 60);
         const jStart = localDateTimeToUtc(j.scheduled_date, j.scheduled_time).getTime() - buffer * 60000;
         const jEnd = jStart + (durationMinutes + (buffer * 2)) * 60000;
-        return slotStart.getTime() < jEnd && slotEnd.getTime() > jStart;
+        return slotStartMs < jEnd && slotEndMs > jStart;
       });
 
-      if (!bookingConflict && !jobConflict) {
+      const busyAssignedEngineerIds = new Set(
+        overlappingJobs
+          .map((job) => job.assigned_technician_id)
+          .filter((technicianId): technicianId is string => Boolean(technicianId && engineerIds.has(technicianId))),
+      );
+
+      const overlappingUnassignedJobsCount = overlappingJobs.filter((job) => !job.assigned_technician_id).length;
+
+      const availableEngineerCapacity = assignableEngineers.filter((engineer) => (
+        !holidayEngineerIds.has(engineer.id) && !busyAssignedEngineerIds.has(engineer.id)
+      )).length;
+
+      const remainingCapacity = availableEngineerCapacity - overlappingBookingsCount - overlappingUnassignedJobsCount;
+
+      if (remainingCapacity > 0) {
         slots.push({
           start: slotStart.toISOString(),
           end: slotEnd.toISOString(),
@@ -525,6 +593,90 @@ async function getAvailableSlots(
   }
 
   return slots;
+}
+
+async function selectAvailableEngineerForSlot(args: {
+  tenantId: string;
+  scheduledStartIso: string;
+  durationMinutes: number;
+}): Promise<string | null> {
+  const { tenantId, scheduledStartIso, durationMinutes } = args;
+  const slotStart = new Date(scheduledStartIso);
+  if (Number.isNaN(slotStart.getTime())) return null;
+  const dateStr = getLocalDateString(slotStart);
+  const slotEnd = new Date(slotStart.getTime() + (Math.max(1, durationMinutes) * 60000));
+
+  const [engineersResult, holidaysResult, jobsResult] = await Promise.all([
+    db.from("profiles")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .eq("can_be_assigned_jobs", true),
+    db.from("calendar_holidays")
+      .select("technician_id, holiday_type, start_date, end_date")
+      .eq("tenant_id", tenantId)
+      .lte("start_date", dateStr)
+      .gte("end_date", dateStr),
+    db.from("jobs")
+      .select("assigned_technician_id, scheduled_date, scheduled_time, estimated_duration, status")
+      .eq("tenant_id", tenantId)
+      .eq("scheduled_date", dateStr)
+      .not("scheduled_time", "is", null),
+  ]);
+
+  const engineers: Array<{ id: string }> = engineersResult.data || [];
+  if (engineers.length === 0) return null;
+
+  const isBlockingHoliday = (type: string | null | undefined): boolean => {
+    if (!type) return true;
+    return ["technician_leave", "technician_away", "technician_sick", "public_holiday", "bank_holiday"].includes(type);
+  };
+
+  const holidays: Array<{ technician_id: string | null; holiday_type?: string | null }> = holidaysResult.data || [];
+  if (holidays.some((holiday) => isBlockingHoliday(holiday.holiday_type) && !holiday.technician_id)) {
+    return null;
+  }
+
+  const engineerHolidayIds = new Set(
+    holidays
+      .filter((holiday) => isBlockingHoliday(holiday.holiday_type))
+      .map((holiday) => holiday.technician_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  const jobs: Array<{ assigned_technician_id: string | null; scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null }> = jobsResult.data || [];
+  const slotStartMs = slotStart.getTime();
+  const slotEndMs = slotEnd.getTime();
+
+  const availableEngineerIds = engineers
+    .map((engineer) => engineer.id)
+    .filter((id) => !engineerHolidayIds.has(id))
+    .filter((id) => {
+      const hasConflict = jobs.some((job) => {
+        if (job.assigned_technician_id !== id || !job.scheduled_time) return false;
+        const status = (job.status || "").toLowerCase();
+        if (status === "cancelled" || status === "completed") return false;
+        const jobDurationMinutes = Number(job.estimated_duration || durationMinutes || 60);
+        const jobStart = localDateTimeToUtc(job.scheduled_date, job.scheduled_time).getTime();
+        const jobEnd = jobStart + (Math.max(1, jobDurationMinutes) * 60000);
+        return slotStartMs < jobEnd && slotEndMs > jobStart;
+      });
+      return !hasConflict;
+    });
+
+  if (availableEngineerIds.length === 0) return null;
+
+  // Choose least-loaded engineer for the day for deterministic spread.
+  const loadByEngineer = new Map<string, number>();
+  for (const id of availableEngineerIds) loadByEngineer.set(id, 0);
+  for (const job of jobs) {
+    if (!job.assigned_technician_id || !loadByEngineer.has(job.assigned_technician_id)) continue;
+    const status = (job.status || "").toLowerCase();
+    if (status === "cancelled") continue;
+    loadByEngineer.set(job.assigned_technician_id, (loadByEngineer.get(job.assigned_technician_id) || 0) + 1);
+  }
+
+  return availableEngineerIds.sort((a, b) => (loadByEngineer.get(a) || 0) - (loadByEngineer.get(b) || 0))[0] || null;
 }
 
 function mapCatalogueService(row: {
@@ -684,13 +836,13 @@ async function loadBookingEmailCompanyDetails(tenantId: string): Promise<{ compa
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
-router.get("/booking/settings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/booking/settings", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("booking_settings").select("*").eq("tenant_id", req.tenantId).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data ?? {});
 });
 
-router.put("/booking/settings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.put("/booking/settings", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("booking_settings").upsert(
     { ...fields, tenant_id: req.tenantId },
@@ -702,14 +854,14 @@ router.put("/booking/settings", requireAuth, requireTenant, requireBooking(), as
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 
-router.get("/booking/services", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/booking/services", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("booking_services").select("*")
     .eq("tenant_id", req.tenantId).order("sort_order").order("created_at");
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
-router.post("/booking/services", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/booking/services", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("booking_services").insert(
     { ...req.body, tenant_id: req.tenantId }
   ).select().single();
@@ -717,7 +869,7 @@ router.post("/booking/services", requireAuth, requireTenant, requireBooking(), a
   res.status(201).json(data);
 });
 
-router.patch("/booking/services/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/booking/services/:id", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { id: _id, tenant_id: _tid, ...fields } = req.body;
   const { data, error } = await db.from("booking_services")
     .update(fields).eq("id", req.params.id).eq("tenant_id", req.tenantId)
@@ -727,7 +879,7 @@ router.patch("/booking/services/:id", requireAuth, requireTenant, requireBooking
   res.json(data);
 });
 
-router.delete("/booking/services/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/booking/services/:id", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { error } = await db.from("booking_services")
     .delete().eq("id", req.params.id).eq("tenant_id", req.tenantId);
   if (error) return res.status(500).json({ error: error.message });
@@ -736,7 +888,7 @@ router.delete("/booking/services/:id", requireAuth, requireTenant, requireBookin
 
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
-router.get("/booking/bookings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/booking/bookings", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { status, from, to, source, limit = "50" } = req.query as Record<string, string>;
   let q = db.from("bookings").select("*, booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
     .eq("tenant_id", req.tenantId)
@@ -751,7 +903,7 @@ router.get("/booking/bookings", requireAuth, requireTenant, requireBooking(), as
   res.json(data);
 });
 
-router.get("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("bookings")
     .select("*, booking_services(name, duration_minutes, price), service_catalogue(name, booking_duration_minutes, default_price)")
     .eq("id", req.params.id).eq("tenant_id", req.tenantId).maybeSingle();
@@ -760,7 +912,7 @@ router.get("/booking/bookings/:id", requireAuth, requireTenant, requireBooking()
   res.json(data);
 });
 
-router.post("/booking/bookings", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/booking/bookings", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("bookings").insert(
     { ...req.body, tenant_id: req.tenantId, source: "manual" }
   ).select().single();
@@ -768,7 +920,7 @@ router.post("/booking/bookings", requireAuth, requireTenant, requireBooking(), a
   res.status(201).json(data);
 });
 
-router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { id: _id, tenant_id: _tid, ...fields } = req.body;
   const { data, error } = await db.from("bookings")
     .update(fields).eq("id", req.params.id).eq("tenant_id", req.tenantId)
@@ -778,7 +930,7 @@ router.patch("/booking/bookings/:id", requireAuth, requireTenant, requireBooking
   res.json(data);
 });
 
-const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => async (req: AuthenticatedRequest, res: Response) => {
+const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const nowIso = new Date().toISOString();
   const requestedJobIdRaw = (req.body as { job_id?: unknown } | undefined)?.job_id;
   const requestedJobId = typeof requestedJobIdRaw === "string" && requestedJobIdRaw.trim()
@@ -816,6 +968,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
   };
 
   try {
+    const bookingId = toSingleParam(req.params.id);
     const [{ data: settings }, serviceRes] = await Promise.all([
       db.from("booking_settings")
         .select("auto_create_job, default_job_type_id, confirmation_email_enabled")
@@ -823,14 +976,34 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
         .maybeSingle(),
       db.from("bookings")
         .select("booking_services(name, duration_minutes), service_catalogue(name, booking_duration_minutes)")
-        .eq("id", req.params.id)
+        .eq("id", bookingId)
         .eq("tenant_id", req.tenantId)
         .maybeSingle(),
     ]);
 
-    const serviceLabel = (serviceRes.data as { booking_services?: { name?: string | null } | null; service_catalogue?: { name?: string | null } | null } | null)?.service_catalogue?.name
-      || (serviceRes.data as { booking_services?: { name?: string | null } | null; service_catalogue?: { name?: string | null } | null } | null)?.booking_services?.name
+    const serviceData = serviceRes.data as {
+      booking_services?: { name?: string | null; duration_minutes?: number | null } | null;
+      service_catalogue?: { name?: string | null; booking_duration_minutes?: number | null } | null;
+    } | null;
+
+    const serviceLabel = serviceData?.service_catalogue?.name
+      || serviceData?.booking_services?.name
       || "Online Booking";
+    const serviceDurationMinutes = Number(
+      serviceData?.service_catalogue?.booking_duration_minutes
+      || serviceData?.booking_services?.duration_minutes
+      || 60,
+    );
+
+    const selectedTechnicianId = bookingRecord.scheduled_start
+      ? await selectAvailableEngineerForSlot({
+          tenantId: req.tenantId!,
+          scheduledStartIso: bookingRecord.scheduled_start,
+          durationMinutes: Number.isFinite(serviceDurationMinutes) ? serviceDurationMinutes : 60,
+        })
+      : null;
+
+    const safeDurationMinutes = Number.isFinite(serviceDurationMinutes) ? Math.max(1, Math.round(serviceDurationMinutes)) : 60;
 
     let jobId = bookingRecord.job_id || null;
     let jobRef: string | null = null;
@@ -851,6 +1024,8 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
         job_type_id: settings.default_job_type_id || null,
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime,
+        estimated_duration: safeDurationMinutes,
+        assigned_technician_id: selectedTechnicianId,
         created_by: req.userId,
       }).select("id, job_ref").single();
 
@@ -858,7 +1033,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
       jobRef = (job as { id?: string | null; job_ref?: string | null } | null)?.job_ref || null;
 
       if (jobId) {
-        await db.from("bookings").update({ job_id: jobId }).eq("id", req.params.id).eq("tenant_id", req.tenantId);
+        await db.from("bookings").update({ job_id: jobId }).eq("id", bookingId).eq("tenant_id", req.tenantId);
 
         const { data: enquiry } = await db.from("enquiries").insert({
           tenant_id: req.tenantId,
@@ -869,29 +1044,36 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
           source: "website",
           description: [serviceLabel, pendingNotes].filter(Boolean).join("\n") || null,
           status: "converted",
-          notes: `Auto-created from confirmed online booking (ID: ${req.params.id})`,
+          notes: `Auto-created from confirmed online booking (ID: ${bookingId})`,
           linked_job_id: jobId,
         }).select("id").single();
 
         if (enquiry?.id) {
-          await db.from("bookings").update({ enquiry_id: enquiry.id }).eq("id", req.params.id);
+          await db.from("bookings").update({ enquiry_id: enquiry.id }).eq("id", bookingId);
         }
       }
     } else if (jobId) {
       const { data: existingJob } = await db.from("jobs")
-        .select("job_ref, scheduled_date, scheduled_time, description")
+        .select("job_ref, scheduled_date, scheduled_time, description, assigned_technician_id")
         .eq("id", jobId)
         .eq("tenant_id", req.tenantId)
         .maybeSingle();
 
       jobRef = (existingJob as { job_ref?: string | null } | null)?.job_ref || null;
       confirmationDescription = stripOnlineBookingDescriptionPrefix((existingJob as { description?: string | null } | null)?.description || pendingDescription);
+
+      if (!(existingJob as { assigned_technician_id?: string | null } | null)?.assigned_technician_id && selectedTechnicianId) {
+        await db.from("jobs")
+          .update({ assigned_technician_id: selectedTechnicianId, estimated_duration: safeDurationMinutes })
+          .eq("id", jobId)
+          .eq("tenant_id", req.tenantId);
+      }
     }
 
     if (settings?.confirmation_email_enabled !== false && bookingRecord.customer_email) {
       const { companyName, details } = await loadBookingEmailCompanyDetails(req.tenantId!);
       const confirmationDetails: JobConfirmationDetails = {
-        jobRef: jobRef || `BOOK-${req.params.id.slice(0, 8).toUpperCase()}`,
+        jobRef: jobRef || `BOOK-${bookingId.slice(0, 8).toUpperCase()}`,
         jobType: serviceLabel,
         scheduledDate,
         scheduledTime,
@@ -910,7 +1092,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
 
         await db.from("bookings")
           .update({ confirmation_sent_at: nowIso })
-          .eq("id", req.params.id)
+          .eq("id", bookingId)
           .eq("tenant_id", req.tenantId);
       } catch (mailErr) {
         console.error("[booking] confirmation email failed:", mailErr);
@@ -945,10 +1127,10 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
   res.json(booking);
 };
 
-router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler());
-router.post("/booking/bookings/:id/convert-to-job", requireAuth, requireTenant, requireBooking(), convertBookingToJobHandler({ requireJobId: true }));
+router.post("/booking/bookings/:id/confirm", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), convertBookingToJobHandler());
+router.post("/booking/bookings/:id/convert-to-job", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), convertBookingToJobHandler({ requireJobId: true }));
 
-router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { reason } = (req.body ?? {}) as { reason?: string };
   const { data, error } = await db.from("bookings")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null })
@@ -959,7 +1141,7 @@ router.post("/booking/bookings/:id/cancel", requireAuth, requireTenant, requireB
   res.json(data);
 });
 
-router.post("/booking/bookings/:id/reopen", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/booking/bookings/:id/reopen", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("bookings")
     .update({
       status: "pending",
@@ -975,7 +1157,7 @@ router.post("/booking/bookings/:id/reopen", requireAuth, requireTenant, requireB
   res.json(data);
 });
 
-router.delete("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/booking/bookings/:id", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("bookings")
     .delete()
     .eq("id", req.params.id)
@@ -989,7 +1171,7 @@ router.delete("/booking/bookings/:id", requireAuth, requireTenant, requireBookin
 
 // ─── Slots ────────────────────────────────────────────────────────────────────
 
-router.get("/booking/slots", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/booking/slots", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { from, to, service_id, service_catalogue_id, duration_minutes } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
@@ -1015,7 +1197,7 @@ router.get("/booking/slots", requireAuth, requireTenant, requireBooking(), async
   res.json(slots);
 });
 
-router.post("/booking/slot-overrides", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/booking/slot-overrides", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { data, error } = await db.from("booking_slot_overrides").insert(
     { ...req.body, tenant_id: req.tenantId }
   ).select().single();
@@ -1023,7 +1205,7 @@ router.post("/booking/slot-overrides", requireAuth, requireTenant, requireBookin
   res.status(201).json(data);
 });
 
-router.delete("/booking/slot-overrides/:id", requireAuth, requireTenant, requireBooking(), async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/booking/slot-overrides/:id", requireAuth, requireTenant, requireBooking(), requireBookingAdminAccess(), async (req: AuthenticatedRequest, res: Response): Promise<Response | void> => {
   const { error } = await db.from("booking_slot_overrides")
     .delete().eq("id", req.params.id).eq("tenant_id", req.tenantId);
   if (error) return res.status(500).json({ error: error.message });
@@ -1032,28 +1214,32 @@ router.delete("/booking/slot-overrides/:id", requireAuth, requireTenant, require
 
 // ─── Public booking routes (no auth) ─────────────────────────────────────────
 
-publicRouter.get("/public/booking/:tenantId/services", async (req: Request, res: Response) => {
+publicRouter.get("/public/booking/:tenantId/services", async (req: Request, res: Response): Promise<Response | void> => {
+  const tenantId = toSingleParam(req.params.tenantId);
+  if (!tenantId) return res.status(400).json({ error: "tenantId is required" });
   try {
-    res.json(await getPublicBookableServices(req.params.tenantId));
+    res.json(await getPublicBookableServices(tenantId));
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
 });
 
-publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLimiter, async (req: Request, res: Response) => {
+publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLimiter, async (req: Request, res: Response): Promise<Response | void> => {
+  const tenantId = toSingleParam(req.params.tenantId);
+  if (!tenantId) return res.status(400).json({ error: "tenantId is required" });
   const { postcode } = req.body as { postcode?: string };
   if (!postcode || typeof postcode !== "string") {
     res.status(400).json({ error: "Postcode is required" });
     return;
   }
 
-  const addonActive = await hasActiveAddon(req.params.tenantId, "uk_address_lookup");
+  const addonActive = await hasActiveAddon(tenantId, "uk_address_lookup");
   if (!addonActive) {
     res.status(402).json({ error: "UK Address Lookup add-on required. Contact your administrator to activate this feature." });
     return;
   }
 
-  const creditInfo = await getAddonCredits(req.params.tenantId, "uk_address_lookup");
+  const creditInfo = await getAddonCredits(tenantId, "uk_address_lookup");
   if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
     res.status(402).json({
       error: "No Address Lookup credits remaining. Purchase more credits on the Billing page.",
@@ -1095,19 +1281,21 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
       bundle_size: creditInfo?.bundle_size ?? null,
     });
 
-    await deductAddonCredit(req.params.tenantId, "uk_address_lookup");
+    await deductAddonCredit(tenantId, "uk_address_lookup");
   } catch (err) {
     console.error("[booking] postcode lookup failed:", err);
     res.status(500).json({ error: "Postcode lookup failed" });
   }
 });
 
-publicRouter.post("/public/booking/:tenantId/coverage-check", bookingSlotsLimiter, async (req: Request, res: Response) => {
+publicRouter.post("/public/booking/:tenantId/coverage-check", bookingSlotsLimiter, async (req: Request, res: Response): Promise<Response | void> => {
+  const tenantId = toSingleParam(req.params.tenantId);
+  if (!tenantId) return res.status(400).json({ allowed: false, error: "tenantId is required" });
   const { customer_postcode } = req.body as { customer_postcode?: string };
 
   try {
     const coverageCheck = await vetBookingCoverage({
-      tenantId: req.params.tenantId,
+      tenantId,
       customerPostcode: customer_postcode,
     });
 
@@ -1128,14 +1316,17 @@ publicRouter.post("/public/booking/:tenantId/coverage-check", bookingSlotsLimite
   }
 });
 
-publicRouter.get("/public/booking/:tenantId/slots", bookingSlotsLimiter, async (req: Request, res: Response) => {
+publicRouter.get("/public/booking/:tenantId/slots", bookingSlotsLimiter, async (req: Request, res: Response): Promise<Response | void> => {
+  const tenantId = toSingleParam(req.params.tenantId);
+  if (!tenantId) { return res.status(400).json({ error: "tenantId is required" }); }
+
   const { from, to, service_id, service_catalogue_id, duration_minutes } = req.query as Record<string, string>;
   if (!from || !to) return res.status(400).json({ error: "from and to are required" });
 
   let duration = 60;
   const selectedServiceId = service_catalogue_id || service_id;
   if (selectedServiceId) {
-    const svc = await resolveServiceForBooking(req.params.tenantId, selectedServiceId);
+    const svc = await resolveServiceForBooking(tenantId, selectedServiceId);
     if (svc) duration = svc.duration_minutes;
     else if (duration_minutes) {
       const parsedDuration = Number(duration_minutes);
@@ -1150,16 +1341,18 @@ publicRouter.get("/public/booking/:tenantId/slots", bookingSlotsLimiter, async (
     }
   }
 
-  const slots = await getAvailableSlots(req.params.tenantId, from, to, duration);
+  const slots = await getAvailableSlots(tenantId, from, to, duration);
   res.json(slots);
 });
 
-publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req: Request, res: Response) => {
+publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req: Request, res: Response): Promise<Response | void> => {
   cleanupPublicBookingCaches();
+  const tenantId = toSingleParam(req.params.tenantId);
+  if (!tenantId) return res.status(400).json({ error: "tenantId is required" });
 
   // Validate settings exist and booking is enabled
   const { data: settings } = await db.from("booking_settings")
-    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id, working_hours, confirmation_email_enabled").eq("tenant_id", req.params.tenantId).maybeSingle();
+    .select("is_enabled, auto_confirm, auto_create_job, default_job_type_id, working_hours, confirmation_email_enabled").eq("tenant_id", tenantId).maybeSingle();
   if (!settings?.is_enabled) {
     return res.status(403).json({ error: "Online booking is not enabled" });
   }
@@ -1199,7 +1392,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
   }
 
   const coverageCheck = await vetBookingCoverage({
-    tenantId: req.params.tenantId,
+    tenantId,
     customerPostcode: customer_postcode,
   });
   if (!coverageCheck.allowed) {
@@ -1208,7 +1401,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
   // Calculate end time from service duration
   let duration = 60;
-  const selectedService = selectedServiceId ? await resolveServiceForBooking(req.params.tenantId, selectedServiceId) : null;
+  const selectedService = selectedServiceId ? await resolveServiceForBooking(tenantId, selectedServiceId) : null;
   if (selectedService) {
     duration = selectedService.duration_minutes;
   } else if (selectedServiceId) {
@@ -1217,7 +1410,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
   const normalizedScheduledStart = scheduledStart.toISOString();
   const slotStillAvailable = await isRequestedSlotStillAvailable({
-    tenantId: req.params.tenantId,
+    tenantId,
     scheduledStartIso: normalizedScheduledStart,
     durationMinutes: duration,
   });
@@ -1225,7 +1418,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     return res.status(409).json({ error: "That slot is no longer available. Please choose another time." });
   }
 
-  const lockKey = `${req.params.tenantId}:${selectedService.id}:${normalizedScheduledStart}`;
+  const lockKey = `${tenantId}:${selectedServiceId}:${normalizedScheduledStart}`;
   if (inFlightSlotLocks.has(lockKey)) {
     return res.status(409).json({ error: "This slot is currently being booked. Please retry in a moment." });
   }
@@ -1233,7 +1426,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
   try {
     const idempotencyKeyHeader = (req.header("x-idempotency-key") || req.header("X-Idempotency-Key") || "").trim();
-    const idemKey = idempotencyKeyHeader ? `${req.params.tenantId}:${idempotencyKeyHeader}` : null;
+    const idemKey = idempotencyKeyHeader ? `${tenantId}:${idempotencyKeyHeader}` : null;
     const payloadHash = buildBookingPayloadHash({
       customer_name,
       customer_email,
@@ -1280,7 +1473,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     const bookingStatus = "pending";
     const storedNotes = appendBookingGeoMetadata(notes, customerLatitude, customerLongitude);
     const { data, error } = await db.from("bookings").insert({
-      tenant_id: req.params.tenantId,
+      tenant_id: tenantId,
       booking_service_id: selectedService?.source === "legacy" ? selectedService.id : null,
       service_catalogue_id: selectedService?.source === "catalogue" ? selectedService.id : null,
       scheduled_start: normalizedScheduledStart,
@@ -1301,7 +1494,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
 
     if ((settings as { confirmation_email_enabled?: boolean }).confirmation_email_enabled !== false && customer_email) {
       try {
-        const { companyName, details } = await loadBookingEmailCompanyDetails(req.params.tenantId);
+        const { companyName, details } = await loadBookingEmailCompanyDetails(tenantId);
         const utcSchedule = extractUtcDateAndTime(normalizedScheduledStart);
         const confirmationDetails: JobConfirmationDetails = {
           jobRef: createdJobRef || `BOOK-${String(data.id).slice(0, 8).toUpperCase()}`,
@@ -1322,14 +1515,14 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
         await db.from("bookings")
           .update({ confirmation_sent_at: new Date().toISOString() })
           .eq("id", data.id)
-          .eq("tenant_id", req.params.tenantId);
+          .eq("tenant_id", tenantId);
       } catch (mailErr) {
         console.error("[booking] submit confirmation email failed:", mailErr);
       }
     }
 
     void notifyUsersForEvent({
-      tenantId: req.params.tenantId,
+      tenantId,
       eventType: "customer_communications",
       title: "New Online Booking",
       body: `${customer_name} submitted an online booking for ${selectedService?.name || "a service"}. Review and confirm before conversion to job.`,
@@ -1340,7 +1533,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
     }).catch((err) => console.error("[push-events] online_booking failed:", err));
 
     void notifyUsersForEvent({
-      tenantId: req.params.tenantId,
+      tenantId,
       eventType: "operational_exceptions",
       title: "Online Booking Received - TBC",
       body: `A new online booking from ${customer_name} requires tenant admin confirmation (TBC).`,

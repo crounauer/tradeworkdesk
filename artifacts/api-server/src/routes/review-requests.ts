@@ -162,26 +162,32 @@ function renderFeedbackThankYou(opts: { title: string; message: string; actionUr
 
 // ─── Review request settings ──────────────────────────────────────────────────
 
-router.get("/review-requests/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/review-requests/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { data, error } = await db.from("review_request_settings")
     .select("*").eq("tenant_id", req.tenantId).maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? {});
 });
 
-router.put("/review-requests/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.put("/review-requests/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("review_request_settings").upsert(
     { ...fields, tenant_id: req.tenantId },
     { onConflict: "tenant_id" }
   ).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data);
 });
 
 // ─── Review requests list ─────────────────────────────────────────────────────
 
-router.get("/review-requests", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/review-requests", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { status, limit = "50" } = req.query as Record<string, string>;
   let q = db.from("review_requests").select("*")
     .eq("tenant_id", req.tenantId)
@@ -189,11 +195,14 @@ router.get("/review-requests", requireAuth, requireTenant, async (req: Authentic
     .limit(parseInt(limit));
   if (status) q = q.eq("status", status);
   const { data, error } = await q;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data);
 });
 
-router.get("/review-requests/stats", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/review-requests/stats", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const daysRaw = Number((req.query as Record<string, string>)?.days || "30");
   const days = Number.isFinite(daysRaw) ? Math.min(365, Math.max(7, Math.round(daysRaw))) : 30;
   const cutoff = new Date();
@@ -205,7 +214,10 @@ router.get("/review-requests/stats", requireAuth, requireTenant, async (req: Aut
     .eq("tenant_id", req.tenantId)
     .gte("created_at", cutoff.toISOString());
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
 
   const rows = (data || []) as Array<{ status: string; channel: "email" | "sms"; trigger_type: string }>;
   const total = rows.length;
@@ -246,10 +258,11 @@ router.get("/review-requests/stats", requireAuth, requireTenant, async (req: Aut
 
 // ─── Create / schedule review request ────────────────────────────────────────
 
-router.post("/review-requests", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/review-requests", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { customer_name, customer_email, customer_phone, job_id, invoice_id, scheduled_for, channel } = req.body as Record<string, string>;
   if (!customer_name || !customer_email) {
-    return res.status(400).json({ error: "customer_name and customer_email are required" });
+    res.status(400).json({ error: "customer_name and customer_email are required" });
+    return;
   }
 
   // Check if we've already sent one to this customer recently
@@ -266,7 +279,8 @@ router.post("/review-requests", requireAuth, requireTenant, async (req: Authenti
       .gte("sent_at", cutoff.toISOString())
       .limit(1);
     if (recent?.length) {
-      return res.status(409).json({ error: "Review request already sent to this customer recently" });
+      res.status(409).json({ error: "Review request already sent to this customer recently" });
+      return;
     }
   }
 
@@ -283,15 +297,19 @@ router.post("/review-requests", requireAuth, requireTenant, async (req: Authenti
     scheduled_for: scheduled_for || new Date().toISOString(),
   }).select().single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.status(201).json(data);
 });
 
 // ─── Force-send now ───────────────────────────────────────────────────────────
 
-router.post("/review-requests/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/review-requests/:id/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const requestId = String(req.params.id || "");
   try {
-    const data = await sendReviewRequestNow(req.params.id, req.tenantId!);
+    const data = await sendReviewRequestNow(requestId, req.tenantId!);
     res.json(data);
   } catch (err) {
     const status = err instanceof ReviewRequestError ? err.status : 500;
@@ -300,10 +318,14 @@ router.post("/review-requests/:id/send", requireAuth, requireTenant, async (req:
   }
 });
 
-router.delete("/review-requests/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.delete("/review-requests/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const requestId = String(req.params.id || "");
   const { error } = await db.from("review_requests")
-    .delete().eq("id", req.params.id).eq("tenant_id", req.tenantId).eq("status", "pending");
-  if (error) return res.status(500).json({ error: error.message });
+    .delete().eq("id", requestId).eq("tenant_id", req.tenantId).eq("status", "pending");
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.status(204).end();
 });
 
@@ -311,7 +333,7 @@ router.delete("/review-requests/:id", requireAuth, requireTenant, async (req: Au
 // Called when events happen (job completed, invoice paid, booking confirmed)
 // In a full implementation this would be called by a queue/webhook processor.
 
-router.post("/automation/trigger", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/automation/trigger", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { event, entity_id, entity_type, metadata } = req.body as {
     event: string;
     entity_id: string;
@@ -320,7 +342,8 @@ router.post("/automation/trigger", requireAuth, requireTenant, async (req: Authe
   };
 
   if (!event || !entity_id) {
-    return res.status(400).json({ error: "event and entity_id are required" });
+    res.status(400).json({ error: "event and entity_id are required" });
+    return;
   }
 
   const logs = await triggerReviewRequestAutomation({
@@ -337,11 +360,12 @@ router.post("/automation/trigger", requireAuth, requireTenant, async (req: Authe
 // ─── Public tracking routes ───────────────────────────────────────────────────
 
 // Open tracking pixel
-publicRouter.get("/public/review/:token", async (req: Request, res: Response) => {
+publicRouter.get("/public/review/:token", async (req: Request, res: Response): Promise<void> => {
+  const token = String(req.params.token || "");
   // Fire-and-forget: record open
   db.from("review_requests")
     .update({ status: "opened", opened_at: new Date().toISOString() })
-    .eq("tracking_token", req.params.token)
+    .eq("tracking_token", token)
     .eq("status", "sent") // only update if not already opened/clicked
     .then(() => {});
 
@@ -351,11 +375,12 @@ publicRouter.get("/public/review/:token", async (req: Request, res: Response) =>
   res.end(pixel);
 });
 
-publicRouter.get("/public/review/:token/start", async (req: Request, res: Response) => {
+publicRouter.get("/public/review/:token/start", async (req: Request, res: Response): Promise<void> => {
+  const token = String(req.params.token || "");
   const { data: rr } = await db
     .from("review_requests")
     .select("id, tenant_id, tracking_token, channel, trigger_type, customer_name, status")
-    .eq("tracking_token", req.params.token)
+    .eq("tracking_token", token)
     .maybeSingle() as { data: PublicReviewRequest | null };
 
   if (!rr) {
@@ -370,7 +395,7 @@ publicRouter.get("/public/review/:token/start", async (req: Request, res: Respon
     await db
       .from("review_requests")
       .update({ status: "opened", opened_at: new Date().toISOString() })
-      .eq("tracking_token", req.params.token)
+        .eq("tracking_token", token)
       .eq("status", "sent");
   }
 
@@ -378,7 +403,8 @@ publicRouter.get("/public/review/:token/start", async (req: Request, res: Respon
   res.send(renderFeedbackPage({ token: rr.tracking_token, customerName: rr.customer_name || "there" }));
 });
 
-publicRouter.post("/public/review/:token/feedback", async (req: Request, res: Response) => {
+publicRouter.post("/public/review/:token/feedback", async (req: Request, res: Response): Promise<void> => {
+  const token = String(req.params.token || "");
   const rating = Number(req.body?.rating || 0);
   const feedback = String(req.body?.feedback || "").trim();
   const consentPublish = String(req.body?.consent_publish || "") === "1";
@@ -386,7 +412,7 @@ publicRouter.post("/public/review/:token/feedback", async (req: Request, res: Re
   const { data: rr } = await db
     .from("review_requests")
     .select("id, tenant_id, tracking_token, channel, trigger_type, customer_name, status")
-    .eq("tracking_token", req.params.token)
+    .eq("tracking_token", token)
     .maybeSingle() as { data: PublicReviewRequest | null };
 
   if (!rr) {
@@ -407,7 +433,7 @@ publicRouter.post("/public/review/:token/feedback", async (req: Request, res: Re
 
   await db.from("review_requests")
     .update({ status: "clicked", clicked_at: new Date().toISOString() })
-    .eq("tracking_token", req.params.token);
+    .eq("tracking_token", token);
 
   await db.from("automation_logs").insert({
     tenant_id: rr.tenant_id,
@@ -467,15 +493,16 @@ publicRouter.post("/public/review/:token/feedback", async (req: Request, res: Re
 });
 
 // Click tracking + redirect
-publicRouter.get("/public/review/:token/click", async (req: Request, res: Response) => {
+publicRouter.get("/public/review/:token/click", async (req: Request, res: Response): Promise<void> => {
+  const token = String(req.params.token || "");
   const { data: rr } = await db.from("review_requests")
     .select("id, tenant_id, tracking_token, channel, trigger_type, customer_name")
-    .eq("tracking_token", req.params.token).maybeSingle() as { data: PublicReviewRequest | null };
+    .eq("tracking_token", token).maybeSingle() as { data: PublicReviewRequest | null };
 
   if (rr) {
     await db.from("review_requests")
       .update({ status: "clicked", clicked_at: new Date().toISOString() })
-      .eq("tracking_token", req.params.token);
+      .eq("tracking_token", token);
   }
 
   // Redirect based on channel-aware destination order and attribution tags
@@ -486,7 +513,10 @@ publicRouter.get("/public/review/:token/click", async (req: Request, res: Respon
 
     const url = resolveReviewDestinationUrl(settings, rr);
 
-    if (url) return res.redirect(url);
+    if (url) {
+      res.redirect(url);
+      return;
+    }
   }
 
   res.status(404).send("Review link not found");

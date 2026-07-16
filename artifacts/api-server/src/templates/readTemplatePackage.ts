@@ -313,15 +313,16 @@ export async function readTemplatePackage(
     // No optional content modes manifest present.
   } else {
     contentModes = await validateJsonFile(contentModesPath, TemplateContentModesSchema);
+    const activeContentModes = contentModes as TemplateContentModes;
 
-    if (contentModes.template !== template.slug) {
+    if (activeContentModes.template !== template.slug) {
       throw new Error(
-        `content-modes.json template "${contentModes.template}" does not match template.json slug "${template.slug}"`
+        `content-modes.json template "${activeContentModes.template}" does not match template.json slug "${template.slug}"`
       );
     }
 
     const modeNames = new Set<string>();
-    for (const modeDef of contentModes.modes) {
+    for (const modeDef of activeContentModes.modes) {
       if (modeNames.has(modeDef.mode)) {
         throw new Error(`Duplicate content mode "${modeDef.mode}" in ${contentModesPath}`);
       }
@@ -359,9 +360,9 @@ export async function readTemplatePackage(
       contentSeeds[modeDef.mode] = seed;
     }
 
-    if (!modeNames.has(contentModes.defaultMode)) {
+    if (!modeNames.has(activeContentModes.defaultMode)) {
       throw new Error(
-        `Default content mode "${contentModes.defaultMode}" is not listed in content-modes.json modes[]`
+        `Default content mode "${activeContentModes.defaultMode}" is not listed in content-modes.json modes[]`
       );
     }
   }

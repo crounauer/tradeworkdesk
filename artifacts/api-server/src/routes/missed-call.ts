@@ -73,24 +73,30 @@ async function sendSmsWorksMessage(
 
 // ─── Authenticated settings ───────────────────────────────────────────────────
 
-router.get("/missed-call/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/missed-call/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { data, error } = await db.from("missed_call_settings")
     .select("*").eq("tenant_id", req.tenantId).maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? {});
 });
 
-router.put("/missed-call/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.put("/missed-call/settings", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id: _id, tenant_id: _tid, created_at: _ca, updated_at: _ua, ...fields } = req.body;
   const { data, error } = await db.from("missed_call_settings").upsert(
     { ...fields, tenant_id: req.tenantId },
     { onConflict: "tenant_id" }
   ).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data);
 });
 
-router.get("/missed-call/logs", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/missed-call/logs", requireAuth, requireTenant, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { limit = "50" } = req.query as { limit?: string };
   const { data, error } = await db.from("missed_call_logs")
     .select(`
@@ -100,7 +106,10 @@ router.get("/missed-call/logs", requireAuth, requireTenant, async (req: Authenti
     .eq("tenant_id", req.tenantId)
     .order("received_at", { ascending: false })
     .limit(parseInt(limit));
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
   res.json(data ?? []);
 });
 

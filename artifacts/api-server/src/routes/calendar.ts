@@ -278,7 +278,7 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   const hasGeoMapping = !!(tenantFeatures as Record<string, unknown> | null)?.geo_mapping;
   const serviceMap = new Map(((serviceCatalogueRes as { data?: Array<{ id: string; name: string }> }).data || []).map((s) => [s.id, s.name]));
 
-  const jobs = ((jobsRes.data as CalendarJobRow[] || [])).map((j) => ({
+  const jobs = ((jobsRes.data as unknown as CalendarJobRow[] || [])).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
@@ -397,7 +397,7 @@ router.post(
 
     if (type === "public_holiday" || type === "bank_holiday") {
       await maybeAutoPublishWebsiteClosureNotice({
-        tenantId: req.tenantId,
+        tenantId: req.tenantId!,
         holidayType: type,
         holidays: [{ name: data.name, start_date: data.start_date, end_date: data.end_date }],
       });
@@ -449,7 +449,7 @@ router.post(
       end_date: h.end_date,
     }));
     await maybeAutoPublishWebsiteClosureNotice({
-      tenantId: req.tenantId,
+      tenantId: req.tenantId!,
       holidayType: "bank_holiday",
       holidays: importedHolidays,
     });

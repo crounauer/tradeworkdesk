@@ -16,6 +16,11 @@ import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 // ─── Auth middleware chain shared by all invoice endpoints ───────────────────
 const protect = [
   requireAuth,
@@ -76,13 +81,14 @@ function computeTotals(lines: LineItemInput[], vatRate: number) {
 }
 
 async function verifyInvoiceOwnership(
-  invoiceId: string,
+  invoiceId: string | string[] | undefined,
   tenantId: string,
 ): Promise<{ data: Record<string, unknown> | null; error: string | null }> {
+  const normalizedInvoiceId = toSingleParam(invoiceId);
   const { data, error } = await supabaseAdmin
     .from("invoices")
     .select("*")
-    .eq("id", invoiceId)
+    .eq("id", normalizedInvoiceId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
   if (error) return { data: null, error: error.message };
@@ -366,7 +372,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
 // ─── CREATE FROM JOB (pre-populated line items) ────────────────────────────
 // POST /jobs/:id/create-internal-invoice
 router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = req.params.id;
+  const jobId = toSingleParam(req.params.id);
 
   const { data: jobRow } = await supabaseAdmin
     .from("jobs")
@@ -768,7 +774,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
           : "Customer";
         const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
 
-        const lineItems: Parameters<typeof stripe.checkout.sessions.create>[0]["line_items"] = [
+        const lineItems = [
           {
             price_data: {
               currency,
@@ -783,9 +789,16 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
           {
             mode: "payment",
             payment_method_types: ["card"],
-            line_items: lineItems,
+            line_items: [{
+              price_data: {
+                currency,
+                unit_amount: amountCents,
+                product_data: { name: `${invoiceLabel} — ${customerName}` },
+              },
+              quantity: 1,
+            }],
             metadata: {
-              invoice_id: req.params.id,
+              invoice_id: toSingleParam(req.params.id),
               tenant_id: req.tenantId!,
             },
             customer_email: toEmail,
@@ -1184,7 +1197,7 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
       void triggerReviewRequestAutomation({
         tenantId: req.tenantId,
         event: "invoice.paid",
-        entityId: req.params.id,
+        entityId: toSingleParam(req.params.id),
         entityType: "invoice",
         metadata: {
           customer_name: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
@@ -1538,7 +1551,7 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
   const products = items.filter(l => l.item_type === "product");
   const nonProducts = items.filter(l => l.item_type !== "product");
 
-  const insertPromises: Promise<unknown>[] = [];
+  const insertPromises: PromiseLike<unknown>[] = [];
 
   if (products.length > 0) {
     insertPromises.push(
@@ -1602,13 +1615,13 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const rows = (data || []) as Array<{
+  const rows = (data as unknown as Array<{
     type: string; status: string; invoice_number: string; issue_date: string;
     due_date: string | null; payment_date: string | null;
     subtotal: number; vat_amount: number; total: number; currency: string;
     customers: { first_name: string; last_name: string } | null;
     jobs: { description: string } | null;
-  }>;
+  }> || []);
 
   function csvEscape(v: string | null | undefined): string {
     if (v == null) return "";

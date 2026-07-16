@@ -119,7 +119,16 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
       if (techFilter) q = q.eq("assigned_technician_id", techFilter);
       return q.or(activeToday).neq("status", "cancelled");
     })(),
-    buildApplianceQuery().not("next_service_due", "is", null).lt("next_service_due", today).select("id", { count: "exact", head: true }),
+    (() => {
+      let q = supabaseAdmin
+        .from("appliances")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .not("next_service_due", "is", null)
+        .lt("next_service_due", today);
+      if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+      return q;
+    })(),
     (() => {
       let q = supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").eq("is_active", true).gte("scheduled_date", weekAgo);
       if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
@@ -176,10 +185,10 @@ router.get("/dashboard", requireAuth, requireTenant, async (req: AuthenticatedRe
     property_id: a.properties?.id || null,
   }));
   const responseBody = GetDashboardResponse.parse({
-    todays_jobs: (todaysRes.data as DashboardJobRow[] || []).map(mapJob),
-    upcoming_jobs: (upcomingRes.data as DashboardJobRow[] || []).map(mapJob),
+    todays_jobs: (todaysRes.data as unknown as DashboardJobRow[] || []).map(mapJob),
+    upcoming_jobs: (upcomingRes.data as unknown as DashboardJobRow[] || []).map(mapJob),
     overdue_services: mappedOverdue,
-    recent_completed: (recentRes.data as DashboardJobRow[] || []).map(mapJob),
+    recent_completed: (recentRes.data as unknown as DashboardJobRow[] || []).map(mapJob),
     follow_up_required: mappedFollowUps,
     stats: {
       total_customers: customerCountRes.count || 0,

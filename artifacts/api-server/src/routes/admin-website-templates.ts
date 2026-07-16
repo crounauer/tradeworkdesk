@@ -10,6 +10,11 @@ import { findUnsupportedBlockTypes } from "../lib/template-import-safeguards";
 
 const router = Router();
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
 const TEMPLATE_PACKAGE_BUCKET = "template-packages";
 const TEMPLATE_MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -576,6 +581,10 @@ async function upsertTemplateGraph(opts: {
 }
 
 function buildValidationEnvelope(validation: Awaited<ReturnType<typeof validateTemplateZip>>) {
+  const enriched = validation as Awaited<ReturnType<typeof validateTemplateZip>> & {
+    unsupportedBlockTypes?: string[];
+    mappedBlockTypes?: string[];
+  };
   return {
     valid: validation.valid,
     templateSlug: validation.templateSlug,
@@ -584,6 +593,8 @@ function buildValidationEnvelope(validation: Awaited<ReturnType<typeof validateT
     blocksFound: validation.blocksFound,
     warnings: validation.warnings,
     errors: validation.errors,
+    unsupportedBlockTypes: Array.isArray(enriched.unsupportedBlockTypes) ? enriched.unsupportedBlockTypes : [],
+    mappedBlockTypes: Array.isArray(enriched.mappedBlockTypes) ? enriched.mappedBlockTypes : [],
   };
 }
 
@@ -757,6 +768,7 @@ router.post(
         pages: [] as TemplatePageManifest[],
         themeJson: {},
         cmsMappingJson: {},
+        contentModes: null,
       };
 
       if (validation.valid) {
@@ -786,6 +798,7 @@ router.post(
           pages: [] as TemplatePageManifest[],
           themeJson: {},
           cmsMappingJson: {},
+          contentModes: null,
         };
       }
 
@@ -1028,7 +1041,7 @@ router.get("/admin/website-templates", requireAuth, requireSuperAdmin, async (_r
 });
 
 router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
@@ -1238,7 +1251,7 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
         }));
         
         console.log(`[GET /:id] Reconstructed demo_pages with ${demoPages.length} pages`);
-        demoPages.slice(0, 2).forEach(p => {
+        demoPages.slice(0, 2).forEach((p: any) => {
           console.log(`[GET /:id]   - ${p.slug}: ${p.block_count} blocks`);
         });
       }
@@ -1306,7 +1319,7 @@ router.get("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async
 });
 
 router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
@@ -1499,7 +1512,7 @@ router.get("/admin/website-templates/:id/preview-data", requireAuth, requireSupe
 });
 
 router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const authReq = req as AuthenticatedRequest;
   const { data: template, error } = await supabaseAdmin
     .from("website_templates")
@@ -1557,7 +1570,7 @@ router.post("/admin/website-templates/:id/publish", requireAuth, requireSuperAdm
 });
 
 router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const authReq = req as AuthenticatedRequest;
   const { error } = await supabaseAdmin
     .from("website_templates")
@@ -1583,7 +1596,7 @@ router.post("/admin/website-templates/:id/archive", requireAuth, requireSuperAdm
 });
 
 router.delete("/admin/website-templates/:id", requireAuth, requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const authReq = req as AuthenticatedRequest;
   const { data: template, error: templateError } = await supabaseAdmin
     .from("website_templates")

@@ -137,7 +137,8 @@ router.get("/support/tickets", requireAuth, requireTenant, async (req: Authentic
 
 router.get("/support/tickets/:ticketId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   try {
-    const detail = await getTicketDetail(req.params.ticketId, req.tenantId!);
+    const ticketId = String(req.params.ticketId || "");
+    const detail = await getTicketDetail(ticketId, req.tenantId!);
     res.json(detail);
   } catch (error) {
     res.status(404).json({ error: error instanceof Error ? error.message : "Ticket not found" });
@@ -245,6 +246,7 @@ router.post("/support/tickets", requireAuth, requireTenant, uploadImages, async 
 });
 
 router.post("/support/tickets/:ticketId/messages", requireAuth, requireTenant, uploadImages, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const ticketId = String(req.params.ticketId || "");
   const { body } = req.body as Record<string, string>;
   if (!body?.trim()) {
     res.status(400).json({ error: "body is required" });
@@ -254,7 +256,7 @@ router.post("/support/tickets/:ticketId/messages", requireAuth, requireTenant, u
   const { data: ticket } = await supabaseAdmin
     .from("support_tickets")
     .select("id")
-    .eq("id", req.params.ticketId)
+    .eq("id", ticketId)
     .eq("tenant_id", req.tenantId!)
     .maybeSingle();
   if (!ticket) {
@@ -265,7 +267,7 @@ router.post("/support/tickets/:ticketId/messages", requireAuth, requireTenant, u
   const { data: message, error } = await supabaseAdmin
     .from("support_ticket_messages")
     .insert({
-      ticket_id: req.params.ticketId,
+      ticket_id: ticketId,
       tenant_id: req.tenantId!,
       author_user_id: req.userId!,
       author_name: req.userEmail || "Tenant User",
@@ -280,11 +282,11 @@ router.post("/support/tickets/:ticketId/messages", requireAuth, requireTenant, u
     return;
   }
 
-  await supabaseAdmin.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", req.params.ticketId);
+  await supabaseAdmin.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId);
 
   try {
     await storeAttachments({
-      ticketId: req.params.ticketId,
+      ticketId,
       messageId: (message as { id: string }).id,
       tenantId: req.tenantId!,
       files: (req.files as Express.Multer.File[] | undefined) || [],
@@ -294,7 +296,7 @@ router.post("/support/tickets/:ticketId/messages", requireAuth, requireTenant, u
     return;
   }
 
-  res.status(201).json(await getTicketDetail(req.params.ticketId, req.tenantId!));
+  res.status(201).json(await getTicketDetail(ticketId, req.tenantId!));
 });
 
 router.get("/platform/support-tickets", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -316,7 +318,8 @@ router.get("/platform/support-tickets", requireAuth, requireSuperAdmin, async (r
 
 router.get("/platform/support-tickets/:ticketId", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   try {
-    const detail = await getTicketDetail(req.params.ticketId);
+    const ticketId = String(req.params.ticketId || "");
+    const detail = await getTicketDetail(ticketId);
     res.json(detail);
   } catch (error) {
     res.status(404).json({ error: error instanceof Error ? error.message : "Ticket not found" });
@@ -324,6 +327,7 @@ router.get("/platform/support-tickets/:ticketId", requireAuth, requireSuperAdmin
 });
 
 router.post("/platform/support-tickets/:ticketId/messages", requireAuth, requireSuperAdmin, uploadImages, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const ticketId = String(req.params.ticketId || "");
   const { body = "", status } = req.body as Record<string, string>;
   if (!body.trim() && !status) {
     res.status(400).json({ error: "body or status is required" });
@@ -333,7 +337,7 @@ router.post("/platform/support-tickets/:ticketId/messages", requireAuth, require
   const { data: ticket } = await supabaseAdmin
     .from("support_tickets")
     .select("id, tenant_id, subject, status, requester_name, requester_email, requester_phone")
-    .eq("id", req.params.ticketId)
+    .eq("id", ticketId)
     .single();
 
   if (!ticket) {
@@ -359,7 +363,7 @@ router.post("/platform/support-tickets/:ticketId/messages", requireAuth, require
   const { data: message, error } = await supabaseAdmin
     .from("support_ticket_messages")
     .insert({
-      ticket_id: req.params.ticketId,
+      ticket_id: ticketId,
       tenant_id: (ticket as { tenant_id: string }).tenant_id,
       author_user_id: req.userId!,
       author_name: req.userEmail || "Super Admin",
@@ -378,11 +382,11 @@ router.post("/platform/support-tickets/:ticketId/messages", requireAuth, require
   await supabaseAdmin
     .from("support_tickets")
     .update({ status: nextStatus, updated_at: new Date().toISOString() })
-    .eq("id", req.params.ticketId);
+    .eq("id", ticketId);
 
   try {
     await storeAttachments({
-      ticketId: req.params.ticketId,
+      ticketId,
       messageId: (message as { id: string }).id,
       tenantId: (ticket as { tenant_id: string }).tenant_id,
       files: (req.files as Express.Multer.File[] | undefined) || [],
@@ -400,7 +404,7 @@ router.post("/platform/support-tickets/:ticketId/messages", requireAuth, require
   };
 
   void notifyTenantTicketUpdated({
-    ticketId: req.params.ticketId,
+    ticketId,
     ticketSubject: typedTicket.subject,
     company: {
       companyName: (tenantContext as { company_name?: string | null } | null)?.company_name ?? null,
@@ -418,7 +422,7 @@ router.post("/platform/support-tickets/:ticketId/messages", requireAuth, require
     messageBody: body.trim() || null,
   });
 
-  res.status(201).json(await getTicketDetail(req.params.ticketId));
+  res.status(201).json(await getTicketDetail(ticketId));
 });
 
 export default router;

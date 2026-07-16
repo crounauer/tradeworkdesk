@@ -7,6 +7,13 @@ import { notifyUsersForEvent } from "../lib/push-events";
 
 const router: IRouter = Router();
 
+function toSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
+const validJobTypes = ["service", "breakdown", "installation", "inspection", "follow_up"];
+
 async function insertTenantAuditLog(opts: {
   tenantId?: string;
   actorId?: string;
@@ -343,7 +350,7 @@ router.get("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job
 });
 
 router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const body = req.body || {};
   const contact_name = typeof body.contact_name === "string" ? body.contact_name : undefined;
   const contact_phone = typeof body.contact_phone === "string" ? body.contact_phone : undefined;
@@ -439,7 +446,7 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
 });
 
 router.delete("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
 
   let q = supabaseAdmin.from("enquiries").delete().eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
