@@ -170,6 +170,7 @@ export function HeroBlock({
     ?? (isSplit ? '#111827' : '#ffffff');
   const hasBackgroundImage = Boolean(backgroundImageUrl && !isSplit);
   const explicitBackground = typeof backgroundCss === 'string' && backgroundCss.trim() ? backgroundCss.trim() : undefined;
+  const useExplicitBackground = Boolean(explicitBackground && !hasBackgroundImage);
   const sectionPaddingClass = density === 'compact' ? 'py-14' : density === 'comfortable' ? 'py-24' : 'py-20';
   const eyebrowClassName = isClassic ? 'mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-amber-300' : 'mb-4 text-sm font-semibold uppercase tracking-wide text-amber-400';
   const primaryCtaClassName = isClassic
@@ -265,12 +266,12 @@ export function HeroBlock({
     <section
       className="text-white"
       style={{
-        background: explicitBackground,
+        background: useExplicitBackground ? explicitBackground : undefined,
         // Keep a solid fallback so the hero never renders as a white panel
         // if a complex background shorthand is rejected by the browser.
         backgroundColor: bgColor,
         color: fgColor,
-        backgroundImage: explicitBackground ? undefined : hasBackgroundImage ? `linear-gradient(${overlay}, ${overlay}), url(${backgroundImageUrl})` : undefined,
+        backgroundImage: hasBackgroundImage ? `linear-gradient(${overlay}, ${overlay}), url(${backgroundImageUrl})` : undefined,
         backgroundSize: hasBackgroundImage ? 'cover' : undefined,
         backgroundPosition: hasBackgroundImage ? 'center' : undefined,
         backgroundRepeat: hasBackgroundImage ? 'no-repeat' : undefined,
