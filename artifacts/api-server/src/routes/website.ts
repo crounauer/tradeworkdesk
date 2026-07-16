@@ -126,6 +126,37 @@ function mergeGlobalSiteBlocksIntoTheme(
   return next;
 }
 
+function readGlobalSiteBlocksFromTheme(
+  theme: Record<string, unknown> | null | undefined,
+): Array<Record<string, unknown>> {
+  const themeObj = (theme && typeof theme === "object") ? theme : {};
+  const blocks: Array<Record<string, unknown>> = [];
+
+  const header = themeObj[GLOBAL_SITE_HEADER_THEME_KEY];
+  if (header && typeof header === "object") {
+    blocks.push({
+      id: "global-site-header",
+      block_type: "site.header",
+      content: header,
+      sort_order: 0,
+      is_visible: true,
+    });
+  }
+
+  const footer = themeObj[GLOBAL_SITE_FOOTER_THEME_KEY];
+  if (footer && typeof footer === "object") {
+    blocks.push({
+      id: "global-site-footer",
+      block_type: "site.footer",
+      content: footer,
+      sort_order: blocks.length,
+      is_visible: true,
+    });
+  }
+
+  return blocks;
+}
+
 async function persistGlobalSiteBlocksForWebsite(args: {
   websiteId?: string | null;
   tenantId?: string;
@@ -1986,7 +2017,20 @@ router.get(
       .eq("page_id", id)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json({ ...page, blocks: blocks || [] });
+    const { data: websiteRow } = await db
+      .from("websites")
+      .select("theme")
+      .eq("id", String(page.website_id || ""))
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
+
+    const globalBlocks = readGlobalSiteBlocksFromTheme(websiteRow?.theme || {});
+    const tenantBlocks = (blocks || []).map((block, index) => ({
+      ...block,
+      sort_order: index + globalBlocks.length,
+    }));
+
+    res.json({ ...page, blocks: [...globalBlocks, ...tenantBlocks] });
   }
 );
 
@@ -2269,7 +2313,20 @@ router.put(
       .eq("page_id", id)
       .order("sort_order", { ascending: true }) as { data: Record<string, unknown>[] | null };
 
-    res.json(data || []);
+    const { data: websiteRow } = await db
+      .from("websites")
+      .select("theme")
+      .eq("id", String(page.website_id || ""))
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
+
+    const globalBlocks = readGlobalSiteBlocksFromTheme(websiteRow?.theme || {});
+    const tenantBlocks = (data || []).map((block, index) => ({
+      ...block,
+      sort_order: index + globalBlocks.length,
+    }));
+
+    res.json([...globalBlocks, ...tenantBlocks]);
   }
 );
 
