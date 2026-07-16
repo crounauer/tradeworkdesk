@@ -119,6 +119,21 @@ function getWeight(value: unknown, fallback: number): number | string {
   return asString || fallback;
 }
 
+function splitByAccent(source: string, accent: string): { before: string; match: string; after: string } | null {
+  const normalizedAccent = accent.trim();
+  if (!normalizedAccent) return null;
+  const lowerSource = source.toLowerCase();
+  const lowerAccent = normalizedAccent.toLowerCase();
+  const index = lowerSource.indexOf(lowerAccent);
+  if (index < 0) return null;
+  const match = source.slice(index, index + normalizedAccent.length);
+  return {
+    before: source.slice(0, index),
+    match,
+    after: source.slice(index + normalizedAccent.length),
+  };
+}
+
 export default function HeroBlock({ content }: Props) {
   const isModernTradePayload = isModernTemplateContent(content)
     || content.variant === "modern"
@@ -251,6 +266,24 @@ export default function HeroBlock({ content }: Props) {
       }
     : undefined;
 
+  const renderHeadingWithAccent = (
+    headingValue: string,
+    headingStyle: React.CSSProperties,
+    accentWord: string | undefined,
+  ): React.ReactElement => {
+    const accentParts = accentWord ? splitByAccent(headingValue, accentWord) : null;
+    if (!accentParts) {
+      return <h1 style={headingStyle}>{headingValue}</h1>;
+    }
+    return (
+      <h1 style={headingStyle}>
+        {accentParts.before}
+        <span style={{ color: accentColor }}>{accentParts.match}</span>
+        {accentParts.after}
+      </h1>
+    );
+  };
+
   if (isModernTradePayload && layout === "split") {
     return (
       <section style={{ backgroundColor: resolvedDarkBg, color: resolvedDarkText, borderRadius: sectionBorderRadius, border: `${sectionBorderWidth} solid ${sectionBorderColor}`, boxShadow: sectionShadow, fontFamily: bodyFontFamily }}>
@@ -262,9 +295,11 @@ export default function HeroBlock({ content }: Props) {
               </p>
             )}
             {heading && (
-              <h1 style={{ margin: "0 0 20px", fontSize: headingFontSize, lineHeight: 1.08, fontWeight: headingWeight, color: headingColor, fontFamily: headingFontFamily }}>
-                {heading}
-              </h1>
+              renderHeadingWithAccent(
+                heading,
+                { margin: "0 0 20px", fontSize: headingFontSize, lineHeight: 1.08, fontWeight: headingWeight, color: headingColor, fontFamily: headingFontFamily },
+                heading_accent,
+              )
             )}
             {subheading && (
               <p style={{ margin: "0 0 28px", maxWidth: 640, fontSize: subheadingFontSize, color: subheadingColor, lineHeight: 1.7, fontWeight: subheadingWeight, fontFamily: bodyFontFamily }}>
@@ -332,15 +367,7 @@ export default function HeroBlock({ content }: Props) {
     if (!heading) return null;
     const fontSize = headingFontSize || "clamp(1.9rem, 4.5vw, 3rem)";
     const style: React.CSSProperties = { fontSize, fontWeight: headingWeight, margin: "0 0 16px", lineHeight: headingLineHeight, color: headingColor || txtColor, fontFamily: headingFontFamily };
-    if (heading_accent && heading.includes(heading_accent)) {
-      const parts = heading.split(heading_accent);
-      return (
-        <h1 style={style}>
-          {parts[0]}<span style={{ color: accentColor }}>{heading_accent}</span>{parts.slice(1).join(heading_accent)}
-        </h1>
-      );
-    }
-    return <h1 style={style}>{heading}</h1>;
+    return renderHeadingWithAccent(heading, style, heading_accent);
   }
 
   const badgeBg = badgeBgColor || (isDark ? "rgba(255,255,255,0.15)" : `${accentColor}18`);

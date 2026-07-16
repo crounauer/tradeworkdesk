@@ -71,6 +71,21 @@ function resolveWeight(value: string | number | undefined, fallback: number): st
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function splitByAccent(source: string, accent: string): { before: string; match: string; after: string } | null {
+  const normalizedAccent = accent.trim();
+  if (!normalizedAccent) return null;
+  const lowerSource = source.toLowerCase();
+  const lowerAccent = normalizedAccent.toLowerCase();
+  const index = lowerSource.indexOf(lowerAccent);
+  if (index < 0) return null;
+  const match = source.slice(index, index + normalizedAccent.length);
+  return {
+    before: source.slice(0, index),
+    match,
+    after: source.slice(index + normalizedAccent.length),
+  };
+}
+
 export function HeroBlock({
   eyebrow = 'Local trade specialists',
   layout = 'full',
@@ -230,11 +245,11 @@ export function HeroBlock({
   } as const;
 
   const renderHeading = () => {
-    if (headingAccent && title.includes(headingAccent)) {
-      const parts = title.split(headingAccent);
+    const accentParts = headingAccent ? splitByAccent(title, headingAccent) : null;
+    if (accentParts) {
       return (
         <h1 className={isSplit ? 'tracking-tight md:text-5xl' : 'tracking-tight md:text-6xl'} style={headingStyle}>
-          {parts[0]}<span style={{ color: accentColor ?? '#f59e0b' }}>{headingAccent}</span>{parts.slice(1).join(headingAccent)}
+          {accentParts.before}<span style={{ color: accentColor ?? '#f59e0b' }}>{accentParts.match}</span>{accentParts.after}
         </h1>
       );
     }
