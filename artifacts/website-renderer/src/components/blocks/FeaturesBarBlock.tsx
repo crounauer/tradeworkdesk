@@ -22,9 +22,10 @@ export default function FeaturesBarBlock({ content }: Props) {
 
   if (!features.length) return null;
 
-  const heading = String(content.heading || content.title || "Why Choose Us");
-  const subheading = String(content.subheading || content.subtitle || "");
-  const label = String(content.label || content.eyebrow || "");
+  const rawHeading = String(content.heading || content.title || "").trim();
+  const heading = rawHeading || "Why Choose Us";
+  const subheading = String(content.subheading || content.subtitle || "").trim();
+  const label = String(content.label || content.eyebrow || "").trim();
 
   const sectionBg = String(content.section_bg || "transparent");
   const cardBg = String(content.card_bg || content.background_color || content.accent_color || "#0d9488");
@@ -58,6 +59,13 @@ export default function FeaturesBarBlock({ content }: Props) {
     return (
       <section style={{ padding: "0", backgroundColor: sectionBg, borderTop: `1px solid ${borderColor}`, borderBottom: `1px solid ${borderColor}` }}>
         <div style={{ maxWidth, margin: "0 auto", padding: "12px 20px" }}>
+          {(label || rawHeading || subheading) ? (
+            <div style={{ marginBottom: 10 }}>
+              {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: bodyFont }}>{label}</p> : null}
+              {rawHeading ? <h2 style={{ margin: "0 0 6px", color: headingColor, fontWeight: 800, fontSize: headingSize, fontFamily: headingFont }}>{rawHeading}</h2> : null}
+              {subheading ? <p style={{ margin: 0, color: textColor, opacity: 0.9, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
+            </div>
+          ) : null}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 22, alignItems: "center", justifyContent: "space-between" }}>
             {features.map((f, i) => (
               <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: headingColor, fontWeight: 700, fontSize: "0.875rem", fontFamily: headingFont }}>

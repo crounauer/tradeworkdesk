@@ -3660,6 +3660,9 @@ function BlockEditor({
                     <section style={{ padding: "18px 16px", background: sectionBg }}>
                       {layoutVariant === "local-strip" ? (
                         <div style={{ borderRadius: 12, background: sectionBg, border: `1px solid ${borderColor}`, padding: "10px 12px" }}>
+                          {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
+                          {heading ? <h3 style={{ margin: "0 0 8px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading}</h3> : null}
+                          {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
                             {items.slice(0, 6).map((item, i) => (
                               <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: headingColor, fontWeight: 700, fontSize: "0.875rem", fontFamily: headingFont }}>
