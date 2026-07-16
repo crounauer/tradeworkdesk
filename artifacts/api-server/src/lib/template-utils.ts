@@ -110,6 +110,20 @@ export const TEMPLATE_PALETTES: Record<string, TemplatePalette> = {
     footer_background: "#111827",
     footer_text: "#D1D5DB",
   },
+  "local-plumbing-pro": {
+    accent_color: "#00A8A8",
+    primary_color: "#1A3A6B",
+    primary_text_color: "#FFFFFF",
+    background_color: "#FFFFFF",
+    muted_background: "#EEF3F8",
+    border_color: "rgba(26, 58, 107, 0.14)",
+    text_color: "#1A3A6B",
+    muted_text_color: "#5A6A7E",
+    nav_background: "#EEF3F8",
+    nav_text: "#1A3A6B",
+    footer_background: "#1A3A6B",
+    footer_text: "#DCE6F5",
+  },
 };
 
 const DEFAULT_TEMPLATE_PALETTE: TemplatePalette = {
@@ -189,8 +203,133 @@ export function generateDefaultTheme(designTokens: Record<string, unknown>): Rec
  * Can be template-specific (based on slug) or generic.
  */
 export function getDefaultPagesForTemplate(templateSlug: string): Array<Record<string, unknown>> {
-  // For now, all templates use the same page structure
-  // In future, this can be template-specific (e.g., "modern" template has different blocks)
+  const normalizedSlug = normalizeTemplateSlug(templateSlug);
+
+  if (normalizedSlug === "local-plumbing-pro") {
+    return [
+      {
+        slug: "home",
+        title: "Home",
+        page_type: "home",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 1,
+        blocks: [
+          {
+            type: "hero",
+            sort_order: 0,
+            content: {
+              heading: "Reliable Local Plumbing Services",
+              subheading: "Honest, fast and fully insured plumbers serving your area. Free quotes, 12-month guarantee.",
+              cta_text: "Call Now",
+              cta_url: "#contact",
+              secondary_cta_text: "Request a Quote",
+              secondary_cta_url: "#contact",
+              overlay_color: "15,31,61",
+              overlay_opacity: 0.75,
+              heading_color: "#ffffff",
+              subheading_color: "rgba(255,255,255,0.8)",
+              primary_button_bg_color: "#00a8a8",
+              primary_button_text_color: "#ffffff",
+              secondary_button_bg_color: "#ffffff",
+              secondary_button_text_color: "#1a3a6b",
+              secondary_button_border_color: "rgba(26, 58, 107, 0.12)",
+              border_radius: "10px",
+              trust_items: [
+                { text: "Fully Insured", icon: "🛡" },
+                { text: "Local Engineers", icon: "📍" },
+                { text: "Fast Response", icon: "⚡" },
+                { text: "Free Quotes", icon: "✓" },
+              ],
+            },
+          },
+          { type: "features_bar", sort_order: 1 },
+          { type: "services", sort_order: 2 },
+          { type: "process", sort_order: 3 },
+          { type: "testimonials", sort_order: 4 },
+          { type: "trust_badges", sort_order: 5 },
+          { type: "cta", sort_order: 6 },
+        ],
+      },
+      {
+        slug: "services",
+        title: "Services",
+        page_type: "custom",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 2,
+        blocks: [
+          { type: "hero", sort_order: 0 },
+          { type: "services", sort_order: 1 },
+          { type: "cta", sort_order: 2 },
+        ],
+      },
+      {
+        slug: "how-it-works",
+        title: "How It Works",
+        page_type: "custom",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 3,
+        blocks: [
+          { type: "hero", sort_order: 0 },
+          { type: "process", sort_order: 1 },
+          { type: "cta", sort_order: 2 },
+        ],
+      },
+      {
+        slug: "projects",
+        title: "Projects",
+        page_type: "custom",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 4,
+        blocks: [
+          { type: "hero", sort_order: 0 },
+          { type: "projects", sort_order: 1 },
+          { type: "cta", sort_order: 2 },
+        ],
+      },
+      {
+        slug: "reviews",
+        title: "Reviews",
+        page_type: "custom",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 5,
+        blocks: [
+          { type: "hero", sort_order: 0 },
+          { type: "testimonials", sort_order: 1 },
+          { type: "cta", sort_order: 2 },
+        ],
+      },
+      {
+        slug: "areas",
+        title: "Areas We Cover",
+        page_type: "custom",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 6,
+        blocks: [
+          { type: "hero", sort_order: 0 },
+          { type: "areas", sort_order: 1 },
+          { type: "cta", sort_order: 2 },
+        ],
+      },
+      {
+        slug: "contact",
+        title: "Contact",
+        page_type: "custom",
+        show_in_nav: true,
+        nav_label: null,
+        nav_order: 7,
+        blocks: [
+          { type: "hero", sort_order: 0 },
+          { type: "contact", sort_order: 1 },
+        ],
+      },
+    ];
+  }
 
   return [
     {

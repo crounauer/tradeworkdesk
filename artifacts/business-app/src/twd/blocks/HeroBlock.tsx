@@ -42,6 +42,10 @@ export type HeroBlockProps = {
   overlayColor?: string;
   overlayOpacity?: number;
   accentColor?: string;
+  primaryColor?: string;
+  primaryTextColor?: string;
+  mutedBackgroundColor?: string;
+  mutedTextColor?: string;
   headingColor?: string;
   subheadingColor?: string;
   eyebrowColor?: string;
@@ -111,6 +115,10 @@ export function HeroBlock({
   overlayColor: overlayColorProp,
   overlayOpacity,
   accentColor,
+  primaryColor,
+  primaryTextColor,
+  mutedBackgroundColor,
+  mutedTextColor,
   headingColor,
   subheadingColor,
   eyebrowColor,
@@ -129,16 +137,21 @@ export function HeroBlock({
   const isCentered = layout === 'centered';
   const isModern = variant === 'modern' || heroStyle === 'modern';
   const isClassic = variant === 'classic' || heroStyle === 'classic';
-  const isNavyTone = tone === 'navy';
+  const isNavyTone = tone === 'navy' || (tone === 'default' && isClassic);
+  const accentToken = accentColor ?? '#00a8a8';
+  const primaryToken = primaryColor ?? '#1a3a6b';
+  const primaryTextToken = primaryTextColor ?? '#ffffff';
+  const mutedBackgroundToken = mutedBackgroundColor ?? '#f8fafc';
+  const mutedTextToken = mutedTextColor ?? '#475569';
   const bgColor = backgroundColor
-    ?? (isModern && isSplit ? '#f8fafc' : undefined)
-    ?? (isClassic && isSplit ? '#f8fafc' : undefined)
-    ?? (isClassic || isNavyTone ? '#0f2448' : undefined)
+    ?? (isModern && isSplit ? mutedBackgroundToken : undefined)
+    ?? (isClassic && isSplit ? mutedBackgroundToken : undefined)
+    ?? (isClassic || isNavyTone ? primaryToken : undefined)
     ?? (isSplit ? '#ffffff' : '#020617');
   const fgColor = textColor
     ?? (isModern && isSplit ? '#0f172a' : undefined)
     ?? (isClassic && isSplit ? '#0f172a' : undefined)
-    ?? (isClassic || isNavyTone ? '#f8fafc' : undefined)
+    ?? (isClassic || isNavyTone ? primaryTextToken : undefined)
     ?? (isSplit ? '#111827' : '#ffffff');
   const hasBackgroundImage = Boolean(backgroundImageUrl && !isSplit);
   const explicitBackground = typeof backgroundCss === 'string' && backgroundCss.trim() ? backgroundCss.trim() : undefined;
@@ -176,21 +189,21 @@ export function HeroBlock({
     fontWeight: resolveWeight(headingFontWeight, 800),
   } as const;
   const subheadingStyle = {
-    color: subheadingColor ?? (isSplit ? (isClassic ? '#334155' : '#4b5563') : '#cbd5e1'),
+    color: subheadingColor ?? (isSplit ? mutedTextToken : (isNavyTone ? 'rgba(255,255,255,0.82)' : '#cbd5e1')),
     fontFamily: bodyFontFamily || fontFamily,
     fontSize: resolveSize(subheadingFontSize, '1.125rem'),
     fontWeight: resolveWeight(subheadingFontWeight, 400),
   } as const;
   const eyebrowStyle = {
-    color: eyebrowColor ?? (isClassic ? '#fcd34d' : '#f59e0b'),
+    color: eyebrowColor ?? accentToken,
     fontFamily: bodyFontFamily || fontFamily,
     fontSize: resolveSize(eyebrowFontSize, '0.875rem'),
   } as const;
   const primaryRadiusDefault = ctaStyle === 'rounded' ? '999px' : ctaStyle === 'soft' ? '10px' : isClassic ? '2px' : '10px';
   const primaryButtonStyle = {
-    backgroundColor: primaryButtonBgColor ?? (ctaStyle === 'outline' ? 'transparent' : '#f59e0b'),
-    borderColor: primaryButtonBorderColor ?? '#f59e0b',
-    color: primaryButtonTextColor ?? (ctaStyle === 'outline' ? '#f59e0b' : '#0f172a'),
+    backgroundColor: primaryButtonBgColor ?? (ctaStyle === 'outline' ? 'transparent' : accentToken),
+    borderColor: primaryButtonBorderColor ?? accentToken,
+    color: primaryButtonTextColor ?? (ctaStyle === 'outline' ? accentToken : '#ffffff'),
     borderRadius: resolveSize(primaryRadiusDefault, '10px'),
     borderWidth: ctaStyle === 'outline' ? '2px' : '1px',
     borderStyle: 'solid',
@@ -201,8 +214,8 @@ export function HeroBlock({
   const secondaryRadiusDefault = ctaStyle === 'rounded' ? '999px' : ctaStyle === 'soft' ? '10px' : isClassic ? '2px' : '10px';
   const secondaryButtonStyle = {
     backgroundColor: secondaryButtonBgColor ?? 'transparent',
-    borderColor: secondaryButtonBorderColor ?? '#d1d5db',
-    color: secondaryButtonTextColor ?? 'inherit',
+    borderColor: secondaryButtonBorderColor ?? (isSplit ? '#d1d5db' : 'rgba(255,255,255,0.35)'),
+    color: secondaryButtonTextColor ?? fgColor,
     borderRadius: resolveSize(secondaryRadiusDefault, '10px'),
     borderWidth: '1px',
     borderStyle: 'solid',
@@ -318,8 +331,9 @@ export function HeroBlock({
             {trustBadges && trustBadges.length > 0 ? (
               <div className={`mt-8 flex flex-wrap gap-3 ${isCentered ? 'justify-center' : 'justify-start'}`}>
                 {trustBadges.map((badge) => (
-                  <span key={badge} className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white">
-                    {badge}
+                  <span key={badge} className="inline-flex items-center gap-1.5 text-sm" style={{ color: subheadingStyle.color }}>
+                    <span style={{ color: accentToken }}>✓</span>
+                    <span>{badge.replace(/^\S+\s+/, '') || badge}</span>
                   </span>
                 ))}
               </div>
