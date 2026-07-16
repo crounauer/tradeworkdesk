@@ -354,10 +354,9 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   const websiteOverride = websiteId ? { website_id: websiteId } : {};
   const rawContent = (block.content as Record<string, unknown>) || {};
   const templateSlug = String(site?.website?.template_slug || "").toLowerCase();
-  const hasMeaningfulContent = Object.keys(rawContent).length > 0;
 
   const fallbackContent =
-    templateSlug === "local-plumbing-pro" && !hasMeaningfulContent
+    templateSlug === "local-plumbing-pro"
       ? buildLocalPlumbingFallback(normalizedType, page?.slug, companyContact?.phone ?? undefined, companyContact?.email ?? undefined)
       : null;
 

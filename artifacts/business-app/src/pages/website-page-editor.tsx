@@ -1114,6 +1114,9 @@ function BlockEditor({
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-4">
+            <p className="text-xs text-muted-foreground">
+              Note: The top info row (schedule/location/phone) is edited in <strong>Site Header</strong>, and the lower icon strip is edited in <strong>Features Bar</strong>.
+            </p>
             <FieldRow label="Eyebrow / Preheading">
               <Input value={eyebrow} onChange={(e) => set("eyebrow", e.target.value)} placeholder="Plumbing & heating specialists" />
             </FieldRow>
@@ -3655,19 +3658,32 @@ function BlockEditor({
                   </CardHeader>
                   <CardContent className="p-0 xl:h-[calc(100vh-11.5rem)] xl:overflow-y-auto">
                     <section style={{ padding: "18px 16px", background: sectionBg }}>
-                      <div style={{ borderRadius: 12, background: cardBg, border: `1px solid ${borderColor}`, padding: 12 }}>
-                        {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
-                        <h3 style={{ margin: "0 0 8px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading || "Why Choose Us"}</h3>
-                        {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {items.slice(0, 4).map((item, i) => (
-                            <div key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, padding: 8, color: bodyColor, fontFamily: bodyFont }}>
-                              <strong style={{ color: headingColor, fontFamily: headingFont }}>{item.icon || "✓"} {item.title || "Feature"}</strong>
-                              <div style={{ fontSize: "0.82rem", marginTop: 4 }}>{item.description || "Description"}</div>
-                            </div>
-                          ))}
+                      {layoutVariant === "local-strip" ? (
+                        <div style={{ borderRadius: 12, background: sectionBg, border: `1px solid ${borderColor}`, padding: "10px 12px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
+                            {items.slice(0, 6).map((item, i) => (
+                              <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: headingColor, fontWeight: 700, fontSize: "0.875rem", fontFamily: headingFont }}>
+                                <span style={{ color: accentColor }}>{item.icon || "✓"}</span>
+                                <span>{item.title || "Feature"}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div style={{ borderRadius: 12, background: cardBg, border: `1px solid ${borderColor}`, padding: 12 }}>
+                          {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
+                          <h3 style={{ margin: "0 0 8px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading || "Why Choose Us"}</h3>
+                          {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
+                          <div style={{ display: "grid", gap: 8 }}>
+                            {items.slice(0, 4).map((item, i) => (
+                              <div key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, padding: 8, color: bodyColor, fontFamily: bodyFont }}>
+                                <strong style={{ color: headingColor, fontFamily: headingFont }}>{item.icon || "✓"} {item.title || "Feature"}</strong>
+                                <div style={{ fontSize: "0.82rem", marginTop: 4 }}>{item.description || "Description"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </section>
                   </CardContent>
                 </Card>
@@ -3684,6 +3700,7 @@ function BlockEditor({
                 <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="local-strip">Local Strip</SelectItem>
                     <SelectItem value="icon-grid">Icon Grid</SelectItem>
                     <SelectItem value="split-list">Split List</SelectItem>
                     <SelectItem value="minimal-strip">Minimal Strip</SelectItem>
@@ -3733,6 +3750,7 @@ function BlockEditor({
               <Select value={layoutVariant} onValueChange={(v) => onChange(syncBlockContent(c, { layout_variant: v, layout: v }, { layout_variant: ["layout"], layout: ["layout_variant"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="local-strip">Local Strip</SelectItem>
                   <SelectItem value="icon-grid">Icon Grid</SelectItem>
                   <SelectItem value="split-list">Split List</SelectItem>
                   <SelectItem value="minimal-strip">Minimal Strip</SelectItem>
