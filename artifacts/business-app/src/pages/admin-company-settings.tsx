@@ -734,6 +734,12 @@ export default function AdminCompanySettings() {
       currency: settings.currency ?? "GBP",
       rates_url: settings.rates_url ?? "",
       trading_terms_url: settings.trading_terms_url ?? "",
+      show_rates_url_on_invoices: settings.show_rates_url_on_invoices ?? true,
+      show_rates_url_on_quotes: settings.show_rates_url_on_quotes ?? true,
+      show_rates_url_on_website_footer: settings.show_rates_url_on_website_footer ?? false,
+      show_trading_terms_url_on_invoices: settings.show_trading_terms_url_on_invoices ?? true,
+      show_trading_terms_url_on_quotes: settings.show_trading_terms_url_on_quotes ?? true,
+      show_trading_terms_url_on_website_footer: settings.show_trading_terms_url_on_website_footer ?? false,
       job_number_prefix: settings.job_number_prefix ?? "",
       google_calendar_enabled: settings.google_calendar_enabled ?? false,
       google_client_id: settings.google_client_id ?? "",
@@ -748,6 +754,8 @@ export default function AdminCompanySettings() {
       invoice_footer_text: settings.invoice_footer_text ?? "",
       quote_footer_text: settings.quote_footer_text ?? settings.invoice_footer_text ?? "",
       invoice_bank_details: settings.invoice_bank_details ?? "",
+      show_bank_details_on_invoices: settings.show_bank_details_on_invoices ?? true,
+      show_bank_details_on_quotes: settings.show_bank_details_on_quotes ?? true,
       invoice_additional_text: settings.invoice_additional_text ?? "",
       quote_additional_text: settings.quote_additional_text ?? "",
       payment_link_url: settings.payment_link_url ?? "",
@@ -776,7 +784,21 @@ export default function AdminCompanySettings() {
   }, [settings?.logo_url, uploadLogo.isPending]);
 
   const numericFields = new Set(["default_vat_rate", "default_payment_terms_days", "invoice_next_number", "quote_next_number", "quote_validity_days", "coverage_radius_miles"]);
-  const booleanFields = new Set(["google_calendar_enabled", "invoices_enabled", "white_label_enabled", "website_enquiry_email_notify", "website_enquiry_sms_notify"]);
+  const booleanFields = new Set([
+    "google_calendar_enabled",
+    "invoices_enabled",
+    "white_label_enabled",
+    "website_enquiry_email_notify",
+    "website_enquiry_sms_notify",
+    "show_rates_url_on_invoices",
+    "show_rates_url_on_quotes",
+    "show_rates_url_on_website_footer",
+    "show_trading_terms_url_on_invoices",
+    "show_trading_terms_url_on_quotes",
+    "show_trading_terms_url_on_website_footer",
+    "show_bank_details_on_invoices",
+    "show_bank_details_on_quotes",
+  ]);
   const arrayFields = new Set(["notification_emails", "custom_leave_types"]);
 
   const saveToServer = useCallback(async (values: Record<string, unknown>) => {
@@ -1602,7 +1624,7 @@ export default function AdminCompanySettings() {
               Customer Documents
             </CardTitle>
             <CardDescription>
-              Links to your rates sheet and trading terms. When set, these are included in all customer-facing emails.
+                Links to your rates sheet and trading terms. Control whether each link appears on invoice and quote documents separately.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4">
@@ -1610,11 +1632,57 @@ export default function AdminCompanySettings() {
               <Label htmlFor="rates_url">Rates URL</Label>
               <Input id="rates_url" type="url" placeholder="e.g. https://www.example.com/rates" {...register("rates_url")} />
               <p className="text-xs text-muted-foreground">Link to your published rates / price list.</p>
+                <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <Label className="text-xs">Show on invoice footer</Label>
+                    <Switch
+                      checked={Boolean(watch("show_rates_url_on_invoices"))}
+                      onCheckedChange={(v) => setValue("show_rates_url_on_invoices", v, { shouldDirty: true })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <Label className="text-xs">Show on quote footer</Label>
+                    <Switch
+                      checked={Boolean(watch("show_rates_url_on_quotes"))}
+                      onCheckedChange={(v) => setValue("show_rates_url_on_quotes", v, { shouldDirty: true })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 sm:col-span-2">
+                    <Label className="text-xs">Show on website footer</Label>
+                    <Switch
+                      checked={Boolean(watch("show_rates_url_on_website_footer"))}
+                      onCheckedChange={(v) => setValue("show_rates_url_on_website_footer", v, { shouldDirty: true })}
+                    />
+                  </div>
+                </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="trading_terms_url">Trading Terms URL</Label>
               <Input id="trading_terms_url" type="url" placeholder="e.g. https://www.example.com/terms" {...register("trading_terms_url")} />
               <p className="text-xs text-muted-foreground">Link to your terms and conditions.</p>
+                <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <Label className="text-xs">Show on invoice footer</Label>
+                    <Switch
+                      checked={Boolean(watch("show_trading_terms_url_on_invoices"))}
+                      onCheckedChange={(v) => setValue("show_trading_terms_url_on_invoices", v, { shouldDirty: true })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                    <Label className="text-xs">Show on quote footer</Label>
+                    <Switch
+                      checked={Boolean(watch("show_trading_terms_url_on_quotes"))}
+                      onCheckedChange={(v) => setValue("show_trading_terms_url_on_quotes", v, { shouldDirty: true })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 sm:col-span-2">
+                    <Label className="text-xs">Show on website footer</Label>
+                    <Switch
+                      checked={Boolean(watch("show_trading_terms_url_on_website_footer"))}
+                      onCheckedChange={(v) => setValue("show_trading_terms_url_on_website_footer", v, { shouldDirty: true })}
+                    />
+                  </div>
+                </div>
             </div>
           </CardContent>
         </Card>
@@ -1915,7 +1983,23 @@ export default function AdminCompanySettings() {
                 className="resize-none font-mono text-sm"
                 {...register("invoice_bank_details")}
               />
-              <p className="text-xs text-muted-foreground">Printed on invoices to help customers pay you.</p>
+              <p className="text-xs text-muted-foreground">Used for invoice and quote bank transfer/deposit instructions.</p>
+              <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                  <Label className="text-xs">Show on invoices</Label>
+                  <Switch
+                    checked={Boolean(watch("show_bank_details_on_invoices"))}
+                    onCheckedChange={(v) => setValue("show_bank_details_on_invoices", v, { shouldDirty: true })}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                  <Label className="text-xs">Show on quotes</Label>
+                  <Switch
+                    checked={Boolean(watch("show_bank_details_on_quotes"))}
+                    onCheckedChange={(v) => setValue("show_bank_details_on_quotes", v, { shouldDirty: true })}
+                  />
+                </div>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="payment_link_url">Customer Payment Link (optional)</Label>

@@ -111,9 +111,9 @@ export async function sendInvoiceDocumentEmail(opts: {
        </div>`
     : "";
 
-  const bankDetailsHtml = (!isQuote && opts.bankDetails)
+  const bankDetailsHtml = opts.bankDetails
     ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">
-        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#166534;">Payment Details</p>
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#166534;">${isQuote ? "Deposit Payment Details" : "Payment Details"}</p>
         <p style="margin:0;font-size:13px;color:#166534;white-space:pre-line;">${escHtml(opts.bankDetails)}</p>
        </div>`
     : "";
@@ -182,7 +182,7 @@ export async function sendInvoiceDocumentEmail(opts: {
         <p style="margin:0 0 16px;font-size:13px;color:#64748b;">Log in to your customer portal to view your invoice and service history.</p>
         <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">View Invoice</a>
       </div>` : ""}
-      ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>${opts.hasPaymentProvider ? "Or pay" : "Pay"} by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
+      ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>${isQuote ? "Pay your deposit" : (opts.hasPaymentProvider ? "Or pay" : "Pay")} by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
       <p>If you have any questions, please don't hesitate to get in touch.</p>
       <hr class="divider"/>
       <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>

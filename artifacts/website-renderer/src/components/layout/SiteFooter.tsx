@@ -127,7 +127,25 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
     </div>
   );
 
-  const sections = [infoSection, linksSection, accreditationSection, contactSection].filter(Boolean);
+  const documentLinksSection = (company?.rates_url || company?.trading_terms_url) ? (
+    <div>
+      <p style={{ color: headingColor, fontWeight: 700, marginBottom: 12, fontSize: headingSize, fontFamily: headingFont }}>Customer Documents</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 9, fontSize: bodySize, fontFamily: bodyFont }}>
+        {company?.rates_url && (
+          <a href={company.rates_url} target="_blank" rel="noopener noreferrer" style={{ color: footerText, textDecoration: "none", display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <span>📄</span> Pricing &amp; Rates
+          </a>
+        )}
+        {company?.trading_terms_url && (
+          <a href={company.trading_terms_url} target="_blank" rel="noopener noreferrer" style={{ color: footerText, textDecoration: "none", display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <span>📘</span> Trading Terms
+          </a>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  const sections = [infoSection, linksSection, accreditationSection, contactSection, documentLinksSection].filter(Boolean);
 
   const topLayout =
     layoutVariant === "centered-stack" ? (

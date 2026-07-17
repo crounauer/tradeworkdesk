@@ -514,12 +514,17 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "gas_safe_number", "oftec_number", "vat_number", "company_number",
     "default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days", "currency",
     "rates_url", "trading_terms_url", "job_number_prefix",
+    "show_rates_url_on_invoices", "show_rates_url_on_quotes",
+    "show_rates_url_on_website_footer",
+    "show_trading_terms_url_on_invoices", "show_trading_terms_url_on_quotes",
+    "show_trading_terms_url_on_website_footer",
     "google_calendar_enabled", "google_client_id", "google_client_secret",
     "sms_sender_name",
     // Invoicing settings
     "invoices_enabled", "invoice_number_prefix", "quote_number_prefix",
     "invoice_next_number", "quote_next_number", "quote_validity_days",
     "invoice_footer_text", "quote_footer_text", "invoice_bank_details",
+    "show_bank_details_on_invoices", "show_bank_details_on_quotes",
     "invoice_additional_text", "quote_additional_text",
     // Payment method toggles
     "stripe_payments_enabled", "gocardless_payments_enabled",

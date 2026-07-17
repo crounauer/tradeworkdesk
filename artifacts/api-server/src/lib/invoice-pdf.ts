@@ -356,7 +356,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   // ── SECTION 6: Additional content — payment / customer notes + bank details + links
   // Continues on same page if space permits, otherwise starts a new page.
 
-  const hasExtra = !!(data.company_additional_text || data.customer_notes || (data.company_bank_details && data.type === "invoice") || data.company_rates_url || data.company_trading_terms_url);
+  const hasExtra = !!(data.company_additional_text || data.customer_notes || data.company_bank_details || data.company_rates_url || data.company_trading_terms_url);
   if (hasExtra) {
     // Estimate how many mm the extra content needs — set font to 8.5pt first so
     // splitTextToSize uses the same size that will be used when rendering.
@@ -364,7 +364,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     doc.setFont("helvetica", "normal");
     const additionalTextLineCount = data.company_additional_text ? (doc.splitTextToSize(data.company_additional_text, rightMargin - margin) as string[]).length : 0;
     const noteLineCount  = data.customer_notes ? (doc.splitTextToSize(data.customer_notes, rightMargin - margin) as string[]).length : 0;
-    const bankLineCount  = (data.company_bank_details && data.type === "invoice") ? (doc.splitTextToSize(data.company_bank_details, rightMargin - margin) as string[]).length : 0;
+    const bankLineCount  = data.company_bank_details ? (doc.splitTextToSize(data.company_bank_details, rightMargin - margin) as string[]).length : 0;
     const linkCount      = (data.company_rates_url ? 1 : 0) + (data.company_trading_terms_url ? 1 : 0);
     const estimatedH     = (additionalTextLineCount * 4.5) + (additionalTextLineCount > 0 ? 8 : 0)
                + (noteLineCount * 4.5) + (noteLineCount > 0 ? 8 : 0)
@@ -403,7 +403,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
       y += noteLines.length * 4.5 + 8;
     }
 
-    if (data.company_bank_details && data.type === "invoice") {
+    if (data.company_bank_details) {
       const bankLines = doc.splitTextToSize(data.company_bank_details, rightMargin - margin) as string[];
       doc.text(bankLines, margin, y);
       y += bankLines.length * 4.5 + 8;

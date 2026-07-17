@@ -608,6 +608,15 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
   const isQuote = (invoice.type as string) === "quote";
   const invoiceFooterText = (cs as any)?.invoice_footer_text || null;
   const quoteFooterText = (cs as any)?.quote_footer_text || null;
+  const showBankDetails = isQuote
+    ? (cs as any)?.show_bank_details_on_quotes !== false
+    : (cs as any)?.show_bank_details_on_invoices !== false;
+  const showRatesUrl = isQuote
+    ? (cs as any)?.show_rates_url_on_quotes !== false
+    : (cs as any)?.show_rates_url_on_invoices !== false;
+  const showTradingTermsUrl = isQuote
+    ? (cs as any)?.show_trading_terms_url_on_quotes !== false
+    : (cs as any)?.show_trading_terms_url_on_invoices !== false;
 
   const pdfData = {
     type: invoice.type as "invoice" | "quote",
@@ -630,10 +639,12 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     company_gas_safe_number: (cs as any)?.gas_safe_number || null,
     company_oftec_number: (cs as any)?.oftec_number || null,
     company_footer_text: isQuote ? (quoteFooterText || invoiceFooterText) : invoiceFooterText,
-    company_bank_details: (cs as any)?.invoice_bank_details || null,
+    company_bank_details: showBankDetails ? ((cs as any)?.invoice_bank_details || null) : null,
     company_additional_text: isQuote
       ? ((cs as any)?.quote_additional_text || null)
       : ((cs as any)?.invoice_additional_text || null),
+    company_rates_url: showRatesUrl ? ((cs as any)?.rates_url || null) : null,
+    company_trading_terms_url: showTradingTermsUrl ? ((cs as any)?.trading_terms_url || null) : null,
     customer_name: customerName,
     customer_address_line1: customer?.address_line1 || (property as any)?.address_line1 || null,
     customer_address_line2: customer?.address_line2 || (property as any)?.address_line2 || null,

@@ -102,6 +102,8 @@ export interface CompanySettings {
   gas_safe_number: string | null;
   oftec_number: string | null;
   logo_url: string | null;
+  rates_url?: string | null;
+  trading_terms_url?: string | null;
   website_closure_notice_enabled?: boolean | null;
   website_closure_notice_message?: string | null;
   website_closure_notice_start_date?: string | null;

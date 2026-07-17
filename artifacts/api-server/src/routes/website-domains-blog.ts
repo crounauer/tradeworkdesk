@@ -1901,7 +1901,7 @@ router.get(
     // Fetch company settings for contact info
     const { data: companySettings } = await supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url, website_closure_notice_enabled, website_closure_notice_message, website_closure_notice_start_date, website_closure_notice_end_date")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url, rates_url, trading_terms_url, show_rates_url_on_website_footer, show_trading_terms_url_on_website_footer, website_closure_notice_enabled, website_closure_notice_message, website_closure_notice_start_date, website_closure_notice_end_date")
       .eq("tenant_id", domainRecord.tenant_id)
       .eq("singleton_id", "default")
       .maybeSingle();
@@ -1917,6 +1917,12 @@ router.get(
     const companyOut = companySettings
       ? {
           ...(companySettings as Record<string, unknown>),
+          rates_url: (companySettings as { show_rates_url_on_website_footer?: boolean | null; rates_url?: string | null }).show_rates_url_on_website_footer === false
+            ? null
+            : ((companySettings as { rates_url?: string | null }).rates_url || null),
+          trading_terms_url: (companySettings as { show_trading_terms_url_on_website_footer?: boolean | null; trading_terms_url?: string | null }).show_trading_terms_url_on_website_footer === false
+            ? null
+            : ((companySettings as { trading_terms_url?: string | null }).trading_terms_url || null),
           phone: (companySettings as { phone?: string | null }).phone || (tenantContact as { contact_phone?: string | null } | null)?.contact_phone || null,
           email: (companySettings as { email?: string | null }).email || (tenantContact as { contact_email?: string | null } | null)?.contact_email || null,
         }
@@ -2096,7 +2102,7 @@ router.get(
 
     const { data: companySettings } = await supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url, website_closure_notice_enabled, website_closure_notice_message, website_closure_notice_start_date, website_closure_notice_end_date")
+      .select("name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, service_area, coverage_radius_miles, gas_safe_number, oftec_number, logo_url, rates_url, trading_terms_url, show_rates_url_on_website_footer, show_trading_terms_url_on_website_footer, website_closure_notice_enabled, website_closure_notice_message, website_closure_notice_start_date, website_closure_notice_end_date")
       .eq("tenant_id", String(website.tenant_id))
       .eq("singleton_id", "default")
       .maybeSingle();
@@ -2110,6 +2116,12 @@ router.get(
     const companyOut = companySettings
       ? {
           ...(companySettings as Record<string, unknown>),
+          rates_url: (companySettings as { show_rates_url_on_website_footer?: boolean | null; rates_url?: string | null }).show_rates_url_on_website_footer === false
+            ? null
+            : ((companySettings as { rates_url?: string | null }).rates_url || null),
+          trading_terms_url: (companySettings as { show_trading_terms_url_on_website_footer?: boolean | null; trading_terms_url?: string | null }).show_trading_terms_url_on_website_footer === false
+            ? null
+            : ((companySettings as { trading_terms_url?: string | null }).trading_terms_url || null),
           phone: (companySettings as { phone?: string | null }).phone || (tenantContact as { contact_phone?: string | null } | null)?.contact_phone || null,
           email: (companySettings as { email?: string | null }).email || (tenantContact as { contact_email?: string | null } | null)?.contact_email || null,
         }

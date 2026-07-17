@@ -30,6 +30,12 @@ export interface CompanySettings {
   currency?: string | null;
   rates_url?: string | null;
   trading_terms_url?: string | null;
+  show_rates_url_on_invoices?: boolean | null;
+  show_rates_url_on_quotes?: boolean | null;
+  show_rates_url_on_website_footer?: boolean | null;
+  show_trading_terms_url_on_invoices?: boolean | null;
+  show_trading_terms_url_on_quotes?: boolean | null;
+  show_trading_terms_url_on_website_footer?: boolean | null;
   job_number_prefix?: string | null;
   google_calendar_enabled?: boolean | null;
   google_client_id?: string | null;
@@ -45,6 +51,8 @@ export interface CompanySettings {
   invoice_footer_text?: string | null;
   quote_footer_text?: string | null;
   invoice_bank_details?: string | null;
+  show_bank_details_on_invoices?: boolean | null;
+  show_bank_details_on_quotes?: boolean | null;
   invoice_additional_text?: string | null;
   quote_additional_text?: string | null;
   payment_link_url?: string | null;
