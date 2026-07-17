@@ -89,6 +89,7 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
       company_oftec_number: s?.oftec_number || null,
       company_footer_text: s?.invoice_footer_text || null,
       company_bank_details: s?.invoice_bank_details || null,
+      company_additional_text: s?.invoice_additional_text || null,
       customer_name: customerName,
       customer_address_line1: c?.address_line1 || (propertyData as any)?.address_line1 || null,
       customer_address_line2: c?.address_line2 || (propertyData as any)?.address_line2 || null,

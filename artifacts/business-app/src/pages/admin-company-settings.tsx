@@ -746,7 +746,10 @@ export default function AdminCompanySettings() {
       quote_next_number: settings.quote_next_number ?? 1,
       quote_validity_days: settings.quote_validity_days ?? 30,
       invoice_footer_text: settings.invoice_footer_text ?? "",
+      quote_footer_text: settings.quote_footer_text ?? settings.invoice_footer_text ?? "",
       invoice_bank_details: settings.invoice_bank_details ?? "",
+      invoice_additional_text: settings.invoice_additional_text ?? "",
+      quote_additional_text: settings.quote_additional_text ?? "",
       payment_link_url: settings.payment_link_url ?? "",
       invoicing_provider: (settings.invoicing_provider as "native" | "external" | "both") ?? "native",
       // Branding
@@ -1928,6 +1931,28 @@ export default function AdminCompanySettings() {
               </p>
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="invoice_additional_text">Invoice Additional Text</Label>
+              <Textarea
+                id="invoice_additional_text"
+                placeholder="e.g. Deposit of 50% required before works commence. Remaining balance due within 7 days of completion."
+                rows={3}
+                className="resize-none text-sm"
+                {...register("invoice_additional_text")}
+              />
+              <p className="text-xs text-muted-foreground">Shown on invoice PDFs and invoice emails for payment terms or deposit requirements.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="quote_additional_text">Quote Additional Text</Label>
+              <Textarea
+                id="quote_additional_text"
+                placeholder="e.g. 30% deposit required to secure this booking. Materials subject to supplier availability."
+                rows={3}
+                className="resize-none text-sm"
+                {...register("quote_additional_text")}
+              />
+              <p className="text-xs text-muted-foreground">Shown on quote PDFs and quote emails for quote-specific terms.</p>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="invoice_footer_text">Invoice Footer Text</Label>
               <Textarea
                 id="invoice_footer_text"
@@ -1935,6 +1960,16 @@ export default function AdminCompanySettings() {
                 rows={2}
                 className="resize-none text-sm"
                 {...register("invoice_footer_text")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="quote_footer_text">Quote Footer Text</Label>
+              <Textarea
+                id="quote_footer_text"
+                placeholder="e.g. Thank you for considering us. This quotation is subject to our standard terms."
+                rows={2}
+                className="resize-none text-sm"
+                {...register("quote_footer_text")}
               />
             </div>
           </CardContent>

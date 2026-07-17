@@ -654,7 +654,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `invoice-${invoice?.invoice_number || id}.pdf`;
+      a.download = `${invoice?.type === "quote" ? "quote" : "invoice"}-${invoice?.invoice_number || id}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {

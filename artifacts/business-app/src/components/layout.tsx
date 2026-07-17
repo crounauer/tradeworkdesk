@@ -1,5 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useInitData } from "@/hooks/use-init-data";
@@ -24,6 +24,7 @@ import { useOfflineReferenceDataSync } from "@/hooks/use-offline-data";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const searchString = useSearch();
   const { profile, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -137,7 +138,12 @@ export function Layout({ children }: { children: ReactNode }) {
       ? [{ href: "/booking", label: "Online Bookings", icon: CalendarCheck }]
       : []),
     { href: "/jobs", label: "Jobs", icon: Briefcase },
-    ...(companySettings?.invoicing_provider !== "external" ? [{ href: "/invoices", label: "Invoices", icon: Receipt }] : []),
+    ...(companySettings?.invoicing_provider !== "external"
+      ? [
+          { href: "/invoices", label: "Invoices", icon: Receipt },
+          { href: "/invoices?type=quote", label: "Quotes", icon: FileText },
+        ]
+      : []),
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
     { href: "/todos", label: "To-Do List", icon: CheckSquare },
@@ -217,8 +223,16 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   const renderNavLink = (item: { href: string; label: string; icon: React.ElementType }, onClick?: () => void, mobile?: boolean) => {
-    const isActive = item.href === "/" 
-      ? location === "/" 
+    const currentType = new URLSearchParams(searchString).get("type");
+    const isInvoicesBase = location === "/invoices";
+    const isQuoteNavItem = item.href === "/invoices?type=quote";
+    const isInvoiceNavItem = item.href === "/invoices";
+    const isActive = isQuoteNavItem
+      ? isInvoicesBase && currentType === "quote"
+      : isInvoiceNavItem
+      ? isInvoicesBase && currentType !== "quote"
+      : item.href === "/"
+      ? location === "/"
       : location === item.href || location.startsWith(item.href + "/");
     const enquiryBadge = item.href === "/enquiries" && openEnquiryCount > 0 ? openEnquiryCount : null;
     const followUpBadge = item.href === "/follow-ups" && activeFollowUpsCount > 0 ? activeFollowUpsCount : null;

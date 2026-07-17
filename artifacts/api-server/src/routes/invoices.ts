@@ -113,6 +113,11 @@ async function buildPdfData(
   const customerName = customer
     ? `${customer.first_name} ${customer.last_name}`.trim()
     : "Unknown Customer";
+  const isQuote = (invoice.type as string) === "quote";
+  const invoiceFooterText = (settings?.invoice_footer_text as string | null) || null;
+  const quoteFooterText = (settings?.quote_footer_text as string | null) || null;
+  const invoiceAdditionalText = (settings?.invoice_additional_text as string | null) || null;
+  const quoteAdditionalText = (settings?.quote_additional_text as string | null) || null;
 
   // Load job for human-readable ref and property_id
   const { data: job } = invoice.job_id
@@ -154,8 +159,9 @@ async function buildPdfData(
     company_gas_safe_number: settings?.gas_safe_number,
     company_oftec_number: settings?.oftec_number,
     company_logo_url: settings?.logo_url,
-    company_footer_text: settings?.invoice_footer_text,
+    company_footer_text: isQuote ? (quoteFooterText || invoiceFooterText) : invoiceFooterText,
     company_bank_details: settings?.invoice_bank_details,
+    company_additional_text: isQuote ? quoteAdditionalText : invoiceAdditionalText,
     company_rates_url: settings?.rates_url,
     company_trading_terms_url: settings?.trading_terms_url,
     // Customer
@@ -694,6 +700,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   }
 
   try {
+    const isQuote = (invoice.type as string) === "quote";
     await sendInvoiceDocumentEmail({
       to: toEmail,
       type: invoice.type as "invoice" | "quote",
@@ -705,6 +712,9 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       paymentTermsDays: settings?.default_payment_terms_days ?? null,
       expiryDate: invoice.expiry_date as string | null,
       customerNotes: invoice.customer_notes as string | null,
+      additionalText: isQuote
+        ? ((settings?.quote_additional_text as string | null) || null)
+        : ((settings?.invoice_additional_text as string | null) || null),
       worksOrder: invoice.works_order as string | null,
       bankDetails: settings?.invoice_bank_details ?? null,
       pdfBuffer,

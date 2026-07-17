@@ -519,7 +519,8 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     // Invoicing settings
     "invoices_enabled", "invoice_number_prefix", "quote_number_prefix",
     "invoice_next_number", "quote_next_number", "quote_validity_days",
-    "invoice_footer_text", "invoice_bank_details",
+    "invoice_footer_text", "quote_footer_text", "invoice_bank_details",
+    "invoice_additional_text", "quote_additional_text",
     // Payment method toggles
     "stripe_payments_enabled", "gocardless_payments_enabled",
     // Invoicing provider preference
@@ -1382,30 +1383,12 @@ type ServiceCatalogueSyncRow = {
   show_in_job_type_dropdown: boolean | null;
 };
 
-const SERVICE_CATALOGUE_WEBSITE_FIELDS = [
-  "show_in_website_service_rates",
-  "website_service_description",
-  "website_service_badge",
-  "website_service_price_text",
-  "website_service_cta_text",
-  "website_service_cta_url",
-  "website_service_display_order",
-] as const;
-
 function isMissingServiceCatalogueWebsiteColumnError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const code = "code" in error ? String((error as { code?: unknown }).code || "") : "";
   const message = "message" in error ? String((error as { message?: unknown }).message || "") : "";
   if (code === "PGRST204") return true;
   return message.includes("service_catalogue") && message.includes("schema cache") && message.includes("Could not find the");
-}
-
-function stripWebsiteFields(payload: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...payload };
-  for (const key of SERVICE_CATALOGUE_WEBSITE_FIELDS) {
-    delete next[key];
-  }
-  return next;
 }
 
 router.get("/admin/service-catalogue", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -1459,9 +1442,13 @@ router.post("/admin/service-catalogue", requireAuth, requireTenant, requireRole(
     website_service_display_order: website_service_display_order != null ? Math.max(0, Math.round(Number(website_service_display_order))) : 0,
   };
 
-  let { data, error } = await supabaseAdmin.from("service_catalogue").insert(insertPayload).select().single();
+  const { data, error } = await supabaseAdmin.from("service_catalogue").insert(insertPayload).select().single();
   if (error && isMissingServiceCatalogueWebsiteColumnError(error)) {
-    ({ data, error } = await supabaseAdmin.from("service_catalogue").insert(stripWebsiteFields(insertPayload)).select().single());
+    res.status(500).json({
+      error: "Database schema is missing service catalogue website-rate columns. Run migration 0123_service_catalogue_website_rates.sql.",
+      code: "SERVICE_CATALOGUE_SCHEMA_OUTDATED",
+    });
+    return;
   }
   if (error) { res.status(500).json({ error: error.message }); return; }
 
@@ -1509,9 +1496,13 @@ router.put("/admin/service-catalogue/:id", requireAuth, requireTenant, requireRo
   }
   if (is_active !== undefined) updates.is_active = is_active;
 
-  let { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
+  const { data, error } = await supabaseAdmin.from("service_catalogue").update(updates).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single();
   if (error && isMissingServiceCatalogueWebsiteColumnError(error)) {
-    ({ data, error } = await supabaseAdmin.from("service_catalogue").update(stripWebsiteFields(updates)).eq("id", req.params.id).eq("tenant_id", req.tenantId!).select().single());
+    res.status(500).json({
+      error: "Database schema is missing service catalogue website-rate columns. Run migration 0123_service_catalogue_website_rates.sql.",
+      code: "SERVICE_CATALOGUE_SCHEMA_OUTDATED",
+    });
+    return;
   }
   if (error) { res.status(500).json({ error: error.message }); return; }
 

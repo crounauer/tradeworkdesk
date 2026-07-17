@@ -605,6 +605,9 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     .maybeSingle();
 
   const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer";
+  const isQuote = (invoice.type as string) === "quote";
+  const invoiceFooterText = (cs as any)?.invoice_footer_text || null;
+  const quoteFooterText = (cs as any)?.quote_footer_text || null;
 
   const pdfData = {
     type: invoice.type as "invoice" | "quote",
@@ -626,8 +629,11 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     company_vat_number: (cs as any)?.vat_number || null,
     company_gas_safe_number: (cs as any)?.gas_safe_number || null,
     company_oftec_number: (cs as any)?.oftec_number || null,
-    company_footer_text: (cs as any)?.invoice_footer_text || null,
+    company_footer_text: isQuote ? (quoteFooterText || invoiceFooterText) : invoiceFooterText,
     company_bank_details: (cs as any)?.invoice_bank_details || null,
+    company_additional_text: isQuote
+      ? ((cs as any)?.quote_additional_text || null)
+      : ((cs as any)?.invoice_additional_text || null),
     customer_name: customerName,
     customer_address_line1: customer?.address_line1 || (property as any)?.address_line1 || null,
     customer_address_line2: customer?.address_line2 || (property as any)?.address_line2 || null,

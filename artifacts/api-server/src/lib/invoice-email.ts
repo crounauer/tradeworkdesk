@@ -53,6 +53,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   expiryDate?: string | null;
   worksOrder?: string | null;
   customerNotes?: string | null;
+  additionalText?: string | null;
   bankDetails?: string | null;
   pdfBuffer: Buffer;
   company?: EmailCompanyDetails;
@@ -93,6 +94,13 @@ export async function sendInvoiceDocumentEmail(opts: {
   const customerNotesHtml = opts.customerNotes
     ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0;font-size:14px;color:#334155;">${escHtml(opts.customerNotes).replace(/\n/g, "<br/>")}</p>
+       </div>`
+    : "";
+
+  const additionalTextHtml = opts.additionalText
+    ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#9a3412;">Additional Terms</p>
+        <p style="margin:0;font-size:14px;color:#7c2d12;">${escHtml(opts.additionalText).replace(/\n/g, "<br/>")}</p>
        </div>`
     : "";
 
@@ -161,6 +169,7 @@ export async function sendInvoiceDocumentEmail(opts: {
         ${dateInfo}
       </div>
       ${worksOrderHtml}
+      ${additionalTextHtml}
       ${customerNotesHtml}
       ${!isQuote && opts.portalUrl ? opts.hasPaymentProvider ? `
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin:20px 0;">

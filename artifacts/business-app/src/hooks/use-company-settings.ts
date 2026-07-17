@@ -43,7 +43,10 @@ export interface CompanySettings {
   quote_next_number?: number | null;
   quote_validity_days?: number | null;
   invoice_footer_text?: string | null;
+  quote_footer_text?: string | null;
   invoice_bank_details?: string | null;
+  invoice_additional_text?: string | null;
+  quote_additional_text?: string | null;
   payment_link_url?: string | null;
   stripe_payments_enabled?: boolean | null;
   gocardless_payments_enabled?: boolean | null;

@@ -130,7 +130,7 @@ function InvoicesContent() {
       a.href = url;
       const disposition = res.headers.get("Content-Disposition") || "";
       const match = disposition.match(/filename="?([^"]+)"?/);
-      a.download = match?.[1] ?? `invoices-export.csv`;
+      a.download = match?.[1] ?? `${tab === "quote" ? "quotes" : "invoices"}-export.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch { /* silently fail */ }
@@ -185,8 +185,8 @@ function InvoicesContent() {
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-3">
-          <Receipt className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold">Invoices & Quotes</h1>
+          {tab === "quote" ? <FileText className="w-6 h-6 text-primary" /> : <Receipt className="w-6 h-6 text-primary" />}
+          <h1 className="text-2xl font-bold">{tab === "quote" ? "Quotes" : "Invoices"}</h1>
         </div>
         <div className="flex gap-2">
           <Button
@@ -222,7 +222,12 @@ function InvoicesContent() {
         {(["invoice", "quote"] as Tab[]).map((t) => (
           <button
             key={t}
-            onClick={() => { setTab(t); setPage(1); setStatusFilter(""); }}
+            onClick={() => {
+              setTab(t);
+              setPage(1);
+              setStatusFilter("");
+              navigate(`/invoices?type=${t}`);
+            }}
             className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
               tab === t
                 ? "border-primary text-primary"
