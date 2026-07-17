@@ -5,6 +5,7 @@ import path from "path";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
 import { sendBetaInviteCodeEmail, sendWelcomeEmail } from "../lib/email";
+import { notifySuperAdminsPlatformIncident } from "../lib/support-ticket-notifications";
 import { stripe } from "../lib/stripe";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth, grantTrialUsageCredits } from "../lib/tenant-limits";
 import { addDomainToFly, removeDomainFromFly } from "../lib/fly-certs";
@@ -121,6 +122,474 @@ function isAnnouncementTargetedToTenant(announcement: { target_tenant_ids?: unkn
   if (!tenantId) return false;
   return targeted.some((id) => String(id) === tenantId);
 }
+
+type HealthStatus = "healthy" | "degraded" | "down";
+
+type TimedCheck = {
+  ok: boolean;
+  latency_ms: number;
+  status_code?: number;
+  error?: string;
+};
+
+type ServiceHealth = {
+  provider: "fly" | "vercel" | "supabase";
+  status: HealthStatus;
+  checks: Record<string, TimedCheck>;
+  details?: Record<string, unknown>;
+};
+
+function statusFromChecks(checks: TimedCheck[]): HealthStatus {
+  if (checks.length === 0) return "down";
+  const okCount = checks.filter((c) => c.ok).length;
+  if (okCount === checks.length) return "healthy";
+  if (okCount === 0) return "down";
+  return "degraded";
+}
+
+function buildHealthDigest(overallStatus: HealthStatus, issues: Array<{ service: string; check: string; error: string; status_code?: number }>): string {
+  const sorted = [...issues].sort((a, b) => `${a.service}:${a.check}`.localeCompare(`${b.service}:${b.check}`));
+  return JSON.stringify({
+    overall_status: overallStatus,
+    issues: sorted.map((issue) => ({
+      service: issue.service,
+      check: issue.check,
+      error: issue.error,
+      status_code: issue.status_code || null,
+    })),
+  });
+}
+
+async function upsertPlatformHealthState(state: Record<string, unknown>): Promise<void> {
+  await supabaseAdmin
+    .from("platform_settings")
+    .upsert(
+      {
+        key: "platform_health_alert_state",
+        value: state,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" },
+    );
+}
+
+async function getPlatformHealthNotificationConfig(): Promise<{
+  cooldownMinutes: number;
+  notifyEmail: boolean;
+  notifySms: boolean;
+}> {
+  const fallbackCooldown = Number(process.env.PLATFORM_HEALTH_ALERT_COOLDOWN_MINUTES || 30);
+  const fallback = {
+    cooldownMinutes: Number.isFinite(fallbackCooldown) ? Math.max(5, fallbackCooldown) : 30,
+    notifyEmail: true,
+    notifySms: true,
+  };
+
+  const { data } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "platform_health_notification_config")
+    .maybeSingle();
+
+  const raw = data?.value as {
+    cooldown_minutes?: unknown;
+    notify_email?: unknown;
+    notify_sms?: unknown;
+  } | null;
+
+  const parsedCooldown = Number(raw?.cooldown_minutes);
+  return {
+    cooldownMinutes: Number.isFinite(parsedCooldown)
+      ? Math.max(5, Math.min(1440, parsedCooldown))
+      : fallback.cooldownMinutes,
+    notifyEmail: typeof raw?.notify_email === "boolean" ? raw.notify_email : fallback.notifyEmail,
+    notifySms: typeof raw?.notify_sms === "boolean" ? raw.notify_sms : fallback.notifySms,
+  };
+}
+
+async function maybeNotifyPlatformIncident(opts: {
+  req: AuthenticatedRequest;
+  checkedAt: string;
+  overallStatus: HealthStatus;
+  issues: Array<{ service: string; check: string; error: string; status_code?: number }>;
+}): Promise<void> {
+  const now = Date.now();
+  const notificationConfig = await getPlatformHealthNotificationConfig();
+  const cooldownMs = notificationConfig.cooldownMinutes * 60_000;
+  const digest = buildHealthDigest(opts.overallStatus, opts.issues);
+
+  const { data: stateRow } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "platform_health_alert_state")
+    .maybeSingle();
+
+  const existing = (stateRow?.value || {}) as {
+    last_status?: HealthStatus;
+    last_digest?: string;
+    last_notified_at?: string;
+    active_announcement_id?: string | null;
+  };
+
+  if (opts.overallStatus === "healthy") {
+    if (existing.active_announcement_id) {
+      await supabaseAdmin
+        .from("platform_announcements")
+        .update({ is_active: false, ends_at: opts.checkedAt })
+        .eq("id", existing.active_announcement_id);
+    }
+    await upsertPlatformHealthState({
+      last_status: "healthy",
+      last_digest: digest,
+      last_checked_at: opts.checkedAt,
+      last_notified_at: existing.last_notified_at || null,
+      active_announcement_id: null,
+    });
+    return;
+  }
+
+  const lastNotifiedAt = existing.last_notified_at ? new Date(existing.last_notified_at).getTime() : 0;
+  const shouldNotify =
+    !existing.last_notified_at ||
+    existing.last_digest !== digest ||
+    now - lastNotifiedAt >= cooldownMs;
+
+  if (!shouldNotify) {
+    await upsertPlatformHealthState({
+      ...existing,
+      last_status: opts.overallStatus,
+      last_digest: digest,
+      last_checked_at: opts.checkedAt,
+    });
+    return;
+  }
+
+  const title = opts.overallStatus === "down" ? "Platform incident: outage detected" : "Platform incident: degraded services";
+  const lines = opts.issues.slice(0, 6).map((issue) => {
+    const code = issue.status_code ? ` (HTTP ${issue.status_code})` : "";
+    return `- ${issue.service}/${issue.check}: ${issue.error}${code}`;
+  });
+  const body = [
+    `Automated health checks detected ${opts.overallStatus} platform status at ${new Date(opts.checkedAt).toLocaleString("en-GB")}.`,
+    "",
+    "Current issues:",
+    ...(lines.length > 0 ? lines : ["- No issue details returned."]),
+  ].join("\n");
+
+  let announcementId = existing.active_announcement_id || null;
+  if (announcementId) {
+    const { error } = await supabaseAdmin
+      .from("platform_announcements")
+      .update({
+        title,
+        body,
+        severity: opts.overallStatus === "down" ? "critical" : "warning",
+        starts_at: opts.checkedAt,
+        ends_at: null,
+        is_active: true,
+        target_admin_dashboard: true,
+        target_websites: false,
+      })
+      .eq("id", announcementId);
+    if (error) announcementId = null;
+  }
+
+  if (!announcementId) {
+    const { data: created } = await supabaseAdmin
+      .from("platform_announcements")
+      .insert({
+        title,
+        body,
+        severity: opts.overallStatus === "down" ? "critical" : "warning",
+        starts_at: opts.checkedAt,
+        ends_at: null,
+        is_active: true,
+        target_admin_dashboard: true,
+        target_websites: false,
+        created_by: opts.req.userId || null,
+      })
+      .select("id")
+      .maybeSingle();
+    announcementId = created?.id || null;
+  }
+
+  await notifySuperAdminsPlatformIncident({
+    overallStatus: opts.overallStatus,
+    checkedAt: opts.checkedAt,
+    issues: opts.issues,
+    notifyEmail: notificationConfig.notifyEmail,
+    notifySms: notificationConfig.notifySms,
+  }).catch((error: unknown) => {
+    console.error("[platform-health] Failed to notify super admins:", error);
+  });
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: opts.req.userId,
+    actor_email: opts.req.userEmail,
+    event_type: "platform_health_alert_sent",
+    entity_type: "platform_health",
+    entity_id: "platform_health",
+    detail: {
+      overall_status: opts.overallStatus,
+      issues: opts.issues,
+      announcement_id: announcementId,
+      notifications: {
+        email: notificationConfig.notifyEmail,
+        sms: notificationConfig.notifySms,
+        cooldown_minutes: notificationConfig.cooldownMinutes,
+      },
+    },
+  });
+
+  await upsertPlatformHealthState({
+    last_status: opts.overallStatus,
+    last_digest: digest,
+    last_checked_at: opts.checkedAt,
+    last_notified_at: opts.checkedAt,
+    active_announcement_id: announcementId,
+  });
+}
+
+async function timedHttpCheck(url: string, opts?: { timeoutMs?: number }): Promise<TimedCheck> {
+  const timeoutMs = opts?.timeoutMs ?? 6000;
+  const started = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "user-agent": "tradeworkdesk-platform-health/1.0",
+      },
+    });
+    return {
+      ok: res.ok,
+      latency_ms: Date.now() - started,
+      status_code: res.status,
+      ...(res.ok ? {} : { error: `HTTP ${res.status}` }),
+    };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      latency_ms: Date.now() - started,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function timedSupabaseCheck(fn: () => Promise<unknown>): Promise<TimedCheck> {
+  const started = Date.now();
+  try {
+    await fn();
+    return { ok: true, latency_ms: Date.now() - started };
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      latency_ms: Date.now() - started,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+  }
+}
+
+router.get("/platform/health", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const apiHealthUrl = process.env.API_PUBLIC_HEALTH_URL || "https://tradeworkdesk-api.fly.dev/health";
+  const rendererHealthUrl = process.env.RENDERER_PUBLIC_HEALTH_URL || "https://tradeworkdesk-renderer.fly.dev";
+  const marketingHealthUrl = process.env.MARKETING_SITE_URL || "https://www.tradeworkdesk.co.uk";
+
+  const [apiCheck, rendererCheck, marketingCheck, dbCheck, authCheck, storageCheck] = await Promise.all([
+    timedHttpCheck(apiHealthUrl),
+    timedHttpCheck(rendererHealthUrl),
+    timedHttpCheck(marketingHealthUrl),
+    timedSupabaseCheck(async () => {
+      const { error } = await supabaseAdmin.from("tenants").select("id", { count: "exact", head: true });
+      if (error) throw new Error(error.message);
+    }),
+    timedSupabaseCheck(async () => {
+      const { error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+      if (error) throw new Error(error.message);
+    }),
+    timedSupabaseCheck(async () => {
+      const { error } = await supabaseAdmin.storage.listBuckets();
+      if (error) throw new Error(error.message);
+    }),
+  ]);
+
+  let vercelDetails: Record<string, unknown> | undefined;
+  if (process.env.VERCEL_TOKEN && process.env.VERCEL_PROJECT_ID) {
+    try {
+      const started = Date.now();
+      const vercelRes = await fetch(
+        `https://api.vercel.com/v6/deployments?projectId=${encodeURIComponent(process.env.VERCEL_PROJECT_ID)}&target=production&limit=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
+            "user-agent": "tradeworkdesk-platform-health/1.0",
+          },
+        },
+      );
+      const body = await vercelRes.json().catch(() => ({}));
+      const deployment = Array.isArray((body as { deployments?: unknown[] }).deployments)
+        ? ((body as { deployments?: Array<Record<string, unknown>> }).deployments?.[0] || null)
+        : null;
+      vercelDetails = {
+        api_ok: vercelRes.ok,
+        api_latency_ms: Date.now() - started,
+        latest_deployment_state: deployment?.state || null,
+        latest_deployment_name: deployment?.name || null,
+        latest_deployment_created_at: deployment?.createdAt || null,
+      };
+    } catch (e: unknown) {
+      vercelDetails = {
+        api_ok: false,
+        error: e instanceof Error ? e.message : "Unknown error",
+      };
+    }
+  }
+
+  const services: Record<string, ServiceHealth> = {
+    twd_job_management: {
+      provider: "fly",
+      status: statusFromChecks([apiCheck]),
+      checks: {
+        health_endpoint: apiCheck,
+      },
+    },
+    tenant_websites: {
+      provider: "fly",
+      status: statusFromChecks([rendererCheck]),
+      checks: {
+        renderer_endpoint: rendererCheck,
+      },
+    },
+    marketing_site: {
+      provider: "vercel",
+      status: statusFromChecks([marketingCheck]),
+      checks: {
+        site_endpoint: marketingCheck,
+      },
+      ...(vercelDetails ? { details: vercelDetails } : {}),
+    },
+    supabase: {
+      provider: "supabase",
+      status: statusFromChecks([dbCheck, authCheck, storageCheck]),
+      checks: {
+        database: dbCheck,
+        auth: authCheck,
+        storage: storageCheck,
+      },
+    },
+  };
+
+  const serviceStatuses = Object.values(services).map((s) => s.status);
+  const overall_status: HealthStatus =
+    serviceStatuses.includes("down")
+      ? "down"
+      : serviceStatuses.includes("degraded")
+      ? "degraded"
+      : "healthy";
+
+  const issues: Array<{ service: string; check: string; error: string; status_code?: number }> = [];
+  for (const [serviceName, service] of Object.entries(services)) {
+    for (const [checkName, check] of Object.entries(service.checks)) {
+      if (!check.ok) {
+        issues.push({
+          service: serviceName,
+          check: checkName,
+          error: check.error || "Check failed",
+          ...(check.status_code ? { status_code: check.status_code } : {}),
+        });
+      }
+    }
+  }
+
+  const checkedAt = new Date().toISOString();
+  await maybeNotifyPlatformIncident({
+    req,
+    checkedAt,
+    overallStatus: overall_status,
+    issues,
+  }).catch((error: unknown) => {
+    console.error("[platform-health] Alert pipeline failed:", error);
+  });
+
+  res.json({
+    checked_at: checkedAt,
+    overall_status,
+    services,
+    issues,
+  });
+});
+
+router.post("/platform/health/simulate", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const inputStatus = String(req.body?.status || "").toLowerCase();
+  const status: HealthStatus = inputStatus === "down"
+    ? "down"
+    : inputStatus === "healthy"
+    ? "healthy"
+    : "degraded";
+
+  const checkedAt = new Date().toISOString();
+  const simulationId = Math.random().toString(36).slice(2, 10);
+  const issues: Array<{ service: string; check: string; error: string; status_code?: number }> =
+    status === "healthy"
+      ? []
+      : status === "down"
+      ? [
+          {
+            service: "twd_job_management",
+            check: "health_endpoint",
+            error: `Simulated outage test #${simulationId}`,
+            status_code: 503,
+          },
+          {
+            service: "supabase",
+            check: "database",
+            error: `Simulated database outage #${simulationId}`,
+          },
+        ]
+      : [
+          {
+            service: "marketing_site",
+            check: "site_endpoint",
+            error: `Simulated degraded response #${simulationId}`,
+            status_code: 502,
+          },
+        ];
+
+  await maybeNotifyPlatformIncident({
+    req,
+    checkedAt,
+    overallStatus: status,
+    issues,
+  }).catch((error: unknown) => {
+    console.error("[platform-health] Simulation failed:", error);
+  });
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "platform_health_simulation_triggered",
+    entity_type: "platform_health",
+    entity_id: "platform_health",
+    detail: {
+      status,
+      simulation_id: simulationId,
+      issues,
+    },
+  });
+
+  res.json({
+    ok: true,
+    simulated: true,
+    simulation_id: simulationId,
+    checked_at: checkedAt,
+    overall_status: status,
+    issues,
+  });
+});
 
 router.post("/public/marketing-site/analytics/track", async (req, res): Promise<void> => {
   const body = req.body as {

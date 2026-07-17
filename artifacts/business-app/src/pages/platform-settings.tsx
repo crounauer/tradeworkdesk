@@ -4,9 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download, Bell } from "lucide-react";
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -99,6 +101,205 @@ function PlatformSettingField({ settingKey, label, description, placeholder, hel
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">This key is stored securely and used platform-wide for all tenants.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type HealthNotificationConfig = {
+  cooldown_minutes: number;
+  notify_email: boolean;
+  notify_sms: boolean;
+};
+
+function PlatformHealthNotificationSettings() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [simulating, setSimulating] = useState<"degraded" | "down" | "healthy" | null>(null);
+  const [config, setConfig] = useState<HealthNotificationConfig>({
+    cooldown_minutes: 30,
+    notify_email: true,
+    notify_sms: true,
+  });
+
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}api/platform/settings/platform_health_notification_config`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const value = (data?.value || {}) as Partial<HealthNotificationConfig>;
+        setConfig({
+          cooldown_minutes: Number.isFinite(Number(value.cooldown_minutes))
+            ? Math.max(5, Math.min(1440, Number(value.cooldown_minutes)))
+            : 30,
+          notify_email: typeof value.notify_email === "boolean" ? value.notify_email : true,
+          notify_sms: typeof value.notify_sms === "boolean" ? value.notify_sms : true,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    const payload: HealthNotificationConfig = {
+      cooldown_minutes: Math.max(5, Math.min(1440, Number(config.cooldown_minutes) || 30)),
+      notify_email: !!config.notify_email,
+      notify_sms: !!config.notify_sms,
+    };
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/platform_health_notification_config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ value: payload }),
+      });
+      if (!res.ok) throw new Error("Failed to save setting");
+      setConfig(payload);
+      toast({ title: "Saved", description: "Platform health notification settings updated." });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      toast({ title: "Error", description: "Failed to save setting", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const runSimulation = async (status: "degraded" | "down" | "healthy") => {
+    setSimulating(status);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/health/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Simulation failed");
+
+      const title = status === "healthy"
+        ? "Recovery simulation sent"
+        : status === "down"
+        ? "Outage simulation sent"
+        : "Degraded simulation sent";
+      toast({ title, description: "Monitoring alerts and announcements were triggered using test data." });
+    } catch (error) {
+      toast({
+        title: "Simulation failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSimulating(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="h-20 animate-pulse bg-slate-100 rounded" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Bell className="w-4 h-4" />
+          Platform Health Notifications
+        </CardTitle>
+        <CardDescription>
+          Configure alert cooldown and delivery channels for Fly, Vercel and Supabase incident notifications.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5 max-w-xs">
+          <Label htmlFor="platform-health-cooldown">Alert cooldown (minutes)</Label>
+          <Input
+            id="platform-health-cooldown"
+            type="number"
+            min={5}
+            max={1440}
+            value={config.cooldown_minutes}
+            onChange={(e) => setConfig((prev) => ({
+              ...prev,
+              cooldown_minutes: Math.max(5, Math.min(1440, Number(e.target.value) || 30)),
+            }))}
+          />
+          <p className="text-xs text-muted-foreground">Minimum 5 mins, maximum 24 hours.</p>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Email alerts to super admins</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Sends incident emails when platform health degrades or goes down.</p>
+          </div>
+          <Switch
+            checked={config.notify_email}
+            onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, notify_email: checked }))}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>SMS alerts to super admins</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Uses SMS Works credentials if configured in this settings page.</p>
+          </div>
+          <Switch
+            checked={config.notify_sms}
+            onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, notify_sms: checked }))}
+          />
+        </div>
+
+        <div className="pt-1">
+          <Button onClick={handleSave} disabled={saving} size="sm">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : "Save"}
+          </Button>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>Alert simulation</Label>
+          <p className="text-xs text-muted-foreground">Trigger test incidents to validate dashboard announcements and superadmin notifications.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={simulating !== null}
+              onClick={() => runSimulation("degraded")}
+            >
+              {simulating === "degraded" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simulate Degraded"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={simulating !== null}
+              onClick={() => runSimulation("down")}
+            >
+              {simulating === "down" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simulate Outage"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={simulating !== null}
+              onClick={() => runSimulation("healthy")}
+            >
+              {simulating === "healthy" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simulate Recovery"}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -266,6 +467,10 @@ export default function PlatformSettings() {
           <TabsTrigger value="seo" className="gap-2">
             <Globe className="w-4 h-4" />
             SEO
+          </TabsTrigger>
+          <TabsTrigger value="monitoring" className="gap-2">
+            <Bell className="w-4 h-4" />
+            Monitoring
           </TabsTrigger>
         </TabsList>
 
@@ -523,6 +728,10 @@ export default function PlatformSettings() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="monitoring" className="space-y-4">
+          <PlatformHealthNotificationSettings />
         </TabsContent>
       </Tabs>
     </div>

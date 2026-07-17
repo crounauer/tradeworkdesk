@@ -8,6 +8,35 @@ import { useToast } from "@/hooks/use-toast";
 import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2, Globe, BarChart3, Target, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 
+type HealthStatus = "healthy" | "degraded" | "down";
+
+type TimedCheck = {
+  ok: boolean;
+  latency_ms: number;
+  status_code?: number;
+  error?: string;
+};
+
+type PlatformServiceHealth = {
+  provider: "fly" | "vercel" | "supabase";
+  status: HealthStatus;
+  checks: Record<string, TimedCheck>;
+  details?: Record<string, unknown>;
+};
+
+type PlatformHealthResponse = {
+  checked_at: string;
+  overall_status: HealthStatus;
+  services: Record<string, PlatformServiceHealth>;
+  issues: Array<{ service: string; check: string; error: string; status_code?: number }>;
+};
+
+function statusPillClass(status: HealthStatus): string {
+  if (status === "healthy") return "bg-emerald-100 text-emerald-700";
+  if (status === "degraded") return "bg-amber-100 text-amber-700";
+  return "bg-red-100 text-red-700";
+}
+
 const EMAIL_TEMPLATES = [
   { value: "welcome", label: "Welcome (new account)" },
   { value: "invoice", label: "Invoice / payment received" },
@@ -66,6 +95,16 @@ export default function PlatformDashboard() {
       if (!res.ok) throw new Error("Failed to load marketing analytics");
       return res.json();
     },
+  });
+
+  const { data: platformHealth, isLoading: healthLoading } = useQuery<PlatformHealthResponse>({
+    queryKey: ["platform-health"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/health");
+      if (!res.ok) throw new Error("Failed to load platform health");
+      return res.json();
+    },
+    refetchInterval: 60_000,
   });
 
   const indexNowMutation = useMutation({
@@ -222,6 +261,65 @@ export default function PlatformDashboard() {
           </Card>
         </div>
       )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            Platform Health (Fly / Vercel / Supabase)
+          </CardTitle>
+          <div className={`text-xs px-2.5 py-1 rounded-full font-semibold ${statusPillClass(platformHealth?.overall_status || "down")}`}>
+            {healthLoading ? "Checking..." : (platformHealth?.overall_status || "unknown")}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            {[
+              { key: "twd_job_management", label: "TWD Job Management" },
+              { key: "tenant_websites", label: "Tenant Websites" },
+              { key: "marketing_site", label: "Marketing Site" },
+              { key: "supabase", label: "Supabase" },
+            ].map((service) => {
+              const data = platformHealth?.services?.[service.key];
+              const checks = Object.values(data?.checks || {});
+              const avgLatency = checks.length > 0
+                ? Math.round(checks.reduce((sum, c) => sum + (c.latency_ms || 0), 0) / checks.length)
+                : null;
+              return (
+                <div key={service.key} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-sm font-medium">{service.label}</p>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${statusPillClass(data?.status || "down")}`}>
+                      {data?.status || "unknown"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Provider: {data?.provider || "n/a"}</p>
+                  <p className="text-xs text-muted-foreground">Avg latency: {avgLatency != null ? `${avgLatency}ms` : "n/a"}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {platformHealth?.issues?.length ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-red-700">Open Health Issues</p>
+              {platformHealth.issues.slice(0, 6).map((issue, idx) => (
+                <p key={`${issue.service}-${issue.check}-${idx}`} className="text-xs text-red-700">
+                  {issue.service} / {issue.check}: {issue.error}{issue.status_code ? ` (HTTP ${issue.status_code})` : ""}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-sm text-emerald-700">No active issues detected.</p>
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Last checked: {platformHealth?.checked_at ? new Date(platformHealth.checked_at).toLocaleString() : "—"}
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>

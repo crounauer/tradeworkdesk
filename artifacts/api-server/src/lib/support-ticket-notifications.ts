@@ -158,3 +158,52 @@ export async function notifyTenantTicketUpdated(opts: {
     sendSms(phones, `Support ticket updated: ${opts.ticketSubject} (${statusLabel}).`),
   ]);
 }
+
+export async function notifySuperAdminsPlatformIncident(opts: {
+  overallStatus: "healthy" | "degraded" | "down";
+  checkedAt: string;
+  issues: Array<{ service: string; check: string; error: string; status_code?: number }>;
+  notifyEmail?: boolean;
+  notifySms?: boolean;
+}): Promise<void> {
+  const { data: admins } = await supabaseAdmin
+    .from("profiles")
+    .select("email, phone")
+    .eq("role", "super_admin")
+    .eq("is_active", true);
+
+  const emails = dedupe((admins || []).map((admin) => (admin as { email?: string | null }).email));
+  const phones = dedupe((admins || []).map((admin) => (admin as { phone?: string | null }).phone));
+  if (emails.length === 0 && phones.length === 0) return;
+
+  const appUrl = process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const dashboardUrl = `${appUrl}/platform/dashboard`;
+  const headline =
+    opts.overallStatus === "down"
+      ? "Platform health alert: major outage detected"
+      : "Platform health alert: degraded services detected";
+  const topIssues = opts.issues.slice(0, 5);
+  const issueText = topIssues
+    .map((issue) => `- ${issue.service}/${issue.check}: ${issue.error}${issue.status_code ? ` (HTTP ${issue.status_code})` : ""}`)
+    .join("\n");
+  const issueHtml = topIssues
+    .map((issue) => `<li><strong>${issue.service}/${issue.check}</strong>: ${issue.error}${issue.status_code ? ` (HTTP ${issue.status_code})` : ""}</li>`)
+    .join("");
+
+  const subject = opts.overallStatus === "down"
+    ? "TradeWorkDesk Alert: Platform outage"
+    : "TradeWorkDesk Alert: Platform degradation";
+
+  const text = `${headline}\nStatus: ${opts.overallStatus}\nChecked: ${opts.checkedAt}\n\nIssues:\n${issueText || "- None listed"}\n\nOpen dashboard: ${dashboardUrl}`;
+  const html = `<p>${headline}</p><p><strong>Status:</strong> ${opts.overallStatus}<br/><strong>Checked:</strong> ${opts.checkedAt}</p><p><strong>Issues:</strong></p><ul>${issueHtml || "<li>None listed</li>"}</ul><p><a href="${dashboardUrl}" target="_blank" rel="noreferrer">Open platform dashboard</a></p>`;
+
+  const shouldEmail = opts.notifyEmail !== false;
+  const shouldSms = opts.notifySms !== false;
+
+  const tasks: Array<Promise<void>> = [];
+  if (shouldEmail) tasks.push(sendEmail(emails, { subject, text, html }));
+  if (shouldSms) tasks.push(sendSms(phones, `Platform ${opts.overallStatus}: ${opts.issues.length} issue(s). Check dashboard.`));
+  if (tasks.length === 0) return;
+
+  await Promise.allSettled(tasks);
+}

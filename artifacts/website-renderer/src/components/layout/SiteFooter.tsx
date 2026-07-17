@@ -158,7 +158,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
       </div>
     ) : layoutVariant === "minimal-columns" ? (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 26, marginBottom: 32 }}>
-        {[linksSection, contactSection, accreditationSection].filter(Boolean)}
+        {[linksSection, contactSection, accreditationSection, documentLinksSection].filter(Boolean)}
       </div>
     ) : (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 34, marginBottom: 40 }}>
