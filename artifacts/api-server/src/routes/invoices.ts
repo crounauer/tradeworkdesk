@@ -684,24 +684,26 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     try {
       const { data: tenantRow } = await supabaseAdmin
         .from("tenants")
-        .select("stripe_connect_account_id, stripe_connect_charges_enabled, gocardless_access_token, gocardless_organisation_id, paypal_client_id, truelayer_enabled, truelayer_sort_code, truelayer_account_number")
+        .select("stripe_connect_account_id, stripe_connect_charges_enabled, gocardless_access_token, gocardless_organisation_id, paypal_client_id, paypal_client_secret, truelayer_enabled, truelayer_sort_code, truelayer_account_number")
         .eq("id", req.tenantId!)
         .single();
       const t = tenantRow as any;
       const stripeEnabled = (settings as any)?.stripe_payments_enabled !== false;
       const gcEnabled = (settings as any)?.gocardless_payments_enabled !== false;
+      const hasManualPaymentLink = typeof (settings as any)?.payment_link_url === "string"
+        && (settings as any).payment_link_url.trim().length > 0;
       hasPaymentProvider =
         (stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled)) ||
         (gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id)) ||
-        !!(t?.paypal_client_id) ||
-        !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number) ||
-        !!(settings as any)?.payment_link_url;
+        !!(t?.paypal_client_id && t?.paypal_client_secret) ||
+        !!(process.env.TRUELAYER_CLIENT_ID && t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number) ||
+        hasManualPaymentLink;
       console.log("[invoices/send] hasPaymentProvider:", hasPaymentProvider, {
         stripe: stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled),
         gc: gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id),
-        paypal: !!(t?.paypal_client_id),
-        truelayer: !!(t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number),
-        paymentLink: !!(settings as any)?.payment_link_url,
+        paypal: !!(t?.paypal_client_id && t?.paypal_client_secret),
+        truelayer: !!(process.env.TRUELAYER_CLIENT_ID && t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number),
+        paymentLink: hasManualPaymentLink,
       });
     } catch {
       // Non-fatal — default to false
