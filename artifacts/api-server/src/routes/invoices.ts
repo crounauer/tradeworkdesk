@@ -690,26 +690,12 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       const t = tenantRow as any;
       const stripeEnabled = (settings as any)?.stripe_payments_enabled !== false;
       const gcEnabled = (settings as any)?.gocardless_payments_enabled !== false;
-      const paymentsGloballyDisabled = (settings as any)?.stripe_payments_enabled === false
-        && (settings as any)?.gocardless_payments_enabled === false;
-      const hasManualPaymentLink = typeof (settings as any)?.payment_link_url === "string"
-        && (settings as any).payment_link_url.trim().length > 0;
-      hasPaymentProvider =
-        (stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled)) ||
-        (gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id)) ||
-        !!(t?.paypal_client_id && t?.paypal_client_secret) ||
-        !!(process.env.TRUELAYER_CLIENT_ID && t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number) ||
-        hasManualPaymentLink;
-      if (paymentsGloballyDisabled) {
-        hasPaymentProvider = false;
-      }
+      const stripeProviderReady = stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled);
+      const gcProviderReady = gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id);
+      hasPaymentProvider = stripeProviderReady || gcProviderReady;
       console.log("[invoices/send] hasPaymentProvider:", hasPaymentProvider, {
-        stripe: stripeEnabled && !!(t?.stripe_connect_account_id && t?.stripe_connect_charges_enabled),
-        gc: gcEnabled && !!(t?.gocardless_access_token && t?.gocardless_organisation_id),
-        paypal: !!(t?.paypal_client_id && t?.paypal_client_secret),
-        truelayer: !!(process.env.TRUELAYER_CLIENT_ID && t?.truelayer_enabled && t?.truelayer_sort_code && t?.truelayer_account_number),
-        paymentLink: hasManualPaymentLink,
-        paymentsGloballyDisabled,
+        stripe: stripeProviderReady,
+        gc: gcProviderReady,
       });
     } catch {
       // Non-fatal — default to false
