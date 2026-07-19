@@ -59,6 +59,16 @@ interface Website {
   status: string;
 }
 
+function normalizePagePath(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9/-]+/g, "-")
+    .replace(/\/+/g, "/")
+    .replace(/-+/g, "-")
+    .replace(/(^\/|\/$)/g, "")
+    .replace(/(^-|-$)/g, "");
+}
+
 export default function WebsitePages() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -114,7 +124,7 @@ export default function WebsitePages() {
   });
 
   function handleTitleChange(title: string) {
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const slug = normalizePagePath(title.replace(/\s+/g, "-"));
     setNewPage((p) => ({ ...p, title, slug }));
   }
 
@@ -214,15 +224,16 @@ export default function WebsitePages() {
               />
             </div>
             <div className="space-y-1">
-              <Label>URL Slug</Label>
+              <Label>URL Path</Label>
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground text-sm">/</span>
                 <Input
-                  placeholder="about-us"
+                  placeholder="heating/oil"
                   value={newPage.slug}
-                  onChange={(e) => setNewPage((p) => ({ ...p, slug: e.target.value }))}
+                  onChange={(e) => setNewPage((p) => ({ ...p, slug: normalizePagePath(e.target.value) }))}
                 />
               </div>
+              <p className="text-xs text-muted-foreground">Use `/` to create nested URLs, for example `heating/oil`.</p>
             </div>
           </div>
           <DialogFooter>

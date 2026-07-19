@@ -1926,6 +1926,16 @@ interface CompanyData {
   phoneUrl: string;
 }
 
+function normalizeWebsitePageSlug(value: unknown): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9/-]+/g, "-")
+    .replace(/\/+/g, "/")
+    .replace(/-+/g, "-")
+    .replace(/(^\/|\/$)/g, "")
+    .replace(/(^-|-$)/g, "");
+}
+
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 router.get(
@@ -1961,14 +1971,16 @@ router.post(
 
     const { slug, title, page_type = "custom", meta_title, meta_description, show_in_nav = false, nav_label, nav_order } = req.body as Record<string, unknown>;
 
-    if (!slug || !title) { res.status(400).json({ error: "slug and title are required" }); return; }
+    const normalizedSlug = normalizeWebsitePageSlug(slug);
+
+    if (!normalizedSlug || !title) { res.status(400).json({ error: "slug and title are required" }); return; }
 
     const { data, error } = await db
       .from("website_pages")
       .insert({
         website_id: website.id,
         tenant_id: req.tenantId,
-        slug: String(slug).toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+        slug: normalizedSlug,
         title,
         page_type,
         status: "draft",
@@ -1983,7 +1995,7 @@ router.post(
 
     if (error) {
       if (error.code === "23505") {
-        res.status(409).json({ error: `A page with slug '${slug}' already exists` });
+        res.status(409).json({ error: `A page with slug '${normalizedSlug}' already exists` });
       } else {
         res.status(500).json({ error: "Failed to create page" });
       }
@@ -2047,6 +2059,15 @@ router.patch(
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in req.body) updates[key] = req.body[key];
+    }
+
+    if ("slug" in updates) {
+      const normalizedSlug = normalizeWebsitePageSlug(updates.slug);
+      if (!normalizedSlug) {
+        res.status(400).json({ error: "slug cannot be empty" });
+        return;
+      }
+      updates.slug = normalizedSlug;
     }
 
     const { data, error } = await db

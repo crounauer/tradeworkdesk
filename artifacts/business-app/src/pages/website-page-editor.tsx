@@ -5692,17 +5692,19 @@ export default function WebsitePageEditor() {
                           onChange={(e) => {
                             const raw = e.target.value
                               .toLowerCase()
-                              .replace(/[^a-z0-9-/]/g, "-")
+                              .replace(/[^a-z0-9/-]+/g, "-")
+                              .replace(/\/+/g, "/")
                               .replace(/-+/g, "-")
-                              .replace(/^\//, "");
+                              .replace(/(^\/|\/$)/g, "")
+                              .replace(/(^-|-$)/g, "");
                             setMetaForm((f) => ({ ...f, slug: raw }));
                           }}
                           className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          placeholder="page-url"
+                          placeholder="heating/oil"
                         />
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground mt-0.5">Only lowercase letters, numbers and hyphens</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Use lowercase letters, numbers, hyphens, and optional `/` segments for nested URLs.</p>
                   </FieldRow>
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Show in navigation</Label>
