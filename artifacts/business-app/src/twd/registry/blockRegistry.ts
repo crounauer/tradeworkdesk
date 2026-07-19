@@ -28,7 +28,7 @@ export const twdBlockRegistry = [
     type: 'site.header',
     label: 'Site Header',
     category: 'site',
-    editableFields: ['logoText', 'navItems', 'phone', 'ctaLabel', 'ctaHref', 'scheduleText', 'locationText', 'layout', 'headerStyle', 'tone', 'ctaStyle', 'variant'],
+    editableFields: ['logoText', 'phone', 'ctaLabel', 'ctaHref', 'scheduleText', 'locationText', 'layout', 'headerStyle', 'tone', 'ctaStyle', 'variant'],
   },
   {
     type: 'hero.standard',

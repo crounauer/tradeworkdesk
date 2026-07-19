@@ -122,6 +122,7 @@ interface Page {
   slug: string;
   page_type: string;
   status: "draft" | "published" | "archived";
+  nav_order?: number;
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
@@ -854,11 +855,13 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
 function BlockEditor({
   block,
   onChange,
+  navigationItems,
   previewEnabled,
   onTogglePreview,
 }: {
   block: Block;
   onChange: (content: Record<string, unknown>) => void;
+  navigationItems: Array<{ label: string; href: string }>;
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
 }) {
@@ -880,13 +883,7 @@ function BlockEditor({
       const variant = readString(c, ["variant"], "default");
       const scheduleText = readString(c, ["scheduleText", "schedule_text"]);
       const locationText = readString(c, ["locationText", "location_text"]);
-      const navItems = readArray<{ label: string; href: string }>(c, ["navItems", "nav_items"]).map((item) => ({
-        label: String(item.label ?? ""),
-        href: String(item.href ?? ""),
-      }));
-      const updateNavItems = (next: Array<{ label: string; href: string }>) => {
-        onChange(syncBlockContent(c, { navItems: next, nav_items: next }, { navItems: ["nav_items"], nav_items: ["navItems"] }));
-      };
+      const navItems = navigationItems;
       const isPreviewVisible = previewEnabled !== false;
 
       return (
@@ -988,21 +985,12 @@ function BlockEditor({
                   </FieldRow>
 
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Navigation Items</Label>
-                    {navItems.map((item, i) => (
-                      <div key={i} className="rounded border p-3 space-y-2">
-                        <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                          <Input value={item.label} onChange={(e) => { const next = [...navItems]; next[i] = { ...next[i], label: e.target.value }; updateNavItems(next); }} placeholder="Home" />
-                          <Input value={item.href} onChange={(e) => { const next = [...navItems]; next[i] = { ...next[i], href: e.target.value }; updateNavItems(next); }} placeholder="/" />
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => updateNavItems(navItems.filter((_, j) => j !== i))}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={() => updateNavItems([...navItems, { label: "", href: "" }])}>
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Nav Item
-                    </Button>
+                    <Label className="text-xs text-muted-foreground">Navigation Source</Label>
+                    <div className="rounded border p-3 text-xs text-muted-foreground">
+                      {navItems.length > 0
+                        ? `Using ${navItems.length} published page${navItems.length === 1 ? "" : "s"} with Show in navigation enabled.`
+                        : "No published pages are currently set to show in navigation."}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -5223,6 +5211,7 @@ function BlockCard({
   block,
   index,
   total,
+  navigationItems,
   onMove,
   onToggleVisible,
   onDelete,
@@ -5233,6 +5222,7 @@ function BlockCard({
   block: Block;
   index: number;
   total: number;
+  navigationItems: Array<{ label: string; href: string }>;
   onMove: (from: number, to: number) => void;
   onToggleVisible: (id: string) => void;
   onDelete: (id: string) => void;
@@ -5304,6 +5294,7 @@ function BlockCard({
               <BlockEditor
                 block={block}
                 onChange={(content) => onContentChange(block.id, content)}
+                navigationItems={navigationItems}
                 previewEnabled={previewEnabled}
                 onTogglePreview={onTogglePreview}
               />
@@ -5541,6 +5532,17 @@ export default function WebsitePageEditor() {
   const isSaving = saveBlocksMutation.isPending || saveMetaMutation.isPending;
   const pagePathParts = splitPagePath(metaForm.slug);
   const parentPageOptions = allPages.filter((candidate) => candidate.id !== page.id && candidate.page_type !== "home");
+  const headerNavItems = [...allPages]
+    .filter((candidate) => candidate.status === "published" && candidate.show_in_nav)
+    .sort((a, b) => (a.nav_order ?? 0) - (b.nav_order ?? 0))
+    .map((candidate) => {
+      const normalizedSlug = String(candidate.slug || "").replace(/^\/+/, "");
+      const href = candidate.page_type === "home" ? "/" : `/${normalizedSlug}`;
+      return {
+        label: (candidate.nav_label || candidate.title || "").trim() || "Untitled",
+        href,
+      };
+    });
 
   function updatePagePath(next: Partial<{ parentSlug: string; segment: string }>) {
     const parentSlug = next.parentSlug ?? pagePathParts.parentSlug;
@@ -5680,6 +5682,7 @@ export default function WebsitePageEditor() {
                 block={block}
                 index={index}
                 total={blocks.length}
+                navigationItems={headerNavItems}
                 onMove={moveBlock}
                 onToggleVisible={toggleVisible}
                 onDelete={(id) => setDeletingBlockId(id)}
