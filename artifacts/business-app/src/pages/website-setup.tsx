@@ -613,36 +613,38 @@ export default function WebsiteSetup() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Domain + Business Email</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain to your website.
-          </p>
-        </CardHeader>
-        <CardContent className="pt-0 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {hasPartnerLink ? (
-              <Button asChild size="sm">
-                <a
-                  href={DOMAIN_EMAIL_PARTNER_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_setup")}
-                >
-                  Buy domain + email
-                </a>
+      {!activeCustomDomain && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Domain + Business Email</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain to your website.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {hasPartnerLink ? (
+                <Button asChild size="sm">
+                  <a
+                    href={DOMAIN_EMAIL_PARTNER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_setup")}
+                  >
+                    Buy domain + email
+                  </a>
+                </Button>
+              ) : null}
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/website/domain" onClick={() => trackDomainEmailClick("already_have_domain_click", "website_setup")}>I already have a domain</Link>
               </Button>
-            ) : null}
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/website/domain" onClick={() => trackDomainEmailClick("already_have_domain_click", "website_setup")}>I already have a domain</Link>
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            TradeWorkDesk supports website setup and publishing. Domain registration, mailbox billing, and mailbox support are handled by the provider.
-          </p>
-        </CardContent>
-      </Card>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              TradeWorkDesk supports website setup and publishing. Domain registration, mailbox billing, and mailbox support are handled by the provider.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Change Template Modal */}
       {showChangeTemplate && templates && templates.length > 0 && (

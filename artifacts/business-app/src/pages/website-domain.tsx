@@ -199,6 +199,7 @@ export default function WebsiteDomain() {
 
   const platformDomain = domains.find((d) => d.is_platform_subdomain);
   const customDomains = domains.filter((d) => !d.is_platform_subdomain);
+  const activeCustomDomain = customDomains.find((d) => d.verification_status === "verified" || d.is_active);
   const hasPartnerLink = DOMAIN_EMAIL_PARTNER_URL.trim().length > 0;
 
   const addMutation = useMutation({
@@ -257,41 +258,43 @@ export default function WebsiteDomain() {
         Your site comes with a free address instantly. You can also connect your own domain (e.g. <code className="text-xs bg-muted px-1 rounded">www.myplumbingco.co.uk</code>) at any time.
       </p>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Get a domain and business email</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain here.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {hasPartnerLink ? (
-              <Button asChild>
-                <a
-                  href={DOMAIN_EMAIL_PARTNER_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_domain")}
-                >
-                  Buy domain + email
-                </a>
+      {!activeCustomDomain && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Get a domain and business email</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain here.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {hasPartnerLink ? (
+                <Button asChild>
+                  <a
+                    href={DOMAIN_EMAIL_PARTNER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_domain")}
+                  >
+                    Buy domain + email
+                  </a>
+                </Button>
+              ) : null}
+              <Button variant="outline" asChild>
+                <a href="#connect-domain" onClick={() => trackDomainEmailClick("already_have_domain_click", "website_domain")}>I already have a domain</a>
               </Button>
-            ) : null}
-            <Button variant="outline" asChild>
-              <a href="#connect-domain" onClick={() => trackDomainEmailClick("already_have_domain_click", "website_domain")}>I already have a domain</a>
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            TradeWorkDesk supports website setup and publishing. Domain registration, mailbox billing, and mailbox support are handled by the provider.
-          </p>
-        </CardContent>
-      </Card>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              TradeWorkDesk supports website setup and publishing. Domain registration, mailbox billing, and mailbox support are handled by the provider.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Free platform subdomain */}
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : platformDomain ? (
+      ) : platformDomain && !activeCustomDomain ? (
         <Card className="border-green-200 bg-green-50">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
