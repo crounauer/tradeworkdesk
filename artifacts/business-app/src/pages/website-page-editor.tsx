@@ -98,7 +98,26 @@ interface Block {
   is_visible: boolean;
 }
 
+function splitPagePath(path: string): { parentSlug: string; segment: string } {
+  const normalized = path.replace(/^\//, "").replace(/\/$/, "");
+  if (!normalized) return { parentSlug: "", segment: "" };
+  const parts = normalized.split("/").filter(Boolean);
+  return {
+    parentSlug: parts.length > 1 ? parts.slice(0, -1).join("/") : "",
+    segment: parts[parts.length - 1] || "",
+  };
+}
+
+function joinPagePath(parentSlug: string, segment: string): string {
+  const normalizedParent = parentSlug.replace(/^\//, "").replace(/\/$/, "");
+  const normalizedSegment = segment.replace(/^\//, "").replace(/\/$/, "").split("/").pop() || "";
+  if (!normalizedParent) return normalizedSegment;
+  if (!normalizedSegment) return normalizedParent;
+  return `${normalizedParent}/${normalizedSegment}`;
+}
+
 interface Page {
+  id: string;
   title: string;
   slug: string;
   page_type: string;
@@ -5338,6 +5357,12 @@ export default function WebsitePageEditor() {
     enabled: !!pageId,
   });
 
+  const { data: allPages = [] } = useQuery<Page[]>({
+    queryKey: ["/api/website/pages"],
+    queryFn: () => apiFetch("/api/website/pages"),
+    enabled: !!pageId,
+  });
+
   // Populate local state when page loads
   useEffect(() => {
     if (page) {
@@ -5514,6 +5539,14 @@ export default function WebsitePageEditor() {
 
   const hasUnsavedChanges = isDirty || metaDirty;
   const isSaving = saveBlocksMutation.isPending || saveMetaMutation.isPending;
+  const pagePathParts = splitPagePath(metaForm.slug);
+  const parentPageOptions = allPages.filter((candidate) => candidate.id !== page.id && candidate.page_type !== "home");
+
+  function updatePagePath(next: Partial<{ parentSlug: string; segment: string }>) {
+    const parentSlug = next.parentSlug ?? pagePathParts.parentSlug;
+    const segment = next.segment ?? pagePathParts.segment;
+    setMetaForm((form) => ({ ...form, slug: joinPagePath(parentSlug, segment) }));
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -5606,14 +5639,21 @@ export default function WebsitePageEditor() {
             <div className="space-y-1 p-2.5">
               {BLOCK_PALETTE.map((item) => {
                 const Icon = item.icon;
-                const isSingletonBlocked = item.singleton && blocks.some((b) => resolveEditorType(b.block_type) === item.type);
+                const isAdded = blocks.some((b) => resolveEditorType(b.block_type) === item.type);
+                const isSingletonBlocked = item.singleton && isAdded;
                 return (
                   <button
                     key={item.type}
                     onClick={() => addBlock(item.type)}
                     disabled={isSingletonBlocked}
-                    className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={isSingletonBlocked ? `${item.description} (already on page)` : item.description}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-2 rounded-md text-left text-sm transition-colors",
+                      isAdded
+                        ? "text-muted-foreground bg-muted/40"
+                        : "hover:bg-accent hover:text-accent-foreground",
+                      isSingletonBlocked && "opacity-50 cursor-not-allowed"
+                    )}
+                    title={isAdded ? `${item.description} (already on page)` : item.description}
                   >
                     <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
@@ -5685,26 +5725,43 @@ export default function WebsitePageEditor() {
                         <span>(home page — fixed)</span>
                       </div>
                     ) : (
-                      <div className="flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                        <span className="px-2 py-2 text-sm text-muted-foreground bg-muted border-r select-none">/</span>
-                        <Input
-                          value={metaForm.slug}
-                          onChange={(e) => {
-                            const raw = e.target.value
-                              .toLowerCase()
-                              .replace(/[^a-z0-9/-]+/g, "-")
-                              .replace(/\/+/g, "/")
-                              .replace(/-+/g, "-")
-                              .replace(/(^\/|\/$)/g, "")
-                              .replace(/(^-|-$)/g, "");
-                            setMetaForm((f) => ({ ...f, slug: raw }));
-                          }}
-                          className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                          placeholder="heating/oil"
-                        />
+                      <div className="space-y-2">
+                        <Select value={pagePathParts.parentSlug || "none"} onValueChange={(value) => updatePagePath({ parentSlug: value === "none" ? "" : value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="No parent" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No parent</SelectItem>
+                            {parentPageOptions.map((candidate) => (
+                              <SelectItem key={candidate.id} value={candidate.slug.replace(/^\//, "")}>
+                                /{candidate.slug.replace(/^\//, "")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center rounded-md border overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                          <span className="px-2 py-2 text-sm text-muted-foreground bg-muted border-r select-none">/{pagePathParts.parentSlug ? `${pagePathParts.parentSlug}/` : ""}</span>
+                          <Input
+                            value={pagePathParts.segment}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                                .toLowerCase()
+                                .replace(/[^a-z0-9/-]+/g, "-")
+                                .replace(/\/+/g, "/")
+                                .replace(/-+/g, "-")
+                                .replace(/(^\/|\/$)/g, "")
+                                .replace(/(^-|-$)/g, "")
+                                .split("/")
+                                .pop() || "";
+                              updatePagePath({ segment: raw });
+                            }}
+                            className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                            placeholder="oil"
+                          />
+                        </div>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground mt-0.5">Use lowercase letters, numbers, hyphens, and optional `/` segments for nested URLs.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Use the parent selector to build nested template-safe paths. Full path: /{metaForm.slug || "page-url"}</p>
                   </FieldRow>
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Show in navigation</Label>

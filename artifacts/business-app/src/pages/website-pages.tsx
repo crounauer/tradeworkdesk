@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -69,13 +70,21 @@ function normalizePagePath(value: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+function joinPagePath(parentSlug: string, segment: string): string {
+  const normalizedParent = normalizePagePath(parentSlug);
+  const normalizedSegment = normalizePagePath(segment).split("/").pop() || "";
+  if (!normalizedParent) return normalizedSegment;
+  if (!normalizedSegment) return normalizedParent;
+  return `${normalizedParent}/${normalizedSegment}`;
+}
+
 export default function WebsitePages() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deletingPage, setDeletingPage] = useState<Page | null>(null);
-  const [newPage, setNewPage] = useState({ title: "", slug: "", show_in_nav: true });
+  const [newPage, setNewPage] = useState({ title: "", slugSegment: "", parentSlug: "", show_in_nav: true });
 
   const { data: website } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -93,12 +102,16 @@ export default function WebsitePages() {
       apiFetch("/api/website/pages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          title: data.title,
+          slug: joinPagePath(data.parentSlug, data.slugSegment),
+          show_in_nav: data.show_in_nav,
+        }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
       setShowCreateDialog(false);
-      setNewPage({ title: "", slug: "", show_in_nav: true });
+      setNewPage({ title: "", slugSegment: "", parentSlug: "", show_in_nav: true });
       toast({ title: "Page created" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -125,8 +138,10 @@ export default function WebsitePages() {
 
   function handleTitleChange(title: string) {
     const slug = normalizePagePath(title.replace(/\s+/g, "-"));
-    setNewPage((p) => ({ ...p, title, slug }));
+    setNewPage((p) => ({ ...p, title, slugSegment: slug.split("/").pop() || slug }));
   }
+
+  const parentOptions = pages.filter((page) => page.page_type !== "home");
 
   if (!website) {
     return (
@@ -224,23 +239,39 @@ export default function WebsitePages() {
               />
             </div>
             <div className="space-y-1">
-              <Label>URL Path</Label>
+              <Label>Parent Page</Label>
+              <Select value={newPage.parentSlug || "none"} onValueChange={(value) => setNewPage((p) => ({ ...p, parentSlug: value === "none" ? "" : value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No parent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No parent</SelectItem>
+                  {parentOptions.map((page) => (
+                    <SelectItem key={page.id} value={page.slug.replace(/^\//, "")}>
+                      /{page.slug.replace(/^\//, "")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>URL Path Segment</Label>
               <div className="flex items-center gap-1">
-                <span className="text-muted-foreground text-sm">/</span>
+                <span className="text-muted-foreground text-sm">/{newPage.parentSlug ? `${newPage.parentSlug}/` : ""}</span>
                 <Input
-                  placeholder="heating/oil"
-                  value={newPage.slug}
-                  onChange={(e) => setNewPage((p) => ({ ...p, slug: normalizePagePath(e.target.value) }))}
+                  placeholder="oil"
+                  value={newPage.slugSegment}
+                  onChange={(e) => setNewPage((p) => ({ ...p, slugSegment: normalizePagePath(e.target.value).split("/").pop() || "" }))}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Use `/` to create nested URLs, for example `heating/oil`.</p>
+              <p className="text-xs text-muted-foreground">Full path preview: /{joinPagePath(newPage.parentSlug, newPage.slugSegment) || "page-url"}</p>
             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
             <Button
               onClick={() => createMutation.mutate(newPage)}
-              disabled={!newPage.title || !newPage.slug || createMutation.isPending}
+              disabled={!newPage.title || !newPage.slugSegment || createMutation.isPending}
             >
               {createMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Create Page

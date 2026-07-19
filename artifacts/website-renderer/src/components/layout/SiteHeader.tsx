@@ -6,6 +6,7 @@ import type { SitePage } from "@/lib/api";
 import Link from "next/link";
 import { ensureAccessibleTextColor } from "@/lib/theme";
 import { resolveSiteTheme } from "@/lib/siteTheme";
+import { buildPageHierarchy, type HierarchyPage } from "@/lib/page-hierarchy";
 
 interface CompanyInfo {
   phone?: string | null;
@@ -46,6 +47,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   const navText = ensureAccessibleTextColor(navBg, normalizedTheme.navText);
   const accent = normalizedTheme.accentColor;
   const [menuOpen, setMenuOpen] = useState(false);
+  const navTree = buildPageHierarchy(pages);
 
   function pageHref(page: SitePage): string {
     if (basePath) {
@@ -55,6 +57,45 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
       return `${basePath}?page=${encodeURIComponent(slug)}${tokenParam}`;
     }
     return page.slug.startsWith("/") ? page.slug : `/${page.slug}`;
+  }
+
+  function renderDesktopNavItems(items: HierarchyPage[], textColor: string) {
+    return items.map((page) => {
+      const hasChildren = page.children.length > 0;
+      return (
+        <li key={page.id} style={{ position: "relative" }}>
+          <Link href={pageHref(page)} style={{ padding: "8px 13px", borderRadius: 4, textDecoration: "none", color: textColor, fontWeight: 600, fontSize: "0.9375rem", display: "block", opacity: 0.95 }}>
+            {page.nav_label || page.title}
+          </Link>
+          {hasChildren ? (
+            <ul className="twd-nav-children" style={{ listStyle: "none", margin: 0, padding: "8px 0", position: "absolute", left: 0, top: "100%", minWidth: 220, background: "#ffffff", border: "1px solid rgba(15,23,42,0.08)", borderRadius: 10, boxShadow: "0 12px 24px rgba(15,23,42,0.12)", display: "none" }}>
+              {page.children.map((child) => (
+                <li key={child.id}>
+                  <Link href={pageHref(child)} style={{ display: "block", padding: "10px 14px", textDecoration: "none", color: "#334155", fontWeight: 500, fontSize: "0.9rem" }}>
+                    {child.nav_label || child.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </li>
+      );
+    });
+  }
+
+  function renderMobileNavItems(items: HierarchyPage[], textColor: string, depth = 0): React.ReactNode {
+    return items.map((page) => (
+      <li key={page.id}>
+        <Link href={pageHref(page)} onClick={() => setMenuOpen(false)} style={{ display: "block", padding: "12px 24px", paddingLeft: `${24 + depth * 18}px`, color: textColor, textDecoration: "none", fontWeight: depth === 0 ? 600 : 500, opacity: depth === 0 ? 1 : 0.9 }}>
+          {page.nav_label || page.title}
+        </Link>
+        {page.children.length > 0 ? (
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {renderMobileNavItems(page.children, textColor, depth + 1)}
+          </ul>
+        ) : null}
+      </li>
+    ));
   }
 
   const homeHref = basePath ? (previewToken ? `${basePath}?token=${previewToken}` : basePath) : "/";
@@ -85,6 +126,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           .snav-phone { display: flex !important; }
           .snav-hamburger { display: none !important; }
           .snav-mobile { display: none; }
+          nav ul li:hover > .twd-nav-children { display: block !important; }
           @media (max-width: 900px) {
             .snav-desktop { display: none !important; }
             .snav-phone { display: none !important; }
@@ -124,13 +166,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
 
             <nav className="snav-desktop" aria-label="Main navigation" style={{ flex: 1, justifyContent: "center" }}>
               <ul style={{ display: "flex", gap: 2, listStyle: "none", margin: 0, padding: 0 }}>
-                {pages.map((page) => (
-                  <li key={page.id}>
-                    <Link href={pageHref(page)} style={{ padding: "8px 13px", borderRadius: 4, textDecoration: "none", color: mainNavText, fontWeight: 600, fontSize: "0.9375rem", display: "block" }}>
-                      {page.nav_label || page.title}
-                    </Link>
-                  </li>
-                ))}
+                {renderDesktopNavItems(navTree, mainNavText)}
               </ul>
             </nav>
 
@@ -152,13 +188,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
 
           <nav role="navigation" aria-label="Mobile navigation" className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: "#ffffff", borderTop: "1px solid rgba(26, 58, 107, 0.12)" }}>
             <ul style={{ listStyle: "none", margin: 0, padding: "8px 0 16px" }}>
-              {pages.map((page) => (
-                <li key={page.id}>
-                  <Link href={pageHref(page)} onClick={() => setMenuOpen(false)} style={{ display: "block", padding: "12px 24px", color: "#334155", textDecoration: "none", fontWeight: 600 }}>
-                    {page.nav_label || page.title}
-                  </Link>
-                </li>
-              ))}
+              {renderMobileNavItems(navTree, "#334155")}
               <li style={{ padding: "12px 24px" }}>
                 <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: "#fff", borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
                   {headerCtaLabel}
@@ -178,6 +208,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
         .snav-phone { display: flex !important; }
         .snav-hamburger { display: none !important; }
         .snav-mobile { display: none; }
+        nav ul li:hover > .twd-nav-children { display: block !important; }
         @media (max-width: 900px) {
           .snav-desktop { display: none !important; }
           .snav-phone { display: none !important; }
@@ -229,13 +260,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           {/* Desktop nav links */}
           <nav className="snav-desktop" aria-label="Main navigation" style={{ flex: 1, justifyContent: "center" }}>
             <ul style={{ display: "flex", gap: 2, listStyle: "none", margin: 0, padding: 0 }}>
-              {pages.map((page) => (
-                <li key={page.id}>
-                  <Link href={pageHref(page)} style={{ padding: "8px 13px", borderRadius: 4, textDecoration: "none", color: navText, fontWeight: 500, fontSize: "0.9375rem", display: "block", opacity: 0.9 }}>
-                    {page.nav_label || page.title}
-                  </Link>
-                </li>
-              ))}
+              {renderDesktopNavItems(navTree, navText)}
             </ul>
           </nav>
 
@@ -265,13 +290,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
         {/* Mobile menu */}
         <nav role="navigation" aria-label="Mobile navigation" className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: navBg, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <ul style={{ listStyle: "none", margin: 0, padding: "8px 0 16px" }}>
-            {pages.map((page) => (
-              <li key={page.id}>
-                <Link href={pageHref(page)} onClick={() => setMenuOpen(false)} style={{ display: "block", padding: "12px 24px", color: navText, textDecoration: "none", fontWeight: 500 }}>
-                  {page.nav_label || page.title}
-                </Link>
-              </li>
-            ))}
+            {renderMobileNavItems(navTree, navText)}
             {headerPhone && (
               <li style={{ padding: "12px 24px" }}>
                 <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: accent, fontWeight: 700, textDecoration: "none", fontSize: "1.125rem" }}>

@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSiteByWebsiteId, getPreviewBlocksByPageId } from "@/lib/api";
 import TemplateLayout from "@/components/layout/TemplateLayout";
+import Breadcrumbs from "@/components/layout/Breadcrumbs";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
@@ -53,6 +54,7 @@ export default async function PreviewPage({ params, searchParams }: PageProps) {
     <TemplateLayout site={site} basePath={`/preview/${websiteId}`} previewToken={token}>
       <WebsiteClosureNotice company={site.company} />
       <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
+      <Breadcrumbs currentPage={page} pages={site.pages} basePath={`/preview/${websiteId}`} previewToken={token} />
       <main>
         {blocks.map((block) => (
           <BlockRenderer

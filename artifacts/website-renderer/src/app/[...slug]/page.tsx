@@ -4,10 +4,12 @@ import { getSiteByDomain } from "@/lib/api";
 import { getRequestDomain } from "@/lib/request-domain";
 import { buildPageDescription } from "@/lib/seo";
 import TemplateLayout from "@/components/layout/TemplateLayout";
+import Breadcrumbs from "@/components/layout/Breadcrumbs";
 import PageRenderer from "@/components/PageRenderer";
 import SchemaMarkup from "@/components/SchemaMarkup";
 import WebsiteClosureNotice from "@/components/WebsiteClosureNotice";
 import PlatformAnnouncementsNotice from "@/components/PlatformAnnouncementsNotice";
+import { getPageBreadcrumbs } from "@/lib/page-hierarchy";
 
 export const revalidate = 5;
 
@@ -55,6 +57,7 @@ export default async function DynamicPage({ params }: PageProps) {
 
   const page = site.pages.find((p) => p.slug === slugStr || p.slug === `/${slugStr}`);
   if (!page) notFound();
+  const breadcrumbChain = getPageBreadcrumbs(page, site.pages);
 
   const siteTheme = site.website.theme as Record<string, string>;
 
@@ -62,10 +65,14 @@ export default async function DynamicPage({ params }: PageProps) {
     <TemplateLayout site={site}>
       <WebsiteClosureNotice company={site.company} />
       <PlatformAnnouncementsNotice announcements={site.platform_announcements} />
+      <Breadcrumbs currentPage={page} pages={site.pages} />
       <SchemaMarkup
         site={site}
         domain={domain}
-        breadcrumb={[{ name: page.title, url: `https://${domain}/${slugStr}` }]}
+        breadcrumb={breadcrumbChain.map((crumb) => ({
+          name: crumb.nav_label || crumb.title,
+          url: crumb.page_type === "home" ? `https://${domain}` : `https://${domain}/${crumb.slug.replace(/^\//, "")}`,
+        }))}
       />
       <PageRenderer
         websiteId={site.website.id}

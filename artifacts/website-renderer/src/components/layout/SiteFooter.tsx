@@ -1,6 +1,7 @@
 import type { CompanySettings, SitePage } from "@/lib/api";
 import { ensureAccessibleTextColor } from "@/lib/theme";
 import { resolveSiteTheme } from "@/lib/siteTheme";
+import { buildPageHierarchy, flattenPageHierarchy } from "@/lib/page-hierarchy";
 
 interface Props {
   siteName: string;
@@ -35,8 +36,9 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
   const displayName = company?.trading_name || company?.name || siteName;
 
   const navPages = pages.filter((p) => p.show_in_nav && p.page_type !== "home");
+  const navHierarchy = flattenPageHierarchy(buildPageHierarchy(navPages)).filter((page) => page.page_type !== "home");
   const quickLinks = [
-    ...navPages.map((page) => ({ key: page.id, href: page.slug.startsWith("/") ? page.slug : `/${page.slug}`, label: page.nav_label || page.title })),
+    ...navHierarchy.map((page) => ({ key: page.id, href: page.slug.startsWith("/") ? page.slug : `/${page.slug}`, label: page.nav_label || page.title, depth: page.depth })),
     { key: "blog", href: "/blog", label: "Blog" },
   ].filter((link, index, arr) => arr.findIndex((item) => item.href === link.href) === index);
 
@@ -74,7 +76,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 9 }}>
         {quickLinks.map((link) => (
           <li key={link.key}>
-            <a href={link.href} style={{ color: footerText, textDecoration: "none", fontSize: bodySize, fontFamily: bodyFont }}>
+            <a href={link.href} style={{ color: footerText, textDecoration: "none", fontSize: bodySize, fontFamily: bodyFont, paddingLeft: `${Math.max(0, ((link as { depth?: number }).depth || 1) - 1) * 12}px`, display: "inline-block" }}>
               {link.label}
             </a>
           </li>
