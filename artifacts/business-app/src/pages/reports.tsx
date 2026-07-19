@@ -25,6 +25,7 @@ interface OverviewData {
   jobs_by_type: { type: string; count: number }[];
   jobs_by_status: { status: string; count: number }[];
   monthly_revenue: { label: string; revenue: number }[];
+  paid_by_method_this_month: { method: string; count: number; amount: number }[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -92,6 +93,17 @@ function CountTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
+function paymentMethodLabel(method: string): string {
+  const normalized = String(method || "").toLowerCase();
+  if (normalized === "cash") return "Cash";
+  if (normalized === "bacs") return "BACS";
+  if (normalized === "bank_transfer") return "Bank Transfer";
+  if (normalized === "cc" || normalized === "card") return "CC";
+  if (normalized === "direct_debit") return "Direct Debit";
+  if (normalized === "gocardless") return "GoCardless";
+  return method || "Unknown";
+}
+
 function ReportsContent() {
   const { data: overview, isLoading: loadingOverview } = useQuery<OverviewData>({
     queryKey: ["/api/reports/overview"],
@@ -148,6 +160,7 @@ function ReportsContent() {
     .sort((a, b) => b.count - a.count);
 
   const monthlyRevenue = overview?.monthly_revenue ?? [];
+  const paidByMethodThisMonth = overview?.paid_by_method_this_month ?? [];
 
   const techChartData = (completedByTech ?? [])
     .map(t => ({ name: t.technician_name || "Unknown", completed: t.completed_count || 0 }));
@@ -302,6 +315,29 @@ function ReportsContent() {
           </Card>
         )}
       </div>
+
+      {/* Service alerts */}
+      <Card className="p-6 shadow-sm border-border/50">
+        <h2 className="font-bold text-lg mb-1 font-display flex items-center gap-2">
+          <Receipt className="w-5 h-5 text-slate-500" /> Invoice Payments by Method
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">{currentMonth}</p>
+        {paidByMethodThisMonth.length > 0 ? (
+          <div className="space-y-2">
+            {paidByMethodThisMonth.map((row) => (
+              <div key={row.method} className="flex items-center justify-between rounded-xl border border-border/60 p-3">
+                <div>
+                  <p className="font-medium text-sm">{paymentMethodLabel(row.method)}</p>
+                  <p className="text-xs text-muted-foreground">{row.count} paid invoice{row.count === 1 ? "" : "s"}</p>
+                </div>
+                <p className="font-semibold">{fmt(row.amount)}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="h-24 flex items-center justify-center text-muted-foreground text-sm">No paid invoices recorded this month.</div>
+        )}
+      </Card>
 
       {/* Service alerts */}
       <div className="grid lg:grid-cols-2 gap-6">

@@ -80,6 +80,19 @@ function computeTotals(lines: LineItemInput[], vatRate: number) {
   };
 }
 
+function normalizeManualPaymentMethod(method?: string | null): string | null {
+  if (!method) return null;
+  const raw = String(method).trim().toLowerCase();
+  if (!raw) return null;
+
+  if (raw === "cash") return "cash";
+  if (raw === "bacs") return "bacs";
+  if (raw === "bank_transfer" || raw === "bank transfer") return "bank_transfer";
+  if (raw === "cc" || raw === "card") return "cc";
+
+  return null;
+}
+
 async function verifyInvoiceOwnership(
   invoiceId: string | string[] | undefined,
   tenantId: string,
@@ -1197,13 +1210,19 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
     payment_reference?: string;
   };
 
+  const normalizedPaymentMethod = normalizeManualPaymentMethod(payment_method);
+  if (payment_method !== undefined && payment_method !== null && !normalizedPaymentMethod) {
+    res.status(400).json({ error: "payment_method must be one of: cash, bacs, bank_transfer, cc" });
+    return;
+  }
+
   const { data: updated, error } = await supabaseAdmin
     .from("invoices")
     .update({
       status: "paid",
       paid_amount: paid_amount ?? invoice.total,
       payment_date: payment_date || new Date().toISOString().slice(0, 10),
-      payment_method: payment_method || null,
+      payment_method: normalizedPaymentMethod,
       payment_reference: payment_reference || null,
       updated_at: new Date().toISOString(),
     })

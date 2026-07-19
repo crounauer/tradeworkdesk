@@ -179,6 +179,7 @@ router.get("/reports/overview", requireAuth, requireTenant, requireRole("admin",
     jobsThisMonthByTypeRes,
     jobsThisMonthByStatusRes,
     paidInvoicesThisMonthRes,
+    paidInvoicesByMethodThisMonthRes,
     outstandingInvoicesRes,
     activeCustomersRes,
     monthlyRevenueResults,
@@ -215,6 +216,15 @@ router.get("/reports/overview", requireAuth, requireTenant, requireRole("admin",
       .eq("status", "paid")
       .gte("issue_date", monthStart)
       .lte("issue_date", monthEnd),
+
+    // Paid invoices this month grouped by method
+    supabaseAdmin.from("invoices")
+      .select("total, paid_amount, payment_method")
+      .eq("tenant_id", tenantId)
+      .eq("type", "invoice")
+      .eq("status", "paid")
+      .gte("payment_date", monthStart)
+      .lte("payment_date", monthEnd),
 
     // Outstanding balance (sent + overdue)
     supabaseAdmin.from("invoices")
@@ -274,6 +284,18 @@ router.get("/reports/overview", requireAuth, requireTenant, requireRole("admin",
     return { label: m.label, revenue };
   });
 
+  const paymentMethodSummary = new Map<string, { method: string; count: number; amount: number }>();
+  for (const inv of (paidInvoicesByMethodThisMonthRes.data || [])) {
+    const row = inv as { payment_method?: string | null; paid_amount?: number | null; total: number };
+    const method = row.payment_method || "unknown";
+    const existing = paymentMethodSummary.get(method) || { method, count: 0, amount: 0 };
+    existing.count += 1;
+    existing.amount += Number(row.paid_amount ?? row.total);
+    paymentMethodSummary.set(method, existing);
+  }
+
+  const paidByMethodThisMonth = Array.from(paymentMethodSummary.values()).sort((a, b) => b.amount - a.amount);
+
   res.json({
     kpis: {
       jobs_this_month: jobsThisMonthRes.count ?? 0,
@@ -284,6 +306,7 @@ router.get("/reports/overview", requireAuth, requireTenant, requireRole("admin",
     jobs_by_type: Object.entries(byType).map(([type, count]) => ({ type, count })),
     jobs_by_status: Object.entries(byStatus).map(([status, count]) => ({ status, count })),
     monthly_revenue: monthlyRevenue,
+    paid_by_method_this_month: paidByMethodThisMonth,
   });
 });
 

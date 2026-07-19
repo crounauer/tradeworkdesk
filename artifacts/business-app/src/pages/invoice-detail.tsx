@@ -73,6 +73,16 @@ function formatDate(dateStr: string | null) {
   });
 }
 
+function formatPaymentMethod(method: string | null | undefined): string {
+  if (!method) return "—";
+  const normalized = String(method).toLowerCase();
+  if (normalized === "cash") return "Cash";
+  if (normalized === "bacs") return "BACS";
+  if (normalized === "bank_transfer") return "Bank Transfer";
+  if (normalized === "cc" || normalized === "card") return "CC";
+  return method;
+}
+
 // ─── Empty line item ──────────────────────────────────────────────────────
 
 function emptyLine(): InvoiceLineItem {
@@ -1068,7 +1078,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Method</p>
-                  <p className="font-medium">{invoice.payment_method || "—"}</p>
+                  <p className="font-medium">{formatPaymentMethod(invoice.payment_method)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Reference</p>
@@ -1188,11 +1198,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                   <SelectValue placeholder="Select method..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="bacs">BACS</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="cc">CC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
