@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Globe, Eye, ArrowLeft, Loader2, GripVertical } from "lucide-react";
+import { Plus, Edit, Trash2, Globe, Eye, ArrowLeft, Loader2, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -137,9 +137,43 @@ export default function WebsitePages() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: async (orderedPageIds: string[]) => {
+      await Promise.all(
+        orderedPageIds.map((id, index) =>
+          apiFetch(`/api/website/pages/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nav_order: index + 1 }),
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
+      toast({ title: "Page order updated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   function handleTitleChange(title: string) {
     const slug = normalizePagePath(title.replace(/\s+/g, "-"));
     setNewPage((p) => ({ ...p, title, slugSegment: slug.split("/").pop() || slug }));
+  }
+
+  function movePage(pageId: string, direction: "up" | "down") {
+    const orderedPages = [...pages].sort((a, b) => (a.nav_order ?? 0) - (b.nav_order ?? 0));
+    const index = orderedPages.findIndex((page) => page.id === pageId);
+    if (index === -1) return;
+
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= orderedPages.length) return;
+
+    const next = [...orderedPages];
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
+
+    reorderMutation.mutate(next.map((page) => page.id));
   }
 
   const parentOptions = pages.filter((page) => page.page_type !== "home");
@@ -174,6 +208,28 @@ export default function WebsitePages() {
             <Card key={page.id}>
               <CardContent className="p-4 flex items-center gap-3">
                 <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex flex-col gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => movePage(page.id, "up")}
+                    disabled={reorderMutation.isPending}
+                    title="Move up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => movePage(page.id, "down")}
+                    disabled={reorderMutation.isPending}
+                    title="Move down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium">{page.title}</div>
                   <div className="text-sm text-muted-foreground">/{page.slug}</div>
