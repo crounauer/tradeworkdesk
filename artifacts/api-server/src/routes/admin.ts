@@ -541,6 +541,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "website_closure_notice_auto_from_holidays",
     // Leave scheduling
     "custom_leave_types",
+    "technicians_can_update_shopping_list_items",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };
@@ -623,6 +624,25 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
   ) {
     const fallbackUpdates = { ...updates };
     delete fallbackUpdates.website_closure_notice_auto_from_holidays;
+
+    const retry = await supabaseAdmin
+      .from("company_settings")
+      .upsert(fallbackUpdates, { onConflict: "singleton_id,tenant_id" })
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  // Backward-compatibility for shopping list technician toggle column.
+  if (
+    error &&
+    typeof error.message === "string" &&
+    error.message.includes("technicians_can_update_shopping_list_items") &&
+    "technicians_can_update_shopping_list_items" in updates
+  ) {
+    const fallbackUpdates = { ...updates };
+    delete fallbackUpdates.technicians_can_update_shopping_list_items;
 
     const retry = await supabaseAdmin
       .from("company_settings")

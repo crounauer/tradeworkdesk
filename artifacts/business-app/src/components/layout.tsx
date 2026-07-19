@@ -10,7 +10,7 @@ import {
   Briefcase, FileBarChart, Search, LogOut, Menu, X,
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2,
-  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye, Rocket,
+  Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye, Rocket, ShoppingCart,
   BarChart3, Image, Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -147,6 +147,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/properties", label: "Properties", icon: Home },
     { href: "/todos", label: "To-Do List", icon: CheckSquare },
+    { href: "/shopping-lists", label: "Shopping Lists", icon: ShoppingCart },
+    { href: "/community", label: "Community", icon: MessageSquare },
   ] : [];
 
   // ── Customers ─────────────────────────────────────────────────────────────

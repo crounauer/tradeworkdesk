@@ -548,3 +548,108 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
 
 export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+
+// ============================================================
+// SHOPPING LISTS
+// ============================================================
+
+export const shoppingListStatusEnum = pgEnum("shopping_list_status", [
+  "draft", "active", "partially_purchased", "complete", "archived",
+]);
+
+export const shoppingListItemStatusEnum = pgEnum("shopping_list_item_status", [
+  "needed", "ordered", "purchased", "unavailable",
+]);
+
+export const shoppingListItemSourceEnum = pgEnum("shopping_list_item_source", [
+  "invoice_line_item", "job_part", "manual",
+]);
+
+export const shoppingLists = pgTable("shopping_lists", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: text("tenant_id").notNull(),
+  title: text("title").notNull(),
+  status: shoppingListStatusEnum("status").notNull().default("active"),
+  created_by: uuid("created_by").notNull().references(() => profiles.id),
+  assigned_to: uuid("assigned_to").references(() => profiles.id),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const shoppingListItems = pgTable("shopping_list_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  shopping_list_id: uuid("shopping_list_id").notNull().references(() => shoppingLists.id),
+  tenant_id: text("tenant_id").notNull(),
+  item_name: text("item_name").notNull(),
+  quantity: numeric("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
+  unit_estimate: numeric("unit_estimate", { precision: 12, scale: 2 }),
+  status: shoppingListItemStatusEnum("status").notNull().default("needed"),
+  source_type: shoppingListItemSourceEnum("source_type").notNull().default("manual"),
+  source_id: uuid("source_id"),
+  source_ref: text("source_ref"),
+  notes: text("notes"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type ShoppingList = typeof shoppingLists.$inferSelect;
+export type ShoppingListItem = typeof shoppingListItems.$inferSelect;
+
+// ============================================================
+// COMMUNITY MVP
+// ============================================================
+
+export const communityReportStatusEnum = pgEnum("community_report_status", [
+  "open", "reviewed", "dismissed", "actioned",
+]);
+
+export const communityCategories = pgTable("community_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: text("tenant_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sort_order: integer("sort_order").notNull().default(0),
+  created_by: uuid("created_by").references(() => profiles.id),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const communityThreads = pgTable("community_threads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: text("tenant_id").notNull(),
+  category_id: uuid("category_id").notNull().references(() => communityCategories.id),
+  title: text("title").notNull(),
+  created_by: uuid("created_by").notNull().references(() => profiles.id),
+  is_pinned: boolean("is_pinned").notNull().default(false),
+  is_locked: boolean("is_locked").notNull().default(false),
+  last_activity_at: timestamp("last_activity_at").notNull().defaultNow(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const communityPosts = pgTable("community_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: text("tenant_id").notNull(),
+  thread_id: uuid("thread_id").notNull().references(() => communityThreads.id),
+  author_id: uuid("author_id").notNull().references(() => profiles.id),
+  body: text("body").notNull(),
+  is_deleted: boolean("is_deleted").notNull().default(false),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const communityPostReports = pgTable("community_post_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: text("tenant_id").notNull(),
+  post_id: uuid("post_id").notNull().references(() => communityPosts.id),
+  reported_by: uuid("reported_by").notNull().references(() => profiles.id),
+  reason: text("reason").notNull().default("inappropriate"),
+  status: communityReportStatusEnum("status").notNull().default("open"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type CommunityCategory = typeof communityCategories.$inferSelect;
+export type CommunityThread = typeof communityThreads.$inferSelect;
+export type CommunityPost = typeof communityPosts.$inferSelect;
+export type CommunityPostReport = typeof communityPostReports.$inferSelect;

@@ -152,6 +152,8 @@ const LeaveHolidaysPage = lazyRetry(() => import("@/pages/leave-holidays"));
 const AccountSettings = lazyRetry(() => import("@/pages/account-settings"));
 const NotFound = lazyRetry(() => import("@/pages/not-found"));
 const Todos = lazyRetry(() => import("@/pages/todos"));
+const ShoppingLists = lazyRetry(() => import("@/pages/shopping-lists"));
+const Community = lazyRetry(() => import("@/pages/community"));
 const Invoices = lazyRetry(() => import("@/pages/invoices"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
 const HelpPage = lazyRetry(() => import("@/pages/help"));
@@ -460,6 +462,8 @@ const AdminAuditLogRoute = protect(AdminAuditLog, ["admin"]);
 const TenantReportingRoute = protect(TenantReporting);
 const AccountRoute = protect(AccountSettings);
 const TodosRoute = protect(Todos);
+const ShoppingListsRoute = protect(ShoppingLists);
+const CommunityRoute = protect(Community);
 const InvoicesRoute = protectFeature(Invoices, "job_management");
 const InvoiceDetailRoute = protectFeature(InvoiceDetail, "job_management");
 const HelpRoute = protect(HelpPage);
@@ -638,6 +642,8 @@ function AppRouter() {
         <Route path="/billing">{() => <Redirect to="/admin/company-settings?tab=finance&financeTab=plans" />}</Route>
         <Route path="/account" component={AccountRoute} />
         <Route path="/todos" component={TodosRoute} />
+        <Route path="/shopping-lists" component={ShoppingListsRoute} />
+        <Route path="/community" component={CommunityRoute} />
         <Route path="/invoices" component={InvoicesRoute} />
         <Route path="/invoices/:id" component={InvoiceDetailRoute} />
           <Route path="/getting-started" component={GettingStartedRoute} />

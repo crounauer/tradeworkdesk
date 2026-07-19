@@ -394,9 +394,25 @@ async function timedSupabaseCheck(fn: () => Promise<unknown>): Promise<TimedChec
   }
 }
 
+function resolveRendererHealthUrl(rawValue: string | undefined): string {
+  const fallback = "https://tradeworkdesk-renderer.fly.dev/api/health";
+  const input = String(rawValue || "").trim();
+  if (!input) return fallback;
+
+  try {
+    const url = new URL(input.startsWith("http") ? input : `https://${input}`);
+    if (!url.pathname || url.pathname === "/") {
+      url.pathname = "/api/health";
+    }
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 router.get("/platform/health", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const apiHealthUrl = process.env.API_PUBLIC_HEALTH_URL || "https://tradeworkdesk-api.fly.dev/health";
-  const rendererHealthUrl = process.env.RENDERER_PUBLIC_HEALTH_URL || "https://tradeworkdesk-renderer.fly.dev";
+  const rendererHealthUrl = resolveRendererHealthUrl(process.env.RENDERER_PUBLIC_HEALTH_URL);
   const marketingHealthUrl = process.env.MARKETING_SITE_URL || "https://www.tradeworkdesk.co.uk";
 
   const [apiCheck, rendererCheck, marketingCheck, dbCheck, authCheck, storageCheck] = await Promise.all([
