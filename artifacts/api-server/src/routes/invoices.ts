@@ -677,6 +677,24 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
 
   // Send email
   const settings = await getCompanySettings(req.tenantId!);
+  let hasRegisteredPortalAccess = false;
+
+  if (invoice.type === "invoice") {
+    try {
+      const { data: portalUser } = await supabaseAdmin
+        .from("customer_portal_users")
+        .select("id")
+        .eq("tenant_id", req.tenantId!)
+        .eq("customer_id", invoice.customer_id as string)
+        .eq("is_active", true)
+        .not("auth_user_id", "is", null)
+        .maybeSingle();
+
+      hasRegisteredPortalAccess = !!portalUser;
+    } catch {
+      hasRegisteredPortalAccess = false;
+    }
+  }
 
   // Check whether any payment provider is configured so the email can adapt its wording
   let hasPaymentProvider = false;
@@ -731,7 +749,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       bankDetails: showBankDetails ? ((settings?.invoice_bank_details as string | null) || null) : null,
       pdfBuffer,
       hasPaymentProvider,
-      portalUrl: invoice.type === "invoice"
+      portalUrl: invoice.type === "invoice" && hasRegisteredPortalAccess
         ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
         : null,
       company: settings ? {
