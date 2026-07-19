@@ -188,6 +188,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.signOut({ scope: "local" }).catch(() => {});
     setAdminSessionCookie(false);
     localStorage.removeItem("superadmin_readonly_tenant_id");
+    localStorage.removeItem("superadmin_community_tenant_id");
 
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith("sb-")) {

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw, Eye } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw, Eye, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -473,11 +473,23 @@ export default function PlatformTenantDetail() {
               variant="outline"
               className="text-blue-600 border-blue-200 hover:bg-blue-50"
               onClick={() => {
+                localStorage.removeItem("superadmin_community_tenant_id");
                 localStorage.setItem("superadmin_readonly_tenant_id", tenant.id);
                 window.location.href = "/";
               }}
             >
               <Eye className="w-4 h-4 mr-2" />View Read Only
+            </Button>
+            <Button
+              variant="outline"
+              className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+              onClick={() => {
+                localStorage.removeItem("superadmin_readonly_tenant_id");
+                localStorage.setItem("superadmin_community_tenant_id", tenant.id);
+                window.location.href = "/community";
+              }}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />Join Community as Developer
             </Button>
             {tenant.stripe_customer_id && (
               <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>

@@ -7,6 +7,12 @@ const router: IRouter = Router();
 
 type Role = "admin" | "office_staff" | "technician" | "super_admin";
 
+type CommunityAuthorProfile = {
+  id: string;
+  full_name: string | null;
+  role: string | null;
+};
+
 function canManage(role: string | undefined): role is Role {
   return role === "admin" || role === "office_staff" || role === "super_admin";
 }
@@ -199,7 +205,47 @@ router.get("/community/threads/:id", requireAuth, requireTenant, async (req: Aut
     return;
   }
 
-  res.json({ thread, posts: posts || [] });
+  const authorIds = Array.from(new Set((posts || []).map((post) => String((post as { author_id?: string }).author_id || "")).filter(Boolean)));
+  let authorMap = new Map<string, CommunityAuthorProfile>();
+
+  if (authorIds.length > 0) {
+    const { data: authorProfiles, error: authorProfilesErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, role")
+      .in("id", authorIds);
+
+    if (authorProfilesErr) {
+      res.status(500).json({ error: authorProfilesErr.message });
+      return;
+    }
+
+    authorMap = new Map(
+      (authorProfiles || []).map((profile) => {
+        const p = profile as CommunityAuthorProfile;
+        return [p.id, p];
+      })
+    );
+  }
+
+  const postsWithAuthors = (posts || []).map((post) => {
+    const row = post as {
+      id: string;
+      thread_id: string;
+      tenant_id: string;
+      author_id: string;
+      body: string;
+      is_deleted: boolean;
+      created_at: string;
+      updated_at: string;
+    };
+
+    return {
+      ...row,
+      author: authorMap.get(row.author_id) || null,
+    };
+  });
+
+  res.json({ thread, posts: postsWithAuthors });
 });
 
 router.patch("/community/threads/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -318,6 +364,12 @@ router.post("/community/threads/:id/posts", requireAuth, requireTenant, async (r
     return;
   }
 
+  const { data: postAuthor } = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name, role")
+    .eq("id", req.userId!)
+    .maybeSingle();
+
   await supabaseAdmin
     .from("community_threads")
     .update({ last_activity_at: new Date().toISOString() })
@@ -338,7 +390,7 @@ router.post("/community/threads/:id/posts", requireAuth, requireTenant, async (r
     });
   }
 
-  res.status(201).json(post);
+  res.status(201).json({ ...(post as Record<string, unknown>), author: postAuthor || null });
 });
 
 router.patch("/community/posts/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {

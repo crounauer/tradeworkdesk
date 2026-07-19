@@ -266,9 +266,9 @@ export async function requireAuth(
 
   const supportTenantHeader = String(req.headers["x-superadmin-tenant-id"] || "").trim();
   const supportReadOnlyHeader = String(req.headers["x-superadmin-readonly"] || "").trim();
-  const supportModeRequested = req.userRole === "super_admin" && supportTenantHeader.length > 0 && supportReadOnlyHeader === "1";
+  const supportTenantRequested = req.userRole === "super_admin" && supportTenantHeader.length > 0;
 
-  if (supportModeRequested) {
+  if (supportTenantRequested) {
     const { data: supportTenant } = await supabaseAdmin
       .from("tenants")
       .select("id")
@@ -281,7 +281,7 @@ export async function requireAuth(
     }
 
     req.tenantId = supportTenantHeader;
-    req.isReadOnlyMode = true;
+    req.isReadOnlyMode = supportReadOnlyHeader === "1";
     req.supportTenantId = supportTenantHeader;
   }
 

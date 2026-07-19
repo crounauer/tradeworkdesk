@@ -42,10 +42,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const { isOnline, pendingMutations } = useOffline();
   // useOfflineReferenceDataSync();
 
-  const supportTenantId = localStorage.getItem("superadmin_readonly_tenant_id");
-  const isReadOnlySupportMode = profile?.role === "super_admin" && !!supportTenantId;
+  const supportReadOnlyTenantId = localStorage.getItem("superadmin_readonly_tenant_id");
+  const supportCommunityTenantId = localStorage.getItem("superadmin_community_tenant_id");
+  const supportTenantId = supportReadOnlyTenantId || supportCommunityTenantId;
+  const isReadOnlySupportMode = profile?.role === "super_admin" && !!supportReadOnlyTenantId;
+  const isCommunitySupportMode = profile?.role === "super_admin" && !isReadOnlySupportMode && !!supportCommunityTenantId;
   const isSuperAdmin = profile?.role === "super_admin" && !isReadOnlySupportMode;
-  const isAdmin = profile?.role === "admin" || isSuperAdmin || isReadOnlySupportMode;
+  const isAdmin = profile?.role === "admin" || isSuperAdmin || isReadOnlySupportMode || isCommunitySupportMode;
   const { hasFeature, hasAddon } = usePlanFeatures();
   const { data: initData } = useInitData();
   const { data: companySettings } = useCompanySettings();
@@ -108,7 +111,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const accountSuspended = tenantInfo?.status === "suspended";
   const accountCancelled = tenantInfo?.status === "cancelled";
-  const isLockedOut = !isSuperAdmin && !isReadOnlySupportMode && (accountSuspended || accountCancelled);
+  const isLockedOut = !isSuperAdmin && !isReadOnlySupportMode && !isCommunitySupportMode && (accountSuspended || accountCancelled);
   const allowedLockedPaths = ["/billing", "/account"];
   const isOnAllowedPath = allowedLockedPaths.some(p => location === p || location.startsWith(p + "/"));
 
@@ -197,7 +200,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const visibleUtilityItems = utilityNavItems;
 
   // Header bar: website link + reports/support/help for non-superadmin tenant users
-  const showHeaderBar = !isSuperAdmin;
+  const showHeaderBar = !isSuperAdmin || isCommunitySupportMode;
 
   const topMenuItems = [
     ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
@@ -371,14 +374,14 @@ export function Layout({ children }: { children: ReactNode }) {
 
         
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-1">
-          {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item))}
-          {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
+          {(!isSuperAdmin || isCommunitySupportMode) && workNavItems.map((item) => renderNavLink(item))}
+          {(!isSuperAdmin || isCommunitySupportMode) && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems)}
 
-          {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems)}
+          {(!isSuperAdmin || isCommunitySupportMode) && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems)}
 
-          {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems)}
+          {(!isSuperAdmin || isCommunitySupportMode) && automationNavItems.length > 0 && renderSection("Grow", automationNavItems)}
 
-          {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems)}
+          {isAdmin && (!isSuperAdmin || isCommunitySupportMode) && renderSection("Admin", adminNavItems)}
 
           {isSuperAdmin && (
             <div>
@@ -391,7 +394,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Utility footer: Reports, Tools, Help */}
-        {!isSuperAdmin && (
+        {(!isSuperAdmin || isCommunitySupportMode) && (
           <div className="px-4 pb-2 pt-2 border-t border-border/30 space-y-0.5">
             {visibleUtilityItems.map((item) => renderNavLink(item))}
           </div>
@@ -483,13 +486,13 @@ export function Layout({ children }: { children: ReactNode }) {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
           <div className="p-4 pb-16 space-y-2">
-            {!isSuperAdmin && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
-            {!isSuperAdmin && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
-            {isAdmin && !isSuperAdmin && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && utilityNavItems.length > 0 && renderSection("More", utilityNavItems, () => setIsMobileMenuOpen(false), true)}
-            {!isSuperAdmin && topMenuItems.length > 0 && renderSection("Top Menu", topMenuItems, () => setIsMobileMenuOpen(false), true)}
+            {(!isSuperAdmin || isCommunitySupportMode) && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
+            {(!isSuperAdmin || isCommunitySupportMode) && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
+            {(!isSuperAdmin || isCommunitySupportMode) && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems, () => setIsMobileMenuOpen(false), true)}
+            {(!isSuperAdmin || isCommunitySupportMode) && automationNavItems.length > 0 && renderSection("Grow", automationNavItems, () => setIsMobileMenuOpen(false), true)}
+            {isAdmin && (!isSuperAdmin || isCommunitySupportMode) && renderSection("Admin", adminNavItems, () => setIsMobileMenuOpen(false), true)}
+            {(!isSuperAdmin || isCommunitySupportMode) && utilityNavItems.length > 0 && renderSection("More", utilityNavItems, () => setIsMobileMenuOpen(false), true)}
+            {(!isSuperAdmin || isCommunitySupportMode) && topMenuItems.length > 0 && renderSection("Top Menu", topMenuItems, () => setIsMobileMenuOpen(false), true)}
             {isSuperAdmin && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2 px-4">
@@ -566,6 +569,32 @@ export function Layout({ children }: { children: ReactNode }) {
               <p><strong>You are viewing {tenantInfo?.company_name || "a tenant"} for troubleshooting only.</strong></p>
               <p>No changes can be made. All write actions are blocked. Click "Exit" to return to platform admin.</p>
             </div>
+          </div>
+        )}
+
+        {isCommunitySupportMode && (
+          <div className="border-b-4 border-emerald-600 bg-emerald-50 px-4 py-3.5 flex flex-col gap-3 text-sm text-emerald-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-bold">
+                <MessageSquare className="w-5 h-5 shrink-0" />
+                <span>Superadmin Community Mode</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs border-emerald-300 hover:bg-emerald-100"
+                onClick={() => {
+                  localStorage.removeItem("superadmin_community_tenant_id");
+                  queryClient.invalidateQueries({ queryKey: ["me-init"] });
+                  window.location.href = "/platform";
+                }}
+              >
+                Exit Community Mode
+              </Button>
+            </div>
+            <p className="text-xs opacity-90">
+              You are replying as your superadmin account within this tenant's Community.
+            </p>
           </div>
         )}
 

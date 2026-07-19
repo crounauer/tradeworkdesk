@@ -29,6 +29,11 @@ interface Thread {
 interface Post {
   id: string;
   author_id: string;
+  author?: {
+    id: string;
+    full_name: string | null;
+    role: string | null;
+  } | null;
   body: string;
   is_deleted: boolean;
   created_at: string;
@@ -49,6 +54,14 @@ interface CommunityReport {
 }
 
 type ModerationFilter = "open" | "reviewed" | "dismissed" | "actioned" | "all";
+
+function roleBadgeLabel(role: string | null | undefined): string | null {
+  if (role === "super_admin") return "Developer";
+  if (role === "admin") return "Admin";
+  if (role === "office_staff") return "Office Staff";
+  if (role === "technician") return "Technician";
+  return null;
+}
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -406,6 +419,18 @@ export default function CommunityPage() {
                       id={`community-post-${post.id}`}
                       className={`rounded border p-3 transition-colors ${highlightedPostId === post.id ? "border-amber-400 bg-amber-50" : ""}`}
                     >
+                      <div className="mb-2 flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">
+                          {post.author?.full_name?.trim() || "Community Member"}
+                        </span>
+                        {roleBadgeLabel(post.author?.role) && (
+                          <Badge
+                            className={post.author?.role === "super_admin" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}
+                          >
+                            {roleBadgeLabel(post.author?.role)}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm whitespace-pre-wrap">{post.body}</p>
                       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{new Date(post.created_at).toLocaleString()}</span>
