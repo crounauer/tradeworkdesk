@@ -29,6 +29,30 @@ import { Globe, Trash2, RefreshCw, ArrowLeft, Loader2, CheckCircle, XCircle, Clo
 
 const DOMAIN_EMAIL_PARTNER_URL = (import.meta.env.VITE_DOMAIN_EMAIL_PARTNER_URL as string | undefined) || "";
 const DOMAIN_EMAIL_PARTNER_LABEL = (import.meta.env.VITE_DOMAIN_EMAIL_PARTNER_LABEL as string | undefined) || "our trusted partner";
+const OPENSRS_RESELLER_URL_TEMPLATE = (import.meta.env.VITE_OPENSRS_RESELLER_URL_TEMPLATE as string | undefined) || DOMAIN_EMAIL_PARTNER_URL;
+const OPENSRS_LABEL = (import.meta.env.VITE_OPENSRS_LABEL as string | undefined) || "OpenSRS";
+
+function buildOpenSrsUrl(template: string, domainHint: string): string {
+  const trimmedTemplate = template.trim();
+  if (!trimmedTemplate) return "";
+
+  const hint = domainHint.trim();
+  if (!hint) return trimmedTemplate;
+
+  if (trimmedTemplate.includes("{domain}")) {
+    return trimmedTemplate.replaceAll("{domain}", encodeURIComponent(hint));
+  }
+
+  try {
+    const url = new URL(trimmedTemplate);
+    if (!url.searchParams.has("domain") && !url.searchParams.has("query")) {
+      url.searchParams.set("domain", hint);
+    }
+    return url.toString();
+  } catch {
+    return trimmedTemplate;
+  }
+}
 
 function trackDomainEmailClick(eventName: "buy_domain_email_click" | "already_have_domain_click", source: "website_domain") {
   const payload = {
@@ -189,6 +213,7 @@ export default function WebsiteDomain() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [newDomain, setNewDomain] = useState("");
+  const [opensrsDomainHint, setOpensrsDomainHint] = useState("");
   const [deletingDomain, setDeletingDomain] = useState<Domain | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -201,6 +226,8 @@ export default function WebsiteDomain() {
   const customDomains = domains.filter((d) => !d.is_platform_subdomain);
   const activeCustomDomain = customDomains.find((d) => d.verification_status === "verified" || d.is_active);
   const hasPartnerLink = DOMAIN_EMAIL_PARTNER_URL.trim().length > 0;
+  const hasOpenSrsLink = OPENSRS_RESELLER_URL_TEMPLATE.trim().length > 0;
+  const opensrsUrl = buildOpenSrsUrl(OPENSRS_RESELLER_URL_TEMPLATE, opensrsDomainHint);
 
   const addMutation = useMutation({
     mutationFn: (domain: string) =>
@@ -265,10 +292,30 @@ export default function WebsiteDomain() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Buy your domain and professional email through {DOMAIN_EMAIL_PARTNER_LABEL}, then connect the domain here.
+              Buy your domain and professional email through {OPENSRS_LABEL}, then connect the domain here.
             </p>
+            <div className="space-y-1">
+              <Label htmlFor="opensrs-domain-hint">Domain search (optional)</Label>
+              <Input
+                id="opensrs-domain-hint"
+                value={opensrsDomainHint}
+                onChange={(e) => setOpensrsDomainHint(e.target.value)}
+                placeholder="e.g. mycompany.co.uk"
+              />
+            </div>
             <div className="flex flex-wrap gap-2">
-              {hasPartnerLink ? (
+              {hasOpenSrsLink ? (
+                <Button asChild>
+                  <a
+                    href={opensrsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackDomainEmailClick("buy_domain_email_click", "website_domain")}
+                  >
+                    Buy via {OPENSRS_LABEL}
+                  </a>
+                </Button>
+              ) : hasPartnerLink ? (
                 <Button asChild>
                   <a
                     href={DOMAIN_EMAIL_PARTNER_URL}
