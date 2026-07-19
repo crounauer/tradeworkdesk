@@ -120,10 +120,11 @@ export default function WebsitePages() {
   const publishMutation = useMutation({
     mutationFn: (pageId: string) =>
       apiFetch(`/api/website/pages/${pageId}/publish`, { method: "POST" }),
-    onSuccess: () => {
+    onSuccess: (updatedPage: Page) => {
       qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
-      toast({ title: "Page published" });
+      toast({ title: updatedPage.status === "published" ? "Page published" : "Page unpublished" });
     },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -178,9 +179,15 @@ export default function WebsitePages() {
                   <div className="text-sm text-muted-foreground">/{page.slug}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={page.status === "published" ? "default" : "secondary"}>
+                  <Button
+                    variant={page.status === "published" ? "default" : "secondary"}
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => publishMutation.mutate(page.id)}
+                    disabled={publishMutation.isPending}
+                  >
                     {page.status}
-                  </Badge>
+                  </Button>
                   {page.page_type !== "custom" && (
                     <Badge variant="outline" className="text-xs">{page.page_type}</Badge>
                   )}

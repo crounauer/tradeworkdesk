@@ -2122,15 +2122,46 @@ router.post(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
 
-    // Snapshot current blocks as a version before publishing
     const { data: page } = await db
       .from("website_pages")
-      .select("id, website_id, title, meta_title, meta_description")
+      .select("id, website_id, page_type, status, title, meta_title, meta_description")
       .eq("id", id)
       .eq("tenant_id", req.tenantId)
       .single() as { data: Record<string, unknown> | null };
 
     if (!page) { res.status(404).json({ error: "Page not found" }); return; }
+
+    const isCurrentlyPublished = String(page.status || "") === "published";
+    const isHomePage = String(page.page_type || "") === "home";
+
+    if (isCurrentlyPublished && isHomePage) {
+      res.status(400).json({ error: "Home page cannot be unpublished" });
+      return;
+    }
+
+    if (isCurrentlyPublished) {
+      const { data, error } = await db
+        .from("website_pages")
+        .update({ status: "draft", published_at: null })
+        .eq("id", id)
+        .eq("tenant_id", req.tenantId)
+        .select()
+        .single() as { data: Record<string, unknown> | null; error: unknown };
+
+      if (error) { res.status(500).json({ error: "Failed to unpublish page" }); return; }
+
+      triggerTenantIndexNowAutoSubmit(req.tenantId!, "page_unpublish");
+      const websiteId = String(page.website_id || "");
+      if (websiteId) {
+        const activeDomains = await getActiveDomainsForWebsite(websiteId);
+        void triggerRendererRevalidate({ domains: activeDomains, websiteIds: [websiteId], reason: "page_unpublish" });
+      }
+
+      res.json(data);
+      return;
+    }
+
+    // Snapshot current blocks as a version before publishing
 
     const { data: blocks } = await db
       .from("website_blocks")
@@ -2168,7 +2199,7 @@ router.post(
       .select()
       .single() as { data: Record<string, unknown> | null; error: unknown };
 
-    if (error) { res.status(500).json({ error: "Failed to publish page" }); return; }
+  if (error) { res.status(500).json({ error: "Failed to publish page" }); return; }
 
     triggerTenantIndexNowAutoSubmit(req.tenantId!, "page_publish");
     const websiteId = String(page.website_id || "");
