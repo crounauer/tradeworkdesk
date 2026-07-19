@@ -128,28 +128,30 @@ export function Layout({ children }: { children: ReactNode }) {
     location.startsWith("/superadmin/db-housekeeping");
 
   // ── Work: core day-to-day items ──────────────────────────────────────────
-  const workNavItems = hasJobManagement ? [
-    { href: "/getting-started", label: "Getting Started", icon: Rocket },
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/schedule", label: "Schedule", icon: CalendarDays },
-    { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
-    { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
-    ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
-      ? [{ href: "/booking", label: "Online Bookings", icon: CalendarCheck }]
-      : []),
-    { href: "/jobs", label: "Jobs", icon: Briefcase },
-    ...(companySettings?.invoicing_provider !== "external"
-      ? [
-          { href: "/invoices", label: "Invoices", icon: Receipt },
-          { href: "/invoices?type=quote", label: "Quotes", icon: FileText },
-        ]
-      : []),
-    { href: "/customers", label: "Customers", icon: Users },
-    { href: "/properties", label: "Properties", icon: Home },
-    { href: "/todos", label: "To-Do List", icon: CheckSquare },
+  const workNavItems = [
+    ...(hasJobManagement ? [
+      { href: "/getting-started", label: "Getting Started", icon: Rocket },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/schedule", label: "Schedule", icon: CalendarDays },
+      { href: "/enquiries", label: "Enquiries", icon: MessageSquarePlus },
+      { href: "/follow-ups", label: "Follow-Ups", icon: ClipboardList },
+      ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin")
+        ? [{ href: "/booking", label: "Online Bookings", icon: CalendarCheck }]
+        : []),
+      { href: "/jobs", label: "Jobs", icon: Briefcase },
+      ...(companySettings?.invoicing_provider !== "external"
+        ? [
+            { href: "/invoices", label: "Invoices", icon: Receipt },
+            { href: "/invoices?type=quote", label: "Quotes", icon: FileText },
+          ]
+        : []),
+      { href: "/customers", label: "Customers", icon: Users },
+      { href: "/properties", label: "Properties", icon: Home },
+      { href: "/todos", label: "To-Do List", icon: CheckSquare },
+    ] : []),
     { href: "/shopping-lists", label: "Shopping Lists", icon: ShoppingCart },
     { href: "/community", label: "Community", icon: MessageSquare },
-  ] : [];
+  ];
 
   // ── Customers ─────────────────────────────────────────────────────────────
   const customerNavItems = hasJobManagement ? [
