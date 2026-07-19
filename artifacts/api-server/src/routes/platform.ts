@@ -1569,6 +1569,162 @@ router.get("/platform/audit-log", requireAuth, requireSuperAdmin, async (req, re
   res.json(data || []);
 });
 
+router.get("/platform/community/reports", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const status = typeof req.query.status === "string" ? req.query.status : "open";
+
+  let q = supabaseAdmin
+    .from("community_post_reports")
+    .select("id, tenant_id, post_id, reported_by, reason, status, created_at, updated_at")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (status !== "all") q = q.eq("status", status);
+
+  const { data, error } = await q;
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const rows = (data || []) as Array<{
+    id: string;
+    tenant_id: string;
+    post_id: string;
+    reported_by: string;
+    reason: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+
+  const postIds = Array.from(new Set(rows.map((r) => r.post_id).filter(Boolean)));
+  const tenantIds = Array.from(new Set(rows.map((r) => r.tenant_id).filter(Boolean)));
+
+  let postMap = new Map<string, { id: string; body: string; thread_id: string; author_id: string }>();
+  let tenantMap = new Map<string, { id: string; company_name: string | null }>();
+
+  if (postIds.length > 0) {
+    const { data: posts, error: postsErr } = await supabaseAdmin
+      .from("community_posts")
+      .select("id, body, thread_id, author_id")
+      .in("id", postIds);
+    if (postsErr) {
+      res.status(500).json({ error: postsErr.message });
+      return;
+    }
+    for (const post of (posts || []) as Array<{ id: string; body: string; thread_id: string; author_id: string }>) {
+      postMap.set(post.id, post);
+    }
+  }
+
+  if (tenantIds.length > 0) {
+    const { data: tenants, error: tenantsErr } = await supabaseAdmin
+      .from("tenants")
+      .select("id, company_name")
+      .in("id", tenantIds);
+    if (tenantsErr) {
+      res.status(500).json({ error: tenantsErr.message });
+      return;
+    }
+    for (const tenant of (tenants || []) as Array<{ id: string; company_name: string | null }>) {
+      tenantMap.set(tenant.id, tenant);
+    }
+  }
+
+  const threadIds = Array.from(
+    new Set(
+      Array.from(postMap.values())
+        .map((p) => p.thread_id)
+        .filter(Boolean)
+    )
+  );
+  const authorIds = Array.from(
+    new Set(
+      Array.from(postMap.values())
+        .map((p) => p.author_id)
+        .filter(Boolean)
+    )
+  );
+
+  let threadMap = new Map<string, { id: string; title: string; category_id: string }>();
+  let authorMap = new Map<string, { id: string; full_name: string | null; role: string | null }>();
+
+  if (threadIds.length > 0) {
+    const { data: threads, error: threadsErr } = await supabaseAdmin
+      .from("community_threads")
+      .select("id, title, category_id")
+      .in("id", threadIds);
+    if (threadsErr) {
+      res.status(500).json({ error: threadsErr.message });
+      return;
+    }
+    for (const thread of (threads || []) as Array<{ id: string; title: string; category_id: string }>) {
+      threadMap.set(thread.id, thread);
+    }
+  }
+
+  if (authorIds.length > 0) {
+    const { data: authors, error: authorsErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, role")
+      .in("id", authorIds);
+    if (authorsErr) {
+      res.status(500).json({ error: authorsErr.message });
+      return;
+    }
+    for (const author of (authors || []) as Array<{ id: string; full_name: string | null; role: string | null }>) {
+      authorMap.set(author.id, author);
+    }
+  }
+
+  res.json(rows.map((report) => {
+    const post = postMap.get(report.post_id) || null;
+    const thread = post ? threadMap.get(post.thread_id) || null : null;
+    const author = post ? authorMap.get(post.author_id) || null : null;
+    return {
+      ...report,
+      tenant: tenantMap.get(report.tenant_id) || null,
+      post,
+      thread,
+      author,
+    };
+  }));
+});
+
+router.patch("/platform/community/reports/:id", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const reportId = String(req.params.id || "");
+  const { status } = req.body as { status?: unknown };
+
+  if (!reportId) {
+    res.status(400).json({ error: "Missing report id" });
+    return;
+  }
+
+  const allowed = new Set(["open", "reviewed", "dismissed", "actioned"]);
+  if (typeof status !== "string" || !allowed.has(status)) {
+    res.status(400).json({ error: "Invalid report status" });
+    return;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("community_post_reports")
+    .update({ status })
+    .eq("id", reportId)
+    .select("id, tenant_id, post_id, reported_by, reason, status, created_at, updated_at")
+    .single();
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+
+  res.json(data);
+});
+
 router.get("/platform/tenant-info", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   if (!req.tenantId) { res.json(null); return; }
 

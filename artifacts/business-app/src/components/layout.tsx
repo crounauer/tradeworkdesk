@@ -175,6 +175,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform", label: "Overview", icon: Globe },
     { href: "/platform/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
+    { href: "/platform/community", label: "Community", icon: MessageSquarePlus },
     { href: "/platform/support-tickets", label: "Support Tickets", icon: MessageSquare },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
     { href: "/platform/plans", label: "Plans", icon: CreditCard },

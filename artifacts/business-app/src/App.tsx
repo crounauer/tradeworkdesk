@@ -137,6 +137,7 @@ const PlatformBetaInvites = lazyRetry(() => import("@/pages/platform-beta-invite
 const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
 const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
+const PlatformCommunityPage = lazyRetry(() => import("@/pages/platform-community"));
 const AdminWebsiteTemplatesPage = lazyRetry(() => import("@/pages/admin-website-templates"));
 const SuperadminTemplatesPage = lazyRetry(() => import("@/pages/superadmin-templates"));
 const SuperadminTemplateConversionsPage = lazyRetry(() => import("@/pages/superadmin-template-conversions"));
@@ -511,6 +512,7 @@ const PlatformBetaInvitesRoute = protect(PlatformBetaInvites, ["super_admin"]);
 const PlatformAuditLogRoute = protect(PlatformAuditLog, ["super_admin"]);
 const PlatformSettingsRoute = protect(PlatformSettingsPage, ["super_admin"]);
 const AdminWebsiteTemplatesRoute = protect(AdminWebsiteTemplatesPage, ["super_admin"]);
+const PlatformCommunityRoute = protect(PlatformCommunityPage, ["super_admin"]);
 const SuperadminTemplatesRoute = protect(SuperadminTemplatesPage, ["super_admin"]);
 const SuperadminTemplateConversionsRoute = protect(SuperadminTemplateConversionsPage, ["super_admin"]);
 const SuperadminTemplateDetailRoute = protect(SuperadminTemplateDetailPage, ["super_admin"]);
@@ -693,6 +695,7 @@ function AppRouter() {
         <Route path="/platform/tenants" component={PlatformTenantsRoute} />
         <Route path="/platform/addons" component={PlatformAddonsRoute} />
         <Route path="/platform/plans" component={PlatformPlansRoute} />
+        <Route path="/platform/community" component={PlatformCommunityRoute} />
         <Route path="/platform/announcements" component={PlatformAnnouncementsRoute} />
         <Route path="/platform/beta-invites" component={PlatformBetaInvitesRoute} />
         <Route path="/platform/audit-log" component={PlatformAuditLogRoute} />
