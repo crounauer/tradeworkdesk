@@ -3,12 +3,14 @@ import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middle
 import { supabaseAdmin } from "../lib/supabase";
 
 type UserRole = "admin" | "office_staff" | "technician" | "super_admin";
+type AssignmentMode = "unassigned" | "specific_technician" | "all_technicians";
 
 interface ShoppingListRow {
   id: string;
   tenant_id: string;
   title: string;
   status: "draft" | "active" | "partially_purchased" | "complete" | "archived";
+  assignment_mode?: AssignmentMode;
   created_by: string;
   assigned_to: string | null;
   created_at: string;
@@ -46,6 +48,88 @@ function toNum(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+async function canTechnicianCreateOwnLists(tenantId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, role, can_create_own_shopping_lists")
+    .eq("id", userId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (error) {
+    if (typeof error.message === "string" && error.message.includes("can_create_own_shopping_lists")) {
+      return false;
+    }
+    return false;
+  }
+
+  const row = data as { role?: string; can_create_own_shopping_lists?: boolean | null } | null;
+  return row?.role === "technician" && row?.can_create_own_shopping_lists === true;
+}
+
+async function ensureTechnicianBelongsToTenant(tenantId: string, technicianId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("id", technicianId)
+    .eq("tenant_id", tenantId)
+    .eq("role", "technician")
+    .maybeSingle();
+  return !!data;
+}
+
+function getEffectiveAssignmentMode(list: ShoppingListRow): AssignmentMode {
+  if (list.assignment_mode === "specific_technician" || list.assignment_mode === "all_technicians" || list.assignment_mode === "unassigned") {
+    return list.assignment_mode;
+  }
+  return list.assigned_to ? "specific_technician" : "unassigned";
+}
+
+function canTechnicianAccessList(list: ShoppingListRow, userId: string): boolean {
+  const mode = getEffectiveAssignmentMode(list);
+  if (mode === "unassigned" || mode === "all_technicians") return true;
+  return list.assigned_to === userId;
+}
+
+async function resolveAssignmentInput(opts: {
+  tenantId: string;
+  userRole?: string;
+  userId?: string;
+  assignment_mode?: unknown;
+  assigned_to?: unknown;
+}): Promise<{ assignment_mode: AssignmentMode; assigned_to: string | null; error?: string }> {
+  const { tenantId, userRole, userId, assignment_mode, assigned_to } = opts;
+
+  if (userRole === "technician") {
+    return {
+      assignment_mode: "specific_technician",
+      assigned_to: userId || null,
+      error: userId ? undefined : "Missing user id",
+    };
+  }
+
+  const rawMode = typeof assignment_mode === "string" ? assignment_mode : undefined;
+  const candidateAssigned = typeof assigned_to === "string" ? assigned_to : null;
+  const mode: AssignmentMode = rawMode === "specific_technician" || rawMode === "all_technicians" || rawMode === "unassigned"
+    ? rawMode
+    : candidateAssigned
+    ? "specific_technician"
+    : "unassigned";
+
+  if (mode === "specific_technician") {
+    if (!candidateAssigned) {
+      return { assignment_mode: mode, assigned_to: null, error: "assigned_to is required when assignment_mode is specific_technician" };
+    }
+    const ok = await ensureTechnicianBelongsToTenant(tenantId, candidateAssigned);
+    if (!ok) {
+      return { assignment_mode: mode, assigned_to: null, error: "assigned_to must reference a technician in this tenant" };
+    }
+    return { assignment_mode: mode, assigned_to: candidateAssigned };
+  }
+
+  return { assignment_mode: mode, assigned_to: null };
+}
+
 async function ensureListBelongsToTenant(listId: string, tenantId: string): Promise<ShoppingListRow | null> {
   const { data } = await supabaseAdmin
     .from("shopping_lists")
@@ -77,19 +161,73 @@ router.get("/shopping-lists", requireAuth, requireTenant, async (req: Authentica
     return;
   }
 
-  res.json((data as ShoppingListRow[]) || []);
-});
-
-router.post("/shopping-lists", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!isManager(req.userRole)) {
-    res.status(403).json({ error: "Only admins and office staff can create shopping lists" });
+  const rows = (data as ShoppingListRow[]) || [];
+  if (req.userRole === "technician") {
+    res.json(rows.filter((list) => canTechnicianAccessList(list, req.userId!)));
     return;
   }
 
-  const { title, assigned_to } = req.body as { title?: unknown; assigned_to?: unknown };
+  res.json(rows);
+});
+
+router.get("/shopping-lists/me/permissions", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const canCreateOwn = req.userRole === "technician"
+    ? await canTechnicianCreateOwnLists(req.tenantId!, req.userId!)
+    : false;
+
+  res.json({
+    can_create_own_shopping_lists: canCreateOwn,
+  });
+});
+
+router.get("/shopping-lists/technicians", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const isAllowed = isManager(req.userRole) || (req.userRole === "technician" && await canTechnicianCreateOwnLists(req.tenantId!, req.userId!));
+  if (!isAllowed) {
+    res.status(403).json({ error: "Not authorized" });
+    return;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("tenant_id", req.tenantId!)
+    .eq("role", "technician")
+    .eq("is_active", true)
+    .order("full_name", { ascending: true });
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json(data || []);
+});
+
+router.post("/shopping-lists", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const isApprovedTechnician = req.userRole === "technician"
+    ? await canTechnicianCreateOwnLists(req.tenantId!, req.userId!)
+    : false;
+  if (!isManager(req.userRole) && !isApprovedTechnician) {
+    res.status(403).json({ error: "Not authorized to create shopping lists" });
+    return;
+  }
+
+  const { title, assigned_to, assignment_mode } = req.body as { title?: unknown; assigned_to?: unknown; assignment_mode?: unknown };
   const safeTitle = typeof title === "string" && title.trim().length > 0
     ? title.trim()
     : `Shopping List ${new Date().toISOString().slice(0, 10)}`;
+
+  const resolvedAssignment = await resolveAssignmentInput({
+    tenantId: req.tenantId!,
+    userRole: req.userRole,
+    userId: req.userId,
+    assignment_mode,
+    assigned_to,
+  });
+  if (resolvedAssignment.error) {
+    res.status(400).json({ error: resolvedAssignment.error });
+    return;
+  }
 
   const { data, error } = await supabaseAdmin
     .from("shopping_lists")
@@ -98,7 +236,8 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
       title: safeTitle,
       status: "active",
       created_by: req.userId,
-      assigned_to: typeof assigned_to === "string" ? assigned_to : null,
+      assignment_mode: resolvedAssignment.assignment_mode,
+      assigned_to: resolvedAssignment.assigned_to,
     })
     .select()
     .single();
@@ -112,36 +251,105 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
 });
 
 router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
-  if (!isManager(req.userRole)) {
-    res.status(403).json({ error: "Only admins and office staff can generate shopping lists" });
+  const isApprovedTechnician = req.userRole === "technician"
+    ? await canTechnicianCreateOwnLists(req.tenantId!, req.userId!)
+    : false;
+  if (!isManager(req.userRole) && !isApprovedTechnician) {
+    res.status(403).json({ error: "Not authorized to generate shopping lists" });
     return;
   }
 
   const {
-    invoice_ids,
+    period,
+    date_from,
+    date_to,
     include_to_order_parts = true,
     title,
+    assignment_mode,
+    assigned_to,
   } = req.body as {
-    invoice_ids?: unknown;
+    period?: unknown;
+    date_from?: unknown;
+    date_to?: unknown;
     include_to_order_parts?: unknown;
     title?: unknown;
+    assignment_mode?: unknown;
+    assigned_to?: unknown;
   };
 
-  const invoiceIds = Array.isArray(invoice_ids)
-    ? invoice_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
-    : [];
+  const resolvedAssignment = await resolveAssignmentInput({
+    tenantId: req.tenantId!,
+    userRole: req.userRole,
+    userId: req.userId,
+    assignment_mode,
+    assigned_to,
+  });
+  if (resolvedAssignment.error) {
+    res.status(400).json({ error: resolvedAssignment.error });
+    return;
+  }
+
+  const today = new Date();
+  const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+  let resolvedFrom = "";
+  let resolvedTo = "";
+  const periodValue = typeof period === "string" ? period : "last_7_days";
+
+  if (periodValue === "last_7_days" || periodValue === "last_week") {
+    const from = new Date(today);
+    from.setDate(from.getDate() - 7);
+    resolvedFrom = toIsoDate(from);
+    resolvedTo = toIsoDate(today);
+  } else if (periodValue === "this_month") {
+    const from = new Date(today.getFullYear(), today.getMonth(), 1);
+    resolvedFrom = toIsoDate(from);
+    resolvedTo = toIsoDate(today);
+  } else if (periodValue === "last_30_days" || periodValue === "last_month") {
+    const from = new Date(today);
+    from.setMonth(from.getMonth() - 1);
+    resolvedFrom = toIsoDate(from);
+    resolvedTo = toIsoDate(today);
+  } else if (periodValue === "custom") {
+    if (typeof date_from !== "string" || typeof date_to !== "string" || !date_from || !date_to) {
+      res.status(400).json({ error: "date_from and date_to are required for custom period" });
+      return;
+    }
+    resolvedFrom = date_from;
+    resolvedTo = date_to;
+  } else {
+    res.status(400).json({ error: "period must be one of: last_7_days, this_month, last_30_days, custom" });
+    return;
+  }
+
+  if (resolvedFrom > resolvedTo) {
+    res.status(400).json({ error: "date_from cannot be after date_to" });
+    return;
+  }
+
+  const { data: invoices, error: invoicesError } = await supabaseAdmin
+    .from("invoices")
+    .select("id")
+    .eq("tenant_id", req.tenantId!)
+    .gte("issue_date", resolvedFrom)
+    .lte("issue_date", resolvedTo);
+
+  if (invoicesError) {
+    res.status(500).json({ error: invoicesError.message });
+    return;
+  }
+
+  const invoiceIds = (invoices || []).map((inv) => String((inv as { id: string }).id)).filter(Boolean);
 
   let invoiceItems: Array<Record<string, unknown>> = [];
   if (invoiceIds.length > 0) {
-    let invoiceItemsQuery = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("invoice_line_items")
       .select("id, invoice_id, description, quantity, unit_price")
       .eq("tenant_id", req.tenantId!)
-      .eq("item_type", "product");
+      .eq("item_type", "product")
+      .in("invoice_id", invoiceIds);
 
-    invoiceItemsQuery = invoiceItemsQuery.in("invoice_id", invoiceIds);
-
-    const { data, error } = await invoiceItemsQuery;
     if (error) {
       res.status(500).json({ error: error.message });
       return;
@@ -230,7 +438,7 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
 
   const safeTitle = typeof title === "string" && title.trim().length > 0
     ? title.trim()
-    : `Generated List ${new Date().toISOString().slice(0, 10)}`;
+    : `Generated List ${resolvedFrom} to ${resolvedTo}`;
 
   const { data: listData, error: listError } = await supabaseAdmin
     .from("shopping_lists")
@@ -239,6 +447,8 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
       title: safeTitle,
       status: "active",
       created_by: req.userId,
+      assignment_mode: resolvedAssignment.assignment_mode,
+      assigned_to: resolvedAssignment.assigned_to,
     })
     .select()
     .single();
@@ -287,6 +497,11 @@ router.get("/shopping-lists/:id", requireAuth, requireTenant, async (req: Authen
     return;
   }
 
+  if (req.userRole === "technician" && !canTechnicianAccessList(list, req.userId!)) {
+    res.status(403).json({ error: "Not authorized to view this shopping list" });
+    return;
+  }
+
   const { data: items, error: itemsError } = await supabaseAdmin
     .from("shopping_list_items")
     .select("*")
@@ -317,8 +532,14 @@ router.patch("/shopping-lists/:id", requireAuth, requireTenant, async (req: Auth
     return;
   }
 
+  const list = await ensureListBelongsToTenant(listId, req.tenantId!);
+  if (!list) {
+    res.status(404).json({ error: "Shopping list not found" });
+    return;
+  }
+
   const updates: Record<string, unknown> = {};
-  const body = req.body as { title?: unknown; status?: unknown; assigned_to?: unknown };
+  const body = req.body as { title?: unknown; status?: unknown; assigned_to?: unknown; assignment_mode?: unknown };
 
   if (body.title !== undefined) {
     if (typeof body.title !== "string" || body.title.trim().length === 0) {
@@ -337,12 +558,27 @@ router.patch("/shopping-lists/:id", requireAuth, requireTenant, async (req: Auth
     updates.status = body.status;
   }
 
-  if (body.assigned_to !== undefined) {
-    if (body.assigned_to !== null && typeof body.assigned_to !== "string") {
+  if (body.assigned_to !== undefined || body.assignment_mode !== undefined) {
+    if (body.assigned_to !== undefined && body.assigned_to !== null && typeof body.assigned_to !== "string") {
       res.status(400).json({ error: "assigned_to must be a string or null" });
       return;
     }
-    updates.assigned_to = body.assigned_to;
+
+    const currentMode = getEffectiveAssignmentMode(list);
+    const resolvedAssignment = await resolveAssignmentInput({
+      tenantId: req.tenantId!,
+      userRole: req.userRole,
+      userId: req.userId,
+      assignment_mode: body.assignment_mode !== undefined ? body.assignment_mode : currentMode,
+      assigned_to: body.assigned_to !== undefined ? body.assigned_to : list.assigned_to,
+    });
+    if (resolvedAssignment.error) {
+      res.status(400).json({ error: resolvedAssignment.error });
+      return;
+    }
+
+    updates.assignment_mode = resolvedAssignment.assignment_mode;
+    updates.assigned_to = resolvedAssignment.assigned_to;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -377,15 +613,20 @@ router.post("/shopping-lists/:id/items", requireAuth, requireTenant, async (req:
     return;
   }
 
-  if (!isManager(req.userRole)) {
-    res.status(403).json({ error: "Only admins and office staff can add shopping list items" });
-    return;
-  }
-
   const list = await ensureListBelongsToTenant(listId, req.tenantId!);
   if (!list) {
     res.status(404).json({ error: "Shopping list not found" });
     return;
+  }
+
+  if (!isManager(req.userRole)) {
+    const isApprovedTechnician = req.userRole === "technician"
+      ? await canTechnicianCreateOwnLists(req.tenantId!, req.userId!)
+      : false;
+    if (!isApprovedTechnician || !canTechnicianAccessList(list, req.userId!)) {
+      res.status(403).json({ error: "Not authorized to add shopping list items" });
+      return;
+    }
   }
 
   const { item_name, quantity = 1, unit_estimate = null, notes = null } = req.body as {
@@ -445,6 +686,16 @@ router.patch("/shopping-lists/:id/items/:itemId", requireAuth, requireTenant, as
   }
 
   if (req.userRole === "technician") {
+    const list = await ensureListBelongsToTenant(listId, req.tenantId!);
+    if (!list) {
+      res.status(404).json({ error: "Shopping list not found" });
+      return;
+    }
+    if (!canTechnicianAccessList(list, req.userId!)) {
+      res.status(403).json({ error: "Not authorized to update items on this shopping list" });
+      return;
+    }
+
     const { data: settings } = await supabaseAdmin
       .from("company_settings")
       .select("technicians_can_update_shopping_list_items")

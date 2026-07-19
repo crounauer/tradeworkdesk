@@ -30,6 +30,7 @@ export const profiles = pgTable("profiles", {
   role: userRoleEnum("role").notNull().default("technician"),
   phone: text("phone"),
   can_be_assigned_jobs: boolean("can_be_assigned_jobs").notNull().default(false),
+  can_create_own_shopping_lists: boolean("can_create_own_shopping_lists").notNull().default(false),
   is_active: boolean("is_active").notNull().default(true),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
@@ -557,6 +558,10 @@ export const shoppingListStatusEnum = pgEnum("shopping_list_status", [
   "draft", "active", "partially_purchased", "complete", "archived",
 ]);
 
+export const shoppingListAssignmentModeEnum = pgEnum("shopping_list_assignment_mode", [
+  "unassigned", "specific_technician", "all_technicians",
+]);
+
 export const shoppingListItemStatusEnum = pgEnum("shopping_list_item_status", [
   "needed", "ordered", "purchased", "unavailable",
 ]);
@@ -570,6 +575,7 @@ export const shoppingLists = pgTable("shopping_lists", {
   tenant_id: text("tenant_id").notNull(),
   title: text("title").notNull(),
   status: shoppingListStatusEnum("status").notNull().default("active"),
+  assignment_mode: shoppingListAssignmentModeEnum("assignment_mode").notNull().default("unassigned"),
   created_by: uuid("created_by").notNull().references(() => profiles.id),
   assigned_to: uuid("assigned_to").references(() => profiles.id),
   created_at: timestamp("created_at").notNull().defaultNow(),

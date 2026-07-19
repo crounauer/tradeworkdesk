@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ interface ShoppingList {
   id: string;
   title: string;
   status: "draft" | "active" | "partially_purchased" | "complete" | "archived";
+  assignment_mode?: "unassigned" | "specific_technician" | "all_technicians";
+  assigned_to?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +38,16 @@ interface ShoppingListDetail extends ShoppingList {
 
 interface CompanySettingsLite {
   technicians_can_update_shopping_list_items?: boolean | null;
+}
+
+interface ShoppingListMyPermissions {
+  can_create_own_shopping_lists: boolean;
+}
+
+interface TechnicianOption {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
 }
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -78,12 +90,21 @@ export default function ShoppingListsPage() {
   const canConfigureTechUpdates = profile?.role === "admin" || profile?.role === "super_admin";
   const isTechnician = profile?.role === "technician";
   const [statusFilter, setStatusFilter] = useState<"open" | "all" | ShoppingList["status"]>("open");
+  const [scopeFilter, setScopeFilter] = useState<"all" | "assigned_to_me" | "shared" | "unassigned">("all");
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
   const [newTitle, setNewTitle] = useState("");
   const [generateTitle, setGenerateTitle] = useState("");
-  const [invoiceIdsCsv, setInvoiceIdsCsv] = useState("");
+  const [generatePeriod, setGeneratePeriod] = useState<"last_7_days" | "this_month" | "last_30_days" | "custom">("last_7_days");
+  const [generateDateFrom, setGenerateDateFrom] = useState("");
+  const [generateDateTo, setGenerateDateTo] = useState("");
   const [includeToOrderParts, setIncludeToOrderParts] = useState(true);
+  const [createAssignmentMode, setCreateAssignmentMode] = useState<"unassigned" | "specific_technician" | "all_technicians">("unassigned");
+  const [createAssignedTo, setCreateAssignedTo] = useState("");
+  const [generateAssignmentMode, setGenerateAssignmentMode] = useState<"unassigned" | "specific_technician" | "all_technicians">("unassigned");
+  const [generateAssignedTo, setGenerateAssignedTo] = useState("");
+  const [editAssignmentMode, setEditAssignmentMode] = useState<"unassigned" | "specific_technician" | "all_technicians">("unassigned");
+  const [editAssignedTo, setEditAssignedTo] = useState("");
 
   const [manualItemName, setManualItemName] = useState("");
   const [manualItemQty, setManualItemQty] = useState("1");
@@ -100,6 +121,19 @@ export default function ShoppingListsPage() {
     queryFn: () => apiFetch<CompanySettingsLite>("/company-settings"),
   });
 
+  const { data: myPermissions } = useQuery<ShoppingListMyPermissions>({
+    queryKey: ["shopping-lists-me-permissions"],
+    queryFn: () => apiFetch<ShoppingListMyPermissions>("/shopping-lists/me/permissions"),
+  });
+
+  const canCreateLists = canManage || (isTechnician && myPermissions?.can_create_own_shopping_lists === true);
+
+  const { data: technicians = [] } = useQuery<TechnicianOption[]>({
+    queryKey: ["shopping-lists-technicians"],
+    queryFn: () => apiFetch<TechnicianOption[]>("/shopping-lists/technicians"),
+    enabled: canCreateLists,
+  });
+
   const techUpdatesEnabled = companySettings?.technicians_can_update_shopping_list_items !== false;
 
   const effectiveListId = selectedListId || lists[0]?.id || null;
@@ -113,15 +147,37 @@ export default function ShoppingListsPage() {
     enabled: !!effectiveListId,
   });
 
+  const visibleLists = useMemo(() => {
+    if (!isTechnician || scopeFilter === "all") return lists;
+    return lists.filter((list) => {
+      const mode = list.assignment_mode || (list.assigned_to ? "specific_technician" : "unassigned");
+      if (scopeFilter === "assigned_to_me") return mode === "specific_technician" && list.assigned_to === profile?.id;
+      if (scopeFilter === "shared") return mode === "all_technicians";
+      if (scopeFilter === "unassigned") return mode === "unassigned";
+      return true;
+    });
+  }, [isTechnician, scopeFilter, lists, profile?.id]);
+
   const createListMutation = useMutation({
-    mutationFn: () => apiFetch<ShoppingList>("/shopping-lists", {
-      method: "POST",
-      body: JSON.stringify({ title: newTitle || undefined }),
-    }),
+    mutationFn: () => {
+      if (canManage && createAssignmentMode === "specific_technician" && !createAssignedTo) {
+        throw new Error("Select a technician for specific assignment");
+      }
+      return apiFetch<ShoppingList>("/shopping-lists", {
+        method: "POST",
+        body: JSON.stringify({
+          title: newTitle || undefined,
+          assignment_mode: canManage ? createAssignmentMode : undefined,
+          assigned_to: canManage && createAssignmentMode === "specific_technician" ? createAssignedTo : null,
+        }),
+      });
+    },
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ["shopping-lists"] });
       setSelectedListId(created.id);
       setNewTitle("");
+      setCreateAssignmentMode("unassigned");
+      setCreateAssignedTo("");
       toast({ title: "Shopping list created" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -129,16 +185,22 @@ export default function ShoppingListsPage() {
 
   const generateMutation = useMutation({
     mutationFn: () => {
-      const invoiceIds = invoiceIdsCsv
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean);
+      if (generatePeriod === "custom" && (!generateDateFrom || !generateDateTo)) {
+        throw new Error("Select both from/to dates for custom period");
+      }
+      if (canManage && generateAssignmentMode === "specific_technician" && !generateAssignedTo) {
+        throw new Error("Select a technician for specific assignment");
+      }
       return apiFetch<{ list: ShoppingList; item_count: number }>("/shopping-lists/generate", {
         method: "POST",
         body: JSON.stringify({
           title: generateTitle || undefined,
-          invoice_ids: invoiceIds,
+          period: generatePeriod,
+          date_from: generatePeriod === "custom" ? generateDateFrom : undefined,
+          date_to: generatePeriod === "custom" ? generateDateTo : undefined,
           include_to_order_parts: includeToOrderParts,
+          assignment_mode: canManage ? generateAssignmentMode : undefined,
+          assigned_to: canManage && generateAssignmentMode === "specific_technician" ? generateAssignedTo : null,
         }),
       });
     },
@@ -146,7 +208,11 @@ export default function ShoppingListsPage() {
       qc.invalidateQueries({ queryKey: ["shopping-lists"] });
       setSelectedListId(result.list.id);
       setGenerateTitle("");
-      setInvoiceIdsCsv("");
+      setGeneratePeriod("last_7_days");
+      setGenerateDateFrom("");
+      setGenerateDateTo("");
+      setGenerateAssignmentMode("unassigned");
+      setGenerateAssignedTo("");
       toast({ title: "Shopping list generated", description: `${result.item_count} items added` });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -206,6 +272,28 @@ export default function ShoppingListsPage() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const updateAssignmentMutation = useMutation({
+    mutationFn: () => {
+      if (!effectiveListId) throw new Error("No shopping list selected");
+      if (editAssignmentMode === "specific_technician" && !editAssignedTo) {
+        throw new Error("Select a technician for specific assignment");
+      }
+      return apiFetch<ShoppingList>(`/shopping-lists/${effectiveListId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          assignment_mode: editAssignmentMode,
+          assigned_to: editAssignmentMode === "specific_technician" ? editAssignedTo : null,
+        }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shopping-lists"] });
+      qc.invalidateQueries({ queryKey: ["shopping-list", effectiveListId] });
+      toast({ title: "Assignment updated" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   const updateTechToggleMutation = useMutation({
     mutationFn: (enabled: boolean) => apiFetch<CompanySettingsLite>("/admin/company-settings", {
       method: "PUT",
@@ -227,11 +315,46 @@ export default function ShoppingListsPage() {
     return { items: selectedList.items.length, estimate };
   }, [selectedList]);
 
+  const scopeCounts = useMemo(() => {
+    const counts = {
+      all: lists.length,
+      assigned_to_me: 0,
+      shared: 0,
+      unassigned: 0,
+    };
+
+    for (const list of lists) {
+      const mode = list.assignment_mode || (list.assigned_to ? "specific_technician" : "unassigned");
+      if (mode === "specific_technician" && list.assigned_to === profile?.id) counts.assigned_to_me += 1;
+      else if (mode === "all_technicians") counts.shared += 1;
+      else if (mode === "unassigned") counts.unassigned += 1;
+    }
+
+    return counts;
+  }, [lists, profile?.id]);
+
+  useEffect(() => {
+    if (!selectedList) return;
+    const mode = selectedList.assignment_mode || (selectedList.assigned_to ? "specific_technician" : "unassigned");
+    setEditAssignmentMode(mode);
+    setEditAssignedTo(selectedList.assigned_to || "");
+  }, [selectedList?.id, selectedList?.assignment_mode, selectedList?.assigned_to]);
+
+  const assignmentLabel = (list: ShoppingList): string => {
+    const mode = list.assignment_mode || (list.assigned_to ? "specific_technician" : "unassigned");
+    if (mode === "all_technicians") return "All technicians";
+    if (mode === "specific_technician") {
+      const tech = technicians.find((t) => t.id === list.assigned_to);
+      return tech?.full_name || tech?.email || "Specific technician";
+    }
+    return "Unassigned";
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold flex items-center gap-2"><ShoppingCart className="w-6 h-6" />Shopping Lists</h1>
-        <p className="text-muted-foreground mt-1">Generate and manage purchasing lists from invoices and job parts.</p>
+        <p className="text-muted-foreground mt-1">Generate and manage purchasing lists from invoice periods and job parts.</p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[370px_minmax(0,1fr)]">
@@ -253,13 +376,33 @@ export default function ShoppingListsPage() {
               </select>
             </div>
 
+            {canManage && (
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ["all", `All (${scopeCounts.all})`],
+                  ["assigned_to_me", `Assigned to me (${scopeCounts.assigned_to_me})`],
+                  ["shared", `Shared (${scopeCounts.shared})`],
+                  ["unassigned", `Unassigned (${scopeCounts.unassigned})`],
+                ] as Array<[typeof scopeFilter, string]>).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    size="sm"
+                    variant={scopeFilter === value ? "default" : "outline"}
+                    onClick={() => setScopeFilter(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            )}
+
             {listsLoading ? (
               <div className="flex items-center text-sm text-muted-foreground"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading lists...</div>
-            ) : lists.length === 0 ? (
+            ) : visibleLists.length === 0 ? (
               <p className="text-sm text-muted-foreground">No shopping lists yet.</p>
             ) : (
               <div className="space-y-2 max-h-[380px] overflow-auto pr-1">
-                {lists.map((list) => (
+                {visibleLists.map((list) => (
                   <button
                     key={list.id}
                     type="button"
@@ -268,8 +411,12 @@ export default function ShoppingListsPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-sm truncate">{list.title}</p>
-                      <Badge className={statusClass(list.status)}>{list.status.replace("_", " ")}</Badge>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <Badge className={statusClass(list.status)}>{list.status.replace("_", " ")}</Badge>
+                        <Badge variant="outline">{assignmentLabel(list)}</Badge>
+                      </div>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">{assignmentLabel(list)}</p>
                     <p className="text-xs text-muted-foreground mt-1">Updated {new Date(list.updated_at).toLocaleString()}</p>
                   </button>
                 ))}
@@ -277,7 +424,7 @@ export default function ShoppingListsPage() {
             )}
           </Card>
 
-          {canManage && (
+          {canCreateLists && (
             <>
               {canConfigureTechUpdates && (
                 <Card className="p-4 space-y-3">
@@ -296,6 +443,34 @@ export default function ShoppingListsPage() {
               <Card className="p-4 space-y-3">
                 <h2 className="font-semibold">Create Empty List</h2>
                 <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Weekly merchants run" />
+                {canManage && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>Assignment</Label>
+                      <select
+                        className="h-9 w-full rounded border px-2 text-sm"
+                        value={createAssignmentMode}
+                        onChange={(e) => setCreateAssignmentMode(e.target.value as typeof createAssignmentMode)}
+                      >
+                        <option value="unassigned">Unassigned</option>
+                        <option value="specific_technician">Specific technician</option>
+                        <option value="all_technicians">All technicians</option>
+                      </select>
+                    </div>
+                    {createAssignmentMode === "specific_technician" && (
+                      <select
+                        className="h-9 w-full rounded border px-2 text-sm"
+                        value={createAssignedTo}
+                        onChange={(e) => setCreateAssignedTo(e.target.value)}
+                      >
+                        <option value="">Select technician...</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>{tech.full_name || tech.email || tech.id}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
                 <Button className="w-full" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
                   {createListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Create List
                 </Button>
@@ -308,9 +483,58 @@ export default function ShoppingListsPage() {
                   <Input value={generateTitle} onChange={(e) => setGenerateTitle(e.target.value)} placeholder="Parts to order this week" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Invoice IDs (comma separated, optional)</Label>
-                  <Textarea value={invoiceIdsCsv} onChange={(e) => setInvoiceIdsCsv(e.target.value)} placeholder="uuid-1, uuid-2" rows={3} />
+                  <Label>Invoice period</Label>
+                  <select
+                    className="h-9 w-full rounded border px-2 text-sm"
+                    value={generatePeriod}
+                    onChange={(e) => setGeneratePeriod(e.target.value as typeof generatePeriod)}
+                  >
+                    <option value="last_7_days">Last 7 days</option>
+                    <option value="this_month">This month</option>
+                    <option value="last_30_days">Last 30 days</option>
+                    <option value="custom">Custom date range</option>
+                  </select>
                 </div>
+                {generatePeriod === "custom" && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>From</Label>
+                      <Input type="date" value={generateDateFrom} onChange={(e) => setGenerateDateFrom(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>To</Label>
+                      <Input type="date" value={generateDateTo} onChange={(e) => setGenerateDateTo(e.target.value)} />
+                    </div>
+                  </div>
+                )}
+                {canManage && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>Assignment</Label>
+                      <select
+                        className="h-9 w-full rounded border px-2 text-sm"
+                        value={generateAssignmentMode}
+                        onChange={(e) => setGenerateAssignmentMode(e.target.value as typeof generateAssignmentMode)}
+                      >
+                        <option value="unassigned">Unassigned</option>
+                        <option value="specific_technician">Specific technician</option>
+                        <option value="all_technicians">All technicians</option>
+                      </select>
+                    </div>
+                    {generateAssignmentMode === "specific_technician" && (
+                      <select
+                        className="h-9 w-full rounded border px-2 text-sm"
+                        value={generateAssignedTo}
+                        onChange={(e) => setGenerateAssignedTo(e.target.value)}
+                      >
+                        <option value="">Select technician...</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>{tech.full_name || tech.email || tech.id}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={includeToOrderParts} onCheckedChange={(v) => setIncludeToOrderParts(v === true)} />
                   Include job parts marked to_order
@@ -337,6 +561,7 @@ export default function ShoppingListsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge className={statusClass(selectedList.status)}>{selectedList.status.replace("_", " ")}</Badge>
+                  <Badge variant="outline">{assignmentLabel(selectedList)}</Badge>
                   {canManage && (
                     <>
                       <Button
@@ -367,6 +592,40 @@ export default function ShoppingListsPage() {
                   )}
                 </div>
               </div>
+
+              {canManage && (
+                <div className="rounded border p-3 space-y-2">
+                  <p className="text-sm font-medium">Assignment</p>
+                  <div className="grid gap-2 md:grid-cols-[220px_minmax(0,1fr)_auto]">
+                    <select
+                      className="h-9 rounded border px-2 text-sm"
+                      value={editAssignmentMode}
+                      onChange={(e) => setEditAssignmentMode(e.target.value as typeof editAssignmentMode)}
+                    >
+                      <option value="unassigned">Unassigned</option>
+                      <option value="specific_technician">Specific technician</option>
+                      <option value="all_technicians">All technicians</option>
+                    </select>
+                    {editAssignmentMode === "specific_technician" ? (
+                      <select
+                        className="h-9 rounded border px-2 text-sm"
+                        value={editAssignedTo}
+                        onChange={(e) => setEditAssignedTo(e.target.value)}
+                      >
+                        <option value="">Select technician...</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>{tech.full_name || tech.email || tech.id}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="h-9 rounded border px-2 text-sm flex items-center text-muted-foreground">No individual technician selected</div>
+                    )}
+                    <Button size="sm" onClick={() => updateAssignmentMutation.mutate()} disabled={updateAssignmentMutation.isPending}>
+                      Save Assignment
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded border overflow-hidden">
                 <table className="w-full text-sm">
@@ -410,7 +669,7 @@ export default function ShoppingListsPage() {
                 </table>
               </div>
 
-              {canManage && (
+              {canCreateLists && (
                 <div className="border-t pt-4 space-y-3">
                   <h3 className="font-medium">Add Manual Item</h3>
                   <div className="grid gap-3 md:grid-cols-2">

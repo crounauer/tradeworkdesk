@@ -57,11 +57,11 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const id = toSingleParam(req.params.id);
-  const { role, full_name, phone, can_be_assigned_jobs } = req.body;
+  const { role, full_name, phone, can_be_assigned_jobs, can_create_own_shopping_lists } = req.body;
 
   const { data: before } = await supabaseAdmin
     .from("profiles")
-    .select("id, role, full_name, phone, can_be_assigned_jobs")
+    .select("id, role, full_name, phone, can_be_assigned_jobs, can_create_own_shopping_lists")
     .eq("id", id)
     .eq("tenant_id", req.tenantId)
     .maybeSingle();
@@ -76,9 +76,14 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
   if (full_name !== undefined) updates.full_name = full_name;
   if (phone !== undefined) updates.phone = phone;
   if (can_be_assigned_jobs !== undefined) updates.can_be_assigned_jobs = !!can_be_assigned_jobs;
+  if (can_create_own_shopping_lists !== undefined) updates.can_create_own_shopping_lists = !!can_create_own_shopping_lists;
   // When role changes to/from technician, sync can_be_assigned_jobs unless explicitly overridden
   if (role !== undefined && can_be_assigned_jobs === undefined) {
     updates.can_be_assigned_jobs = role === "technician";
+  }
+  // Self-create shopping lists is technician-specific.
+  if (role !== undefined && can_create_own_shopping_lists === undefined && role !== "technician") {
+    updates.can_create_own_shopping_lists = false;
   }
 
   let q = supabaseAdmin.from("profiles").update(updates).eq("id", id);

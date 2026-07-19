@@ -30,6 +30,7 @@ type Profile = {
   phone?: string | null;
   created_at: string;
   can_be_assigned_jobs: boolean;
+  can_create_own_shopping_lists: boolean;
 };
 
 type TenantAddon = {
@@ -67,6 +68,7 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
   const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
   const [pendingAssignable, setPendingAssignable] = useState<Record<string, boolean>>({});
+  const [pendingShoppingCreate, setPendingShoppingCreate] = useState<Record<string, boolean>>({});
   const [pendingAddons, setPendingAddons] = useState<Record<string, Set<string>>>({});
   const [savingAddons, setSavingAddons] = useState<Record<string, boolean>>({});
   const { data: initData } = useInitData();
@@ -164,11 +166,11 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   });
 
   const updateRole = useMutation({
-    mutationFn: ({ id, role, can_be_assigned_jobs }: { id: string; role: string; can_be_assigned_jobs?: boolean }) =>
+    mutationFn: ({ id, role, can_be_assigned_jobs, can_create_own_shopping_lists }: { id: string; role: string; can_be_assigned_jobs?: boolean; can_create_own_shopping_lists?: boolean }) =>
       fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, can_be_assigned_jobs }),
+        body: JSON.stringify({ role, can_be_assigned_jobs, can_create_own_shopping_lists }),
       }).then(async r => {
         if (!r.ok) throw new Error((await r.json()).error);
         return r.json();
@@ -178,6 +180,7 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/assignable-users"] });
       setPendingRoles(p => { const n = { ...p }; delete n[vars.id]; return n; });
       setPendingAssignable(p => { const n = { ...p }; delete n[vars.id]; return n; });
+      setPendingShoppingCreate(p => { const n = { ...p }; delete n[vars.id]; return n; });
       toast({ title: "Updated", description: "User updated." });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -198,6 +201,8 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   if (isLoading) return <div className="p-8">Loading users...</div>;
 
   const pendingInvites = (inviteCodes ?? []).filter(c => c.is_active && !c.used_at && (!c.expires_at || new Date(c.expires_at) > new Date()));
+  const technicians = users?.filter((user) => user.role === "technician") ?? [];
+  const shoppingCreateEnabledTechnicians = technicians.filter((user) => user.can_create_own_shopping_lists);
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -221,6 +226,31 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
           </Button>
         </div>
       </div>
+
+      <Card className="p-4 space-y-3 border-0 shadow-sm bg-slate-50/80">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-base">Shopping List Access</h2>
+            <p className="text-sm text-muted-foreground">Technicians approved to create their own shopping lists.</p>
+          </div>
+          <Badge variant="outline" className="text-sm">
+            {shoppingCreateEnabledTechnicians.length} of {technicians.length} technicians enabled
+          </Badge>
+        </div>
+        {technicians.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No technicians found for this tenant.</p>
+        ) : shoppingCreateEnabledTechnicians.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No technicians are currently approved to create shopping lists.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {shoppingCreateEnabledTechnicians.map((user) => (
+              <Badge key={user.id} variant="secondary" className="text-xs">
+                {user.full_name}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {showInviteSection && (
         <Card className="p-5 border-0 shadow-sm bg-blue-50/60 space-y-4">
@@ -306,7 +336,10 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
               <tr className="border-b border-border bg-slate-50/70">
                 <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Name</th>
                 <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Email</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Role</th>                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Assignable</th>                {availableAddons && availableAddons.length > 0 && (
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Role</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Assignable</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Shopping Lists</th>
+                {availableAddons && availableAddons.length > 0 && (
                   <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">
                     <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" />Add-ons</span>
                   </th>
@@ -320,8 +353,10 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                 const isMe = user.id === me?.id;
                 const pendingRole = pendingRoles[user.id] ?? user.role;
                 const pendingAssign = pendingAssignable[user.id] ?? user.can_be_assigned_jobs;
+                const pendingShopping = pendingShoppingCreate[user.id] ?? user.can_create_own_shopping_lists;
                 const hasPendingChange = (pendingRoles[user.id] !== undefined && pendingRoles[user.id] !== user.role)
-                  || (pendingAssignable[user.id] !== undefined && pendingAssignable[user.id] !== user.can_be_assigned_jobs);
+                  || (pendingAssignable[user.id] !== undefined && pendingAssignable[user.id] !== user.can_be_assigned_jobs)
+                  || (pendingShoppingCreate[user.id] !== undefined && pendingShoppingCreate[user.id] !== user.can_create_own_shopping_lists);
                 const effectiveAddonIds = getEffectiveAddons(user.id);
                 const addonPendingChange = hasAddonPendingChange(user.id);
                 return (
@@ -361,6 +396,18 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                         <span className="text-xs text-muted-foreground">Can be assigned jobs</span>
                       </label>
                     </td>
+                    <td className="px-5 py-4">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={pendingShopping}
+                          onChange={e => setPendingShoppingCreate(p => ({ ...p, [user.id]: e.target.checked }))}
+                          disabled={pendingRole !== "technician"}
+                          className="w-4 h-4 rounded border-border accent-primary disabled:opacity-50"
+                        />
+                        <span className="text-xs text-muted-foreground">Technician self-create</span>
+                      </label>
+                    </td>
                     {availableAddons && availableAddons.length > 0 && (
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-2">
@@ -398,7 +445,12 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                         {hasPendingChange && (
                           <Button
                             size="sm"
-                            onClick={() => updateRole.mutate({ id: user.id, role: pendingRole, can_be_assigned_jobs: pendingAssign })}
+                            onClick={() => updateRole.mutate({
+                              id: user.id,
+                              role: pendingRole,
+                              can_be_assigned_jobs: pendingAssign,
+                              can_create_own_shopping_lists: pendingRole === "technician" ? pendingShopping : false,
+                            })}
                             disabled={updateRole.isPending}
                           >
                             Save
