@@ -638,6 +638,13 @@ function readArray<T>(content: Record<string, unknown>, keys: string[], fallback
   return fallback;
 }
 
+function normalizeFooterLayoutVariant(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "default") return "four-column";
+  if (normalized === "traditional") return "minimal-columns";
+  return normalized;
+}
+
 function syncBlockContent(
   content: Record<string, unknown>,
   updates: Record<string, unknown>,
@@ -717,7 +724,7 @@ function hydrateEditorBlocks(page: Page): Block[] {
         : {},
     }));
 
-  return [...(page.blocks ?? [])]
+  const orderedBlocks = [...(page.blocks ?? [])]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((block, index) => {
       const templateBlock = templateBlocks[index];
@@ -730,6 +737,15 @@ function hydrateEditorBlocks(page: Page): Block[] {
           : block.content,
       };
     });
+
+  const headerBlocks = orderedBlocks.filter((block) => resolveEditorType(block.block_type) === "site.header");
+  const footerBlocks = orderedBlocks.filter((block) => resolveEditorType(block.block_type) === "site.footer");
+  const contentBlocks = orderedBlocks.filter((block) => {
+    const type = resolveEditorType(block.block_type);
+    return type !== "site.header" && type !== "site.footer";
+  });
+
+  return [...headerBlocks, ...contentBlocks, ...footerBlocks];
 }
 
 function GenericBlockEditor({
@@ -3679,6 +3695,46 @@ function BlockEditor({
                             ))}
                           </div>
                         </div>
+                      ) : layoutVariant === "split-list" ? (
+                        <div style={{ borderRadius: 12, background: cardBg, border: `1px solid ${borderColor}`, padding: 12 }}>
+                          {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
+                          <h3 style={{ margin: "0 0 8px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading || "Why Choose Us"}</h3>
+                          {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                            {items.slice(0, 4).map((item, i) => (
+                              <article key={i} style={{ borderRadius: 8, border: `1px solid ${borderColor}`, padding: 10, color: bodyColor, fontFamily: bodyFont }}>
+                                <p style={{ margin: "0 0 4px", color: accentColor, fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>Feature {i + 1}</p>
+                                <h4 style={{ margin: "0 0 4px", color: headingColor, fontFamily: headingFont }}>{item.title || "Feature"}</h4>
+                                <div style={{ fontSize: "0.82rem" }}>{item.description || "Description"}</div>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                      ) : layoutVariant === "minimal-strip" ? (
+                        <div style={{ borderRadius: 12, background: cardBg, border: `1px solid ${borderColor}`, padding: "0 14px" }}>
+                          {label ? <p style={{ margin: "10px 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
+                          {heading ? <h3 style={{ margin: "0 0 8px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading}</h3> : null}
+                          {subheading ? <p style={{ margin: "0 0 10px", color: bodyColor, fontSize: bodySize, fontFamily: bodyFont }}>{subheading}</p> : null}
+                          {items.slice(0, 4).map((item, i) => (
+                            <div key={i} style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", gap: 10, alignItems: "start", borderTop: i > 0 ? `1px solid ${borderColor}` : "none", padding: "12px 0" }}>
+                              <div style={{ color: accentColor, fontWeight: 700, fontFamily: headingFont }}>{item.icon || "•"}</div>
+                              <div>
+                                <p style={{ margin: "0 0 4px", color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</p>
+                                <p style={{ margin: 0, color: bodyColor, opacity: 0.88, fontSize: "0.82rem", fontFamily: bodyFont }}>{item.description || "Description"}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : layoutVariant === "numbered-cards" ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                          {items.slice(0, 4).map((item, i) => (
+                            <article key={i} style={{ borderRadius: 12, background: cardBg, border: `1px solid ${borderColor}`, padding: 12 }}>
+                              <p style={{ margin: "0 0 4px", color: accentColor, fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: bodyFont }}>Item {String(i + 1).padStart(2, "0")}</p>
+                              <h4 style={{ margin: "0 0 4px", color: headingColor, fontSize: "0.98rem", fontWeight: 700, fontFamily: headingFont }}>{item.title || "Feature"}</h4>
+                              <p style={{ margin: 0, color: bodyColor, opacity: 0.88, fontSize: "0.82rem", fontFamily: bodyFont }}>{item.description || "Description"}</p>
+                            </article>
+                          ))}
+                        </div>
                       ) : (
                         <div style={{ borderRadius: 12, background: cardBg, border: `1px solid ${borderColor}`, padding: 12 }}>
                           {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
@@ -5029,7 +5085,7 @@ function BlockEditor({
       const description = readString(c, ["description"], "");
       const phone = readString(c, ["phone"], "");
       const email = readString(c, ["email"], "");
-      const layoutVariant = readString(c, ["layout_variant", "layout"], "four-column");
+      const layoutVariant = normalizeFooterLayoutVariant(readString(c, ["layout_variant", "layout"], "four-column"));
       const backgroundColor = readString(c, ["background_color", "background"], "#111827");
       const textColor = readString(c, ["text_color"], "#9ca3af");
       const headingColor = readString(c, ["heading_color"], "#ffffff");
@@ -5077,8 +5133,34 @@ function BlockEditor({
                           <span>{phone || "01224 000000"}</span>
                           <span>{email || "hello@yourbusiness.co.uk"}</span>
                         </div>
+                      ) : layoutVariant === "compact-inline" ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", fontFamily: bodyFont, fontSize: bodySize }}>
+                          <div>
+                            <strong style={{ color: headingColor }}>Links</strong>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+                              {navItems.slice(0, 3).map((item, i) => (<span key={i}>{item.label || "Link"}</span>))}
+                            </div>
+                          </div>
+                          <div>
+                            <strong style={{ color: headingColor }}>Contact</strong>
+                            <div>{phone || "01224 000000"}</div>
+                            <div>{email || "hello@yourbusiness.co.uk"}</div>
+                          </div>
+                        </div>
+                      ) : layoutVariant === "minimal-columns" ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, fontFamily: bodyFont, fontSize: bodySize }}>
+                          <div>
+                            <strong style={{ color: headingColor }}>Contact</strong>
+                            <div>{phone || "01224 000000"}</div>
+                            <div>{email || "hello@yourbusiness.co.uk"}</div>
+                          </div>
+                          <div>
+                            <strong style={{ color: headingColor }}>Legal</strong>
+                            <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
+                          </div>
+                        </div>
                       ) : (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, fontFamily: bodyFont, fontSize: bodySize }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, fontFamily: bodyFont, fontSize: bodySize }}>
                           <div>
                             <strong style={{ color: headingColor }}>Links</strong>
                             {navItems.slice(0, 3).map((item, i) => (<div key={i}>{item.label || "Link"}</div>))}
@@ -5087,6 +5169,10 @@ function BlockEditor({
                             <strong style={{ color: headingColor }}>Contact</strong>
                             <div>{phone || "01224 000000"}</div>
                             <div>{email || "hello@yourbusiness.co.uk"}</div>
+                          </div>
+                          <div>
+                            <strong style={{ color: headingColor }}>Legal</strong>
+                            <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
                           </div>
                         </div>
                       )}
@@ -5463,14 +5549,23 @@ export default function WebsitePageEditor() {
       toast({ title: `${palette.label} already exists on this page`, duration: 1800 });
       return;
     }
-    const newBlock: Block = {
-      id: generateId(),
-      block_type: type,
-      content: { ...palette.defaultContent },
-      sort_order: blocks.length,
-      is_visible: true,
-    };
-    setBlocks((prev) => [...prev, newBlock]);
+    setBlocks((prev) => {
+      const next = [...prev];
+      const footerIndex = next.findIndex((b) => resolveEditorType(b.block_type) === "site.footer");
+      const newBlock: Block = {
+        id: generateId(),
+        block_type: type,
+        content: { ...palette.defaultContent },
+        sort_order: footerIndex >= 0 ? footerIndex : next.length,
+        is_visible: true,
+      };
+      if (footerIndex >= 0) {
+        next.splice(footerIndex, 0, newBlock);
+      } else {
+        next.push(newBlock);
+      }
+      return next.map((block, index) => ({ ...block, sort_order: index }));
+    });
     setIsDirty(true);
     toast({ title: `${palette.label} added`, duration: 1500 });
   }, [blocks.length, toast]);
@@ -5478,8 +5573,18 @@ export default function WebsitePageEditor() {
   const moveBlock = useCallback((from: number, to: number) => {
     setBlocks((prev) => {
       const next = [...prev];
+      const footerIndex = next.findIndex((block) => resolveEditorType(block.block_type) === "site.footer");
+      if (footerIndex === from) return prev;
+
       const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
+      let target = to;
+
+      if (footerIndex !== -1 && target >= footerIndex) {
+        target = footerIndex - 1;
+      }
+
+      target = Math.max(0, Math.min(target, next.length));
+      next.splice(target, 0, moved);
       return next.map((b, i) => ({ ...b, sort_order: i }));
     });
     setIsDirty(true);

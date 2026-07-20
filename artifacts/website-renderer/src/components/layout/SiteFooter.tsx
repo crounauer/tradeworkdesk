@@ -20,6 +20,13 @@ const SOCIAL_ICONS: Record<string, string> = {
 };
 
 export default function SiteFooter({ siteName, company, socialLinks, theme, pages = [], tagline, logoUrl, footerContent }: Props) {
+  function normalizeFooterLayoutVariant(value: string): string {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "default") return "four-column";
+    if (normalized === "traditional") return "minimal-columns";
+    return normalized;
+  }
+
   function readFooterString(content: Record<string, unknown> | null | undefined, keys: string[], fallback = ""): string {
     if (!content) return fallback;
     for (const key of keys) {
@@ -58,7 +65,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
   const footerDescription = readFooterString(savedFooter, ["description"], tagline || "");
   const footerPhone = readFooterString(savedFooter, ["phone"], company?.phone || "");
   const footerEmail = readFooterString(savedFooter, ["email"], company?.email || "");
-  const footerLayoutVariant = readFooterString(savedFooter, ["layout_variant", "layout"], layoutVariant).toLowerCase();
+  const footerLayoutVariant = normalizeFooterLayoutVariant(readFooterString(savedFooter, ["layout_variant", "layout"], layoutVariant));
   const footerBackground = readFooterString(savedFooter, ["background_color", "background"], footerBg);
   const footerTextColor = readFooterString(savedFooter, ["text_color"], footerText);
   const footerHeadingColor = readFooterString(savedFooter, ["heading_color"], headingColor);
@@ -201,7 +208,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, page
 
   const sections = [infoSection, linksSection, accreditationSection, contactSection, documentLinksSection].filter(Boolean);
 
-  const activeLayoutVariant = footerLayoutVariant || layoutVariant;
+  const activeLayoutVariant = footerLayoutVariant || normalizeFooterLayoutVariant(layoutVariant);
 
   const topLayout =
     activeLayoutVariant === "centered-stack" ? (
