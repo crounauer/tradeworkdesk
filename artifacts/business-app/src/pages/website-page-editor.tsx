@@ -5218,6 +5218,7 @@ function BlockCard({
   onContentChange,
   previewEnabled,
   onTogglePreview,
+  isGlobalBlock = false,
 }: {
   block: Block;
   index: number;
@@ -5229,6 +5230,7 @@ function BlockCard({
   onContentChange: (id: string, content: Record<string, unknown>) => void;
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
+  isGlobalBlock?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const normalizedType = normalizeTemplateBlockType(block.block_type);
@@ -5241,13 +5243,23 @@ function BlockCard({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className={block.is_visible ? "" : "opacity-50"}>
+      <Card
+        className={cn(
+          block.is_visible ? "" : "opacity-50",
+          isGlobalBlock && "border-amber-200 bg-amber-50/40 shadow-sm"
+        )}
+      >
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer select-none py-3 px-4">
             <div className="flex items-center gap-3">
               <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-sm">{displayLabel}</span>
+                {isGlobalBlock && (
+                  <Badge variant="outline" className="ml-2 text-[10px] uppercase tracking-wide border-amber-300 text-amber-700 bg-amber-100/70">
+                    Global
+                  </Badge>
+                )}
                 {Boolean(block.content.heading ?? block.content.title) && (
                   <span className="text-muted-foreground text-xs ml-2 truncate">— {String(block.content.heading ?? block.content.title)}</span>
                 )}
@@ -5689,6 +5701,7 @@ export default function WebsitePageEditor() {
                 onContentChange={updateBlockContent}
                 previewEnabled={showHeroPreview}
                 onTogglePreview={setShowHeroPreview}
+                isGlobalBlock={resolveEditorType(block.block_type) === "site.header" || resolveEditorType(block.block_type) === "site.footer"}
               />
             ))
           )}

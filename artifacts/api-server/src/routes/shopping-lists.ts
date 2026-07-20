@@ -260,22 +260,21 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
   }
 
   const {
-    period,
-    date_from,
-    date_to,
     include_to_order_parts = true,
     title,
     assignment_mode,
     assigned_to,
   } = req.body as {
-    period?: unknown;
-    date_from?: unknown;
-    date_to?: unknown;
     include_to_order_parts?: unknown;
     title?: unknown;
     assignment_mode?: unknown;
     assigned_to?: unknown;
   };
+
+  if (include_to_order_parts === false) {
+    res.status(400).json({ error: "Job parts source must be enabled" });
+    return;
+  }
 
   const resolvedAssignment = await resolveAssignmentInput({
     tenantId: req.tenantId!,
@@ -292,71 +291,6 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
   const today = new Date();
   const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-  let resolvedFrom = "";
-  let resolvedTo = "";
-  const periodValue = typeof period === "string" ? period : "last_7_days";
-
-  if (periodValue === "last_7_days" || periodValue === "last_week") {
-    const from = new Date(today);
-    from.setDate(from.getDate() - 7);
-    resolvedFrom = toIsoDate(from);
-    resolvedTo = toIsoDate(today);
-  } else if (periodValue === "this_month") {
-    const from = new Date(today.getFullYear(), today.getMonth(), 1);
-    resolvedFrom = toIsoDate(from);
-    resolvedTo = toIsoDate(today);
-  } else if (periodValue === "last_30_days" || periodValue === "last_month") {
-    const from = new Date(today);
-    from.setMonth(from.getMonth() - 1);
-    resolvedFrom = toIsoDate(from);
-    resolvedTo = toIsoDate(today);
-  } else if (periodValue === "custom") {
-    if (typeof date_from !== "string" || typeof date_to !== "string" || !date_from || !date_to) {
-      res.status(400).json({ error: "date_from and date_to are required for custom period" });
-      return;
-    }
-    resolvedFrom = date_from;
-    resolvedTo = date_to;
-  } else {
-    res.status(400).json({ error: "period must be one of: last_7_days, this_month, last_30_days, custom" });
-    return;
-  }
-
-  if (resolvedFrom > resolvedTo) {
-    res.status(400).json({ error: "date_from cannot be after date_to" });
-    return;
-  }
-
-  const { data: invoices, error: invoicesError } = await supabaseAdmin
-    .from("invoices")
-    .select("id")
-    .eq("tenant_id", req.tenantId!)
-    .gte("issue_date", resolvedFrom)
-    .lte("issue_date", resolvedTo);
-
-  if (invoicesError) {
-    res.status(500).json({ error: invoicesError.message });
-    return;
-  }
-
-  const invoiceIds = (invoices || []).map((inv) => String((inv as { id: string }).id)).filter(Boolean);
-
-  let invoiceItems: Array<Record<string, unknown>> = [];
-  if (invoiceIds.length > 0) {
-    const { data, error } = await supabaseAdmin
-      .from("invoice_line_items")
-      .select("id, invoice_id, description, quantity, unit_price")
-      .eq("tenant_id", req.tenantId!)
-      .eq("item_type", "product")
-      .in("invoice_id", invoiceIds);
-
-    if (error) {
-      res.status(500).json({ error: error.message });
-      return;
-    }
-    invoiceItems = data || [];
-  }
-
   let toOrderParts: Array<Record<string, unknown>> = [];
   if (include_to_order_parts !== false) {
     const { data, error } = await supabaseAdmin
@@ -369,11 +303,31 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
       res.status(500).json({ error: error.message });
       return;
     }
-    toOrderParts = data || [];
+
+    const jobParts = data || [];
+    const { data: alreadySentItems, error: alreadySentError } = await supabaseAdmin
+      .from("shopping_list_items")
+      .select("source_id")
+      .eq("tenant_id", req.tenantId!)
+      .eq("source_type", "job_part")
+      .not("source_id", "is", null);
+
+    if (alreadySentError) {
+      res.status(500).json({ error: alreadySentError.message });
+      return;
+    }
+
+    const alreadySentJobPartIds = new Set(
+      (alreadySentItems || [])
+        .map((item) => String((item as { source_id?: string | null }).source_id || ""))
+        .filter(Boolean),
+    );
+
+    toOrderParts = jobParts.filter((part) => !alreadySentJobPartIds.has(String(part.id)));
   }
 
-  if (invoiceItems.length === 0 && toOrderParts.length === 0) {
-    res.status(400).json({ error: "No source items found to generate a shopping list" });
+  if (toOrderParts.length === 0) {
+    res.status(400).json({ error: "No new job parts found to generate a shopping list" });
     return;
   }
 
@@ -381,35 +335,10 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
     item_name: string;
     quantity: number;
     unit_estimate: number | null;
-    source_type: "invoice_line_item" | "job_part";
+    source_type: "job_part";
     source_id: string;
     source_ref: string;
   }>();
-
-  for (const row of invoiceItems) {
-    const itemName = String(row.description || "").trim();
-    if (!itemName) continue;
-    const key = itemName.toLowerCase();
-    const existing = merged.get(key);
-    const qty = toNum(row.quantity, 1);
-    const unitEstimate = row.unit_price == null ? null : toNum(row.unit_price, 0);
-
-    if (existing) {
-      existing.quantity += qty;
-      if (existing.unit_estimate == null && unitEstimate != null) {
-        existing.unit_estimate = unitEstimate;
-      }
-    } else {
-      merged.set(key, {
-        item_name: itemName,
-        quantity: qty,
-        unit_estimate: unitEstimate,
-        source_type: "invoice_line_item",
-        source_id: String(row.id),
-        source_ref: `invoice:${String(row.invoice_id)}`,
-      });
-    }
-  }
 
   for (const row of toOrderParts) {
     const itemName = String(row.part_name || "").trim();
@@ -436,9 +365,10 @@ router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: 
     }
   }
 
+  const generatedTitleRange = toIsoDate(today);
   const safeTitle = typeof title === "string" && title.trim().length > 0
     ? title.trim()
-    : `Generated List ${resolvedFrom} to ${resolvedTo}`;
+    : `Generated List ${generatedTitleRange}`;
 
   const { data: listData, error: listError } = await supabaseAdmin
     .from("shopping_lists")

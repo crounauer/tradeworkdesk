@@ -7,6 +7,7 @@ import GoogleAnalytics from "./GoogleAnalytics";
 import AdminEditPageButton from "@/components/AdminEditPageButton";
 
 const GLOBAL_SITE_HEADER_THEME_KEY = "__site_header_content";
+const GLOBAL_SITE_FOOTER_THEME_KEY = "__site_footer_content";
 
 interface Props {
   site: SiteData;
@@ -25,6 +26,10 @@ export default async function SiteLayout({ site, children, basePath, previewToke
     themeObject[GLOBAL_SITE_HEADER_THEME_KEY]
     && typeof themeObject[GLOBAL_SITE_HEADER_THEME_KEY] === "object"
   ) ? (themeObject[GLOBAL_SITE_HEADER_THEME_KEY] as Record<string, unknown>) : null;
+  const footerContent: Record<string, unknown> | null = (
+    themeObject[GLOBAL_SITE_FOOTER_THEME_KEY]
+    && typeof themeObject[GLOBAL_SITE_FOOTER_THEME_KEY] === "object"
+  ) ? (themeObject[GLOBAL_SITE_FOOTER_THEME_KEY] as Record<string, unknown>) : null;
   const hasThemeHeaderContent = Boolean(headerContent);
   let hasHeaderBlockContent = false;
 
@@ -102,6 +107,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
         pages={navPages}
         tagline={website.tagline}
         logoUrl={website.logo_url}
+        footerContent={footerContent}
       />
       <AdminEditPageButton pages={site.pages} appBaseUrl={appBaseUrl} />
     </>

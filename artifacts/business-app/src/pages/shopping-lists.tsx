@@ -95,9 +95,6 @@ export default function ShoppingListsPage() {
 
   const [newTitle, setNewTitle] = useState("");
   const [generateTitle, setGenerateTitle] = useState("");
-  const [generatePeriod, setGeneratePeriod] = useState<"last_7_days" | "this_month" | "last_30_days" | "custom">("last_7_days");
-  const [generateDateFrom, setGenerateDateFrom] = useState("");
-  const [generateDateTo, setGenerateDateTo] = useState("");
   const [includeToOrderParts, setIncludeToOrderParts] = useState(true);
   const [createAssignmentMode, setCreateAssignmentMode] = useState<"unassigned" | "specific_technician" | "all_technicians">("unassigned");
   const [createAssignedTo, setCreateAssignedTo] = useState("");
@@ -185,8 +182,8 @@ export default function ShoppingListsPage() {
 
   const generateMutation = useMutation({
     mutationFn: () => {
-      if (generatePeriod === "custom" && (!generateDateFrom || !generateDateTo)) {
-        throw new Error("Select both from/to dates for custom period");
+      if (!includeToOrderParts) {
+        throw new Error("Job parts source must be enabled");
       }
       if (canManage && generateAssignmentMode === "specific_technician" && !generateAssignedTo) {
         throw new Error("Select a technician for specific assignment");
@@ -195,9 +192,6 @@ export default function ShoppingListsPage() {
         method: "POST",
         body: JSON.stringify({
           title: generateTitle || undefined,
-          period: generatePeriod,
-          date_from: generatePeriod === "custom" ? generateDateFrom : undefined,
-          date_to: generatePeriod === "custom" ? generateDateTo : undefined,
           include_to_order_parts: includeToOrderParts,
           assignment_mode: canManage ? generateAssignmentMode : undefined,
           assigned_to: canManage && generateAssignmentMode === "specific_technician" ? generateAssignedTo : null,
@@ -208,9 +202,6 @@ export default function ShoppingListsPage() {
       qc.invalidateQueries({ queryKey: ["shopping-lists"] });
       setSelectedListId(result.list.id);
       setGenerateTitle("");
-      setGeneratePeriod("last_7_days");
-      setGenerateDateFrom("");
-      setGenerateDateTo("");
       setGenerateAssignmentMode("unassigned");
       setGenerateAssignedTo("");
       toast({ title: "Shopping list generated", description: `${result.item_count} items added` });
@@ -354,7 +345,7 @@ export default function ShoppingListsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold flex items-center gap-2"><ShoppingCart className="w-6 h-6" />Shopping Lists</h1>
-        <p className="text-muted-foreground mt-1">Generate and manage purchasing lists from invoice periods and job parts.</p>
+        <p className="text-muted-foreground mt-1">Generate and manage purchasing lists from to-order job parts.</p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[370px_minmax(0,1fr)]">
@@ -483,30 +474,9 @@ export default function ShoppingListsPage() {
                   <Input value={generateTitle} onChange={(e) => setGenerateTitle(e.target.value)} placeholder="Parts to order this week" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Invoice period</Label>
-                  <select
-                    className="h-9 w-full rounded border px-2 text-sm"
-                    value={generatePeriod}
-                    onChange={(e) => setGeneratePeriod(e.target.value as typeof generatePeriod)}
-                  >
-                    <option value="last_7_days">Last 7 days</option>
-                    <option value="this_month">This month</option>
-                    <option value="last_30_days">Last 30 days</option>
-                    <option value="custom">Custom date range</option>
-                  </select>
+                  <Label>Source</Label>
+                  <p className="text-sm text-muted-foreground">Uses job parts currently marked as to_order.</p>
                 </div>
-                {generatePeriod === "custom" && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>From</Label>
-                      <Input type="date" value={generateDateFrom} onChange={(e) => setGenerateDateFrom(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>To</Label>
-                      <Input type="date" value={generateDateTo} onChange={(e) => setGenerateDateTo(e.target.value)} />
-                    </div>
-                  </div>
-                )}
                 {canManage && (
                   <>
                     <div className="space-y-1.5">

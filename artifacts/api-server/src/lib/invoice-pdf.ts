@@ -309,15 +309,19 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   };
 
   // Only show Sub Total row when there's VAT (otherwise it's identical to the final total)
-  if (data.vat_rate > 0) {
+  const hasVatBreakdown = data.vat_rate > 0;
+  if (hasVatBreakdown) {
     addTotRow("Sub Total", fmt(data.currency, data.subtotal));
     addTotRow(`VAT (${data.vat_rate}%)`, fmt(data.currency, data.vat_amount));
   }
 
-  doc.setDrawColor(...clrLight);
-  doc.setLineWidth(0.3);
-  doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
-  y += 2;
+  if (hasVatBreakdown) {
+    doc.setDrawColor(...clrLight);
+    doc.setLineWidth(0.3);
+    doc.line(totLabelX - 38, y - 1, totValueX, y - 1);
+    y += 2;
+  }
+
   addTotRow(
     data.type === "quote" ? "Quote Total" : "Balance Due",
     fmt(data.currency, data.total),

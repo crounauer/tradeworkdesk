@@ -2,7 +2,7 @@
  * Website Pages list — shows all pages on the website, lets user create/delete pages
  * and links through to the page editor.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,6 +60,8 @@ interface Website {
   status: string;
 }
 
+type PageNode = Page & { children: PageNode[]; depth: number };
+
 function normalizePagePath(value: string): string {
   return value
     .toLowerCase()
@@ -76,6 +78,66 @@ function joinPagePath(parentSlug: string, segment: string): string {
   if (!normalizedParent) return normalizedSegment;
   if (!normalizedSegment) return normalizedParent;
   return `${normalizedParent}/${normalizedSegment}`;
+}
+
+function getPageParentSlug(slug: string): string {
+  const normalized = normalizePagePath(slug);
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length <= 1) return "";
+  return parts.slice(0, -1).join("/");
+}
+
+function buildPageTree(pages: Page[]): PageNode[] {
+  const bySlug = new Map<string, PageNode>();
+  const roots: PageNode[] = [];
+
+  const sortedPages = [...pages].sort((a, b) => {
+    const orderDiff = (a.nav_order ?? 0) - (b.nav_order ?? 0);
+    if (orderDiff !== 0) return orderDiff;
+    return a.title.localeCompare(b.title);
+  });
+
+  for (const page of sortedPages) {
+    bySlug.set(normalizePagePath(page.slug), { ...page, children: [], depth: 0 });
+  }
+
+  for (const page of sortedPages) {
+    const node = bySlug.get(normalizePagePath(page.slug));
+    if (!node) continue;
+
+    const parentSlug = getPageParentSlug(page.slug);
+    const parent = parentSlug ? bySlug.get(parentSlug) : null;
+    if (parent) {
+      node.depth = parent.depth + 1;
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  const sortChildren = (nodes: PageNode[]): PageNode[] =>
+    nodes
+      .sort((a, b) => {
+        const orderDiff = (a.nav_order ?? 0) - (b.nav_order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.title.localeCompare(b.title);
+      })
+      .map((node) => ({
+        ...node,
+        children: sortChildren(node.children),
+      }));
+
+  return sortChildren(roots);
+}
+
+function flattenPageTree(nodes: PageNode[]): PageNode[] {
+  const output: PageNode[] = [];
+  const visit = (node: PageNode) => {
+    output.push(node);
+    for (const child of node.children) visit(child);
+  };
+  for (const node of nodes) visit(node);
+  return output;
 }
 
 export default function WebsitePages() {
@@ -96,6 +158,9 @@ export default function WebsitePages() {
     queryFn: () => apiFetch("/api/website/pages"),
     enabled: !!website,
   });
+
+  const pageTree = useMemo<PageNode[]>(() => buildPageTree(pages), [pages]);
+  const orderedPages = useMemo<PageNode[]>(() => flattenPageTree(pageTree), [pageTree]);
 
   const createMutation = useMutation({
     mutationFn: (data: typeof newPage) =>
@@ -162,7 +227,6 @@ export default function WebsitePages() {
   }
 
   function movePage(pageId: string, direction: "up" | "down") {
-    const orderedPages = [...pages].sort((a, b) => (a.nav_order ?? 0) - (b.nav_order ?? 0));
     const index = orderedPages.findIndex((page) => page.id === pageId);
     if (index === -1) return;
 
@@ -204,9 +268,9 @@ export default function WebsitePages() {
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : (
         <div className="space-y-2">
-          {pages.map((page) => (
+          {orderedPages.map((page) => (
             <Card key={page.id}>
-              <CardContent className="p-4 flex items-center gap-3">
+              <CardContent className="p-4 flex items-center gap-3" style={{ paddingLeft: `${16 + page.depth * 28}px` }}>
                 <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <div className="flex flex-col gap-1">
                   <Button
@@ -235,6 +299,9 @@ export default function WebsitePages() {
                   <div className="text-sm text-muted-foreground">/{page.slug}</div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {page.depth > 0 && (
+                    <Badge variant="secondary" className="text-xs">Child</Badge>
+                  )}
                   <Button
                     variant={page.status === "published" ? "default" : "secondary"}
                     size="sm"
@@ -277,7 +344,7 @@ export default function WebsitePages() {
               </CardContent>
             </Card>
           ))}
-          {pages.length === 0 && (
+          {orderedPages.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
               <p>No pages yet. Create your first page to get started.</p>
             </div>

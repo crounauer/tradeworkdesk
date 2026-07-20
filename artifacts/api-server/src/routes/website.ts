@@ -40,6 +40,7 @@ const router: IRouter = Router();
 const db = supabaseAdmin as any; // new tables not yet in generated types
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
 const WEBSITE_ANALYTICS_CACHE_TTL_MS = 60_000;
+const GLOBAL_SITE_BLOCK_ORDER_THEME_KEY = "__global_site_block_order";
 
 async function getActiveDomainsForWebsite(websiteId: string): Promise<string[]> {
   const { data } = await db
@@ -113,6 +114,7 @@ function normalizeGlobalSiteBlockType(blockType: unknown): "site.header" | "site
 function mergeGlobalSiteBlocksIntoTheme(
   theme: Record<string, unknown> | null | undefined,
   globalBlocks: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>>,
+  globalBlockOrder: Array<"site.header" | "site.footer"> = [],
 ): Record<string, unknown> {
   const next = { ...(theme || {}) };
 
@@ -123,6 +125,10 @@ function mergeGlobalSiteBlocksIntoTheme(
     next[GLOBAL_SITE_FOOTER_THEME_KEY] = globalBlocks["site.footer"];
   }
 
+  if (globalBlockOrder.length > 0) {
+    next[GLOBAL_SITE_BLOCK_ORDER_THEME_KEY] = globalBlockOrder;
+  }
+
   return next;
 }
 
@@ -131,28 +137,40 @@ function readGlobalSiteBlocksFromTheme(
 ): Array<Record<string, unknown>> {
   const themeObj = (theme && typeof theme === "object") ? theme : {};
   const blocks: Array<Record<string, unknown>> = [];
+  const order = Array.isArray(themeObj[GLOBAL_SITE_BLOCK_ORDER_THEME_KEY])
+    ? (themeObj[GLOBAL_SITE_BLOCK_ORDER_THEME_KEY] as Array<"site.header" | "site.footer">)
+    : ["site.header", "site.footer"];
+
+  const contentByType: Record<"site.header" | "site.footer", Record<string, unknown> | undefined> = {
+    "site.header": undefined,
+    "site.footer": undefined,
+  };
 
   const header = themeObj[GLOBAL_SITE_HEADER_THEME_KEY];
   if (header && typeof header === "object") {
-    blocks.push({
-      id: "global-site-header",
-      block_type: "site.header",
-      content: header,
-      sort_order: 0,
-      is_visible: true,
-    });
+    contentByType["site.header"] = header as Record<string, unknown>;
   }
 
   const footer = themeObj[GLOBAL_SITE_FOOTER_THEME_KEY];
   if (footer && typeof footer === "object") {
+    contentByType["site.footer"] = footer as Record<string, unknown>;
+  }
+
+  order.forEach((blockType, index) => {
+    const content = blockType === "site.header"
+      ? contentByType["site.header"]
+      : blockType === "site.footer"
+        ? contentByType["site.footer"]
+        : undefined;
+    if (!content) return;
     blocks.push({
-      id: "global-site-footer",
-      block_type: "site.footer",
-      content: footer,
-      sort_order: blocks.length,
+      id: `global-${blockType.replace(".", "-")}`,
+      block_type: blockType,
+      content,
+      sort_order: index,
       is_visible: true,
     });
-  }
+  });
 
   return blocks;
 }
@@ -161,8 +179,9 @@ async function persistGlobalSiteBlocksForWebsite(args: {
   websiteId?: string | null;
   tenantId?: string;
   globalBlocks: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>>;
+  globalBlockOrder?: Array<"site.header" | "site.footer">;
 }): Promise<void> {
-  const { websiteId, tenantId, globalBlocks } = args;
+  const { websiteId, tenantId, globalBlocks, globalBlockOrder = [] } = args;
   if (!websiteId || !tenantId) return;
   if (!globalBlocks["site.header"] && !globalBlocks["site.footer"]) return;
 
@@ -173,7 +192,7 @@ async function persistGlobalSiteBlocksForWebsite(args: {
     .eq("tenant_id", tenantId)
     .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
 
-  const mergedTheme = mergeGlobalSiteBlocksIntoTheme(websiteRow?.theme || {}, globalBlocks);
+  const mergedTheme = mergeGlobalSiteBlocksIntoTheme(websiteRow?.theme || {}, globalBlocks, globalBlockOrder);
 
   await db
     .from("websites")
@@ -740,6 +759,7 @@ router.post(
             createdPages.map((p) => [String(p.slug || ""), String(p.id || "")])
           );
           const globalBlocksFromTemplate: Partial<Record<"site.header" | "site.footer", Record<string, unknown>>> = {};
+          const globalBlockOrderFromTemplate: Array<"site.header" | "site.footer"> = [];
 
           const blockInserts: Array<{
             page_id: string;
@@ -767,6 +787,7 @@ router.post(
                   || (blockDef.props as Record<string, unknown>)
                   || {};
                 globalBlocksFromTemplate[globalType] = globalContent;
+                globalBlockOrderFromTemplate.push(globalType);
               }
               if (shouldSkipTenantBlock(rawBlockType)) return;
               const blockType = normalizeTenantBlockType(rawBlockType);
@@ -811,6 +832,7 @@ router.post(
               websiteId: String(website.id),
               tenantId: req.tenantId,
               globalBlocks: globalBlocksFromTemplate,
+              globalBlockOrder: globalBlockOrderFromTemplate,
             });
           }
         }
@@ -2037,12 +2059,16 @@ router.get(
       .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
 
     const globalBlocks = readGlobalSiteBlocksFromTheme(websiteRow?.theme || {});
-    const tenantBlocks = (blocks || []).map((block, index) => ({
-      ...block,
-      sort_order: index + globalBlocks.length,
-    }));
+    const tenantBlocks = blocks || [];
 
-    res.json({ ...page, blocks: [...globalBlocks, ...tenantBlocks] });
+    res.json({
+      ...page,
+      blocks: [...globalBlocks, ...tenantBlocks].sort((a, b) => {
+        const aOrder = typeof a.sort_order === "number" ? a.sort_order : 0;
+        const bOrder = typeof b.sort_order === "number" ? b.sort_order : 0;
+        return aOrder - bOrder;
+      }),
+    });
   }
 );
 
@@ -2318,17 +2344,28 @@ router.put(
     await db.from("website_blocks").delete().eq("page_id", id);
 
     // Insert new blocks
+    const globalBlockOrder: Array<"site.header" | "site.footer"> = [];
     if (blocks.length > 0) {
       const inserts = blocks
-        .filter((b) => !shouldSkipTenantBlock(b.block_type))
-        .map((b, i) => ({
+        .map((b, i) => {
+          const globalType = normalizeGlobalSiteBlockType(b.block_type);
+          if (globalType) {
+            globalBlockOrder.push(globalType);
+            return null;
+          }
+
+          if (shouldSkipTenantBlock(b.block_type)) return null;
+
+          return {
           page_id: id,
           tenant_id: req.tenantId,
           block_type: normalizeTenantBlockType(b.block_type),
           content: b.content || {},
           sort_order: i,
           is_visible: b.is_visible !== false,
-        }));
+          };
+        })
+        .filter((row): row is { page_id: string; tenant_id: string; block_type: string; content: Record<string, unknown>; sort_order: number; is_visible: boolean } => row !== null);
 
       if (inserts.length > 0) {
         const { error } = await db.from("website_blocks").insert(inserts) as { error: unknown };
@@ -2355,6 +2392,7 @@ router.put(
         websiteId: page.website_id,
         tenantId: req.tenantId,
         globalBlocks: globalBlocksFromEditor,
+        globalBlockOrder,
       });
     }
 
@@ -2373,12 +2411,13 @@ router.put(
       .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
 
     const globalBlocks = readGlobalSiteBlocksFromTheme(websiteRow?.theme || {});
-    const tenantBlocks = (data || []).map((block, index) => ({
-      ...block,
-      sort_order: index + globalBlocks.length,
-    }));
+    const tenantBlocks = data || [];
 
-    res.json([...globalBlocks, ...tenantBlocks]);
+    res.json([...globalBlocks, ...tenantBlocks].sort((a, b) => {
+      const aOrder = typeof a.sort_order === "number" ? a.sort_order : 0;
+      const bOrder = typeof b.sort_order === "number" ? b.sort_order : 0;
+      return aOrder - bOrder;
+    }));
   }
 );
 
