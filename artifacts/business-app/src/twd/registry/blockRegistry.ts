@@ -46,7 +46,7 @@ export const twdBlockRegistry = [
     type: 'services.grid',
     label: 'Services Grid',
     category: 'services',
-    editableFields: ['eyebrow', 'variant', 'layout', 'background', 'cardStyle', 'density', 'title', 'subtitle', 'services'],
+    editableFields: ['eyebrow', 'variant', 'layout', 'background', 'cardStyle', 'density', 'columns', 'title', 'subtitle', 'services'],
   },
   {
     type: 'services.rates',
@@ -76,7 +76,7 @@ export const twdBlockRegistry = [
     type: 'reviews.grid',
     label: 'Reviews Grid',
     category: 'reviews',
-    editableFields: ['eyebrow', 'variant', 'cardStyle', 'background', 'title', 'reviews'],
+    editableFields: ['eyebrow', 'variant', 'cardStyle', 'background', 'columns', 'title', 'reviews'],
   },
   {
     type: 'areas.grid',
@@ -106,7 +106,7 @@ export const twdBlockRegistry = [
     type: 'gallery.grid',
     label: 'Gallery Grid',
     category: 'gallery',
-    editableFields: ['eyebrow', 'title', 'images'],
+    editableFields: ['eyebrow', 'columns', 'title', 'images'],
   },
   {
     type: 'blog.index',

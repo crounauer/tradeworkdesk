@@ -4,6 +4,7 @@ export type ReviewsBlockProps = {
   eyebrow?: string;
   title: string;
   reviews: ReviewItem[];
+  columns?: 2 | 3 | 4;
   variant?: 'default' | 'classic';
   cardStyle?: 'default' | 'quote';
   background?: 'default' | 'white' | 'light';
@@ -13,6 +14,7 @@ export function ReviewsBlock({
   eyebrow = 'Reviews',
   title,
   reviews,
+  columns = 3,
   variant = 'default',
   cardStyle = 'default',
   background = 'default',
@@ -24,6 +26,7 @@ export function ReviewsBlock({
   const cardClassName = cardStyle === 'quote' || isClassic
     ? 'rounded-sm border border-slate-300 bg-white p-6'
     : 'rounded-xl border border-slate-200 bg-slate-50 p-6';
+  const mdColumnsClass = columns === 2 ? 'md:grid-cols-2' : columns === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3';
 
   return (
     <section className={sectionClassName}>
@@ -31,7 +34,7 @@ export function ReviewsBlock({
         <p className="text-sm font-semibold uppercase tracking-wide text-[#1a3a6b]">{eyebrow}</p>
         <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">{title}</h2>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className={`mt-10 grid gap-6 ${mdColumnsClass}`}>
           {reviews.map((review) => (
             <figure key={review.name + review.quote} className={cardClassName}>
               {review.rating ? (

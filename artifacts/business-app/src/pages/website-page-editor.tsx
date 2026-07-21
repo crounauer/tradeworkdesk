@@ -2041,6 +2041,7 @@ function BlockEditor({
       const label = readString(c, ["label", "eyebrow"]);
       const layoutVariant = readString(c, ["layout_variant", "layout"], "card-grid");
       const columns = String(c.columns ?? "3");
+      const previewColumns = columns === "2" || columns === "4" ? columns : "3";
       const sectionBg = readString(c, ["section_bg", "background_color"], "#ffffff");
       const cardBg = readString(c, ["card_bg", "card_background_color"], "#ffffff");
       const cardBorder = readString(c, ["card_border", "card_border_color", "border_color"], "#e5e7eb");
@@ -2070,7 +2071,7 @@ function BlockEditor({
                       {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
                       <h3 style={{ margin: "0 0 6px", color: headingColor, fontSize: "1.35rem", fontWeight: 800, fontFamily: headingFont }}>{heading || "How we can help"}</h3>
                       <p style={{ margin: "0 0 14px", color: bodyColor, fontFamily: bodyFont }}>{subtitle || "Core services for homeowners and businesses."}</p>
-                      <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "split-list" ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "split-list" ? "1fr" : `repeat(${previewColumns}, minmax(0, 1fr))`, gap: 10 }}>
                         {items.slice(0, 4).map((item, i) => (
                           <article key={i} style={{ border: `1px solid ${cardBorder}`, borderRadius: 10, background: cardBg, padding: "12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2394,6 +2395,7 @@ function BlockEditor({
       const label = readString(c, ["label", "eyebrow"]);
       const layoutVariant = readString(c, ["layout_variant", "layout"], "card-grid");
       const columns = String(c.columns ?? "3");
+      const previewColumns = columns === "2" || columns === "4" ? columns : "3";
       const sectionBg = readString(c, ["section_bg", "background_color"], "#f9fafb");
       const cardBg = readString(c, ["card_bg"], "#ffffff");
       const cardBorder = readString(c, ["card_border", "border_color"], "#e5e7eb");
@@ -2442,7 +2444,7 @@ function BlockEditor({
                           ))}
                         </div>
                       ) : (
-                        <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "card-grid" ? `repeat(${Math.min(Number(columns), 2)}, minmax(0, 1fr))` : "1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "card-grid" ? `repeat(${previewColumns}, minmax(0, 1fr))` : "1fr", gap: 10 }}>
                           {sampleItems.map((item, i) => (
                             <article key={i} style={{ border: `1px solid ${cardBorder}`, borderRadius: 10, background: layoutVariant === "spotlight" && i === 0 ? `${accentColor}20` : cardBg, padding: "12px" }}>
                               <div style={{ color: starColor, marginBottom: 6 }}>{"★★★★★"}</div>
@@ -2567,6 +2569,7 @@ function BlockEditor({
       const label = readString(c, ["label", "eyebrow"]);
       const layoutVariant = readString(c, ["layout_variant", "layout"], "grid");
       const columns = String(c.columns ?? "3");
+      const previewColumns = columns === "2" || columns === "4" ? columns : "3";
       const sectionBg = readString(c, ["section_bg", "background_color"], "#ffffff");
       const cardBg = readString(c, ["card_bg"], "#ffffff");
       const borderColor = readString(c, ["border_color"], "#e2e8f0");
@@ -2605,7 +2608,7 @@ function BlockEditor({
                       <h3 style={{ margin: "0 0 6px", color: headingColor, fontSize: headingSize, fontWeight: 800, fontFamily: headingFont }}>{heading || "Our Recent Work"}</h3>
                       {subtitle ? <p style={{ margin: "0 0 12px", color: bodyColor, fontFamily: bodyFont }}>{subtitle}</p> : null}
 
-                      <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "strip" ? "1fr" : `repeat(${Math.min(Number(columns), 2)}, minmax(0, 1fr))`, gap: 8 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "strip" ? "1fr" : `repeat(${previewColumns}, minmax(0, 1fr))`, gap: 8 }}>
                         {previewImages.map((src, i) => (
                           <div key={i} style={{ overflow: "hidden", borderRadius: imageRadius, border: `1px solid ${borderColor}`, background: cardBg }}>
                             <img src={src} alt="Gallery preview" style={{ width: "100%", height: i % 3 === 0 && layoutVariant === "masonry" ? "280px" : imageHeight, objectFit: "cover", display: "block" }} />

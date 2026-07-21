@@ -5,6 +5,7 @@ export type ServicesGridBlockProps = {
   title: string;
   subtitle?: string;
   services: ServiceItem[];
+  columns?: 2 | 3 | 4;
   variant?: 'default' | 'classic';
   layout?: 'grid' | 'list';
   background?: 'default' | 'white' | 'light';
@@ -17,6 +18,7 @@ export function ServicesGridBlock({
   title,
   subtitle,
   services,
+  columns = 3,
   variant = 'default',
   layout = 'grid',
   background = 'default',
@@ -29,11 +31,12 @@ export function ServicesGridBlock({
     : background === 'white'
       ? 'bg-white px-6 py-20 lg:px-8'
       : 'bg-white px-6 py-20 lg:px-8';
+  const mdColumnsClass = columns === 2 ? 'md:grid-cols-2' : columns === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3';
   const gridClassName = layout === 'list'
     ? 'mt-10 grid gap-4'
     : density === 'compact'
-      ? 'mt-10 grid gap-4 md:grid-cols-3'
-      : 'mt-10 grid gap-6 md:grid-cols-3';
+      ? `mt-10 grid gap-4 ${mdColumnsClass}`
+      : `mt-10 grid gap-6 ${mdColumnsClass}`;
   const cardClassName = cardStyle === 'bordered-traditional' || isClassic
     ? 'rounded-sm border border-slate-300 bg-white p-6'
     : 'rounded-xl border border-slate-200 bg-slate-50 p-6';
