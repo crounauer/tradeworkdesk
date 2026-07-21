@@ -72,6 +72,22 @@ const router: IRouter = Router();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DELETED_TENANT_FALLBACK_ID = "00000000-0000-0000-0000-000000000001";
 
+async function resolveFallbackTenantId(excludingTenantId?: string): Promise<string | null> {
+  const { data: tenants, error } = await supabaseAdmin
+    .from("tenants")
+    .select("id")
+    .order("created_at", { ascending: true });
+
+  if (error || !tenants || tenants.length === 0) return null;
+
+  const ids = tenants.map((t) => String((t as { id: string }).id));
+  const filtered = excludingTenantId ? ids.filter((id) => id !== excludingTenantId) : ids;
+  if (filtered.length === 0) return null;
+
+  if (filtered.includes(DELETED_TENANT_FALLBACK_ID)) return DELETED_TENANT_FALLBACK_ID;
+  return filtered[0] || null;
+}
+
 function dayKey(dateLike: string | Date): string | null {
   const d = new Date(dateLike);
   if (!Number.isFinite(d.getTime())) return null;
@@ -1115,17 +1131,8 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
 });
 
 router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { id } = req.params;
+  const id = toSingleParam(req.params.id);
   const confirm = req.query.confirm === "true";
-
-  if (id === DELETED_TENANT_FALLBACK_ID) {
-    res.status(400).json({
-      error: "This is a protected system tenant and cannot be deleted.",
-      code: "protected_tenant",
-      message: "The system fallback tenant cannot be deleted.",
-    });
-    return;
-  }
 
   const { data: tenant } = await supabaseAdmin.from("tenants").select("company_name").eq("id", id).single();
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -1144,6 +1151,15 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
   }
 
   if (userCount > 0 && users) {
+    const fallbackTenantId = await resolveFallbackTenantId(id);
+    if (!fallbackTenantId) {
+      res.status(409).json({
+        error: "No fallback tenant available for rehoming users. Create another tenant before deleting this one.",
+        code: "no_fallback_tenant",
+      });
+      return;
+    }
+
     const failedAuthDeletes: string[] = [];
     for (const user of users) {
       const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
@@ -1169,7 +1185,7 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
       const remainingProfileIds = remainingProfiles.map((p) => p.id);
       const { error: rehomeProfilesError } = await supabaseAdmin
         .from("profiles")
-        .update({ tenant_id: DELETED_TENANT_FALLBACK_ID, is_active: false })
+        .update({ tenant_id: fallbackTenantId, is_active: false })
         .in("id", remainingProfileIds)
         .eq("tenant_id", id);
 
