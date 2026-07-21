@@ -256,7 +256,7 @@ export default function HeroBlock({ content }: Props) {
   const cardBackgroundColor = getString(content.card_background_color) || "rgba(255,255,255,0.08)";
   const cardBorderColor = getString(content.card_border_color) || "transparent";
   const cardShadow = getString(content.card_shadow) || "0 20px 45px rgba(2,6,23,0.35)";
-  const sectionBorderRadius = getSize(content.border_radius, "0px");
+  const sectionBorderRadius = "0px";
   const modernImageStyle: React.CSSProperties | undefined = modernHeroImageUrl
     ? {
         backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.18)), url(${modernHeroImageUrl})`,

@@ -107,3 +107,5 @@ The goal is not to produce the most code.
 The goal is to solve the task with the least safe change.
 
 I dont use Railway anymore, I use fly.io
+
+When working on the tenant website aspect of the site always remember that this is a templated structure and that changes made should be made at a mastertemplate level and not at a tenant level. The tenant website is a template that is used to generate the tenant websites and any changes made to the tenant website should be made at the master template level and not at a tenant level.

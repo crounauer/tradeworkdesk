@@ -18,3 +18,7 @@ img {
 a {
   color: inherit;
 }
+
+a[href="#main-content"] {
+  display: none !important;
+}

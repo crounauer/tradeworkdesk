@@ -192,7 +192,7 @@ export function HeroBlock({
   const sectionPaddingBottom = resolveSize(sectionPaddingBottomProp, density === 'compact' ? '48px' : density === 'comfortable' ? '72px' : '64px');
   const contentMaxWidth = resolveSize(contentMaxWidthProp, '1200px');
   const contentGap = resolveSize(contentGapProp, '40px');
-  const sectionBorderRadius = resolveSize(sectionBorderRadiusProp, '0px');
+  const sectionBorderRadius = '0px';
   const sectionBorderWidth = resolveSize(sectionBorderWidthProp, '0px');
   const sectionBorderColor = sectionBorderColorProp || 'transparent';
   const sectionShadow = sectionShadowProp;
