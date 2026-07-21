@@ -51,12 +51,93 @@ export type TemplatePage = {
   blocks: TemplatePageBlock[];
 };
 
+const BACKGROUND_KEYS = [
+  'background_color',
+  'backgroundColor',
+  'section_bg',
+  'card_bg',
+  'frame_bg',
+  'background',
+  'card_background_color',
+  'outer_background',
+  'muted_background_color',
+  'primary_button_bg_color',
+  'secondary_button_bg_color',
+  'badge_bg_color',
+  'primary_color',
+  'secondary_color',
+];
+
+function readPrimaryBackground(props: Record<string, unknown>): string | null {
+  for (const key of BACKGROUND_KEYS) {
+    const value = props[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function resolveBackgroundInherit(
+  value: string,
+  previousBackground: string | null,
+  backgroundByType: Record<string, string>
+): string {
+  const trimmed = value.trim();
+  if (!trimmed.toLowerCase().startsWith('inherit')) return value;
+
+  const parts = trimmed.split(':');
+  const target = String(parts[1] || 'previous').trim().toLowerCase();
+  if (!target || target === 'previous') {
+    return previousBackground || value;
+  }
+
+  return backgroundByType[target] || previousBackground || value;
+}
+
+function resolveBlockPropsWithBackgroundInheritance(
+  blockType: string,
+  props: Record<string, unknown>,
+  previousBackground: string | null,
+  backgroundByType: Record<string, string>
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...props };
+
+  for (const [key, rawValue] of Object.entries(next)) {
+    const isBackgroundLike = key.includes('background') || key.endsWith('_bg') || key === 'primary_color' || key === 'secondary_color';
+    if (!isBackgroundLike || typeof rawValue !== 'string') continue;
+
+    next[key] = resolveBackgroundInherit(rawValue, previousBackground, backgroundByType);
+  }
+
+  const primary = readPrimaryBackground(next);
+  if (primary) {
+    backgroundByType[blockType.toLowerCase()] = primary;
+    const shortType = blockType.split('.').pop()?.toLowerCase();
+    if (shortType) {
+      backgroundByType[shortType] = primary;
+    }
+  }
+
+  return next;
+}
+
 export function TemplatePageRenderer({ page }: { page: TemplatePage }) {
+  const backgroundByType: Record<string, string> = {};
+  let previousBackground: string | null = null;
+
   return (
     <main>
       {page.blocks.map((block, index) => {
         const blockType = toStorybookBlockType(block.type || block.block_type || "");
-        const blockProps = (block.props || block.content || {}) as Record<string, unknown>;
+        const rawBlockProps = (block.props || block.content || {}) as Record<string, unknown>;
+        const blockProps = resolveBlockPropsWithBackgroundInheritance(
+          blockType,
+          rawBlockProps,
+          previousBackground,
+          backgroundByType
+        );
+        previousBackground = readPrimaryBackground(blockProps) || previousBackground;
 
         switch (blockType) {
           case 'site.header':

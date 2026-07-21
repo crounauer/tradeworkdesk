@@ -2110,6 +2110,12 @@ router.patch(
       triggerTenantIndexNowAutoSubmit(req.tenantId!, "page_url_or_indexing_change");
     }
 
+    const websiteId = String(data.website_id || "");
+    if (websiteId) {
+      const activeDomains = await getActiveDomainsForWebsite(websiteId);
+      void triggerRendererRevalidate({ domains: activeDomains, websiteIds: [websiteId], reason: "page_update" });
+    }
+
     res.json(data);
   }
 );
@@ -2394,6 +2400,9 @@ router.put(
         globalBlocks: globalBlocksFromEditor,
         globalBlockOrder,
       });
+
+      const activeDomains = await getActiveDomainsForWebsite(String(page.website_id));
+      void triggerRendererRevalidate({ domains: activeDomains, websiteIds: [String(page.website_id)], reason: "page_blocks_update" });
     }
 
     // Return updated blocks

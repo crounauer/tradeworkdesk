@@ -622,6 +622,73 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+type BackgroundInheritOption = {
+  label: string;
+  value: string;
+};
+
+const BACKGROUND_COLOR_PRESETS = [
+  { label: "Default", value: "default" },
+  { label: "Navy", value: "#0f172a" },
+  { label: "Slate", value: "#111827" },
+  { label: "Light", value: "#f8fafc" },
+  { label: "White", value: "#ffffff" },
+  { label: "Teal", value: "#0d9488" },
+  { label: "Amber", value: "#f59e0b" },
+];
+
+function normalizePickerColor(value: string): string {
+  const trimmed = String(value || "").trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return trimmed;
+  return "#0f172a";
+}
+
+function BackgroundColorField({
+  label,
+  value,
+  onChange,
+  inheritOptions = [],
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  inheritOptions?: BackgroundInheritOption[];
+  placeholder?: string;
+}) {
+  return (
+    <FieldRow label={label}>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={normalizePickerColor(value)}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-8 w-12 cursor-pointer rounded border"
+          />
+          <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "default or #0f172a"} className="flex-1" />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {BACKGROUND_COLOR_PRESETS.map((preset) => (
+            <Button key={`${label}-${preset.value}`} type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onChange(preset.value)}>
+              {preset.label}
+            </Button>
+          ))}
+        </div>
+        {inheritOptions.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {inheritOptions.map((option) => (
+              <Button key={`${label}-inherit-${option.label}`} type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onChange(option.value)}>
+                Inherit {option.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </FieldRow>
+  );
+}
+
 function readString(content: Record<string, unknown>, keys: string[], fallback = ""): string {
   for (const key of keys) {
     const value = content[key];
@@ -643,6 +710,16 @@ function normalizeFooterLayoutVariant(value: string): string {
   if (normalized === "default") return "four-column";
   if (normalized === "traditional") return "minimal-columns";
   return normalized;
+}
+
+function getBlockBackgroundValue(content: Record<string, unknown>): string | null {
+  const value = readString(content, ["background_color", "backgroundColor", "section_bg", "card_bg", "frame_bg", "background"]);
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed === "default") return trimmed;
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return trimmed;
+  return null;
 }
 
 function syncBlockContent(
@@ -874,17 +951,67 @@ function BlockEditor({
   navigationItems,
   previewEnabled,
   onTogglePreview,
+  backgroundInheritOptions,
 }: {
   block: Block;
   onChange: (content: Record<string, unknown>) => void;
   navigationItems: Array<{ label: string; href: string }>;
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
+  backgroundInheritOptions: BackgroundInheritOption[];
 }) {
   const c = block.content;
   const editorType = resolveEditorType(block.block_type);
 
   const set = (key: string, value: unknown) => onChange({ ...c, [key]: value });
+  const setLinkedBackgroundValue = (key: string, value: string) => {
+    if (key === "section_bg") {
+      onChange(syncBlockContent(
+        c,
+        { section_bg: value, background_color: value, backgroundColor: value },
+        {
+          section_bg: ["background_color", "backgroundColor"],
+          background_color: ["section_bg", "backgroundColor"],
+          backgroundColor: ["section_bg", "background_color"],
+        }
+      ));
+      return;
+    }
+
+    if (key === "card_bg") {
+      onChange(syncBlockContent(c, { card_bg: value, card_background_color: value }, { card_bg: ["card_background_color"], card_background_color: ["card_bg"] }));
+      return;
+    }
+
+    if (key === "frame_bg") {
+      onChange(syncBlockContent(
+        c,
+        { frame_bg: value, background_color: value, backgroundColor: value },
+        {
+          frame_bg: ["background_color", "backgroundColor"],
+          background_color: ["frame_bg", "backgroundColor"],
+          backgroundColor: ["frame_bg", "background_color"],
+        }
+      ));
+      return;
+    }
+
+    if (key === "background_color") {
+      onChange(syncBlockContent(
+        c,
+        { background_color: value, backgroundColor: value, section_bg: value, background: value },
+        {
+          background_color: ["backgroundColor", "section_bg", "background"],
+          backgroundColor: ["background_color", "section_bg", "background"],
+          section_bg: ["background_color", "backgroundColor", "background"],
+          background: ["background_color", "backgroundColor", "section_bg"],
+        }
+      ));
+      return;
+    }
+
+    set(key, value);
+  };
 
   switch (editorType) {
     case "site.header": {
@@ -1282,12 +1409,12 @@ function BlockEditor({
               fieldName="hero_image"
             />
             <div className="flex gap-3">
-              <FieldRow label="Background Colour">
-                <div className="flex items-center gap-2">
-                  <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
-                  <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
-                </div>
-              </FieldRow>
+              <BackgroundColorField
+                label="Background Colour"
+                value={backgroundColor}
+                onChange={(value) => setLinkedBackgroundValue("background_color", value)}
+                inheritOptions={backgroundInheritOptions}
+              />
               <FieldRow label="Text Colour">
                 <div className="flex items-center gap-2">
                   <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1329,12 +1456,7 @@ function BlockEditor({
                     <Input value={readString(c, ["subheading_color"], "")} onChange={(e) => set("subheading_color", e.target.value)} className="flex-1" />
                   </div>
                 </FieldRow>
-                <FieldRow label="Primary Button Background">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(e) => set("primary_button_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                    <Input value={readString(c, ["primary_button_bg_color"], "")} onChange={(e) => set("primary_button_bg_color", e.target.value)} className="flex-1" />
-                  </div>
-                </FieldRow>
+                <BackgroundColorField label="Primary Button Background" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(value) => set("primary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Primary Button Text">
                   <div className="flex items-center gap-2">
                     <input type="color" value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1347,12 +1469,7 @@ function BlockEditor({
                     <Input value={readString(c, ["primary_button_border_color"], "")} onChange={(e) => set("primary_button_border_color", e.target.value)} className="flex-1" />
                   </div>
                 </FieldRow>
-                <FieldRow label="Secondary Button Background">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(e) => set("secondary_button_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                    <Input value={readString(c, ["secondary_button_bg_color"], "")} onChange={(e) => set("secondary_button_bg_color", e.target.value)} className="flex-1" />
-                  </div>
-                </FieldRow>
+                <BackgroundColorField label="Secondary Button Background" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(value) => set("secondary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Secondary Button Text">
                   <div className="flex items-center gap-2">
                     <input type="color" value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1365,12 +1482,7 @@ function BlockEditor({
                     <Input value={readString(c, ["secondary_button_border_color"], "")} onChange={(e) => set("secondary_button_border_color", e.target.value)} className="flex-1" />
                   </div>
                 </FieldRow>
-                <FieldRow label="Badge Background">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(e) => set("badge_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                    <Input value={readString(c, ["badge_bg_color"], "")} onChange={(e) => set("badge_bg_color", e.target.value)} className="flex-1" />
-                  </div>
-                </FieldRow>
+                <BackgroundColorField label="Badge Background" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(value) => set("badge_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Badge Text">
                   <div className="flex items-center gap-2">
                     <input type="color" value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1395,12 +1507,7 @@ function BlockEditor({
                     <Input value={readString(c, ["trust_text_color"], "")} onChange={(e) => set("trust_text_color", e.target.value)} className="flex-1" />
                   </div>
                 </FieldRow>
-                <FieldRow label="Card Background">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(e) => set("card_background_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                    <Input value={readString(c, ["card_background_color"], "")} onChange={(e) => set("card_background_color", e.target.value)} className="flex-1" />
-                  </div>
-                </FieldRow>
+                <BackgroundColorField label="Card Background" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(value) => set("card_background_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Card Border">
                   <div className="flex items-center gap-2">
                     <input type="color" value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1590,12 +1697,12 @@ function BlockEditor({
                   fieldName="hero_image"
                 />
                 <div className="flex gap-3">
-                  <FieldRow label="Background Colour">
-                    <div className="flex items-center gap-2">
-                      <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
-                      <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
-                    </div>
-                  </FieldRow>
+                  <BackgroundColorField
+                    label="Background Colour"
+                    value={backgroundColor}
+                    onChange={(value) => setLinkedBackgroundValue("background_color", value)}
+                    inheritOptions={backgroundInheritOptions}
+                  />
                   <FieldRow label="Text Colour">
                     <div className="flex items-center gap-2">
                       <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1637,12 +1744,7 @@ function BlockEditor({
                         <Input value={readString(c, ["subheading_color"], "")} onChange={(e) => set("subheading_color", e.target.value)} className="flex-1" />
                       </div>
                     </FieldRow>
-                    <FieldRow label="Primary Button Background">
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(e) => set("primary_button_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                        <Input value={readString(c, ["primary_button_bg_color"], "")} onChange={(e) => set("primary_button_bg_color", e.target.value)} className="flex-1" />
-                      </div>
-                    </FieldRow>
+                    <BackgroundColorField label="Primary Button Background" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(value) => set("primary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Primary Button Text">
                       <div className="flex items-center gap-2">
                         <input type="color" value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1655,12 +1757,7 @@ function BlockEditor({
                         <Input value={readString(c, ["primary_button_border_color"], "")} onChange={(e) => set("primary_button_border_color", e.target.value)} className="flex-1" />
                       </div>
                     </FieldRow>
-                    <FieldRow label="Secondary Button Background">
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(e) => set("secondary_button_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                        <Input value={readString(c, ["secondary_button_bg_color"], "")} onChange={(e) => set("secondary_button_bg_color", e.target.value)} className="flex-1" />
-                      </div>
-                    </FieldRow>
+                    <BackgroundColorField label="Secondary Button Background" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(value) => set("secondary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Secondary Button Text">
                       <div className="flex items-center gap-2">
                         <input type="color" value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1673,12 +1770,7 @@ function BlockEditor({
                         <Input value={readString(c, ["secondary_button_border_color"], "")} onChange={(e) => set("secondary_button_border_color", e.target.value)} className="flex-1" />
                       </div>
                     </FieldRow>
-                    <FieldRow label="Badge Background">
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(e) => set("badge_bg_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                        <Input value={readString(c, ["badge_bg_color"], "")} onChange={(e) => set("badge_bg_color", e.target.value)} className="flex-1" />
-                      </div>
-                    </FieldRow>
+                    <BackgroundColorField label="Badge Background" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(value) => set("badge_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Badge Text">
                       <div className="flex items-center gap-2">
                         <input type="color" value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1703,12 +1795,7 @@ function BlockEditor({
                         <Input value={readString(c, ["trust_text_color"], "")} onChange={(e) => set("trust_text_color", e.target.value)} className="flex-1" />
                       </div>
                     </FieldRow>
-                    <FieldRow label="Card Background">
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(e) => set("card_background_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
-                        <Input value={readString(c, ["card_background_color"], "")} onChange={(e) => set("card_background_color", e.target.value)} className="flex-1" />
-                      </div>
-                    </FieldRow>
+                    <BackgroundColorField label="Card Background" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(value) => set("card_background_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Card Border">
                       <div className="flex items-center gap-2">
                         <input type="color" value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
@@ -1772,7 +1859,7 @@ function BlockEditor({
       const secondaryText = readString(c, ["secondary_cta_text", "secondaryCtaLabel"], "Call us");
       const secondaryUrl = readString(c, ["secondary_cta_url", "secondaryCtaHref"], "tel:+441224000000");
       const layoutVariant = readString(c, ["layout_variant", "layout"], "center-banner");
-      const backgroundColor = readString(c, ["background_color", "backgroundColor"], "#f97316");
+      const backgroundColor = readString(c, ["background_color", "backgroundColor", "section_bg"], "#f97316");
       const textColor = readString(c, ["text_color", "textColor"], "#ffffff");
       const borderColor = readString(c, ["border_color"], "#ffffff4d");
       const primaryButtonBg = readString(c, ["primary_button_bg"], "#0f172a");
@@ -1888,12 +1975,20 @@ function BlockEditor({
               <FieldRow label="Subheading Size"><Input value={subheadingSize} onChange={(e) => set("subheading_size", e.target.value)} placeholder="1.0625rem" /></FieldRow>
 
               <div className="flex gap-3">
-                <FieldRow label="Background">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
-                    <Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} className="flex-1" />
-                  </div>
-                </FieldRow>
+                <BackgroundColorField
+                  label="Background"
+                  value={backgroundColor}
+                  onChange={(value) => onChange(syncBlockContent(
+                    c,
+                    { background_color: value, backgroundColor: value, section_bg: value },
+                    {
+                      background_color: ["backgroundColor", "section_bg"],
+                      backgroundColor: ["background_color", "section_bg"],
+                      section_bg: ["background_color", "backgroundColor"],
+                    }
+                  ))}
+                  inheritOptions={backgroundInheritOptions}
+                />
                 <FieldRow label="Text">
                   <div className="flex items-center gap-2">
                     <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
@@ -2026,8 +2121,8 @@ function BlockEditor({
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Button Font"><Input value={buttonFont} onChange={(e) => set("button_font_family", e.target.value)} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Card Border"><Input value={cardBorder} onChange={(e) => set("card_border", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Colour"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Colour"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -2262,8 +2357,8 @@ function BlockEditor({
               <FieldRow label="Service Area"><Input value={serviceArea} onChange={(e) => set("service_area", e.target.value)} placeholder="Aberdeenshire and nearby areas" /></FieldRow>
               <FieldRow label="Opening hours"><Input value={openingHours} onChange={(e) => onChange({ ...c, openingHours: e.target.value, hours: e.target.value })} placeholder="Monday to Friday, 8am to 5pm" /></FieldRow>
 
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Colour"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Colour"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Colour"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -2395,8 +2490,8 @@ function BlockEditor({
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
 
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Card Border"><Input value={cardBorder} onChange={(e) => set("card_border", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -2554,8 +2649,8 @@ function BlockEditor({
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <FieldRow label="Subheading (optional)"><Textarea value={subtitle} onChange={(e) => onChange(syncBlockContent(c, { subtitle: e.target.value, subheading: e.target.value }, { subtitle: ["subheading"], subheading: ["subtitle"] }))} rows={2} /></FieldRow>
 
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -2711,8 +2806,8 @@ function BlockEditor({
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <FieldRow label="Empty Message"><Input value={emptyMessage} onChange={(e) => set("empty_message", e.target.value)} /></FieldRow>
 
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -2856,8 +2951,8 @@ function BlockEditor({
               <FieldRow label="CTA Text (optional)"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, ctaText: e.target.value }, { cta_text: ["ctaText"], ctaText: ["cta_text"] }))} /></FieldRow>
               <FieldRow label="CTA URL (optional)"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, ctaUrl: e.target.value }, { cta_url: ["ctaUrl"], ctaUrl: ["cta_url"] }))} /></FieldRow>
 
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -2967,8 +3062,8 @@ function BlockEditor({
                 </Select>
               </FieldRow>
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -3101,8 +3196,8 @@ function BlockEditor({
               </FieldRow>
               <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
               <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -3230,8 +3325,8 @@ function BlockEditor({
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
               <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -3403,8 +3498,8 @@ function BlockEditor({
               <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -3529,8 +3624,8 @@ function BlockEditor({
                   </SelectContent>
                 </Select>
               </FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Frame Background"><Input value={frameBg} onChange={(e) => set("frame_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Frame Background" value={frameBg} onChange={(value) => setLinkedBackgroundValue("frame_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Caption Color"><Input value={captionColor} onChange={(e) => set("caption_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
@@ -3618,7 +3713,7 @@ function BlockEditor({
                   </SelectContent>
                 </Select>
               </FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Rule Color"><Input value={ruleColor} onChange={(e) => set("rule_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
             </div>
@@ -3777,8 +3872,8 @@ function BlockEditor({
               <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -3917,8 +4012,8 @@ function BlockEditor({
               <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -4064,8 +4159,8 @@ function BlockEditor({
               <FieldRow label="Subheading"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
               <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -4214,8 +4309,8 @@ function BlockEditor({
               <FieldRow label="Body Text"><Textarea value={bodyText} onChange={(e) => set("body_text", e.target.value)} rows={2} /></FieldRow>
               <FieldRow label="CTA Button Text"><Input value={ctaText} onChange={(e) => onChange(syncBlockContent(c, { cta_text: e.target.value, primaryCtaLabel: e.target.value, primaryButtonText: e.target.value }, { cta_text: ["primaryCtaLabel", "primaryButtonText"], primaryCtaLabel: ["cta_text", "primaryButtonText"], primaryButtonText: ["cta_text", "primaryCtaLabel"] }))} /></FieldRow>
               <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -4335,8 +4430,8 @@ function BlockEditor({
               <FieldRow label="Eyebrow / Label (optional)"><Input value={label} onChange={(e) => onChange(syncBlockContent(c, { label: e.target.value, eyebrow: e.target.value }, { label: ["eyebrow"], eyebrow: ["label"] }))} /></FieldRow>
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -4537,8 +4632,8 @@ function BlockEditor({
               <FieldRow label="Open links in new tab">
                 <Switch checked={Boolean(c.open_in_new_tab ?? true)} onCheckedChange={(v) => set("open_in_new_tab", v)} />
               </FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -4737,8 +4832,8 @@ function BlockEditor({
               <FieldRow label="Subheading">
                 <Input value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} placeholder="Choose a service and pick a time that suits you." />
               </FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -4891,8 +4986,8 @@ function BlockEditor({
                   rows={9}
                 />
               </FieldRow>
-              <FieldRow label="Section Background"><Input value={sectionBg} onChange={(e) => set("section_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Card Background"><Input value={cardBg} onChange={(e) => set("card_bg", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -5032,9 +5127,9 @@ function BlockEditor({
                   placeholder="/book"
                 />
               </FieldRow>
-              <FieldRow label="Bar Background"><Input value={backgroundColor} onChange={(e) => onChange(syncBlockContent(c, { background_color: e.target.value, backgroundColor: e.target.value }, { background_color: ["backgroundColor"], backgroundColor: ["background_color"] }))} /></FieldRow>
-              <FieldRow label="Primary Button Background"><Input value={primaryColor} onChange={(e) => set("primary_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Secondary Button Background"><Input value={secondaryColor} onChange={(e) => set("secondary_color", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Bar Background" value={backgroundColor} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Primary Button Background" value={primaryColor} onChange={(value) => setLinkedBackgroundValue("primary_color", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Secondary Button Background" value={secondaryColor} onChange={(value) => setLinkedBackgroundValue("secondary_color", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Text Color"><Input value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} /></FieldRow>
               <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => onChange(syncBlockContent(c, { border_color: e.target.value, borderColor: e.target.value }, { border_color: ["borderColor"], borderColor: ["border_color"] }))} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
@@ -5096,19 +5191,24 @@ function BlockEditor({
       const headingSize = readString(c, ["heading_size"], "1rem");
       const bodySize = readString(c, ["body_size"], "0.9rem");
       const isPreviewVisible = previewEnabled !== false;
-      const navItems = readArray<Record<string, unknown>>(c, ["navItems"], [])
+      const previewBackgroundColor = !backgroundColor || backgroundColor === "default" ? "#0f172a" : backgroundColor;
+      const previewTextColor = !textColor || textColor === "default" ? "#9ca3af" : textColor;
+      const previewHeadingColor = !headingColor || headingColor === "default" ? "#ffffff" : headingColor;
+      const previewBorderColor = !borderColor || borderColor === "default" ? "rgba(255,255,255,0.12)" : borderColor;
+      const navItems = readArray<Record<string, unknown>>(c, ["navItems", "nav_items", "footer_navigation_links", "navigation_links"], [])
         .map((item) => ({
           label: String(item.label ?? ""),
           href: String(item.href ?? ""),
         }));
-      const legalLinks = readArray<Record<string, unknown>>(c, ["legalLinks"], [])
+      const legalLinks = readArray<Record<string, unknown>>(c, ["legalLinks", "legal_links", "footer_legal_links"], [])
         .map((item) => ({
           label: String(item.label ?? ""),
           href: String(item.href ?? ""),
         }));
+      const visibleNavItems = navItems.filter((item) => item.label || item.href);
 
-      const updateNavItems = (next: LinkItem[]) => set("navItems", next);
-      const updateLegalLinks = (next: LinkItem[]) => set("legalLinks", next);
+      const updateNavItems = (next: LinkItem[]) => onChange(syncBlockContent(c, { navItems: next, nav_items: next }, { navItems: ["nav_items"], nav_items: ["navItems"] }));
+      const updateLegalLinks = (next: LinkItem[]) => onChange(syncBlockContent(c, { legalLinks: next, legal_links: next }, { legalLinks: ["legal_links"], legal_links: ["legalLinks"] }));
 
       return (
         <div className="space-y-6">
@@ -5123,26 +5223,32 @@ function BlockEditor({
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 xl:h-[calc(100vh-11.5rem)] xl:overflow-y-auto">
-                    <footer style={{ background: backgroundColor, color: textColor, padding: "18px 16px" }}>
-                      <div style={{ borderBottom: `1px solid ${borderColor}`, paddingBottom: 10, marginBottom: 10 }}>
-                        <h4 style={{ margin: 0, color: headingColor, fontFamily: headingFont, fontSize: headingSize }}>{logoText || "Your Business"}</h4>
-                        {description ? <p style={{ margin: "6px 0 0", color: textColor, fontFamily: bodyFont, fontSize: bodySize }}>{description}</p> : null}
+                    <footer style={{ background: previewBackgroundColor, color: previewTextColor, padding: "18px 16px" }}>
+                      <div style={{ borderBottom: `1px solid ${previewBorderColor}`, paddingBottom: 10, marginBottom: 10 }}>
+                        <h4 style={{ margin: 0, color: previewHeadingColor, fontFamily: headingFont, fontSize: headingSize }}>{logoText || "Your Business"}</h4>
+                        {description ? <p style={{ margin: "6px 0 0", color: previewTextColor, fontFamily: bodyFont, fontSize: bodySize }}>{description}</p> : null}
                       </div>
                       {layoutVariant === "centered-stack" ? (
                         <div style={{ textAlign: "center", display: "grid", gap: 6, fontFamily: bodyFont, fontSize: bodySize }}>
+                          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                            {(visibleNavItems.length > 0 ? visibleNavItems : [{ label: "Home", href: "/" }, { label: "Services", href: "/services" }, { label: "Contact", href: "/contact" }]).map((item, i) => (
+                              <span key={i}>{item.label || "Link"}</span>
+                            ))}
+                          </div>
                           <span>{phone || "01224 000000"}</span>
                           <span>{email || "hello@yourbusiness.co.uk"}</span>
+                          <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
                         </div>
                       ) : layoutVariant === "compact-inline" ? (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", fontFamily: bodyFont, fontSize: bodySize }}>
                           <div>
-                            <strong style={{ color: headingColor }}>Links</strong>
+                            <strong style={{ color: previewHeadingColor }}>Links</strong>
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
-                              {navItems.slice(0, 3).map((item, i) => (<span key={i}>{item.label || "Link"}</span>))}
+                              {(visibleNavItems.length > 0 ? visibleNavItems : [{ label: "Home", href: "/" }, { label: "Services", href: "/services" }, { label: "Contact", href: "/contact" }]).slice(0, 6).map((item, i) => (<span key={i}>{item.label || "Link"}</span>))}
                             </div>
                           </div>
                           <div>
-                            <strong style={{ color: headingColor }}>Contact</strong>
+                            <strong style={{ color: previewHeadingColor }}>Contact</strong>
                             <div>{phone || "01224 000000"}</div>
                             <div>{email || "hello@yourbusiness.co.uk"}</div>
                           </div>
@@ -5150,33 +5256,37 @@ function BlockEditor({
                       ) : layoutVariant === "minimal-columns" ? (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, fontFamily: bodyFont, fontSize: bodySize }}>
                           <div>
-                            <strong style={{ color: headingColor }}>Contact</strong>
+                            <strong style={{ color: previewHeadingColor }}>Links</strong>
+                            <div>{(visibleNavItems.length > 0 ? visibleNavItems : [{ label: "Home", href: "/" }, { label: "Services", href: "/services" }, { label: "Contact", href: "/contact" }]).slice(0, 6).map((item) => item.label || "Link").join(" • ")}</div>
+                          </div>
+                          <div>
+                            <strong style={{ color: previewHeadingColor }}>Contact</strong>
                             <div>{phone || "01224 000000"}</div>
                             <div>{email || "hello@yourbusiness.co.uk"}</div>
                           </div>
                           <div>
-                            <strong style={{ color: headingColor }}>Legal</strong>
+                            <strong style={{ color: previewHeadingColor }}>Legal</strong>
                             <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
                           </div>
                         </div>
                       ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, fontFamily: bodyFont, fontSize: bodySize }}>
                           <div>
-                            <strong style={{ color: headingColor }}>Links</strong>
-                            {navItems.slice(0, 3).map((item, i) => (<div key={i}>{item.label || "Link"}</div>))}
+                            <strong style={{ color: previewHeadingColor }}>Links</strong>
+                            {(visibleNavItems.length > 0 ? visibleNavItems : [{ label: "Home", href: "/" }, { label: "Services", href: "/services" }, { label: "Contact", href: "/contact" }]).slice(0, 6).map((item, i) => (<div key={i}>{item.label || "Link"}</div>))}
                           </div>
                           <div>
-                            <strong style={{ color: headingColor }}>Contact</strong>
+                            <strong style={{ color: previewHeadingColor }}>Contact</strong>
                             <div>{phone || "01224 000000"}</div>
                             <div>{email || "hello@yourbusiness.co.uk"}</div>
                           </div>
                           <div>
-                            <strong style={{ color: headingColor }}>Legal</strong>
+                            <strong style={{ color: previewHeadingColor }}>Legal</strong>
                             <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
                           </div>
                         </div>
                       )}
-                      <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: 10, paddingTop: 8, fontSize: "0.78rem", fontFamily: bodyFont }}>
+                      <div style={{ borderTop: `1px solid ${previewBorderColor}`, marginTop: 10, paddingTop: 8, fontSize: "0.78rem", fontFamily: bodyFont }}>
                         Legal links: {legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}
                       </div>
                     </footer>
@@ -5216,7 +5326,7 @@ function BlockEditor({
                   <Input value={email} onChange={(e) => set("email", e.target.value)} placeholder="hello@yourbusiness.co.uk" />
                 </FieldRow>
               </div>
-              <FieldRow label="Background Color"><Input value={backgroundColor} onChange={(e) => set("background_color", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Background Color" value={backgroundColor} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} placeholder="default or #0f172a" />
               <FieldRow label="Text Color"><Input value={textColor} onChange={(e) => set("text_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
               <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
@@ -5304,6 +5414,7 @@ function BlockCard({
   onContentChange,
   previewEnabled,
   onTogglePreview,
+  backgroundInheritOptions,
   isGlobalBlock = false,
 }: {
   block: Block;
@@ -5316,6 +5427,7 @@ function BlockCard({
   onContentChange: (id: string, content: Record<string, unknown>) => void;
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
+  backgroundInheritOptions: BackgroundInheritOption[];
   isGlobalBlock?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -5395,6 +5507,7 @@ function BlockCard({
                 navigationItems={navigationItems}
                 previewEnabled={previewEnabled}
                 onTogglePreview={onTogglePreview}
+                backgroundInheritOptions={backgroundInheritOptions}
               />
             </div>
           </CardContent>
@@ -5793,22 +5906,40 @@ export default function WebsitePageEditor() {
               <p className="text-sm mt-1">Choose a block from the left panel to start building this page.</p>
             </div>
           ) : (
-            blocks.map((block, index) => (
-              <BlockCard
-                key={block.id}
-                block={block}
-                index={index}
-                total={blocks.length}
-                navigationItems={headerNavItems}
-                onMove={moveBlock}
-                onToggleVisible={toggleVisible}
-                onDelete={(id) => setDeletingBlockId(id)}
-                onContentChange={updateBlockContent}
-                previewEnabled={showHeroPreview}
-                onTogglePreview={setShowHeroPreview}
-                isGlobalBlock={resolveEditorType(block.block_type) === "site.header" || resolveEditorType(block.block_type) === "site.footer"}
-              />
-            ))
+            blocks.map((block, index) => {
+              const backgroundInheritOptions = blocks
+                .filter((candidate) => candidate.id !== block.id)
+                .map((candidate) => {
+                  const value = getBlockBackgroundValue(candidate.content);
+                  if (!value) return null;
+                  const normalizedType = normalizeTemplateBlockType(candidate.block_type);
+                  const paletteItem = BLOCK_PALETTE.find((p) => p.type === normalizedType);
+                  const label = paletteItem?.label
+                    ?? String(candidate.block_type || "")
+                      .replace(/[._]+/g, " ")
+                      .replace(/\b\w/g, (char) => char.toUpperCase());
+                  return { label, value };
+                })
+                .filter((entry): entry is BackgroundInheritOption => Boolean(entry));
+
+              return (
+                <BlockCard
+                  key={block.id}
+                  block={block}
+                  index={index}
+                  total={blocks.length}
+                  navigationItems={headerNavItems}
+                  onMove={moveBlock}
+                  onToggleVisible={toggleVisible}
+                  onDelete={(id) => setDeletingBlockId(id)}
+                  onContentChange={updateBlockContent}
+                  previewEnabled={showHeroPreview}
+                  onTogglePreview={setShowHeroPreview}
+                  backgroundInheritOptions={backgroundInheritOptions}
+                  isGlobalBlock={resolveEditorType(block.block_type) === "site.header" || resolveEditorType(block.block_type) === "site.footer"}
+                />
+              );
+            })
           )}
         </main>
 

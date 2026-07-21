@@ -104,6 +104,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
         company={company}
         socialLinks={website.social_links}
         theme={website.theme as Record<string, string>}
+        templateSlug={website.template_slug || undefined}
         pages={navPages}
         tagline={website.tagline}
         logoUrl={website.logo_url}
