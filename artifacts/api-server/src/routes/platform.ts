@@ -672,19 +672,62 @@ router.get("/platform/tenants", requireAuth, requireSuperAdmin, async (req, res)
 
   let q = supabaseAdmin.from("tenants").select("*, plans(name)").order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
-  if (search) {
-    const s = `%${search}%`;
-    q = q.or(`company_name.ilike.${s},contact_email.ilike.${s},contact_name.ilike.${s}`);
-  }
 
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  const tenantIds = (data || [])
+    .map((t: Record<string, unknown>) => String(t.id || ""))
+    .filter(Boolean);
+
+  let settingsByTenantId = new Map<string, { name: string | null; email: string | null; phone: string | null }>();
+  if (tenantIds.length > 0) {
+    const { data: companySettings } = await supabaseAdmin
+      .from("company_settings")
+      .select("tenant_id, name, email, phone")
+      .eq("singleton_id", "default")
+      .in("tenant_id", tenantIds);
+
+    settingsByTenantId = new Map(
+      (companySettings || []).map((row: { tenant_id: string; name: string | null; email: string | null; phone: string | null }) => [
+        row.tenant_id,
+        { name: row.name, email: row.email, phone: row.phone },
+      ])
+    );
+  }
+
   const enriched = await Promise.all((data || []).map(async (t: Record<string, unknown>) => {
     const { count } = await supabaseAdmin
       .from("profiles").select("id", { count: "exact", head: true }).eq("tenant_id", t.id);
-    return { ...t, user_count: count || 0, plan_name: (t.plans as { name: string } | null)?.name || null, plans: undefined };
+
+    const tenantId = String(t.id || "");
+    const settings = settingsByTenantId.get(tenantId);
+    const companyName = settings?.name?.trim() || String(t.company_name || "");
+    const contactEmail = settings?.email?.trim() || String(t.contact_email || "");
+    const contactPhone = settings?.phone?.trim() || String(t.contact_phone || "");
+
+    return {
+      ...t,
+      company_name: companyName,
+      contact_email: contactEmail,
+      contact_phone: contactPhone,
+      user_count: count || 0,
+      plan_name: (t.plans as { name: string } | null)?.name || null,
+      plans: undefined,
+    };
   }));
+
+  if (search && search.trim()) {
+    const term = search.trim().toLowerCase();
+    const filtered = enriched.filter((t: Record<string, unknown>) => {
+      const companyName = String(t.company_name || "").toLowerCase();
+      const contactEmail = String(t.contact_email || "").toLowerCase();
+      const contactName = String(t.contact_name || "").toLowerCase();
+      return companyName.includes(term) || contactEmail.includes(term) || contactName.includes(term);
+    });
+    res.json(filtered);
+    return;
+  }
 
   res.json(enriched);
 });
@@ -696,6 +739,13 @@ router.get("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req, 
     .from("tenants").select("*, plans(*)").eq("id", id).single();
   if (error || !tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
+  const { data: companySettings } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, email, phone")
+    .eq("tenant_id", id)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
   const [usersRes, jobsRes, customersRes] = await Promise.all([
     supabaseAdmin.from("profiles").select("id, email, full_name, role, is_active, created_at").eq("tenant_id", id).order("created_at"),
     supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("tenant_id", id),
@@ -704,6 +754,9 @@ router.get("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req, 
 
   res.json({
     ...tenant,
+    company_name: companySettings?.name?.trim() || tenant.company_name,
+    contact_email: companySettings?.email?.trim() || tenant.contact_email,
+    contact_phone: companySettings?.phone?.trim() || tenant.contact_phone,
     users: usersRes.data || [],
     job_count: jobsRes.count || 0,
     customer_count: customersRes.count || 0,
