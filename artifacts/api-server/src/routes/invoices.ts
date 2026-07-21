@@ -101,6 +101,14 @@ function buildLineKey(line: { description: string; quantity: number; unit_price:
   ].join("|");
 }
 
+function normalizeInvoiceItemType(value: unknown): string {
+  const raw = String(value || "").toLowerCase();
+  if (raw === "product" || raw === "service" || raw === "labour" || raw === "callout" || raw === "other") {
+    return raw;
+  }
+  return "other";
+}
+
 async function verifyInvoiceOwnership(
   invoiceId: string | string[] | undefined,
   tenantId: string,
@@ -1665,7 +1673,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       description: String(l.description || "").trim(),
       quantity: Number(l.quantity) || 0,
       unit_price: Number(l.unit_price) || 0,
-      item_type: "quoted",
+      item_type: normalizeInvoiceItemType(l.item_type),
       sort_order: typeof l.sort_order === "number" ? l.sort_order : lineItems.length,
     });
   }
@@ -1675,7 +1683,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       description: l.description,
       quantity: l.quantity,
       unit_price: l.unit_price,
-      item_type: l.item_name || "other",
+      item_type: normalizeInvoiceItemType(l.item_name),
       sort_order: lineItems.length,
     });
   }
@@ -1740,7 +1748,13 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       item_type: l.item_type || "other",
       sort_order: l.sort_order ?? i,
     }));
-    await supabaseAdmin.from("invoice_line_items").insert(items);
+    const { error: insertErr } = await supabaseAdmin.from("invoice_line_items").insert(items);
+    if (insertErr) {
+      await supabaseAdmin.from("invoice_line_items").delete().eq("invoice_id", (invoice as { id: string }).id).eq("tenant_id", req.tenantId!);
+      await supabaseAdmin.from("invoices").delete().eq("id", (invoice as { id: string }).id).eq("tenant_id", req.tenantId!);
+      res.status(500).json({ error: `Failed to save invoice line items: ${insertErr.message}` });
+      return;
+    }
   }
 
   bustInvoicingCache(req.tenantId!);
