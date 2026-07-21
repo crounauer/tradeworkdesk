@@ -69,6 +69,8 @@ export function SiteFooterBlock({
   const navEntries = (Array.isArray(navItems) ? navItems : Array.isArray(nav_items) ? nav_items : []).filter(Boolean);
   const legalEntries = (Array.isArray(legalLinks) ? legalLinks : Array.isArray(legal_links) ? legal_links : []).filter(Boolean);
   const links = navEntries.filter((item) => item.label || item.href);
+  const poweredByHref = 'https://www.tradeworkdesk.co.uk';
+  const poweredByLabel = 'Powered by Tradeworkdesk';
 
   return (
     <footer className={sectionClassName} style={{ background: resolvedBackground, color: resolvedTextColor }}>
@@ -146,10 +148,13 @@ export function SiteFooterBlock({
       )}
 
       <div className="mx-auto mt-6 max-w-7xl border-t pt-3 text-xs" style={{ borderColor: resolvedBorderColor }}>
-        <div className="flex flex-wrap items-center gap-3">
-          {legalEntries.map((item) => (
-            <a key={`footer-bottom-legal-${item.href}`} href={item.href}>{item.label}</a>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {legalEntries.map((item) => (
+              <a key={`footer-bottom-legal-${item.href}`} href={item.href}>{item.label}</a>
+            ))}
+          </div>
+          <a href={poweredByHref}>{poweredByLabel}</a>
         </div>
       </div>
     </footer>

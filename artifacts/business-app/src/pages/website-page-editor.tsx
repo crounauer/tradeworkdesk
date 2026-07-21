@@ -5277,8 +5277,9 @@ function BlockEditor({
                           </div>
                         </div>
                       )}
-                      <div style={{ borderTop: `1px solid ${previewBorderColor}`, marginTop: 10, paddingTop: 8, fontSize: "0.78rem", fontFamily: bodyFont }}>
-                        {legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}
+                      <div style={{ borderTop: `1px solid ${previewBorderColor}`, marginTop: 10, paddingTop: 8, fontSize: "0.78rem", fontFamily: bodyFont, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</span>
+                        <a href="https://www.tradeworkdesk.co.uk" style={{ color: "inherit", textDecoration: "none" }}>Powered by Tradeworkdesk</a>
                       </div>
                     </footer>
                   </CardContent>

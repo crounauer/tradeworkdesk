@@ -52,6 +52,8 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
   const footerBodyFont = readFooterString(footerProps, ["body_font_family"], "inherit");
   const footerHeadingSize = readFooterString(footerProps, ["heading_size"], "1rem");
   const footerBodySize = readFooterString(footerProps, ["body_size"], "0.9rem");
+  const poweredByHref = "https://www.tradeworkdesk.co.uk";
+  const poweredByLabel = "Powered by Tradeworkdesk";
   const footerLayoutVariant = rawLayoutVariant === "default"
     ? "four-column"
     : rawLayoutVariant === "traditional"
@@ -254,6 +256,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
         <div style={{ borderTop: `1px solid ${resolvedBorderColor}` }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
             <span>© {new Date().getFullYear()} {footerLogoText || displayName}. All rights reserved.</span>
+            <a href={poweredByHref} style={{ color: "inherit", textDecoration: "none" }}>{poweredByLabel}</a>
           </div>
           {footerLegalLinks.length > 0 ? (
             <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px 12px", display: "flex", gap: 12, flexWrap: "wrap", fontSize: "0.78rem", color: "rgba(255,255,255,0.7)" }}>
@@ -383,10 +386,13 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
         )}
 
         <div style={{ borderTop: `1px solid ${resolvedBorderColor}`, marginTop: 16, paddingTop: 10, ...bodyStyle, fontSize: "0.78rem" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {legalLinks.map((item) => (
-              <a key={`footer-bottom-legal-${item.href}`} href={item.href} style={linkStyle}>{item.label}</a>
-            ))}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {legalLinks.map((item) => (
+                <a key={`footer-bottom-legal-${item.href}`} href={item.href} style={linkStyle}>{item.label}</a>
+              ))}
+            </div>
+            <a href={poweredByHref} style={linkStyle}>{poweredByLabel}</a>
           </div>
         </div>
       </div>
