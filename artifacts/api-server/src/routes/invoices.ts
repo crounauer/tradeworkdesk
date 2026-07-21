@@ -93,6 +93,14 @@ function normalizeManualPaymentMethod(method?: string | null): string | null {
   return null;
 }
 
+function buildLineKey(line: { description: string; quantity: number; unit_price: number }): string {
+  return [
+    line.description.trim().toLowerCase(),
+    Number(line.quantity).toFixed(4),
+    Number(line.unit_price).toFixed(2),
+  ].join("|");
+}
+
 async function verifyInvoiceOwnership(
   invoiceId: string | string[] | undefined,
   tenantId: string,
@@ -395,96 +403,6 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
   }
 
   res.status(201).json(invoice);
-});
-
-// ─── CREATE FROM JOB (pre-populated line items) ────────────────────────────
-// POST /jobs/:id/create-internal-invoice
-router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const jobId = toSingleParam(req.params.id);
-
-  const { data: jobRow } = await supabaseAdmin
-    .from("jobs")
-    .select("id, status, customer_id")
-    .eq("id", jobId)
-    .eq("tenant_id", req.tenantId!)
-    .maybeSingle();
-
-  if (!jobRow) { res.status(404).json({ error: "Job not found" }); return; }
-  if (jobRow.status !== "completed" && jobRow.status !== "invoiced") {
-    res.status(400).json({ error: "Only completed or invoiced jobs can be invoiced" }); return;
-  }
-
-  const invoiceData = await buildInvoiceData(jobId, req.tenantId);
-  if (!invoiceData) { res.status(500).json({ error: "Failed to load job data" }); return; }
-
-  const settings = await getCompanySettings(req.tenantId!);
-  const resolvedVatRate = invoiceData.vat_rate ?? settings?.default_vat_rate ?? 20;
-  const currency = invoiceData.currency || settings?.currency || "GBP";
-  const issueDate = new Date().toISOString().slice(0, 10);
-
-  let dueDate: string | null = null;
-  if (settings?.default_payment_terms_days) {
-    const d = new Date(issueDate);
-    d.setDate(d.getDate() + settings.default_payment_terms_days);
-    dueDate = d.toISOString().slice(0, 10);
-  }
-
-  const invoiceNumber = await getNextInvoiceNumber(req.tenantId!, "invoice").catch(
-    (e) => { res.status(500).json({ error: (e as Error).message }); return null; },
-  );
-  if (!invoiceNumber) return;
-
-  // Map buildInvoiceData lines → invoice line item inputs
-  const lineItems: LineItemInput[] = invoiceData.lines.map((l, i) => {
-    let item_type = "labour";
-    if (l.item_name === "product") item_type = "product";
-    else if (l.item_name === "service") item_type = "service";
-    else if (l.description.toLowerCase().includes("call-out")) item_type = "callout";
-    return { description: l.description, quantity: l.quantity, unit_price: l.unit_price, item_type, sort_order: i };
-  });
-
-  const { subtotal, vat_amount, total } = computeTotals(lineItems, resolvedVatRate);
-
-  const { data: invoice, error: invErr } = await supabaseAdmin
-    .from("invoices")
-    .insert({
-      tenant_id: req.tenantId,
-      job_id: jobId,
-      customer_id: (jobRow as { customer_id: string }).customer_id,
-      type: "invoice",
-      status: "draft",
-      invoice_number: invoiceNumber,
-      issue_date: issueDate,
-      due_date: dueDate,
-      customer_notes: invoiceData.attendance_summary || null,
-      subtotal,
-      vat_rate: resolvedVatRate,
-      vat_amount,
-      total,
-      currency,
-      created_by: req.userId,
-    })
-    .select()
-    .single();
-
-  if (invErr || !invoice) { res.status(500).json({ error: invErr?.message || "Failed to create invoice" }); return; }
-
-  if (lineItems.length > 0) {
-    const items = lineItems.map((l, i) => ({
-      invoice_id: (invoice as { id: string }).id,
-      tenant_id: req.tenantId,
-      description: l.description,
-      quantity: l.quantity,
-      unit_price: l.unit_price,
-      total: Math.round(l.quantity * l.unit_price * 100) / 100,
-      item_type: l.item_type || "other",
-      sort_order: l.sort_order ?? i,
-    }));
-    await supabaseAdmin.from("invoice_line_items").insert(items);
-  }
-
-  bustInvoicingCache(req.tenantId!);
-  res.status(201).json({ id: (invoice as { id: string }).id, invoice_number: invoiceNumber });
 });
 
 // ─── GET ONE ───────────────────────────────────────────────────────────────
@@ -1650,6 +1568,183 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
     .eq("tenant_id", req.tenantId!);
 
   res.status(201).json({ job_id: newJobId, job_ref: jobRef });
+});
+
+// ─── CREATE FINAL INVOICE FROM JOB ─────────────────────────────────────────
+// POST /jobs/:id/create-internal-invoice
+// Creates a draft invoice from the job, including linked quote/converted-invoice lines when present.
+router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const jobId = toSingleParam(req.params.id);
+
+  const { data: jobRow } = await supabaseAdmin
+    .from("jobs")
+    .select("id, status, customer_id, from_quote_id")
+    .eq("id", jobId)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!jobRow) { res.status(404).json({ error: "Job not found" }); return; }
+  if (jobRow.status !== "completed" && jobRow.status !== "invoiced") {
+    res.status(400).json({ error: "Only completed or invoiced jobs can be invoiced" }); return;
+  }
+
+  const invoiceData = await buildInvoiceData(jobId, req.tenantId);
+  if (!invoiceData) { res.status(500).json({ error: "Failed to load job data" }); return; }
+
+  const settings = await getCompanySettings(req.tenantId!);
+  const issueDate = new Date().toISOString().slice(0, 10);
+
+  let dueDate: string | null = null;
+  if (settings?.default_payment_terms_days) {
+    const d = new Date(issueDate);
+    d.setDate(d.getDate() + settings.default_payment_terms_days);
+    dueDate = d.toISOString().slice(0, 10);
+  }
+
+  let sourceLineItems: Array<Record<string, unknown>> = [];
+  let sourceCurrency = invoiceData.currency || settings?.currency || "GBP";
+  let sourceVatRate = invoiceData.vat_rate ?? settings?.default_vat_rate ?? 20;
+  let sourceNotes: string | null = null;
+  let sourceCustomerNotes: string | null = invoiceData.attendance_summary || null;
+  let sourceWorksOrder: string | null = null;
+
+  if (jobRow.from_quote_id) {
+    const { data: quoteRow } = await supabaseAdmin
+      .from("invoices")
+      .select("id, type, status, converted_to_invoice_id, notes, customer_notes, works_order, vat_rate, currency")
+      .eq("id", jobRow.from_quote_id)
+      .eq("tenant_id", req.tenantId!)
+      .maybeSingle();
+
+    if (quoteRow?.type === "quote") {
+      sourceCurrency = (quoteRow.currency as string | null) || sourceCurrency;
+      sourceVatRate = quoteRow.vat_rate != null ? Number(quoteRow.vat_rate) : sourceVatRate;
+      sourceNotes = (quoteRow.notes as string | null) || null;
+      sourceCustomerNotes = [quoteRow.customer_notes as string | null, invoiceData.attendance_summary || null].filter(Boolean).join("\n\n") || null;
+      sourceWorksOrder = (quoteRow.works_order as string | null) || null;
+
+      const baselineInvoiceId = (quoteRow.converted_to_invoice_id as string | null) || null;
+      if (baselineInvoiceId) {
+        const { data: baselineInvoice } = await supabaseAdmin
+          .from("invoices")
+          .select("id, notes, customer_notes, works_order, vat_rate, currency")
+          .eq("id", baselineInvoiceId)
+          .eq("tenant_id", req.tenantId!)
+          .maybeSingle();
+
+        if (baselineInvoice) {
+          sourceCurrency = (baselineInvoice.currency as string | null) || sourceCurrency;
+          sourceVatRate = baselineInvoice.vat_rate != null ? Number(baselineInvoice.vat_rate) : sourceVatRate;
+          sourceNotes = (baselineInvoice.notes as string | null) || sourceNotes;
+          sourceCustomerNotes = [baselineInvoice.customer_notes as string | null, invoiceData.attendance_summary || null].filter(Boolean).join("\n\n") || sourceCustomerNotes;
+          sourceWorksOrder = (baselineInvoice.works_order as string | null) || sourceWorksOrder;
+
+          const { data: baselineLineItems } = await supabaseAdmin
+            .from("invoice_line_items")
+            .select("description, quantity, unit_price, total, item_type, sort_order")
+            .eq("invoice_id", baselineInvoiceId)
+            .eq("tenant_id", req.tenantId!)
+            .order("sort_order");
+          sourceLineItems = baselineLineItems || [];
+        }
+      } else {
+        const { data: quoteLineItems } = await supabaseAdmin
+          .from("invoice_line_items")
+          .select("description, quantity, unit_price, total, item_type, sort_order")
+          .eq("invoice_id", jobRow.from_quote_id)
+          .eq("tenant_id", req.tenantId!)
+          .order("sort_order");
+        sourceLineItems = quoteLineItems || [];
+      }
+    }
+  }
+
+  const lineItems: LineItemInput[] = [];
+  for (const l of sourceLineItems) {
+    lineItems.push({
+      description: String(l.description || "").trim(),
+      quantity: Number(l.quantity) || 0,
+      unit_price: Number(l.unit_price) || 0,
+      item_type: "quoted",
+      sort_order: typeof l.sort_order === "number" ? l.sort_order : lineItems.length,
+    });
+  }
+
+  for (const l of invoiceData.lines) {
+    lineItems.push({
+      description: l.description,
+      quantity: l.quantity,
+      unit_price: l.unit_price,
+      item_type: l.item_name || "other",
+      sort_order: lineItems.length,
+    });
+  }
+
+  const mergedLineItems: LineItemInput[] = [];
+  const seenKeys = new Set<string>();
+  for (const line of lineItems) {
+    const normalizedLine = {
+      description: line.description,
+      quantity: Number(line.quantity) || 0,
+      unit_price: Number(line.unit_price) || 0,
+      item_type: line.item_type,
+      sort_order: line.sort_order,
+    };
+    const key = buildLineKey(normalizedLine);
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    mergedLineItems.push(normalizedLine);
+  }
+
+  const { subtotal, vat_amount, total } = computeTotals(mergedLineItems, sourceVatRate);
+
+  const invoiceNumber = await getNextInvoiceNumber(req.tenantId!, "invoice").catch(
+    (e) => { res.status(500).json({ error: (e as Error).message }); return null; },
+  );
+  if (!invoiceNumber) return;
+
+  const { data: invoice, error: invErr } = await supabaseAdmin
+    .from("invoices")
+    .insert({
+      tenant_id: req.tenantId,
+      job_id: jobId,
+      customer_id: (jobRow as { customer_id: string }).customer_id,
+      type: "invoice",
+      status: "draft",
+      invoice_number: invoiceNumber,
+      issue_date: issueDate,
+      due_date: dueDate,
+      notes: sourceNotes,
+      customer_notes: sourceCustomerNotes,
+      works_order: sourceWorksOrder,
+      subtotal,
+      vat_rate: sourceVatRate,
+      vat_amount,
+      total,
+      currency: sourceCurrency,
+      created_by: req.userId,
+    })
+    .select()
+    .single();
+
+  if (invErr || !invoice) { res.status(500).json({ error: invErr?.message || "Failed to create invoice" }); return; }
+
+  if (mergedLineItems.length > 0) {
+    const items = mergedLineItems.map((l, i) => ({
+      invoice_id: (invoice as { id: string }).id,
+      tenant_id: req.tenantId,
+      description: l.description,
+      quantity: l.quantity,
+      unit_price: l.unit_price,
+      total: Math.round(l.quantity * l.unit_price * 100) / 100,
+      item_type: l.item_type || "other",
+      sort_order: l.sort_order ?? i,
+    }));
+    await supabaseAdmin.from("invoice_line_items").insert(items);
+  }
+
+  bustInvoicingCache(req.tenantId!);
+  res.status(201).json({ id: (invoice as { id: string }).id, invoice_number: invoiceNumber });
 });
 
 // ─── CSV EXPORT ────────────────────────────────────────────────────────────

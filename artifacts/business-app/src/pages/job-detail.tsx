@@ -2664,11 +2664,13 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
   const [, navigate] = useLocation();
   const { hasFeature } = usePlanFeatures();
   const { data: companySettings } = useCompanySettings();
+  const qc = useQueryClient();
   const [creatingInternalInvoice, setCreatingInternalInvoice] = useState(false);
   const [internalInvoiceResult, setInternalInvoiceResult] = useState<{ id: string; invoice_number: string } | null>(null);
   const { data: linkedInvoicesData } = useListInvoices({ job_id: jobId });
   const linkedInvoices = linkedInvoicesData?.invoices ?? [];
-  const hasLinkedInvoice = linkedInvoices.length > 0;
+  const hasInvoiceDocs = linkedInvoices.some((doc) => doc.type === "invoice");
+  const hasQuoteDocs = linkedInvoices.some((doc) => doc.type === "quote");
 
   useEffect(() => {
     (async () => {
@@ -2729,7 +2731,8 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         method: "POST",
       }) as { id: string; invoice_number: string };
       setInternalInvoiceResult(result);
-      toast({ title: "Invoice created", description: `Invoice ${result.invoice_number} created in your invoice facility.` });
+      await qc.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Invoice created", description: `Final invoice ${result.invoice_number} created in your invoice facility.` });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create invoice";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -2801,7 +2804,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       </div>
 
-      {summary.invoice_number && !hasLinkedInvoice && (
+      {summary.invoice_number && !hasInvoiceDocs && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground mb-3">
           <span><span className="font-medium text-foreground">Invoice #:</span> {summary.invoice_number}</span>
           {summary.due_date && (
@@ -2835,7 +2838,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
         </div>
       )}
 
-      {canExport && showExternalAccounting && (!hasLinkedInvoice || sentExternalId) && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
+      {canExport && showExternalAccounting && (!hasInvoiceDocs || sentExternalId) && (accountingStatus?.connected || accountingStatus?.needs_reconnect || sentExternalId) && (
         <div className="border rounded-lg p-4 mb-4 bg-blue-50/50">
           {accountingStatus?.needs_reconnect && !sentExternalId ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -2909,9 +2912,9 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
 
       {canExport && showNativeInvoice && hasFeature("invoicing") && companySettings?.invoices_enabled !== false && (
         <div className="border rounded-lg p-4 mb-4 bg-violet-50/50">
-          {hasLinkedInvoice ? (
+          {linkedInvoices.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-violet-800">Linked Invoice{linkedInvoices.length > 1 ? "s" : ""}</p>
+              <p className="text-sm font-medium text-violet-800">{hasInvoiceDocs ? `Linked Invoice${linkedInvoices.length > 1 ? "s" : ""}` : "Linked Quote"}</p>
               {linkedInvoices.map((inv) => (
                 <div key={inv.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-sm">
@@ -2928,6 +2931,45 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
                   </Button>
                 </div>
               ))}
+              {hasQuoteDocs && !hasInvoiceDocs && !internalInvoiceResult && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border border-violet-200 rounded-lg p-3 bg-white/70">
+                  <div>
+                    <p className="text-sm font-medium">Create Final Invoice</p>
+                    <p className="text-xs text-muted-foreground">Include the original quoted scope plus the extra parts, labour and time on this job.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={creatingInternalInvoice}
+                    onClick={handleCreateInternalInvoice}
+                    className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                  >
+                    {creatingInternalInvoice ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating...</>
+                    ) : (
+                      <><Receipt className="w-3.5 h-3.5" /> Create Final Invoice</>
+                    )}
+                  </Button>
+                </div>
+              )}
+              {internalInvoiceResult && !hasInvoiceDocs && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-green-700">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span className="font-medium">Invoice {internalInvoiceResult.invoice_number} created</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-6">Saved to your invoice facility as a draft</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/invoices/${internalInvoiceResult.id}`)}
+                    className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> View Invoice
+                  </Button>
+                </div>
+              )}
             </div>
           ) : internalInvoiceResult ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
