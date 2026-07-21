@@ -1118,6 +1118,14 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
   const { id } = req.params;
   const confirm = req.query.confirm === "true";
 
+  if (id === DELETED_TENANT_FALLBACK_ID) {
+    res.status(400).json({
+      error: "protected_tenant",
+      message: "The system fallback tenant cannot be deleted.",
+    });
+    return;
+  }
+
   const { data: tenant } = await supabaseAdmin.from("tenants").select("company_name").eq("id", id).single();
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
 
