@@ -15,6 +15,7 @@ import { Link } from "wouter";
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
 
 const SUPERADMIN_OVERRIDE_MARKER = "superadmin_access_override=true";
+const PROTECTED_SYSTEM_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 type TenantDeleteSummary = {
   tenant: { id: string; company_name: string };
@@ -326,8 +327,8 @@ export default function PlatformTenantDetail() {
         }
       }
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Delete failed");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.error || "Delete failed");
       }
     },
     onSuccess: () => {
@@ -348,6 +349,8 @@ export default function PlatformTenantDetail() {
   if (!tenant) {
     return <div className="text-center py-8 text-muted-foreground">Tenant not found</div>;
   }
+
+  const isProtectedSystemTenant = tenant.id === PROTECTED_SYSTEM_TENANT_ID;
 
   const startEdit = () => {
     setForm({
@@ -511,10 +514,17 @@ export default function PlatformTenantDetail() {
                 <XCircle className="w-4 h-4 mr-2" />Cancel Subscription
               </Button>
             )}
-            <Button variant="outline" className="text-red-700 border-red-300 hover:bg-red-50" onClick={() => setConfirmAction({ action: "Delete", status: "__delete__" })}>
-              <Trash2 className="w-4 h-4 mr-2" />Delete
-            </Button>
+            {!isProtectedSystemTenant && (
+              <Button variant="outline" className="text-red-700 border-red-300 hover:bg-red-50" onClick={() => setConfirmAction({ action: "Delete", status: "__delete__" })}>
+                <Trash2 className="w-4 h-4 mr-2" />Delete
+              </Button>
+            )}
           </div>
+          {isProtectedSystemTenant && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              This is the protected system tenant and cannot be deleted.
+            </p>
+          )}
         </CardContent>
       </Card>
 

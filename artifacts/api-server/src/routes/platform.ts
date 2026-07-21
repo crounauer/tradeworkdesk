@@ -1120,7 +1120,8 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
 
   if (id === DELETED_TENANT_FALLBACK_ID) {
     res.status(400).json({
-      error: "protected_tenant",
+      error: "This is a protected system tenant and cannot be deleted.",
+      code: "protected_tenant",
       message: "The system fallback tenant cannot be deleted.",
     });
     return;
