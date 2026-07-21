@@ -254,6 +254,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const totalPaid = Number(invoice.amount_paid ?? invoice.paid_amount ?? 0);
   const balanceDue = Math.max(0, Number(invoice.balance_due ?? Number(invoice.total) - totalPaid));
   const paymentHistory = invoice.payments ?? [];
+  const hasExistingPayments = paymentHistory.length > 0;
 
   const [editing, setEditing] = useState(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -290,6 +291,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [paidOpen, setPaidOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
+  const [sendNote, setSendNote] = useState("");
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
 
@@ -598,7 +600,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
   async function handleSend() {
     try {
-      const result = await sendMut.mutateAsync({ override_email: sendEmail !== invoice.customer?.email ? sendEmail : undefined });
+      const result = await sendMut.mutateAsync({
+        override_email: sendEmail !== invoice.customer?.email ? sendEmail : undefined,
+        send_note: sendNote.trim() ? sendNote.trim() : undefined,
+      });
       toast({ title: `${isInvoice ? "Invoice" : "Quote"} sent`, description: `Sent to ${result.sent_to}` });
       setSendOpen(false);
       setEmailLogRefresh(n => n + 1);
@@ -1086,7 +1091,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     <p className="font-medium">{formatCurrency(totalPaid, currency)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Balance Due</p>
+                    <p className="text-xs text-muted-foreground">Outstanding Balance</p>
                     <p className="font-medium">{formatCurrency(balanceDue, currency)}</p>
                   </div>
                   <div>
@@ -1120,7 +1125,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 {balanceDue > 0 ? (
                   <div className="flex justify-end">
                     <Button variant="outline" onClick={() => setPaidOpen(true)}>
-                      <CreditCard className="w-4 h-4 mr-2" /> Record Payment
+                      <CreditCard className="w-4 h-4 mr-2" /> {hasExistingPayments ? "Add Another Payment" : "Record Payment"}
                     </Button>
                   </div>
                 ) : (
@@ -1172,7 +1177,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           <DialogHeader>
             <DialogTitle>Send {isInvoice ? "Invoice" : "Quote"}</DialogTitle>
             <DialogDescription>
-              A PDF will be generated and emailed to the customer.
+              A PDF will be generated and emailed to the customer. You can add a short note to include in the email.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1191,6 +1196,15 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 </p>
               )}
             </div>
+              <div>
+                <Label>Note to customer (optional)</Label>
+                <Textarea
+                  value={sendNote}
+                  onChange={(e) => setSendNote(e.target.value)}
+                  placeholder="Add a short note to the email..."
+                  className="mt-1 min-h-[90px]"
+                />
+              </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSendOpen(false)}>Cancel</Button>
@@ -1207,7 +1221,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       <Dialog open={paidOpen} onOpenChange={setPaidOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
+            <DialogTitle>{hasExistingPayments ? "Add Another Payment" : "Record Payment"}</DialogTitle>
             <DialogDescription>
               Record a full payment, deposit, or part payment against this invoice.
             </DialogDescription>

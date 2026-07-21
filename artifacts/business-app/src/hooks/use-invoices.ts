@@ -246,7 +246,7 @@ export function useDeleteInvoice() {
 
 export function useSendInvoice(id: string) {
   const qc = useQueryClient();
-  return useMutation<Invoice & { sent_to: string }, Error, { override_email?: string }>({
+  return useMutation<Invoice & { sent_to: string }, Error, { override_email?: string; send_note?: string }>({
     mutationFn: (input) =>
       apiFetch(`/api/invoices/${id}/send`, {
         method: "POST",

@@ -119,7 +119,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...clrMid);
-  doc.text(data.type === "quote" ? "Quote Total" : "Balance Due", rightMargin, y + 20, { align: "right" });
+  doc.text(data.type === "quote" ? "Quote Total" : "Outstanding Balance", rightMargin, y + 20, { align: "right" });
 
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");

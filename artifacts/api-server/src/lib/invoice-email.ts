@@ -55,6 +55,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   expiryDate?: string | null;
   worksOrder?: string | null;
   customerNotes?: string | null;
+  customerMessage?: string | null;
   additionalText?: string | null;
   bankDetails?: string | null;
   pdfBuffer: Buffer;
@@ -97,6 +98,13 @@ export async function sendInvoiceDocumentEmail(opts: {
   const customerNotesHtml = opts.customerNotes
     ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0;font-size:14px;color:#334155;">${escHtml(opts.customerNotes).replace(/\n/g, "<br/>")}</p>
+       </div>`
+    : "";
+
+  const customerMessageHtml = opts.customerMessage && opts.customerMessage.trim().length > 0
+    ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#1d4ed8;">Message with this email</p>
+        <p style="margin:0;font-size:14px;color:#1e3a8a;">${escHtml(opts.customerMessage.trim()).replace(/\n/g, "<br/>")}</p>
        </div>`
     : "";
 
@@ -175,6 +183,7 @@ export async function sendInvoiceDocumentEmail(opts: {
         ${dateInfo}
       </div>
       ${worksOrderHtml}
+      ${customerMessageHtml}
       ${additionalTextHtml}
       ${customerNotesHtml}
       ${!isQuote && opts.portalUrl ? opts.hasPaymentProvider ? `
