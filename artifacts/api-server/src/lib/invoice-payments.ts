@@ -19,7 +19,7 @@ export interface InvoicePaymentSummary {
   latestPayment: InvoicePaymentRecord | null;
 }
 
-export async function loadInvoicePayments(invoiceId: string, tenantId: string): Promise<InvoicePaymentSummary> {
+export async function loadInvoicePayments(invoiceId: string, tenantId: string, invoiceTotal: number): Promise<InvoicePaymentSummary> {
   const { data, error } = await supabaseAdmin
     .from("invoice_payments")
     .select("id, invoice_id, tenant_id, amount, payment_date, payment_method, payment_reference, created_by, created_at")
@@ -36,7 +36,7 @@ export async function loadInvoicePayments(invoiceId: string, tenantId: string): 
   return {
     payments,
     totalPaid: Math.round(totalPaid * 100) / 100,
-    balanceDue: 0,
+    balanceDue: Math.max(0, Math.round((Number(invoiceTotal) - totalPaid) * 100) / 100),
     latestPayment,
   };
 }
@@ -95,7 +95,7 @@ export async function recordInvoicePayment(opts: {
   }
 
   try {
-    const summary = await loadInvoicePayments(opts.invoiceId, opts.tenantId);
+    const summary = await loadInvoicePayments(opts.invoiceId, opts.tenantId, invoiceTotal);
     const balanceDue = Math.max(0, Math.round((invoiceTotal - summary.totalPaid) * 100) / 100);
     const nextStatus = balanceDue <= 0 ? "paid" : String((invoice as { status?: string }).status || "draft");
     const latestPayment = summary.latestPayment;

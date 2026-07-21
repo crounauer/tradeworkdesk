@@ -100,6 +100,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
 
   const displayName = data.company_trading_name || data.company_name || "";
   const docTitle    = data.type === "quote" ? "QUOTATION" : "INVOICE";
+  const hasPaidToDate = data.type === "invoice" && Number(data.amount_paid ?? 0) > 0;
 
   let y = 14;
 
@@ -129,7 +130,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     : Number(data.total);
   doc.text(fmt(data.currency, balanceDue), rightMargin, y + 28, { align: "right" });
 
-  if (data.type === "invoice" && Number(data.amount_paid ?? 0) > 0) {
+  if (hasPaidToDate) {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...clrMid);
@@ -164,7 +165,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     if (data.company_oftec_number)    { doc.text(`OFTEC: ${data.company_oftec_number}`,        margin, leftY); leftY += 4; }
   }
 
-  y = Math.max(leftY, y + 32) + 4;
+  y = Math.max(leftY, hasPaidToDate ? y + 48 : y + 32) + 4;
 
   // Full-width separator
   doc.setDrawColor(...clrLight);

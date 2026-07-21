@@ -426,7 +426,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("tenant_id", req.tenantId!)
     .order("sort_order");
 
-  const payments = await loadInvoicePayments(toSingleParam(req.params.id), req.tenantId!).catch(() => ({
+  const payments = await loadInvoicePayments(toSingleParam(req.params.id), req.tenantId!, Number(invoice.total ?? 0)).catch(() => ({
     payments: [],
     totalPaid: Math.round(Number(invoice.paid_amount ?? 0) * 100) / 100,
     balanceDue: Math.max(0, Math.round((Number(invoice.total ?? 0) - Number(invoice.paid_amount ?? 0)) * 100) / 100),
