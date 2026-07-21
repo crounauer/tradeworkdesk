@@ -8,6 +8,7 @@ import {
 } from "../lib/email";
 import { sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
+import { recordInvoicePayment } from "../lib/invoice-payments";
 import { topUpAddonCredits } from "../lib/tenant-limits";
 import { syncSeats } from "./billing";
 import { bustInitCache } from "./platform";
@@ -452,17 +453,14 @@ router.post(
               ? session.amount_total / 100
               : Number((inv as any).total);
 
-            await supabaseAdmin
-              .from("invoices")
-              .update({
-                status: "paid",
-                payment_date: nowIso.slice(0, 10),
-                paid_amount: stripeTotal,
-                payment_method: "card",
-                updated_at: nowIso,
-              } as Record<string, unknown>)
-              .eq("id", invoiceId)
-              .eq("tenant_id", tenantId);
+            await recordInvoicePayment({
+              invoiceId,
+              tenantId,
+              amount: stripeTotal,
+              paymentDate: nowIso.slice(0, 10),
+              paymentMethod: "card",
+              paymentReference: session.id || null,
+            });
 
             console.log(`[webhook-connect] Invoice ${invoiceId} marked paid via Stripe Connect`);
             void sendReceiptForInvoice(invoiceId, tenantId, stripeTotal, "card");
@@ -521,16 +519,15 @@ router.post(
           if (inv && !["paid", "cancelled"].includes((inv as any).status)) {
             const nowIso = new Date().toISOString();
             const gcTotal = Number((inv as any).total);
-            await supabaseAdmin
-              .from("invoices")
-              .update({
-                status: "paid",
-                payment_date: nowIso.slice(0, 10),
-                paid_amount: gcTotal,
-                payment_method: "direct_debit",
-                updated_at: nowIso,
-              } as Record<string, unknown>)
-              .eq("id", (inv as any).id);
+
+            await recordInvoicePayment({
+              invoiceId: (inv as any).id,
+              tenantId: (inv as any).tenant_id,
+              amount: gcTotal,
+              paymentDate: nowIso.slice(0, 10),
+              paymentMethod: "direct_debit",
+              paymentReference: billingRequestId || null,
+            });
 
             console.log(`[webhook-gc] Invoice ${(inv as any).id} marked paid via GoCardless`);
             void sendReceiptForInvoice((inv as any).id, (inv as any).tenant_id, gcTotal, "gocardless");

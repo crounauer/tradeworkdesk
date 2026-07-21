@@ -80,6 +80,7 @@ function formatPaymentMethod(method: string | null | undefined): string {
   if (normalized === "bacs") return "BACS";
   if (normalized === "bank_transfer") return "Bank Transfer";
   if (normalized === "cc" || normalized === "card") return "CC";
+  if (normalized === "direct_debit" || normalized === "gocardless") return "Direct Debit";
   return method;
 }
 
@@ -250,6 +251,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const isDraft = invoice.status === "draft";
   const qc = useQueryClient();
   const isInvoice = invoice.type === "invoice";
+  const totalPaid = Number(invoice.amount_paid ?? invoice.paid_amount ?? 0);
+  const balanceDue = Math.max(0, Number(invoice.balance_due ?? Number(invoice.total) - totalPaid));
+  const paymentHistory = invoice.payments ?? [];
 
   const [editing, setEditing] = useState(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -454,6 +458,14 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
 
+  useEffect(() => {
+    if (!paidOpen) return;
+    setPaidAmount(String(balanceDue > 0 ? balanceDue : Number(invoice.total ?? 0)));
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentMethod("");
+    setPaymentReference("");
+  }, [paidOpen, balanceDue, invoice.total]);
+
   const updateMut = useUpdateInvoice(id);
   const deleteMut = useDeleteInvoice();
   const sendMut = useSendInvoice(id);
@@ -603,7 +615,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         payment_method: paymentMethod || undefined,
         payment_reference: paymentReference || undefined,
       });
-      toast({ title: "Invoice marked as paid" });
+      toast({ title: "Payment recorded" });
       setPaidOpen(false);
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
@@ -756,9 +768,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               Unsend
             </Button>
           )}
-          {isInvoice && ["sent", "overdue"].includes(invoice.status) && (
+          {isInvoice && !["paid", "cancelled", "declined", "converted"].includes(invoice.status) && balanceDue > 0 && (
             <Button variant="outline" onClick={() => setPaidOpen(true)}>
-              <CreditCard className="w-4 h-4 mr-2" /> Mark as Paid
+              <CreditCard className="w-4 h-4 mr-2" /> Record Payment
             </Button>
           )}
           {!isInvoice && invoice.status === "sent" && (
@@ -1058,32 +1070,62 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             </CardContent>
           </Card>
 
-          {/* Payment details (paid invoices only) */}
-          {invoice.status === "paid" && (
+          {/* Payment details */}
+          {isInvoice && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  Payment Received
+                  Payment Summary
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">Amount Paid</p>
-                  <p className="font-medium">{formatCurrency(invoice.paid_amount, currency)}</p>
+              <CardContent className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Amount Paid</p>
+                    <p className="font-medium">{formatCurrency(totalPaid, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Balance Due</p>
+                    <p className="font-medium">{formatCurrency(balanceDue, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Latest Payment</p>
+                    <p className="font-medium">{formatDate(invoice.payment_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Method</p>
+                    <p className="font-medium">{formatPaymentMethod(invoice.payment_method)}</p>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Payment Date</p>
-                  <p className="font-medium">{formatDate(invoice.payment_date)}</p>
+                  <p className="text-xs text-muted-foreground mb-2">Payment History</p>
+                  <div className="space-y-2">
+                    {paymentHistory.map((payment) => (
+                      <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                        <div>
+                          <div className="font-medium">{formatCurrency(payment.amount, currency)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDate(payment.payment_date)} · {formatPaymentMethod(payment.payment_method)}{payment.payment_reference ? ` · ${payment.payment_reference}` : ""}
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{new Date(payment.created_at).toLocaleString("en-GB")}</div>
+                      </div>
+                    ))}
+                    {paymentHistory.length === 0 && (
+                      <p className="text-sm text-muted-foreground italic">No payment history recorded yet.</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Method</p>
-                  <p className="font-medium">{formatPaymentMethod(invoice.payment_method)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Reference</p>
-                  <p className="font-medium">{invoice.payment_reference || "—"}</p>
-                </div>
+                {balanceDue > 0 ? (
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => setPaidOpen(true)}>
+                      <CreditCard className="w-4 h-4 mr-2" /> Record Payment
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">This invoice is fully paid.</p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -1167,12 +1209,12 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
             <DialogDescription>
-              Record that payment has been received for this invoice.
+              Record a full payment, deposit, or part payment against this invoice.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Amount Paid</Label>
+              <Label>Amount</Label>
               <Input
                 type="number"
                 min="0"
@@ -1220,7 +1262,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             <Button onClick={handleMarkPaid} disabled={paidMut.isPending}>
               {paidMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              Mark as Paid
+              Save Payment
             </Button>
           </DialogFooter>
         </DialogContent>

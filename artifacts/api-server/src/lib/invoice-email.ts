@@ -47,6 +47,8 @@ export async function sendInvoiceDocumentEmail(opts: {
   invoiceNumber: string;
   customerName: string;
   total: number;
+  amountPaid?: number | null;
+  balanceDue?: number | null;
   currency: string;
   dueDate?: string | null;
   paymentTermsDays?: number | null;
@@ -70,7 +72,8 @@ export async function sendInvoiceDocumentEmail(opts: {
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
   const fromName = opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
   const FROM = `${fromName} <${FROM_EMAIL}>`;
-  const formattedTotal = formatCurrency(currency, total);
+  const balanceDue = opts.balanceDue != null ? Math.max(0, Number(opts.balanceDue)) : total;
+  const formattedTotal = formatCurrency(currency, balanceDue);
 
   let dateInfo = "";
   if (!isQuote) {
@@ -129,7 +132,9 @@ export async function sendInvoiceDocumentEmail(opts: {
     return links.length ? `<p style="margin:0 0 8px;">${links.join('<span style="margin:0 8px;color:#cbd5e1;">|</span>')}</p>` : "";
   })();
 
-  const subject = `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`;
+  const subject = isQuote
+    ? `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`
+    : `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`;
 
   const logoHtml = opts.company?.logo_url
     ? `<div style="background:#fff;display:inline-block;padding:8px 14px;border-radius:6px;margin-bottom:12px;">
@@ -165,7 +170,8 @@ export async function sendInvoiceDocumentEmail(opts: {
       <p>Please find your ${isQuote ? "quotation" : "invoice"} attached. ${isQuote ? "We hope this quote meets your requirements." : opts.hasPaymentProvider ? "You can pay online or by bank transfer — whichever is easiest for you." : "Please review the attached invoice and use the bank transfer details below to make payment."}</p>
       <div class="info-box">
         <p style="margin:0 0 4px;"><strong>${label} number:</strong> ${escHtml(invoiceNumber)}</p>
-        <p style="margin:0 0 4px;"><strong>Amount:</strong> ${escHtml(formattedTotal)}</p>
+        <p style="margin:0 0 4px;"><strong>${isQuote ? "Amount" : "Balance due"}:</strong> ${escHtml(formattedTotal)}</p>
+        ${!isQuote && opts.amountPaid != null && Number(opts.amountPaid) > 0 ? `<p style="margin:0 0 4px;"><strong>Paid to date:</strong> ${escHtml(formatCurrency(currency, Number(opts.amountPaid)))}</p>` : ""}
         ${dateInfo}
       </div>
       ${worksOrderHtml}

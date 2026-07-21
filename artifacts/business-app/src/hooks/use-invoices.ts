@@ -24,6 +24,18 @@ export interface InvoiceLineItem {
   sort_order?: number;
 }
 
+export interface InvoicePayment {
+  id: string;
+  invoice_id: string;
+  tenant_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string | null;
+  payment_reference: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Invoice {
   id: string;
   tenant_id: string;
@@ -40,6 +52,8 @@ export interface Invoice {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  amount_paid?: number | null;
+  balance_due?: number | null;
   works_order: string | null;
   notes: string | null;
   customer_notes: string | null;
@@ -57,6 +71,7 @@ export interface Invoice {
   updated_at: string;
   // Relations (present on detail endpoint)
   line_items?: InvoiceLineItem[];
+  payments?: InvoicePayment[];
   customer?: {
     first_name: string;
     last_name: string;

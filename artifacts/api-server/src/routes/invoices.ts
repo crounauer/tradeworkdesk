@@ -13,6 +13,7 @@ import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
 import { getPlatformSetting } from "../lib/geocode";
 import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
+import { loadInvoicePayments, recordInvoicePayment } from "../lib/invoice-payments";
 
 const router: IRouter = Router();
 
@@ -226,11 +227,12 @@ async function buildPdfData(
     vat_rate: Number(invoice.vat_rate),
     vat_amount: Number(invoice.vat_amount),
     total: Number(invoice.total),
+    amount_paid: Math.round(Number(invoice.paid_amount ?? 0) * 100) / 100,
+    balance_due: Math.max(0, Math.round((Number(invoice.total ?? 0) - Number(invoice.paid_amount ?? 0)) * 100) / 100),
     works_order: invoice.works_order as string | null,
     customer_notes: invoice.customer_notes as string | null,
   };
 }
-
 // ─── LIST ──────────────────────────────────────────────────────────────────
 // GET /invoices
 router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -282,8 +284,6 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
     pagination: {
       total: count ?? 0,
       page: pageNum,
-      limit: limitNum,
-      pages: Math.ceil((count ?? 0) / limitNum),
     },
   });
 });
@@ -426,6 +426,13 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("tenant_id", req.tenantId!)
     .order("sort_order");
 
+  const payments = await loadInvoicePayments(toSingleParam(req.params.id), req.tenantId!).catch(() => ({
+    payments: [],
+    totalPaid: Math.round(Number(invoice.paid_amount ?? 0) * 100) / 100,
+    balanceDue: Math.max(0, Math.round((Number(invoice.total ?? 0) - Number(invoice.paid_amount ?? 0)) * 100) / 100),
+    latestPayment: null,
+  }));
+
   // Enrich with customer + job info
   const { data: customer } = await supabaseAdmin
     .from("customers")
@@ -440,7 +447,15 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .maybeSingle();
 
   res.set("Cache-Control", "no-cache");
-  res.json({ ...invoice, line_items: lineItems || [], customer, job });
+  res.json({
+    ...invoice,
+    line_items: lineItems || [],
+    payments: payments.payments,
+    amount_paid: payments.totalPaid,
+    balance_due: payments.balanceDue,
+    customer,
+    job,
+  });
 });
 
 // ─── UPDATE ────────────────────────────────────────────────────────────────
@@ -670,12 +685,16 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     const showTradingTermsUrl = isQuote
       ? (settings?.show_trading_terms_url_on_quotes as boolean | null) !== false
       : (settings?.show_trading_terms_url_on_invoices as boolean | null) !== false;
+    const amountPaid = Math.round(Number(invoice.paid_amount ?? 0) * 100) / 100;
+    const balanceDue = Math.max(0, Math.round((Number(invoice.total ?? 0) - amountPaid) * 100) / 100);
     await sendInvoiceDocumentEmail({
       to: toEmail,
       type: invoice.type as "invoice" | "quote",
       invoiceNumber: invoice.invoice_number as string,
       customerName: customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer",
       total: Number(invoice.total),
+      amountPaid,
+      balanceDue,
       currency: (invoice.currency as string) || settings?.currency || "GBP",
       dueDate: invoice.due_date as string | null,
       paymentTermsDays: settings?.default_payment_terms_days ?? null,
@@ -1124,8 +1143,8 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
     res.status(400).json({ error: "Only invoices can be marked as paid (not quotes)" });
     return;
   }
-  if (!["sent", "overdue"].includes(invoice.status as string)) {
-    res.status(400).json({ error: "Only sent or overdue invoices can be marked as paid" });
+  if (["cancelled", "declined", "converted"].includes(invoice.status as string)) {
+    res.status(400).json({ error: "Cannot record payment against this invoice" });
     return;
   }
 
@@ -1142,30 +1161,37 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
     return;
   }
 
-  const { data: updated, error } = await supabaseAdmin
-    .from("invoices")
-    .update({
-      status: "paid",
-      paid_amount: paid_amount ?? invoice.total,
-      payment_date: payment_date || new Date().toISOString().slice(0, 10),
-      payment_method: normalizedPaymentMethod,
-      payment_reference: payment_reference || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", req.params.id)
-    .eq("tenant_id", req.tenantId!)
-    .select()
-    .single();
+  const amount = Math.round((paid_amount ?? Math.max(0, Number(invoice.total) - Number(invoice.paid_amount ?? 0))) * 100) / 100;
+  if (amount <= 0) {
+    res.status(400).json({ error: "paid_amount must be greater than zero" });
+    return;
+  }
 
-  if (error) { res.status(500).json({ error: error.message }); return; }
+  let result;
+  try {
+    result = await recordInvoicePayment({
+      invoiceId: toSingleParam(req.params.id),
+      tenantId: req.tenantId!,
+      amount,
+      paymentDate: payment_date || new Date().toISOString().slice(0, 10),
+      paymentMethod: normalizedPaymentMethod,
+      paymentReference: payment_reference || null,
+      createdBy: req.userId,
+    });
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+    return;
+  }
+
+  const updated = result.invoice;
 
   void notifyUsersForEvent({
     tenantId: req.tenantId!,
     eventType: "payment_alerts",
     title: "Invoice Paid",
-    body: `Invoice ${updated.invoice_number || updated.id} has been marked as paid.`,
+    body: `A payment of ${Number(amount).toFixed(2)} has been recorded for invoice ${updated.invoice_number || updated.id}.`,
     url: `/invoices/${updated.id}`,
-    eventKey: `invoice_paid:${updated.id}:${updated.payment_date}`,
+    eventKey: `invoice_paid:${updated.id}:${updated.updated_at}`,
     targetRoles: ["admin", "office_staff"],
     data: { invoiceId: updated.id },
   }).catch((err) => console.error("[push-events] invoice_paid failed:", err));

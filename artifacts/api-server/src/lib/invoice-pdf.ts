@@ -54,6 +54,8 @@ export interface InvoicePdfData {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  amount_paid?: number | null;
+  balance_due?: number | null;
   // Notes
   works_order?: string | null;
   customer_notes?: string | null;
@@ -122,7 +124,21 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...clrDark);
-  doc.text(fmt(data.currency, data.total), rightMargin, y + 28, { align: "right" });
+  const balanceDue = data.type === "invoice"
+    ? Math.max(0, Number(data.balance_due ?? data.total))
+    : Number(data.total);
+  doc.text(fmt(data.currency, balanceDue), rightMargin, y + 28, { align: "right" });
+
+  if (data.type === "invoice" && Number(data.amount_paid ?? 0) > 0) {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...clrMid);
+    doc.text("Paid to Date", rightMargin, y + 35, { align: "right" });
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...clrDark);
+    doc.text(fmt(data.currency, Number(data.amount_paid ?? 0)), rightMargin, y + 41, { align: "right" });
+  }
 
   // Left column: company name + address details in accent colour
   let leftY = y;
