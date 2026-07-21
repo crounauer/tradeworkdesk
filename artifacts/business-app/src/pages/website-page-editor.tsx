@@ -5237,7 +5237,6 @@ function BlockEditor({
                           </div>
                           <span>{phone || "01224 000000"}</span>
                           <span>{email || "hello@yourbusiness.co.uk"}</span>
-                          <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
                         </div>
                       ) : layoutVariant === "compact-inline" ? (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", fontFamily: bodyFont, fontSize: bodySize }}>
@@ -5264,10 +5263,6 @@ function BlockEditor({
                             <div>{phone || "01224 000000"}</div>
                             <div>{email || "hello@yourbusiness.co.uk"}</div>
                           </div>
-                          <div>
-                            <strong style={{ color: previewHeadingColor }}>Legal</strong>
-                            <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
-                          </div>
                         </div>
                       ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, fontFamily: bodyFont, fontSize: bodySize }}>
@@ -5280,14 +5275,10 @@ function BlockEditor({
                             <div>{phone || "01224 000000"}</div>
                             <div>{email || "hello@yourbusiness.co.uk"}</div>
                           </div>
-                          <div>
-                            <strong style={{ color: previewHeadingColor }}>Legal</strong>
-                            <div>{legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}</div>
-                          </div>
                         </div>
                       )}
                       <div style={{ borderTop: `1px solid ${previewBorderColor}`, marginTop: 10, paddingTop: 8, fontSize: "0.78rem", fontFamily: bodyFont }}>
-                        Legal links: {legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}
+                        {legalLinks.map((item) => item.label).filter(Boolean).join(" • ") || "Privacy • Terms"}
                       </div>
                     </footer>
                   </CardContent>

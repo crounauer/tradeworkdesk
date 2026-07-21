@@ -141,20 +141,14 @@ export function SiteFooterBlock({
             {phone ? <a href={'tel:' + phone}>{phone}</a> : null}
             {email ? <a href={'mailto:' + email}>{email}</a> : null}
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-4 text-xs">
-            {legalEntries.map((link) => (
-              <a key={link.href} href={link.href}>{link.label}</a>
-            ))}
-          </div>
         </div>
       </div>
       )}
 
       <div className="mx-auto mt-6 max-w-7xl border-t pt-3 text-xs" style={{ borderColor: resolvedBorderColor }}>
         <div className="flex flex-wrap items-center gap-3">
-          {links.map((item) => (
-            <a key={`footer-bottom-${item.href}`} href={item.href}>{item.label}</a>
+          {legalEntries.map((item) => (
+            <a key={`footer-bottom-legal-${item.href}`} href={item.href}>{item.label}</a>
           ))}
         </div>
       </div>
