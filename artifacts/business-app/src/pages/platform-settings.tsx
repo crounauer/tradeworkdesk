@@ -6,9 +6,136 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download, Bell } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download, Bell, Building2 } from "lucide-react";
+
+type TenantOption = {
+  id: string;
+  company_name: string;
+  contact_email?: string | null;
+};
+
+function PlatformFallbackTenantSetting() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("__auto__");
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    Promise.all([
+      fetch(`${import.meta.env.BASE_URL}api/platform/settings/fallback_tenant_id`, { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null),
+      fetch(`${import.meta.env.BASE_URL}api/platform/tenants`, { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : []))
+        .catch(() => []),
+    ])
+      .then(([settingData, tenantsData]) => {
+        if (!mounted) return;
+        const normalizedTenants = Array.isArray(tenantsData)
+          ? tenantsData.map((t: Record<string, unknown>) => ({
+              id: String(t.id || ""),
+              company_name: String(t.company_name || "Unknown"),
+              contact_email: t.contact_email ? String(t.contact_email) : null,
+            })).filter((t: TenantOption) => t.id)
+          : [];
+        setTenants(normalizedTenants);
+
+        const configured = typeof settingData?.value === "string" ? settingData.value.trim() : "";
+        setSelectedTenantId(configured || "__auto__");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const payload = selectedTenantId === "__auto__" ? null : selectedTenantId;
+      const res = await fetch(`${import.meta.env.BASE_URL}api/platform/settings/fallback_tenant_id`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ value: payload }),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to save setting");
+
+      toast({ title: "Saved", description: "Fallback tenant updated." });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to save setting",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="h-20 animate-pulse bg-slate-100 rounded" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Building2 className="w-4 h-4" />
+          Fallback Tenant for Deletes
+        </CardTitle>
+        <CardDescription>
+          Choose where orphaned profiles are rehomed when tenant deletion cannot remove every auth user cleanly.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5 max-w-xl">
+          <Label>Fallback tenant</Label>
+          <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select tenant" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__auto__">Auto (system default behavior)</SelectItem>
+              {tenants.map((tenant) => (
+                <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenant.company_name}{tenant.contact_email ? ` (${tenant.contact_email})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Recommended: pick a stable internal tenant. Use Auto to let the platform choose fallback order.
+          </p>
+        </div>
+
+        <Button onClick={handleSave} disabled={saving} size="sm">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : "Save"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
   settingKey: string;
@@ -475,6 +602,7 @@ export default function PlatformSettings() {
         </TabsList>
 
         <TabsContent value="database" className="space-y-4">
+          <PlatformFallbackTenantSetting />
           <p className="text-sm text-muted-foreground">
             Credentials used by the daily automated backup job. Backups are stored in Cloudflare R2 and retained for 30 days.
             The GitHub Actions workflow fetches these at runtime — you only need <code className="bg-slate-100 px-1 rounded text-xs">CRON_SECRET</code> and <code className="bg-slate-100 px-1 rounded text-xs">PLATFORM_API_URL</code> as GitHub Secrets.

@@ -84,6 +84,16 @@ async function resolveFallbackTenantId(excludingTenantId?: string): Promise<stri
   const filtered = excludingTenantId ? ids.filter((id) => id !== excludingTenantId) : ids;
   if (filtered.length === 0) return null;
 
+  const { data: configuredFallback } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "fallback_tenant_id")
+    .maybeSingle();
+  const configuredFallbackId = typeof configuredFallback?.value === "string"
+    ? configuredFallback.value.trim()
+    : "";
+  if (configuredFallbackId && filtered.includes(configuredFallbackId)) return configuredFallbackId;
+
   if (filtered.includes(DELETED_TENANT_FALLBACK_ID)) return DELETED_TENANT_FALLBACK_ID;
   return filtered[0] || null;
 }
@@ -1416,9 +1426,29 @@ router.get("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req
 router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { key } = req.params;
   const { value } = req.body;
+
+  let normalizedValue: unknown = value;
+  if (key === "fallback_tenant_id") {
+    const candidate = typeof value === "string" ? value.trim() : "";
+    if (!candidate) {
+      normalizedValue = null;
+    } else {
+      const { data: tenant } = await supabaseAdmin
+        .from("tenants")
+        .select("id")
+        .eq("id", candidate)
+        .maybeSingle();
+      if (!tenant) {
+        res.status(400).json({ error: "Invalid fallback_tenant_id: tenant not found" });
+        return;
+      }
+      normalizedValue = candidate;
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from("platform_settings")
-    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" })
+    .upsert({ key, value: normalizedValue, updated_at: new Date().toISOString() }, { onConflict: "key" })
     .select()
     .single();
   if (error) { res.status(500).json({ error: error.message }); return; }
@@ -1428,7 +1458,7 @@ router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req
     event_type: "setting_updated",
     entity_type: "platform_setting",
     entity_id: key,
-    detail: { value },
+    detail: { value: normalizedValue },
   });
   res.json(data);
 });
