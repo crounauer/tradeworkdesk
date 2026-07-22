@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Users, CreditCard, Clock, DollarSign, TrendingUp, Mail, Loader2, CheckCircle2, Globe, BarChart3, Target, UserPlus } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 type HealthStatus = "healthy" | "degraded" | "down";
 
@@ -47,6 +47,7 @@ const EMAIL_TEMPLATES = [
 
 export default function PlatformDashboard() {
   const { toast } = useToast();
+  const [location] = useLocation();
   const [emailTemplate, setEmailTemplate] = useState("welcome");
   const [emailRecipient, setEmailRecipient] = useState("");
   const [emailSent, setEmailSent] = useState(false);
@@ -189,12 +190,38 @@ export default function PlatformDashboard() {
   const maxMarketingDaily = Math.max(1, ...marketingDaily.map((d) => Math.max(d.signups || 0, d.paid_conversions || 0)));
   const maxMarketingSource = Math.max(1, ...marketingSource.map((d) => d.count || 0));
 
+  const superuserMenuItems = [
+    { href: "/platform/support-tickets", label: "Support Tickets" },
+    { href: "/superadmin/db-housekeeping", label: "DB Housekeeping" },
+    { href: "/superadmin/templates/conversions/pending", label: "Template Conversions" },
+    { href: "/platform/audit-log", label: "Audit Log" },
+    { href: "/platform/analytics", label: "Analytics" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold">Platform Dashboard</h1>
         <p className="text-muted-foreground">Overview of all tenants and platform health</p>
       </div>
+
+      <Card className="sticky top-4 z-20 border-primary/20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+        <CardHeader>
+          <CardTitle className="text-base">Superuser Menu</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {superuserMenuItems.map((item) => {
+              const isActive = location === item.href || location.startsWith(`${item.href}/`);
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Button variant={isActive ? "default" : "outline"} size="sm">{item.label}</Button>
+                </Link>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
