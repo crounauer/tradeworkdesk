@@ -140,6 +140,43 @@ async function ensureListBelongsToTenant(listId: string, tenantId: string): Prom
   return (data as ShoppingListRow | null) || null;
 }
 
+function getDateRangeForScope(scope: string, customStart?: unknown, customEnd?: unknown): { startDate: string; endDate: string; error?: string } {
+  const normalizeDate = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  if (scope === "custom") {
+    const startDate = normalizeDate(customStart);
+    const endDate = normalizeDate(customEnd);
+    if (!startDate || !endDate) {
+      return { startDate: "", endDate: "", error: "Please provide both start and end dates" };
+    }
+    return { startDate, endDate };
+  }
+
+  const now = new Date();
+  if (scope === "month") {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+    return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) };
+  }
+
+  const day = now.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const start = new Date(now);
+  start.setUTCDate(now.getUTCDate() + diff);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+  end.setUTCHours(23, 59, 59, 999);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+}
+
 router.get("/shopping-lists", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const status = typeof req.query.status === "string" ? req.query.status : "open";
 
@@ -212,7 +249,23 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
     return;
   }
 
-  const { title, assigned_to, assignment_mode } = req.body as { title?: unknown; assigned_to?: unknown; assignment_mode?: unknown };
+  const {
+    title,
+    assigned_to,
+    assignment_mode,
+    include_job_products,
+    date_scope,
+    start_date,
+    end_date,
+  } = req.body as {
+    title?: unknown;
+    assigned_to?: unknown;
+    assignment_mode?: unknown;
+    include_job_products?: unknown;
+    date_scope?: unknown;
+    start_date?: unknown;
+    end_date?: unknown;
+  };
   const safeTitle = typeof title === "string" && title.trim().length > 0
     ? title.trim()
     : `Shopping List ${new Date().toISOString().slice(0, 10)}`;
@@ -247,7 +300,98 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
     return;
   }
 
-  res.status(201).json(data as ShoppingListRow);
+  const listRow = data as ShoppingListRow;
+  if (include_job_products === true) {
+    const scope = typeof date_scope === "string" ? date_scope : "week";
+    const dateRange = getDateRangeForScope(scope, start_date, end_date);
+    if (dateRange.error) {
+      res.status(400).json({ error: dateRange.error });
+      return;
+    }
+
+    const { data: matchingJobs, error: jobsError } = await supabaseAdmin
+      .from("jobs")
+      .select("id")
+      .eq("tenant_id", req.tenantId!)
+      .gte("scheduled_date", dateRange.startDate)
+      .lte("scheduled_date", dateRange.endDate);
+
+    if (jobsError) {
+      res.status(500).json({ error: jobsError.message });
+      return;
+    }
+
+    const jobIds = ((matchingJobs || []) as Array<{ id?: string | null }>).map((job) => job.id).filter((jobId): jobId is string => Boolean(jobId));
+    if (jobIds.length > 0) {
+      const { data: jobParts, error: partsError } = await supabaseAdmin
+        .from("job_parts")
+        .select("id, job_id, part_name, quantity, unit_price")
+        .eq("tenant_id", req.tenantId!)
+        .eq("status", "to_order")
+        .in("job_id", jobIds);
+
+      if (partsError) {
+        res.status(500).json({ error: partsError.message });
+        return;
+      }
+
+      const merged = new Map<string, {
+        item_name: string;
+        quantity: number;
+        unit_estimate: number | null;
+        source_type: "job_part";
+        source_id: string;
+        source_ref: string;
+      }>();
+
+      for (const row of (jobParts || []) as Array<Record<string, unknown>>) {
+        const itemName = String(row.part_name || "").trim();
+        if (!itemName) continue;
+        const key = itemName.toLowerCase();
+        const existing = merged.get(key);
+        const qty = toNum(row.quantity, 1);
+        const unitEstimate = row.unit_price == null ? null : toNum(row.unit_price, 0);
+
+        if (existing) {
+          existing.quantity += qty;
+          if (existing.unit_estimate == null && unitEstimate != null) {
+            existing.unit_estimate = unitEstimate;
+          }
+        } else {
+          merged.set(key, {
+            item_name: itemName,
+            quantity: qty,
+            unit_estimate: unitEstimate,
+            source_type: "job_part",
+            source_id: String(row.id),
+            source_ref: `job:${String(row.job_id)}`,
+          });
+        }
+      }
+
+      const itemRows = Array.from(merged.values()).map((item) => ({
+        shopping_list_id: listRow.id,
+        tenant_id: req.tenantId,
+        item_name: item.item_name,
+        quantity: Math.round(item.quantity * 1000) / 1000,
+        unit_estimate: item.unit_estimate,
+        status: "needed",
+        source_type: item.source_type,
+        source_id: item.source_id,
+        source_ref: item.source_ref,
+      }));
+
+      if (itemRows.length > 0) {
+        const { error: itemsError } = await supabaseAdmin.from("shopping_list_items").insert(itemRows);
+        if (itemsError) {
+          res.status(500).json({ error: itemsError.message });
+          return;
+        }
+      }
+    }
+  }
+
+  res.status(201).json(listRow);
 });
 
 router.post("/shopping-lists/generate", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
