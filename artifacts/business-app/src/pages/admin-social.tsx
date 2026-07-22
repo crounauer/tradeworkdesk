@@ -60,6 +60,43 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
   dismissed: { label: "Dismissed", variant: "outline", icon: XCircle },
 };
 
+const POST_TYPE_OPTIONS = [
+  { value: "business", label: "Business Post" },
+  { value: "website_promotion", label: "Website Promotion Post" },
+] as const;
+
+function getPostTypeBadge(postType?: string) {
+  if (postType === "website_promotion") {
+    return <Badge variant="outline">Website Promotion</Badge>;
+  }
+  return <Badge variant="secondary">Business</Badge>;
+}
+
+type SocialContextResponse = {
+  scope: "platform_marketing" | "tenant_business";
+  socialChannels: string[];
+  postTypes: string[];
+  permissions: string[];
+  websitePromotion: {
+    enabled: boolean;
+    disabledMessage: string | null;
+  };
+};
+
+type WebsitePageOption = {
+  id: string;
+  title: string | null;
+  slug: string;
+  status: string;
+  pageUrl: string | null;
+};
+
+type WebsitePagesResponse = {
+  enabled: boolean;
+  disabledMessage: string | null;
+  pages: WebsitePageOption[];
+};
+
 function getPlatformBadge(platform: string) {
   const p = PLATFORMS.find((pl) => pl.value === platform);
   return (
@@ -107,17 +144,45 @@ interface CreatePostDialogProps {
 function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialScheduled, triggerButton }: CreatePostDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
-    new Set(initialPlatform ? [initialPlatform] : ["x"]),
+    new Set(initialPlatform ? [initialPlatform] : ["facebook"]),
   );
+  const [postType, setPostType] = useState<"business" | "website_promotion">("business");
   const [content, setContent] = useState(initialContent || "");
   const [imageUrl, setImageUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [websitePageId, setWebsitePageId] = useState("");
+  const [utmSource, setUtmSource] = useState("facebook");
+  const [utmMedium, setUtmMedium] = useState("social");
+  const [utmCampaign, setUtmCampaign] = useState("");
+  const [utmContent, setUtmContent] = useState("");
   const [isScheduled, setIsScheduled] = useState(initialScheduled || false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const { toast } = useToast();
+
+  const { data: socialContext } = useQuery<SocialContextResponse>({
+    queryKey: ["social-context"],
+    queryFn: () => apiFetch("/admin/social/context"),
+  });
+
+  const { data: websitePagesData } = useQuery<WebsitePagesResponse>({
+    queryKey: ["social-website-pages"],
+    queryFn: () => apiFetch("/admin/social/website-pages"),
+  });
+
+  const websitePages = websitePagesData?.pages || [];
+  const selectedPage = websitePages.find((p) => p.id === websitePageId) || null;
+  const effectiveLinkPreview = selectedPage?.pageUrl || "";
+
+  const canUseWebsitePromotion = !!websitePagesData?.enabled;
+  const websitePromotionMessage = websitePagesData?.disabledMessage || socialContext?.websitePromotion?.disabledMessage;
+  const isWebsitePromotion = postType === "website_promotion";
+
+  const selectedPlatformsArray = Array.from(selectedPlatforms);
+  const websitePromotionHasExtraLinks =
+    isWebsitePromotion && !!selectedPage?.pageUrl && !content.includes(selectedPage.pageUrl);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -130,7 +195,19 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
       for (const platform of platforms) {
         const result = await apiFetch("/admin/social/post", {
           method: "POST",
-          body: JSON.stringify({ platform, content, imageUrl: imageUrl || undefined, linkUrl: linkUrl || undefined, scheduledFor }),
+          body: JSON.stringify({
+            platform,
+            content,
+            imageUrl: imageUrl || undefined,
+            linkUrl: postType === "business" ? (linkUrl || undefined) : undefined,
+            scheduledFor,
+            postType,
+            websitePageId: postType === "website_promotion" ? websitePageId : undefined,
+            utmSource: postType === "website_promotion" ? utmSource : undefined,
+            utmMedium: postType === "website_promotion" ? utmMedium : undefined,
+            utmCampaign: postType === "website_promotion" ? utmCampaign || undefined : undefined,
+            utmContent: postType === "website_promotion" ? utmContent || undefined : undefined,
+          }),
         });
         results.push(result);
       }
@@ -149,10 +226,18 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   });
 
   const resetForm = () => {
-    setSelectedPlatforms(new Set(initialPlatform ? [initialPlatform] : ["x"]));
+    setSelectedPlatforms(new Set(initialPlatform ? [initialPlatform] : ["facebook"]));
+    setPostType("business");
     setContent(initialContent || "");
     setImageUrl("");
     setLinkUrl("");
+    setWebsitePageId("");
+    setUtmSource("facebook");
+    setUtmMedium("social");
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const scopeTag = socialContext?.scope === "platform_marketing" ? "platform" : "tenant";
+    setUtmCampaign(`website_promotion-${scopeTag}-${date}`);
+    setUtmContent("");
     setIsScheduled(initialScheduled || false);
     setScheduledDate("");
     setScheduledTime("");
@@ -160,6 +245,8 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   };
 
   const togglePlatform = (value: string) => {
+    if (isWebsitePromotion && value !== "facebook") return;
+
     const next = new Set(selectedPlatforms);
     if (next.has(value)) {
       if (next.size > 1) next.delete(value);
@@ -186,6 +273,19 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     }
   };
 
+  const handlePostTypeChange = (value: "business" | "website_promotion") => {
+    if (value === "website_promotion" && !canUseWebsitePromotion) return;
+    setPostType(value);
+    if (value === "website_promotion") {
+      setSelectedPlatforms(new Set(["facebook"]));
+      if (!utmCampaign) {
+        const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const scopeTag = socialContext?.scope === "platform_marketing" ? "platform" : "tenant";
+        setUtmCampaign(`website_promotion-${scopeTag}-${date}`);
+      }
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) resetForm(); }}>
       <DialogTrigger asChild>
@@ -202,6 +302,31 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
         </DialogHeader>
         <div className="space-y-4">
           <div>
+            <Label className="mb-2 block">Post Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {POST_TYPE_OPTIONS.map((option) => {
+                const disabled = option.value === "website_promotion" && !canUseWebsitePromotion;
+                const isActive = postType === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={isActive ? "default" : "outline"}
+                    disabled={disabled}
+                    onClick={() => handlePostTypeChange(option.value)}
+                    className="justify-start"
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+            {!canUseWebsitePromotion && websitePromotionMessage && (
+              <p className="text-xs text-muted-foreground mt-2">{websitePromotionMessage}</p>
+            )}
+          </div>
+
+          <div>
             <Label className="mb-2 block">Platforms</Label>
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((p) => (
@@ -209,6 +334,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
                   key={p.value}
                   type="button"
                   onClick={() => togglePlatform(p.value)}
+                  disabled={isWebsitePromotion && p.value !== "facebook"}
                   className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                     selectedPlatforms.has(p.value)
                       ? `${p.color} border-transparent`
@@ -219,6 +345,9 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
                 </button>
               ))}
             </div>
+            {isWebsitePromotion && (
+              <p className="text-xs text-muted-foreground mt-2">Website Promotion Post currently publishes to Facebook only.</p>
+            )}
           </div>
 
           <div>
@@ -261,14 +390,53 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
             </div>
           </div>
 
-          <div>
-            <Label>Link URL (optional)</Label>
-            <Input
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
+          {postType === "business" ? (
+            <div>
+              <Label>Link URL (optional)</Label>
+              <Input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+          ) : (
+            <>
+              <div>
+                <Label>Website Page</Label>
+                <Select value={websitePageId} onValueChange={setWebsitePageId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a published website page" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {websitePages.map((page) => (
+                      <SelectItem key={page.id} value={page.id}>
+                        {page.title || page.slug}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedPage?.pageUrl && (
+                  <p className="text-xs text-muted-foreground mt-2">Selected URL: {selectedPage.pageUrl}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>UTM Settings (editable)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={utmSource} onChange={(e) => setUtmSource(e.target.value)} placeholder="utm_source" />
+                  <Input value={utmMedium} onChange={(e) => setUtmMedium(e.target.value)} placeholder="utm_medium" />
+                  <Input value={utmCampaign} onChange={(e) => setUtmCampaign(e.target.value)} placeholder="utm_campaign" />
+                  <Input value={utmContent} onChange={(e) => setUtmContent(e.target.value)} placeholder="utm_content (optional)" />
+                </div>
+                {effectiveLinkPreview && (
+                  <p className="text-xs text-muted-foreground">Facebook link target will be built from selected page + UTM values.</p>
+                )}
+                {websitePromotionHasExtraLinks && (
+                  <p className="text-xs text-amber-600">Selected page URL is not present in the message body. This is allowed, but review before publishing.</p>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="flex items-center gap-2">
             <Switch checked={isScheduled} onCheckedChange={setIsScheduled} />
@@ -299,13 +467,18 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
           </DialogClose>
           <Button
             onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !content || selectedPlatforms.size === 0}
+            disabled={
+              createMutation.isPending
+              || !content
+              || selectedPlatforms.size === 0
+              || (postType === "website_promotion" && !websitePageId)
+            }
           >
             {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             {isScheduled ? (
-              <><Calendar className="w-4 h-4 mr-2" /> Schedule ({selectedPlatforms.size})</>
+              <><Calendar className="w-4 h-4 mr-2" /> Schedule ({selectedPlatformsArray.length})</>
             ) : (
-              <><Send className="w-4 h-4 mr-2" /> Publish ({selectedPlatforms.size})</>
+              <><Send className="w-4 h-4 mr-2" /> Publish ({selectedPlatformsArray.length})</>
             )}
           </Button>
         </DialogFooter>
@@ -316,7 +489,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
 
 function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
-  const [platform, setPlatform] = useState("x");
+  const [platform, setPlatform] = useState("facebook");
   const [profileName, setProfileName] = useState("");
   const [pageId, setPageId] = useState("");
   const [pageName, setPageName] = useState("");
@@ -350,7 +523,7 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
   });
 
   const resetForm = () => {
-    setPlatform("x");
+    setPlatform("facebook");
     setProfileName("");
     setPageId("");
     setPageName("");
@@ -485,13 +658,15 @@ function PostsTab() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [postTypeFilter, setPostTypeFilter] = useState<string>("all");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["social-posts", statusFilter, platformFilter],
+    queryKey: ["social-posts", statusFilter, platformFilter, postTypeFilter],
     queryFn: () => {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (platformFilter !== "all") params.set("platform", platformFilter);
+      if (postTypeFilter !== "all") params.set("postType", postTypeFilter);
       return apiFetch(`/admin/social/posts?${params.toString()}`);
     },
   });
@@ -533,6 +708,17 @@ function PostsTab() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={postTypeFilter} onValueChange={setPostTypeFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Post type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="business">Business Post</SelectItem>
+              <SelectItem value="website_promotion">Website Promotion</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <CreatePostDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })} />
@@ -559,6 +745,7 @@ function PostsTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
                       {getPlatformBadge(post.platform)}
+                      {getPostTypeBadge(post.post_type)}
                       <StatusBadge status={post.status} />
                       {post.scheduled_for && (
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -568,6 +755,12 @@ function PostsTab() {
                       )}
                     </div>
                     <p className="text-sm line-clamp-2">{post.content}</p>
+                    {post.website_page_url && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">Website page: {post.website_page_url}</p>
+                    )}
+                    {post.final_link_url && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">Final URL: {post.final_link_url}</p>
+                    )}
                     {post.error && (
                       <p className="text-xs text-red-500 mt-1">Error: {post.error}</p>
                     )}

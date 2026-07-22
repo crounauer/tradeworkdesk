@@ -4,23 +4,158 @@ import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
 import { generatePostSuggestions, generateSocialImage, type SuggestionItem } from "../lib/social-ai";
+import {
+  SOCIAL_POST_TYPES,
+  type SocialPostType,
+  buildUtmTaggedUrl,
+  listPromotionPages,
+  resolvePromotionPageUrl,
+} from "../lib/social-website-promotion";
 
 const SUPPORTED_PLATFORMS = ["x", "facebook", "instagram", "google_business"] as const;
 type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];
+const SUPPORTED_SOCIAL_CHANNELS = ["facebook"] as const;
+
+const FACEBOOK_POST_PERMISSIONS = [
+  "facebook_post_create",
+  "facebook_post_publish",
+  "facebook_post_schedule",
+  "facebook_post_manage_connections",
+] as const;
+
+type FacebookPostPermission = (typeof FACEBOOK_POST_PERMISSIONS)[number];
+
+const FACEBOOK_ROLE_PERMISSIONS: Record<string, Set<FacebookPostPermission>> = {
+  admin: new Set(FACEBOOK_POST_PERMISSIONS),
+  super_admin: new Set(FACEBOOK_POST_PERMISSIONS),
+};
 
 function isSupportedPlatform(p: string): p is SupportedPlatform {
   return (SUPPORTED_PLATFORMS as readonly string[]).includes(p);
 }
 
-function resolveTenantId(req: AuthenticatedRequest): string | undefined {
+function hasFacebookPermission(req: AuthenticatedRequest, permission: FacebookPostPermission): boolean {
+  if (!req.userRole) return false;
+  return FACEBOOK_ROLE_PERMISSIONS[req.userRole]?.has(permission) ?? false;
+}
+
+async function getPlatformMarketingTenantId(): Promise<string | null> {
+  const { data: configured } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "fallback_tenant_id")
+    .maybeSingle();
+
+  const configuredId = typeof configured?.value === "string" ? configured.value.trim() : "";
+  if (configuredId) return configuredId;
+
+  const { data: oldestTenant } = await supabaseAdmin
+    .from("tenants")
+    .select("id")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return oldestTenant?.id || null;
+}
+
+async function resolveTenantId(req: AuthenticatedRequest): Promise<string | undefined> {
   if (req.userRole === "super_admin") {
-    const qp = (req.query.tenant_id as string) || (req.body?.tenant_id as string);
-    return qp || undefined;
+    const platformTenantId = await getPlatformMarketingTenantId();
+    return platformTenantId ?? undefined;
   }
   return req.tenantId;
 }
 
+function coercePostType(value: unknown): SocialPostType {
+  const raw = String(value || "business");
+  return (SOCIAL_POST_TYPES as readonly string[]).includes(raw)
+    ? (raw as SocialPostType)
+    : "business";
+}
+
+function sanitizeCampaignValue(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+async function buildDefaultCampaign(tenantId: string, postType: SocialPostType): Promise<string> {
+  const { data: company } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name")
+    .eq("tenant_id", tenantId)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const rawName = String(company?.name || company?.trading_name || "platform");
+  const normalizedName = sanitizeCampaignValue(rawName) || "platform";
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return `${postType}-${normalizedName}-${date}`;
+}
+
 const router: IRouter = Router();
+
+router.get(
+  "/admin/social/context",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      return;
+    }
+
+    const pages = await listPromotionPages(tenantId);
+    const availablePromotionPages = pages.filter((p) => p.status === "published" && !!p.pageUrl);
+
+    res.json({
+      tenantId,
+      scope: req.userRole === "super_admin" ? "platform_marketing" : "tenant_business",
+      socialChannels: SUPPORTED_SOCIAL_CHANNELS,
+      postTypes: SOCIAL_POST_TYPES,
+      permissions: FACEBOOK_POST_PERMISSIONS.filter((permission) => hasFacebookPermission(req, permission)),
+      websitePromotion: {
+        enabled: availablePromotionPages.length > 0,
+        disabledMessage: availablePromotionPages.length === 0
+          ? "Website required to use Website Promotion Post"
+          : null,
+      },
+    });
+  },
+);
+
+router.get(
+  "/admin/social/website-pages",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      return;
+    }
+
+    const pages = await listPromotionPages(tenantId);
+    const publishedPages = pages.filter((p) => p.status === "published" && !!p.pageUrl);
+
+    res.json({
+      enabled: publishedPages.length > 0,
+      disabledMessage: publishedPages.length === 0
+        ? "Website required to use Website Promotion Post"
+        : null,
+      pages: publishedPages,
+    });
+  },
+);
 
 router.get(
   "/admin/social/accounts",
@@ -29,7 +164,12 @@ router.get(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const tenantId = resolveTenantId(req);
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const tenantId = await resolveTenantId(req);
 
     let query = supabaseAdmin
       .from("social_accounts")
@@ -58,11 +198,16 @@ router.post(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
     const { platform, credentials, profileName, pageId, pageName, instagramBusinessId } = req.body;
-    const tenantId = resolveTenantId(req);
+    const tenantId = await resolveTenantId(req);
 
     if (!tenantId) {
-      res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+      res.status(400).json({ error: "Unable to resolve social tenant scope" });
       return;
     }
 
@@ -108,9 +253,14 @@ router.patch(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
     const { id } = req.params;
     const { isActive, autoPost } = req.body;
-    const tenantId = resolveTenantId(req);
+    const tenantId = await resolveTenantId(req);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (isActive !== undefined) updates.is_active = isActive;
@@ -145,8 +295,13 @@ router.delete(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
     const { id } = req.params;
-    const tenantId = resolveTenantId(req);
+    const tenantId = await resolveTenantId(req);
 
     let query = supabaseAdmin
       .from("social_accounts")
@@ -175,8 +330,8 @@ router.get(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { status, platform, page = "1", limit = "20" } = req.query as Record<string, string>;
-    const tenantId = resolveTenantId(req);
+    const { status, platform, page = "1", limit = "20", postType } = req.query as Record<string, string>;
+    const tenantId = await resolveTenantId(req);
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const offset = (pageNum - 1) * limitNum;
@@ -192,6 +347,7 @@ router.get(
     }
     if (status) query = query.eq("status", status);
     if (platform) query = query.eq("platform", platform);
+    if (postType) query = query.eq("post_type", postType);
 
     const { data, error, count } = await query;
 
@@ -211,11 +367,29 @@ router.post(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { platform, content, imageUrl, videoUrl, linkUrl, scheduledFor } = req.body;
-    const tenantId = resolveTenantId(req);
+    if (!hasFacebookPermission(req, "facebook_post_create")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const {
+      platform,
+      content,
+      imageUrl,
+      videoUrl,
+      linkUrl,
+      scheduledFor,
+      postType: rawPostType,
+      websitePageId,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      utmContent,
+    } = req.body;
+    const tenantId = await resolveTenantId(req);
 
     if (!tenantId) {
-      res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+      res.status(400).json({ error: "Unable to resolve social tenant scope" });
       return;
     }
 
@@ -229,18 +403,71 @@ router.post(
       return;
     }
 
+    const postType = coercePostType(rawPostType);
+    if (postType === "website_promotion" && platform !== "facebook") {
+      res.status(400).json({ error: "Website Promotion Post is currently supported for Facebook only" });
+      return;
+    }
+
     const scheduledDate = scheduledFor ? new Date(scheduledFor) : null;
     const isScheduled = scheduledDate && scheduledDate > new Date();
+
+    if (isScheduled && !hasFacebookPermission(req, "facebook_post_schedule")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+    if (!isScheduled && !hasFacebookPermission(req, "facebook_post_publish")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const campaignDefault = await buildDefaultCampaign(tenantId, postType);
+    const normalizedUtm = {
+      source: String(utmSource || "facebook").trim() || "facebook",
+      medium: String(utmMedium || "social").trim() || "social",
+      campaign: String(utmCampaign || campaignDefault).trim() || campaignDefault,
+      content: utmContent ? String(utmContent).trim() : null,
+    };
+
+    let resolvedWebsitePageId: string | null = null;
+    let resolvedWebsitePageUrl: string | null = null;
+    let finalLinkUrl: string | null = linkUrl ? String(linkUrl) : null;
+
+    if (postType === "website_promotion") {
+      if (!websitePageId) {
+        res.status(400).json({ error: "websitePageId is required for Website Promotion Post" });
+        return;
+      }
+
+      const page = await resolvePromotionPageUrl({
+        tenantId,
+        websitePageId: String(websitePageId),
+        requirePublished: true,
+      });
+
+      resolvedWebsitePageId = page.pageId;
+      resolvedWebsitePageUrl = page.pageUrl;
+      finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
+    }
 
     const { data: post, error: insertError } = await supabaseAdmin
       .from("social_posts")
       .insert({
         tenant_id: tenantId,
+        created_by_user_id: req.userId || null,
         platform,
         content,
         image_url: imageUrl || null,
         video_url: videoUrl || null,
-        link_url: linkUrl || null,
+        link_url: finalLinkUrl,
+        post_type: postType,
+        website_page_id: resolvedWebsitePageId,
+        website_page_url: resolvedWebsitePageUrl,
+        final_link_url: finalLinkUrl,
+        utm_source: normalizedUtm.source,
+        utm_medium: normalizedUtm.medium,
+        utm_campaign: normalizedUtm.campaign,
+        utm_content: normalizedUtm.content,
         scheduled_for: scheduledDate ? scheduledDate.toISOString() : null,
         status: isScheduled ? "scheduled" : "draft",
       })
@@ -308,11 +535,16 @@ router.post(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_schedule")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
     const { posts, intervalMinutes = 60 } = req.body;
-    const tenantId = resolveTenantId(req);
+    const tenantId = await resolveTenantId(req);
 
     if (!tenantId) {
-      res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+      res.status(400).json({ error: "Unable to resolve social tenant scope" });
       return;
     }
 
@@ -322,18 +554,66 @@ router.post(
     }
 
     const now = new Date();
-    const rows = posts.map((p: Record<string, unknown>, i: number) => ({
-      tenant_id: tenantId,
-      platform: p.platform,
-      content: p.content,
-      image_url: p.imageUrl || null,
-      video_url: p.videoUrl || null,
-      link_url: p.linkUrl || null,
-      scheduled_for: new Date(now.getTime() + i * (intervalMinutes as number) * 60 * 1000).toISOString(),
-      status: "scheduled",
-      entity_type: p.entityType || null,
-      entity_id: p.entityId || null,
-    }));
+    const rows: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < posts.length; i += 1) {
+      const p = posts[i] as Record<string, unknown>;
+      const postType = coercePostType(p.postType);
+      const platform = String(p.platform || "");
+      const websitePageId = p.websitePageId ? String(p.websitePageId) : null;
+      const campaignDefault = await buildDefaultCampaign(tenantId, postType);
+      const normalizedUtm = {
+        source: String(p.utmSource || "facebook").trim() || "facebook",
+        medium: String(p.utmMedium || "social").trim() || "social",
+        campaign: String(p.utmCampaign || campaignDefault).trim() || campaignDefault,
+        content: p.utmContent ? String(p.utmContent).trim() : null,
+      };
+
+      let resolvedWebsitePageId: string | null = null;
+      let resolvedWebsitePageUrl: string | null = null;
+      let finalLinkUrl: string | null = p.linkUrl ? String(p.linkUrl) : null;
+
+      if (postType === "website_promotion") {
+        if (platform !== "facebook") {
+          res.status(400).json({ error: "Website Promotion Post is currently supported for Facebook only" });
+          return;
+        }
+        if (!websitePageId) {
+          res.status(400).json({ error: "websitePageId is required for Website Promotion Post" });
+          return;
+        }
+
+        const page = await resolvePromotionPageUrl({
+          tenantId,
+          websitePageId,
+          requirePublished: true,
+        });
+        resolvedWebsitePageId = page.pageId;
+        resolvedWebsitePageUrl = page.pageUrl;
+        finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
+      }
+
+      rows.push({
+        tenant_id: tenantId,
+        created_by_user_id: req.userId || null,
+        platform,
+        content: p.content,
+        image_url: p.imageUrl || null,
+        video_url: p.videoUrl || null,
+        link_url: finalLinkUrl,
+        post_type: postType,
+        website_page_id: resolvedWebsitePageId,
+        website_page_url: resolvedWebsitePageUrl,
+        final_link_url: finalLinkUrl,
+        utm_source: normalizedUtm.source,
+        utm_medium: normalizedUtm.medium,
+        utm_campaign: normalizedUtm.campaign,
+        utm_content: normalizedUtm.content,
+        scheduled_for: new Date(now.getTime() + i * (intervalMinutes as number) * 60 * 1000).toISOString(),
+        status: "scheduled",
+        entity_type: p.entityType || null,
+        entity_id: p.entityId || null,
+      });
+    }
 
     const { data, error } = await supabaseAdmin
       .from("social_posts")
@@ -357,9 +637,9 @@ router.get(
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const tenantId = resolveTenantId(req);
+      const tenantId = await resolveTenantId(req);
       if (!tenantId) {
-        res.status(400).json({ error: "tenant_id is required for super_admin requests" });
+        res.status(400).json({ error: "Unable to resolve social tenant scope" });
         return;
       }
 
@@ -483,7 +763,7 @@ router.patch(
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
-    const tenantId = resolveTenantId(req);
+    const tenantId = await resolveTenantId(req);
 
     let query = supabaseAdmin
       .from("social_posts")
