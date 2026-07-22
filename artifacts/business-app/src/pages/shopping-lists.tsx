@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,10 @@ export default function ShoppingListsPage() {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
   const [newTitle, setNewTitle] = useState("");
+  const [includeJobProducts, setIncludeJobProducts] = useState(false);
+  const [jobProductsScope, setJobProductsScope] = useState<"week" | "month" | "custom">("week");
+  const [jobProductsStartDate, setJobProductsStartDate] = useState("");
+  const [jobProductsEndDate, setJobProductsEndDate] = useState("");
   const [generateTitle, setGenerateTitle] = useState("");
   const [includeToOrderParts, setIncludeToOrderParts] = useState(true);
   const [createAssignmentMode, setCreateAssignmentMode] = useState<"unassigned" | "specific_technician" | "all_technicians">("unassigned");
@@ -90,6 +94,15 @@ export default function ShoppingListsPage() {
   const [manualItemQty, setManualItemQty] = useState("1");
   const [manualItemEstimate, setManualItemEstimate] = useState("");
   const [manualItemNotes, setManualItemNotes] = useState("");
+  const [productSuggestions, setProductSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchedQuery, setSearchedQuery] = useState("");
+  const [searchError, setSearchError] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [savingToCatalogue, setSavingToCatalogue] = useState(false);
+  const productSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchSeqRef = useRef(0);
 
   const { data: lists = [], isLoading: listsLoading } = useQuery<ShoppingList[]>({
     queryKey: ["shopping-lists", statusFilter],
@@ -149,6 +162,10 @@ export default function ShoppingListsPage() {
           title: newTitle || undefined,
           assignment_mode: canManage ? createAssignmentMode : undefined,
           assigned_to: canManage && createAssignmentMode === "specific_technician" ? createAssignedTo : null,
+          include_job_products: includeJobProducts,
+          date_scope: includeJobProducts ? jobProductsScope : undefined,
+          start_date: includeJobProducts && jobProductsScope === "custom" ? jobProductsStartDate : undefined,
+          end_date: includeJobProducts && jobProductsScope === "custom" ? jobProductsEndDate : undefined,
         }),
       });
     },
@@ -156,6 +173,10 @@ export default function ShoppingListsPage() {
       qc.invalidateQueries({ queryKey: ["shopping-lists"] });
       setSelectedListId(created.id);
       setNewTitle("");
+      setIncludeJobProducts(false);
+      setJobProductsScope("week");
+      setJobProductsStartDate("");
+      setJobProductsEndDate("");
       setCreateAssignmentMode("unassigned");
       setCreateAssignedTo("");
       toast({ title: "Shopping list created" });
@@ -192,6 +213,73 @@ export default function ShoppingListsPage() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const searchProducts = (query: string) => {
+    if (productSearchTimeout.current) clearTimeout(productSearchTimeout.current);
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    if (!query.trim()) {
+      setProductSuggestions([]);
+      setShowSuggestions(false);
+      setSearchedQuery("");
+      setSearchError(false);
+      return;
+    }
+
+    productSearchTimeout.current = setTimeout(async () => {
+      const seq = ++searchSeqRef.current;
+      const abortCtrl = new AbortController();
+      searchAbortRef.current = abortCtrl;
+      try {
+        setSearchError(false);
+        const data = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`, {
+          signal: abortCtrl.signal,
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!data.ok) throw new Error("Failed to search products");
+        const results = Array.isArray(await data.json()) ? (await data.json()) as { id: string; name: string; default_price: number | null }[] : [];
+        if (seq !== searchSeqRef.current) return;
+        setProductSuggestions(results);
+        setSearchedQuery(query.trim());
+        setShowSuggestions(true);
+      } catch (e: unknown) {
+        if (seq !== searchSeqRef.current) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setProductSuggestions([]);
+        setSearchedQuery(query.trim());
+        setSearchError(true);
+        setShowSuggestions(true);
+      }
+    }, 250);
+  };
+
+  const selectProduct = (product: { id?: string; name: string; default_price: number | null }) => {
+    setManualItemName(product.name);
+    setSelectedProductId(product.id ?? null);
+    setShowSuggestions(false);
+  };
+
+  const saveToCatalogue = async () => {
+    const trimmedName = manualItemName.trim();
+    if (!trimmedName || !canManage) return;
+    setSavingToCatalogue(true);
+    try {
+      const created = await apiFetch<{ id: string; name: string; default_price: number | null }>('/admin/products', {
+        method: 'POST',
+        body: JSON.stringify({ name: trimmedName }),
+      });
+      setManualItemName(created.name);
+      setSelectedProductId(created.id);
+      setProductSuggestions([]);
+      setShowSuggestions(false);
+      setSearchedQuery("");
+      setSearchError(false);
+      toast({ title: 'Saved to product catalogue', description: `"${created.name}" added successfully` });
+    } catch (err: unknown) {
+      toast({ title: 'Failed to save', description: err instanceof Error ? err.message : 'Unable to save product', variant: 'destructive' });
+    } finally {
+      setSavingToCatalogue(false);
+    }
+  };
+
   const addManualItemMutation = useMutation({
     mutationFn: () => {
       if (!effectiveListId) throw new Error("No shopping list selected");
@@ -211,6 +299,11 @@ export default function ShoppingListsPage() {
       setManualItemQty("1");
       setManualItemEstimate("");
       setManualItemNotes("");
+      setSelectedProductId(null);
+      setProductSuggestions([]);
+      setShowSuggestions(false);
+      setSearchedQuery("");
+      setSearchError(false);
       toast({ title: "Item added" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -373,6 +466,38 @@ export default function ShoppingListsPage() {
             <Card className="p-4 space-y-3">
               <h2 className="font-semibold">Create New List</h2>
               <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Weekly merchants run" />
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={includeJobProducts} onCheckedChange={(checked) => setIncludeJobProducts(checked === true)} />
+                Include job products from selected period
+              </label>
+              {includeJobProducts && (
+                <div className="space-y-2 rounded border p-3 text-sm">
+                  <div className="space-y-1.5">
+                    <Label>Period</Label>
+                    <select
+                      className="h-9 w-full rounded border px-2 text-sm"
+                      value={jobProductsScope}
+                      onChange={(e) => setJobProductsScope(e.target.value as "week" | "month" | "custom")}
+                    >
+                      <option value="week">This week</option>
+                      <option value="month">This month</option>
+                      <option value="custom">Custom dates</option>
+                    </select>
+                  </div>
+                  {jobProductsScope === "custom" && (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>Start date</Label>
+                        <Input type="date" value={jobProductsStartDate} onChange={(e) => setJobProductsStartDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>End date</Label>
+                        <Input type="date" value={jobProductsEndDate} onChange={(e) => setJobProductsEndDate(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <Button className="w-full h-10" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
                 {createListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Create List
               </Button>
@@ -474,9 +599,60 @@ export default function ShoppingListsPage() {
                 <div className="border-t pt-4 space-y-3">
                   <h3 className="font-medium">Add Item</h3>
                   <div className="grid gap-3 md:grid-cols-[1fr_120px]">
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 relative">
                       <Label>Item name</Label>
-                      <Input value={manualItemName} onChange={(e) => setManualItemName(e.target.value)} placeholder="28mm copper fittings" />
+                      <Input
+                        value={manualItemName}
+                        onChange={(e) => {
+                          setManualItemName(e.target.value);
+                          searchProducts(e.target.value);
+                        }}
+                        onFocus={() => {
+                          if (productSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        placeholder="28mm copper fittings"
+                        autoComplete="off"
+                      />
+                      {showSuggestions && searchedQuery && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {searchError ? (
+                            <div className="px-3 py-2 text-sm text-red-500">Failed to search catalogue</div>
+                          ) : productSuggestions.length > 0 ? (
+                            productSuggestions.map((product) => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  selectProduct(product);
+                                }}
+                              >
+                                <span>{product.name}</span>
+                                {product.default_price != null && <span className="text-muted-foreground">£{Number(product.default_price).toFixed(2)}</span>}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
+                          )}
+                          {canManage && manualItemName.trim() && (
+                            <div className="border-t px-3 py-2">
+                              <button
+                                type="button"
+                                className="text-xs px-2 py-1 rounded font-medium bg-purple-50 text-purple-700 hover:bg-purple-100"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  void saveToCatalogue();
+                                }}
+                                disabled={savingToCatalogue}
+                              >
+                                {savingToCatalogue ? 'Saving…' : `+ Save "${manualItemName.trim()}" as product`}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <Label>Qty</Label>
