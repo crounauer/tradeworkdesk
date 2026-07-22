@@ -259,12 +259,47 @@ router.patch(
     }
 
     const { id } = req.params;
-    const { isActive, autoPost } = req.body;
+    const {
+      isActive,
+      autoPost,
+      profileName,
+      pageId,
+      pageName,
+      instagramBusinessId,
+      credentials,
+    } = req.body;
     const tenantId = await resolveTenantId(req);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (isActive !== undefined) updates.is_active = isActive;
     if (autoPost !== undefined) updates.auto_post = autoPost;
+    if (profileName !== undefined) {
+      const trimmed = String(profileName).trim();
+      if (!trimmed) {
+        res.status(400).json({ error: "profileName cannot be empty" });
+        return;
+      }
+      updates.profile_name = trimmed;
+    }
+    if (pageId !== undefined) updates.page_id = pageId ? String(pageId).trim() : null;
+    if (pageName !== undefined) updates.page_name = pageName ? String(pageName).trim() : null;
+    if (instagramBusinessId !== undefined) {
+      updates.instagram_business_id = instagramBusinessId ? String(instagramBusinessId).trim() : null;
+    }
+    if (credentials !== undefined) {
+      if (typeof credentials !== "object" || credentials === null || Array.isArray(credentials)) {
+        res.status(400).json({ error: "credentials must be an object" });
+        return;
+      }
+
+      const credentialValues = Object.values(credentials as Record<string, unknown>);
+      if (credentialValues.length === 0 || credentialValues.some((value) => !String(value || "").trim())) {
+        res.status(400).json({ error: "credentials must include non-empty values" });
+        return;
+      }
+
+      updates.encrypted_credentials = encryptCredentials(credentials as Record<string, string>);
+    }
 
     let query = supabaseAdmin
       .from("social_accounts")
@@ -276,7 +311,7 @@ router.patch(
     }
 
     const { data, error } = await query
-      .select("id, platform, profile_name, is_active, auto_post")
+      .select("id, platform, profile_name, page_id, page_name, instagram_business_id, is_active, auto_post")
       .single();
 
     if (error) {

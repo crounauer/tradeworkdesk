@@ -43,6 +43,7 @@ import {
   Share2,
   RefreshCw,
   ArrowRight,
+  Pencil,
 } from "lucide-react";
 
 const PLATFORMS = [
@@ -64,6 +65,65 @@ const POST_TYPE_OPTIONS = [
   { value: "business", label: "Business Post" },
   { value: "website_promotion", label: "Website Promotion Post" },
 ] as const;
+
+const SOCIAL_ACCOUNT_CREDENTIAL_FIELDS: Record<string, { key: string; label: string }[]> = {
+  x: [
+    { key: "appKey", label: "App Key" },
+    { key: "appSecret", label: "App Secret" },
+    { key: "accessToken", label: "Access Token" },
+    { key: "accessSecret", label: "Access Secret" },
+  ],
+  facebook: [{ key: "accessToken", label: "Page Access Token" }],
+  instagram: [{ key: "accessToken", label: "Page Access Token" }],
+  google_business: [
+    { key: "clientId", label: "OAuth Client ID" },
+    { key: "clientSecret", label: "OAuth Client Secret" },
+    { key: "refreshToken", label: "OAuth Refresh Token" },
+  ],
+};
+
+const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, { title: string; points: string[]; docsUrl: string }> = {
+  x: {
+    title: "X (Twitter) setup",
+    points: [
+      "Open X Developer Portal -> Projects & Apps -> your App -> Keys and tokens.",
+      "Copy App Key and App Secret from Consumer Keys.",
+      "Generate Access Token and Access Secret under User authentication tokens.",
+      "Use your @handle as Profile Name.",
+    ],
+    docsUrl: "https://developer.x.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api",
+  },
+  facebook: {
+    title: "Facebook setup",
+    points: [
+      "Create or open a Meta app in Meta for Developers and add the Facebook Login + Pages permissions needed for posting.",
+      "Get Page ID from your Facebook Page About section, or with Graph API: /{page-name}?fields=id.",
+      "Get Page Access Token from Graph API Explorer by selecting your app/user and exchanging for a Page token.",
+      "Use the exact Facebook Page title as Page Name.",
+    ],
+    docsUrl: "https://developers.facebook.com/docs/pages-api",
+  },
+  instagram: {
+    title: "Instagram setup",
+    points: [
+      "Instagram posting requires an Instagram Business/Creator account connected to a Facebook Page.",
+      "Use the same Facebook Page Access Token (with Instagram permissions) as the credential here.",
+      "Get Instagram Business ID via Graph API on your Page: /{page-id}?fields=instagram_business_account.",
+      "Set Page ID/Page Name to the connected Facebook Page values.",
+    ],
+    docsUrl: "https://developers.facebook.com/docs/instagram-api/getting-started",
+  },
+  google_business: {
+    title: "Google Business setup",
+    points: [
+      "Create OAuth client credentials in Google Cloud Console for the Business Profile APIs.",
+      "Use OAuth flow to obtain a Refresh Token for an account that manages the business profile.",
+      "Find Account Name via API response format like accounts/123456.",
+      "Find Location ID via API response format like locations/789012.",
+    ],
+    docsUrl: "https://developers.google.com/my-business/content/get-started",
+  },
+};
 
 function getPostTypeBadge(postType?: string) {
   if (postType === "website_promotion") {
@@ -531,21 +591,7 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
     setCredentials({});
   };
 
-  const credentialFields: Record<string, { key: string; label: string }[]> = {
-    x: [
-      { key: "appKey", label: "App Key" },
-      { key: "appSecret", label: "App Secret" },
-      { key: "accessToken", label: "Access Token" },
-      { key: "accessSecret", label: "Access Secret" },
-    ],
-    facebook: [{ key: "accessToken", label: "Page Access Token" }],
-    instagram: [{ key: "accessToken", label: "Page Access Token" }],
-    google_business: [
-      { key: "clientId", label: "OAuth Client ID" },
-      { key: "clientSecret", label: "OAuth Client Secret" },
-      { key: "refreshToken", label: "OAuth Refresh Token" },
-    ],
-  };
+  const activeExplainer = SOCIAL_ACCOUNT_EXPLAINERS[platform];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -573,6 +619,217 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
               </SelectContent>
             </Select>
           </div>
+
+          {activeExplainer && (
+            <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+              <p className="text-sm font-medium">{activeExplainer.title}</p>
+              <ul className="list-disc pl-5 space-y-1 text-xs text-muted-foreground">
+                {activeExplainer.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+              <a
+                href={activeExplainer.docsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                Official setup docs
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
+
+          <div>
+            <Label>Profile Name</Label>
+            <Input
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="@username or page name"
+            />
+          </div>
+
+          {(platform === "facebook" || platform === "instagram" || platform === "google_business") && (
+            <>
+              <div>
+                <Label>
+                  {platform === "google_business" ? "Account Name (e.g. accounts/123456)" : "Page ID"}
+                </Label>
+                <Input
+                  value={pageId}
+                  onChange={(e) => setPageId(e.target.value)}
+                  placeholder={platform === "google_business" ? "accounts/123456" : "Facebook Page ID"}
+                />
+                {platform !== "google_business" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tip: in Meta Graph API Explorer, query /{"{page-name}"}?fields=id to confirm Page ID.
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label>
+                  {platform === "google_business" ? "Business Name" : "Page Name"}
+                </Label>
+                <Input
+                  value={pageName}
+                  onChange={(e) => setPageName(e.target.value)}
+                  placeholder="Page display name"
+                />
+              </div>
+            </>
+          )}
+
+          {(platform === "instagram" || platform === "google_business") && (
+            <div>
+              <Label>
+                {platform === "google_business" ? "Location ID (e.g. locations/789012)" : "Instagram Business ID"}
+              </Label>
+              <Input
+                value={instagramBusinessId}
+                onChange={(e) => setInstagramBusinessId(e.target.value)}
+                placeholder={platform === "google_business" ? "locations/789012" : "Instagram Business Account ID"}
+              />
+              {platform === "instagram" && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Tip: query /{"{page-id}"}?fields=instagram_business_account in Graph API Explorer.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Credentials</Label>
+            {(SOCIAL_ACCOUNT_CREDENTIAL_FIELDS[platform] || []).map((field) => (
+              <div key={field.key}>
+                <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                <Input
+                  type="password"
+                  value={credentials[field.key] || ""}
+                  onChange={(e) => setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  placeholder={field.label}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button
+            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending || !profileName || Object.values(credentials).some((v) => !v)}
+          >
+            {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Connect
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditAccountDialog({
+  account,
+  onUpdated,
+}: {
+  account: Record<string, string | boolean>;
+  onUpdated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [pageId, setPageId] = useState("");
+  const [pageName, setPageName] = useState("");
+  const [instagramBusinessId, setInstagramBusinessId] = useState("");
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const { toast } = useToast();
+
+  const platform = String(account.platform || "");
+  const activeExplainer = SOCIAL_ACCOUNT_EXPLAINERS[platform];
+  const credentialFields = SOCIAL_ACCOUNT_CREDENTIAL_FIELDS[platform] || [];
+
+  const hydrateForm = () => {
+    setProfileName(String(account.profile_name || ""));
+    setPageId(String(account.page_id || ""));
+    setPageName(String(account.page_name || ""));
+    setInstagramBusinessId(String(account.instagram_business_id || ""));
+    setCredentials({});
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const hasAnyCredentialValue = credentialFields.some((field) => (credentials[field.key] || "").trim().length > 0);
+      const hasAllCredentialValues = credentialFields.every((field) => (credentials[field.key] || "").trim().length > 0);
+
+      if (hasAnyCredentialValue && !hasAllCredentialValues) {
+        throw new Error("To update credentials, fill in every credential field for this platform.");
+      }
+
+      return apiFetch(`/admin/social/accounts/${String(account.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          profileName,
+          pageId: pageId || null,
+          pageName: pageName || null,
+          instagramBusinessId: instagramBusinessId || null,
+          credentials: hasAllCredentialValues ? credentials : undefined,
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Account updated" });
+      setOpen(false);
+      onUpdated();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) hydrateForm();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Edit account">
+          <Pencil className="w-4 h-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit Social Account</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label>Platform</Label>
+            <Input value={PLATFORMS.find((p) => p.value === platform)?.label || platform} disabled />
+          </div>
+
+          {activeExplainer && (
+            <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+              <p className="text-sm font-medium">{activeExplainer.title}</p>
+              <ul className="list-disc pl-5 space-y-1 text-xs text-muted-foreground">
+                {activeExplainer.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+              <a
+                href={activeExplainer.docsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                Official setup docs
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
 
           <div>
             <Label>Profile Name</Label>
@@ -622,8 +879,11 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
           )}
 
           <div className="space-y-3">
-            <Label className="text-sm font-semibold">Credentials</Label>
-            {(credentialFields[platform] || []).map((field) => (
+            <Label className="text-sm font-semibold">Replace Credentials (optional)</Label>
+            <p className="text-xs text-muted-foreground">
+              Leave all credential fields blank to keep existing credentials unchanged.
+            </p>
+            {credentialFields.map((field) => (
               <div key={field.key}>
                 <Label className="text-xs text-muted-foreground">{field.label}</Label>
                 <Input
@@ -642,11 +902,11 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
             <Button variant="outline">Cancel</Button>
           </DialogClose>
           <Button
-            onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !profileName || Object.values(credentials).some((v) => !v)}
+            onClick={() => updateMutation.mutate()}
+            disabled={updateMutation.isPending || !profileName.trim()}
           >
-            {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Connect
+            {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Changes
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1062,6 +1322,10 @@ function AccountsTab() {
                         }
                       />
                     </div>
+                    <EditAccountDialog
+                      account={account}
+                      onUpdated={() => queryClient.invalidateQueries({ queryKey: ["social-accounts"] })}
+                    />
                     <Button
                       variant="ghost"
                       size="icon"

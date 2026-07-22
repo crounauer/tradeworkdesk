@@ -175,19 +175,15 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const platformNavItems = [
     { href: "/platform", label: "Overview", icon: Globe },
-    { href: "/platform/analytics", label: "Analytics", icon: BarChart3 },
+    ...(hasFeature("social_media") ? [{ href: "/admin/social", label: "Social Media", icon: Share2 }] : []),
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
     { href: "/platform/community", label: "Community", icon: MessageSquarePlus },
-    { href: "/platform/support-tickets", label: "Support Tickets", icon: MessageSquare },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
     { href: "/platform/plans", label: "Plans", icon: CreditCard },
     { href: "/admin/website-templates", label: "Website Templates", icon: LayoutTemplate },
-    { href: "/superadmin/templates/conversions/pending", label: "Template Conversions", icon: Rocket },
-    { href: "/superadmin/db-housekeeping", label: "DB Housekeeping", icon: Database },
     { href: "/platform/settings", label: "Settings", icon: Settings2 },
     { href: "/platform/beta-invites", label: "Beta Invites", icon: Ticket },
     { href: "/platform/announcements", label: "Announcements", icon: Megaphone },
-    { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
   ];
 
   const websiteNavItems: Array<{ href: string; label: string; icon: React.ElementType }> = [];
