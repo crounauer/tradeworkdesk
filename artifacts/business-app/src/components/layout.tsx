@@ -170,6 +170,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const adminNavItems = [
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
+    ...(hasFeature("social_media") ? [{ href: "/admin/social", label: "Social Media", icon: Share2 }] : []),
   ];
 
   const platformNavItems = [
@@ -201,8 +202,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const visibleNavItems = workNavItems; // kept for any remaining references
   const visibleUtilityItems = utilityNavItems;
 
-  // Header bar: website link + reports/support/help for non-superadmin tenant users
-  const showHeaderBar = !isSuperAdmin || isCommunitySupportMode;
+  // Header bar is shown for both tenant users and superusers.
+  const showHeaderBar = true;
 
   const topMenuItems = [
     ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
@@ -215,6 +216,18 @@ export function Layout({ children }: { children: ReactNode }) {
       ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
       : []),
   ];
+
+  const superuserTopMenuItems = [
+    { href: "/platform/support-tickets", label: "Support Tickets", icon: MessageSquare },
+    { href: "/superadmin/db-housekeeping", label: "DB Housekeeping", icon: Database },
+    { href: "/superadmin/templates/conversions/pending", label: "Template Conversions", icon: Rocket },
+    { href: "/platform/audit-log", label: "Audit Log", icon: ScrollText },
+    { href: "/platform/analytics", label: "Analytics", icon: BarChart3 },
+  ];
+
+  const headerMenuItems = isSuperAdmin && !isCommunitySupportMode
+    ? superuserTopMenuItems
+    : topMenuItems;
 
   const openEnquiryCount = enquiryCountData?.count || 0;
   const canSeeOnlineBookings = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
@@ -531,17 +544,25 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
 
-        {/* ── Tenant header bar ───────────────────────────────────────────── */}
+        {/* ── Global header bar ───────────────────────────────────────────── */}
         {showHeaderBar && (
-          <div className="hidden md:flex items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/60 text-sm">
-            {topMenuItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  <item.icon className="w-3.5 h-3.5" />
-                  {item.label}
-                </button>
-              </Link>
-            ))}
+          <div className="hidden md:flex sticky top-0 z-40 items-center justify-center gap-1 px-6 py-2 border-b border-border/40 bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/70 text-sm">
+            {headerMenuItems.map((item) => {
+              const isActive = location === item.href || location.startsWith(item.href + "/");
+              return (
+                <Link key={item.href} href={item.href}>
+                  <button className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}>
+                    <item.icon className="w-3.5 h-3.5" />
+                    {item.label}
+                  </button>
+                </Link>
+              );
+            })}
           </div>
         )}
 
