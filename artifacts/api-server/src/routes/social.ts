@@ -525,15 +525,17 @@ router.get(
     }
 
     const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
 
     let query = supabaseAdmin
       .from("social_accounts")
       .select("id, platform, page_id, page_name, instagram_business_id, profile_name, expires_at, is_active, auto_post, created_at")
       .order("created_at", { ascending: false });
 
-    if (tenantId) {
-      query = query.eq("tenant_id", tenantId);
-    }
+    query = query.eq("tenant_id", tenantId);
 
     const { data, error } = await query;
 
@@ -624,6 +626,10 @@ router.patch(
       credentials,
     } = req.body;
     const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (isActive !== undefined) updates.is_active = isActive;
@@ -659,11 +665,8 @@ router.patch(
     let query = supabaseAdmin
       .from("social_accounts")
       .update(updates)
-      .eq("id", id);
-
-    if (tenantId) {
-      query = query.eq("tenant_id", tenantId);
-    }
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     const { data, error } = await query
       .select("id, platform, profile_name, page_id, page_name, instagram_business_id, is_active, auto_post")
@@ -692,15 +695,16 @@ router.delete(
 
     const { id } = req.params;
     const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
 
     let query = supabaseAdmin
       .from("social_accounts")
       .delete()
-      .eq("id", id);
-
-    if (tenantId) {
-      query = query.eq("tenant_id", tenantId);
-    }
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     const { error } = await query;
 
@@ -722,6 +726,10 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { status, platform, page = "1", limit = "20", postType } = req.query as Record<string, string>;
     const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const offset = (pageNum - 1) * limitNum;
@@ -730,11 +738,8 @@ router.get(
       .from("social_posts")
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .range(offset, offset + limitNum - 1);
-
-    if (tenantId) {
-      query = query.eq("tenant_id", tenantId);
-    }
+      .range(offset, offset + limitNum - 1)
+      .eq("tenant_id", tenantId);
     if (status) query = query.eq("status", status);
     if (platform) query = query.eq("platform", platform);
     if (postType) query = query.eq("post_type", postType);
@@ -1154,15 +1159,16 @@ router.patch(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
     const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
 
     let query = supabaseAdmin
       .from("social_posts")
       .update({ status: "dismissed", updated_at: new Date().toISOString() })
-      .eq("id", id);
-
-    if (tenantId) {
-      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
-    }
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     const { data, error } = await query.select().single();
 

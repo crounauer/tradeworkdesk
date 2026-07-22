@@ -1561,6 +1561,10 @@ function AccountsTab() {
 export default function AdminSocial() {
   const { hasFeature } = usePlanFeatures();
   const { toast } = useToast();
+  const { data: socialContext } = useQuery<SocialContextResponse>({
+    queryKey: ["social-context"],
+    queryFn: () => apiFetch("/admin/social/context"),
+  });
 
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1607,6 +1611,9 @@ export default function AdminSocial() {
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Social Media</h1>
           <p className="text-muted-foreground mt-1">Manage and schedule your social media posts</p>
+          {socialContext?.scope === "platform_marketing" && (
+            <p className="text-xs font-medium text-blue-700 mt-2">Platform Marketing Mode (TWD)</p>
+          )}
         </div>
       </div>
 
