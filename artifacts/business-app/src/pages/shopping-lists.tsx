@@ -230,12 +230,13 @@ export default function ShoppingListsPage() {
       searchAbortRef.current = abortCtrl;
       try {
         setSearchError(false);
-        const data = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`, {
+        const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`, {
           signal: abortCtrl.signal,
           headers: { "Content-Type": "application/json" },
         });
-        if (!data.ok) throw new Error("Failed to search products");
-        const results = Array.isArray(await data.json()) ? (await data.json()) as { id: string; name: string; default_price: number | null }[] : [];
+        if (!response.ok) throw new Error("Failed to search products");
+        const payload: unknown = await response.json();
+        const results = Array.isArray(payload) ? payload as { id: string; name: string; default_price: number | null }[] : [];
         if (seq !== searchSeqRef.current) return;
         setProductSuggestions(results);
         setSearchedQuery(query.trim());
@@ -319,6 +320,20 @@ export default function ShoppingListsPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["shopping-list", effectiveListId] });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: (itemId: string) => {
+      if (!effectiveListId) throw new Error("No shopping list selected");
+      return apiFetch<{ success: true }>(`/shopping-lists/${effectiveListId}/items/${itemId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shopping-list", effectiveListId] });
+      toast({ title: "Item deleted" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -547,14 +562,30 @@ export default function ShoppingListsPage() {
                           <p className="font-medium break-words">{item.item_name}</p>
                           <p className="text-xs text-muted-foreground">Qty {Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</p>
                         </div>
-                        <label className="flex items-center gap-2 text-sm shrink-0">
-                          <Checkbox
-                            checked={item.status === "purchased"}
-                            disabled={isTechnician && !techUpdatesEnabled}
-                            onCheckedChange={(checked) => updateItemMutation.mutate({ itemId: item.id, status: checked === true ? "purchased" : "needed" })}
-                          />
-                          <span>{item.status === "purchased" ? "Done" : "Need"}</span>
-                        </label>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <label className="flex items-center gap-2 text-sm shrink-0">
+                            <Checkbox
+                              checked={item.status === "purchased"}
+                              disabled={isTechnician && !techUpdatesEnabled}
+                              onCheckedChange={(checked) => updateItemMutation.mutate({ itemId: item.id, status: checked === true ? "purchased" : "needed" })}
+                            />
+                            <span>{item.status === "purchased" ? "Done" : "Need"}</span>
+                          </label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            disabled={deleteItemMutation.isPending}
+                            onClick={() => {
+                              if (window.confirm(`Delete \"${item.item_name}\" from this shopping list?`)) {
+                                deleteItemMutation.mutate(item.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -567,11 +598,12 @@ export default function ShoppingListsPage() {
                         <th className="text-left px-3 py-2">Item</th>
                         <th className="text-left px-3 py-2">Qty</th>
                         <th className="text-left px-3 py-2">Done</th>
+                        <th className="text-right px-3 py-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedList.items.length === 0 ? (
-                        <tr><td colSpan={3} className="px-3 py-4 text-muted-foreground">No items yet.</td></tr>
+                        <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">No items yet.</td></tr>
                       ) : selectedList.items.map((item) => (
                         <tr key={item.id} className="border-b last:border-0">
                           <td className="px-3 py-2">
@@ -587,6 +619,22 @@ export default function ShoppingListsPage() {
                               />
                               <span>{item.status === "purchased" ? "Done" : "Need"}</span>
                             </label>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              disabled={deleteItemMutation.isPending}
+                              onClick={() => {
+                                if (window.confirm(`Delete \"${item.item_name}\" from this shopping list?`)) {
+                                  deleteItemMutation.mutate(item.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </td>
                         </tr>
                       ))}

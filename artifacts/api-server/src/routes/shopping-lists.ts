@@ -327,7 +327,6 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
         .from("job_parts")
         .select("id, job_id, part_name, quantity, unit_price")
         .eq("tenant_id", req.tenantId!)
-        .eq("status", "to_order")
         .in("job_id", jobIds);
 
       if (partsError) {
@@ -889,6 +888,45 @@ router.patch("/shopping-lists/:id/items/:itemId", requireAuth, requireTenant, as
   }
 
   res.json(data as ShoppingListItemRow);
+});
+
+router.delete("/shopping-lists/:id/items/:itemId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const listId = String(req.params.id || "");
+  const itemId = String(req.params.itemId || "");
+  if (!listId || !itemId) {
+    res.status(400).json({ error: "Missing list or item id" });
+    return;
+  }
+
+  const list = await ensureListBelongsToTenant(listId, req.tenantId!);
+  if (!list) {
+    res.status(404).json({ error: "Shopping list not found" });
+    return;
+  }
+
+  if (!isManager(req.userRole)) {
+    const isApprovedTechnician = req.userRole === "technician"
+      ? await canTechnicianCreateOwnLists(req.tenantId!, req.userId!)
+      : false;
+    if (!isApprovedTechnician || !canTechnicianAccessList(list, req.userId!)) {
+      res.status(403).json({ error: "Not authorized to delete shopping list items" });
+      return;
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from("shopping_list_items")
+    .delete()
+    .eq("id", itemId)
+    .eq("shopping_list_id", listId)
+    .eq("tenant_id", req.tenantId!);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ success: true });
 });
 
 export default router;
