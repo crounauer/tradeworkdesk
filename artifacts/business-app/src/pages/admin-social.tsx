@@ -448,7 +448,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Social Media Post</DialogTitle>
         </DialogHeader>
@@ -693,7 +693,7 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
           Connect Account
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Connect Social Account</DialogTitle>
         </DialogHeader>
