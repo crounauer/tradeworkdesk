@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import CommunityPage from "@/pages/community";
 import { MessageSquare, Loader2, Building2 } from "lucide-react";
 
 type ModerationStatus = "open" | "reviewed" | "dismissed" | "actioned" | "all";
@@ -34,16 +35,25 @@ const FILTERS: Array<{ value: ModerationStatus; label: string }> = [
   { value: "all", label: "All" },
 ];
 
+const PLATFORM_COMMUNITY_TENANT_KEY = "superadmin_platform_community_tenant_id";
+
 export default function PlatformCommunityPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<ModerationStatus>("open");
-  const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState(() => localStorage.getItem(PLATFORM_COMMUNITY_TENANT_KEY) || "");
+  const [activeTenantId, setActiveTenantId] = useState(() => localStorage.getItem(PLATFORM_COMMUNITY_TENANT_KEY) || "");
 
-  const openTenantCommunity = (tenantId: string) => {
+  const openDashboardCommunity = (tenantId: string) => {
     if (!tenantId) return;
+    localStorage.removeItem("superadmin_community_tenant_id");
     localStorage.removeItem("superadmin_readonly_tenant_id");
-    localStorage.setItem("superadmin_community_tenant_id", tenantId);
-    window.location.href = "/community";
+    localStorage.setItem(PLATFORM_COMMUNITY_TENANT_KEY, tenantId);
+    setActiveTenantId(tenantId);
+  };
+
+  const clearDashboardCommunity = () => {
+    localStorage.removeItem(PLATFORM_COMMUNITY_TENANT_KEY);
+    setActiveTenantId("");
   };
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<TenantOption[]>({
@@ -108,6 +118,11 @@ export default function PlatformCommunityPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [tenants, allReports]);
 
+  const activeTenantLabel = useMemo(() => {
+    if (!activeTenantId) return "";
+    return tenantOptions.find((tenant) => tenant.id === activeTenantId)?.name || activeTenantId;
+  }, [activeTenantId, tenantOptions]);
+
   const updateMutation = useMutation({
     mutationFn: async ({ reportId, status }: { reportId: string; status: Exclude<ModerationStatus, "all"> }) => {
       const res = await fetch(`/api/platform/community/reports/${reportId}`, {
@@ -135,11 +150,11 @@ export default function PlatformCommunityPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tenant Community Access</CardTitle>
+          <CardTitle className="text-base">Superuser Community Dashboard</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Choose a tenant to use Community with the same functionality as a tenant user.
+            Choose a tenant and load full community access directly here in the superuser dashboard.
           </p>
           <div className="space-y-1.5">
             <Label>Tenant</Label>
@@ -155,11 +170,25 @@ export default function PlatformCommunityPage() {
               ))}
             </select>
           </div>
-          <Button type="button" disabled={!selectedTenantId} onClick={() => openTenantCommunity(selectedTenantId)}>
-            Open Tenant Community
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button type="button" disabled={!selectedTenantId} onClick={() => openDashboardCommunity(selectedTenantId)}>
+              Load Community Dashboard
+            </Button>
+            {activeTenantId ? (
+              <Button type="button" variant="outline" onClick={clearDashboardCommunity}>
+                Clear Loaded Tenant
+              </Button>
+            ) : null}
+          </div>
+          {activeTenantId ? (
+            <p className="text-xs text-muted-foreground">
+              Loaded tenant: <span className="font-medium text-foreground">{activeTenantLabel}</span>
+            </p>
+          ) : null}
         </CardContent>
       </Card>
+
+      {activeTenantId ? <CommunityPage /> : null}
 
       <Card>
         <CardHeader>
@@ -233,9 +262,13 @@ export default function PlatformCommunityPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => openTenantCommunity(report.tenant_id)}
+                      onClick={() => {
+                        setSelectedTenantId(report.tenant_id);
+                        openDashboardCommunity(report.tenant_id);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                     >
-                      Open Tenant Community
+                      Load In Dashboard
                     </Button>
                   </div>
                 </div>

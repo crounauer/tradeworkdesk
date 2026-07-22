@@ -33,6 +33,15 @@ function getTokenWithTimeout(timeoutMs: number): Promise<string | null> {
   });
 }
 
+function isCommunityApiRequest(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.pathname.startsWith('/api/community');
+  } catch {
+    return url.includes('/api/community');
+  }
+}
+
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   let url = '';
   if (typeof input === 'string') {
@@ -59,12 +68,16 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 
       const communityTenantId = localStorage.getItem('superadmin_community_tenant_id');
       const readOnlyTenantId = localStorage.getItem('superadmin_readonly_tenant_id');
+      const platformCommunityTenantId = localStorage.getItem('superadmin_platform_community_tenant_id');
       if (communityTenantId) {
         merged.set('x-superadmin-tenant-id', communityTenantId);
         merged.set('x-superadmin-readonly', '0');
       } else if (readOnlyTenantId) {
         merged.set('x-superadmin-tenant-id', readOnlyTenantId);
         merged.set('x-superadmin-readonly', '1');
+      } else if (platformCommunityTenantId && isCommunityApiRequest(url)) {
+        merged.set('x-superadmin-tenant-id', platformCommunityTenantId);
+        merged.set('x-superadmin-readonly', '0');
       }
 
       init.headers = merged;
