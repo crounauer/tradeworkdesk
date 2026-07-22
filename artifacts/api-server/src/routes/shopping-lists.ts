@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { supabaseAdmin } from "../lib/supabase";
+import { sendSimpleNotification } from "../lib/email";
 
 type UserRole = "admin" | "office_staff" | "technician" | "super_admin";
 type AssignmentMode = "unassigned" | "specific_technician" | "all_technicians";
@@ -189,6 +190,21 @@ function formatImportPeriodLabel(startDate: string, endDate: string): string {
   }
 
   return `Jobs: ${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+
+function normalizeEmailList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry || "").trim().toLowerCase())
+      .filter((email) => /^\S+@\S+\.\S+$/.test(email));
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((email) => /^\S+@\S+\.\S+$/.test(email));
+  }
+  return [];
 }
 
 router.get("/shopping-lists", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -597,7 +613,8 @@ router.get("/shopping-lists/:id", requireAuth, requireTenant, async (req: Authen
     .select("*")
     .eq("shopping_list_id", listId)
     .eq("tenant_id", req.tenantId!)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   if (itemsError) {
     res.status(500).json({ error: itemsError.message });
@@ -944,6 +961,106 @@ router.delete("/shopping-lists/:id/items/:itemId", requireAuth, requireTenant, a
   }
 
   res.json({ success: true });
+});
+
+router.post("/shopping-lists/:id/email", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const listId = String(req.params.id || "");
+  if (!listId) {
+    res.status(400).json({ error: "Missing list id" });
+    return;
+  }
+
+  if (!isManager(req.userRole)) {
+    res.status(403).json({ error: "Only admins and office staff can email shopping lists" });
+    return;
+  }
+
+  const list = await ensureListBelongsToTenant(listId, req.tenantId!);
+  if (!list) {
+    res.status(404).json({ error: "Shopping list not found" });
+    return;
+  }
+
+  const body = req.body as { recipients?: unknown; include_completed?: unknown };
+  const includeCompleted = body.include_completed !== false;
+
+  let recipients = normalizeEmailList(body.recipients);
+  if (recipients.length === 0) {
+    const mode = getEffectiveAssignmentMode(list);
+    if (mode === "specific_technician" && list.assigned_to) {
+      const { data: assignedTech } = await supabaseAdmin
+        .from("profiles")
+        .select("email")
+        .eq("id", list.assigned_to)
+        .eq("tenant_id", req.tenantId!)
+        .maybeSingle();
+      const assignedEmail = String((assignedTech as { email?: string | null } | null)?.email || "").trim().toLowerCase();
+      if (/^\S+@\S+\.\S+$/.test(assignedEmail)) recipients.push(assignedEmail);
+    } else if (mode === "all_technicians") {
+      const { data: techRows } = await supabaseAdmin
+        .from("profiles")
+        .select("email")
+        .eq("tenant_id", req.tenantId!)
+        .eq("role", "technician")
+        .eq("is_active", true);
+      recipients.push(
+        ...((techRows || []) as Array<{ email?: string | null }>)
+          .map((row) => String(row.email || "").trim().toLowerCase())
+          .filter((email) => /^\S+@\S+\.\S+$/.test(email)),
+      );
+    }
+  }
+
+  if (req.userEmail) {
+    const creatorEmail = String(req.userEmail).trim().toLowerCase();
+    if (/^\S+@\S+\.\S+$/.test(creatorEmail)) recipients.push(creatorEmail);
+  }
+
+  recipients = Array.from(new Set(recipients));
+  if (recipients.length === 0) {
+    res.status(400).json({ error: "No valid recipient emails found. Provide recipients or assign technicians with valid emails." });
+    return;
+  }
+
+  const { data: items, error: itemsError } = await supabaseAdmin
+    .from("shopping_list_items")
+    .select("item_name, quantity, status")
+    .eq("shopping_list_id", listId)
+    .eq("tenant_id", req.tenantId!)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (itemsError) {
+    res.status(500).json({ error: itemsError.message });
+    return;
+  }
+
+  const filtered = ((items || []) as Array<{ item_name?: string; quantity?: string | number; status?: string }>)
+    .filter((item) => includeCompleted || item.status !== "purchased");
+
+  const lines = filtered.length > 0
+    ? filtered.map((item) => {
+        const qty = Number(item.quantity);
+        const safeQty = Number.isFinite(qty) ? qty : 1;
+        const qtyText = safeQty.toFixed(3).replace(/\.000$/, "");
+        const mark = item.status === "purchased" ? "[Done]" : "[Need]";
+        return `- ${mark} ${item.item_name || "Unnamed item"} (Qty: ${qtyText})`;
+      })
+    : ["- No items in this list."];
+
+  const bodyText = [
+    `Shopping list: ${list.title}`,
+    `Status: ${list.status}`,
+    "",
+    "Items:",
+    ...lines,
+  ].join("\n");
+
+  for (const email of recipients) {
+    await sendSimpleNotification(email, `Shopping List: ${list.title}`, bodyText);
+  }
+
+  res.json({ success: true, emailed_to: recipients.length });
 });
 
 export default router;

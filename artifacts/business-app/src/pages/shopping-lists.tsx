@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Loader2, Mail, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
 interface ShoppingList {
   id: string;
@@ -100,6 +100,8 @@ export default function ShoppingListsPage() {
   const [searchError, setSearchError] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [savingToCatalogue, setSavingToCatalogue] = useState(false);
+  const [emailRecipients, setEmailRecipients] = useState("");
+  const [emailIncludeCompleted, setEmailIncludeCompleted] = useState(true);
   const productSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchSeqRef = useRef(0);
@@ -396,6 +398,26 @@ export default function ShoppingListsPage() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const emailListMutation = useMutation({
+    mutationFn: () => {
+      if (!effectiveListId) throw new Error("No shopping list selected");
+      return apiFetch<{ success: true; emailed_to: number }>(`/shopping-lists/${effectiveListId}/email`, {
+        method: "POST",
+        body: JSON.stringify({
+          recipients: emailRecipients.trim() ? emailRecipients : undefined,
+          include_completed: emailIncludeCompleted,
+        }),
+      });
+    },
+    onSuccess: (result) => {
+      toast({
+        title: "Shopping list emailed",
+        description: `${result.emailed_to} recipient${result.emailed_to === 1 ? "" : "s"}`,
+      });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   const updateTechToggleMutation = useMutation({
     mutationFn: (enabled: boolean) => apiFetch<CompanySettingsLite>("/admin/company-settings", {
       method: "PUT",
@@ -478,6 +500,7 @@ export default function ShoppingListsPage() {
                       <p className="font-medium text-sm break-words min-w-0">{list.title}</p>
                       <p className="text-xs text-muted-foreground shrink-0">{new Date(list.updated_at).toLocaleDateString()}</p>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">{assignmentLabel(list)}</p>
                   </button>
                 ))}
               </div>
@@ -520,6 +543,43 @@ export default function ShoppingListsPage() {
                   )}
                 </div>
               )}
+              {canManage && (
+                <div className="space-y-2 rounded border p-3 text-sm">
+                  <div className="space-y-1.5">
+                    <Label>Assign list to</Label>
+                    <select
+                      className="h-9 w-full rounded border px-2 text-sm"
+                      value={createAssignmentMode}
+                      onChange={(e) => {
+                        const next = e.target.value as "unassigned" | "specific_technician" | "all_technicians";
+                        setCreateAssignmentMode(next);
+                        if (next !== "specific_technician") setCreateAssignedTo("");
+                      }}
+                    >
+                      <option value="unassigned">Unassigned</option>
+                      <option value="all_technicians">All technicians</option>
+                      <option value="specific_technician">Specific technician</option>
+                    </select>
+                  </div>
+                  {createAssignmentMode === "specific_technician" && (
+                    <div className="space-y-1.5">
+                      <Label>Technician</Label>
+                      <select
+                        className="h-9 w-full rounded border px-2 text-sm"
+                        value={createAssignedTo}
+                        onChange={(e) => setCreateAssignedTo(e.target.value)}
+                      >
+                        <option value="">Select technician</option>
+                        {technicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>
+                            {tech.full_name || tech.email || "Technician"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
               <Button className="w-full h-10" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
                 {createListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Create List
               </Button>
@@ -538,6 +598,7 @@ export default function ShoppingListsPage() {
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold break-words">{selectedList.title}</h2>
                   <p className="text-sm text-muted-foreground break-words">{totals.items} item{totals.items === 1 ? "" : "s"}</p>
+                  <p className="text-xs text-muted-foreground">{assignmentLabel(selectedList)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {canManage && (
@@ -557,6 +618,30 @@ export default function ShoppingListsPage() {
                   )}
                 </div>
               </div>
+
+              {canManage && (
+                <div className="rounded border p-3 space-y-2">
+                  <h3 className="text-sm font-medium flex items-center gap-2"><Mail className="w-4 h-4" />Email this list</h3>
+                  <p className="text-xs text-muted-foreground">Leave recipients blank to use assigned technicians automatically.</p>
+                  <Input
+                    value={emailRecipients}
+                    onChange={(e) => setEmailRecipients(e.target.value)}
+                    placeholder="tech1@company.com, tech2@company.com"
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={emailIncludeCompleted} onCheckedChange={(checked) => setEmailIncludeCompleted(checked === true)} />
+                    Include completed items
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={emailListMutation.isPending}
+                    onClick={() => emailListMutation.mutate()}
+                  >
+                    {emailListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}Send Email
+                  </Button>
+                </div>
+              )}
 
               <div className="rounded border overflow-hidden">
                 <div className="sm:hidden divide-y">
