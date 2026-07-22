@@ -873,7 +873,7 @@ function AppUpdatePrompt() {
         if (!installing) return;
 
         installing.addEventListener("statechange", () => {
-          if (installing.state === "installed" && navigator.serviceWorker.controller) {
+          if (installing.state === "installed" && navigator.serviceWorker.controller && reg.waiting) {
             markUpdateAvailable();
           }
         });
@@ -885,7 +885,10 @@ function AppUpdatePrompt() {
       .catch(() => {});
 
     const onControllerChange = () => {
-      markUpdateAvailable();
+      if (!isMounted) return;
+      // A controller change means the new worker is active; do not keep prompting.
+      setUpdateAvailable(false);
+      setWorking(false);
     };
 
     const refreshRegistration = () => {

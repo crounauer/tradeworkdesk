@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { MessageSquare, Loader2, Building2 } from "lucide-react";
 
 type ModerationStatus = "open" | "reviewed" | "dismissed" | "actioned" | "all";
@@ -20,6 +21,11 @@ type PlatformCommunityReport = {
   author?: { id: string; full_name: string | null; role: string | null } | null;
 };
 
+type TenantOption = {
+  id: string;
+  company_name: string | null;
+};
+
 const FILTERS: Array<{ value: ModerationStatus; label: string }> = [
   { value: "open", label: "Open" },
   { value: "reviewed", label: "Reviewed" },
@@ -31,6 +37,29 @@ const FILTERS: Array<{ value: ModerationStatus; label: string }> = [
 export default function PlatformCommunityPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<ModerationStatus>("open");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
+
+  const openTenantCommunity = (tenantId: string) => {
+    if (!tenantId) return;
+    localStorage.removeItem("superadmin_readonly_tenant_id");
+    localStorage.setItem("superadmin_community_tenant_id", tenantId);
+    window.location.href = "/community";
+  };
+
+  const { data: tenants = [], isLoading: tenantsLoading } = useQuery<TenantOption[]>({
+    queryKey: ["platform-community-tenants"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/tenants");
+      if (!res.ok) throw new Error("Failed to load tenants");
+      const rows = await res.json() as Array<{ id?: unknown; company_name?: unknown }>;
+      return rows
+        .map((row) => ({
+          id: String(row.id || ""),
+          company_name: row.company_name == null ? null : String(row.company_name),
+        }))
+        .filter((row) => row.id.length > 0);
+    },
+  });
 
   const { data: reports = [], isLoading } = useQuery<PlatformCommunityReport[]>({
     queryKey: ["platform-community-reports", filter],
@@ -64,6 +93,21 @@ export default function PlatformCommunityPage() {
     return out;
   }, [allReports]);
 
+  const tenantOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const tenant of tenants) {
+      byId.set(tenant.id, tenant.company_name?.trim() || tenant.id);
+    }
+    for (const report of allReports) {
+      if (!byId.has(report.tenant_id)) {
+        byId.set(report.tenant_id, report.tenant?.company_name?.trim() || report.tenant_id);
+      }
+    }
+    return Array.from(byId.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [tenants, allReports]);
+
   const updateMutation = useMutation({
     mutationFn: async ({ reportId, status }: { reportId: string; status: Exclude<ModerationStatus, "all"> }) => {
       const res = await fetch(`/api/platform/community/reports/${reportId}`, {
@@ -88,6 +132,34 @@ export default function PlatformCommunityPage() {
         </h1>
         <p className="text-muted-foreground mt-1">Review and moderate all tenant community reports from superadmin.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tenant Community Access</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose a tenant to use Community with the same functionality as a tenant user.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Tenant</Label>
+            <select
+              className="h-9 w-full rounded border px-2 text-sm"
+              value={selectedTenantId}
+              onChange={(e) => setSelectedTenantId(e.target.value)}
+              disabled={tenantsLoading}
+            >
+              <option value="">Select tenant</option>
+              {tenantOptions.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" disabled={!selectedTenantId} onClick={() => openTenantCommunity(selectedTenantId)}>
+            Open Tenant Community
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -161,13 +233,9 @@ export default function PlatformCommunityPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => {
-                        localStorage.removeItem("superadmin_readonly_tenant_id");
-                        localStorage.setItem("superadmin_community_tenant_id", report.tenant_id);
-                        window.location.href = `/community`;
-                      }}
+                      onClick={() => openTenantCommunity(report.tenant_id)}
                     >
-                      Open Tenant Thread
+                      Open Tenant Community
                     </Button>
                   </div>
                 </div>
