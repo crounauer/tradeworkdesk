@@ -205,23 +205,26 @@ export default function PlatformDashboard() {
         <p className="text-muted-foreground">Overview of all tenants and platform health</p>
       </div>
 
-      <Card className="sticky top-4 z-20 border-primary/20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <CardHeader>
-          <CardTitle className="text-base">Superuser Menu</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {superuserMenuItems.map((item) => {
-              const isActive = location === item.href || location.startsWith(`${item.href}/`);
-              return (
-                <Link key={item.href} href={item.href}>
-                  <Button variant={isActive ? "default" : "outline"} size="sm">{item.label}</Button>
-                </Link>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="sticky top-3 z-30 rounded-xl border bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap px-1">
+          {superuserMenuItems.map((item) => {
+            const isActive = location === item.href || location.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
