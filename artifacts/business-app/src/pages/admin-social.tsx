@@ -305,6 +305,12 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res.json();
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Unknown error";
+}
+
 interface CreatePostDialogProps {
   onCreated: () => void;
   initialContent?: string;
@@ -1561,7 +1567,11 @@ function AccountsTab() {
 export default function AdminSocial() {
   const { hasFeature } = usePlanFeatures();
   const { toast } = useToast();
-  const { data: socialContext } = useQuery<SocialContextResponse>({
+  const {
+    data: socialContext,
+    error: socialContextError,
+    isLoading: socialContextLoading,
+  } = useQuery<SocialContextResponse>({
     queryKey: ["social-context"],
     queryFn: () => apiFetch("/admin/social/context"),
   });
@@ -1603,6 +1613,34 @@ export default function AdminSocial() {
 
   if (!hasFeature("social_media")) {
     return <UpgradePrompt feature="social_media" />;
+  }
+
+  const socialContextErrorMessage = getErrorMessage(socialContextError);
+  const isMissingPlatformSocialScope = socialContextErrorMessage.includes("social_marketing_tenant_id");
+
+  if (!socialContextLoading && isMissingPlatformSocialScope) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-display font-bold tracking-tight">Social Media</h1>
+          <p className="text-muted-foreground mt-1">Manage and schedule your social media posts</p>
+        </div>
+
+        <Card>
+          <CardContent className="py-8 space-y-3">
+            <p className="text-sm font-medium">Superadmin social marketing tenant is not configured.</p>
+            <p className="text-sm text-muted-foreground">
+              Set social_marketing_tenant_id in Platform Settings to enable TWD marketing posting.
+            </p>
+            <div>
+              <Button asChild>
+                <Link href="/platform/settings">Open Platform Settings</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
