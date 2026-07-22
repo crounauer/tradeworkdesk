@@ -324,6 +324,13 @@ export default function ShoppingListsPage() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const toggleItemStatus = (item: ShoppingListItem) => {
+    updateItemMutation.mutate({
+      itemId: item.id,
+      status: item.status === "purchased" ? "needed" : "purchased",
+    });
+  };
+
   const deleteItemMutation = useMutation({
     mutationFn: (itemId: string) => {
       if (!effectiveListId) throw new Error("No shopping list selected");
@@ -563,14 +570,22 @@ export default function ShoppingListsPage() {
                           <p className="text-xs text-muted-foreground">Qty {Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <label className="flex items-center gap-2 text-sm shrink-0">
-                            <Checkbox
-                              checked={item.status === "purchased"}
-                              disabled={isTechnician && !techUpdatesEnabled}
-                              onCheckedChange={(checked) => updateItemMutation.mutate({ itemId: item.id, status: checked === true ? "purchased" : "needed" })}
-                            />
-                            <span>{item.status === "purchased" ? "Done" : "Need"}</span>
-                          </label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-auto px-0 py-0 text-sm hover:bg-transparent"
+                            disabled={(isTechnician && !techUpdatesEnabled) || updateItemMutation.isPending}
+                            onClick={() => toggleItemStatus(item)}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Checkbox
+                                checked={item.status === "purchased"}
+                                disabled={(isTechnician && !techUpdatesEnabled) || updateItemMutation.isPending}
+                                className="pointer-events-none"
+                              />
+                              <span>{item.status === "purchased" ? "Done" : "Need"}</span>
+                            </span>
+                          </Button>
                           <Button
                             type="button"
                             variant="ghost"
@@ -611,14 +626,22 @@ export default function ShoppingListsPage() {
                           </td>
                           <td className="px-3 py-2">{Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</td>
                           <td className="px-3 py-2">
-                            <label className="flex items-center gap-2 text-xs">
-                              <Checkbox
-                                checked={item.status === "purchased"}
-                                disabled={isTechnician && !techUpdatesEnabled}
-                                onCheckedChange={(checked) => updateItemMutation.mutate({ itemId: item.id, status: checked === true ? "purchased" : "needed" })}
-                              />
-                              <span>{item.status === "purchased" ? "Done" : "Need"}</span>
-                            </label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-auto px-0 py-0 text-xs hover:bg-transparent"
+                              disabled={(isTechnician && !techUpdatesEnabled) || updateItemMutation.isPending}
+                              onClick={() => toggleItemStatus(item)}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={item.status === "purchased"}
+                                  disabled={(isTechnician && !techUpdatesEnabled) || updateItemMutation.isPending}
+                                  className="pointer-events-none"
+                                />
+                                <span>{item.status === "purchased" ? "Done" : "Need"}</span>
+                              </span>
+                            </Button>
                           </td>
                           <td className="px-3 py-2 text-right">
                             <Button

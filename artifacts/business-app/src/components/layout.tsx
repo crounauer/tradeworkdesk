@@ -150,10 +150,11 @@ export function Layout({ children }: { children: ReactNode }) {
         : []),
       { href: "/customers", label: "Customers", icon: Users },
       { href: "/properties", label: "Properties", icon: Home },
-      { href: "/todos", label: "To-Do List", icon: CheckSquare },
     ] : []),
-    { href: "/shopping-lists", label: "Shopping Lists", icon: ShoppingCart },
-    { href: "/community", label: "Community", icon: MessageSquare },
+    ...((hasWebsiteBuilder || profile?.role === "admin" || profile?.role === "office_staff") ? [{ href: "/reporting", label: "Reporting", icon: FileBarChart }] : []),
+    { href: supportHref, label: "Support", icon: MessageSquare },
+    { href: "/tools", label: "Tools", icon: Wrench },
+    { href: "/help", label: "User Guide", icon: HelpCircle },
   ];
 
   // ── Customers ─────────────────────────────────────────────────────────────
@@ -207,13 +208,12 @@ export function Layout({ children }: { children: ReactNode }) {
     ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
     ...(hasWebsiteBuilder ? [{ href: "/website", label: "My Website", icon: Globe2 }] : []),
     ...(hasWebsiteBuilder ? [{ href: "/website/gallery", label: "Gallery", icon: Image }] : []),
-    ...((hasWebsiteBuilder || profile?.role === "admin" || profile?.role === "office_staff") ? [{ href: "/reporting", label: "Reporting", icon: FileBarChart }] : []),
+    ...(hasJobManagement ? [{ href: "/todos", label: "To-Do List", icon: CheckSquare }] : []),
+    { href: "/shopping-lists", label: "Shopping Lists", icon: ShoppingCart },
+    { href: "/community", label: "Community", icon: MessageSquare },
     ...((profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin") && hasJobManagement
       ? [{ href: "/leave-holidays", label: "Leave & Holidays", icon: CalendarCheck }]
       : []),
-    { href: supportHref, label: "Support", icon: MessageSquare },
-    { href: "/tools", label: "Tools", icon: Wrench },
-    { href: "/help", label: "User Guide", icon: HelpCircle },
   ];
 
   const openEnquiryCount = enquiryCountData?.count || 0;

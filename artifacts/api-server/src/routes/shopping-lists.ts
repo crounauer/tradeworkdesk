@@ -177,6 +177,20 @@ function getDateRangeForScope(scope: string, customStart?: unknown, customEnd?: 
   };
 }
 
+function formatImportPeriodLabel(startDate: string, endDate: string): string {
+  const formatDate = (value: string): string => new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  if (startDate === endDate) {
+    return `Jobs: ${formatDate(startDate)}`;
+  }
+
+  return `Jobs: ${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+
 router.get("/shopping-lists", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const status = typeof req.query.status === "string" ? req.query.status : "open";
 
@@ -269,6 +283,16 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
   const safeTitle = typeof title === "string" && title.trim().length > 0
     ? title.trim()
     : `Shopping List ${new Date().toISOString().slice(0, 10)}`;
+  const shouldImportJobProducts = include_job_products === true;
+  const scope = typeof date_scope === "string" ? date_scope : "week";
+  const dateRange = shouldImportJobProducts ? getDateRangeForScope(scope, start_date, end_date) : null;
+  if (dateRange?.error) {
+    res.status(400).json({ error: dateRange.error });
+    return;
+  }
+  const titleWithImportPeriod = shouldImportJobProducts && dateRange
+    ? `${safeTitle} (${formatImportPeriodLabel(dateRange.startDate, dateRange.endDate)})`
+    : safeTitle;
 
   const resolvedAssignment = await resolveAssignmentInput({
     tenantId: req.tenantId!,
@@ -286,7 +310,7 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
     .from("shopping_lists")
     .insert({
       tenant_id: req.tenantId,
-      title: safeTitle,
+      title: titleWithImportPeriod,
       status: "active",
       created_by: req.userId,
       assignment_mode: resolvedAssignment.assignment_mode,
@@ -301,14 +325,7 @@ router.post("/shopping-lists", requireAuth, requireTenant, async (req: Authentic
   }
 
   const listRow = data as ShoppingListRow;
-  if (include_job_products === true) {
-    const scope = typeof date_scope === "string" ? date_scope : "week";
-    const dateRange = getDateRangeForScope(scope, start_date, end_date);
-    if (dateRange.error) {
-      res.status(400).json({ error: dateRange.error });
-      return;
-    }
-
+  if (shouldImportJobProducts && dateRange) {
     const { data: matchingJobs, error: jobsError } = await supabaseAdmin
       .from("jobs")
       .select("id")
