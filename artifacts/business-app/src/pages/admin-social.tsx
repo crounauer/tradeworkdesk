@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -131,13 +131,31 @@ const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, {
     steps: [
       "Open Meta for Developers and click Create app if you do not already have one.",
       "On the Use cases step, choose Authenticate and request data from users with Facebook Login, then continue.",
-      "Complete the remaining Create app steps until Meta opens your new app dashboard.",
-      "You do not need to look for a separate Pages API product in this flow.",
-      "Open Graph API Explorer and choose your app from the app selector.",
-      "Generate a user token with pages_show_list, pages_read_engagement, and pages_manage_posts.",
-      "Run query me/accounts to list pages you manage.",
+      "Complete the remaining Create app steps until Meta opens your app dashboard like the screen you are on now.",
+      "On this dashboard, click Customize the Authenticate and request data from users with Facebook Login use case.",
+      "If Meta asks for basic setup details, complete only the minimum required fields and save. You do not need to finish business verification before testing your own page.",
+      "You do not need to look for a separate Pages API product on this screen.",
+      "If you land on the Permissions and features page showing items like email and public_profile, do not start adding those permissions for this setup.",
+      "Those are Facebook user profile permissions, and they are not the main thing you need for posting to your own page from TradeWorkDesk.",
+      "Leave this permissions list as it is, then use the top menu to open Tools -> Graph API Explorer instead.",
+      "From the top menu, open Tools -> Graph API Explorer.",
+      "On the Graph API Explorer screen, make sure your app is selected in the Meta App dropdown on the right.",
+      "In the User or Page dropdown, choose User Token if it is not already selected.",
+      "If the access token box is empty, first use Add a Permission to add pages_show_list, pages_read_engagement, and pages_manage_posts.",
+      "Then click Generate Access Token and complete the Facebook permission popup using the same Facebook account that manages your page.",
+      "After the popup closes, confirm a user token now appears in the Access Token box.",
+      "If Generate Access Token does nothing, allow popups for developers.facebook.com and click it again.",
+      "If Meta shows permission/role errors, make sure your Facebook user is added under App roles (at least Developer) and is an admin of the target page.",
+      "If only public_profile appears, add pages_show_list, pages_read_engagement, and pages_manage_posts again, then regenerate the user token.",
+      "Keep User Token selected for now, then check that pages_show_list, pages_read_engagement, and pages_manage_posts appear in the Permissions list.",
+      "If one of those permissions is missing, use Add a Permission to add it before continuing.",
+      "In the request path box at the top, replace the current value with me/accounts.",
+      "Leave the method as GET, then click Submit.",
+      "This response should list the Facebook pages you manage. Find the correct page in the response.",
       "Copy id (Page ID) and access_token (Page Access Token) for your target page.",
-      "Optional: use Access Token Debugger to extend token lifetime.",
+      "Copy the page name shown in the same response so you can paste that into Page Name.",
+      "Optional: open Access Token Debugger and extend token lifetime once basic posting works.",
+      "You can ignore App Review and Publish for now if you are only testing with a page you already manage yourself.",
       "Paste Page ID, Page Name, and Page Access Token into this form.",
     ],
     fieldMapping: [
@@ -1425,9 +1443,33 @@ function AccountsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["social-accounts"] }),
   });
 
+  const startFacebookOAuthMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/social/facebook/oauth/start", {
+        method: "POST",
+        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts" }),
+      }) as Promise<{ authUrl: string }>,
+    onSuccess: (result) => {
+      if (!result?.authUrl) {
+        toast({ title: "Error", description: "Missing Facebook authorization URL", variant: "destructive" });
+        return;
+      }
+      window.location.assign(result.authUrl);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/admin/social/accounts/${id}`, { method: "DELETE" }),
+    mutationFn: (account: Record<string, string | boolean>) => {
+      const accountId = String(account.id || "");
+      const platform = String(account.platform || "");
+      if (platform === "facebook") {
+        return apiFetch(`/admin/social/facebook/oauth/accounts/${accountId}`, { method: "DELETE" });
+      }
+      return apiFetch(`/admin/social/accounts/${accountId}`, { method: "DELETE" });
+    },
     onSuccess: () => {
       toast({ title: "Account removed" });
       queryClient.invalidateQueries({ queryKey: ["social-accounts"] });
@@ -1436,7 +1478,15 @@ function AccountsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="default"
+          onClick={() => startFacebookOAuthMutation.mutate()}
+          disabled={startFacebookOAuthMutation.isPending}
+        >
+          {startFacebookOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+          Log in with Facebook
+        </Button>
         <ConnectAccountDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-accounts"] })} />
       </div>
 
@@ -1493,7 +1543,7 @@ function AccountsTab() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => deleteMutation.mutate(account.id as string)}
+                      onClick={() => deleteMutation.mutate(account)}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
@@ -1510,6 +1560,42 @@ function AccountsTab() {
 
 export default function AdminSocial() {
   const { hasFeature } = usePlanFeatures();
+  const { toast } = useToast();
+
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") || "posts";
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("facebook_oauth");
+    if (!status) return;
+
+    const message = params.get("message");
+    const connectedCount = params.get("connected");
+    if (status === "success") {
+      toast({
+        title: "Facebook connected",
+        description: connectedCount ? `Connected ${connectedCount} page(s).` : "Facebook pages connected successfully.",
+      });
+      setActiveTab("accounts");
+    } else {
+      toast({
+        title: "Facebook connection failed",
+        description: message || "Please try again.",
+        variant: "destructive",
+      });
+      setActiveTab("accounts");
+    }
+
+    params.delete("facebook_oauth");
+    params.delete("message");
+    params.delete("connected");
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [toast]);
 
   if (!hasFeature("social_media")) {
     return <UpgradePrompt feature="social_media" />;
@@ -1524,7 +1610,7 @@ export default function AdminSocial() {
         </div>
       </div>
 
-      <Tabs defaultValue="posts" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import crypto from "crypto";
 import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
@@ -23,6 +24,15 @@ const FACEBOOK_POST_PERMISSIONS = [
   "facebook_post_manage_connections",
 ] as const;
 
+const FACEBOOK_GRAPH_VERSION = "v19.0";
+const FACEBOOK_STATE_TTL_MS = 10 * 60 * 1000;
+const FACEBOOK_OAUTH_SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_posts",
+  "business_management",
+] as const;
+
 type FacebookPostPermission = (typeof FACEBOOK_POST_PERMISSIONS)[number];
 
 const FACEBOOK_ROLE_PERMISSIONS: Record<string, Set<FacebookPostPermission>> = {
@@ -32,6 +42,109 @@ const FACEBOOK_ROLE_PERMISSIONS: Record<string, Set<FacebookPostPermission>> = {
 
 function isSupportedPlatform(p: string): p is SupportedPlatform {
   return (SUPPORTED_PLATFORMS as readonly string[]).includes(p);
+}
+
+function getRequiredEnv(name: string): string {
+  const value = String(process.env[name] || "").trim();
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+function normalizeOrigin(origin: string): string {
+  return origin.replace(/\/+$/, "");
+}
+
+function getPublicAppOrigin(req: AuthenticatedRequest): string {
+  const configured = String(process.env.APP_URL || "").trim();
+  if (configured) return normalizeOrigin(configured);
+
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0]?.trim();
+  const proto = forwardedProto || req.protocol || "https";
+  const host = req.get("host") || "localhost:3001";
+  return normalizeOrigin(`${proto}://${host}`);
+}
+
+function getFacebookCallbackUrl(req: AuthenticatedRequest): string {
+  return `${getPublicAppOrigin(req)}/api/admin/social/facebook/callback`;
+}
+
+function sanitizeReturnPath(raw: unknown): string {
+  const fallback = "/admin/social?tab=accounts";
+  const value = String(raw || "").trim();
+  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
+  return value;
+}
+
+function sha256(input: string): string {
+  return crypto.createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+async function exchangeFacebookCodeForToken(code: string, redirectUri: string): Promise<{ accessToken: string; expiresIn: number | null; tokenSource: "long_lived" | "short_lived" }> {
+  const appId = getRequiredEnv("META_APP_ID");
+  const appSecret = getRequiredEnv("META_APP_SECRET");
+
+  const shortTokenUrl = new URL(`https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/oauth/access_token`);
+  shortTokenUrl.searchParams.set("client_id", appId);
+  shortTokenUrl.searchParams.set("client_secret", appSecret);
+  shortTokenUrl.searchParams.set("redirect_uri", redirectUri);
+  shortTokenUrl.searchParams.set("code", code);
+
+  const shortRes = await fetch(shortTokenUrl.toString());
+  if (!shortRes.ok) {
+    throw new Error(`Facebook token exchange failed (${shortRes.status})`);
+  }
+
+  const shortJson = await shortRes.json() as { access_token?: string; expires_in?: number };
+  const shortToken = String(shortJson.access_token || "").trim();
+  if (!shortToken) {
+    throw new Error("Facebook token exchange did not return an access token");
+  }
+
+  const longTokenUrl = new URL(`https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/oauth/access_token`);
+  longTokenUrl.searchParams.set("grant_type", "fb_exchange_token");
+  longTokenUrl.searchParams.set("client_id", appId);
+  longTokenUrl.searchParams.set("client_secret", appSecret);
+  longTokenUrl.searchParams.set("fb_exchange_token", shortToken);
+
+  const longRes = await fetch(longTokenUrl.toString());
+  if (longRes.ok) {
+    const longJson = await longRes.json() as { access_token?: string; expires_in?: number };
+    const longToken = String(longJson.access_token || "").trim();
+    if (longToken) {
+      return {
+        accessToken: longToken,
+        expiresIn: typeof longJson.expires_in === "number" ? longJson.expires_in : null,
+        tokenSource: "long_lived",
+      };
+    }
+  }
+
+  return {
+    accessToken: shortToken,
+    expiresIn: typeof shortJson.expires_in === "number" ? shortJson.expires_in : null,
+    tokenSource: "short_lived",
+  };
+}
+
+async function fetchFacebookPages(userAccessToken: string): Promise<Array<{ id: string; name: string; access_token: string }>> {
+  const pagesUrl = new URL(`https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/me/accounts`);
+  pagesUrl.searchParams.set("fields", "id,name,access_token");
+  pagesUrl.searchParams.set("access_token", userAccessToken);
+
+  const pagesRes = await fetch(pagesUrl.toString());
+  if (!pagesRes.ok) {
+    throw new Error(`Failed to fetch Facebook pages (${pagesRes.status})`);
+  }
+
+  const pagesJson = await pagesRes.json() as { data?: Array<{ id?: string; name?: string; access_token?: string }> };
+  const rows = pagesJson.data || [];
+  return rows
+    .map((row) => ({
+      id: String(row.id || "").trim(),
+      name: String(row.name || "").trim(),
+      access_token: String(row.access_token || "").trim(),
+    }))
+    .filter((row) => !!row.id && !!row.name && !!row.access_token);
 }
 
 function hasFacebookPermission(req: AuthenticatedRequest, permission: FacebookPostPermission): boolean {
@@ -96,6 +209,225 @@ async function buildDefaultCampaign(tenantId: string, postType: SocialPostType):
 }
 
 const router: IRouter = Router();
+
+router.post(
+  "/admin/social/facebook/oauth/start",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    try {
+      const tenantId = await resolveTenantId(req);
+      if (!tenantId) {
+        res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+        return;
+      }
+      if (!req.userId) {
+        res.status(401).json({ error: "Unauthenticated user" });
+        return;
+      }
+
+      const appId = getRequiredEnv("META_APP_ID");
+      const configurationId = getRequiredEnv("META_CONFIGURATION_ID");
+      const callbackUrl = getFacebookCallbackUrl(req);
+      const returnPath = sanitizeReturnPath(req.body?.returnPath);
+
+      const state = crypto.randomBytes(32).toString("hex");
+      const stateHash = sha256(state);
+      const expiresAt = new Date(Date.now() + FACEBOOK_STATE_TTL_MS).toISOString();
+
+      const { error: insertError } = await supabaseAdmin
+        .from("facebook_oauth_states")
+        .insert({
+          tenant_id: tenantId,
+          created_by_user_id: req.userId,
+          state_hash: stateHash,
+          return_path: returnPath,
+          expires_at: expiresAt,
+        });
+
+      if (insertError) {
+        res.status(500).json({ error: insertError.message });
+        return;
+      }
+
+      const authUrl = new URL(`https://www.facebook.com/${FACEBOOK_GRAPH_VERSION}/dialog/oauth`);
+      authUrl.searchParams.set("client_id", appId);
+      authUrl.searchParams.set("redirect_uri", callbackUrl);
+      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("scope", FACEBOOK_OAUTH_SCOPES.join(","));
+      authUrl.searchParams.set("config_id", configurationId);
+
+      res.json({ authUrl: authUrl.toString(), callbackUrl });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
+router.get(
+  "/admin/social/facebook/callback",
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const appOrigin = getPublicAppOrigin(req);
+    const fallbackReturnPath = "/admin/social?tab=accounts";
+    const fallbackRedirect = (status: string, message?: string) => {
+      const url = new URL(fallbackReturnPath, appOrigin);
+      url.searchParams.set("facebook_oauth", status);
+      if (message) url.searchParams.set("message", message);
+      res.redirect(url.toString());
+    };
+
+    try {
+      const oauthError = String(req.query.error || "").trim();
+      const oauthErrorReason = String(req.query.error_reason || "").trim();
+      const oauthErrorDescription = String(req.query.error_description || "").trim();
+      const state = String(req.query.state || "").trim();
+      const code = String(req.query.code || "").trim();
+
+      if (!state) {
+        fallbackRedirect("error", "missing_state");
+        return;
+      }
+
+      const stateHash = sha256(state);
+      const nowIso = new Date().toISOString();
+      const { data: pendingState, error: stateError } = await supabaseAdmin
+        .from("facebook_oauth_states")
+        .select("id, tenant_id, return_path, expires_at")
+        .eq("state_hash", stateHash)
+        .is("used_at", null)
+        .gt("expires_at", nowIso)
+        .maybeSingle();
+
+      if (stateError || !pendingState) {
+        fallbackRedirect("error", "invalid_or_expired_state");
+        return;
+      }
+
+      const returnPath = sanitizeReturnPath(pendingState.return_path);
+      const redirectWith = (status: string, message?: string, connectedCount?: number) => {
+        const redirectUrl = new URL(returnPath, appOrigin);
+        redirectUrl.searchParams.set("facebook_oauth", status);
+        if (message) redirectUrl.searchParams.set("message", message);
+        if (typeof connectedCount === "number") redirectUrl.searchParams.set("connected", String(connectedCount));
+        res.redirect(redirectUrl.toString());
+      };
+
+      await supabaseAdmin
+        .from("facebook_oauth_states")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", pendingState.id)
+        .is("used_at", null);
+
+      if (oauthError) {
+        const message = oauthErrorDescription || oauthErrorReason || oauthError;
+        redirectWith("error", message);
+        return;
+      }
+
+      if (!code) {
+        redirectWith("error", "missing_code");
+        return;
+      }
+
+      const callbackUrl = getFacebookCallbackUrl(req);
+      const tokenResult = await exchangeFacebookCodeForToken(code, callbackUrl);
+      const pages = await fetchFacebookPages(tokenResult.accessToken);
+
+      if (pages.length === 0) {
+        redirectWith("error", "no_pages_found");
+        return;
+      }
+
+      const expiresAt = tokenResult.expiresIn && tokenResult.expiresIn > 0
+        ? new Date(Date.now() + tokenResult.expiresIn * 1000).toISOString()
+        : null;
+
+      for (const page of pages) {
+        const encryptedCredentials = encryptCredentials({ accessToken: page.access_token });
+        const tokenMetadata = {
+          type: "facebook_page_access_token",
+          oauth_flow: "facebook_login_for_business",
+          token_source: tokenResult.tokenSource,
+          connected_at: new Date().toISOString(),
+          user_token_expires_in_seconds: tokenResult.expiresIn,
+          configuration_id: String(process.env.META_CONFIGURATION_ID || "").trim() || null,
+        };
+
+        const { error: upsertError } = await supabaseAdmin
+          .from("social_accounts")
+          .upsert(
+            {
+              tenant_id: pendingState.tenant_id,
+              platform: "facebook",
+              encrypted_credentials: encryptedCredentials,
+              profile_name: page.name,
+              page_id: page.id,
+              page_name: page.name,
+              expires_at: expiresAt,
+              is_active: true,
+              connection_method: "facebook_oauth",
+              token_metadata: tokenMetadata,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "tenant_id,platform,page_id" },
+          );
+
+        if (upsertError) {
+          throw new Error(upsertError.message);
+        }
+      }
+
+      redirectWith("success", undefined, pages.length);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "oauth_callback_failed";
+      fallbackRedirect("error", message);
+    }
+  },
+);
+
+router.delete(
+  "/admin/social/facebook/oauth/accounts/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const tenantId = await resolveTenantId(req);
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    const { id } = req.params;
+    const { error } = await supabaseAdmin
+      .from("social_accounts")
+      .delete()
+      .eq("id", id)
+      .eq("tenant_id", tenantId)
+      .eq("platform", "facebook");
+
+    if (error) {
+      res.status(404).json({ error: "Facebook account not found" });
+      return;
+    }
+
+    res.json({ success: true });
+  },
+);
 
 router.get(
   "/admin/social/context",
