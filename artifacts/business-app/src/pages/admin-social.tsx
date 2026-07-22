@@ -126,11 +126,13 @@ const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, {
     checklist: [
       "You are an admin of the Facebook page you want to connect.",
       "You can log in to Meta for Developers with the same account.",
-      "Your app has access to Facebook Login and Pages API.",
+      "You are ready to create a Meta app and choose the correct use case during setup.",
     ],
     steps: [
-      "Open Meta for Developers and create an app if you do not already have one.",
-      "Add Facebook Login and Pages API to the app.",
+      "Open Meta for Developers and click Create app if you do not already have one.",
+      "On the Use cases step, choose Authenticate and request data from users with Facebook Login, then continue.",
+      "Complete the remaining Create app steps until Meta opens your new app dashboard.",
+      "You do not need to look for a separate Pages API product in this flow.",
       "Open Graph API Explorer and choose your app from the app selector.",
       "Generate a user token with pages_show_list, pages_read_engagement, and pages_manage_posts.",
       "Run query me/accounts to list pages you manage.",
