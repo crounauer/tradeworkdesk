@@ -362,27 +362,52 @@ router.get(
           configuration_id: String(process.env.META_CONFIGURATION_ID || "").trim() || null,
         };
 
-        const { error: upsertError } = await supabaseAdmin
-          .from("social_accounts")
-          .upsert(
-            {
-              tenant_id: pendingState.tenant_id,
-              platform: "facebook",
-              encrypted_credentials: encryptedCredentials,
-              profile_name: page.name,
-              page_id: page.id,
-              page_name: page.name,
-              expires_at: expiresAt,
-              is_active: true,
-              connection_method: "facebook_oauth",
-              token_metadata: tokenMetadata,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "tenant_id,platform,page_id" },
-          );
+        const accountPayload = {
+          tenant_id: pendingState.tenant_id,
+          platform: "facebook",
+          encrypted_credentials: encryptedCredentials,
+          profile_name: page.name,
+          page_id: page.id,
+          page_name: page.name,
+          expires_at: expiresAt,
+          is_active: true,
+          connection_method: "facebook_oauth",
+          token_metadata: tokenMetadata,
+          updated_at: new Date().toISOString(),
+        };
 
-        if (upsertError) {
-          throw new Error(upsertError.message);
+        const { data: existingAccount, error: findError } = await supabaseAdmin
+          .from("social_accounts")
+          .select("id")
+          .eq("tenant_id", pendingState.tenant_id)
+          .eq("platform", "facebook")
+          .eq("page_id", page.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (findError) {
+          throw new Error(findError.message);
+        }
+
+        if (existingAccount?.id) {
+          const { error: updateError } = await supabaseAdmin
+            .from("social_accounts")
+            .update(accountPayload)
+            .eq("id", existingAccount.id)
+            .eq("tenant_id", pendingState.tenant_id);
+
+          if (updateError) {
+            throw new Error(updateError.message);
+          }
+          continue;
+        }
+
+        const { error: insertError } = await supabaseAdmin
+          .from("social_accounts")
+          .insert(accountPayload);
+
+        if (insertError) {
+          throw new Error(insertError.message);
         }
       }
 
