@@ -43,20 +43,11 @@ async function getPlatformMarketingTenantId(): Promise<string | null> {
   const { data: configured } = await supabaseAdmin
     .from("platform_settings")
     .select("value")
-    .eq("key", "fallback_tenant_id")
+    .eq("key", "social_marketing_tenant_id")
     .maybeSingle();
 
   const configuredId = typeof configured?.value === "string" ? configured.value.trim() : "";
-  if (configuredId) return configuredId;
-
-  const { data: oldestTenant } = await supabaseAdmin
-    .from("tenants")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  return oldestTenant?.id || null;
+  return configuredId || null;
 }
 
 async function resolveTenantId(req: AuthenticatedRequest): Promise<string | undefined> {
@@ -65,6 +56,13 @@ async function resolveTenantId(req: AuthenticatedRequest): Promise<string | unde
     return platformTenantId ?? undefined;
   }
   return req.tenantId;
+}
+
+function getSocialScopeErrorMessage(req: AuthenticatedRequest): string {
+  if (req.userRole === "super_admin") {
+    return "Superadmin social scope is not configured. Set platform setting social_marketing_tenant_id.";
+  }
+  return "Unable to resolve social tenant scope";
 }
 
 function coercePostType(value: unknown): SocialPostType {
@@ -108,7 +106,7 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const tenantId = await resolveTenantId(req);
     if (!tenantId) {
-      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
@@ -140,7 +138,7 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const tenantId = await resolveTenantId(req);
     if (!tenantId) {
-      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
@@ -207,7 +205,7 @@ router.post(
     const tenantId = await resolveTenantId(req);
 
     if (!tenantId) {
-      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
@@ -424,7 +422,7 @@ router.post(
     const tenantId = await resolveTenantId(req);
 
     if (!tenantId) {
-      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
@@ -579,7 +577,7 @@ router.post(
     const tenantId = await resolveTenantId(req);
 
     if (!tenantId) {
-      res.status(400).json({ error: "Unable to resolve social tenant scope" });
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
@@ -674,7 +672,7 @@ router.get(
     try {
       const tenantId = await resolveTenantId(req);
       if (!tenantId) {
-        res.status(400).json({ error: "Unable to resolve social tenant scope" });
+        res.status(400).json({ error: getSocialScopeErrorMessage(req) });
         return;
       }
 
@@ -806,7 +804,7 @@ router.patch(
       .eq("id", id);
 
     if (tenantId) {
-      query = query.eq("tenant_id", tenantId);
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
     }
 
     const { data, error } = await query.select().single();

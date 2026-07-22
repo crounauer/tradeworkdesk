@@ -1428,7 +1428,7 @@ router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req
   const { value } = req.body;
 
   let normalizedValue: unknown = value;
-  if (key === "fallback_tenant_id") {
+  if (key === "fallback_tenant_id" || key === "social_marketing_tenant_id") {
     const candidate = typeof value === "string" ? value.trim() : "";
     if (!candidate) {
       normalizedValue = null;
@@ -1439,7 +1439,7 @@ router.put("/platform/settings/:key", requireAuth, requireSuperAdmin, async (req
         .eq("id", candidate)
         .maybeSingle();
       if (!tenant) {
-        res.status(400).json({ error: "Invalid fallback_tenant_id: tenant not found" });
+        res.status(400).json({ error: `Invalid ${key}: tenant not found` });
         return;
       }
       normalizedValue = candidate;

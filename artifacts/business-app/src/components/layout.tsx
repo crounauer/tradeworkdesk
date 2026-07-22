@@ -170,7 +170,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const adminNavItems = [
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },
-    ...(hasFeature("social_media") ? [{ href: "/admin/social", label: "Social Media", icon: Share2 }] : []),
+    ...(hasFeature("social_media") && profile?.role === "admin"
+      ? [{ href: "/admin/social", label: "Social Media", icon: Share2 }]
+      : []),
   ];
 
   const platformNavItems = [

@@ -82,7 +82,12 @@ const SOCIAL_ACCOUNT_CREDENTIAL_FIELDS: Record<string, { key: string; label: str
   ],
 };
 
-const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, { title: string; points: string[]; docsUrl: string }> = {
+const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, {
+  title: string;
+  points: string[];
+  docsUrl: string;
+  quickLinks: { label: string; url: string }[];
+}> = {
   x: {
     title: "X (Twitter) setup",
     points: [
@@ -92,6 +97,10 @@ const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, { title: string; points: string[
       "Use your @handle as Profile Name.",
     ],
     docsUrl: "https://developer.x.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api",
+    quickLinks: [
+      { label: "X Developer Portal", url: "https://developer.x.com/en/portal/dashboard" },
+      { label: "X API Access Guide", url: "https://developer.x.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api" },
+    ],
   },
   facebook: {
     title: "Facebook setup",
@@ -102,6 +111,11 @@ const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, { title: string; points: string[
       "Use the exact Facebook Page title as Page Name.",
     ],
     docsUrl: "https://developers.facebook.com/docs/pages-api",
+    quickLinks: [
+      { label: "Meta for Developers", url: "https://developers.facebook.com/" },
+      { label: "Graph API Explorer", url: "https://developers.facebook.com/tools/explorer/" },
+      { label: "Pages API Docs", url: "https://developers.facebook.com/docs/pages-api" },
+    ],
   },
   instagram: {
     title: "Instagram setup",
@@ -112,6 +126,10 @@ const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, { title: string; points: string[
       "Set Page ID/Page Name to the connected Facebook Page values.",
     ],
     docsUrl: "https://developers.facebook.com/docs/instagram-api/getting-started",
+    quickLinks: [
+      { label: "Instagram API Getting Started", url: "https://developers.facebook.com/docs/instagram-api/getting-started" },
+      { label: "Meta Graph API Explorer", url: "https://developers.facebook.com/tools/explorer/" },
+    ],
   },
   google_business: {
     title: "Google Business setup",
@@ -122,6 +140,10 @@ const SOCIAL_ACCOUNT_EXPLAINERS: Record<string, { title: string; points: string[
       "Find Location ID via API response format like locations/789012.",
     ],
     docsUrl: "https://developers.google.com/my-business/content/get-started",
+    quickLinks: [
+      { label: "Google Business Profile API Docs", url: "https://developers.google.com/my-business/content/get-started" },
+      { label: "Google Cloud Console", url: "https://console.cloud.google.com/" },
+    ],
   },
 };
 
@@ -637,6 +659,19 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
                 Official setup docs
                 <ExternalLink className="w-3 h-3" />
               </a>
+              <div className="pt-1 space-y-1">
+                {activeExplainer.quickLinks.map((link) => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-xs text-primary hover:underline break-all"
+                  >
+                    {link.label}: {link.url}
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 
@@ -828,6 +863,19 @@ function EditAccountDialog({
                 Official setup docs
                 <ExternalLink className="w-3 h-3" />
               </a>
+              <div className="pt-1 space-y-1">
+                {activeExplainer.quickLinks.map((link) => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-xs text-primary hover:underline break-all"
+                  >
+                    {link.label}: {link.url}
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 
