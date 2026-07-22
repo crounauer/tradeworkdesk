@@ -342,19 +342,19 @@ export default function ShoppingListsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       <div>
         <h1 className="text-2xl font-display font-bold flex items-center gap-2"><ShoppingCart className="w-6 h-6" />Shopping Lists</h1>
         <p className="text-muted-foreground mt-1">Generate and manage purchasing lists from to-order job parts.</p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[370px_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
+      <div className="grid gap-6 min-w-0 xl:grid-cols-[370px_minmax(0,1fr)]">
+        <div className="space-y-6 min-w-0">
+          <Card className="p-3 sm:p-4 space-y-3 min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold">Lists</h2>
               <select
-                className="h-9 rounded border px-2 text-sm"
+                className="h-10 sm:h-9 w-full sm:w-auto rounded border px-3 text-sm"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
               >
@@ -368,7 +368,7 @@ export default function ShoppingListsPage() {
             </div>
 
             {canManage && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {([
                   ["all", `All (${scopeCounts.all})`],
                   ["assigned_to_me", `Assigned to me (${scopeCounts.assigned_to_me})`],
@@ -378,6 +378,7 @@ export default function ShoppingListsPage() {
                   <Button
                     key={value}
                     size="sm"
+                    className="shrink-0 whitespace-nowrap h-10 sm:h-9 px-3"
                     variant={scopeFilter === value ? "default" : "outline"}
                     onClick={() => setScopeFilter(value)}
                   >
@@ -392,22 +393,21 @@ export default function ShoppingListsPage() {
             ) : visibleLists.length === 0 ? (
               <p className="text-sm text-muted-foreground">No shopping lists yet.</p>
             ) : (
-              <div className="space-y-2 max-h-[380px] overflow-auto pr-1">
+              <div className="space-y-2 max-h-[380px] overflow-auto pr-1 min-w-0">
                 {visibleLists.map((list) => (
                   <button
                     key={list.id}
                     type="button"
-                    className={`w-full text-left rounded border p-3 hover:bg-accent ${effectiveListId === list.id ? "border-primary" : ""}`}
+                    className={`w-full min-w-0 text-left rounded border p-2.5 sm:p-3 hover:bg-accent ${effectiveListId === list.id ? "border-primary" : ""}`}
                     onClick={() => setSelectedListId(list.id)}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{list.title}</p>
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
-                        <Badge className={statusClass(list.status)}>{list.status.replace("_", " ")}</Badge>
-                        <Badge variant="outline">{assignmentLabel(list)}</Badge>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="font-medium text-sm break-words min-w-0">{list.title}</p>
+                      <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end">
+                        <Badge className={`${statusClass(list.status)} max-w-full`}>{list.status.replace("_", " ")}</Badge>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{assignmentLabel(list)}</p>
+                    <p className="text-xs text-muted-foreground mt-1 break-words">{assignmentLabel(list)}</p>
                     <p className="text-xs text-muted-foreground mt-1">Updated {new Date(list.updated_at).toLocaleString()}</p>
                   </button>
                 ))}
@@ -462,7 +462,7 @@ export default function ShoppingListsPage() {
                     )}
                   </>
                 )}
-                <Button className="w-full" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
+                <Button className="w-full h-10" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
                   {createListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Create List
                 </Button>
               </Card>
@@ -509,7 +509,7 @@ export default function ShoppingListsPage() {
                   <Checkbox checked={includeToOrderParts} onCheckedChange={(v) => setIncludeToOrderParts(v === true)} />
                   Include job parts marked to_order
                 </label>
-                <Button className="w-full" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
+                <Button className="w-full h-10" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
                   {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}Generate List
                 </Button>
               </Card>
@@ -517,25 +517,26 @@ export default function ShoppingListsPage() {
           )}
         </div>
 
-        <Card className="p-4 space-y-4 min-h-[520px]">
+        <Card className="p-3 sm:p-4 space-y-4 min-h-[520px] min-w-0">
           {!effectiveListId ? (
             <div className="text-sm text-muted-foreground">Create or select a shopping list to view items.</div>
           ) : detailLoading || !selectedList ? (
             <div className="flex items-center text-sm text-muted-foreground"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading list...</div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-semibold">{selectedList.title}</h2>
-                  <p className="text-sm text-muted-foreground">{totals.items} items • Estimated total £{totals.estimate.toFixed(2)}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold break-words">{selectedList.title}</h2>
+                  <p className="text-sm text-muted-foreground break-words">{totals.items} items • Estimated total £{totals.estimate.toFixed(2)}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge className={statusClass(selectedList.status)}>{selectedList.status.replace("_", " ")}</Badge>
                   <Badge variant="outline">{assignmentLabel(selectedList)}</Badge>
                   {canManage && (
                     <>
                       <Button
                         size="sm"
+                        className="h-10 sm:h-9"
                         variant="outline"
                         disabled={updateListStatusMutation.isPending || selectedList.status === "active"}
                         onClick={() => updateListStatusMutation.mutate("active")}
@@ -544,6 +545,7 @@ export default function ShoppingListsPage() {
                       </Button>
                       <Button
                         size="sm"
+                        className="h-10 sm:h-9"
                         variant="outline"
                         disabled={updateListStatusMutation.isPending || selectedList.status === "complete"}
                         onClick={() => updateListStatusMutation.mutate("complete")}
@@ -552,6 +554,7 @@ export default function ShoppingListsPage() {
                       </Button>
                       <Button
                         size="sm"
+                        className="h-10 sm:h-9"
                         variant="outline"
                         disabled={updateListStatusMutation.isPending || selectedList.status === "archived"}
                         onClick={() => updateListStatusMutation.mutate("archived")}
@@ -590,7 +593,7 @@ export default function ShoppingListsPage() {
                     ) : (
                       <div className="h-9 rounded border px-2 text-sm flex items-center text-muted-foreground">No individual technician selected</div>
                     )}
-                    <Button size="sm" onClick={() => updateAssignmentMutation.mutate()} disabled={updateAssignmentMutation.isPending}>
+                    <Button size="sm" className="w-full md:w-auto h-10 sm:h-9" onClick={() => updateAssignmentMutation.mutate()} disabled={updateAssignmentMutation.isPending}>
                       Save Assignment
                     </Button>
                   </div>
@@ -598,45 +601,84 @@ export default function ShoppingListsPage() {
               )}
 
               <div className="rounded border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="text-left px-3 py-2">Item</th>
-                      <th className="text-left px-3 py-2">Qty</th>
-                      <th className="text-left px-3 py-2">Unit</th>
-                      <th className="text-left px-3 py-2">Status</th>
-                      <th className="text-left px-3 py-2">Source</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedList.items.length === 0 ? (
-                      <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">No items yet.</td></tr>
-                    ) : selectedList.items.map((item) => (
-                      <tr key={item.id} className="border-b last:border-0">
-                        <td className="px-3 py-2">
-                          <p className="font-medium">{item.item_name}</p>
-                          {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-                        </td>
-                        <td className="px-3 py-2">{Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</td>
-                        <td className="px-3 py-2">{item.unit_estimate == null ? "-" : `£${Number(item.unit_estimate).toFixed(2)}`}</td>
-                        <td className="px-3 py-2">
-                          <select
-                            className={`h-8 rounded border px-2 text-xs ${itemStatusClass(item.status)}`}
-                            value={item.status}
-                            disabled={isTechnician && !techUpdatesEnabled}
-                            onChange={(e) => updateItemMutation.mutate({ itemId: item.id, status: e.target.value as ShoppingListItem["status"] })}
-                          >
-                            <option value="needed">Needed</option>
-                            <option value="ordered">Ordered</option>
-                            <option value="purchased">Purchased</option>
-                            <option value="unavailable">Unavailable</option>
-                          </select>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{item.source_ref || item.source_type}</td>
+                <div className="sm:hidden divide-y">
+                  {selectedList.items.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-muted-foreground">No items yet.</div>
+                  ) : selectedList.items.map((item) => (
+                    <div key={item.id} className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium break-words">{item.item_name}</p>
+                          {item.notes && <p className="text-xs text-muted-foreground mt-0.5 break-words">{item.notes}</p>}
+                        </div>
+                        <Badge variant="outline" className="shrink-0">Qty {Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded border px-2 py-1.5">
+                          <p className="text-muted-foreground">Unit</p>
+                          <p className="font-medium">{item.unit_estimate == null ? "-" : `£${Number(item.unit_estimate).toFixed(2)}`}</p>
+                        </div>
+                        <div className="rounded border px-2 py-1.5">
+                          <p className="text-muted-foreground">Source</p>
+                          <p className="font-medium break-words">{item.source_ref || item.source_type}</p>
+                        </div>
+                      </div>
+                      <select
+                        className={`h-10 w-full rounded border px-3 text-sm ${itemStatusClass(item.status)}`}
+                        value={item.status}
+                        disabled={isTechnician && !techUpdatesEnabled}
+                        onChange={(e) => updateItemMutation.mutate({ itemId: item.id, status: e.target.value as ShoppingListItem["status"] })}
+                      >
+                        <option value="needed">Needed</option>
+                        <option value="ordered">Ordered</option>
+                        <option value="purchased">Purchased</option>
+                        <option value="unavailable">Unavailable</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-sm">
+                    <thead className="bg-slate-50 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-2">Item</th>
+                        <th className="text-left px-3 py-2">Qty</th>
+                        <th className="text-left px-3 py-2">Unit</th>
+                        <th className="text-left px-3 py-2">Status</th>
+                        <th className="text-left px-3 py-2">Source</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {selectedList.items.length === 0 ? (
+                        <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">No items yet.</td></tr>
+                      ) : selectedList.items.map((item) => (
+                        <tr key={item.id} className="border-b last:border-0">
+                          <td className="px-3 py-2">
+                            <p className="font-medium">{item.item_name}</p>
+                            {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+                          </td>
+                          <td className="px-3 py-2">{Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</td>
+                          <td className="px-3 py-2">{item.unit_estimate == null ? "-" : `£${Number(item.unit_estimate).toFixed(2)}`}</td>
+                          <td className="px-3 py-2">
+                            <select
+                              className={`h-8 rounded border px-2 text-xs ${itemStatusClass(item.status)}`}
+                              value={item.status}
+                              disabled={isTechnician && !techUpdatesEnabled}
+                              onChange={(e) => updateItemMutation.mutate({ itemId: item.id, status: e.target.value as ShoppingListItem["status"] })}
+                            >
+                              <option value="needed">Needed</option>
+                              <option value="ordered">Ordered</option>
+                              <option value="purchased">Purchased</option>
+                              <option value="unavailable">Unavailable</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{item.source_ref || item.source_type}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {canCreateLists && (
@@ -660,7 +702,7 @@ export default function ShoppingListsPage() {
                       <Input value={manualItemNotes} onChange={(e) => setManualItemNotes(e.target.value)} placeholder="Preferred supplier: City Plumbing" />
                     </div>
                   </div>
-                  <Button onClick={() => addManualItemMutation.mutate()} disabled={addManualItemMutation.isPending || !manualItemName.trim()}>
+                  <Button className="h-10" onClick={() => addManualItemMutation.mutate()} disabled={addManualItemMutation.isPending || !manualItemName.trim()}>
                     {addManualItemMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Add Item
                   </Button>
                 </div>

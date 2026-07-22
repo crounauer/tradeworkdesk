@@ -322,12 +322,14 @@ export default function ReviewRequests() {
                 <Input type="number" min={7} value={settings.max_per_customer_days}
                   onChange={(e) => setSettings((s) => ({ ...s, max_per_customer_days: parseInt(e.target.value) || 90 }))} />
               </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
+                  {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Settings
+                </Button>
+              </div>
             </CardContent>
           </Card>
-          <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
-            {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Settings
-          </Button>
         </TabsContent>
 
         {/* ── Review platforms ── */}
@@ -350,12 +352,14 @@ export default function ReviewRequests() {
                     placeholder="https://..." />
                 </div>
               ))}
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
+                  {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Platforms
+                </Button>
+              </div>
             </CardContent>
           </Card>
-          <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
-            {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Platforms
-          </Button>
         </TabsContent>
 
         {/* ── Email template ── */}
@@ -377,12 +381,14 @@ export default function ReviewRequests() {
                   onChange={(e) => setSettings((s) => ({ ...s, email_body: e.target.value || null }))}
                   rows={8} className="font-mono text-xs" />
               </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
+                  {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Template
+                </Button>
+              </div>
             </CardContent>
           </Card>
-          <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
-            {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Template
-          </Button>
         </TabsContent>
 
         {/* ── Audit Log ── */}

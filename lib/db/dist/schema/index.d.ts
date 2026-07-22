@@ -240,6 +240,23 @@ export declare const profiles: import("drizzle-orm/pg-core").PgTableWithColumns<
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        can_create_own_shopping_lists: import("drizzle-orm/pg-core").PgColumn<{
+            name: "can_create_own_shopping_lists";
+            tableName: "profiles";
+            dataType: "boolean";
+            columnType: "PgBoolean";
+            data: boolean;
+            driverParam: boolean;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         is_active: import("drizzle-orm/pg-core").PgColumn<{
             name: "is_active";
             tableName: "profiles";
@@ -7449,6 +7466,7 @@ export declare const invoiceLineItems: import("drizzle-orm/pg-core").PgTableWith
 export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
 export declare const shoppingListStatusEnum: import("drizzle-orm/pg-core").PgEnum<["draft", "active", "partially_purchased", "complete", "archived"]>;
+export declare const shoppingListAssignmentModeEnum: import("drizzle-orm/pg-core").PgEnum<["unassigned", "specific_technician", "all_technicians"]>;
 export declare const shoppingListItemStatusEnum: import("drizzle-orm/pg-core").PgEnum<["needed", "ordered", "purchased", "unavailable"]>;
 export declare const shoppingListItemSourceEnum: import("drizzle-orm/pg-core").PgEnum<["invoice_line_item", "job_part", "manual"]>;
 export declare const shoppingLists: import("drizzle-orm/pg-core").PgTableWithColumns<{
@@ -7519,6 +7537,23 @@ export declare const shoppingLists: import("drizzle-orm/pg-core").PgTableWithCol
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: ["draft", "active", "partially_purchased", "complete", "archived"];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        assignment_mode: import("drizzle-orm/pg-core").PgColumn<{
+            name: "assignment_mode";
+            tableName: "shopping_lists";
+            dataType: "string";
+            columnType: "PgEnumColumn";
+            data: "unassigned" | "specific_technician" | "all_technicians";
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: ["unassigned", "specific_technician", "all_technicians"];
             baseColumn: never;
             identity: undefined;
             generated: undefined;

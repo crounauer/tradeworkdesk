@@ -1847,12 +1847,13 @@ export default function AdminCompanySettings() {
                         Set a prefix for your job numbers. For example, entering <span className="font-mono font-medium">NNE</span> will number jobs as <span className="font-mono font-medium">NNE0001</span>, <span className="font-mono font-medium">NNE0002</span>, etc. Leave blank to use the default <span className="font-mono">JOB-0001</span> format.
                       </p>
                     </div>
+                    <div className="sm:col-span-2 flex justify-end pt-4">
+                      {renderSectionSaveButton("Save billing changes")}
+                    </div>
                   </CardContent>
                 </Card>
 
                 <CalloutRatesSection />
-
-                {renderSectionSaveButton("Save billing changes")}
               </TabsContent>
 
               <TabsContent value="invoicing" className="space-y-6 pt-4">
@@ -1901,6 +1902,9 @@ export default function AdminCompanySettings() {
                 <Label htmlFor="google_client_secret">Google Client Secret</Label>
                 <Input id="google_client_secret" type="password" placeholder="Enter client secret" {...register("google_client_secret")} />
               </div>
+            </div>
+            <div className="flex justify-end pt-4">
+              {renderSectionSaveButton("Save calendar settings")}
             </div>
           </CardContent>
         </Card>
@@ -2063,10 +2067,11 @@ export default function AdminCompanySettings() {
                 {...register("quote_footer_text")}
               />
             </div>
+            <div className="flex justify-end pt-4">
+              {renderSectionSaveButton("Save invoicing changes")}
+            </div>
           </CardContent>
         </Card>
-
-                {renderSectionSaveButton("Save invoicing changes")}
 
               </TabsContent>
 
@@ -2169,14 +2174,15 @@ export default function AdminCompanySettings() {
                     />
                   </div>
                 )}
+                <div className="flex justify-end pt-4">
+                  {renderSectionSaveButton("Save notification changes")}
+                </div>
               </CardContent>
             </Card>
 
             <PushNotificationsSection />
 
             {isAdmin && <PushPreferenceMatrix />}
-
-            {renderSectionSaveButton("Save notification changes")}
           </TabsContent>
 
 

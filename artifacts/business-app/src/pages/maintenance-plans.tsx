@@ -426,6 +426,12 @@ export default function MaintenancePlans() {
                   <Label htmlFor="auto-job" className="text-sm">Auto-create job</Label>
                 </div>
               </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => saveReminderSettingsMutation.mutate()} disabled={saveReminderSettingsMutation.isPending}>
+                  {saveReminderSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Settings
+                </Button>
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -445,12 +451,14 @@ export default function MaintenancePlans() {
                   onChange={(e) => setReminderSettings((s) => ({ ...s, email_body: e.target.value || null }))}
                   rows={6} className="font-mono text-xs" />
               </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => saveReminderSettingsMutation.mutate()} disabled={saveReminderSettingsMutation.isPending}>
+                  {saveReminderSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Settings
+                </Button>
+              </div>
             </CardContent>
           </Card>
-          <Button onClick={() => saveReminderSettingsMutation.mutate()} disabled={saveReminderSettingsMutation.isPending}>
-            {saveReminderSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Settings
-          </Button>
         </TabsContent>
       </Tabs>
 
