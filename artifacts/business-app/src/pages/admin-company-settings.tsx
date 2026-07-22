@@ -868,23 +868,7 @@ export default function AdminCompanySettings() {
     }
   }, [dirtyFields, getValues, reset, saveToServer, toast]);
 
-  useEffect(() => {
-    const subscription = watch(() => {
-      if (!settingsLoadedRef.current) return;
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => { doSave(); }, 1500);
-    });
-    return () => subscription.unsubscribe();
-  }, [watch, doSave]);
-
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-    };
-  }, []);
+  // Autosave removed - now using explicit save buttons for each section
 
   useEffect(() => {
     if (activeTab !== "profile") return;
@@ -1239,7 +1223,7 @@ export default function AdminCompanySettings() {
             <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50">
               <div>
                 <Label>Enable white-label mode</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Show your branding instead of TradeWorkDesk defaults.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Replace TradeWorkDesk branding with your company colours, logo, favicon and name. This applies to the app interface, emails, and customer-facing areas.</p>
               </div>
               <Switch
                 checked={watch("white_label_enabled") ?? false}
@@ -1283,6 +1267,7 @@ export default function AdminCompanySettings() {
             <div className="space-y-1.5">
               <Label htmlFor="favicon_url">Favicon URL (optional)</Label>
               <Input id="favicon_url" type="url" placeholder="https://example.com/favicon.ico" {...register("favicon_url")} />
+              <p className="text-xs text-muted-foreground">The small icon displayed in browser tabs and bookmarks. Use a square image (PNG or ICO format). Only applies when white-label mode is enabled.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1314,6 +1299,9 @@ export default function AdminCompanySettings() {
                 </div>
               </div>
             )}
+            <div className="flex justify-end pt-4">
+              {renderSectionSaveButton("Save branding")}
+            </div>
           </CardContent>
         </Card>
 
@@ -1389,6 +1377,9 @@ export default function AdminCompanySettings() {
               <Label htmlFor="vat_number">VAT Number</Label>
               <Input id="vat_number" placeholder="e.g. GB123456789" {...register("vat_number")} />
             </div>
+            <div className="sm:col-span-2 flex justify-end pt-4">
+              {renderSectionSaveButton("Save identity")}
+            </div>
           </CardContent>
         </Card>
 
@@ -1424,6 +1415,9 @@ export default function AdminCompanySettings() {
             <div className="space-y-1.5">
               <Label htmlFor="country">Country</Label>
               <Input id="country" placeholder="United Kingdom" {...register("country")} />
+            </div>
+            <div className="sm:col-span-2 flex justify-end pt-4">
+              {renderSectionSaveButton("Save address")}
             </div>
           </CardContent>
         </Card>
@@ -1504,6 +1498,9 @@ export default function AdminCompanySettings() {
                   Showing approximately {watchedCoverageRadiusMiles} miles from your business location.
                 </p>
               )}
+              <div className="flex justify-end pt-4">
+                {renderSectionSaveButton("Save coverage")}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1556,6 +1553,9 @@ export default function AdminCompanySettings() {
               </Label>
               <Input id="website" type="url" placeholder="e.g. https://www.example.com" {...register("website")} />
             </div>
+            <div className="flex justify-end pt-4">
+              {renderSectionSaveButton("Save contact details")}
+            </div>
           </CardContent>
         </Card>
 
@@ -1584,6 +1584,9 @@ export default function AdminCompanySettings() {
                 OFTEC Registration Number
               </Label>
               <Input id="oftec_number" placeholder="e.g. C12345" {...register("oftec_number")} />
+            </div>
+            <div className="sm:col-span-2 flex justify-end pt-4">
+              {renderSectionSaveButton("Save registrations")}
             </div>
           </CardContent>
         </Card>
@@ -1614,6 +1617,9 @@ export default function AdminCompanySettings() {
             <p className="text-xs text-muted-foreground">
               These labels are used as the leave type options in Leave & Holidays. Stored per tenant.
             </p>
+            <div className="flex justify-end pt-4">
+              {renderSectionSaveButton("Save leave types")}
+            </div>
           </CardContent>
         </Card>
 
@@ -1683,6 +1689,9 @@ export default function AdminCompanySettings() {
                     />
                   </div>
                 </div>
+            </div>
+            <div className="flex justify-end pt-4">
+              {renderSectionSaveButton("Save documents")}
             </div>
           </CardContent>
         </Card>
@@ -1770,8 +1779,6 @@ export default function AdminCompanySettings() {
             </div>
           </CardContent>
         </Card>
-
-        {renderSectionSaveButton("Save profile changes")}
 
           </TabsContent>
 
@@ -2177,24 +2184,6 @@ export default function AdminCompanySettings() {
       </Tabs>
 
     </div>
-
-      {autoSaveStatus !== "idle" && (
-        <div className="fixed bottom-4 right-4 z-40 pointer-events-none">
-          <div className="rounded-full border border-border/70 bg-background/90 backdrop-blur px-3 py-1.5 text-xs text-muted-foreground shadow-sm flex items-center gap-1.5">
-            {autoSaveStatus === "saving" ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Saving changes
-              </>
-            ) : (
-              <>
-                <Check className="w-3 h-3 text-emerald-600" />
-                Saved{lastSavedAt ? ` at ${lastSavedAt}` : ""}
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -2327,11 +2316,11 @@ function CalloutRatesSection() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Callout Amount *</Label>
-                <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="65.00" />
+                <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="65.00" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Hourly Rate (after 1st hour)</Label>
-                <Input type="number" step="0.01" min="0" value={form.hourly_rate} onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} placeholder="e.g. 45.00" />
+                <Input type="number" step="0.01" min="0" value={form.hourly_rate} onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="e.g. 45.00" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Day Type</Label>
@@ -2507,7 +2496,7 @@ function ProductCatalogueSection() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Default Price (optional)</Label>
-                <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0.00" />
               </div>
             </div>
             <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2532,7 +2521,7 @@ function ProductCatalogueSection() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Default Price (optional)</Label>
-                      <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                      <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0.00" />
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -2752,11 +2741,11 @@ function ServiceCatalogueSection() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Default Price (optional)</Label>
-                    <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                    <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0.00" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Booking Duration (minutes)</Label>
-                    <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} placeholder="60" />
+                    <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="60" />
                     <p className="text-[11px] text-muted-foreground">Used by online booking to calculate slot length.</p>
                   </div>
                   <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
@@ -2803,7 +2792,7 @@ function ServiceCatalogueSection() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Website Display Order</Label>
-                    <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} placeholder="0" />
+                    <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0" />
                   </div>
                 </div>
                 <Button type="button" size="sm" onClick={handleSave} disabled={submitting || !form.name.trim()}>
@@ -2828,11 +2817,11 @@ function ServiceCatalogueSection() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Default Price (optional)</Label>
-                          <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} placeholder="0.00" />
+                          <Input type="number" step="0.01" min="0" value={form.default_price} onChange={e => setForm(f => ({ ...f, default_price: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0.00" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Booking Duration (minutes)</Label>
-                          <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} placeholder="60" />
+                          <Input type="number" min={15} step={15} value={form.booking_duration_minutes} onChange={e => setForm(f => ({ ...f, booking_duration_minutes: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="60" />
                           <p className="text-[11px] text-muted-foreground">Used by online booking to calculate slot length.</p>
                         </div>
                         <div className="space-y-1 flex items-center justify-between rounded-md border bg-background px-3 py-2">
@@ -2878,7 +2867,7 @@ function ServiceCatalogueSection() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Website Display Order</Label>
-                          <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} placeholder="0" />
+                          <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0" />
                         </div>
                       </div>
                       <div className="flex gap-2">

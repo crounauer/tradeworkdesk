@@ -71,7 +71,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   const isQuote = type === "quote";
   const label = isQuote ? "Quotation" : "Invoice";
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
-  const fromName = opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
+  const fromName = opts.company?.email_from_name || opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
   const FROM = `${fromName} <${FROM_EMAIL}>`;
   const balanceDue = opts.balanceDue != null ? Math.max(0, Number(opts.balanceDue)) : total;
   const formattedTotal = formatCurrency(currency, balanceDue);
@@ -211,7 +211,7 @@ export async function sendInvoiceDocumentEmail(opts: {
 </html>`;
 
   const filename = `${label.toLowerCase()}-${invoiceNumber}.pdf`;
-  const replyTo = opts.company?.email ?? undefined;
+  const replyTo = opts.company?.email_reply_to || opts.company?.email || undefined;
   const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, replyTo);
 
   const sendOpts: Parameters<typeof resend.emails.send>[0] = {
@@ -245,7 +245,7 @@ export async function sendPaymentReceiptEmail(opts: {
   }
 
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
-  const fromName = opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
+  const fromName = opts.company?.email_from_name || opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
   const FROM = `${fromName} <${FROM_EMAIL}>`;
   const formattedAmount = formatCurrency(opts.currency, opts.paidAmount);
   const subject = `Payment received — Invoice ${opts.invoiceNumber} (${formattedAmount})`;
@@ -311,14 +311,14 @@ export async function sendPaymentReceiptEmail(opts: {
   const sendOpts: Parameters<typeof resend.emails.send>[0] = {
     from: FROM,
     to: [opts.to],
-    ...(normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email ?? undefined).length > 0
-      ? { cc: normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email ?? undefined) }
+    ...(normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email_reply_to || opts.company?.email || undefined).length > 0
+      ? { cc: normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email_reply_to || opts.company?.email || undefined) }
       : {}),
     subject,
     html,
     attachments: [{ filename: `invoice-${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer }],
   };
-  if (opts.company?.email) (sendOpts as any).replyTo = opts.company.email;
+  if (opts.company?.email_reply_to || opts.company?.email) (sendOpts as any).replyTo = opts.company.email_reply_to || opts.company.email;
 
   const { error } = await resend.emails.send(sendOpts);
   if (error) {

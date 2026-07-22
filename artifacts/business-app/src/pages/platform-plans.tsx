@@ -82,22 +82,22 @@ function PlanForm({ isNew, form, setForm, onSave, onCancel, onSyncStripe, isSavi
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">Base Price (£/mo)</Label>
-            <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
+            <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Per User (£/mo)</Label>
-            <Input type="number" step="0.01" value={form.per_user_price} onChange={(e) => setForm({ ...form, per_user_price: e.target.value })} placeholder="Leave blank for flat rate" />
+            <Input type="number" step="0.01" value={form.per_user_price} onChange={(e) => setForm({ ...form, per_user_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} placeholder="Leave blank for flat rate" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Annual Price (£/yr)</Label>
-            <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
+            <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">Max Users</Label>
-            <Input type="number" value={form.max_users} onChange={(e) => setForm({ ...form, max_users: e.target.value })} />
+            <Input type="number" value={form.max_users} onChange={(e) => setForm({ ...form, max_users: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
           </div>
           <div className="flex items-center gap-2 pt-5">
             <Switch checked={form.is_popular} onCheckedChange={(v) => setForm({ ...form, is_popular: v })} />

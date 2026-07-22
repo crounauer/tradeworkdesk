@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, Loader2, Ticket, Wrench, Globe, Layers } from "lucide-react";
+import { Flame, CheckCircle2, AlertCircle, Building2, ArrowLeft, ArrowRight, Check, Loader2, Ticket, Wrench, Globe, Layers, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -43,6 +43,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState(getCodeFromUrl);
   const [validating, setValidating] = useState(false);
   const [codeResult, setCodeResult] = useState<ValidateResult>(null);
@@ -593,12 +594,30 @@ export default function Register() {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Password</Label>
-                <Input type="password" placeholder="Min. 8 characters" value={password} onChange={e => { setPassword(e.target.value); clearFieldError("password"); }} className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                <div className="relative">
+                  <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" value={password} onChange={e => { setPassword(e.target.value); clearFieldError("password"); }} className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Confirm Password</Label>
-                <Input type="password" placeholder="Repeat password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }} className={fieldErrors.confirmPassword ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                <div className="relative">
+                  <Input type={showPassword ? "text" : "password"} placeholder="Repeat password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }} className={fieldErrors.confirmPassword ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 {fieldErrors.confirmPassword && <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>}
               </div>
             </div>

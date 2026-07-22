@@ -327,15 +327,15 @@ export default function PlatformAddons() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Monthly Price (£)</Label>
-              <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
+              <Input type="number" step="0.01" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Annual Price (£)</Label>
-              <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} />
+              <Input type="number" step="0.01" value={form.annual_price} onChange={(e) => setForm({ ...form, annual_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Sort Order</Label>
-              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
             </div>
             <div className="flex items-center gap-2 pt-5">
               <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
@@ -350,11 +350,11 @@ export default function PlatformAddons() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Bundle Size (units)</Label>
-              <Input type="number" min={1} value={form.usage_bundle_size} onChange={(e) => setForm({ ...form, usage_bundle_size: e.target.value })} placeholder="1000" />
+              <Input type="number" min={1} value={form.usage_bundle_size} onChange={(e) => setForm({ ...form, usage_bundle_size: e.target.value })} onFocus={(e) => e.currentTarget.select()} placeholder="1000" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Bundle Price (£)</Label>
-              <Input type="number" step="0.01" value={form.usage_bundle_price} onChange={(e) => setForm({ ...form, usage_bundle_price: e.target.value })} placeholder="10.00" />
+              <Input type="number" step="0.01" value={form.usage_bundle_price} onChange={(e) => setForm({ ...form, usage_bundle_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} placeholder="10.00" />
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label className="text-xs">Unit Label</Label>
@@ -493,15 +493,15 @@ export default function PlatformAddons() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Monthly £</Label>
-                  <Input type="number" step="0.01" value={planForm.monthly_price} onChange={e => setPlanForm({ ...planForm, monthly_price: e.target.value })} />
+                  <Input type="number" step="0.01" value={planForm.monthly_price} onChange={e => setPlanForm({ ...planForm, monthly_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Annual £</Label>
-                  <Input type="number" step="0.01" value={planForm.annual_price} onChange={e => setPlanForm({ ...planForm, annual_price: e.target.value })} />
+                  <Input type="number" step="0.01" value={planForm.annual_price} onChange={e => setPlanForm({ ...planForm, annual_price: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Max Users</Label>
-                  <Input type="number" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} />
+                  <Input type="number" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} onFocus={(e) => e.currentTarget.select()} />
                 </div>
               </div>
               {String(plan.id) !== FREE_PLAN_ID && (

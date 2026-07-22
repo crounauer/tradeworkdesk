@@ -11,9 +11,11 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const PLATFORM_FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
 
-/** Builds a per-tenant FROM address using the company name as the display name. */
+/** Builds a per-tenant FROM address using the company name as the display name.
+ * Prefers email_from_name if set (white-label), otherwise uses trading_name or name.
+ */
 function buildTenantFrom(company?: EmailCompanyDetails): string {
-  const name = company?.trading_name || company?.name;
+  const name = company?.email_from_name || company?.trading_name || company?.name;
   return name ? `${name} <${FROM_EMAIL}>` : PLATFORM_FROM;
 }
 
@@ -38,6 +40,9 @@ export interface EmailCompanyDetails {
   vat_number?: string | null;
   rates_url?: string | null;
   trading_terms_url?: string | null;
+  // White-label email branding
+  email_from_name?: string | null;
+  email_reply_to?: string | null;
 }
 
 function normalizeAdditionalRecipients(
@@ -147,18 +152,38 @@ function baseHtml(title: string, body: string, company?: EmailCompanyDetails): s
 </html>`;
 }
 
-async function send(to: string, subject: string, html: string): Promise<void> {
+async function send(
+  to: string,
+  subject: string,
+  html: string,
+  opts?: { from?: string; replyTo?: string },
+): Promise<void> {
   if (!resend) {
     console.warn(`[email] Resend not configured — would have sent "${subject}" to ${to}`);
     return;
   }
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+  const sendOpts: any = {
+    from: opts?.from || FROM,
+    to,
+    subject,
+    html,
+  };
+  if (opts?.replyTo) {
+    sendOpts.replyTo = opts.replyTo;
+  }
+  const { error } = await resend.emails.send(sendOpts);
   if (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
   }
 }
 
-export async function sendConfirmationEmail(to: string, contactName: string, companyName: string, confirmUrl: string): Promise<void> {
+export async function sendConfirmationEmail(
+  to: string,
+  contactName: string,
+  companyName: string,
+  confirmUrl: string,
+  company?: EmailCompanyDetails,
+): Promise<void> {
   const html = baseHtml("Confirm your TradeWorkDesk account", `
     <h2>Welcome to TradeWorkDesk, ${contactName}!</h2>
     <p>Your company account for <strong>${companyName}</strong> has been created. Please confirm your email address to activate your account and start your 30-day free trial.</p>
@@ -168,10 +193,17 @@ export async function sendConfirmationEmail(to: string, contactName: string, com
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">This link expires in 24 hours. If you didn't create a TradeWorkDesk account, you can safely ignore this email.</p>
   `);
-  await send(to, "TradeWorkDesk — Please confirm your email address", html);
+  const from = company ? buildTenantFrom(company) : FROM;
+  const replyTo = company?.email_reply_to || undefined;
+  await send(to, "TradeWorkDesk — Please confirm your email address", html, { from, replyTo });
 }
 
-export async function sendWelcomeEmail(to: string, companyName: string, trialEndsAt: string): Promise<void> {
+export async function sendWelcomeEmail(
+  to: string,
+  companyName: string,
+  trialEndsAt: string,
+  company?: EmailCompanyDetails,
+): Promise<void> {
   const trialDate = new Date(trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const html = baseHtml("Welcome to TradeWorkDesk", `
     <h2>Welcome to TradeWorkDesk, ${companyName}!</h2>
@@ -189,7 +221,9 @@ export async function sendWelcomeEmail(to: string, companyName: string, trialEnd
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">If you have any questions, reply to this email and we'll be happy to help.</p>
   `);
-  await send(to, "Welcome to TradeWorkDesk — your trial has started", html);
+  const from = company ? buildTenantFrom(company) : FROM;
+  const replyTo = company?.email_reply_to || undefined;
+  await send(to, "Welcome to TradeWorkDesk — your trial has started", html, { from, replyTo });
 }
 
 export async function sendBetaInviteCodeEmail(
@@ -231,7 +265,15 @@ export async function sendBetaInviteCodeEmail(
   await send(to, "TradeWorkDesk Beta Invite", html);
 }
 
-export async function sendInvoiceEmail(to: string, companyName: string, amount: number, currency: string, periodEnd: string, invoiceUrl: string): Promise<void> {
+export async function sendInvoiceEmail(
+  to: string,
+  companyName: string,
+  amount: number,
+  currency: string,
+  periodEnd: string,
+  invoiceUrl: string,
+  company?: EmailCompanyDetails,
+): Promise<void> {
   const date = new Date(periodEnd).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
   const html = baseHtml("Payment Received", `
@@ -246,10 +288,18 @@ export async function sendInvoiceEmail(to: string, companyName: string, amount: 
       <a href="${invoiceUrl}" class="btn">View Invoice</a>
     </p>
   `);
-  await send(to, `TradeWorkDesk — Payment received (${formatted})`, html);
+  const from = company ? buildTenantFrom(company) : FROM;
+  const replyTo = company?.email_reply_to || undefined;
+  await send(to, `TradeWorkDesk — Payment received (${formatted})`, html, { from, replyTo });
 }
 
-export async function sendTrialExpiryReminder(to: string, companyName: string, daysLeft: number, billingUrl: string): Promise<void> {
+export async function sendTrialExpiryReminder(
+  to: string,
+  companyName: string,
+  daysLeft: number,
+  billingUrl: string,
+  company?: EmailCompanyDetails,
+): Promise<void> {
   const urgency = daysLeft <= 1 ? "today" : `in ${daysLeft} days`;
   const html = baseHtml("Your trial is ending soon", `
     <h2>Your trial expires ${urgency}</h2>
@@ -263,10 +313,20 @@ export async function sendTrialExpiryReminder(to: string, companyName: string, d
       <a href="${billingUrl}" class="btn">Upgrade Now</a>
     </p>
   `);
-  await send(to, `TradeWorkDesk — Your trial expires ${urgency}`, html);
+  const from = company ? buildTenantFrom(company) : FROM;
+  const replyTo = company?.email_reply_to || undefined;
+  await send(to, `TradeWorkDesk — Your trial expires ${urgency}`, html, { from, replyTo });
 }
 
-export async function sendRenewalReminder(to: string, companyName: string, renewalDate: string, amount: number, currency: string, billingUrl: string): Promise<void> {
+export async function sendRenewalReminder(
+  to: string,
+  companyName: string,
+  renewalDate: string,
+  amount: number,
+  currency: string,
+  billingUrl: string,
+  company?: EmailCompanyDetails,
+): Promise<void> {
   const date = new Date(renewalDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const formatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase() }).format(amount / 100);
   const html = baseHtml("Upcoming renewal", `
@@ -282,7 +342,9 @@ export async function sendRenewalReminder(to: string, companyName: string, renew
       <a href="${billingUrl}" class="btn">Manage Billing</a>
     </p>
   `);
-  await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html);
+  const from = company ? buildTenantFrom(company) : FROM;
+  const replyTo = company?.email_reply_to || undefined;
+  await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html, { from, replyTo });
 }
 
 export async function sendLowCreditsAlert(
@@ -293,6 +355,7 @@ export async function sendLowCreditsAlert(
   bundleSize: number,
   unitLabel: string,
   billingUrl: string,
+  company?: EmailCompanyDetails,
 ): Promise<void> {
   const isEmpty = creditsRemaining === 0;
   const boxClass = isEmpty ? "danger-box" : "warning-box";
@@ -319,7 +382,10 @@ export async function sendLowCreditsAlert(
   const subject = isEmpty
     ? `TradeWorkDesk — ${addonName} credits exhausted`
     : `TradeWorkDesk — ${addonName} credits running low`;
-  await send(to, subject, html);
+  const from = company ? buildTenantFrom(company) : FROM;
+  const replyTo = company?.email_reply_to || undefined;
+
+  await send(to, subject, html, { from, replyTo });
 }
 
 function escHtml(str: string): string {

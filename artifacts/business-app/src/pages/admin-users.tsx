@@ -331,21 +331,21 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
 
       <Card className="overflow-hidden border-0 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-collapse" style={{ tableLayout: "auto", minWidth: "900px" }}>
             <thead>
               <tr className="border-b border-border bg-slate-50/70">
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Name</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Email</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Role</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Assignable</th>
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Shopping Lists</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[180px]">Name</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[200px]">Email</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[110px]">Role</th>
+                <th className="text-center px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[100px]">Assign<br />able</th>
+                <th className="text-center px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[100px]">Shop<br />ping</th>
                 {availableAddons && availableAddons.length > 0 && (
-                  <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">
+                  <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[120px]">
                     <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" />Add-ons</span>
                   </th>
                 )}
-                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground">Joined</th>
-                <th className="px-5 py-3.5" />
+                <th className="text-left px-5 py-3.5 font-semibold text-muted-foreground whitespace-nowrap min-w-[90px]">Joined</th>
+                <th className="px-5 py-3.5 min-w-[100px]" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -361,62 +361,64 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                 const addonPendingChange = hasAddonPendingChange(user.id);
                 return (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
                           {user.full_name?.charAt(0)?.toUpperCase() ?? "?"}
                         </div>
                         <div>
-                          <p className="font-semibold text-foreground">{user.full_name}</p>
+                          <p className="font-semibold text-foreground truncate max-w-[140px]">{user.full_name}</p>
                           {isMe && <p className="text-xs text-muted-foreground">You</p>}
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-muted-foreground">{user.email}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 text-muted-foreground truncate max-w-[200px]">
+                      {user.email}
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <select
                         value={pendingRole}
                         onChange={e => setPendingRoles(p => ({ ...p, [user.id]: e.target.value }))}
                         disabled={isMe}
-                        className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-background disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full"
                       >
                         <option value="admin">Admin</option>
                         <option value="office_staff">Office Staff</option>
                         <option value="technician">Technician</option>
                       </select>
                     </td>
-                    <td className="px-5 py-4">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <td className="px-5 py-4 text-center">
+                      <div className="flex justify-center">
                         <input
                           type="checkbox"
                           checked={pendingAssign}
                           onChange={e => setPendingAssignable(p => ({ ...p, [user.id]: e.target.checked }))}
-                          className="w-4 h-4 rounded border-border accent-primary"
+                          className="w-4 h-4 rounded border-border accent-primary shrink-0"
+                          title="Can be assigned jobs"
                         />
-                        <span className="text-xs text-muted-foreground">Can be assigned jobs</span>
-                      </label>
+                      </div>
                     </td>
-                    <td className="px-5 py-4">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <td className="px-5 py-4 text-center">
+                      <div className="flex justify-center">
                         <input
                           type="checkbox"
                           checked={pendingShopping}
                           onChange={e => setPendingShoppingCreate(p => ({ ...p, [user.id]: e.target.checked }))}
                           disabled={pendingRole !== "technician"}
-                          className="w-4 h-4 rounded border-border accent-primary disabled:opacity-50"
+                          className="w-4 h-4 rounded border-border accent-primary disabled:opacity-50 shrink-0"
+                          title="Create own shopping lists"
                         />
-                        <span className="text-xs text-muted-foreground">Technician self-create</span>
-                      </label>
+                      </div>
                     </td>
                     {availableAddons && availableAddons.length > 0 && (
                       <td className="px-5 py-4">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1">
                           {availableAddons.map(ta => {
                             if (!ta.addons) return null;
                             const addonId = ta.addon_id;
                             const checked = effectiveAddonIds.has(addonId);
                             return (
-                              <label key={addonId} className="flex items-center gap-1.5 cursor-pointer select-none">
+                              <label key={addonId} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                                 <input
                                   type="checkbox"
                                   checked={checked}
@@ -430,18 +432,18 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                                   }}
                                   className="w-4 h-4 rounded border-border accent-primary"
                                 />
-                                <span className="text-xs text-muted-foreground">{ta.addons.name}</span>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">{ta.addons.name}</span>
                               </label>
                             );
                           })}
                         </div>
                       </td>
                     )}
-                    <td className="px-5 py-4 text-muted-foreground text-xs">
+                    <td className="px-5 py-4 text-muted-foreground text-xs whitespace-nowrap">
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 justify-end">
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center gap-1.5 justify-end">
                         {hasPendingChange && (
                           <Button
                             size="sm"

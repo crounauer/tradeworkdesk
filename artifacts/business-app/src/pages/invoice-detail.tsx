@@ -552,12 +552,14 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               type="number" min="0" step="0.01"
               value={line.quantity}
               onChange={(e) => updateLine(idx, "quantity", parseFloat(e.target.value) || 0)}
+              onFocus={(e) => e.currentTarget.select()}
               className="h-8 text-sm" placeholder="Qty"
             />
             <Input
               type="number" min="0" step="0.01"
               value={line.unit_price}
               onChange={(e) => updateLine(idx, "unit_price", parseFloat(e.target.value) || 0)}
+              onFocus={(e) => e.currentTarget.select()}
               className="h-8 text-sm" placeholder="Unit price"
             />
             <p className="text-sm text-right font-medium">
@@ -1235,6 +1237,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 step="0.01"
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
                 className="mt-1"
               />
             </div>
@@ -1386,11 +1389,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <div className="flex items-end gap-3">
                 <div className="flex-1 space-y-1">
                   <p className="text-xs text-muted-foreground">Hours</p>
-                  <Input type="number" min="0" max="24" value={labourHours} onChange={e => setLabourHours(e.target.value)} className="h-9" />
+                  <Input type="number" min="0" max="24" value={labourHours} onChange={e => setLabourHours(e.target.value)} onFocus={(e) => e.currentTarget.select()} className="h-9" />
                 </div>
                 <div className="flex-1 space-y-1">
                   <p className="text-xs text-muted-foreground">Minutes</p>
-                  <Input type="number" min="0" max="59" step="15" value={labourMins} onChange={e => setLabourMins(e.target.value)} className="h-9" />
+                  <Input type="number" min="0" max="59" step="15" value={labourMins} onChange={e => setLabourMins(e.target.value)} onFocus={(e) => e.currentTarget.select()} className="h-9" />
                 </div>
               </div>
             </div>
