@@ -536,6 +536,49 @@ router.patch("/shopping-lists/:id", requireAuth, requireTenant, async (req: Auth
   res.json(data as ShoppingListRow);
 });
 
+router.delete("/shopping-lists/:id", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const listId = String(req.params.id || "");
+  if (!listId) {
+    res.status(400).json({ error: "Missing list id" });
+    return;
+  }
+
+  if (!isManager(req.userRole)) {
+    res.status(403).json({ error: "Only admins and office staff can delete shopping lists" });
+    return;
+  }
+
+  const list = await ensureListBelongsToTenant(listId, req.tenantId!);
+  if (!list) {
+    res.status(404).json({ error: "Shopping list not found" });
+    return;
+  }
+
+  const { error: itemsError } = await supabaseAdmin
+    .from("shopping_list_items")
+    .delete()
+    .eq("shopping_list_id", listId)
+    .eq("tenant_id", req.tenantId!);
+
+  if (itemsError) {
+    res.status(500).json({ error: itemsError.message });
+    return;
+  }
+
+  const { error: listError } = await supabaseAdmin
+    .from("shopping_lists")
+    .delete()
+    .eq("id", listId)
+    .eq("tenant_id", req.tenantId!);
+
+  if (listError) {
+    res.status(500).json({ error: listError.message });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 router.post("/shopping-lists/:id/items", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const listId = String(req.params.id || "");
   if (!listId) {

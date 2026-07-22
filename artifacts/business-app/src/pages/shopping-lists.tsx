@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Plus, ShoppingCart, Wand2 } from "lucide-react";
+import { Loader2, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
 interface ShoppingList {
   id: string;
@@ -65,21 +63,6 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return res.json() as Promise<T>;
-}
-
-function statusClass(status: ShoppingList["status"]): string {
-  if (status === "active") return "bg-blue-100 text-blue-700";
-  if (status === "partially_purchased") return "bg-amber-100 text-amber-700";
-  if (status === "complete") return "bg-green-100 text-green-700";
-  if (status === "archived") return "bg-slate-100 text-slate-600";
-  return "bg-slate-100 text-slate-700";
-}
-
-function itemStatusClass(status: ShoppingListItem["status"]): string {
-  if (status === "purchased") return "bg-green-100 text-green-700";
-  if (status === "ordered") return "bg-blue-100 text-blue-700";
-  if (status === "unavailable") return "bg-red-100 text-red-700";
-  return "bg-slate-100 text-slate-700";
 }
 
 export default function ShoppingListsPage() {
@@ -285,6 +268,19 @@ export default function ShoppingListsPage() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const deleteListMutation = useMutation({
+    mutationFn: (listId: string) => apiFetch<{ success: true }>(`/shopping-lists/${listId}`, {
+      method: "DELETE",
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shopping-lists"] });
+      qc.removeQueries({ queryKey: ["shopping-list", effectiveListId] });
+      setSelectedListId(null);
+      toast({ title: "Shopping list deleted" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   const updateTechToggleMutation = useMutation({
     mutationFn: (enabled: boolean) => apiFetch<CompanySettingsLite>("/admin/company-settings", {
       method: "PUT",
@@ -297,14 +293,9 @@ export default function ShoppingListsPage() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const totals = useMemo(() => {
-    if (!selectedList?.items) return { items: 0, estimate: 0 };
-    const estimate = selectedList.items.reduce((sum, item) => {
-      if (item.unit_estimate == null) return sum;
-      return sum + item.unit_estimate * Number(item.quantity || 0);
-    }, 0);
-    return { items: selectedList.items.length, estimate };
-  }, [selectedList]);
+  const totals = useMemo(() => ({
+    items: selectedList?.items?.length ?? 0,
+  }), [selectedList]);
 
   const scopeCounts = useMemo(() => {
     const counts = {
@@ -345,48 +336,15 @@ export default function ShoppingListsPage() {
     <div className="space-y-6 min-w-0">
       <div>
         <h1 className="text-2xl font-display font-bold flex items-center gap-2"><ShoppingCart className="w-6 h-6" />Shopping Lists</h1>
-        <p className="text-muted-foreground mt-1">Generate and manage purchasing lists from to-order job parts.</p>
+        <p className="text-muted-foreground mt-1">Create lists and tick items off as you buy them.</p>
       </div>
 
       <div className="grid gap-6 min-w-0 xl:grid-cols-[370px_minmax(0,1fr)]">
         <div className="space-y-6 min-w-0">
           <Card className="p-3 sm:p-4 space-y-3 min-w-0">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
               <h2 className="font-semibold">Lists</h2>
-              <select
-                className="h-10 sm:h-9 w-full sm:w-auto rounded border px-3 text-sm"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-              >
-                <option value="open">Open</option>
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="partially_purchased">Partially Purchased</option>
-                <option value="complete">Complete</option>
-                <option value="archived">Archived</option>
-              </select>
             </div>
-
-            {canManage && (
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {([
-                  ["all", `All (${scopeCounts.all})`],
-                  ["assigned_to_me", `Assigned to me (${scopeCounts.assigned_to_me})`],
-                  ["shared", `Shared (${scopeCounts.shared})`],
-                  ["unassigned", `Unassigned (${scopeCounts.unassigned})`],
-                ] as Array<[typeof scopeFilter, string]>).map(([value, label]) => (
-                  <Button
-                    key={value}
-                    size="sm"
-                    className="shrink-0 whitespace-nowrap h-10 sm:h-9 px-3"
-                    variant={scopeFilter === value ? "default" : "outline"}
-                    onClick={() => setScopeFilter(value)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
 
             {listsLoading ? (
               <div className="flex items-center text-sm text-muted-foreground"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading lists...</div>
@@ -401,14 +359,10 @@ export default function ShoppingListsPage() {
                     className={`w-full min-w-0 text-left rounded border p-2.5 sm:p-3 hover:bg-accent ${effectiveListId === list.id ? "border-primary" : ""}`}
                     onClick={() => setSelectedListId(list.id)}
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-sm break-words min-w-0">{list.title}</p>
-                      <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end">
-                        <Badge className={`${statusClass(list.status)} max-w-full`}>{list.status.replace("_", " ")}</Badge>
-                      </div>
+                      <p className="text-xs text-muted-foreground shrink-0">{new Date(list.updated_at).toLocaleDateString()}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 break-words">{assignmentLabel(list)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Updated {new Date(list.updated_at).toLocaleString()}</p>
                   </button>
                 ))}
               </div>
@@ -416,104 +370,13 @@ export default function ShoppingListsPage() {
           </Card>
 
           {canCreateLists && (
-            <>
-              {canConfigureTechUpdates && (
-                <Card className="p-4 space-y-3">
-                  <h2 className="font-semibold">Permissions</h2>
-                  <label className="flex items-center justify-between gap-3 text-sm">
-                    <span>Technicians can update item statuses</span>
-                    <Checkbox
-                      checked={techUpdatesEnabled}
-                      onCheckedChange={(checked) => updateTechToggleMutation.mutate(checked === true)}
-                      disabled={updateTechToggleMutation.isPending}
-                    />
-                  </label>
-                </Card>
-              )}
-
-              <Card className="p-4 space-y-3">
-                <h2 className="font-semibold">Create Empty List</h2>
-                <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Weekly merchants run" />
-                {canManage && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label>Assignment</Label>
-                      <select
-                        className="h-9 w-full rounded border px-2 text-sm"
-                        value={createAssignmentMode}
-                        onChange={(e) => setCreateAssignmentMode(e.target.value as typeof createAssignmentMode)}
-                      >
-                        <option value="unassigned">Unassigned</option>
-                        <option value="specific_technician">Specific technician</option>
-                        <option value="all_technicians">All technicians</option>
-                      </select>
-                    </div>
-                    {createAssignmentMode === "specific_technician" && (
-                      <select
-                        className="h-9 w-full rounded border px-2 text-sm"
-                        value={createAssignedTo}
-                        onChange={(e) => setCreateAssignedTo(e.target.value)}
-                      >
-                        <option value="">Select technician...</option>
-                        {technicians.map((tech) => (
-                          <option key={tech.id} value={tech.id}>{tech.full_name || tech.email || tech.id}</option>
-                        ))}
-                      </select>
-                    )}
-                  </>
-                )}
-                <Button className="w-full h-10" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
-                  {createListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Create List
-                </Button>
-              </Card>
-
-              <Card className="p-4 space-y-3">
-                <h2 className="font-semibold">Generate from Data</h2>
-                <div className="space-y-1.5">
-                  <Label>List title (optional)</Label>
-                  <Input value={generateTitle} onChange={(e) => setGenerateTitle(e.target.value)} placeholder="Parts to order this week" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Source</Label>
-                  <p className="text-sm text-muted-foreground">Uses job parts currently marked as to_order.</p>
-                </div>
-                {canManage && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label>Assignment</Label>
-                      <select
-                        className="h-9 w-full rounded border px-2 text-sm"
-                        value={generateAssignmentMode}
-                        onChange={(e) => setGenerateAssignmentMode(e.target.value as typeof generateAssignmentMode)}
-                      >
-                        <option value="unassigned">Unassigned</option>
-                        <option value="specific_technician">Specific technician</option>
-                        <option value="all_technicians">All technicians</option>
-                      </select>
-                    </div>
-                    {generateAssignmentMode === "specific_technician" && (
-                      <select
-                        className="h-9 w-full rounded border px-2 text-sm"
-                        value={generateAssignedTo}
-                        onChange={(e) => setGenerateAssignedTo(e.target.value)}
-                      >
-                        <option value="">Select technician...</option>
-                        {technicians.map((tech) => (
-                          <option key={tech.id} value={tech.id}>{tech.full_name || tech.email || tech.id}</option>
-                        ))}
-                      </select>
-                    )}
-                  </>
-                )}
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={includeToOrderParts} onCheckedChange={(v) => setIncludeToOrderParts(v === true)} />
-                  Include job parts marked to_order
-                </label>
-                <Button className="w-full h-10" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
-                  {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}Generate List
-                </Button>
-              </Card>
-            </>
+            <Card className="p-4 space-y-3">
+              <h2 className="font-semibold">Create New List</h2>
+              <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Weekly merchants run" />
+              <Button className="w-full h-10" onClick={() => createListMutation.mutate()} disabled={createListMutation.isPending}>
+                {createListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}Create List
+              </Button>
+            </Card>
           )}
         </div>
 
@@ -527,78 +390,26 @@ export default function ShoppingListsPage() {
               <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold break-words">{selectedList.title}</h2>
-                  <p className="text-sm text-muted-foreground break-words">{totals.items} items • Estimated total £{totals.estimate.toFixed(2)}</p>
+                  <p className="text-sm text-muted-foreground break-words">{totals.items} item{totals.items === 1 ? "" : "s"}</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className={statusClass(selectedList.status)}>{selectedList.status.replace("_", " ")}</Badge>
-                  <Badge variant="outline">{assignmentLabel(selectedList)}</Badge>
+                <div className="flex items-center gap-2">
                   {canManage && (
-                    <>
-                      <Button
-                        size="sm"
-                        className="h-10 sm:h-9"
-                        variant="outline"
-                        disabled={updateListStatusMutation.isPending || selectedList.status === "active"}
-                        onClick={() => updateListStatusMutation.mutate("active")}
-                      >
-                        Set Active
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-10 sm:h-9"
-                        variant="outline"
-                        disabled={updateListStatusMutation.isPending || selectedList.status === "complete"}
-                        onClick={() => updateListStatusMutation.mutate("complete")}
-                      >
-                        Mark Complete
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-10 sm:h-9"
-                        variant="outline"
-                        disabled={updateListStatusMutation.isPending || selectedList.status === "archived"}
-                        onClick={() => updateListStatusMutation.mutate("archived")}
-                      >
-                        Archive
-                      </Button>
-                    </>
+                    <Button
+                      size="sm"
+                      className="h-10 sm:h-9"
+                      variant="destructive"
+                      disabled={deleteListMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm("Delete this shopping list and all of its items?")) {
+                          deleteListMutation.mutate(selectedList.id);
+                        }
+                      }}
+                    >
+                      {deleteListMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}Delete
+                    </Button>
                   )}
                 </div>
               </div>
-
-              {canManage && (
-                <div className="rounded border p-3 space-y-2">
-                  <p className="text-sm font-medium">Assignment</p>
-                  <div className="grid gap-2 md:grid-cols-[220px_minmax(0,1fr)_auto]">
-                    <select
-                      className="h-9 rounded border px-2 text-sm"
-                      value={editAssignmentMode}
-                      onChange={(e) => setEditAssignmentMode(e.target.value as typeof editAssignmentMode)}
-                    >
-                      <option value="unassigned">Unassigned</option>
-                      <option value="specific_technician">Specific technician</option>
-                      <option value="all_technicians">All technicians</option>
-                    </select>
-                    {editAssignmentMode === "specific_technician" ? (
-                      <select
-                        className="h-9 rounded border px-2 text-sm"
-                        value={editAssignedTo}
-                        onChange={(e) => setEditAssignedTo(e.target.value)}
-                      >
-                        <option value="">Select technician...</option>
-                        {technicians.map((tech) => (
-                          <option key={tech.id} value={tech.id}>{tech.full_name || tech.email || tech.id}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="h-9 rounded border px-2 text-sm flex items-center text-muted-foreground">No individual technician selected</div>
-                    )}
-                    <Button size="sm" className="w-full md:w-auto h-10 sm:h-9" onClick={() => updateAssignmentMutation.mutate()} disabled={updateAssignmentMutation.isPending}>
-                      Save Assignment
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               <div className="rounded border overflow-hidden">
                 <div className="sm:hidden divide-y">
@@ -606,34 +417,20 @@ export default function ShoppingListsPage() {
                     <div className="px-3 py-4 text-sm text-muted-foreground">No items yet.</div>
                   ) : selectedList.items.map((item) => (
                     <div key={item.id} className="p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-medium break-words">{item.item_name}</p>
-                          {item.notes && <p className="text-xs text-muted-foreground mt-0.5 break-words">{item.notes}</p>}
+                          <p className="text-xs text-muted-foreground">Qty {Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</p>
                         </div>
-                        <Badge variant="outline" className="shrink-0">Qty {Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</Badge>
+                        <label className="flex items-center gap-2 text-sm shrink-0">
+                          <Checkbox
+                            checked={item.status === "purchased"}
+                            disabled={isTechnician && !techUpdatesEnabled}
+                            onCheckedChange={(checked) => updateItemMutation.mutate({ itemId: item.id, status: checked === true ? "purchased" : "needed" })}
+                          />
+                          <span>{item.status === "purchased" ? "Done" : "Need"}</span>
+                        </label>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="rounded border px-2 py-1.5">
-                          <p className="text-muted-foreground">Unit</p>
-                          <p className="font-medium">{item.unit_estimate == null ? "-" : `£${Number(item.unit_estimate).toFixed(2)}`}</p>
-                        </div>
-                        <div className="rounded border px-2 py-1.5">
-                          <p className="text-muted-foreground">Source</p>
-                          <p className="font-medium break-words">{item.source_ref || item.source_type}</p>
-                        </div>
-                      </div>
-                      <select
-                        className={`h-10 w-full rounded border px-3 text-sm ${itemStatusClass(item.status)}`}
-                        value={item.status}
-                        disabled={isTechnician && !techUpdatesEnabled}
-                        onChange={(e) => updateItemMutation.mutate({ itemId: item.id, status: e.target.value as ShoppingListItem["status"] })}
-                      >
-                        <option value="needed">Needed</option>
-                        <option value="ordered">Ordered</option>
-                        <option value="purchased">Purchased</option>
-                        <option value="unavailable">Unavailable</option>
-                      </select>
                     </div>
                   ))}
                 </div>
@@ -644,36 +441,28 @@ export default function ShoppingListsPage() {
                       <tr>
                         <th className="text-left px-3 py-2">Item</th>
                         <th className="text-left px-3 py-2">Qty</th>
-                        <th className="text-left px-3 py-2">Unit</th>
-                        <th className="text-left px-3 py-2">Status</th>
-                        <th className="text-left px-3 py-2">Source</th>
+                        <th className="text-left px-3 py-2">Done</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedList.items.length === 0 ? (
-                        <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">No items yet.</td></tr>
+                        <tr><td colSpan={3} className="px-3 py-4 text-muted-foreground">No items yet.</td></tr>
                       ) : selectedList.items.map((item) => (
                         <tr key={item.id} className="border-b last:border-0">
                           <td className="px-3 py-2">
                             <p className="font-medium">{item.item_name}</p>
-                            {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
                           </td>
                           <td className="px-3 py-2">{Number(item.quantity).toFixed(3).replace(/\.000$/, "")}</td>
-                          <td className="px-3 py-2">{item.unit_estimate == null ? "-" : `£${Number(item.unit_estimate).toFixed(2)}`}</td>
                           <td className="px-3 py-2">
-                            <select
-                              className={`h-8 rounded border px-2 text-xs ${itemStatusClass(item.status)}`}
-                              value={item.status}
-                              disabled={isTechnician && !techUpdatesEnabled}
-                              onChange={(e) => updateItemMutation.mutate({ itemId: item.id, status: e.target.value as ShoppingListItem["status"] })}
-                            >
-                              <option value="needed">Needed</option>
-                              <option value="ordered">Ordered</option>
-                              <option value="purchased">Purchased</option>
-                              <option value="unavailable">Unavailable</option>
-                            </select>
+                            <label className="flex items-center gap-2 text-xs">
+                              <Checkbox
+                                checked={item.status === "purchased"}
+                                disabled={isTechnician && !techUpdatesEnabled}
+                                onCheckedChange={(checked) => updateItemMutation.mutate({ itemId: item.id, status: checked === true ? "purchased" : "needed" })}
+                              />
+                              <span>{item.status === "purchased" ? "Done" : "Need"}</span>
+                            </label>
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{item.source_ref || item.source_type}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -683,23 +472,15 @@ export default function ShoppingListsPage() {
 
               {canCreateLists && (
                 <div className="border-t pt-4 space-y-3">
-                  <h3 className="font-medium">Add Manual Item</h3>
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <h3 className="font-medium">Add Item</h3>
+                  <div className="grid gap-3 md:grid-cols-[1fr_120px]">
                     <div className="space-y-1.5">
                       <Label>Item name</Label>
                       <Input value={manualItemName} onChange={(e) => setManualItemName(e.target.value)} placeholder="28mm copper fittings" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Quantity</Label>
+                      <Label>Qty</Label>
                       <Input value={manualItemQty} onChange={(e) => setManualItemQty(e.target.value)} placeholder="1" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Unit estimate (optional)</Label>
-                      <Input value={manualItemEstimate} onChange={(e) => setManualItemEstimate(e.target.value)} placeholder="0.00" />
-                    </div>
-                    <div className="space-y-1.5 md:col-span-2">
-                      <Label>Notes (optional)</Label>
-                      <Input value={manualItemNotes} onChange={(e) => setManualItemNotes(e.target.value)} placeholder="Preferred supplier: City Plumbing" />
                     </div>
                   </div>
                   <Button className="h-10" onClick={() => addManualItemMutation.mutate()} disabled={addManualItemMutation.isPending || !manualItemName.trim()}>
