@@ -246,12 +246,17 @@ function compactUrlForPost(raw: string): string {
   }
 }
 
+function getCanonicalPostLink(post: SocialPost): string {
+  const raw = String(post.link_url || post.final_link_url || post.website_page_url || "").trim();
+  return compactUrlForPost(raw);
+}
+
 function composeXText(post: SocialPost): string {
   const segments: string[] = [];
   const base = String(post.content || "").trim();
   if (base) segments.push(base);
 
-  const link = compactUrlForPost(String(post.link_url || post.final_link_url || ""));
+  const link = getCanonicalPostLink(post);
   if (link && !base.includes(link)) {
     segments.push(link);
   }
@@ -516,7 +521,7 @@ async function postToFacebook(
   if (post.image_url) {
     const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
     validateImageUrl(publishImageUrl);
-    const captionUrl = compactUrlForPost(String(post.link_url || post.final_link_url || ""));
+    const captionUrl = getCanonicalPostLink(post);
 
     const photoBody: Record<string, string> = {
       url: publishImageUrl,
@@ -551,9 +556,12 @@ async function postToFacebook(
     message: post.content,
     access_token: accessToken,
   };
-  const feedLink = compactUrlForPost(String(post.link_url || post.final_link_url || ""));
+  const feedLink = getCanonicalPostLink(post);
   if (feedLink) {
     body.link = feedLink;
+    if (!body.message.includes(feedLink)) {
+      body.message = `${body.message}\n\n${feedLink}`;
+    }
   }
 
   const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
