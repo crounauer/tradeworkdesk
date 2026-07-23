@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
+import multer from "multer";
 import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
@@ -31,6 +32,7 @@ const X_STATE_TTL_MS = 10 * 60 * 1000;
 const GOOGLE_BUSINESS_STATE_TTL_MS = 10 * 60 * 1000;
 const INSTAGRAM_STATE_TTL_MS = 10 * 60 * 1000;
 const AI_HELPER_FEATURE = "ai_blog_writing";
+const socialImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 const FACEBOOK_OAUTH_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
@@ -2585,6 +2587,57 @@ router.post(
       console.error("[social] Image generation error:", message);
       res.status(500).json({ error: "Failed to generate image" });
     }
+  },
+);
+
+router.post(
+  "/admin/social/upload-image",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  socialImageUpload.single("image"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "image file is required" });
+      return;
+    }
+
+    if (!file.mimetype.startsWith("image/")) {
+      res.status(400).json({ error: "Only image uploads are supported" });
+      return;
+    }
+
+    const fileExt = file.mimetype.includes("png")
+      ? "png"
+      : file.mimetype.includes("webp")
+        ? "webp"
+        : "jpg";
+
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    const scopePrefix = isPlatformScope ? "platform" : String(tenantId || "tenant");
+    const storagePath = `social-images/${scopePrefix}/${crypto.randomUUID()}.${fileExt}`;
+
+    const { error } = await supabaseAdmin.storage
+      .from("service-photos")
+      .upload(storagePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("[social] upload-image error:", error.message);
+      res.status(500).json({ error: "Failed to upload image" });
+      return;
+    }
+
+    const { data: publicData } = supabaseAdmin.storage
+      .from("service-photos")
+      .getPublicUrl(storagePath);
+
+    res.json({ url: publicData.publicUrl });
   },
 );
 

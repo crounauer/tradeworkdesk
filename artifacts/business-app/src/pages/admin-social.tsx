@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,6 +45,7 @@ import {
   RefreshCw,
   ArrowRight,
   Pencil,
+  Upload,
 } from "lucide-react";
 
 const PLATFORMS = [
@@ -346,9 +347,12 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   const [generatingImage, setGeneratingImage] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [aiHelperPrompt, setAiHelperPrompt] = useState("");
+  const [aiHelperIncludeImage, setAiHelperIncludeImage] = useState(true);
   const [generatingAiHelper, setGeneratingAiHelper] = useState(false);
   const [aiHelperProgress, setAiHelperProgress] = useState(0);
   const [imageProgress, setImageProgress] = useState(0);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageUploadRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -465,6 +469,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     setScheduledDate("");
     setScheduledTime("");
     setImagePrompt("");
+    setAiHelperIncludeImage(true);
   };
 
   const togglePlatform = (value: string) => {
@@ -510,7 +515,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
         method: "POST",
         body: JSON.stringify({
           prompt,
-          includeImage: true,
+          includeImage: aiHelperIncludeImage,
         }),
       });
 
@@ -521,11 +526,52 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
         setSelectedPlatforms(new Set(result.platforms));
       }
 
-      toast({ title: "AI Helper ready", description: "Content and image generated for your connected channels." });
+      toast({
+        title: "AI Helper ready",
+        description: aiHelperIncludeImage
+          ? "Content and image generated for your connected channels."
+          : "Content generated for your connected channels.",
+      });
     } catch (err) {
       toast({ title: "AI Helper failed", description: (err as Error).message, variant: "destructive" });
     } finally {
       setGeneratingAiHelper(false);
+    }
+  };
+
+  const handleUploadImage = async (file?: File | null) => {
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/admin/social/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || "Image upload failed");
+      }
+
+      const json = await res.json() as { url?: string };
+      if (!json.url) throw new Error("Upload did not return a URL");
+
+      setImageUrl(json.url);
+      toast({ title: "Image uploaded" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: getErrorMessage(err), variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+      if (imageUploadRef.current) imageUploadRef.current.value = "";
     }
   };
 
@@ -641,9 +687,17 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               placeholder="Describe the post campaign, offer, or message to promote..."
               disabled={!socialContext?.aiHelper?.enabled || generatingAiHelper}
             />
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 px-2.5 py-2">
+              <p className="text-xs text-muted-foreground">Also generate an image</p>
+              <Switch
+                checked={aiHelperIncludeImage}
+                onCheckedChange={setAiHelperIncludeImage}
+                disabled={!socialContext?.aiHelper?.enabled || generatingAiHelper}
+              />
+            </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                Generates post copy for connected channels and creates an image.
+                Generates post copy and{aiHelperIncludeImage ? " also creates an image" : " skips image generation"} for connected channels.
               </p>
               <Button
                 variant="outline"
@@ -662,7 +716,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               <div className="space-y-1.5 rounded-md border bg-muted/30 p-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  AI Helper is generating content and image...
+                  {aiHelperIncludeImage ? "AI Helper is generating content and image..." : "AI Helper is generating content..."}
                 </div>
                 <Progress value={aiHelperProgress} className="h-1.5" />
               </div>
@@ -691,7 +745,24 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               >
                 {generatingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
               </Button>
+              <input
+                ref={imageUploadRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { void handleUploadImage(e.target.files?.[0] || null); }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => imageUploadRef.current?.click()}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">You can paste an image URL, generate with AI, or upload your own image.</p>
             {generatingImage && (
               <div className="space-y-1.5 mt-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
