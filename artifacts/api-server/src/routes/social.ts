@@ -2641,6 +2641,59 @@ router.post(
   },
 );
 
+router.get(
+  "/admin/social/preview-image-url",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const rawUrl = String(req.query.url || "").trim();
+    if (!rawUrl) {
+      res.status(400).json({ error: "url is required" });
+      return;
+    }
+
+    try {
+      const parsed = new URL(rawUrl);
+      const marker = "/storage/v1/object/public/";
+      const idx = parsed.pathname.indexOf(marker);
+
+      if (idx === -1) {
+        res.json({ url: rawUrl });
+        return;
+      }
+
+      const storagePath = parsed.pathname.slice(idx + marker.length);
+      const firstSlash = storagePath.indexOf("/");
+      if (firstSlash === -1) {
+        res.json({ url: rawUrl });
+        return;
+      }
+
+      const bucket = decodeURIComponent(storagePath.slice(0, firstSlash));
+      const objectPath = decodeURIComponent(storagePath.slice(firstSlash + 1));
+      if (!bucket || !objectPath) {
+        res.json({ url: rawUrl });
+        return;
+      }
+
+      const { data, error } = await supabaseAdmin.storage
+        .from(bucket)
+        .createSignedUrl(objectPath, 60 * 60);
+
+      if (error || !data?.signedUrl) {
+        res.json({ url: rawUrl });
+        return;
+      }
+
+      res.json({ url: data.signedUrl });
+    } catch {
+      res.json({ url: rawUrl });
+    }
+  },
+);
+
 router.patch(
   "/admin/social/posts/:id/dismiss",
   requireAuth,

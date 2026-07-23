@@ -352,6 +352,9 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   const [aiHelperProgress, setAiHelperProgress] = useState(0);
   const [imageProgress, setImageProgress] = useState(0);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
+  const [previewFallbackTried, setPreviewFallbackTried] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const imageUploadRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
@@ -388,6 +391,12 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
 
     return () => window.clearInterval(id);
   }, [generatingImage]);
+
+  useEffect(() => {
+    setPreviewImageUrl(imageUrl);
+    setPreviewFallbackTried(false);
+    setPreviewFailed(false);
+  }, [imageUrl]);
 
   const { data: socialContext } = useQuery<SocialContextResponse>({
     queryKey: ["social-context"],
@@ -588,6 +597,26 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     }
   };
 
+  const resolvePreviewFallback = async () => {
+    if (!imageUrl || previewFallbackTried) {
+      setPreviewFailed(true);
+      return;
+    }
+
+    setPreviewFallbackTried(true);
+    try {
+      const result = await apiFetch(`/admin/social/preview-image-url?url=${encodeURIComponent(imageUrl)}`);
+      const fallbackUrl = String(result?.url || "").trim();
+      if (fallbackUrl && fallbackUrl !== previewImageUrl) {
+        setPreviewImageUrl(fallbackUrl);
+        return;
+      }
+      setPreviewFailed(true);
+    } catch {
+      setPreviewFailed(true);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) resetForm(); }}>
       <DialogTrigger asChild>
@@ -766,12 +795,17 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
             {imageUrl && (
               <div className="mt-3 rounded-md border p-2 bg-muted/20">
                 <p className="text-xs text-muted-foreground mb-2">Image preview</p>
-                <img
-                  src={imageUrl}
-                  alt="Social post preview"
-                  className="w-full max-h-64 object-contain rounded-md bg-background"
-                  loading="lazy"
-                />
+                {!previewFailed ? (
+                  <img
+                    src={previewImageUrl || imageUrl}
+                    alt="Social post preview"
+                    className="w-full max-h-64 object-contain rounded-md bg-background"
+                    loading="lazy"
+                    onError={() => { void resolvePreviewFallback(); }}
+                  />
+                ) : (
+                  <p className="text-xs text-amber-700">Preview unavailable for this URL, but the image URL is still saved.</p>
+                )}
               </div>
             )}
             {generatingImage && (
