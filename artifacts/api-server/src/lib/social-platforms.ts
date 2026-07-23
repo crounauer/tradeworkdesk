@@ -1,4 +1,5 @@
 import { decryptCredentials } from "./social-crypto";
+import { supabaseAdmin } from "./supabase";
 
 export interface SocialPost {
   id: string;
@@ -102,6 +103,41 @@ function validateImageUrl(url: string): void {
   }
 }
 
+async function resolveImageUrlForPublishing(rawUrl: string): Promise<string> {
+  const trimmed = String(rawUrl || "").trim();
+  if (!trimmed) return trimmed;
+
+  try {
+    const parsed = new URL(trimmed);
+    const markers = [
+      "/storage/v1/object/public/",
+      "/storage/v1/object/sign/",
+      "/storage/v1/object/authenticated/",
+    ];
+
+    const marker = markers.find((m) => parsed.pathname.includes(m));
+    if (!marker) return trimmed;
+
+    const idx = parsed.pathname.indexOf(marker);
+    const storagePath = parsed.pathname.slice(idx + marker.length);
+    const firstSlash = storagePath.indexOf("/");
+    if (firstSlash === -1) return trimmed;
+
+    const bucket = decodeURIComponent(storagePath.slice(0, firstSlash));
+    const objectPath = decodeURIComponent(storagePath.slice(firstSlash + 1));
+    if (!bucket || !objectPath) return trimmed;
+
+    const { data, error } = await supabaseAdmin.storage
+      .from(bucket)
+      .createSignedUrl(objectPath, 60 * 60);
+
+    if (error || !data?.signedUrl) return trimmed;
+    return data.signedUrl;
+  } catch {
+    return trimmed;
+  }
+}
+
 async function postToX(
   post: SocialPost,
   credentials: Record<string, string>,
@@ -196,8 +232,9 @@ async function postToX(
 
   if (post.image_url) {
     try {
-      validateImageUrl(post.image_url);
-      const imgRes = await fetch(post.image_url);
+      const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
+      validateImageUrl(publishImageUrl);
+      const imgRes = await fetch(publishImageUrl);
       if (imgRes.ok) {
         const buffer = Buffer.from(await imgRes.arrayBuffer());
         mediaId = await client.v1.uploadMedia(buffer, { mimeType: "image/png" });
@@ -233,10 +270,11 @@ async function postToFacebook(
   }
 
   if (post.image_url) {
-    validateImageUrl(post.image_url);
+    const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
+    validateImageUrl(publishImageUrl);
 
     const photoBody: Record<string, string> = {
-      url: post.image_url,
+      url: publishImageUrl,
       access_token: accessToken,
       caption: post.content,
     };
@@ -302,13 +340,15 @@ async function postToInstagram(
     throw new Error("Instagram posts require an image_url");
   }
 
+  const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
+
   const containerRes = await fetch(
     `https://graph.facebook.com/v19.0/${igId}/media`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        image_url: post.image_url,
+        image_url: publishImageUrl,
         caption: post.content,
         access_token: accessToken,
       }),
@@ -401,8 +441,9 @@ async function postToGoogleBusiness(
   }
 
   if (post.image_url) {
-    validateImageUrl(post.image_url);
-    postBody.media = [{ mediaFormat: "PHOTO", sourceUrl: post.image_url }];
+    const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
+    validateImageUrl(publishImageUrl);
+    postBody.media = [{ mediaFormat: "PHOTO", sourceUrl: publishImageUrl }];
   }
 
   const apiRes = await fetch(
