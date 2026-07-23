@@ -143,6 +143,7 @@ export interface MarkPaidInput {
   payment_date?: string;
   payment_method?: string;
   payment_reference?: string;
+  send_receipt?: boolean;
 }
 
 // ─── Query Keys ───────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { getAddonDisplayName } from "@/lib/addon-display";
 import { Plus, Pencil, X, Save, Trash2, Package, Settings, Check } from "lucide-react";
 
 interface Addon {
@@ -642,7 +643,7 @@ export default function PlatformAddons() {
                 <CardHeader className="pb-2 flex flex-row items-start justify-between">
                   <div>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Package className="w-4 h-4" />{addon.name}
+                      <Package className="w-4 h-4" />{getAddonDisplayName(addon.name, addon.feature_keys)}
                     </CardTitle>
                     {addon.description && <p className="text-xs text-muted-foreground mt-1">{addon.description}</p>}
                   </div>

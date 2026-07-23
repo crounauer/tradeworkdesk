@@ -30,6 +30,8 @@ type PortalMeta = {
   stripe_connect_enabled?: boolean;
   stripe_payments_enabled?: boolean;
   gocardless_payments_enabled?: boolean;
+  default_payment_terms_days?: number | null;
+  quote_validity_days?: number | null;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -83,6 +85,8 @@ export default function PortalInvoices() {
         stripe_connect_enabled: !!d.stripe_connect_enabled,
         stripe_payments_enabled: d.stripe_payments_enabled !== false,
         gocardless_payments_enabled: d.gocardless_payments_enabled !== false,
+        default_payment_terms_days: d.default_payment_terms_days ?? null,
+        quote_validity_days: d.quote_validity_days ?? null,
       };
     },
     enabled: !!session,
@@ -197,7 +201,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} stripeConnectEnabled={meta?.stripe_connect_enabled && meta?.stripe_payments_enabled} onStripeCheckout={(id) => checkoutMutation.mutate(id)} stripeCheckoutLoading={checkoutMutation.isPending ? checkoutMutation.variables : null} gocardlessEnabled={meta?.gocardless_payments_enabled} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} stripeConnectEnabled={meta?.stripe_connect_enabled && meta?.stripe_payments_enabled} onStripeCheckout={(id) => checkoutMutation.mutate(id)} stripeCheckoutLoading={checkoutMutation.isPending ? checkoutMutation.variables : null} gocardlessEnabled={meta?.gocardless_payments_enabled} onPreview={viewPdf} previewing={previewing} paymentTermsDays={meta?.default_payment_terms_days ?? null} quoteValidityDays={meta?.quote_validity_days ?? null} />
                   ))}
                 </div>
               </section>
@@ -209,7 +213,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} onPreview={viewPdf} previewing={previewing} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} onPreview={viewPdf} previewing={previewing} paymentTermsDays={meta?.default_payment_terms_days ?? null} quoteValidityDays={meta?.quote_validity_days ?? null} />
                   ))}
                 </div>
               </section>
@@ -246,6 +250,8 @@ function InvoiceRow({
   quoteActioning,
   onPreview,
   previewing,
+  paymentTermsDays,
+  quoteValidityDays,
 }: {
   inv: PortalInvoice;
   downloading: string | null;
@@ -259,11 +265,22 @@ function InvoiceRow({
   quoteActioning?: string | null;
   onPreview: (inv: PortalInvoice) => void;
   previewing: string | null;
+  paymentTermsDays?: number | null;
+  quoteValidityDays?: number | null;
 }) {
   const statusCfg = STATUS_CONFIG[inv.status] || { label: inv.status, className: "bg-slate-100 text-slate-600" };
+  const terms = Number(paymentTermsDays || 0) > 0 ? `Net ${Number(paymentTermsDays)} days` : null;
+  const quoteValidity = Number(quoteValidityDays || 0) > 0 ? `${Number(quoteValidityDays)} day validity` : null;
   const dateLabel = inv.type === "invoice"
-    ? inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`
-    : inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`;
+    ? [
+        terms,
+        inv.due_date ? `Due ${formatDate(inv.due_date)}` : `Issued ${formatDate(inv.issue_date)}`,
+      ].filter(Boolean).join(" · ")
+    : [
+        inv.expiry_date ? `Valid until ${formatDate(inv.expiry_date)}` : `Issued ${formatDate(inv.issue_date)}`,
+        terms,
+        quoteValidity,
+      ].filter(Boolean).join(" · ");
 
   const isPayable = inv.type === "invoice" && (inv.status === "sent" || inv.status === "overdue");
   const isStripeLoading = stripeCheckoutLoading === inv.id;

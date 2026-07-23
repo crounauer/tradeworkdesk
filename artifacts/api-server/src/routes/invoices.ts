@@ -3,7 +3,7 @@ import { requireAuth, requireRole, requireTenant, requirePlanFeature, type Authe
 import { requireTenantInvoicing, bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
 import { supabaseAdmin } from "../lib/supabase";
 import { generateInvoicePdf, type InvoicePdfData } from "../lib/invoice-pdf";
-import { sendInvoiceDocumentEmail } from "../lib/invoice-email";
+import { sendInvoiceDocumentEmail, sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { buildInvoiceData } from "./jobs";
 import { requireStripe } from "../lib/stripe";
 import { gcRequest, GC_API_BASE } from "./gocardless";
@@ -94,6 +94,21 @@ function normalizeManualPaymentMethod(method?: string | null): string | null {
   return null;
 }
 
+function normalizePositiveInt(value: unknown): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n);
+  return rounded > 0 ? rounded : null;
+}
+
+function resolveDateFromIssue(issueDate: string | null | undefined, dayOffset: number | null): string | null {
+  if (!issueDate || !dayOffset || dayOffset <= 0) return null;
+  const base = new Date(issueDate);
+  if (isNaN(base.getTime())) return null;
+  base.setDate(base.getDate() + dayOffset);
+  return base.toISOString().slice(0, 10);
+}
+
 function buildLineKey(line: { description: string; quantity: number; unit_price: number }): string {
   return [
     line.description.trim().toLowerCase(),
@@ -144,6 +159,14 @@ async function buildPdfData(
     ? `${customer.first_name} ${customer.last_name}`.trim()
     : "Unknown Customer";
   const isQuote = (invoice.type as string) === "quote";
+  const paymentTermsDays = normalizePositiveInt(settings?.default_payment_terms_days);
+  const quoteValidityDays = normalizePositiveInt(settings?.quote_validity_days) ?? 30;
+  const resolvedDueDate = !isQuote
+    ? resolveDateFromIssue(invoice.issue_date as string | null, paymentTermsDays)
+    : (invoice.due_date as string | null);
+  const resolvedExpiryDate = isQuote
+    ? (resolveDateFromIssue(invoice.issue_date as string | null, quoteValidityDays) || (invoice.expiry_date as string | null))
+    : (invoice.expiry_date as string | null);
   const invoiceFooterText = (settings?.invoice_footer_text as string | null) || null;
   const quoteFooterText = (settings?.quote_footer_text as string | null) || null;
   const invoiceAdditionalText = (settings?.invoice_additional_text as string | null) || null;
@@ -180,8 +203,10 @@ async function buildPdfData(
     type: invoice.type as "invoice" | "quote",
     invoice_number: invoice.invoice_number as string,
     issue_date: invoice.issue_date as string,
-    due_date: invoice.due_date as string | null,
-    expiry_date: invoice.expiry_date as string | null,
+    due_date: resolvedDueDate,
+    expiry_date: resolvedExpiryDate,
+    payment_terms_days: paymentTermsDays,
+    quote_validity_days: quoteValidityDays,
     currency: (invoice.currency as string) || settings?.currency || "GBP",
     // Company
     company_name: settings?.name,
@@ -233,6 +258,61 @@ async function buildPdfData(
     customer_notes: invoice.customer_notes as string | null,
   };
 }
+
+function manualPaymentMethodLabel(method?: string | null): string {
+  const raw = String(method || "").toLowerCase();
+  if (raw === "cash") return "Cash";
+  if (raw === "bacs") return "BACS";
+  if (raw === "bank_transfer") return "Bank Transfer";
+  if (raw === "cc") return "Card";
+  return "Manual payment";
+}
+
+async function sendManualPaymentReceipt(opts: {
+  tenantId: string;
+  invoice: Record<string, unknown>;
+  paidAmount: number;
+  paymentMethod?: string | null;
+}): Promise<void> {
+  const invoiceId = String(opts.invoice.id || "");
+  if (!invoiceId) return;
+
+  try {
+    const { data: lineItems } = await supabaseAdmin
+      .from("invoice_line_items")
+      .select("*")
+      .eq("invoice_id", invoiceId)
+      .eq("tenant_id", opts.tenantId)
+      .order("sort_order");
+
+    const pdfData = await buildPdfData(opts.invoice, (lineItems || []) as Record<string, unknown>[], opts.tenantId);
+    if (!pdfData.customer_email) return;
+
+    const pdfBuffer = generateInvoicePdf(pdfData);
+    const settings = await getCompanySettings(opts.tenantId);
+
+    await sendPaymentReceiptEmail({
+      to: pdfData.customer_email,
+      invoiceNumber: String(pdfData.invoice_number || ""),
+      customerName: String(pdfData.customer_name || "Customer"),
+      paidAmount: Number(opts.paidAmount),
+      currency: String(pdfData.currency || "GBP").toUpperCase(),
+      paymentMethod: manualPaymentMethodLabel(opts.paymentMethod),
+      pdfBuffer,
+      company: settings ? {
+        name: settings.name as string | null,
+        trading_name: settings.trading_name as string | null,
+        email: settings.email as string | null,
+        notification_emails: settings.notification_emails as string[] | null,
+        logo_url: settings.logo_url as string | null,
+        rates_url: settings.rates_url as string | null,
+        trading_terms_url: settings.trading_terms_url as string | null,
+      } : undefined,
+    });
+  } catch (err) {
+    console.error(`[receipt-email] Failed for invoice ${invoiceId}:`, (err as Error).message);
+  }
+}
 // ─── LIST ──────────────────────────────────────────────────────────────────
 // GET /invoices
 router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -254,7 +334,7 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
 
   let q = supabaseAdmin
     .from("invoices")
-    .select("id, tenant_id, job_id, customer_id, type, status, invoice_number, issue_date, due_date, total, vat_amount, subtotal, currency, paid_amount, payment_date, created_at, customers(first_name, last_name), jobs!invoices_job_id_fkey(description, scheduled_date)", { count: "exact" })
+    .select("id, tenant_id, job_id, customer_id, type, status, invoice_number, issue_date, due_date, expiry_date, total, vat_amount, subtotal, currency, paid_amount, payment_date, created_at, customers(first_name, last_name), jobs!invoices_job_id_fkey(description, scheduled_date)", { count: "exact" })
     .eq("tenant_id", req.tenantId!)
     .order("created_at", { ascending: false })
     .range(offset, offset + limitNum - 1);
@@ -278,9 +358,23 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
   const { data, error, count } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  const settings = await getCompanySettings(req.tenantId!);
+  const paymentTermsDays = normalizePositiveInt(settings?.default_payment_terms_days);
+  const quoteValidityDays = normalizePositiveInt(settings?.quote_validity_days) ?? 30;
+  const invoices = (data || []).map((row) => {
+    const mapped = { ...(row as Record<string, unknown>) };
+    if (mapped.type === "invoice") {
+      mapped.due_date = resolveDateFromIssue(String(mapped.issue_date || ""), paymentTermsDays);
+    }
+    if (mapped.type === "quote") {
+      mapped.expiry_date = resolveDateFromIssue(String(mapped.issue_date || ""), quoteValidityDays) || mapped.expiry_date;
+    }
+    return mapped;
+  });
+
   res.set("Cache-Control", "private, max-age=30");
   res.json({
-    invoices: data || [],
+    invoices,
     pagination: {
       total: count ?? 0,
       page: pageNum,
@@ -446,9 +540,22 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("id", invoice.job_id as string)
     .maybeSingle();
 
+  const settings = await getCompanySettings(req.tenantId!);
+  const paymentTermsDays = normalizePositiveInt(settings?.default_payment_terms_days);
+  const quoteValidityDays = normalizePositiveInt(settings?.quote_validity_days) ?? 30;
+  const responseInvoice = {
+    ...invoice,
+    due_date: invoice.type === "invoice"
+      ? resolveDateFromIssue(invoice.issue_date as string | null, paymentTermsDays)
+      : (invoice.due_date as string | null),
+    expiry_date: invoice.type === "quote"
+      ? (resolveDateFromIssue(invoice.issue_date as string | null, quoteValidityDays) || (invoice.expiry_date as string | null))
+      : (invoice.expiry_date as string | null),
+  };
+
   res.set("Cache-Control", "no-cache");
   res.json({
-    ...invoice,
+    ...responseInvoice,
     line_items: lineItems || [],
     payments: payments.payments,
     amount_paid: payments.totalPaid,
@@ -677,6 +784,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
 
   try {
     const isQuote = (invoice.type as string) === "quote";
+    const pdfData = await buildPdfData(invoice, lineItems || [], req.tenantId!);
     const showBankDetails = isQuote
       ? (settings?.show_bank_details_on_quotes as boolean | null) !== false
       : (settings?.show_bank_details_on_invoices as boolean | null) !== false;
@@ -697,9 +805,9 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       amountPaid,
       balanceDue,
       currency: (invoice.currency as string) || settings?.currency || "GBP",
-      dueDate: invoice.due_date as string | null,
-      paymentTermsDays: settings?.default_payment_terms_days ?? null,
-      expiryDate: invoice.expiry_date as string | null,
+      dueDate: pdfData.due_date,
+      paymentTermsDays: pdfData.payment_terms_days ?? settings?.default_payment_terms_days ?? null,
+      expiryDate: pdfData.expiry_date,
       customerNotes: invoice.customer_notes as string | null,
       additionalText: isQuote
         ? ((settings?.quote_additional_text as string | null) || null)
@@ -1153,11 +1261,12 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
     return;
   }
 
-  const { paid_amount, payment_date, payment_method, payment_reference } = req.body as {
+  const { paid_amount, payment_date, payment_method, payment_reference, send_receipt } = req.body as {
     paid_amount?: number;
     payment_date?: string;
     payment_method?: string;
     payment_reference?: string;
+    send_receipt?: boolean;
   };
 
   const normalizedPaymentMethod = normalizeManualPaymentMethod(payment_method);
@@ -1189,6 +1298,15 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
   }
 
   const updated = result.invoice;
+
+  if (send_receipt === true) {
+    void sendManualPaymentReceipt({
+      tenantId: req.tenantId!,
+      invoice: updated,
+      paidAmount: amount,
+      paymentMethod: normalizedPaymentMethod,
+    });
+  }
 
   void notifyUsersForEvent({
     tenantId: req.tenantId!,

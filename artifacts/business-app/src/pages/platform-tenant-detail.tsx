@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { getAddonDisplayName } from "@/lib/addon-display";
 import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw, Eye, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 
@@ -748,7 +749,7 @@ export default function PlatformTenantDetail() {
                       }`}
                     >
                       <span className={`w-2 h-2 rounded-full shrink-0 ${isEnabled ? "bg-green-500" : "bg-slate-300"}`} />
-                      {addon.name}
+                      {getAddonDisplayName(addon.name, (addon as { feature_keys?: string[] }).feature_keys)}
                     </div>
                   );
                 })}
@@ -774,7 +775,7 @@ export default function PlatformTenantDetail() {
                 return (
                   <div key={credit.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium">{credit.name}</p>
+                      <p className="text-sm font-medium">{getAddonDisplayName(credit.name)}</p>
                       <p className={`text-lg font-bold ${isLow ? "text-orange-600" : "text-slate-800"}`}>
                         {credit.credits_remaining.toLocaleString()}
                         <span className="text-xs font-normal text-muted-foreground ml-1">
@@ -790,7 +791,7 @@ export default function PlatformTenantDetail() {
                       variant="outline"
                       className="gap-1.5 shrink-0"
                       onClick={() => {
-                        setCreditAddon({ id: credit.id, name: credit.name, credits_remaining: credit.credits_remaining, usage_unit_label: credit.usage_unit_label });
+                        setCreditAddon({ id: credit.id, name: getAddonDisplayName(credit.name), credits_remaining: credit.credits_remaining, usage_unit_label: credit.usage_unit_label });
                         setCreditAmount("1000");
                         setShowCreditDialog(true);
                       }}
@@ -899,7 +900,7 @@ export default function PlatformTenantDetail() {
                   className="rounded border-gray-300"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{addon.name}</p>
+                  <p className="text-sm font-medium">{getAddonDisplayName(addon.name)}</p>
                   {addon.description && <p className="text-xs text-muted-foreground">{addon.description}</p>}
                 </div>
                 {!addon.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}

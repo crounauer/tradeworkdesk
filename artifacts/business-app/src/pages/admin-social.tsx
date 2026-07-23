@@ -249,6 +249,10 @@ type SocialContextResponse = {
   socialChannels: string[];
   postTypes: string[];
   permissions: string[];
+  aiHelper?: {
+    enabled: boolean;
+    reason: string | null;
+  };
   websitePromotion: {
     enabled: boolean;
     disabledMessage: string | null;
@@ -338,6 +342,8 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   const [scheduledTime, setScheduledTime] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
+  const [aiHelperPrompt, setAiHelperPrompt] = useState("");
+  const [generatingAiHelper, setGeneratingAiHelper] = useState(false);
   const { toast } = useToast();
 
   const { data: socialContext } = useQuery<SocialContextResponse>({
@@ -451,6 +457,37 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     }
   };
 
+  const handleGenerateWithAiHelper = async () => {
+    const prompt = aiHelperPrompt.trim() || content.trim();
+    if (!prompt) {
+      toast({ title: "Add a prompt", description: "Describe the post you want AI Helper to create.", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingAiHelper(true);
+    try {
+      const result = await apiFetch("/admin/social/ai-helper", {
+        method: "POST",
+        body: JSON.stringify({
+          prompt,
+          includeImage: true,
+        }),
+      });
+
+      if (result.content) setContent(result.content);
+      if (result.imageUrl) setImageUrl(result.imageUrl);
+      if (Array.isArray(result.platforms) && result.platforms.length > 0) {
+        setSelectedPlatforms(new Set(result.platforms));
+      }
+
+      toast({ title: "AI Helper ready", description: "Content and image generated for your connected channels." });
+    } catch (err) {
+      toast({ title: "AI Helper failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setGeneratingAiHelper(false);
+    }
+  };
+
   const handlePostTypeChange = (value: "business" | "website_promotion") => {
     if (value === "website_promotion" && !canUseWebsitePromotion) return;
     setPostType(value);
@@ -540,6 +577,38 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               <p className={`text-xs mt-1 ${content.length > 280 ? "text-red-500" : "text-muted-foreground"}`}>
                 {content.length}/280 characters (X limit)
               </p>
+            )}
+          </div>
+
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-sm">AI Helper</Label>
+              {!socialContext?.aiHelper?.enabled && (
+                <span className="text-xs text-muted-foreground">Unavailable</span>
+              )}
+            </div>
+            <Input
+              value={aiHelperPrompt}
+              onChange={(e) => setAiHelperPrompt(e.target.value)}
+              placeholder="Describe the post campaign, offer, or message to promote..."
+              disabled={!socialContext?.aiHelper?.enabled || generatingAiHelper}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Generates post copy for connected channels and creates an image.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateWithAiHelper}
+                disabled={!socialContext?.aiHelper?.enabled || generatingAiHelper}
+              >
+                {generatingAiHelper ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
+                Generate
+              </Button>
+            </div>
+            {!socialContext?.aiHelper?.enabled && socialContext?.aiHelper?.reason && (
+              <p className="text-xs text-muted-foreground">{socialContext.aiHelper.reason}</p>
             )}
           </div>
 

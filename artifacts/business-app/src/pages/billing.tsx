@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getAddonDisplayName } from "@/lib/addon-display";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -673,7 +674,7 @@ export default function Billing({ view = "all" }: { view?: "all" | "plans" | "ad
                   <div key={addon.id} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{addon.name}</p>
+                        <p className="font-medium text-sm">{getAddonDisplayName(addon.name, addon.feature_keys)}</p>
                         {!isStorageAddon && addon.subscribed && (
                           <Badge className="bg-green-100 text-green-700 border-green-200 text-xs border">Active</Badge>
                         )}
@@ -764,7 +765,7 @@ export default function Billing({ view = "all" }: { view?: "all" | "plans" | "ad
                   <div key={credit.id} className="py-4 first:pt-0 last:pb-0 space-y-3">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{credit.name}</p>
+                        <p className="font-medium text-sm">{getAddonDisplayName(credit.name, credit.feature_keys)}</p>
                         {credit.description && <p className="text-xs text-muted-foreground mt-0.5">{credit.description}</p>}
                         <p className="text-xs text-slate-500 mt-1">
                           {hasSmallBundle

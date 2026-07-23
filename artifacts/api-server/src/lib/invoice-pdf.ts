@@ -15,6 +15,8 @@ export interface InvoicePdfData {
   issue_date: string;
   due_date?: string | null;
   expiry_date?: string | null;
+  payment_terms_days?: number | null;
+  quote_validity_days?: number | null;
   currency: string;
   // Company
   company_name?: string | null;
@@ -76,6 +78,15 @@ function formatDate(d: string | null | undefined): string {
 function capitalizeFirst(s: string): string {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function diffDays(fromDate: string | null | undefined, toDate: string | null | undefined): number | null {
+  if (!fromDate || !toDate) return null;
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) return null;
+  const ms = to.getTime() - from.getTime();
+  return Math.max(0, Math.round(ms / 86400000));
 }
 
 /**
@@ -180,12 +191,40 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   const metaValueX = rightMargin;
   const metaLineH  = 5.5;
 
+  const configuredPaymentTerms = data.payment_terms_days != null && Number(data.payment_terms_days) > 0
+    ? Number(data.payment_terms_days)
+    : null;
+  const invoiceTermsFromDates = data.type === "invoice"
+    ? diffDays(data.issue_date, data.due_date)
+    : null;
+  const quoteValidityFromDates = data.type === "quote"
+    ? diffDays(data.issue_date, data.expiry_date)
+    : null;
+
+  const termsLabel = data.type === "invoice"
+    ? (configuredPaymentTerms != null
+        ? `Net ${configuredPaymentTerms} days`
+        : (invoiceTermsFromDates != null && invoiceTermsFromDates > 0)
+          ? `Net ${invoiceTermsFromDates} days`
+          : "Due on Receipt")
+    : (configuredPaymentTerms != null
+        ? `Net ${configuredPaymentTerms} days`
+        : "Due on Acceptance");
+
   const metaRows: [string, string][] = [
     [data.type === "quote" ? "Quote Date" : "Invoice Date", formatDate(data.issue_date)],
-    ["Terms", data.type === "invoice" ? "Due on Receipt" : "Due on Acceptance"],
+    ["Terms", termsLabel],
   ];
   if (data.type === "invoice" && data.due_date)       metaRows.push(["Due Date",    formatDate(data.due_date)]);
   else if (data.type === "quote" && data.expiry_date) metaRows.push(["Valid Until", formatDate(data.expiry_date)]);
+  if (data.type === "quote") {
+    const validityDays = data.quote_validity_days != null && Number(data.quote_validity_days) > 0
+      ? Number(data.quote_validity_days)
+      : quoteValidityFromDates;
+    if (validityDays != null && validityDays > 0) {
+      metaRows.push(["Validity", `${validityDays} days`]);
+    }
+  }
   if (data.job_reference) metaRows.push(["P.O.#", data.job_reference]);
 
   let metaCurY = metaStartY;

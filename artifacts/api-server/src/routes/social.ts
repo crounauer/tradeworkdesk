@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
 import { generatePostSuggestions, generateSocialImage, type SuggestionItem } from "../lib/social-ai";
+import { hasActiveAddon } from "../lib/tenant-limits";
 import {
   SOCIAL_POST_TYPES,
   type SocialPostType,
@@ -29,6 +30,7 @@ const FACEBOOK_STATE_TTL_MS = 10 * 60 * 1000;
 const X_STATE_TTL_MS = 10 * 60 * 1000;
 const GOOGLE_BUSINESS_STATE_TTL_MS = 10 * 60 * 1000;
 const INSTAGRAM_STATE_TTL_MS = 10 * 60 * 1000;
+const AI_HELPER_FEATURE = "ai_blog_writing";
 const FACEBOOK_OAUTH_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
@@ -383,6 +385,37 @@ function coercePostType(value: unknown): SocialPostType {
   return (SOCIAL_POST_TYPES as readonly string[]).includes(raw)
     ? (raw as SocialPostType)
     : "business";
+}
+
+async function isActiveTrialTenant(tenantId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("tenants")
+    .select("status, trial_ends_at")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  const status = String((data as { status?: string } | null)?.status || "").toLowerCase();
+  const trialEndsAt = (data as { trial_ends_at?: string | null } | null)?.trial_ends_at || null;
+  return status === "trial" && !!trialEndsAt && new Date(trialEndsAt).getTime() > Date.now();
+}
+
+async function resolveAiHelperAccess(isPlatformScope: boolean, tenantId?: string): Promise<{ enabled: boolean; reason: string | null }> {
+  if (isPlatformScope) return { enabled: true, reason: null };
+  if (!tenantId) return { enabled: false, reason: "Unable to resolve tenant scope" };
+
+  const [addonActive, trialActive] = await Promise.all([
+    hasActiveAddon(tenantId, AI_HELPER_FEATURE),
+    isActiveTrialTenant(tenantId),
+  ]);
+
+  if (addonActive || trialActive) {
+    return { enabled: true, reason: null };
+  }
+
+  return {
+    enabled: false,
+    reason: "AI Helper requires the add-on, or an active free trial.",
+  };
 }
 
 function sanitizeCampaignValue(value: string): string {
@@ -1611,6 +1644,10 @@ router.get(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    const aiHelper = await resolveAiHelperAccess(isPlatformScope, tenantId);
+
     if (isPlatformSocialScope(req)) {
       res.json({
         tenantId: null,
@@ -1618,6 +1655,7 @@ router.get(
         socialChannels: SUPPORTED_SOCIAL_CHANNELS,
         postTypes: SOCIAL_POST_TYPES,
         permissions: FACEBOOK_POST_PERMISSIONS.filter((permission) => hasFacebookPermission(req, permission)),
+        aiHelper,
         websitePromotion: {
           enabled: false,
           disabledMessage: "Website Promotion Post is only available in tenant social workspaces.",
@@ -1626,7 +1664,6 @@ router.get(
       return;
     }
 
-    const tenantId = await resolveTenantId(req);
     if (!tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
@@ -1641,6 +1678,7 @@ router.get(
       socialChannels: SUPPORTED_SOCIAL_CHANNELS,
       postTypes: SOCIAL_POST_TYPES,
       permissions: FACEBOOK_POST_PERMISSIONS.filter((permission) => hasFacebookPermission(req, permission)),
+      aiHelper,
       websitePromotion: {
         enabled: availablePromotionPages.length > 0,
         disabledMessage: availablePromotionPages.length === 0
@@ -2380,6 +2418,101 @@ router.get(
       console.error("[social] Suggestions error:", message);
       res.status(500).json({ error: "Failed to generate suggestions" });
     }
+  },
+);
+
+router.post(
+  "/admin/social/ai-helper",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { prompt, platforms, includeImage = true } = req.body as {
+      prompt?: string;
+      platforms?: string[];
+      includeImage?: boolean;
+    };
+
+    if (!prompt || !String(prompt).trim()) {
+      res.status(400).json({ error: "prompt is required" });
+      return;
+    }
+
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    const aiHelper = await resolveAiHelperAccess(isPlatformScope, tenantId);
+    if (!aiHelper.enabled) {
+      res.status(402).json({ error: aiHelper.reason || "AI Helper is not available" });
+      return;
+    }
+
+    const requestedPlatforms = Array.isArray(platforms)
+      ? platforms.map((p) => String(p || "").trim()).filter((p): p is SupportedPlatform => isSupportedPlatform(p))
+      : [];
+
+    let activePlatforms = requestedPlatforms;
+    if (activePlatforms.length === 0) {
+      let accountQuery = supabaseAdmin
+        .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+        .select("platform")
+        .eq("is_active", true);
+      if (!isPlatformScope) {
+        accountQuery = accountQuery.eq("tenant_id", tenantId!);
+      }
+
+      const { data: accounts } = await accountQuery;
+      const unique = new Set<string>();
+      for (const row of (accounts || []) as Array<{ platform?: string }>) {
+        if (row.platform && isSupportedPlatform(row.platform)) unique.add(row.platform);
+      }
+      activePlatforms = Array.from(unique) as SupportedPlatform[];
+    }
+
+    if (activePlatforms.length === 0) {
+      activePlatforms = ["facebook", "instagram", "x", "google_business"];
+    }
+
+    const suggestions = await generatePostSuggestions(
+      [
+        {
+          entityType: "article",
+          entityId: "ai-helper",
+          title: String(prompt).trim(),
+          description: "Create a high-performing social post pack for all connected channels",
+        },
+      ],
+      activePlatforms,
+      { tenantId: tenantId || undefined, userId: req.userId || undefined },
+    );
+
+    const byPlatform: Record<string, string> = {};
+    for (const p of activePlatforms) {
+      const hit = suggestions.find((s) => s.platform === p)?.content?.trim();
+      if (hit) byPlatform[p] = hit;
+    }
+
+    const content = byPlatform.facebook || byPlatform.instagram || byPlatform.x || byPlatform.google_business || String(prompt).trim();
+    let imageUrl: string | null = null;
+
+    if (includeImage) {
+      imageUrl = await generateSocialImage(String(prompt).trim(), {
+        tenantId: tenantId || undefined,
+        userId: req.userId || undefined,
+      });
+    }
+
+    res.json({
+      content,
+      imageUrl,
+      platforms: activePlatforms,
+      perPlatform: byPlatform,
+    });
   },
 );
 

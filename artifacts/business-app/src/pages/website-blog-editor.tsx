@@ -564,7 +564,7 @@ export default function WebsiteBlogEditor() {
                         {generatingImage ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Image className="w-3.5 h-3.5 mr-1.5" />}
                         Generate Image (~34 credits)
                       </Button>
-                      {!addonActive && <p className="text-xs text-red-500">AI Writing addon required</p>}
+                      {!addonActive && <p className="text-xs text-red-500">AI Helper add-on required</p>}
                       {(aiCredits ?? 0) < 1 && <p className="text-xs text-red-500">Insufficient credits</p>}
                     </div>
                   </div>
@@ -618,7 +618,7 @@ export default function WebsiteBlogEditor() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-violet-500" />
-                AI Writing Assistant
+                AI Helper
                 <Button
                   variant="ghost"
                   size="icon"
@@ -637,7 +637,7 @@ export default function WebsiteBlogEditor() {
                   <ZapOff className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                   <div>
                     <p className="font-medium">AI Writing not enabled</p>
-                    <p className="text-xs mt-0.5">Go to Billing and enable the AI Blog Writing add-on, then purchase a credit bundle.</p>
+                    <p className="text-xs mt-0.5">Go to Billing and enable the AI Helper add-on, then purchase a credit bundle.</p>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" className="w-full" asChild>

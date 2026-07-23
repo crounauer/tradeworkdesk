@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -290,6 +291,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [sendOpen, setSendOpen] = useState(false);
   const [paidOpen, setPaidOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [sendReceiptOnPayment, setSendReceiptOnPayment] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
   const [sendNote, setSendNote] = useState("");
   const [showBookJob, setShowBookJob] = useState(false);
@@ -621,6 +623,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         payment_date: paymentDate,
         payment_method: paymentMethod || undefined,
         payment_reference: paymentReference || undefined,
+        send_receipt: sendReceiptOnPayment,
       });
       toast({ title: "Payment recorded" });
       setPaidOpen(false);
@@ -1220,7 +1223,13 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       </Dialog>
 
       {/* Mark paid dialog */}
-      <Dialog open={paidOpen} onOpenChange={setPaidOpen}>
+      <Dialog
+        open={paidOpen}
+        onOpenChange={(open) => {
+          setPaidOpen(open);
+          if (!open) setSendReceiptOnPayment(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{hasExistingPayments ? "Add Another Payment" : "Record Payment"}</DialogTitle>
@@ -1272,6 +1281,24 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 placeholder="e.g. bank transaction ID"
                 className="mt-1"
               />
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="send-payment-receipt"
+                  checked={sendReceiptOnPayment}
+                  onCheckedChange={(checked) => setSendReceiptOnPayment(checked === true)}
+                  disabled={!invoice.customer?.email}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="send-payment-receipt" className="cursor-pointer">Send customer receipt</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {invoice.customer?.email
+                      ? `Email a payment receipt to ${invoice.customer.email}.`
+                      : "Customer has no email address on record."}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

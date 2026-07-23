@@ -977,7 +977,7 @@ router.post(
     const addonActive = await hasActiveAddon(req.tenantId!, AI_BLOG_FEATURE);
     if (!addonActive) {
       res.status(402).json({
-        error: "AI Blog Writing add-on is not active. Go to Billing → Add-on Packages to enable it.",
+        error: "AI Helper add-on is not active. Go to Billing → Add-on Packages to enable it.",
         code: "addon_not_active",
       });
       return;
@@ -1234,7 +1234,7 @@ router.post(
     // Check if blog addon is active and has credits
     const hasAddon = await hasActiveAddon(req.tenantId!, "ai_blog_writing");
     if (!hasAddon) {
-      res.status(403).json({ error: "AI Blog Writing addon not active" });
+      res.status(403).json({ error: "AI Helper add-on not active" });
       return;
     }
 
@@ -1292,7 +1292,7 @@ router.post(
 
     const hasAddon = await hasActiveAddon(req.tenantId!, AI_BLOG_FEATURE);
     if (!hasAddon) {
-      res.status(403).json({ error: "AI Blog Writing addon not active" });
+      res.status(403).json({ error: "AI Helper add-on not active" });
       return;
     }
 

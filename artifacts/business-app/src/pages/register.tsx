@@ -666,7 +666,7 @@ export default function Register() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-center text-muted-foreground">All plans include a {trialDays}-day free trial with £5 credits each for SMS messaging, UK address lookup, and AI blog writing.</p>
+                <p className="text-xs text-center text-muted-foreground">All plans include a {trialDays}-day free trial with £5 credits each for SMS messaging, UK address lookup, and AI Helper.</p>
                 <Button
                   className="w-full h-12 text-base mt-2"
                   onClick={() => {

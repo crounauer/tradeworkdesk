@@ -1015,6 +1015,43 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
     const geo = extractBookingGeoMetadata(bookingRecord.notes);
 
     if (!jobId) {
+      let generatedJobRef: string | null = null;
+      const { data: cs } = await db.from("company_settings")
+        .select("job_number_prefix, job_number_next")
+        .eq("tenant_id", req.tenantId)
+        .eq("singleton_id", "default")
+        .maybeSingle();
+
+      if (cs) {
+        const prefix = String(cs.job_number_prefix || "").trim().toUpperCase();
+        const nextNum = Number(cs.job_number_next || 1);
+        generatedJobRef = prefix
+          ? `${prefix}${String(nextNum).padStart(4, "0")}`
+          : `JOB-${String(nextNum).padStart(4, "0")}`;
+
+        const { error: updErr } = await db.from("company_settings")
+          .update({ job_number_next: nextNum + 1 })
+          .eq("tenant_id", req.tenantId)
+          .eq("singleton_id", "default")
+          .eq("job_number_next", nextNum);
+
+        if (updErr) {
+          const retry = await db.from("company_settings")
+            .select("job_number_next")
+            .eq("tenant_id", req.tenantId)
+            .eq("singleton_id", "default")
+            .maybeSingle();
+          const retryNum = Number(retry.data?.job_number_next || (nextNum + 1));
+          generatedJobRef = prefix
+            ? `${prefix}${String(retryNum).padStart(4, "0")}`
+            : `JOB-${String(retryNum).padStart(4, "0")}`;
+          await db.from("company_settings")
+            .update({ job_number_next: retryNum + 1 })
+            .eq("tenant_id", req.tenantId)
+            .eq("singleton_id", "default");
+        }
+      }
+
       const { data: job } = await db.from("jobs").insert({
         tenant_id: req.tenantId,
         title: `${serviceLabel} — ${bookingRecord.customer_name || "Customer"}`,
@@ -1026,6 +1063,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
         scheduled_time: scheduledTime,
         estimated_duration: safeDurationMinutes,
         assigned_technician_id: selectedTechnicianId,
+        job_ref: generatedJobRef,
         created_by: req.userId,
       }).select("id, job_ref").single();
 

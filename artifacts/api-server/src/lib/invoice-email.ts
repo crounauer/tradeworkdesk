@@ -95,6 +95,10 @@ export async function sendInvoiceDocumentEmail(opts: {
     }
   }
 
+  if (isQuote && opts.paymentTermsDays != null && opts.paymentTermsDays > 0) {
+    dateInfo += `<p><strong>Payment terms:</strong> Net ${opts.paymentTermsDays} days</p>`;
+  }
+
   const customerNotesHtml = opts.customerNotes
     ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0;font-size:14px;color:#334155;">${escHtml(opts.customerNotes).replace(/\n/g, "<br/>")}</p>

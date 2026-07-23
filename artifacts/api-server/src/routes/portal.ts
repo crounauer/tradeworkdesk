@@ -29,6 +29,21 @@ function toSingleParam(value: string | string[] | undefined): string {
   return value || "";
 }
 
+function normalizePositiveInt(value: unknown): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n);
+  return rounded > 0 ? rounded : null;
+}
+
+function resolveDateFromIssue(issueDate: string | null | undefined, dayOffset: number | null): string | null {
+  if (!issueDate || !dayOffset || dayOffset <= 0) return null;
+  const base = new Date(issueDate);
+  if (isNaN(base.getTime())) return null;
+  base.setDate(base.getDate() + dayOffset);
+  return base.toISOString().slice(0, 10);
+}
+
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
@@ -510,7 +525,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .single(),
     supabaseAdmin
       .from("company_settings")
-      .select("payment_link_url, invoice_bank_details, stripe_payments_enabled, gocardless_payments_enabled")
+      .select("payment_link_url, invoice_bank_details, stripe_payments_enabled, gocardless_payments_enabled, default_payment_terms_days, quote_validity_days")
       .eq("tenant_id", req.tenantId!)
       .eq("singleton_id", "default")
       .maybeSingle(),
@@ -532,6 +547,8 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
     gocardless_payments_enabled: (settingsRes.data as any)?.gocardless_payments_enabled !== false,
     payment_link_url: (settingsRes.data as any)?.payment_link_url || null,
     invoice_bank_details: (settingsRes.data as any)?.invoice_bank_details || null,
+    default_payment_terms_days: (settingsRes.data as any)?.default_payment_terms_days ?? null,
+    quote_validity_days: (settingsRes.data as any)?.quote_validity_days ?? null,
     properties_count: propertiesRes.data?.length || 0,
     properties: propertiesRes.data || [],
     upcoming_jobs: upcomingJobs.map((j: any) => ({
@@ -550,17 +567,39 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
 // ─── Portal Invoices ────────────────────────────────────────────────────────
 
 router.get("/portal/invoices", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
-  const { data, error } = await supabaseAdmin
+  const [{ data, error }, { data: settings }] = await Promise.all([
+    supabaseAdmin
     .from("invoices")
     .select("id, type, invoice_number, status, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, currency, customer_notes, stripe_payment_link_url, gocardless_payment_link_url")
     .eq("customer_id", req.customerId!)
     .eq("tenant_id", req.tenantId!)
     .in("status", ["sent", "paid", "overdue", "accepted", "declined", "converted"])
     .order("issue_date", { ascending: false })
-    .limit(100);
+    .limit(100),
+    supabaseAdmin
+      .from("company_settings")
+      .select("default_payment_terms_days, quote_validity_days")
+      .eq("tenant_id", req.tenantId!)
+      .eq("singleton_id", "default")
+      .maybeSingle(),
+  ]);
 
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || []);
+
+  const paymentTermsDays = normalizePositiveInt((settings as any)?.default_payment_terms_days);
+  const quoteValidityDays = normalizePositiveInt((settings as any)?.quote_validity_days) ?? 30;
+  const mapped = (data || []).map((row) => {
+    const out = { ...(row as Record<string, unknown>) };
+    if (out.type === "invoice") {
+      out.due_date = resolveDateFromIssue(String(out.issue_date || ""), paymentTermsDays);
+    }
+    if (out.type === "quote") {
+      out.expiry_date = resolveDateFromIssue(String(out.issue_date || ""), quoteValidityDays) || out.expiry_date;
+    }
+    return out;
+  });
+
+  res.json(mapped);
 });
 
 router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
@@ -606,6 +645,14 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
 
   const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer";
   const isQuote = (invoice.type as string) === "quote";
+  const paymentTermsDays = normalizePositiveInt((cs as any)?.default_payment_terms_days);
+  const quoteValidityDays = normalizePositiveInt((cs as any)?.quote_validity_days) ?? 30;
+  const dynamicDueDate = !isQuote
+    ? resolveDateFromIssue(invoice.issue_date as string | null, paymentTermsDays)
+    : (invoice.due_date as string | null);
+  const dynamicExpiryDate = isQuote
+    ? (resolveDateFromIssue(invoice.issue_date as string | null, quoteValidityDays) || (invoice.expiry_date as string | null))
+    : (invoice.expiry_date as string | null);
   const invoiceFooterText = (cs as any)?.invoice_footer_text || null;
   const quoteFooterText = (cs as any)?.quote_footer_text || null;
   const showBankDetails = isQuote
@@ -622,8 +669,10 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     type: invoice.type as "invoice" | "quote",
     invoice_number: invoice.invoice_number as string,
     issue_date: invoice.issue_date as string,
-    due_date: invoice.due_date as string | null,
-    expiry_date: invoice.expiry_date as string | null,
+    due_date: dynamicDueDate,
+    expiry_date: dynamicExpiryDate,
+    payment_terms_days: paymentTermsDays,
+    quote_validity_days: quoteValidityDays,
     currency: (invoice.currency as string) || "GBP",
     company_name: (cs as any)?.name || null,
     company_trading_name: (cs as any)?.trading_name || null,
