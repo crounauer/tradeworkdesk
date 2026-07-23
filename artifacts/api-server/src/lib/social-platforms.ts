@@ -232,6 +232,38 @@ async function postToFacebook(
     throw new Error("Missing Facebook Page Access Token or Page ID");
   }
 
+  if (post.image_url) {
+    validateImageUrl(post.image_url);
+
+    const photoBody: Record<string, string> = {
+      url: post.image_url,
+      access_token: accessToken,
+      caption: post.content,
+    };
+
+    if (post.link_url) {
+      photoBody.caption = `${post.content}\n\n${post.link_url}`;
+    }
+
+    const photoRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(photoBody),
+    });
+
+    if (photoRes.ok) {
+      const data = await photoRes.json() as { post_id?: string; id?: string };
+      const postId = String(data.post_id || data.id || "").trim();
+      return {
+        postId,
+        postUrl: postId ? `https://facebook.com/${postId}` : undefined,
+      };
+    }
+
+    const photoErrBody = await photoRes.text();
+    console.error(`[social-platforms] Facebook photo publish failed, falling back to feed post: ${photoRes.status} ${photoErrBody}`);
+  }
+
   const body: Record<string, string> = {
     message: post.content,
     access_token: accessToken,

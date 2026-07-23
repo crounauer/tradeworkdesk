@@ -2662,6 +2662,95 @@ router.post(
 );
 
 router.get(
+  "/admin/social/job-images",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+
+    if (isPlatformScope) {
+      res.json({ images: [] });
+      return;
+    }
+
+    if (!tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    const limit = Math.min(120, Math.max(1, Number(req.query.limit || 60)));
+
+    const { data: attachments, error } = await supabaseAdmin
+      .from("file_attachments")
+      .select("id, entity_id, file_name, file_type, storage_path, created_at")
+      .eq("tenant_id", tenantId)
+      .eq("entity_type", "job")
+      .ilike("file_type", "image/%")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      res.status(500).json({ error: "Failed to load job images" });
+      return;
+    }
+
+    const rows = (attachments || []) as Array<{
+      id: string;
+      entity_id: string | null;
+      file_name: string | null;
+      storage_path: string | null;
+      created_at: string | null;
+    }>;
+
+    const jobIds = Array.from(new Set(rows.map((row) => String(row.entity_id || "")).filter(Boolean)));
+    const { data: jobs } = jobIds.length > 0
+      ? await supabaseAdmin
+          .from("jobs")
+          .select("id, job_ref")
+          .in("id", jobIds)
+          .eq("tenant_id", tenantId) as { data: Array<{ id: string; job_ref: string | null }> | null }
+      : { data: [] as Array<{ id: string; job_ref: string | null }> };
+
+    const jobRefById = new Map((jobs || []).map((job) => [job.id, job.job_ref || null]));
+
+    const images = rows
+      .map((row) => {
+        const storagePath = String(row.storage_path || "").trim();
+        if (!storagePath) return null;
+
+        const { data: publicData } = supabaseAdmin.storage
+          .from("service-photos")
+          .getPublicUrl(storagePath);
+
+        const imageUrl = String(publicData?.publicUrl || "").trim();
+        if (!imageUrl) return null;
+
+        return {
+          id: row.id,
+          imageUrl,
+          fileName: row.file_name || "job-image",
+          jobId: row.entity_id || null,
+          jobRef: row.entity_id ? (jobRefById.get(String(row.entity_id)) || null) : null,
+          createdAt: row.created_at,
+        };
+      })
+      .filter((row): row is {
+        id: string;
+        imageUrl: string;
+        fileName: string;
+        jobId: string | null;
+        jobRef: string | null;
+        createdAt: string | null;
+      } => Boolean(row));
+
+    res.json({ images });
+  },
+);
+
+router.get(
   "/admin/social/preview-image-url",
   requireAuth,
   requireTenant,

@@ -277,6 +277,19 @@ type WebsitePagesResponse = {
   pages: WebsitePageOption[];
 };
 
+type SocialJobImage = {
+  id: string;
+  imageUrl: string;
+  fileName: string;
+  jobId: string | null;
+  jobRef: string | null;
+  createdAt: string | null;
+};
+
+type SocialJobImagesResponse = {
+  images: SocialJobImage[];
+};
+
 function getPlatformBadge(platform: string) {
   const p = PLATFORMS.find((pl) => pl.value === platform);
   return (
@@ -353,6 +366,8 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   const [aiHelperProgress, setAiHelperProgress] = useState(0);
   const [imageProgress, setImageProgress] = useState(0);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [jobImagePickerOpen, setJobImagePickerOpen] = useState(false);
+  const [selectedJobImageId, setSelectedJobImageId] = useState("");
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [previewFallbackTried, setPreviewFallbackTried] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -430,8 +445,16 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     queryFn: () => apiFetch("/admin/social/website-pages"),
   });
 
+  const { data: socialJobImagesData, isLoading: socialJobImagesLoading } = useQuery<SocialJobImagesResponse>({
+    queryKey: ["social-job-images"],
+    queryFn: () => apiFetch("/admin/social/job-images"),
+    enabled: open && jobImagePickerOpen,
+  });
+
   const websitePages = websitePagesData?.pages || [];
+  const socialJobImages = socialJobImagesData?.images || [];
   const selectedPage = websitePages.find((p) => p.id === websitePageId) || null;
+  const selectedJobImage = socialJobImages.find((img) => img.id === selectedJobImageId) || null;
   const effectiveLinkPreview = selectedPage?.pageUrl || "";
 
   const canUseWebsitePromotion = !!websitePagesData?.enabled;
@@ -654,6 +677,14 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     }
   };
 
+  const applySelectedJobImage = () => {
+    if (!selectedJobImage?.imageUrl) return;
+    setImageUrl(selectedJobImage.imageUrl);
+    setJobImagePickerOpen(false);
+    setSelectedJobImageId("");
+    toast({ title: "Job image selected" });
+  };
+
   const handlePostTypeChange = (value: "business" | "website_promotion") => {
     if (value === "website_promotion" && !canUseWebsitePromotion) return;
     setPostType(value);
@@ -860,8 +891,62 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               >
                 {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               </Button>
+              <Dialog open={jobImagePickerOpen} onOpenChange={(nextOpen) => { setJobImagePickerOpen(nextOpen); if (!nextOpen) setSelectedJobImageId(""); }}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" title="Use an image uploaded to a job">
+                    <ImageIcon className="w-4 h-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Select Job Image</DialogTitle>
+                  </DialogHeader>
+
+                  {socialJobImagesLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading uploaded job images...
+                    </div>
+                  ) : socialJobImages.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4">No uploaded job images were found for this tenant.</p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">Pick an image already uploaded to a job record.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                        {socialJobImages.map((img) => {
+                          const selected = selectedJobImageId === img.id;
+                          return (
+                            <button
+                              key={img.id}
+                              type="button"
+                              onClick={() => setSelectedJobImageId(img.id)}
+                              className={`rounded-md border p-2 text-left transition ${selected ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"}`}
+                            >
+                              <img
+                                src={img.imageUrl}
+                                alt={img.fileName || "Job image"}
+                                className="w-full h-32 object-cover rounded"
+                                loading="lazy"
+                              />
+                              <div className="mt-2 space-y-0.5">
+                                <p className="text-xs font-medium truncate">{img.fileName || "Job image"}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{img.jobRef ? `Job ${img.jobRef}` : "Job image"}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setJobImagePickerOpen(false)}>Cancel</Button>
+                    <Button type="button" onClick={applySelectedJobImage} disabled={!selectedJobImage}>Use Selected Image</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">You can paste an image URL, generate with AI, or upload your own image.</p>
+            <p className="text-xs text-muted-foreground mt-1">You can paste an image URL, generate with AI, upload your own image, or use one uploaded to a job.</p>
             {imageUrl && (
               <div className="mt-3 rounded-md border p-2 bg-muted/20">
                 <p className="text-xs text-muted-foreground mb-2">Image preview</p>
