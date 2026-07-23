@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -344,7 +345,43 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   const [imagePrompt, setImagePrompt] = useState("");
   const [aiHelperPrompt, setAiHelperPrompt] = useState("");
   const [generatingAiHelper, setGeneratingAiHelper] = useState(false);
+  const [aiHelperProgress, setAiHelperProgress] = useState(0);
+  const [imageProgress, setImageProgress] = useState(0);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!generatingAiHelper) {
+      setAiHelperProgress(0);
+      return;
+    }
+
+    setAiHelperProgress(12);
+    const id = window.setInterval(() => {
+      setAiHelperProgress((current) => {
+        if (current >= 90) return current;
+        return Math.min(90, current + Math.max(3, Math.round((100 - current) / 8)));
+      });
+    }, 350);
+
+    return () => window.clearInterval(id);
+  }, [generatingAiHelper]);
+
+  useEffect(() => {
+    if (!generatingImage) {
+      setImageProgress(0);
+      return;
+    }
+
+    setImageProgress(15);
+    const id = window.setInterval(() => {
+      setImageProgress((current) => {
+        if (current >= 90) return current;
+        return Math.min(90, current + Math.max(4, Math.round((100 - current) / 7)));
+      });
+    }, 300);
+
+    return () => window.clearInterval(id);
+  }, [generatingImage]);
 
   const { data: socialContext } = useQuery<SocialContextResponse>({
     queryKey: ["social-context"],
@@ -448,6 +485,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
         method: "POST",
         body: JSON.stringify({ prompt: imagePrompt }),
       });
+      setImageProgress(100);
       setImageUrl(result.url);
       toast({ title: "Image generated" });
     } catch (err) {
@@ -474,6 +512,7 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
         }),
       });
 
+      setAiHelperProgress(100);
       if (result.content) setContent(result.content);
       if (result.imageUrl) setImageUrl(result.imageUrl);
       if (Array.isArray(result.platforms) && result.platforms.length > 0) {
@@ -610,6 +649,15 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
             {!socialContext?.aiHelper?.enabled && socialContext?.aiHelper?.reason && (
               <p className="text-xs text-muted-foreground">{socialContext.aiHelper.reason}</p>
             )}
+            {generatingAiHelper && (
+              <div className="space-y-1.5 rounded-md border bg-muted/30 p-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  AI Helper is generating content and image...
+                </div>
+                <Progress value={aiHelperProgress} className="h-1.5" />
+              </div>
+            )}
           </div>
 
           <div>
@@ -635,6 +683,15 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
                 {generatingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
               </Button>
             </div>
+            {generatingImage && (
+              <div className="space-y-1.5 mt-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Generating image...
+                </div>
+                <Progress value={imageProgress} className="h-1.5" />
+              </div>
+            )}
           </div>
 
           {postType === "business" ? (
