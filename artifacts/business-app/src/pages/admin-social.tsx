@@ -299,6 +299,11 @@ function getPlatformBadge(platform: string) {
   );
 }
 
+function getPlatformLabel(platform: string) {
+  const p = PLATFORMS.find((pl) => pl.value === platform);
+  return p?.label || platform;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status];
   if (!config) return <Badge variant="outline">{status}</Badge>;
@@ -565,41 +570,95 @@ function CreatePostDialog({
     return base;
   };
 
+  const publishValidationIssues = selectedPlatformsArray.flatMap((platform) => {
+    const issues: string[] = [];
+    const previewText = previewContentForPlatform(platform);
+
+    if (platform === "x" && previewText.length > 280) {
+      issues.push(`X post is ${previewText.length} characters (max 280).`);
+    }
+
+    if (platform === "instagram" && !imageUrl) {
+      issues.push("Instagram publishing requires an image.");
+    }
+
+    return issues;
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (publishValidationIssues.length > 0) {
+        throw new Error(publishValidationIssues[0]);
+      }
+
       const scheduledFor = isScheduled && scheduledDate && scheduledTime
         ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
         : undefined;
 
       const platforms = Array.from(selectedPlatforms);
-      const results = [];
+      const results: Array<{ platform: string; success: boolean; error?: string }> = [];
       for (const platform of platforms) {
-        const result = await apiFetch("/admin/social/post", {
-          method: "POST",
-          body: JSON.stringify({
+        try {
+          await apiFetch("/admin/social/post", {
+            method: "POST",
+            body: JSON.stringify({
+              platform,
+              content,
+              imageUrl: imageUrl || undefined,
+              linkUrl: postType === "business" ? (linkUrl || undefined) : undefined,
+              scheduledFor,
+              postType,
+              websitePageId: postType === "website_promotion" ? websitePageId : undefined,
+              utmSource: postType === "website_promotion" ? utmSource : undefined,
+              utmMedium: postType === "website_promotion" ? utmMedium : undefined,
+              utmCampaign: postType === "website_promotion" ? utmCampaign || undefined : undefined,
+              utmContent: postType === "website_promotion" ? utmContent || undefined : undefined,
+            }),
+          });
+          results.push({ platform, success: true });
+        } catch (err) {
+          results.push({
             platform,
-            content,
-            imageUrl: imageUrl || undefined,
-            linkUrl: postType === "business" ? (linkUrl || undefined) : undefined,
-            scheduledFor,
-            postType,
-            websitePageId: postType === "website_promotion" ? websitePageId : undefined,
-            utmSource: postType === "website_promotion" ? utmSource : undefined,
-            utmMedium: postType === "website_promotion" ? utmMedium : undefined,
-            utmCampaign: postType === "website_promotion" ? utmCampaign || undefined : undefined,
-            utmContent: postType === "website_promotion" ? utmContent || undefined : undefined,
-          }),
-        });
-        results.push(result);
+            success: false,
+            error: err instanceof Error ? err.message : "Unknown publish error",
+          });
+        }
       }
-      return results;
+
+      const failures = results.filter((item) => !item.success);
+      if (failures.length === results.length) {
+        throw new Error(failures.map((item) => `${getPlatformLabel(item.platform)}: ${item.error}`).join(" | "));
+      }
+
+      return {
+        successCount: results.length - failures.length,
+        failures,
+      };
     },
-    onSuccess: () => {
-      const count = selectedPlatforms.size;
-      toast({ title: isScheduled ? `${count} post(s) scheduled` : `${count} post(s) published` });
+    onSuccess: (result) => {
+      const total = selectedPlatforms.size;
+      const failedCount = result.failures.length;
+      const successCount = result.successCount;
+
+      onCreated();
+
+      if (failedCount > 0) {
+        const failureSummary = result.failures
+          .map((item) => `${getPlatformLabel(item.platform)}: ${item.error}`)
+          .join(" | ");
+        toast({
+          title: isScheduled
+            ? `${successCount}/${total} post(s) scheduled`
+            : `${successCount}/${total} post(s) published`,
+          description: failureSummary,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({ title: isScheduled ? `${total} post(s) scheduled` : `${total} post(s) published` });
       setOpen(false);
       resetForm();
-      onCreated();
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -1162,6 +1221,9 @@ function CreatePostDialog({
         </div>
 
         <DialogFooter>
+          {publishValidationIssues.length > 0 && (
+            <p className="mr-auto text-xs text-amber-700">{publishValidationIssues[0]}</p>
+          )}
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
@@ -1172,6 +1234,7 @@ function CreatePostDialog({
               || !content
               || selectedPlatforms.size === 0
               || (postType === "website_promotion" && !websitePageId)
+              || publishValidationIssues.length > 0
             }
           >
             {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
