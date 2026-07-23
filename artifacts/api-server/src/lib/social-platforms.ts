@@ -415,7 +415,8 @@ async function postToX(
         const buffer = Buffer.from(await imgRes.arrayBuffer());
         mediaId = await client.v1.uploadMedia(buffer, { mimeType });
       } catch (e) {
-        console.error("Failed to upload media to X (OAuth2); posting text-only:", e);
+        console.error("Failed to upload media to X (OAuth2):", e);
+        throw new Error("X image upload failed. Reconnect X account with media permissions, then retry.");
       }
     }
 
@@ -470,9 +471,12 @@ async function postToX(
       if (imgRes.ok) {
         const buffer = Buffer.from(await imgRes.arrayBuffer());
         mediaId = await client.v1.uploadMedia(buffer, { mimeType: "image/png" });
+      } else {
+        throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
       }
     } catch (e) {
       console.error("Failed to upload media to X:", e);
+      throw new Error("X image upload failed. Reconnect X account with media permissions, then retry.");
     }
   }
 

@@ -537,6 +537,21 @@ async function buildDefaultCampaign(tenantId: string, postType: SocialPostType):
   return `${postType}-${normalizedName}-${date}`;
 }
 
+async function resolveDefaultBusinessLinkUrl(tenantId: string): Promise<string | null> {
+  const pages = await listPromotionPages(tenantId);
+  if (pages.length === 0) return null;
+
+  const publishedWithUrl = pages.filter((page) => page.status === "published" && !!page.pageUrl);
+  if (publishedWithUrl.length === 0) return null;
+
+  const homeLike = publishedWithUrl.find((page) => {
+    const slug = String(page.slug || "").trim().toLowerCase();
+    return slug === "" || slug === "home" || slug === "index";
+  });
+
+  return homeLike?.pageUrl || publishedWithUrl[0]?.pageUrl || null;
+}
+
 const router: IRouter = Router();
 
 router.post(
@@ -2184,6 +2199,10 @@ router.post(
       finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
     }
 
+    if (postType === "business" && !finalLinkUrl && !isPlatformScope) {
+      finalLinkUrl = await resolveDefaultBusinessLinkUrl(tenantId!);
+    }
+
     const finalContent = postType === "website_promotion"
       ? buildWebsitePromotionContent(platform, String(content || ""), finalLinkUrl)
       : String(content || "").trim();
@@ -2356,6 +2375,10 @@ router.post(
         resolvedWebsitePageId = page.pageId;
         resolvedWebsitePageUrl = page.pageUrl;
         finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
+      }
+
+      if (postType === "business" && !finalLinkUrl && !isPlatformScope) {
+        finalLinkUrl = await resolveDefaultBusinessLinkUrl(tenantId!);
       }
 
       const finalContent = postType === "website_promotion"
