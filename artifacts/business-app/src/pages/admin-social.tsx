@@ -763,6 +763,17 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">You can paste an image URL, generate with AI, or upload your own image.</p>
+            {imageUrl && (
+              <div className="mt-3 rounded-md border p-2 bg-muted/20">
+                <p className="text-xs text-muted-foreground mb-2">Image preview</p>
+                <img
+                  src={imageUrl}
+                  alt="Social post preview"
+                  className="w-full max-h-64 object-contain rounded-md bg-background"
+                  loading="lazy"
+                />
+              </div>
+            )}
             {generatingImage && (
               <div className="space-y-1.5 mt-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
