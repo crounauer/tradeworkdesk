@@ -552,8 +552,17 @@ function CreatePostDialog({
 
   const previewLinkForPlatform = (platform: string): string | null => {
     if (!previewFinalLinkUrl) return null;
-    if (platform === "facebook" || platform === "google_business") return previewFinalLinkUrl;
-    return null;
+    return previewFinalLinkUrl;
+  };
+
+  const previewContentForPlatform = (platform: string): string => {
+    const base = content?.trim() || "";
+    if (postType !== "website_promotion") return base;
+    if (!previewFinalLinkUrl) return base;
+    if (platform === "x" || platform === "instagram") {
+      return base.includes(previewFinalLinkUrl) ? base : `${base}\n\n${previewFinalLinkUrl}`.trim();
+    }
+    return base;
   };
 
   const createMutation = useMutation({
@@ -618,8 +627,6 @@ function CreatePostDialog({
   };
 
   const togglePlatform = (value: string) => {
-    if (isWebsitePromotion && value !== "facebook") return;
-
     const next = new Set(selectedPlatforms);
     if (next.has(value)) {
       if (next.size > 1) next.delete(value);
@@ -744,7 +751,6 @@ function CreatePostDialog({
     if (value === "website_promotion" && !canUseWebsitePromotion) return;
     setPostType(value);
     if (value === "website_promotion") {
-      setSelectedPlatforms(new Set(["facebook"]));
       if (!utmCampaign) {
         const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
         const scopeTag = socialContext?.scope === "platform_marketing" ? "platform" : "tenant";
@@ -833,7 +839,7 @@ function CreatePostDialog({
               ))}
             </div>
             {isWebsitePromotion && (
-              <p className="text-xs text-muted-foreground mt-2">Website Promotion Post currently publishes to Facebook only.</p>
+              <p className="text-xs text-muted-foreground mt-2">Website Promotion Post supports all connected platforms. X and Instagram include the URL in post text.</p>
             )}
           </div>
 
@@ -1073,7 +1079,7 @@ function CreatePostDialog({
                   <Input value={utmContent} onChange={(e) => setUtmContent(e.target.value)} placeholder="utm_content (optional)" />
                 </div>
                 {effectiveLinkPreview && (
-                  <p className="text-xs text-muted-foreground">Facebook link target will be built from selected page + UTM values.</p>
+                  <p className="text-xs text-muted-foreground">Link target will be built from selected page + UTM values for each platform.</p>
                 )}
                 {websitePromotionHasExtraLinks && (
                   <p className="text-xs text-amber-600">Selected page URL is not present in the message body. This is allowed, but review before publishing.</p>
@@ -1121,7 +1127,7 @@ function CreatePostDialog({
                     </div>
 
                     <div className="text-sm whitespace-pre-wrap break-words min-h-[40px]">
-                      {content?.trim() || "Your post content preview will appear here."}
+                      {previewContentForPlatform(platform) || "Your post content preview will appear here."}
                     </div>
 
                     {imageUrl && !previewFailed && (

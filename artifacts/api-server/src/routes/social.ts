@@ -468,6 +468,19 @@ function sanitizeCampaignValue(value: string): string {
     .slice(0, 80);
 }
 
+function buildWebsitePromotionContent(platform: string, content: string, finalLinkUrl: string | null): string {
+  const base = String(content || "").trim();
+  if (!finalLinkUrl) return base;
+
+  const lowerPlatform = String(platform || "").toLowerCase();
+  if (lowerPlatform === "x" || lowerPlatform === "instagram") {
+    if (base.includes(finalLinkUrl)) return base;
+    return `${base}\n\n${finalLinkUrl}`.trim();
+  }
+
+  return base;
+}
+
 async function buildDefaultCampaign(tenantId: string, postType: SocialPostType): Promise<string> {
   const { data: company } = await supabaseAdmin
     .from("company_settings")
@@ -2080,10 +2093,6 @@ router.post(
     }
 
     const postType = coercePostType(rawPostType);
-    if (postType === "website_promotion" && platform !== "facebook") {
-      res.status(400).json({ error: "Website Promotion Post is currently supported for Facebook only" });
-      return;
-    }
 
     const scheduledDate = scheduledFor ? new Date(scheduledFor) : null;
     const isScheduled = scheduledDate && scheduledDate > new Date();
@@ -2133,13 +2142,17 @@ router.post(
       finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
     }
 
+    const finalContent = postType === "website_promotion"
+      ? buildWebsitePromotionContent(platform, String(content || ""), finalLinkUrl)
+      : String(content || "").trim();
+
     const { data: post, error: insertError } = await supabaseAdmin
       .from(isPlatformScope ? "platform_social_posts" : "social_posts")
       .insert(isPlatformScope
         ? {
           created_by_user_id: req.userId || null,
           platform,
-          content,
+          content: finalContent,
           image_url: imageUrl || null,
           video_url: videoUrl || null,
           link_url: finalLinkUrl,
@@ -2158,7 +2171,7 @@ router.post(
           tenant_id: tenantId,
           created_by_user_id: req.userId || null,
           platform,
-          content,
+          content: finalContent,
           image_url: imageUrl || null,
           video_url: videoUrl || null,
           link_url: finalLinkUrl,
@@ -2287,10 +2300,6 @@ router.post(
       }
 
       if (postType === "website_promotion") {
-        if (platform !== "facebook") {
-          res.status(400).json({ error: "Website Promotion Post is currently supported for Facebook only" });
-          return;
-        }
         if (!websitePageId) {
           res.status(400).json({ error: "websitePageId is required for Website Promotion Post" });
           return;
@@ -2306,11 +2315,15 @@ router.post(
         finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
       }
 
+      const finalContent = postType === "website_promotion"
+        ? buildWebsitePromotionContent(platform, String(p.content || ""), finalLinkUrl)
+        : String(p.content || "").trim();
+
       rows.push(isPlatformScope
         ? {
           created_by_user_id: req.userId || null,
           platform,
-          content: p.content,
+          content: finalContent,
           image_url: p.imageUrl || null,
           video_url: p.videoUrl || null,
           link_url: finalLinkUrl,
@@ -2331,7 +2344,7 @@ router.post(
           tenant_id: tenantId,
           created_by_user_id: req.userId || null,
           platform,
-          content: p.content,
+          content: finalContent,
           image_url: p.imageUrl || null,
           video_url: p.videoUrl || null,
           link_url: finalLinkUrl,
