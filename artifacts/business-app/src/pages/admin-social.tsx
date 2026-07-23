@@ -2270,7 +2270,6 @@ function AccountsTab() {
           {startGoogleBusinessOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
           Log in with Google Business
         </Button>
-        <ConnectAccountDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-accounts"] })} />
       </div>
 
       {isLoading ? (
