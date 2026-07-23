@@ -48,7 +48,7 @@ const INSTAGRAM_OAUTH_SCOPES = [
   "instagram_content_publish",
   "business_management",
 ] as const;
-const X_OAUTH_SCOPES = ["tweet.read", "tweet.write", "users.read", "offline.access"] as const;
+const X_OAUTH_SCOPES = ["tweet.read", "tweet.write", "users.read", "offline.access", "media.write"] as const;
 const GOOGLE_BUSINESS_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
 ] as const;

@@ -1,4 +1,4 @@
-import { decryptCredentials } from "./social-crypto";
+import { decryptCredentials, encryptCredentials } from "./social-crypto";
 import { supabaseAdmin } from "./supabase";
 
 export interface SocialPost {
@@ -42,6 +42,8 @@ export interface SocialAccount {
   expires_at?: string | null;
   is_active: boolean;
   auto_post: boolean;
+  connection_method?: string | null;
+  token_metadata?: Record<string, unknown> | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -50,6 +52,12 @@ export interface PostResult {
   postId?: string;
   postUrl?: string;
 }
+
+type XOAuth2RefreshResponse = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+};
 
 function getOptionalEnv(...names: string[]): string | undefined {
   for (const name of names) {
@@ -138,6 +146,130 @@ async function resolveImageUrlForPublishing(rawUrl: string): Promise<string> {
   }
 }
 
+function isXAccessTokenExpired(account: SocialAccount): boolean {
+  const expiresAt = String(account.expires_at || "").trim();
+  if (!expiresAt) return false;
+  const ms = new Date(expiresAt).getTime();
+  if (Number.isNaN(ms)) return false;
+  // Refresh 60s early to avoid race with in-flight API calls.
+  return ms <= Date.now() + 60_000;
+}
+
+async function persistXOAuth2Credentials(args: {
+  account: SocialAccount;
+  tokenType: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string | null;
+  expiresInSeconds: number | null;
+}): Promise<void> {
+  const { account, tokenType, accessToken, refreshToken, expiresAt, expiresInSeconds } = args;
+  const table = account.tenant_id ? "social_accounts" : "platform_social_accounts";
+
+  const encryptedCredentials = encryptCredentials({
+    tokenType,
+    accessToken,
+    refreshToken,
+  });
+
+  const nextTokenMetadata = {
+    ...(account.token_metadata || {}),
+    last_refreshed_at: new Date().toISOString(),
+    expires_in_seconds: expiresInSeconds,
+  };
+
+  let updateQuery = supabaseAdmin
+    .from(table)
+    .update({
+      encrypted_credentials: encryptedCredentials,
+      expires_at: expiresAt,
+      token_metadata: nextTokenMetadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", account.id)
+    .eq("platform", "x");
+
+  if (account.tenant_id) {
+    updateQuery = updateQuery.eq("tenant_id", account.tenant_id);
+  }
+
+  const { error } = await updateQuery;
+  if (error) {
+    throw new Error(`Failed to persist refreshed X credentials: ${error.message}`);
+  }
+}
+
+async function resolveXOAuth2AccessToken(
+  account: SocialAccount,
+  credentials: Record<string, string>,
+): Promise<string> {
+  const clientId = getScopedOptionalEnv(
+    account,
+    ["X_OAUTH_CLIENT_ID"],
+    ["PLATFORM_X_OAUTH_CLIENT_ID"],
+  );
+  const clientSecret = getScopedOptionalEnv(
+    account,
+    ["X_OAUTH_CLIENT_SECRET"],
+    ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
+  );
+
+  const tokenType = String(credentials.tokenType || "oauth2").trim() || "oauth2";
+  const existingAccessToken = String(credentials.accessToken || "").trim();
+  const existingRefreshToken = String(credentials.refreshToken || "").trim();
+
+  const shouldRefresh = !existingAccessToken || isXAccessTokenExpired(account);
+  if (!shouldRefresh) {
+    return existingAccessToken;
+  }
+
+  if (!existingRefreshToken || !clientId || !clientSecret) {
+    if (existingAccessToken) return existingAccessToken;
+    throw new Error("Missing X OAuth2 refresh credentials");
+  }
+
+  const refreshRes = await fetch("https://api.twitter.com/2/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: existingRefreshToken,
+    }).toString(),
+  });
+
+  if (!refreshRes.ok) {
+    const errText = await refreshRes.text();
+    throw new Error(`X OAuth2 token refresh failed: ${refreshRes.status} ${errText}`);
+  }
+
+  const refreshJson = await refreshRes.json() as XOAuth2RefreshResponse;
+  const nextAccessToken = String(refreshJson.access_token || "").trim();
+  const nextRefreshToken = String(refreshJson.refresh_token || existingRefreshToken).trim();
+  const expiresIn = typeof refreshJson.expires_in === "number" ? refreshJson.expires_in : null;
+
+  if (!nextAccessToken) {
+    throw new Error("X OAuth2 token refresh did not return access token");
+  }
+
+  const expiresAt = expiresIn && expiresIn > 0
+    ? new Date(Date.now() + expiresIn * 1000).toISOString()
+    : null;
+
+  await persistXOAuth2Credentials({
+    account,
+    tokenType,
+    accessToken: nextAccessToken,
+    refreshToken: nextRefreshToken,
+    expiresAt,
+    expiresInSeconds: expiresIn,
+  });
+
+  return nextAccessToken;
+}
+
 async function postToX(
   post: SocialPost,
   credentials: Record<string, string>,
@@ -146,62 +278,36 @@ async function postToX(
   const tokenType = String(credentials.tokenType || "oauth1").trim();
 
   if (tokenType === "oauth2") {
-    const clientId = getScopedOptionalEnv(
-      account,
-      ["X_OAUTH_CLIENT_ID"],
-      ["PLATFORM_X_OAUTH_CLIENT_ID"],
-    );
-    const clientSecret = getScopedOptionalEnv(
-      account,
-      ["X_OAUTH_CLIENT_SECRET"],
-      ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
-    );
-    const refreshToken = String(credentials.refreshToken || "").trim();
-
-    let accessToken = String(credentials.accessToken || "").trim();
-    if (refreshToken && clientId && clientSecret) {
-      const refreshRes = await fetch("https://api.twitter.com/2/oauth2/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }).toString(),
-      });
-
-      if (refreshRes.ok) {
-        const refreshJson = await refreshRes.json() as { access_token?: string };
-        accessToken = String(refreshJson.access_token || accessToken).trim();
-      }
-    }
+    const accessToken = await resolveXOAuth2AccessToken(account, credentials);
 
     if (!accessToken) {
       throw new Error("Missing X OAuth2 access token");
     }
 
+    const { TwitterApi } = await import("twitter-api-v2");
+    const client = new TwitterApi(accessToken);
+
+    let mediaId: string | undefined;
     if (post.image_url) {
-      console.warn("[social-platforms] X OAuth2 publishing currently sends text-only posts");
+      const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
+      validateImageUrl(publishImageUrl);
+      const imgRes = await fetch(publishImageUrl);
+      if (!imgRes.ok) {
+        throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
+      }
+
+      const mimeType = String(imgRes.headers.get("content-type") || "image/jpeg");
+      const buffer = Buffer.from(await imgRes.arrayBuffer());
+      mediaId = await client.v1.uploadMedia(buffer, { mimeType });
     }
 
-    const tweetRes = await fetch("https://api.twitter.com/2/tweets", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ text: post.content }),
-    });
-
-    if (!tweetRes.ok) {
-      const errText = await tweetRes.text();
-      throw new Error(`X API error: ${tweetRes.status} ${errText}`);
+    const tweetPayload: Record<string, unknown> = { text: post.content };
+    if (mediaId) {
+      tweetPayload.media = { media_ids: [mediaId] };
     }
 
-    const tweetJson = await tweetRes.json() as { data?: { id?: string } };
-    const tweetId = String(tweetJson.data?.id || "").trim();
+    const tweetResult = await client.v2.tweet(tweetPayload);
+    const tweetId = String(tweetResult.data?.id || "").trim();
     if (!tweetId) {
       throw new Error("X API did not return a tweet id");
     }

@@ -2244,7 +2244,7 @@ function AccountsTab() {
           disabled={startXOAuthMutation.isPending}
         >
           {startXOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
-          Log in with X
+          Connect X
         </Button>
         <Button
           variant="default"
