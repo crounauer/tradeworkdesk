@@ -222,6 +222,26 @@ function isXDuplicatePostError(err: unknown): boolean {
   return msg.includes("duplicate") && msg.includes("status");
 }
 
+function composeXText(post: SocialPost, extraUrls: string[] = []): string {
+  const segments: string[] = [];
+  const base = String(post.content || "").trim();
+  if (base) segments.push(base);
+
+  const link = String(post.link_url || "").trim();
+  if (link && !base.includes(link)) {
+    segments.push(link);
+  }
+
+  for (const raw of extraUrls) {
+    const url = String(raw || "").trim();
+    if (!url) continue;
+    if (segments.some((segment) => segment.includes(url))) continue;
+    segments.push(url);
+  }
+
+  return enforceXTextLimit(segments.join("\n\n").trim());
+}
+
 function isXAccessTokenExpired(account: SocialAccount): boolean {
   const expiresAt = String(account.expires_at || "").trim();
   if (!expiresAt) return false;
@@ -364,10 +384,12 @@ async function postToX(
     const client = new TwitterApi(accessToken);
 
     let mediaId: string | undefined;
+    let mediaUrlFallback: string | undefined;
     if (post.image_url) {
       try {
         const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
         validateImageUrl(publishImageUrl);
+        mediaUrlFallback = publishImageUrl;
         const imgRes = await fetch(publishImageUrl);
         if (!imgRes.ok) {
           throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
@@ -381,7 +403,7 @@ async function postToX(
       }
     }
 
-    const tweetPayload: Record<string, unknown> = { text: enforceXTextLimit(post.content) };
+    const tweetPayload: Record<string, unknown> = { text: composeXText(post, mediaId ? [] : [mediaUrlFallback || ""]) };
     if (mediaId) {
       tweetPayload.media = { media_ids: [mediaId] };
     }
@@ -423,11 +445,13 @@ async function postToX(
   });
 
   let mediaId: string | undefined;
+  let mediaUrlFallback: string | undefined;
 
   if (post.image_url) {
     try {
       const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
       validateImageUrl(publishImageUrl);
+      mediaUrlFallback = publishImageUrl;
       const imgRes = await fetch(publishImageUrl);
       if (imgRes.ok) {
         const buffer = Buffer.from(await imgRes.arrayBuffer());
@@ -438,7 +462,7 @@ async function postToX(
     }
   }
 
-  const tweetPayload: Record<string, unknown> = { text: enforceXTextLimit(post.content) };
+  const tweetPayload: Record<string, unknown> = { text: composeXText(post, mediaId ? [] : [mediaUrlFallback || ""]) };
   if (mediaId) {
     tweetPayload.media = { media_ids: [mediaId] };
   }

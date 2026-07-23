@@ -1832,6 +1832,7 @@ function PostsTab() {
     post_type?: string;
     content: string;
     image_url?: string | null;
+    post_id?: string | null;
     link_url?: string | null;
     post_url?: string | null;
     website_page_url?: string | null;
@@ -1929,7 +1930,11 @@ function PostsTab() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0 flex items-start gap-3">
-                    {post.image_url && <PostImageThumbnail imageUrl={post.image_url} />}
+                    {(post.image_url || (post.platform === "facebook" && post.post_id)) && (
+                      <PostImageThumbnail
+                        imageUrl={post.image_url || `https://graph.facebook.com/${encodeURIComponent(String(post.post_id || ""))}/picture`}
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         {getPlatformBadge(post.platform)}
