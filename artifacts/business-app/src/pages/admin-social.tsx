@@ -1467,12 +1467,75 @@ function AccountsTab() {
     },
   });
 
+  const startInstagramOAuthMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/social/instagram/oauth/start", {
+        method: "POST",
+        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts" }),
+      }) as Promise<{ authUrl: string }>,
+    onSuccess: (result) => {
+      if (!result?.authUrl) {
+        toast({ title: "Error", description: "Missing Instagram authorization URL", variant: "destructive" });
+        return;
+      }
+      window.location.assign(result.authUrl);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const startXOAuthMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/social/x/oauth/start", {
+        method: "POST",
+        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts" }),
+      }) as Promise<{ authUrl: string }>,
+    onSuccess: (result) => {
+      if (!result?.authUrl) {
+        toast({ title: "Error", description: "Missing X authorization URL", variant: "destructive" });
+        return;
+      }
+      window.location.assign(result.authUrl);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const startGoogleBusinessOAuthMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/social/google-business/oauth/start", {
+        method: "POST",
+        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts" }),
+      }) as Promise<{ authUrl: string }>,
+    onSuccess: (result) => {
+      if (!result?.authUrl) {
+        toast({ title: "Error", description: "Missing Google Business authorization URL", variant: "destructive" });
+        return;
+      }
+      window.location.assign(result.authUrl);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (account: Record<string, string | boolean>) => {
       const accountId = String(account.id || "");
       const platform = String(account.platform || "");
       if (platform === "facebook") {
         return apiFetch(`/admin/social/facebook/oauth/accounts/${accountId}`, { method: "DELETE" });
+      }
+      if (platform === "x") {
+        return apiFetch(`/admin/social/x/oauth/accounts/${accountId}`, { method: "DELETE" });
+      }
+      if (platform === "google_business") {
+        return apiFetch(`/admin/social/google-business/oauth/accounts/${accountId}`, { method: "DELETE" });
+      }
+      if (platform === "instagram") {
+        return apiFetch(`/admin/social/instagram/oauth/accounts/${accountId}`, { method: "DELETE" });
       }
       return apiFetch(`/admin/social/accounts/${accountId}`, { method: "DELETE" });
     },
@@ -1487,11 +1550,35 @@ function AccountsTab() {
       <div className="flex justify-end gap-2">
         <Button
           variant="default"
+          onClick={() => startXOAuthMutation.mutate()}
+          disabled={startXOAuthMutation.isPending}
+        >
+          {startXOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+          Log in with X
+        </Button>
+        <Button
+          variant="default"
           onClick={() => startFacebookOAuthMutation.mutate()}
           disabled={startFacebookOAuthMutation.isPending}
         >
           {startFacebookOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
           Log in with Facebook
+        </Button>
+        <Button
+          variant="default"
+          onClick={() => startInstagramOAuthMutation.mutate()}
+          disabled={startInstagramOAuthMutation.isPending}
+        >
+          {startInstagramOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+          Log in with Instagram
+        </Button>
+        <Button
+          variant="default"
+          onClick={() => startGoogleBusinessOAuthMutation.mutate()}
+          disabled={startGoogleBusinessOAuthMutation.isPending}
+        >
+          {startGoogleBusinessOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+          Log in with Google Business
         </Button>
         <ConnectAccountDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-accounts"] })} />
       </div>
@@ -1583,27 +1670,37 @@ export default function AdminSocial() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const status = params.get("facebook_oauth");
-    if (!status) return;
+    const oauthStatuses = [
+      { key: "facebook_oauth", label: "Facebook" },
+      { key: "instagram_oauth", label: "Instagram" },
+      { key: "x_oauth", label: "X" },
+      { key: "google_business_oauth", label: "Google Business" },
+    ] as const;
 
+    const handled = oauthStatuses.find((item) => params.get(item.key));
+    if (!handled) return;
+
+    const status = params.get(handled.key);
     const message = params.get("message");
     const connectedCount = params.get("connected");
     if (status === "success") {
       toast({
-        title: "Facebook connected",
-        description: connectedCount ? `Connected ${connectedCount} page(s).` : "Facebook pages connected successfully.",
+        title: `${handled.label} connected`,
+        description: connectedCount ? `Connected ${connectedCount} account(s).` : `${handled.label} connected successfully.`,
       });
       setActiveTab("accounts");
     } else {
       toast({
-        title: "Facebook connection failed",
+        title: `${handled.label} connection failed`,
         description: message || "Please try again.",
         variant: "destructive",
       });
       setActiveTab("accounts");
     }
 
-    params.delete("facebook_oauth");
+    for (const item of oauthStatuses) {
+      params.delete(item.key);
+    }
     params.delete("message");
     params.delete("connected");
     const nextQuery = params.toString();

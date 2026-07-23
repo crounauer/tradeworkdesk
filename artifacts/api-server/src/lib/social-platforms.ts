@@ -50,6 +50,21 @@ export interface PostResult {
   postUrl?: string;
 }
 
+function getOptionalEnv(...names: string[]): string | undefined {
+  for (const name of names) {
+    const value = String(process.env[name] || "").trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function getScopedOptionalEnv(account: SocialAccount, tenantNames: string[], platformNames: string[]): string | undefined {
+  const isPlatformScope = !account.tenant_id;
+  return isPlatformScope
+    ? getOptionalEnv(...platformNames, ...tenantNames)
+    : getOptionalEnv(...tenantNames);
+}
+
 function validateImageUrl(url: string): void {
   let parsed: URL;
   try {
@@ -90,8 +105,81 @@ function validateImageUrl(url: string): void {
 async function postToX(
   post: SocialPost,
   credentials: Record<string, string>,
+  account: SocialAccount,
 ): Promise<PostResult> {
-  const { appKey, appSecret, accessToken, accessSecret } = credentials;
+  const tokenType = String(credentials.tokenType || "oauth1").trim();
+
+  if (tokenType === "oauth2") {
+    const clientId = getScopedOptionalEnv(
+      account,
+      ["X_OAUTH_CLIENT_ID"],
+      ["PLATFORM_X_OAUTH_CLIENT_ID"],
+    );
+    const clientSecret = getScopedOptionalEnv(
+      account,
+      ["X_OAUTH_CLIENT_SECRET"],
+      ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
+    );
+    const refreshToken = String(credentials.refreshToken || "").trim();
+
+    let accessToken = String(credentials.accessToken || "").trim();
+    if (refreshToken && clientId && clientSecret) {
+      const refreshRes = await fetch("https://api.twitter.com/2/oauth2/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        }).toString(),
+      });
+
+      if (refreshRes.ok) {
+        const refreshJson = await refreshRes.json() as { access_token?: string };
+        accessToken = String(refreshJson.access_token || accessToken).trim();
+      }
+    }
+
+    if (!accessToken) {
+      throw new Error("Missing X OAuth2 access token");
+    }
+
+    if (post.image_url) {
+      console.warn("[social-platforms] X OAuth2 publishing currently sends text-only posts");
+    }
+
+    const tweetRes = await fetch("https://api.twitter.com/2/tweets", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ text: post.content }),
+    });
+
+    if (!tweetRes.ok) {
+      const errText = await tweetRes.text();
+      throw new Error(`X API error: ${tweetRes.status} ${errText}`);
+    }
+
+    const tweetJson = await tweetRes.json() as { data?: { id?: string } };
+    const tweetId = String(tweetJson.data?.id || "").trim();
+    if (!tweetId) {
+      throw new Error("X API did not return a tweet id");
+    }
+
+    return {
+      postId: tweetId,
+      postUrl: `https://x.com/i/web/status/${tweetId}`,
+    };
+  }
+
+  const appKey = String(credentials.appKey || getScopedOptionalEnv(account, ["X_APP_KEY", "X_OAUTH1_APP_KEY"], ["PLATFORM_X_APP_KEY", "PLATFORM_X_OAUTH1_APP_KEY"]) || "").trim();
+  const appSecret = String(credentials.appSecret || getScopedOptionalEnv(account, ["X_APP_SECRET", "X_OAUTH1_APP_SECRET"], ["PLATFORM_X_APP_SECRET", "PLATFORM_X_OAUTH1_APP_SECRET"]) || "").trim();
+  const accessToken = String(credentials.accessToken || "").trim();
+  const accessSecret = String(credentials.accessSecret || "").trim();
   if (!appKey || !appSecret || !accessToken || !accessSecret) {
     throw new Error("Missing X/Twitter OAuth credentials");
   }
@@ -231,11 +319,22 @@ async function postToGoogleBusiness(
   credentials: Record<string, string>,
   account: SocialAccount,
 ): Promise<PostResult> {
-  const { clientId, clientSecret, refreshToken } = credentials;
+  const clientId = String(
+    credentials.clientId
+    || getScopedOptionalEnv(account, ["GOOGLE_BUSINESS_OAUTH_CLIENT_ID", "GOOGLE_BUSINESS_CLIENT_ID"], ["PLATFORM_GOOGLE_BUSINESS_OAUTH_CLIENT_ID", "PLATFORM_GOOGLE_BUSINESS_CLIENT_ID"])
+    || "",
+  ).trim();
+  const clientSecret = String(
+    credentials.clientSecret
+    || getScopedOptionalEnv(account, ["GOOGLE_BUSINESS_OAUTH_CLIENT_SECRET", "GOOGLE_BUSINESS_CLIENT_SECRET"], ["PLATFORM_GOOGLE_BUSINESS_OAUTH_CLIENT_SECRET", "PLATFORM_GOOGLE_BUSINESS_CLIENT_SECRET"])
+    || "",
+  ).trim();
+  const refreshToken = String(credentials.refreshToken || "").trim();
   // page_id             → Google Account resource name  e.g. "accounts/123456"
   // instagram_business_id → Location resource ID        e.g. "locations/789012"
-  const accountName = account.page_id;
-  const locationId = account.instagram_business_id;
+  const accountName = String(account.page_id || "").trim();
+  const locationRaw = String(account.instagram_business_id || "").trim();
+  const locationId = locationRaw.replace(/^locations\//, "");
 
   if (!clientId || !clientSecret || !refreshToken || !accountName || !locationId) {
     throw new Error("Missing Google Business credentials, account name, or location ID");
@@ -306,7 +405,7 @@ export async function dispatchPost(
 
   switch (post.platform) {
     case "x":
-      return postToX(post, credentials);
+      return postToX(post, credentials, account);
     case "facebook":
       return postToFacebook(post, credentials, account);
     case "instagram":

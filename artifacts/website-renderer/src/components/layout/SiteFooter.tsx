@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { CompanySettings, SitePage } from "@/lib/api";
 
 interface Props {
@@ -82,6 +83,134 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
           label: page.nav_label || page.title,
           href: page.slug.startsWith("/") ? page.slug : `/${page.slug}`,
         }));
+
+  const socialPlatformConfig: Array<{ label: string; keys: string[] }> = [
+    { label: "Facebook", keys: ["facebook"] },
+    { label: "Instagram", keys: ["instagram"] },
+    { label: "X", keys: ["x", "twitter"] },
+    { label: "LinkedIn", keys: ["linkedin"] },
+    { label: "YouTube", keys: ["youtube"] },
+  ];
+
+  function normalizeExternalUrl(raw: string): string {
+    const value = raw.trim();
+    if (!value) return "";
+    if (value.startsWith("#")) return "";
+    if (/^https?:\/\//i.test(value) || /^mailto:/i.test(value) || /^tel:/i.test(value)) {
+      return value;
+    }
+    return `https://${value}`;
+  }
+
+  const resolvedSocialLinks = socialPlatformConfig
+    .map((platform) => {
+      const rawValue = platform.keys
+        .map((key) => String((socialLinks || {})[key] || "").trim())
+        .find((value) => value.length > 0) || "";
+      const href = normalizeExternalUrl(rawValue);
+      return href ? { label: platform.label, href } : null;
+    })
+    .filter((item): item is { label: string; href: string } => item !== null);
+
+  const hasSocialLinks = resolvedSocialLinks.length > 0;
+
+  function renderSocialIcon(label: string): ReactNode {
+    const baseProps = {
+      width: 14,
+      height: 14,
+      viewBox: "0 0 24 24",
+      fill: "currentColor",
+      ariaHidden: true,
+    } as const;
+
+    switch (label) {
+      case "Facebook":
+        return (
+          <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill={baseProps.fill} aria-hidden={baseProps.ariaHidden}>
+            <path d="M22 12a10 10 0 1 0-11.56 9.88V14.9H7.9V12h2.54V9.8c0-2.5 1.5-3.88 3.8-3.88 1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.77l-.44 2.9h-2.33v6.98A10 10 0 0 0 22 12" />
+          </svg>
+        );
+      case "Instagram":
+        return (
+          <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill="none" aria-hidden={baseProps.ariaHidden}>
+            <rect x="4" y="4" width="16" height="16" rx="5" stroke="currentColor" strokeWidth="2" />
+            <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" />
+            <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" />
+          </svg>
+        );
+      case "X":
+        return (
+          <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill={baseProps.fill} aria-hidden={baseProps.ariaHidden}>
+            <path d="M18.9 3H22l-6.77 7.74L23.2 21h-6.27l-4.91-6.43L6.4 21H3.3l7.24-8.28L2.8 3h6.43l4.44 5.86L18.9 3Zm-1.1 16h1.74L8.3 4.9H6.44L17.8 19Z" />
+          </svg>
+        );
+      case "LinkedIn":
+        return (
+          <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill={baseProps.fill} aria-hidden={baseProps.ariaHidden}>
+            <path d="M4.98 3.5A2.5 2.5 0 1 0 5 8.5a2.5 2.5 0 0 0-.02-5ZM3 9h4v12H3V9Zm7 0h3.8v1.71h.05c.53-1 1.84-2.06 3.78-2.06 4.04 0 4.79 2.66 4.79 6.12V21h-4v-5.47c0-1.3-.02-2.98-1.82-2.98-1.82 0-2.1 1.42-2.1 2.88V21h-4V9Z" />
+          </svg>
+        );
+      case "YouTube":
+        return (
+          <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill={baseProps.fill} aria-hidden={baseProps.ariaHidden}>
+            <path d="M23.5 7.1a3.02 3.02 0 0 0-2.12-2.14C19.49 4.5 12 4.5 12 4.5s-7.5 0-9.38.46A3.02 3.02 0 0 0 .5 7.1 31.7 31.7 0 0 0 0 12a31.7 31.7 0 0 0 .5 4.9 3.02 3.02 0 0 0 2.12 2.14C4.5 19.5 12 19.5 12 19.5s7.49 0 9.38-.46a3.02 3.02 0 0 0 2.12-2.14A31.7 31.7 0 0 0 24 12a31.7 31.7 0 0 0-.5-4.9ZM9.6 15.2V8.8L15.8 12l-6.2 3.2Z" />
+          </svg>
+        );
+      default:
+        return <span style={{ fontSize: "0.65rem", fontWeight: 700 }}>{label.slice(0, 1)}</span>;
+    }
+  }
+
+  function socialButtonStyle(color: string): Record<string, string | number> {
+    return {
+      width: 28,
+      height: 28,
+      borderRadius: 999,
+      border: `1px solid ${color}`,
+      color,
+      textDecoration: "none",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 1,
+    };
+  }
+
+  function getSocialBrandColor(label: string): string {
+    switch (label) {
+      case "Facebook":
+        return "#1877F2";
+      case "Instagram":
+        return "#E1306C";
+      case "X":
+        return "#111111";
+      case "LinkedIn":
+        return "#0A66C2";
+      case "YouTube":
+        return "#FF0000";
+      default:
+        return "#64748b";
+    }
+  }
+
+  const socialIconButtonCss = `
+    .twd-social-btn {
+      transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+    .twd-social-btn:hover {
+      background: var(--social-accent, #64748b);
+      border-color: var(--social-accent, #64748b) !important;
+      color: #ffffff !important;
+      transform: translateY(-1px);
+    }
+    .twd-social-btn:focus-visible {
+      outline: 2px solid var(--social-accent, #64748b);
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .twd-social-btn { transition: none; }
+    }
+  `;
   const normalizedTemplateSlug = String(templateSlug || "").trim().toLowerCase();
 
   if (normalizedTemplateSlug === "local-plumbing-pro" && !footerProps) {
@@ -120,6 +249,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
 
     return (
       <footer style={{ background: resolvedBackground, color: resolvedTextColor }}>
+        <style>{socialIconButtonCss}</style>
         {effectiveLayoutVariant === "compact-inline" ? (
           <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 16px", display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 24 }}>
             <div style={{ minWidth: 240 }}>
@@ -256,6 +386,28 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
         <div style={{ borderTop: `1px solid ${resolvedBorderColor}` }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
             <span>© {new Date().getFullYear()} {footerLogoText || displayName}. All rights reserved.</span>
+            {hasSocialLinks ? (
+              <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ color: "rgba(255,255,255,0.6)" }}>Follow us:</span>
+                {resolvedSocialLinks.map((item) => (
+                  <a
+                    key={`footer-social-${item.label}`}
+                    href={item.href}
+                    className="twd-social-btn"
+                    style={{
+                      ...socialButtonStyle("rgba(255,255,255,0.85)"),
+                      ["--social-accent" as any]: getSocialBrandColor(item.label),
+                    }}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={item.label}
+                    title={item.label}
+                  >
+                    {renderSocialIcon(item.label)}
+                  </a>
+                ))}
+              </span>
+            ) : null}
             <a href={poweredByHref} style={{ color: "inherit", textDecoration: "none" }}>{poweredByLabel}</a>
           </div>
           {footerLegalLinks.length > 0 ? (
@@ -300,6 +452,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
 
   return (
     <footer style={{ background: resolvedBackground, color: resolvedTextColor, padding: "48px 24px 14px" }}>
+      <style>{socialIconButtonCss}</style>
       <div style={footerWidth}>
         {effectiveLayoutVariant === "centered-stack" ? (
           <div style={{ margin: "0 auto", maxWidth: 900, textAlign: "center", display: "grid", gap: 10 }}>
@@ -392,6 +545,28 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
                 <a key={`footer-bottom-legal-${item.href}`} href={item.href} style={linkStyle}>{item.label}</a>
               ))}
             </div>
+            {hasSocialLinks ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ opacity: 0.85 }}>Follow us:</span>
+                {resolvedSocialLinks.map((item) => (
+                  <a
+                    key={`footer-bottom-social-${item.label}`}
+                    href={item.href}
+                    className="twd-social-btn"
+                    style={{
+                      ...socialButtonStyle(resolvedTextColor),
+                      ["--social-accent" as any]: getSocialBrandColor(item.label),
+                    }}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={item.label}
+                    title={item.label}
+                  >
+                    {renderSocialIcon(item.label)}
+                  </a>
+                ))}
+              </div>
+            ) : null}
             <a href={poweredByHref} style={linkStyle}>{poweredByLabel}</a>
           </div>
         </div>
