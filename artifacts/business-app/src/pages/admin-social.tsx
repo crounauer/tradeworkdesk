@@ -304,6 +304,35 @@ function getPlatformLabel(platform: string) {
   return p?.label || platform;
 }
 
+function normalizeXContentForLimit(raw: string): string {
+  const text = String(raw || "").trim();
+  if (text.length <= 280) return text;
+
+  const urlMatch = text.match(/\bhttps?:\/\/\S+$/);
+  if (!urlMatch) {
+    return `${text.slice(0, 277).trimEnd()}...`;
+  }
+
+  const url = urlMatch[0];
+  const prefix = text.slice(0, urlMatch.index).trimEnd();
+  const separator = prefix ? "\n\n" : "";
+  const availablePrefixLength = 280 - url.length - separator.length;
+
+  if (availablePrefixLength <= 0) {
+    return url.slice(0, 280);
+  }
+
+  if (prefix.length <= availablePrefixLength) {
+    return `${prefix}${separator}${url}`.trim();
+  }
+
+  const clippedPrefix = availablePrefixLength > 3
+    ? `${prefix.slice(0, availablePrefixLength - 3).trimEnd()}...`
+    : prefix.slice(0, availablePrefixLength);
+
+  return `${clippedPrefix}${separator}${url}`.trim();
+}
+
 function StatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status];
   if (!config) return <Badge variant="outline">{status}</Badge>;
@@ -562,21 +591,25 @@ function CreatePostDialog({
 
   const previewContentForPlatform = (platform: string): string => {
     const base = content?.trim() || "";
-    if (postType !== "website_promotion") return base;
-    if (!previewFinalLinkUrl) return base;
-    if (platform === "x" || platform === "instagram") {
-      return base.includes(previewFinalLinkUrl) ? base : `${base}\n\n${previewFinalLinkUrl}`.trim();
+    if (postType !== "website_promotion") {
+      return platform === "x" ? normalizeXContentForLimit(base) : base;
     }
-    return base;
+    if (!previewFinalLinkUrl) {
+      return platform === "x" ? normalizeXContentForLimit(base) : base;
+    }
+
+    const withLink = (platform === "x" || platform === "instagram")
+      ? (base.includes(previewFinalLinkUrl) ? base : `${base}\n\n${previewFinalLinkUrl}`.trim())
+      : base;
+
+    if (platform === "x") {
+      return normalizeXContentForLimit(withLink);
+    }
+    return withLink;
   };
 
   const publishValidationIssues = selectedPlatformsArray.flatMap((platform) => {
     const issues: string[] = [];
-    const previewText = previewContentForPlatform(platform);
-
-    if (platform === "x" && previewText.length > 280) {
-      issues.push(`X post is ${previewText.length} characters (max 280).`);
-    }
 
     if (platform === "instagram" && !imageUrl) {
       issues.push("Instagram publishing requires an image.");
@@ -599,11 +632,12 @@ function CreatePostDialog({
       const results: Array<{ platform: string; success: boolean; error?: string }> = [];
       for (const platform of platforms) {
         try {
+          const platformContent = previewContentForPlatform(platform);
           await apiFetch("/admin/social/post", {
             method: "POST",
             body: JSON.stringify({
               platform,
-              content,
+              content: platformContent,
               imageUrl: imageUrl || undefined,
               linkUrl: postType === "business" ? (linkUrl || undefined) : undefined,
               scheduledFor,
@@ -1182,6 +1216,16 @@ function CreatePostDialog({
                 const platformCharLimit = platform === "x" ? 280 : null;
                 const platformCharCount = previewText.length;
                 const exceedsPlatformLimit = platformCharLimit !== null && platformCharCount > platformCharLimit;
+                const rawPreviewText = (() => {
+                  const base = content?.trim() || "";
+                  if (postType !== "website_promotion") return base;
+                  if (!previewFinalLinkUrl) return base;
+                  if (platform === "x" || platform === "instagram") {
+                    return base.includes(previewFinalLinkUrl) ? base : `${base}\n\n${previewFinalLinkUrl}`.trim();
+                  }
+                  return base;
+                })();
+                const wasTrimmedForX = platform === "x" && rawPreviewText.length > previewText.length;
                 return (
                   <div key={`preview-${platform}`} className="rounded-md border p-3 space-y-2 bg-muted/20">
                     <div className="flex items-center justify-between gap-2">
@@ -1223,6 +1267,10 @@ function CreatePostDialog({
 
                     {platform === "x" && platformCharCount > 280 && (
                       <p className="text-xs text-amber-700">X will reject posts above 280 characters.</p>
+                    )}
+
+                    {wasTrimmedForX && (
+                      <p className="text-xs text-amber-700">X text auto-trimmed to 280 characters for publish.</p>
                     )}
                   </div>
                 );

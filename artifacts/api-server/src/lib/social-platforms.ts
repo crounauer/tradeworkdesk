@@ -146,6 +146,66 @@ async function resolveImageUrlForPublishing(rawUrl: string): Promise<string> {
   }
 }
 
+function enforceXTextLimit(raw: string): string {
+  const text = String(raw || "").trim();
+  if (text.length <= 280) return text;
+
+  const urlMatch = text.match(/\bhttps?:\/\/\S+$/);
+  if (!urlMatch) {
+    return `${text.slice(0, 277).trimEnd()}...`;
+  }
+
+  const url = urlMatch[0];
+  const prefix = text.slice(0, urlMatch.index).trimEnd();
+  const separator = prefix ? "\n\n" : "";
+  const availablePrefixLength = 280 - url.length - separator.length;
+
+  if (availablePrefixLength <= 0) {
+    return url.slice(0, 280);
+  }
+
+  if (prefix.length <= availablePrefixLength) {
+    return `${prefix}${separator}${url}`.trim();
+  }
+
+  const clippedPrefix = availablePrefixLength > 3
+    ? `${prefix.slice(0, availablePrefixLength - 3).trimEnd()}...`
+    : prefix.slice(0, availablePrefixLength);
+
+  return `${clippedPrefix}${separator}${url}`.trim();
+}
+
+function formatXApiError(err: unknown): string {
+  if (err instanceof Error) {
+    const anyErr = err as Error & {
+      code?: number;
+      data?: { title?: string; detail?: string; errors?: Array<{ message?: string }> };
+    };
+
+    const details: string[] = [];
+    if (typeof anyErr.code === "number") {
+      details.push(`code=${anyErr.code}`);
+    }
+    if (anyErr.data?.title) {
+      details.push(anyErr.data.title);
+    }
+    if (anyErr.data?.detail) {
+      details.push(anyErr.data.detail);
+    }
+    if (Array.isArray(anyErr.data?.errors) && anyErr.data?.errors.length > 0) {
+      const firstMsg = String(anyErr.data.errors[0]?.message || "").trim();
+      if (firstMsg) details.push(firstMsg);
+    }
+
+    if (details.length > 0) {
+      return `${anyErr.message} (${details.join(" | ")})`;
+    }
+    return anyErr.message;
+  }
+
+  return String(err);
+}
+
 function isXAccessTokenExpired(account: SocialAccount): boolean {
   const expiresAt = String(account.expires_at || "").trim();
   if (!expiresAt) return false;
@@ -289,24 +349,33 @@ async function postToX(
 
     let mediaId: string | undefined;
     if (post.image_url) {
-      const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
-      validateImageUrl(publishImageUrl);
-      const imgRes = await fetch(publishImageUrl);
-      if (!imgRes.ok) {
-        throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
-      }
+      try {
+        const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
+        validateImageUrl(publishImageUrl);
+        const imgRes = await fetch(publishImageUrl);
+        if (!imgRes.ok) {
+          throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
+        }
 
-      const mimeType = String(imgRes.headers.get("content-type") || "image/jpeg");
-      const buffer = Buffer.from(await imgRes.arrayBuffer());
-      mediaId = await client.v1.uploadMedia(buffer, { mimeType });
+        const mimeType = String(imgRes.headers.get("content-type") || "image/jpeg");
+        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        mediaId = await client.v1.uploadMedia(buffer, { mimeType });
+      } catch (e) {
+        console.error("Failed to upload media to X (OAuth2); posting text-only:", e);
+      }
     }
 
-    const tweetPayload: Record<string, unknown> = { text: post.content };
+    const tweetPayload: Record<string, unknown> = { text: enforceXTextLimit(post.content) };
     if (mediaId) {
       tweetPayload.media = { media_ids: [mediaId] };
     }
 
-    const tweetResult = await client.v2.tweet(tweetPayload);
+    let tweetResult: Awaited<ReturnType<typeof client.v2.tweet>>;
+    try {
+      tweetResult = await client.v2.tweet(tweetPayload);
+    } catch (err) {
+      throw new Error(`X API error: ${formatXApiError(err)}`);
+    }
     const tweetId = String(tweetResult.data?.id || "").trim();
     if (!tweetId) {
       throw new Error("X API did not return a tweet id");
@@ -350,12 +419,17 @@ async function postToX(
     }
   }
 
-  const tweetPayload: Record<string, unknown> = { text: post.content };
+  const tweetPayload: Record<string, unknown> = { text: enforceXTextLimit(post.content) };
   if (mediaId) {
     tweetPayload.media = { media_ids: [mediaId] };
   }
 
-  const result = await client.v2.tweet(tweetPayload);
+  let result: Awaited<ReturnType<typeof client.v2.tweet>>;
+  try {
+    result = await client.v2.tweet(tweetPayload);
+  } catch (err) {
+    throw new Error(`X API error: ${formatXApiError(err)}`);
+  }
   const tweetId = result.data.id;
 
   return {
