@@ -2610,7 +2610,14 @@ router.post(
       if (hit) byPlatform[p] = hit;
     }
 
-    const content = byPlatform.facebook || byPlatform.instagram || byPlatform.x || byPlatform.google_business || String(prompt).trim();
+    if (byPlatform.x) {
+      byPlatform.x = normalizeContentForPlatform("x", byPlatform.x);
+    }
+
+    const fallbackContent = byPlatform.facebook || byPlatform.instagram || byPlatform.x || byPlatform.google_business || String(prompt).trim();
+    const content = activePlatforms.includes("x")
+      ? (byPlatform.x || normalizeContentForPlatform("x", fallbackContent))
+      : fallbackContent;
     let imageUrl: string | null = null;
 
     if (includeImage) {

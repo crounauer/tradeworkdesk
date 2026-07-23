@@ -760,6 +760,7 @@ function CreatePostDialog({
         method: "POST",
         body: JSON.stringify({
           prompt,
+          platforms: Array.from(selectedPlatforms),
           includeImage: aiHelperIncludeImage,
         }),
       });
