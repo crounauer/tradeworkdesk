@@ -222,24 +222,42 @@ function isXDuplicatePostError(err: unknown): boolean {
   return msg.includes("duplicate") && msg.includes("status");
 }
 
-function composeXText(post: SocialPost, extraUrls: string[] = []): string {
+function compactUrlForPost(raw: string): string {
+  const input = String(raw || "").trim();
+  if (!input) return "";
+
+  try {
+    const url = new URL(input);
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (key.toLowerCase().startsWith("utm_")) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    let compact = url.toString();
+    if (compact.length > 140) {
+      url.search = "";
+      url.hash = "";
+      compact = url.toString();
+    }
+    return compact;
+  } catch {
+    return input;
+  }
+}
+
+function composeXText(post: SocialPost): string {
   const segments: string[] = [];
   const base = String(post.content || "").trim();
   if (base) segments.push(base);
 
-  const link = String(post.link_url || "").trim();
+  const link = compactUrlForPost(String(post.link_url || post.final_link_url || ""));
   if (link && !base.includes(link)) {
     segments.push(link);
   }
 
-  for (const raw of extraUrls) {
-    const url = String(raw || "").trim();
-    if (!url) continue;
-    if (segments.some((segment) => segment.includes(url))) continue;
-    segments.push(url);
-  }
-
-  return enforceXTextLimit(segments.join("\n\n").trim());
+  const composed = segments.join("\n\n").trim();
+  return enforceXTextLimit(composed || base);
 }
 
 function isXAccessTokenExpired(account: SocialAccount): boolean {
@@ -384,12 +402,10 @@ async function postToX(
     const client = new TwitterApi(accessToken);
 
     let mediaId: string | undefined;
-    let mediaUrlFallback: string | undefined;
     if (post.image_url) {
       try {
         const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
         validateImageUrl(publishImageUrl);
-        mediaUrlFallback = publishImageUrl;
         const imgRes = await fetch(publishImageUrl);
         if (!imgRes.ok) {
           throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
@@ -403,7 +419,7 @@ async function postToX(
       }
     }
 
-    const tweetPayload: Record<string, unknown> = { text: composeXText(post, mediaId ? [] : [mediaUrlFallback || ""]) };
+    const tweetPayload: Record<string, unknown> = { text: composeXText(post) };
     if (mediaId) {
       tweetPayload.media = { media_ids: [mediaId] };
     }
@@ -445,13 +461,11 @@ async function postToX(
   });
 
   let mediaId: string | undefined;
-  let mediaUrlFallback: string | undefined;
 
   if (post.image_url) {
     try {
       const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
       validateImageUrl(publishImageUrl);
-      mediaUrlFallback = publishImageUrl;
       const imgRes = await fetch(publishImageUrl);
       if (imgRes.ok) {
         const buffer = Buffer.from(await imgRes.arrayBuffer());
@@ -462,7 +476,7 @@ async function postToX(
     }
   }
 
-  const tweetPayload: Record<string, unknown> = { text: composeXText(post, mediaId ? [] : [mediaUrlFallback || ""]) };
+  const tweetPayload: Record<string, unknown> = { text: composeXText(post) };
   if (mediaId) {
     tweetPayload.media = { media_ids: [mediaId] };
   }
@@ -498,7 +512,7 @@ async function postToFacebook(
   if (post.image_url) {
     const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
     validateImageUrl(publishImageUrl);
-    const captionUrl = String(post.link_url || "").trim() || publishImageUrl;
+    const captionUrl = compactUrlForPost(String(post.link_url || post.final_link_url || ""));
 
     const photoBody: Record<string, string> = {
       url: publishImageUrl,
@@ -533,12 +547,9 @@ async function postToFacebook(
     message: post.content,
     access_token: accessToken,
   };
-  if (post.link_url) {
-    body.link = post.link_url;
-  } else if (post.image_url) {
-    const fallbackImageUrl = await resolveImageUrlForPublishing(post.image_url);
-    validateImageUrl(fallbackImageUrl);
-    body.message = `${post.content}\n\n${fallbackImageUrl}`;
+  const feedLink = compactUrlForPost(String(post.link_url || post.final_link_url || ""));
+  if (feedLink) {
+    body.link = feedLink;
   }
 
   const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
