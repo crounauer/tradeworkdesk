@@ -725,7 +725,12 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               </div>
 
               <div className="space-y-2">
-                <Label>UTM Settings (editable)</Label>
+                <div className="flex items-start justify-between gap-3">
+                  <Label>UTM Settings (editable)</Label>
+                  <p className="text-[11px] leading-4 text-muted-foreground text-right max-w-[260px]">
+                    UTM tags track where clicks came from: source (platform), medium (channel), campaign (promotion), content (variation).
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Input value={utmSource} onChange={(e) => setUtmSource(e.target.value)} placeholder="utm_source" />
                   <Input value={utmMedium} onChange={(e) => setUtmMedium(e.target.value)} placeholder="utm_medium" />
