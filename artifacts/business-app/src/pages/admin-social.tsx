@@ -362,6 +362,7 @@ function PostImageThumbnail({ imageUrl }: { imageUrl: string }) {
         const nextUrl = String(result?.url || "").trim();
         if (!cancelled && nextUrl) {
           setResolvedUrl(nextUrl);
+          setFailed(false);
         }
       } catch {
         // Keep original URL when preview resolution fails.

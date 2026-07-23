@@ -421,6 +421,18 @@ function normalizeContentForPlatform(platform: string, content: string): string 
   return `${clippedPrefix}${separator}${url}`.trim();
 }
 
+function ensureXAiContentQuality(content: string, prompt: string): string {
+  const normalized = normalizeContentForPlatform("x", content);
+  if (normalized.length >= 80) {
+    return normalized;
+  }
+
+  const promptText = String(prompt || "").trim().replace(/[.!?\s]+$/g, "");
+  const seed = promptText || "Keep your boiler running efficiently";
+  const enriched = `${seed}. Regular servicing helps prevent breakdowns, improve efficiency, and keep your home comfortable. Book your service today. #BoilerService #HomeMaintenance`;
+  return normalizeContentForPlatform("x", enriched);
+}
+
 async function isActiveTrialTenant(tenantId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from("tenants")
@@ -2611,12 +2623,12 @@ router.post(
     }
 
     if (byPlatform.x) {
-      byPlatform.x = normalizeContentForPlatform("x", byPlatform.x);
+      byPlatform.x = ensureXAiContentQuality(byPlatform.x, String(prompt).trim());
     }
 
     const fallbackContent = byPlatform.facebook || byPlatform.instagram || byPlatform.x || byPlatform.google_business || String(prompt).trim();
     const content = activePlatforms.includes("x")
-      ? (byPlatform.x || normalizeContentForPlatform("x", fallbackContent))
+      ? (byPlatform.x || ensureXAiContentQuality(fallbackContent, String(prompt).trim()))
       : fallbackContent;
     let imageUrl: string | null = null;
 
