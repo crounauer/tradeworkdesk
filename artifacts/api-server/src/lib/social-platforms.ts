@@ -193,6 +193,10 @@ function formatXApiError(err: unknown): string {
       details.push(anyErr.data.detail);
     }
     if (Array.isArray(anyErr.data?.errors) && anyErr.data?.errors.length > 0) {
+      const firstCode = (anyErr.data.errors[0] as { code?: number } | undefined)?.code;
+      if (typeof firstCode === "number") {
+        details.push(`x_error_code=${firstCode}`);
+      }
       const firstMsg = String(anyErr.data.errors[0]?.message || "").trim();
       if (firstMsg) details.push(firstMsg);
     }
@@ -204,6 +208,18 @@ function formatXApiError(err: unknown): string {
   }
 
   return String(err);
+}
+
+function isXDuplicatePostError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const anyErr = err as Error & {
+    data?: { errors?: Array<{ code?: number; message?: string }> };
+  };
+
+  const first = anyErr.data?.errors?.[0];
+  if (first?.code === 187) return true;
+  const msg = String(first?.message || anyErr.message || "").toLowerCase();
+  return msg.includes("duplicate") && msg.includes("status");
 }
 
 function isXAccessTokenExpired(account: SocialAccount): boolean {
@@ -374,6 +390,9 @@ async function postToX(
     try {
       tweetResult = await client.v2.tweet(tweetPayload);
     } catch (err) {
+      if (isXDuplicatePostError(err)) {
+        throw new Error("X rejected this as a duplicate post. Edit the wording or add a unique line, then publish again.");
+      }
       throw new Error(`X API error: ${formatXApiError(err)}`);
     }
     const tweetId = String(tweetResult.data?.id || "").trim();
@@ -428,6 +447,9 @@ async function postToX(
   try {
     result = await client.v2.tweet(tweetPayload);
   } catch (err) {
+    if (isXDuplicatePostError(err)) {
+      throw new Error("X rejected this as a duplicate post. Edit the wording or add a unique line, then publish again.");
+    }
     throw new Error(`X API error: ${formatXApiError(err)}`);
   }
   const tweetId = result.data.id;
