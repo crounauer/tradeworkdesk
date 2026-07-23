@@ -328,6 +328,7 @@ interface CreatePostDialogProps {
 }
 
 function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialScheduled, triggerButton }: CreatePostDialogProps) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
     new Set(initialPlatform ? [initialPlatform] : ["facebook"]),
@@ -396,6 +397,27 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
     setPreviewImageUrl(imageUrl);
     setPreviewFallbackTried(false);
     setPreviewFailed(false);
+
+    if (!imageUrl) return;
+    if (!imageUrl.includes("/storage/v1/object/")) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await apiFetch(`/admin/social/preview-image-url?url=${encodeURIComponent(imageUrl)}`);
+        const resolved = String(result?.url || "").trim();
+        if (!cancelled && resolved) {
+          setPreviewImageUrl(resolved);
+          setPreviewFallbackTried(true);
+        }
+      } catch {
+        // Keep original URL as fallback for non-storage URLs.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [imageUrl]);
 
   const { data: socialContext } = useQuery<SocialContextResponse>({
@@ -534,12 +556,24 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
       if (Array.isArray(result.platforms) && result.platforms.length > 0) {
         setSelectedPlatforms(new Set(result.platforms));
       }
+      if (typeof result.creditsRemaining === "number") {
+        queryClient.setQueryData<SocialContextResponse>(["social-context"], (prev) => {
+          if (!prev || !prev.aiHelper) return prev;
+          return {
+            ...prev,
+            aiHelper: {
+              ...prev.aiHelper,
+              creditsRemaining: result.creditsRemaining,
+            },
+          };
+        });
+      }
 
       toast({
         title: "AI Helper ready",
         description: aiHelperIncludeImage
-          ? "Content and image generated for your connected channels."
-          : "Content generated for your connected channels.",
+          ? `Content and image generated for your connected channels${typeof result.creditsRemaining === "number" ? ` · ${result.creditsRemaining.toLocaleString()} credits remaining` : ""}.`
+          : `Content generated for your connected channels${typeof result.creditsRemaining === "number" ? ` · ${result.creditsRemaining.toLocaleString()} credits remaining` : ""}.`,
       });
     } catch (err) {
       toast({ title: "AI Helper failed", description: (err as Error).message, variant: "destructive" });

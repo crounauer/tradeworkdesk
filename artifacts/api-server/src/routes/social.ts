@@ -6,7 +6,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
 import { generatePostSuggestions, generateSocialImage, type SuggestionItem } from "../lib/social-ai";
-import { hasActiveAddon } from "../lib/tenant-limits";
+import { hasActiveAddon, deductAddonCreditsAmount, getAddonCredits } from "../lib/tenant-limits";
 import {
   SOCIAL_POST_TYPES,
   type SocialPostType,
@@ -32,6 +32,8 @@ const X_STATE_TTL_MS = 10 * 60 * 1000;
 const GOOGLE_BUSINESS_STATE_TTL_MS = 10 * 60 * 1000;
 const INSTAGRAM_STATE_TTL_MS = 10 * 60 * 1000;
 const AI_HELPER_FEATURE = "ai_blog_writing";
+const AI_HELPER_CONTENT_CREDIT_COST = 1;
+const AI_HELPER_IMAGE_CREDIT_COST = 1;
 const socialImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 const FACEBOOK_OAUTH_SCOPES = [
   "pages_show_list",
@@ -2502,6 +2504,23 @@ router.post(
       return;
     }
 
+    let creditsRemaining: number | null = null;
+    if (!isPlatformScope && tenantId) {
+      const creditsToDeduct = AI_HELPER_CONTENT_CREDIT_COST + (includeImage ? AI_HELPER_IMAGE_CREDIT_COST : 0);
+      const deducted = await deductAddonCreditsAmount(tenantId, AI_HELPER_FEATURE, creditsToDeduct);
+      if (!deducted) {
+        const current = await getAddonCredits(tenantId, AI_HELPER_FEATURE);
+        res.status(402).json({
+          error: "Insufficient AI credits. Please top up to continue.",
+          creditsRemaining: current?.credits_remaining ?? 0,
+        });
+        return;
+      }
+
+      const updated = await getAddonCredits(tenantId, AI_HELPER_FEATURE);
+      creditsRemaining = updated?.credits_remaining ?? 0;
+    }
+
     const requestedPlatforms = Array.isArray(platforms)
       ? platforms.map((p) => String(p || "").trim()).filter((p): p is SupportedPlatform => isSupportedPlatform(p))
       : [];
@@ -2562,6 +2581,7 @@ router.post(
       imageUrl,
       platforms: activePlatforms,
       perPlatform: byPlatform,
+      creditsRemaining,
     });
   },
 );
@@ -2656,14 +2676,19 @@ router.get(
 
     try {
       const parsed = new URL(rawUrl);
-      const marker = "/storage/v1/object/public/";
-      const idx = parsed.pathname.indexOf(marker);
+      const markers = [
+        "/storage/v1/object/public/",
+        "/storage/v1/object/sign/",
+        "/storage/v1/object/authenticated/",
+      ];
 
-      if (idx === -1) {
+      const marker = markers.find((m) => parsed.pathname.includes(m));
+      if (!marker) {
         res.json({ url: rawUrl });
         return;
       }
 
+      const idx = parsed.pathname.indexOf(marker);
       const storagePath = parsed.pathname.slice(idx + marker.length);
       const firstSlash = storagePath.indexOf("/");
       if (firstSlash === -1) {
