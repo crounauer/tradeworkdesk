@@ -391,6 +391,36 @@ function coercePostType(value: unknown): SocialPostType {
     : "business";
 }
 
+function normalizeContentForPlatform(platform: string, content: string): string {
+  const text = String(content || "").trim();
+  if (platform !== "x" || text.length <= 280) {
+    return text;
+  }
+
+  const urlMatch = text.match(/\bhttps?:\/\/\S+$/);
+  if (!urlMatch) {
+    return `${text.slice(0, 277).trimEnd()}...`;
+  }
+
+  const url = urlMatch[0];
+  const prefix = text.slice(0, urlMatch.index).trimEnd();
+  const separator = prefix ? "\n\n" : "";
+  const availablePrefixLength = 280 - url.length - separator.length;
+
+  if (availablePrefixLength <= 0) {
+    return url.slice(0, 280);
+  }
+
+  if (prefix.length <= availablePrefixLength) {
+    return `${prefix}${separator}${url}`.trim();
+  }
+
+  const clippedPrefix = availablePrefixLength > 3
+    ? `${prefix.slice(0, availablePrefixLength - 3).trimEnd()}...`
+    : prefix.slice(0, availablePrefixLength);
+  return `${clippedPrefix}${separator}${url}`.trim();
+}
+
 async function isActiveTrialTenant(tenantId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from("tenants")
@@ -2145,6 +2175,7 @@ router.post(
     const finalContent = postType === "website_promotion"
       ? buildWebsitePromotionContent(platform, String(content || ""), finalLinkUrl)
       : String(content || "").trim();
+    const normalizedContent = normalizeContentForPlatform(platform, finalContent);
 
     const { data: post, error: insertError } = await supabaseAdmin
       .from(isPlatformScope ? "platform_social_posts" : "social_posts")
@@ -2152,7 +2183,7 @@ router.post(
         ? {
           created_by_user_id: req.userId || null,
           platform,
-          content: finalContent,
+          content: normalizedContent,
           image_url: imageUrl || null,
           video_url: videoUrl || null,
           link_url: finalLinkUrl,
@@ -2171,7 +2202,7 @@ router.post(
           tenant_id: tenantId,
           created_by_user_id: req.userId || null,
           platform,
-          content: finalContent,
+          content: normalizedContent,
           image_url: imageUrl || null,
           video_url: videoUrl || null,
           link_url: finalLinkUrl,
