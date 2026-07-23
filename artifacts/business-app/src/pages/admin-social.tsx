@@ -1178,15 +1178,26 @@ function CreatePostDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {selectedPlatformsArray.map((platform) => {
                 const platformLink = previewLinkForPlatform(platform);
+                const previewText = previewContentForPlatform(platform);
+                const platformCharLimit = platform === "x" ? 280 : null;
+                const platformCharCount = previewText.length;
+                const exceedsPlatformLimit = platformCharLimit !== null && platformCharCount > platformCharLimit;
                 return (
                   <div key={`preview-${platform}`} className="rounded-md border p-3 space-y-2 bg-muted/20">
                     <div className="flex items-center justify-between gap-2">
                       <div>{getPlatformBadge(platform)}</div>
-                      <span className="text-[11px] text-muted-foreground">{isScheduled ? "Scheduled" : "Publish now"}</span>
+                      <div className="flex items-center gap-2">
+                        {platformCharLimit !== null && (
+                          <span className={`text-[11px] ${exceedsPlatformLimit ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
+                            {platformCharCount}/{platformCharLimit}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-muted-foreground">{isScheduled ? "Scheduled" : "Publish now"}</span>
+                      </div>
                     </div>
 
                     <div className="text-sm whitespace-pre-wrap break-words min-h-[40px]">
-                      {previewContentForPlatform(platform) || "Your post content preview will appear here."}
+                      {previewText || "Your post content preview will appear here."}
                     </div>
 
                     {imageUrl && !previewFailed && (
@@ -1210,7 +1221,7 @@ function CreatePostDialog({
                       <p className="text-xs text-amber-700">Instagram publishing requires an image.</p>
                     )}
 
-                    {platform === "x" && content.length > 280 && (
+                    {platform === "x" && platformCharCount > 280 && (
                       <p className="text-xs text-amber-700">X will reject posts above 280 characters.</p>
                     )}
                   </div>
