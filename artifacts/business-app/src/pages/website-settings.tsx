@@ -198,7 +198,7 @@ export default function WebsiteSettings() {
     default_meta_description: "",
     google_analytics_id: "",
     google_search_console_verification: "",
-    social_links: { facebook: "", instagram: "", twitter: "", linkedin: "", youtube: "" } as Record<string, string>,
+    social_links: { facebook: "", instagram: "", x: "", google_business: "", linkedin: "", youtube: "" } as Record<string, string>,
     theme: { nav_background: "#1f2937", nav_text: "#ffffff", footer_background: "#111827", footer_text: "#9ca3af" } as Record<string, string>,
   });
 
@@ -220,6 +220,8 @@ export default function WebsiteSettings() {
 
   useEffect(() => {
     if (website) {
+      const websiteSocialLinks = website.social_links || {};
+      const fallbackX = String(websiteSocialLinks.x || websiteSocialLinks.twitter || "");
       setForm({
         site_name: website.site_name || "",
         tagline: website.tagline || "",
@@ -229,7 +231,15 @@ export default function WebsiteSettings() {
         default_meta_description: website.default_meta_description || "",
         google_analytics_id: website.google_analytics_id || "",
         google_search_console_verification: website.google_search_console_verification || "",
-        social_links: { facebook: "", instagram: "", twitter: "", linkedin: "", youtube: "", ...(website.social_links || {}) },
+        social_links: {
+          facebook: "",
+          instagram: "",
+          google_business: "",
+          linkedin: "",
+          youtube: "",
+          ...websiteSocialLinks,
+          x: String(websiteSocialLinks.x || fallbackX || ""),
+        },
         theme: { nav_background: "#1f2937", nav_text: "#ffffff", footer_background: "#111827", footer_text: "#9ca3af", ...(website.theme || {}) },
       });
     }
@@ -373,16 +383,23 @@ export default function WebsiteSettings() {
 
         <TabsContent value="social" className="space-y-4 pt-4">
           <p className="text-sm text-muted-foreground">Add links to your social media profiles so visitors can find and follow you.</p>
-          {(["facebook", "instagram", "twitter", "linkedin", "youtube"] as const).map((platform) => (
-            <div key={platform} className="space-y-1">
-              <Label className="capitalize">{platform}</Label>
+          {([
+            { key: "facebook", label: "Facebook", placeholder: "https://facebook.com/your-page" },
+            { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/your-page" },
+            { key: "x", label: "X", placeholder: "https://x.com/your-page" },
+            { key: "google_business", label: "Google Business", placeholder: "https://g.page/your-business" },
+            { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/company/your-page" },
+            { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/your-page" },
+          ] as const).map((platform) => (
+            <div key={platform.key} className="space-y-1">
+              <Label>{platform.label}</Label>
               <Input
-                placeholder={`https://${platform}.com/your-page`}
-                value={form.social_links[platform] || ""}
-                onChange={(e) => setForm((f) => ({ ...f, social_links: { ...f.social_links, [platform]: e.target.value } }))}
+                placeholder={platform.placeholder}
+                value={form.social_links[platform.key] || ""}
+                onChange={(e) => setForm((f) => ({ ...f, social_links: { ...f.social_links, [platform.key]: e.target.value } }))}
               />
-              {form.social_links[platform] && (
-                <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">{form.social_links[platform]}</div>
+              {form.social_links[platform.key] && (
+                <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded break-all">{form.social_links[platform.key]}</div>
               )}
             </div>
           ))}

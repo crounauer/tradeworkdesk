@@ -88,6 +88,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
     { label: "Facebook", keys: ["facebook"] },
     { label: "Instagram", keys: ["instagram"] },
     { label: "X", keys: ["x", "twitter"] },
+    { label: "Google Business", keys: ["google_business", "googleBusiness", "google"] },
     { label: "LinkedIn", keys: ["linkedin"] },
     { label: "YouTube", keys: ["youtube"] },
   ];
@@ -144,6 +145,12 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
             <path d="M18.9 3H22l-6.77 7.74L23.2 21h-6.27l-4.91-6.43L6.4 21H3.3l7.24-8.28L2.8 3h6.43l4.44 5.86L18.9 3Zm-1.1 16h1.74L8.3 4.9H6.44L17.8 19Z" />
           </svg>
         );
+      case "Google Business":
+        return (
+          <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill={baseProps.fill} aria-hidden={baseProps.ariaHidden}>
+            <path d="M12.24 10.29v3.92h5.45c-.24 1.26-.94 2.33-1.99 3.05v2.53h3.22c1.88-1.73 2.97-4.28 2.97-7.29 0-.66-.06-1.3-.17-1.91h-9.48Zm0-3.96c1.71 0 3.25.59 4.46 1.74l2.7-2.7C17.83 3.92 15.24 3 12.24 3 8.19 3 4.69 5.31 2.98 8.68l3.14 2.44c.76-2.28 2.9-3.79 6.12-3.79Zm-6.12 5.67a7.3 7.3 0 0 1 0-1.98V7.58H2.98a11.89 11.89 0 0 0 0 8.84l3.14-2.42Zm6.12 8.67c2.95 0 5.44-.97 7.25-2.64l-3.22-2.53c-.89.6-2.03.96-4.03.96-3.2 0-5.34-1.53-6.12-3.79l-3.14 2.42C4.69 18.69 8.19 21 12.24 21Z" />
+          </svg>
+        );
       case "LinkedIn":
         return (
           <svg width={baseProps.width} height={baseProps.height} viewBox={baseProps.viewBox} fill={baseProps.fill} aria-hidden={baseProps.ariaHidden}>
@@ -184,6 +191,8 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
         return "#E1306C";
       case "X":
         return "#111111";
+      case "Google Business":
+        return "#34A853";
       case "LinkedIn":
         return "#0A66C2";
       case "YouTube":
