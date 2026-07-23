@@ -2716,27 +2716,25 @@ router.get(
 
     const jobRefById = new Map((jobs || []).map((job) => [job.id, job.job_ref || null]));
 
-    const images = rows
-      .map((row) => {
-        const storagePath = String(row.storage_path || "").trim();
-        if (!storagePath) return null;
+    const images = (await Promise.all(rows.map(async (row) => {
+      const storagePath = String(row.storage_path || "").trim();
+      if (!storagePath) return null;
 
-        const { data: publicData } = supabaseAdmin.storage
-          .from("service-photos")
-          .getPublicUrl(storagePath);
+      const { data: signedData, error: signError } = await supabaseAdmin.storage
+        .from("service-photos")
+        .createSignedUrl(storagePath, 60 * 60);
 
-        const imageUrl = String(publicData?.publicUrl || "").trim();
-        if (!imageUrl) return null;
+      if (signError || !signedData?.signedUrl) return null;
 
-        return {
-          id: row.id,
-          imageUrl,
-          fileName: row.file_name || "job-image",
-          jobId: row.entity_id || null,
-          jobRef: row.entity_id ? (jobRefById.get(String(row.entity_id)) || null) : null,
-          createdAt: row.created_at,
-        };
-      })
+      return {
+        id: row.id,
+        imageUrl: signedData.signedUrl,
+        fileName: row.file_name || "job-image",
+        jobId: row.entity_id || null,
+        jobRef: row.entity_id ? (jobRefById.get(String(row.entity_id)) || null) : null,
+        createdAt: row.created_at,
+      };
+    })))
       .filter((row): row is {
         id: string;
         imageUrl: string;
