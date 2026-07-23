@@ -253,6 +253,8 @@ type SocialContextResponse = {
   aiHelper?: {
     enabled: boolean;
     reason: string | null;
+    creditsRemaining?: number | null;
+    bundleSize?: number | null;
   };
   websitePromotion: {
     enabled: boolean;
@@ -550,11 +552,11 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] max-w-lg lg:max-w-4xl xl:max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Social Media Post</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
           <div>
             <Label className="mb-2 block">Post Type</Label>
             <div className="grid grid-cols-2 gap-2">
@@ -622,9 +624,16 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
           <div className="rounded-md border p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <Label className="text-sm">AI Helper</Label>
-              {!socialContext?.aiHelper?.enabled && (
-                <span className="text-xs text-muted-foreground">Unavailable</span>
-              )}
+              <div className="flex items-center gap-2">
+                {socialContext?.aiHelper?.enabled && typeof socialContext?.aiHelper?.creditsRemaining === "number" && (
+                  <span className={`text-xs ${socialContext.aiHelper.creditsRemaining <= 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+                    AI credits: {socialContext.aiHelper.creditsRemaining.toLocaleString()}
+                  </span>
+                )}
+                {!socialContext?.aiHelper?.enabled && (
+                  <span className="text-xs text-muted-foreground">Unavailable</span>
+                )}
+              </div>
             </div>
             <Input
               value={aiHelperPrompt}

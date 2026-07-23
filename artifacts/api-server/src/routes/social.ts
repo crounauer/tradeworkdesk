@@ -418,6 +418,43 @@ async function resolveAiHelperAccess(isPlatformScope: boolean, tenantId?: string
   };
 }
 
+async function resolveAiHelperCredits(
+  isPlatformScope: boolean,
+  tenantId?: string,
+): Promise<{ creditsRemaining: number | null; bundleSize: number | null }> {
+  if (isPlatformScope || !tenantId) {
+    return { creditsRemaining: null, bundleSize: null };
+  }
+
+  const { data: addon } = await supabaseAdmin
+    .from("addons")
+    .select("id, usage_bundle_size")
+    .eq("billing_model", "usage")
+    .eq("is_active", true)
+    .contains("feature_keys", [AI_HELPER_FEATURE])
+    .maybeSingle();
+
+  const addonId = String((addon as { id?: string } | null)?.id || "").trim();
+  if (!addonId) {
+    return { creditsRemaining: null, bundleSize: null };
+  }
+
+  const { data: credit } = await supabaseAdmin
+    .from("tenant_addon_credits")
+    .select("credits_remaining")
+    .eq("tenant_id", tenantId)
+    .eq("addon_id", addonId)
+    .maybeSingle();
+
+  const creditsRemainingRaw = (credit as { credits_remaining?: number | null } | null)?.credits_remaining;
+  const bundleSizeRaw = (addon as { usage_bundle_size?: number | null } | null)?.usage_bundle_size;
+
+  return {
+    creditsRemaining: typeof creditsRemainingRaw === "number" ? creditsRemainingRaw : 0,
+    bundleSize: typeof bundleSizeRaw === "number" ? bundleSizeRaw : null,
+  };
+}
+
 function sanitizeCampaignValue(value: string): string {
   return value
     .toLowerCase()
@@ -1646,7 +1683,10 @@ router.get(
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const isPlatformScope = isPlatformSocialScope(req);
     const tenantId = resolveTenantId(req);
-    const aiHelper = await resolveAiHelperAccess(isPlatformScope, tenantId);
+    const [aiHelper, aiHelperCredits] = await Promise.all([
+      resolveAiHelperAccess(isPlatformScope, tenantId),
+      resolveAiHelperCredits(isPlatformScope, tenantId),
+    ]);
 
     if (isPlatformSocialScope(req)) {
       res.json({
@@ -1655,7 +1695,11 @@ router.get(
         socialChannels: SUPPORTED_SOCIAL_CHANNELS,
         postTypes: SOCIAL_POST_TYPES,
         permissions: FACEBOOK_POST_PERMISSIONS.filter((permission) => hasFacebookPermission(req, permission)),
-        aiHelper,
+        aiHelper: {
+          ...aiHelper,
+          creditsRemaining: aiHelperCredits.creditsRemaining,
+          bundleSize: aiHelperCredits.bundleSize,
+        },
         websitePromotion: {
           enabled: false,
           disabledMessage: "Website Promotion Post is only available in tenant social workspaces.",
@@ -1678,7 +1722,11 @@ router.get(
       socialChannels: SUPPORTED_SOCIAL_CHANNELS,
       postTypes: SOCIAL_POST_TYPES,
       permissions: FACEBOOK_POST_PERMISSIONS.filter((permission) => hasFacebookPermission(req, permission)),
-      aiHelper,
+      aiHelper: {
+        ...aiHelper,
+        creditsRemaining: aiHelperCredits.creditsRemaining,
+        bundleSize: aiHelperCredits.bundleSize,
+      },
       websitePromotion: {
         enabled: availablePromotionPages.length > 0,
         disabledMessage: availablePromotionPages.length === 0
