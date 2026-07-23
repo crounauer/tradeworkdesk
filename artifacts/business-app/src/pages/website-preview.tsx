@@ -51,6 +51,8 @@ export default function WebsitePreview() {
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedPage, setSelectedPage] = useState(initialPage);
   const [iframeKey, setIframeKey] = useState(0); // force reload
+  const [cacheBustToken, setCacheBustToken] = useState<string>("");
+  const [forceRefreshing, setForceRefreshing] = useState(false);
 
   const { data: website } = useQuery<WebsiteData | null>({
     queryKey: ["/api/website"],
@@ -69,20 +71,56 @@ export default function WebsitePreview() {
     : pages.find((p) => p.page_type === "home");
   const canQuickEditPage = profile?.role === "admin" && !!currentPage;
 
+  const buildPreviewUrl = (base: string, pageSlug: string, cacheBust?: string) => {
+    const nextUrl = new URL(base, window.location.origin);
+    if (!pageSlug || pageSlug === "/" || pageSlug === "home") {
+      nextUrl.searchParams.delete("page");
+    } else {
+      nextUrl.searchParams.set("page", pageSlug);
+    }
+    if (cacheBust) {
+      nextUrl.searchParams.set("__previewBust", cacheBust);
+    } else {
+      nextUrl.searchParams.delete("__previewBust");
+    }
+    return nextUrl.toString();
+  };
+
+  const clearAppCaches = async () => {
+    try {
+      if (window.caches && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {
+      // Best effort only; continue with cache-busting reload.
+    }
+  };
+
+  const handleReloadPreview = () => {
+    setCacheBustToken(Date.now().toString());
+    setIframeKey((k) => k + 1);
+  };
+
+  const handleForceRefresh = async () => {
+    setForceRefreshing(true);
+    await clearAppCaches();
+    setCacheBustToken(Date.now().toString());
+    setIframeKey((k) => k + 1);
+    setForceRefreshing(false);
+  };
+
   // Only use renderer preview URLs here so draft/editor preview never points at
   // external domains that may not be reachable in local/dev environments.
   const previewUrl = (() => {
     if (!website) return null;
     if (website.preview_url) {
-      const base = website.preview_url;
-      if (!selectedPage || selectedPage === "/" || selectedPage === "home") return base;
-      return `${base}?page=${encodeURIComponent(selectedPage)}`;
+      return buildPreviewUrl(website.preview_url, selectedPage, cacheBustToken);
     }
     const isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
     if (isLocalDev && website.id) {
       const localBase = `http://localhost:3002/preview/${website.id}`;
-      if (!selectedPage || selectedPage === "/" || selectedPage === "home") return localBase;
-      return `${localBase}?page=${encodeURIComponent(selectedPage)}`;
+      return buildPreviewUrl(localBase, selectedPage, cacheBustToken);
     }
     return null;
   })();
@@ -143,8 +181,20 @@ export default function WebsitePreview() {
           ))}
         </div>
 
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="Reload" onClick={() => setIframeKey(k => k + 1)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="Reload" onClick={handleReloadPreview}>
           <RefreshCw className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          title="Force refresh preview (mobile-safe cache bust)"
+          onClick={handleForceRefresh}
+          disabled={forceRefreshing}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 mr-1 ${forceRefreshing ? "animate-spin" : ""}`} />
+          {forceRefreshing ? "Refreshing..." : "Force Refresh"}
         </Button>
 
         {externalUrl && (
