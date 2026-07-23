@@ -148,7 +148,85 @@ async function processScheduledPosts(): Promise<void> {
   }
 }
 
+async function processPlatformScheduledPosts(): Promise<void> {
+  try {
+    const { data: claimedPosts, error: claimError } = await supabaseAdmin
+      .from("platform_social_posts")
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .eq("status", "scheduled")
+      .lte("scheduled_for", new Date().toISOString())
+      .select();
+
+    if (claimError) {
+      console.error("[social-scheduler] Error claiming platform posts:", claimError.message);
+      return;
+    }
+
+    for (const post of claimedPosts ?? []) {
+      try {
+        let accountQuery = supabaseAdmin
+          .from("platform_social_accounts")
+          .select("*")
+          .eq("is_active", true)
+          .limit(1);
+
+        if (post.account_id) {
+          accountQuery = accountQuery.eq("id", post.account_id);
+        } else {
+          accountQuery = accountQuery.eq("platform", post.platform);
+        }
+
+        const { data: account } = await accountQuery.single();
+
+        if (!account) {
+          await supabaseAdmin
+            .from("platform_social_posts")
+            .update({
+              status: "failed",
+              error: `No active ${String(post.platform)} account found`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", String(post.id));
+          continue;
+        }
+
+        const result = await dispatchPost(post as any, account as any);
+
+        await supabaseAdmin
+          .from("platform_social_posts")
+          .update({
+            status: "posted",
+            post_id: result.postId || null,
+            post_url: result.postUrl || null,
+            error: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", String(post.id));
+
+        console.log(`[social-scheduler] Posted platform ${String(post.platform)} post ${String(post.id)}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[social-scheduler] Failed to post platform ${String(post.id)}:`, message);
+
+        await supabaseAdmin
+          .from("platform_social_posts")
+          .update({
+            status: "failed",
+            error: message,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", String(post.id));
+      }
+    }
+  } catch (err) {
+    console.error("[social-scheduler] Error processing platform scheduled posts:", err);
+  }
+}
+
 export function startSocialScheduler(): void {
   console.log("[social-scheduler] Starting scheduler (60s interval)");
-  setInterval(processScheduledPosts, INTERVAL_MS);
+  setInterval(() => {
+    processScheduledPosts();
+    processPlatformScheduledPosts();
+  }, INTERVAL_MS);
 }

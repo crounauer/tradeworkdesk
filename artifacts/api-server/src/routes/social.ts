@@ -152,28 +152,17 @@ function hasFacebookPermission(req: AuthenticatedRequest, permission: FacebookPo
   return FACEBOOK_ROLE_PERMISSIONS[req.userRole]?.has(permission) ?? false;
 }
 
-async function getPlatformMarketingTenantId(): Promise<string | null> {
-  const { data: configured } = await supabaseAdmin
-    .from("platform_settings")
-    .select("value")
-    .eq("key", "social_marketing_tenant_id")
-    .maybeSingle();
-
-  const configuredId = typeof configured?.value === "string" ? configured.value.trim() : "";
-  return configuredId || null;
+function isPlatformSocialScope(req: AuthenticatedRequest): boolean {
+  return req.userRole === "super_admin";
 }
 
-async function resolveTenantId(req: AuthenticatedRequest): Promise<string | undefined> {
-  if (req.userRole === "super_admin") {
-    const platformTenantId = await getPlatformMarketingTenantId();
-    return platformTenantId ?? undefined;
-  }
+function resolveTenantId(req: AuthenticatedRequest): string | undefined {
   return req.tenantId;
 }
 
 function getSocialScopeErrorMessage(req: AuthenticatedRequest): string {
   if (req.userRole === "super_admin") {
-    return "Superadmin social scope is not configured. Set platform setting social_marketing_tenant_id.";
+    return "Unable to resolve platform marketing social scope";
   }
   return "Unable to resolve social tenant scope";
 }
@@ -223,13 +212,15 @@ router.post(
     }
 
     try {
-      const tenantId = await resolveTenantId(req);
-      if (!tenantId) {
-        res.status(400).json({ error: getSocialScopeErrorMessage(req) });
-        return;
-      }
       if (!req.userId) {
         res.status(401).json({ error: "Unauthenticated user" });
+        return;
+      }
+
+      const tenantId = resolveTenantId(req);
+      const isPlatformScope = isPlatformSocialScope(req);
+      if (!isPlatformScope && !tenantId) {
+        res.status(400).json({ error: getSocialScopeErrorMessage(req) });
         return;
       }
 
@@ -243,14 +234,23 @@ router.post(
       const expiresAt = new Date(Date.now() + FACEBOOK_STATE_TTL_MS).toISOString();
 
       const { error: insertError } = await supabaseAdmin
-        .from("facebook_oauth_states")
-        .insert({
-          tenant_id: tenantId,
-          created_by_user_id: req.userId,
-          state_hash: stateHash,
-          return_path: returnPath,
-          expires_at: expiresAt,
-        });
+        .from(isPlatformScope ? "platform_facebook_oauth_states" : "facebook_oauth_states")
+        .insert(
+          isPlatformScope
+            ? {
+              created_by_user_id: req.userId,
+              state_hash: stateHash,
+              return_path: returnPath,
+              expires_at: expiresAt,
+            }
+            : {
+              tenant_id: tenantId,
+              created_by_user_id: req.userId,
+              state_hash: stateHash,
+              return_path: returnPath,
+              expires_at: expiresAt,
+            },
+        );
 
       if (insertError) {
         res.status(500).json({ error: insertError.message });
@@ -299,13 +299,26 @@ router.get(
 
       const stateHash = sha256(state);
       const nowIso = new Date().toISOString();
-      const { data: pendingState, error: stateError } = await supabaseAdmin
+      const { data: tenantState, error: tenantStateError } = await supabaseAdmin
         .from("facebook_oauth_states")
         .select("id, tenant_id, return_path, expires_at")
         .eq("state_hash", stateHash)
         .is("used_at", null)
         .gt("expires_at", nowIso)
         .maybeSingle();
+
+      const { data: platformState, error: platformStateError } = await supabaseAdmin
+        .from("platform_facebook_oauth_states")
+        .select("id, return_path, expires_at")
+        .eq("state_hash", stateHash)
+        .is("used_at", null)
+        .gt("expires_at", nowIso)
+        .maybeSingle();
+
+      const pendingState = tenantState || platformState;
+      const tenantScopeTenantId = tenantState?.tenant_id || null;
+      const isPlatformScope = !!platformState;
+      const stateError = tenantStateError || platformStateError;
 
       if (stateError || !pendingState) {
         fallbackRedirect("error", "invalid_or_expired_state");
@@ -322,7 +335,7 @@ router.get(
       };
 
       await supabaseAdmin
-        .from("facebook_oauth_states")
+        .from(isPlatformScope ? "platform_facebook_oauth_states" : "facebook_oauth_states")
         .update({ used_at: new Date().toISOString() })
         .eq("id", pendingState.id)
         .is("used_at", null);
@@ -363,7 +376,6 @@ router.get(
         };
 
         const accountPayload = {
-          tenant_id: pendingState.tenant_id,
           platform: "facebook",
           encrypted_credentials: encryptedCredentials,
           profile_name: page.name,
@@ -376,25 +388,39 @@ router.get(
           updated_at: new Date().toISOString(),
         };
 
-        const { data: existingAccount, error: findError } = await supabaseAdmin
-          .from("social_accounts")
+        const accountTable = isPlatformScope ? "platform_social_accounts" : "social_accounts";
+        const scopedPayload = isPlatformScope
+          ? accountPayload
+          : { ...accountPayload, tenant_id: tenantScopeTenantId };
+
+        let findQuery = supabaseAdmin
+          .from(accountTable)
           .select("id")
-          .eq("tenant_id", pendingState.tenant_id)
           .eq("platform", "facebook")
           .eq("page_id", page.id)
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+
+        if (!isPlatformScope) {
+          findQuery = findQuery.eq("tenant_id", tenantScopeTenantId);
+        }
+
+        const { data: existingAccount, error: findError } = await findQuery.maybeSingle();
 
         if (findError) {
           throw new Error(findError.message);
         }
 
         if (existingAccount?.id) {
-          const { error: updateError } = await supabaseAdmin
-            .from("social_accounts")
-            .update(accountPayload)
-            .eq("id", existingAccount.id)
-            .eq("tenant_id", pendingState.tenant_id);
+          let updateQuery = supabaseAdmin
+            .from(accountTable)
+            .update(scopedPayload)
+            .eq("id", existingAccount.id);
+
+          if (!isPlatformScope) {
+            updateQuery = updateQuery.eq("tenant_id", tenantScopeTenantId);
+          }
+
+          const { error: updateError } = await updateQuery;
 
           if (updateError) {
             throw new Error(updateError.message);
@@ -403,8 +429,8 @@ router.get(
         }
 
         const { error: insertError } = await supabaseAdmin
-          .from("social_accounts")
-          .insert(accountPayload);
+          .from(accountTable)
+          .insert(scopedPayload);
 
         if (insertError) {
           throw new Error(insertError.message);
@@ -431,19 +457,25 @@ router.delete(
       return;
     }
 
-    const tenantId = await resolveTenantId(req);
-    if (!tenantId) {
+    const tenantId = resolveTenantId(req);
+    const isPlatformScope = isPlatformSocialScope(req);
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
     const { id } = req.params;
-    const { error } = await supabaseAdmin
-      .from("social_accounts")
+    let deleteQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
       .delete()
       .eq("id", id)
-      .eq("tenant_id", tenantId)
       .eq("platform", "facebook");
+
+    if (!isPlatformScope) {
+      deleteQuery = deleteQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       res.status(404).json({ error: "Facebook account not found" });
@@ -461,6 +493,21 @@ router.get(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (isPlatformSocialScope(req)) {
+      res.json({
+        tenantId: null,
+        scope: "platform_marketing",
+        socialChannels: SUPPORTED_SOCIAL_CHANNELS,
+        postTypes: SOCIAL_POST_TYPES,
+        permissions: FACEBOOK_POST_PERMISSIONS.filter((permission) => hasFacebookPermission(req, permission)),
+        websitePromotion: {
+          enabled: false,
+          disabledMessage: "Website Promotion Post is only available in tenant social workspaces.",
+        },
+      });
+      return;
+    }
+
     const tenantId = await resolveTenantId(req);
     if (!tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
@@ -493,6 +540,15 @@ router.get(
   requireRole("admin", "super_admin"),
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (isPlatformSocialScope(req)) {
+      res.json({
+        enabled: false,
+        disabledMessage: "Website Promotion Post is only available in tenant social workspaces.",
+        pages: [],
+      });
+      return;
+    }
+
     const tenantId = await resolveTenantId(req);
     if (!tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
@@ -524,18 +580,21 @@ router.get(
       return;
     }
 
-    const tenantId = await resolveTenantId(req);
-    if (!tenantId) {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
     let query = supabaseAdmin
-      .from("social_accounts")
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
       .select("id, platform, page_id, page_name, instagram_business_id, profile_name, expires_at, is_active, auto_post, created_at")
       .order("created_at", { ascending: false });
 
-    query = query.eq("tenant_id", tenantId);
+    if (!isPlatformScope) {
+      query = query.eq("tenant_id", tenantId!);
+    }
 
     const { data, error } = await query;
 
@@ -561,9 +620,10 @@ router.post(
     }
 
     const { platform, credentials, profileName, pageId, pageName, instagramBusinessId } = req.body;
-    const tenantId = await resolveTenantId(req);
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
 
-    if (!tenantId) {
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
@@ -580,17 +640,18 @@ router.post(
 
     const encrypted = encryptCredentials(credentials);
 
+    const payload = {
+      platform,
+      encrypted_credentials: encrypted,
+      profile_name: profileName,
+      page_id: pageId || null,
+      page_name: pageName || null,
+      instagram_business_id: instagramBusinessId || null,
+    };
+
     const { data, error } = await supabaseAdmin
-      .from("social_accounts")
-      .insert({
-        tenant_id: tenantId,
-        platform,
-        encrypted_credentials: encrypted,
-        profile_name: profileName,
-        page_id: pageId || null,
-        page_name: pageName || null,
-        instagram_business_id: instagramBusinessId || null,
-      })
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+      .insert(isPlatformScope ? payload : { ...payload, tenant_id: tenantId })
       .select("id, platform, profile_name, page_id, page_name, instagram_business_id, is_active, auto_post, created_at")
       .single();
 
@@ -625,8 +686,9 @@ router.patch(
       instagramBusinessId,
       credentials,
     } = req.body;
-    const tenantId = await resolveTenantId(req);
-    if (!tenantId) {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
@@ -663,10 +725,13 @@ router.patch(
     }
 
     let query = supabaseAdmin
-      .from("social_accounts")
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
       .update(updates)
-      .eq("id", id)
-      .eq("tenant_id", tenantId);
+      .eq("id", id);
+
+    if (!isPlatformScope) {
+      query = query.eq("tenant_id", tenantId!);
+    }
 
     const { data, error } = await query
       .select("id, platform, profile_name, page_id, page_name, instagram_business_id, is_active, auto_post")
@@ -694,17 +759,21 @@ router.delete(
     }
 
     const { id } = req.params;
-    const tenantId = await resolveTenantId(req);
-    if (!tenantId) {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
     let query = supabaseAdmin
-      .from("social_accounts")
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
       .delete()
-      .eq("id", id)
-      .eq("tenant_id", tenantId);
+      .eq("id", id);
+
+    if (!isPlatformScope) {
+      query = query.eq("tenant_id", tenantId!);
+    }
 
     const { error } = await query;
 
@@ -725,8 +794,9 @@ router.get(
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { status, platform, page = "1", limit = "20", postType } = req.query as Record<string, string>;
-    const tenantId = await resolveTenantId(req);
-    if (!tenantId) {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
@@ -735,11 +805,13 @@ router.get(
     const offset = (pageNum - 1) * limitNum;
 
     let query = supabaseAdmin
-      .from("social_posts")
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .range(offset, offset + limitNum - 1)
-      .eq("tenant_id", tenantId);
+      .range(offset, offset + limitNum - 1);
+    if (!isPlatformScope) {
+      query = query.eq("tenant_id", tenantId!);
+    }
     if (status) query = query.eq("status", status);
     if (platform) query = query.eq("platform", platform);
     if (postType) query = query.eq("post_type", postType);
@@ -781,9 +853,10 @@ router.post(
       utmCampaign,
       utmContent,
     } = req.body;
-    const tenantId = await resolveTenantId(req);
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
 
-    if (!tenantId) {
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
@@ -816,7 +889,9 @@ router.post(
       return;
     }
 
-    const campaignDefault = await buildDefaultCampaign(tenantId, postType);
+    const campaignDefault = isPlatformScope
+      ? `${postType}-tradeworkdesk-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`
+      : await buildDefaultCampaign(tenantId!, postType);
     const normalizedUtm = {
       source: String(utmSource || "facebook").trim() || "facebook",
       medium: String(utmMedium || "social").trim() || "social",
@@ -828,6 +903,11 @@ router.post(
     let resolvedWebsitePageUrl: string | null = null;
     let finalLinkUrl: string | null = linkUrl ? String(linkUrl) : null;
 
+    if (postType === "website_promotion" && isPlatformScope) {
+      res.status(400).json({ error: "Website Promotion Post is not available in superadmin social workspace" });
+      return;
+    }
+
     if (postType === "website_promotion") {
       if (!websitePageId) {
         res.status(400).json({ error: "websitePageId is required for Website Promotion Post" });
@@ -835,7 +915,7 @@ router.post(
       }
 
       const page = await resolvePromotionPageUrl({
-        tenantId,
+        tenantId: tenantId!,
         websitePageId: String(websitePageId),
         requirePublished: true,
       });
@@ -846,26 +926,45 @@ router.post(
     }
 
     const { data: post, error: insertError } = await supabaseAdmin
-      .from("social_posts")
-      .insert({
-        tenant_id: tenantId,
-        created_by_user_id: req.userId || null,
-        platform,
-        content,
-        image_url: imageUrl || null,
-        video_url: videoUrl || null,
-        link_url: finalLinkUrl,
-        post_type: postType,
-        website_page_id: resolvedWebsitePageId,
-        website_page_url: resolvedWebsitePageUrl,
-        final_link_url: finalLinkUrl,
-        utm_source: normalizedUtm.source,
-        utm_medium: normalizedUtm.medium,
-        utm_campaign: normalizedUtm.campaign,
-        utm_content: normalizedUtm.content,
-        scheduled_for: scheduledDate ? scheduledDate.toISOString() : null,
-        status: isScheduled ? "scheduled" : "draft",
-      })
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+      .insert(isPlatformScope
+        ? {
+          created_by_user_id: req.userId || null,
+          platform,
+          content,
+          image_url: imageUrl || null,
+          video_url: videoUrl || null,
+          link_url: finalLinkUrl,
+          post_type: postType,
+          website_page_id: resolvedWebsitePageId,
+          website_page_url: resolvedWebsitePageUrl,
+          final_link_url: finalLinkUrl,
+          utm_source: normalizedUtm.source,
+          utm_medium: normalizedUtm.medium,
+          utm_campaign: normalizedUtm.campaign,
+          utm_content: normalizedUtm.content,
+          scheduled_for: scheduledDate ? scheduledDate.toISOString() : null,
+          status: isScheduled ? "scheduled" : "draft",
+        }
+        : {
+          tenant_id: tenantId,
+          created_by_user_id: req.userId || null,
+          platform,
+          content,
+          image_url: imageUrl || null,
+          video_url: videoUrl || null,
+          link_url: finalLinkUrl,
+          post_type: postType,
+          website_page_id: resolvedWebsitePageId,
+          website_page_url: resolvedWebsitePageUrl,
+          final_link_url: finalLinkUrl,
+          utm_source: normalizedUtm.source,
+          utm_medium: normalizedUtm.medium,
+          utm_campaign: normalizedUtm.campaign,
+          utm_content: normalizedUtm.content,
+          scheduled_for: scheduledDate ? scheduledDate.toISOString() : null,
+          status: isScheduled ? "scheduled" : "draft",
+        })
       .select()
       .single();
 
@@ -875,18 +974,22 @@ router.post(
     }
 
     if (!isScheduled) {
-      const { data: account } = await supabaseAdmin
-        .from("social_accounts")
+      let accountQuery = supabaseAdmin
+        .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
         .select("*")
-        .eq("tenant_id", tenantId)
         .eq("platform", platform)
         .eq("is_active", true)
-        .limit(1)
-        .single();
+        .limit(1);
+
+      if (!isPlatformScope) {
+        accountQuery = accountQuery.eq("tenant_id", tenantId!);
+      }
+
+      const { data: account } = await accountQuery.single();
 
       if (!account) {
         await supabaseAdmin
-          .from("social_posts")
+          .from(isPlatformScope ? "platform_social_posts" : "social_posts")
           .update({ status: "failed", error: `No active ${platform} account found`, updated_at: new Date().toISOString() })
           .eq("id", post.id);
         res.status(400).json({ error: `No active ${platform} account connected` });
@@ -896,7 +999,7 @@ router.post(
       try {
         const result = await dispatchPost(post, account);
         const { data: updated } = await supabaseAdmin
-          .from("social_posts")
+          .from(isPlatformScope ? "platform_social_posts" : "social_posts")
           .update({
             status: "posted",
             post_id: result.postId || null,
@@ -911,7 +1014,7 @@ router.post(
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await supabaseAdmin
-          .from("social_posts")
+          .from(isPlatformScope ? "platform_social_posts" : "social_posts")
           .update({ status: "failed", error: message, updated_at: new Date().toISOString() })
           .eq("id", post.id);
         res.status(500).json({ error: message });
@@ -936,9 +1039,10 @@ router.post(
     }
 
     const { posts, intervalMinutes = 60 } = req.body;
-    const tenantId = await resolveTenantId(req);
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
 
-    if (!tenantId) {
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
@@ -955,7 +1059,9 @@ router.post(
       const postType = coercePostType(p.postType);
       const platform = String(p.platform || "");
       const websitePageId = p.websitePageId ? String(p.websitePageId) : null;
-      const campaignDefault = await buildDefaultCampaign(tenantId, postType);
+      const campaignDefault = isPlatformScope
+        ? `${postType}-tradeworkdesk-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`
+        : await buildDefaultCampaign(tenantId!, postType);
       const normalizedUtm = {
         source: String(p.utmSource || "facebook").trim() || "facebook",
         medium: String(p.utmMedium || "social").trim() || "social",
@@ -966,6 +1072,11 @@ router.post(
       let resolvedWebsitePageId: string | null = null;
       let resolvedWebsitePageUrl: string | null = null;
       let finalLinkUrl: string | null = p.linkUrl ? String(p.linkUrl) : null;
+
+      if (postType === "website_promotion" && isPlatformScope) {
+        res.status(400).json({ error: "Website Promotion Post is not available in superadmin social workspace" });
+        return;
+      }
 
       if (postType === "website_promotion") {
         if (platform !== "facebook") {
@@ -978,7 +1089,7 @@ router.post(
         }
 
         const page = await resolvePromotionPageUrl({
-          tenantId,
+          tenantId: tenantId!,
           websitePageId,
           requirePublished: true,
         });
@@ -987,31 +1098,52 @@ router.post(
         finalLinkUrl = buildUtmTaggedUrl(page.pageUrl, normalizedUtm);
       }
 
-      rows.push({
-        tenant_id: tenantId,
-        created_by_user_id: req.userId || null,
-        platform,
-        content: p.content,
-        image_url: p.imageUrl || null,
-        video_url: p.videoUrl || null,
-        link_url: finalLinkUrl,
-        post_type: postType,
-        website_page_id: resolvedWebsitePageId,
-        website_page_url: resolvedWebsitePageUrl,
-        final_link_url: finalLinkUrl,
-        utm_source: normalizedUtm.source,
-        utm_medium: normalizedUtm.medium,
-        utm_campaign: normalizedUtm.campaign,
-        utm_content: normalizedUtm.content,
-        scheduled_for: new Date(now.getTime() + i * (intervalMinutes as number) * 60 * 1000).toISOString(),
-        status: "scheduled",
-        entity_type: p.entityType || null,
-        entity_id: p.entityId || null,
-      });
+      rows.push(isPlatformScope
+        ? {
+          created_by_user_id: req.userId || null,
+          platform,
+          content: p.content,
+          image_url: p.imageUrl || null,
+          video_url: p.videoUrl || null,
+          link_url: finalLinkUrl,
+          post_type: postType,
+          website_page_id: resolvedWebsitePageId,
+          website_page_url: resolvedWebsitePageUrl,
+          final_link_url: finalLinkUrl,
+          utm_source: normalizedUtm.source,
+          utm_medium: normalizedUtm.medium,
+          utm_campaign: normalizedUtm.campaign,
+          utm_content: normalizedUtm.content,
+          scheduled_for: new Date(now.getTime() + i * (intervalMinutes as number) * 60 * 1000).toISOString(),
+          status: "scheduled",
+          entity_type: p.entityType || null,
+          entity_id: p.entityId || null,
+        }
+        : {
+          tenant_id: tenantId,
+          created_by_user_id: req.userId || null,
+          platform,
+          content: p.content,
+          image_url: p.imageUrl || null,
+          video_url: p.videoUrl || null,
+          link_url: finalLinkUrl,
+          post_type: postType,
+          website_page_id: resolvedWebsitePageId,
+          website_page_url: resolvedWebsitePageUrl,
+          final_link_url: finalLinkUrl,
+          utm_source: normalizedUtm.source,
+          utm_medium: normalizedUtm.medium,
+          utm_campaign: normalizedUtm.campaign,
+          utm_content: normalizedUtm.content,
+          scheduled_for: new Date(now.getTime() + i * (intervalMinutes as number) * 60 * 1000).toISOString(),
+          status: "scheduled",
+          entity_type: p.entityType || null,
+          entity_id: p.entityId || null,
+        });
     }
 
     const { data, error } = await supabaseAdmin
-      .from("social_posts")
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
       .insert(rows)
       .select();
 
@@ -1032,21 +1164,24 @@ router.get(
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
-      const tenantId = await resolveTenantId(req);
-      if (!tenantId) {
+      const isPlatformScope = isPlatformSocialScope(req);
+      const tenantId = resolveTenantId(req);
+      if (!isPlatformScope && !tenantId) {
         res.status(400).json({ error: getSocialScopeErrorMessage(req) });
         return;
       }
 
       const items: SuggestionItem[] = [];
 
-      const { data: recentJobs } = await supabaseAdmin
-        .from("jobs")
-        .select("id, job_type, description, status")
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const recentJobs = isPlatformScope
+        ? []
+        : (await supabaseAdmin
+          .from("jobs")
+          .select("id, job_type, description, status")
+          .eq("tenant_id", tenantId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(5)).data;
 
       for (const job of recentJobs ?? []) {
         items.push({
@@ -1057,13 +1192,15 @@ router.get(
         });
       }
 
-      const { data: recentCustomers } = await supabaseAdmin
-        .from("customers")
-        .select("id, first_name, last_name, city")
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(3);
+      const recentCustomers = isPlatformScope
+        ? []
+        : (await supabaseAdmin
+          .from("customers")
+          .select("id, first_name, last_name, city")
+          .eq("tenant_id", tenantId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(3)).data;
 
       for (const customer of recentCustomers ?? []) {
         const fullName = `${customer.first_name} ${customer.last_name}`;
@@ -1096,13 +1233,15 @@ router.get(
       const suggestions = await generatePostSuggestions(items, platforms);
 
       // Attach a recent gallery photo to each suggestion
-      const { data: photoRows } = await supabaseAdmin
-        .from("file_attachments")
-        .select("storage_path")
-        .eq("tenant_id", tenantId)
-        .like("file_type", "image/%")
-        .order("created_at", { ascending: false })
-        .limit(10);
+      const photoRows = isPlatformScope
+        ? []
+        : (await supabaseAdmin
+          .from("file_attachments")
+          .select("storage_path")
+          .eq("tenant_id", tenantId)
+          .like("file_type", "image/%")
+          .order("created_at", { ascending: false })
+          .limit(10)).data;
 
       const photoUrls = (photoRows ?? []).flatMap((p) => {
         const { data } = supabaseAdmin.storage
@@ -1158,17 +1297,21 @@ router.patch(
   requirePlanFeature("social_media"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     const { id } = req.params;
-    const tenantId = await resolveTenantId(req);
-    if (!tenantId) {
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
       res.status(400).json({ error: getSocialScopeErrorMessage(req) });
       return;
     }
 
     let query = supabaseAdmin
-      .from("social_posts")
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
       .update({ status: "dismissed", updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .eq("tenant_id", tenantId);
+      .eq("id", id);
+
+    if (!isPlatformScope) {
+      query = query.eq("tenant_id", tenantId!);
+    }
 
     const { data, error } = await query.select().single();
 

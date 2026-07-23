@@ -2,7 +2,7 @@ import { decryptCredentials } from "./social-crypto";
 
 export interface SocialPost {
   id: string;
-  tenant_id: string;
+  tenant_id?: string | null;
   created_by_user_id?: string | null;
   account_id?: string | null;
   platform: string;
@@ -31,7 +31,7 @@ export interface SocialPost {
 
 export interface SocialAccount {
   id: string;
-  tenant_id: string;
+  tenant_id?: string | null;
   platform: string;
   encrypted_credentials: string;
   page_id?: string | null;
