@@ -498,6 +498,7 @@ async function postToFacebook(
   if (post.image_url) {
     const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
     validateImageUrl(publishImageUrl);
+    const captionUrl = String(post.link_url || "").trim() || publishImageUrl;
 
     const photoBody: Record<string, string> = {
       url: publishImageUrl,
@@ -505,8 +506,8 @@ async function postToFacebook(
       caption: post.content,
     };
 
-    if (post.link_url) {
-      photoBody.caption = `${post.content}\n\n${post.link_url}`;
+    if (captionUrl) {
+      photoBody.caption = `${post.content}\n\n${captionUrl}`;
     }
 
     const photoRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
@@ -532,7 +533,13 @@ async function postToFacebook(
     message: post.content,
     access_token: accessToken,
   };
-  if (post.link_url) body.link = post.link_url;
+  if (post.link_url) {
+    body.link = post.link_url;
+  } else if (post.image_url) {
+    const fallbackImageUrl = await resolveImageUrlForPublishing(post.image_url);
+    validateImageUrl(fallbackImageUrl);
+    body.message = `${post.content}\n\n${fallbackImageUrl}`;
+  }
 
   const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
     method: "POST",
