@@ -618,6 +618,14 @@ function CreatePostDialog({
     return issues;
   });
 
+  const publishDisabledReason = (() => {
+    if (!content.trim()) return "Add post content to enable publish.";
+    if (selectedPlatforms.size === 0) return "Select at least one platform.";
+    if (postType === "website_promotion" && !websitePageId) return "Select a website page to enable publish.";
+    if (publishValidationIssues.length > 0) return publishValidationIssues[0];
+    return null;
+  })();
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (publishValidationIssues.length > 0) {
@@ -770,6 +778,10 @@ function CreatePostDialog({
       if (result.imageUrl) setImageUrl(result.imageUrl);
       if (Array.isArray(result.platforms) && result.platforms.length > 0) {
         setSelectedPlatforms(new Set(result.platforms));
+      }
+      if (postType === "website_promotion" && !websitePageId && websitePages.length > 0) {
+        setWebsitePageId(websitePages[0].id);
+        toast({ title: "Website page selected", description: "Selected your first published page for Website Promotion." });
       }
       if (typeof result.creditsRemaining === "number") {
         queryClient.setQueryData<SocialContextResponse>(["social-context"], (prev) => {
@@ -1281,8 +1293,8 @@ function CreatePostDialog({
         </div>
 
         <DialogFooter>
-          {publishValidationIssues.length > 0 && (
-            <p className="mr-auto text-xs text-amber-700">{publishValidationIssues[0]}</p>
+          {publishDisabledReason && (
+            <p className="mr-auto text-xs text-amber-700">{publishDisabledReason}</p>
           )}
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
@@ -1291,10 +1303,7 @@ function CreatePostDialog({
             onClick={() => createMutation.mutate()}
             disabled={
               createMutation.isPending
-              || !content
-              || selectedPlatforms.size === 0
-              || (postType === "website_promotion" && !websitePageId)
-              || publishValidationIssues.length > 0
+              || !!publishDisabledReason
             }
           >
             {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
