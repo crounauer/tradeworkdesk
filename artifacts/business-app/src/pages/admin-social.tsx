@@ -442,6 +442,42 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
   const websitePromotionHasExtraLinks =
     isWebsitePromotion && !!selectedPage?.pageUrl && !content.includes(selectedPage.pageUrl);
 
+  const previewDefaultCampaign = (() => {
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const scopeTag = socialContext?.scope === "platform_marketing" ? "tradeworkdesk" : "tenant";
+    return `${postType}-${scopeTag}-${date}`;
+  })();
+
+  const previewFinalLinkUrl = (() => {
+    if (postType === "business") {
+      const cleaned = String(linkUrl || "").trim();
+      return cleaned || null;
+    }
+
+    if (!selectedPage?.pageUrl) return null;
+
+    try {
+      const url = new URL(selectedPage.pageUrl);
+      url.searchParams.set("utm_source", String(utmSource || "facebook").trim() || "facebook");
+      url.searchParams.set("utm_medium", String(utmMedium || "social").trim() || "social");
+      url.searchParams.set("utm_campaign", String(utmCampaign || previewDefaultCampaign).trim() || previewDefaultCampaign);
+      if (utmContent?.trim()) {
+        url.searchParams.set("utm_content", utmContent.trim());
+      } else {
+        url.searchParams.delete("utm_content");
+      }
+      return url.toString();
+    } catch {
+      return selectedPage.pageUrl;
+    }
+  })();
+
+  const previewLinkForPlatform = (platform: string): string | null => {
+    if (!previewFinalLinkUrl) return null;
+    if (platform === "facebook" || platform === "google_business") return previewFinalLinkUrl;
+    return null;
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const scheduledFor = isScheduled && scheduledDate && scheduledTime
@@ -927,6 +963,56 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
               />
             </div>
           )}
+
+          <div className="rounded-md border p-3 space-y-3 lg:col-span-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-sm">Live Post Preview</Label>
+              <span className="text-xs text-muted-foreground">Mirrors the publish payload per platform</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {selectedPlatformsArray.map((platform) => {
+                const platformLink = previewLinkForPlatform(platform);
+                return (
+                  <div key={`preview-${platform}`} className="rounded-md border p-3 space-y-2 bg-muted/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>{getPlatformBadge(platform)}</div>
+                      <span className="text-[11px] text-muted-foreground">{isScheduled ? "Scheduled" : "Publish now"}</span>
+                    </div>
+
+                    <div className="text-sm whitespace-pre-wrap break-words min-h-[40px]">
+                      {content?.trim() || "Your post content preview will appear here."}
+                    </div>
+
+                    {imageUrl && !previewFailed && (
+                      <img
+                        src={previewImageUrl || imageUrl}
+                        alt={`${platform} post preview`}
+                        className="w-full max-h-52 object-cover rounded-md border bg-background"
+                        loading="lazy"
+                        onError={() => { void resolvePreviewFallback(); }}
+                      />
+                    )}
+
+                    {platformLink && (
+                      <div className="rounded border bg-background p-2 text-xs break-all text-muted-foreground flex items-start gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>{platformLink}</span>
+                      </div>
+                    )}
+
+                    {platform === "instagram" && !imageUrl && (
+                      <p className="text-xs text-amber-700">Instagram publishing requires an image.</p>
+                    )}
+
+                    {platform === "x" && content.length > 280 && (
+                      <p className="text-xs text-amber-700">X will reject posts above 280 characters.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
