@@ -311,6 +311,49 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function PostImageThumbnail({ imageUrl }: { imageUrl: string }) {
+  const [resolvedUrl, setResolvedUrl] = useState(imageUrl);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setResolvedUrl(imageUrl);
+    setFailed(false);
+
+    if (!imageUrl || !imageUrl.includes("/storage/v1/object/")) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await apiFetch(`/admin/social/preview-image-url?url=${encodeURIComponent(imageUrl)}`);
+        const nextUrl = String(result?.url || "").trim();
+        if (!cancelled && nextUrl) {
+          setResolvedUrl(nextUrl);
+        }
+      } catch {
+        // Keep original URL when preview resolution fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
+
+  if (!imageUrl || failed) return null;
+
+  return (
+    <div className="w-24 h-24 rounded-md overflow-hidden border bg-muted/20 shrink-0">
+      <img
+        src={resolvedUrl || imageUrl}
+        alt="Post media"
+        className="w-full h-full object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 async function apiFetch(path: string, options?: RequestInit) {
   const res = await fetch(`/api${path}`, {
     ...options,
@@ -337,19 +380,31 @@ interface CreatePostDialogProps {
   initialContent?: string;
   initialPlatform?: string;
   initialScheduled?: boolean;
+  initialImageUrl?: string;
+  initialLinkUrl?: string;
+  initialPostType?: "business" | "website_promotion";
   triggerButton?: React.ReactNode;
 }
 
-function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialScheduled, triggerButton }: CreatePostDialogProps) {
+function CreatePostDialog({
+  onCreated,
+  initialContent,
+  initialPlatform,
+  initialScheduled,
+  initialImageUrl,
+  initialLinkUrl,
+  initialPostType,
+  triggerButton,
+}: CreatePostDialogProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
     new Set(initialPlatform ? [initialPlatform] : ["facebook"]),
   );
-  const [postType, setPostType] = useState<"business" | "website_promotion">("business");
+  const [postType, setPostType] = useState<"business" | "website_promotion">(initialPostType || "business");
   const [content, setContent] = useState(initialContent || "");
-  const [imageUrl, setImageUrl] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState(initialImageUrl || "");
+  const [linkUrl, setLinkUrl] = useState(initialLinkUrl || "");
   const [websitePageId, setWebsitePageId] = useState("");
   const [utmSource, setUtmSource] = useState("facebook");
   const [utmMedium, setUtmMedium] = useState("social");
@@ -544,10 +599,10 @@ function CreatePostDialog({ onCreated, initialContent, initialPlatform, initialS
 
   const resetForm = () => {
     setSelectedPlatforms(new Set(initialPlatform ? [initialPlatform] : ["facebook"]));
-    setPostType("business");
+    setPostType(initialPostType || "business");
     setContent(initialContent || "");
-    setImageUrl("");
-    setLinkUrl("");
+    setImageUrl(initialImageUrl || "");
+    setLinkUrl(initialLinkUrl || "");
     setWebsitePageId("");
     setUtmSource("facebook");
     setUtmMedium("social");
@@ -1568,6 +1623,13 @@ function PostsTab() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [postTypeFilter, setPostTypeFilter] = useState<string>("all");
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editLinkUrl, setEditLinkUrl] = useState("");
+  const [editScheduledDate, setEditScheduledDate] = useState("");
+  const [editScheduledTime, setEditScheduledTime] = useState("");
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery({
     queryKey: ["social-posts", statusFilter, platformFilter, postTypeFilter],
@@ -1586,7 +1648,83 @@ function PostsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["social-posts"] }),
   });
 
-  const posts = data?.posts || [];
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingPostId) throw new Error("No post selected");
+      const scheduledFor = editScheduledDate && editScheduledTime
+        ? new Date(`${editScheduledDate}T${editScheduledTime}`).toISOString()
+        : "";
+
+      return apiFetch(`/admin/social/posts/${editingPostId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          content: editContent,
+          imageUrl: editImageUrl,
+          linkUrl: editLinkUrl,
+          scheduledFor,
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Post updated" });
+      setEditingPostId(null);
+      queryClient.invalidateQueries({ queryKey: ["social-posts"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/admin/social/posts/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast({ title: "Post deleted" });
+      queryClient.invalidateQueries({ queryKey: ["social-posts"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const posts = (data?.posts || []) as Array<{
+    id: string;
+    platform: string;
+    status: string;
+    post_type?: string;
+    content: string;
+    image_url?: string | null;
+    link_url?: string | null;
+    post_url?: string | null;
+    website_page_url?: string | null;
+    final_link_url?: string | null;
+    error?: string | null;
+    scheduled_for?: string | null;
+  }>;
+
+  const openEditDialog = (post: {
+    id: string;
+    content: string;
+    image_url?: string | null;
+    link_url?: string | null;
+    scheduled_for?: string | null;
+  }) => {
+    setEditingPostId(post.id);
+    setEditContent(post.content || "");
+    setEditImageUrl(post.image_url || "");
+    setEditLinkUrl(post.link_url || "");
+
+    if (post.scheduled_for) {
+      const dt = new Date(post.scheduled_for);
+      if (!Number.isNaN(dt.getTime())) {
+        setEditScheduledDate(dt.toISOString().slice(0, 10));
+        setEditScheduledTime(dt.toISOString().slice(11, 16));
+        return;
+      }
+    }
+
+    setEditScheduledDate("");
+    setEditScheduledTime("");
+  };
 
   return (
     <div className="space-y-4">
@@ -1647,34 +1785,60 @@ function PostsTab() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {posts.map((post: Record<string, string>) => (
+          {posts.map((post) => (
             <Card key={post.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getPlatformBadge(post.platform)}
-                      {getPostTypeBadge(post.post_type)}
-                      <StatusBadge status={post.status} />
-                      {post.scheduled_for && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(post.scheduled_for).toLocaleString()}
-                        </span>
+                  <div className="flex-1 min-w-0 flex items-start gap-3">
+                    {post.image_url && <PostImageThumbnail imageUrl={post.image_url} />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getPlatformBadge(post.platform)}
+                        {getPostTypeBadge(post.post_type)}
+                        <StatusBadge status={post.status} />
+                        {post.scheduled_for && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(post.scheduled_for).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm line-clamp-2">{post.content}</p>
+                      {post.website_page_url && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">Website page: {post.website_page_url}</p>
+                      )}
+                      {post.final_link_url && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">Final URL: {post.final_link_url}</p>
+                      )}
+                      {post.error && (
+                        <p className="text-xs text-red-500 mt-1">Error: {post.error}</p>
                       )}
                     </div>
-                    <p className="text-sm line-clamp-2">{post.content}</p>
-                    {post.website_page_url && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">Website page: {post.website_page_url}</p>
-                    )}
-                    {post.final_link_url && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">Final URL: {post.final_link_url}</p>
-                    )}
-                    {post.error && (
-                      <p className="text-xs text-red-500 mt-1">Error: {post.error}</p>
-                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <CreatePostDialog
+                      onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })}
+                      initialContent={post.content}
+                      initialPlatform={post.platform}
+                      initialImageUrl={post.image_url || ""}
+                      initialLinkUrl={post.link_url || ""}
+                      initialPostType={post.post_type === "website_promotion" ? "website_promotion" : "business"}
+                      triggerButton={
+                        <Button variant="ghost" size="icon" title="Reuse post">
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                    {post.status !== "posted" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Edit post"
+                        onClick={() => openEditDialog(post)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
                     {post.post_url && (
                       <Button variant="ghost" size="icon" asChild>
                         <a href={post.post_url} target="_blank" rel="noopener noreferrer">
@@ -1682,6 +1846,19 @@ function PostsTab() {
                         </a>
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Delete post"
+                      onClick={() => {
+                        if (window.confirm("Delete this post from TradeWorkDesk? This cannot be undone.")) {
+                          deleteMutation.mutate(post.id);
+                        }
+                      }}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                     {(post.status === "failed" || post.status === "scheduled") && (
                       <Button
                         variant="ghost"
@@ -1698,6 +1875,52 @@ function PostsTab() {
           ))}
         </div>
       )}
+
+      <Dialog open={!!editingPostId} onOpenChange={(next) => { if (!next) setEditingPostId(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Social Post</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <Label>Content</Label>
+              <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} />
+            </div>
+            <div>
+              <Label>Image URL</Label>
+              <Input value={editImageUrl} onChange={(e) => setEditImageUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div>
+              <Label>Link URL (Business posts)</Label>
+              <Input value={editLinkUrl} onChange={(e) => setEditLinkUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Schedule date</Label>
+                <Input type="date" value={editScheduledDate} onChange={(e) => setEditScheduledDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>Schedule time</Label>
+                <Input type="time" value={editScheduledTime} onChange={(e) => setEditScheduledTime(e.target.value)} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Clear date/time to make this a draft post again.</p>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditingPostId(null)}>Cancel</Button>
+            <Button
+              type="button"
+              onClick={() => editMutation.mutate()}
+              disabled={editMutation.isPending || !editContent.trim()}
+            >
+              {editMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

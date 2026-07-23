@@ -2807,6 +2807,157 @@ router.get(
 );
 
 router.patch(
+  "/admin/social/posts/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_create")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const { id } = req.params;
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    let existingQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+      .select("id, status, post_type, content, image_url, link_url, final_link_url, scheduled_for")
+      .eq("id", id)
+      .limit(1);
+
+    if (!isPlatformScope) {
+      existingQuery = existingQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { data: existingRow, error: existingError } = await existingQuery.maybeSingle();
+    if (existingError || !existingRow) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    const existingStatus = String(existingRow.status || "");
+    if (existingStatus === "posted") {
+      res.status(400).json({ error: "Posted posts cannot be edited. Use Reuse to create a new post." });
+      return;
+    }
+
+    const body = req.body as {
+      content?: unknown;
+      imageUrl?: unknown;
+      linkUrl?: unknown;
+      scheduledFor?: unknown;
+    };
+
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (body.content !== undefined) {
+      const content = String(body.content || "").trim();
+      if (!content) {
+        res.status(400).json({ error: "content is required" });
+        return;
+      }
+      updateData.content = content;
+    }
+
+    if (body.imageUrl !== undefined) {
+      const imageUrl = String(body.imageUrl || "").trim();
+      updateData.image_url = imageUrl || null;
+    }
+
+    if (body.linkUrl !== undefined && String(existingRow.post_type || "business") === "business") {
+      const linkUrl = String(body.linkUrl || "").trim();
+      updateData.link_url = linkUrl || null;
+      updateData.final_link_url = linkUrl || null;
+    }
+
+    if (body.scheduledFor !== undefined) {
+      const raw = String(body.scheduledFor || "").trim();
+      if (!raw) {
+        updateData.scheduled_for = null;
+        if (existingStatus === "scheduled") {
+          updateData.status = "draft";
+        }
+      } else {
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) {
+          res.status(400).json({ error: "scheduledFor must be a valid datetime" });
+          return;
+        }
+        updateData.scheduled_for = parsed.toISOString();
+        if (parsed.getTime() > Date.now()) {
+          updateData.status = "scheduled";
+        }
+      }
+    }
+
+    let updateQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+      .update(updateData)
+      .eq("id", id);
+
+    if (!isPlatformScope) {
+      updateQuery = updateQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { data, error } = await updateQuery.select().single();
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json(data);
+  },
+);
+
+router.delete(
+  "/admin/social/posts/:id",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_create")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const { id } = req.params;
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+    if (!isPlatformScope && !tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    let deleteQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+      .delete()
+      .eq("id", id);
+
+    if (!isPlatformScope) {
+      deleteQuery = deleteQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { error } = await deleteQuery;
+    if (error) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    res.json({ success: true });
+  },
+);
+
+router.patch(
   "/admin/social/posts/:id/dismiss",
   requireAuth,
   requireTenant,
